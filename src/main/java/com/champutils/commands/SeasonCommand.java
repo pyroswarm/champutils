@@ -16,6 +16,40 @@ import static net.minecraft.commands.Commands.argument;
 
 public class SeasonCommand {
 
+    private static String pendingAction = null;
+    private static String pendingSeasonName = null;
+    private static int pendingSeasonRemove = -1;
+
+    private static long confirmExpiry = 0;
+
+    private static final long CONFIRM_MS =
+            30000; //30 sec
+
+
+
+    private static void armConfirm(
+            String action,
+            String seasonName,
+            int seasonNum
+    ){
+        pendingAction = action;
+        pendingSeasonName = seasonName;
+        pendingSeasonRemove = seasonNum;
+
+        confirmExpiry =
+                System.currentTimeMillis()
+                        +CONFIRM_MS;
+    }
+
+
+    private static boolean confirmExpired(){
+        return
+                System.currentTimeMillis()
+                        >confirmExpiry;
+    }
+
+
+
     public static void register(){
 
         CommandRegistrationCallback.EVENT.register(
@@ -26,7 +60,8 @@ public class SeasonCommand {
                             literal("season")
 
 
-                                    // ======================
+
+                                    // ========================
                                     .then(literal("info")
                                             .executes(ctx->{
 
@@ -45,29 +80,20 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
+                                    // ========================
                                     .then(literal("list")
                                             .executes(ctx->{
-
-                                                ctx.getSource().sendSuccess(
-                                                        ()->Component.literal(
-                                                                "§6--- Seasons ---"
-                                                        ),
-                                                        false
-                                                );
 
                                                 for(
                                                         int i=1;
                                                         i<=SeasonManager.CURRENT_SEASON;
                                                         i++
                                                 ){
-
-                                                    final int s=i;
+                                                    int s=i;
 
                                                     ctx.getSource().sendSuccess(
                                                             ()->Component.literal(
-                                                                    "§eSeason "
-                                                                            +s
+                                                                    "§eSeason "+s
                                                             ),
                                                             false
                                                     );
@@ -78,7 +104,7 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
+                                    // ========================
                                     .then(
                                             literal("start")
                                                     .requires(
@@ -99,10 +125,19 @@ public class SeasonCommand {
                                                                                         "name"
                                                                                 );
 
-                                                                        SeasonManager.startNewSeason(
-                                                                                ctx.getSource()
-                                                                                        .getServer(),
-                                                                                name
+                                                                        armConfirm(
+                                                                                "start",
+                                                                                name,
+                                                                                -1
+                                                                        );
+
+                                                                        ctx.getSource().sendSuccess(
+                                                                                ()->Component.literal(
+                                                                                        "§cWARNING:\n"
+                                                                                                +"Starting a season resets ladder data.\n"
+                                                                                                +"Run §e/season confirm §cwithin 30 seconds."
+                                                                                ),
+                                                                                false
                                                                         );
 
                                                                         return 1;
@@ -112,7 +147,7 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
+                                    // ========================
                                     .then(
                                             literal("rollback")
                                                     .requires(
@@ -121,9 +156,18 @@ public class SeasonCommand {
 
                                                     .executes(ctx->{
 
-                                                        SeasonManager.rollbackSeason(
-                                                                ctx.getSource()
-                                                                        .getServer()
+                                                        armConfirm(
+                                                                "rollback",
+                                                                null,
+                                                                -1
+                                                        );
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§cRollback armed.\n"
+                                                                                +"Run §e/season confirm"
+                                                                ),
+                                                                false
                                                         );
 
                                                         return 1;
@@ -132,8 +176,7 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
-                                    // emergency only
+                                    // ========================
                                     .then(
                                             literal("removeLast")
                                                     .requires(
@@ -142,40 +185,18 @@ public class SeasonCommand {
 
                                                     .executes(ctx->{
 
-                                                        File dir=
-                                                                new File(
-                                                                        "config/champutils/seasons"
-                                                                );
-
-                                                        File[] files=
-                                                                dir.listFiles(
-                                                                        (d,n)->
-                                                                                n.endsWith(".json")
-                                                                );
-
-                                                        if(files!=null){
-
-                                                            for(File f:files){
-
-                                                                String player=
-                                                                        f.getName()
-                                                                                .replace(
-                                                                                        ".json",
-                                                                                        ""
-                                                                                );
-
-                                                                SeasonArchiveManager
-                                                                        .removeLastSeason(
-                                                                                player
-                                                                        );
-                                                            }
-                                                        }
+                                                        armConfirm(
+                                                                "removeLast",
+                                                                null,
+                                                                -1
+                                                        );
 
                                                         ctx.getSource().sendSuccess(
                                                                 ()->Component.literal(
-                                                                        "§cRemoved last season archives."
+                                                                        "§cArchive removal armed.\n"
+                                                                                +"Run §e/season confirm"
                                                                 ),
-                                                                true
+                                                                false
                                                         );
 
                                                         return 1;
@@ -184,8 +205,7 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
-                                    // emergency only
+                                    // ========================
                                     .then(
                                             literal("remove")
                                                     .requires(
@@ -201,48 +221,25 @@ public class SeasonCommand {
                                                                     .executes(ctx->{
 
                                                                         int season=
-                                                                                IntegerArgumentType
-                                                                                        .getInteger(
-                                                                                                ctx,
-                                                                                                "number"
-                                                                                        );
-
-                                                                        File dir=
-                                                                                new File(
-                                                                                        "config/champutils/seasons"
+                                                                                IntegerArgumentType.getInteger(
+                                                                                        ctx,
+                                                                                        "number"
                                                                                 );
 
-                                                                        File[] files=
-                                                                                dir.listFiles(
-                                                                                        (d,n)->
-                                                                                                n.endsWith(".json")
-                                                                                );
-
-                                                                        if(files!=null){
-
-                                                                            for(File f:files){
-
-                                                                                String player=
-                                                                                        f.getName()
-                                                                                                .replace(
-                                                                                                        ".json",
-                                                                                                        ""
-                                                                                                );
-
-                                                                                SeasonArchiveManager
-                                                                                        .removeSeason(
-                                                                                                player,
-                                                                                                season
-                                                                                        );
-                                                                            }
-                                                                        }
+                                                                        armConfirm(
+                                                                                "remove",
+                                                                                null,
+                                                                                season
+                                                                        );
 
                                                                         ctx.getSource().sendSuccess(
                                                                                 ()->Component.literal(
-                                                                                        "§cRemoved season "
+                                                                                        "§cRemove Season "
                                                                                                 +season
+                                                                                                +" armed.\n"
+                                                                                                +"Run §e/season confirm"
                                                                                 ),
-                                                                                true
+                                                                                false
                                                                         );
 
                                                                         return 1;
@@ -252,40 +249,174 @@ public class SeasonCommand {
 
 
 
-                                    // ======================
+                                    // ========================
                                     .then(
-                                            literal("wipehistory")
+                                            literal("confirm")
                                                     .requires(
                                                             s->s.hasPermission(4)
                                                     )
 
-                                                    .then(
-                                                            argument(
-                                                                    "player",
-                                                                    StringArgumentType.word()
-                                                            )
+                                                    .executes(ctx->{
 
-                                                                    .executes(ctx->{
+                                                        if(
+                                                                pendingAction==null
+                                                                        ||
+                                                                        confirmExpired()
+                                                        ){
 
-                                                                        String name=
-                                                                                StringArgumentType
-                                                                                        .getString(
-                                                                                                ctx,
-                                                                                                "player"
+                                                            pendingAction=null;
+
+                                                            ctx.getSource().sendFailure(
+                                                                    Component.literal(
+                                                                            "§cNothing pending."
+                                                                    )
+                                                            );
+
+                                                            return 0;
+                                                        }
+
+
+
+                                                        switch(pendingAction){
+
+                                                            case "start":
+
+                                                                SeasonManager.startNewSeason(
+                                                                        ctx.getSource()
+                                                                                .getServer(),
+                                                                        pendingSeasonName
+                                                                );
+
+                                                                break;
+
+
+
+                                                            case "rollback":
+
+                                                                SeasonManager.rollbackSeason(
+                                                                        ctx.getSource()
+                                                                                .getServer()
+                                                                );
+
+                                                                break;
+
+
+
+                                                            case "removeLast":
+
+                                                                File dir=
+                                                                        new File(
+                                                                                "config/champutils/seasons"
+                                                                        );
+
+                                                                File[] files=
+                                                                        dir.listFiles(
+                                                                                (d,n)->
+                                                                                        n.endsWith(".json")
+                                                                        );
+
+                                                                if(files!=null){
+
+                                                                    for(File f:files){
+
+                                                                        String player=
+                                                                                f.getName()
+                                                                                        .replace(
+                                                                                                ".json",
+                                                                                                ""
                                                                                         );
 
                                                                         SeasonArchiveManager
-                                                                                .wipeHistory(
-                                                                                        name
+                                                                                .removeLastSeason(
+                                                                                        player
                                                                                 );
+                                                                    }
+                                                                }
 
-                                                                        return 1;
-                                                                    })
-                                                    )
+                                                                break;
+
+
+
+                                                            case "remove":
+
+                                                                File dir2=
+                                                                        new File(
+                                                                                "config/champutils/seasons"
+                                                                        );
+
+                                                                File[] files2=
+                                                                        dir2.listFiles(
+                                                                                (d,n)->
+                                                                                        n.endsWith(".json")
+                                                                        );
+
+                                                                if(files2!=null){
+
+                                                                    for(File f:files2){
+
+                                                                        String player=
+                                                                                f.getName()
+                                                                                        .replace(
+                                                                                                ".json",
+                                                                                                ""
+                                                                                        );
+
+                                                                        SeasonArchiveManager
+                                                                                .removeSeason(
+                                                                                        player,
+                                                                                        pendingSeasonRemove
+                                                                                );
+                                                                    }
+                                                                }
+
+                                                                break;
+                                                        }
+
+
+
+                                                        pendingAction=null;
+                                                        pendingSeasonName=null;
+                                                        pendingSeasonRemove=-1;
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§aConfirmed."
+                                                                ),
+                                                                true
+                                                        );
+
+                                                        return 1;
+                                                    })
                                     )
-                    );
+
+
+
+                                    // ========================
+                                    .then(
+                                            literal("cancel")
+                                                    .requires(
+                                                            s->s.hasPermission(4)
+                                                    )
+
+                                                    .executes(ctx->{
+
+                                                        pendingAction=null;
+                                                        pendingSeasonName=null;
+                                                        pendingSeasonRemove=-1;
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§7Pending action cancelled."
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        return 1;
+                                                    })
+                                    )
+
+                    ));
 
                 });
     }
-
 }
