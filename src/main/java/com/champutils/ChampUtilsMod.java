@@ -8,7 +8,7 @@ import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
-
+import com.champutils.gym.GymBattleHandler;
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
@@ -143,6 +143,8 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleHandler.register();
 
         CobblemonBattleStartHandler.register();
+
+        GymBattleHandler.register();
 
 
 

@@ -1,6 +1,8 @@
 package com.champutils.menu;
 
 import com.champutils.profile.ProfileManager;
+import com.champutils.badge.BadgeManager;
+
 import com.cobblemon.mod.common.CobblemonItems;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -30,163 +32,267 @@ public class ProfileMenu {
                 )
         );
 
+
         MenuUtil.fillBorders(
                 gui,
-                4,10,12,14,16,
-                20,24,49
+                4,
+                10,12,14,16,
+                29,33,
+                49
         );
 
-        // Trainer Header
+
+        int badgeCount =
+                BadgeManager.getBadgeCount(
+                        player
+                );
+
+
+/* =========================
+ HEADER
+========================= */
+
         gui.setSlot(
                 4,
                 new GuiElementBuilder(
                         CobblemonItems.POKEDEX_RED
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§bTrainer Card"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§7Trainer: §f"+
-                                        player.getName().getString()
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§bTrainer Card"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Trainer: §f"
+                                                + player.getName().getString()
+                                )
+                        )
         );
 
 
-        // Rank
+/* =========================
+ RANK
+========================= */
+
         gui.setSlot(
                 10,
                 new GuiElementBuilder(
                         CobblemonItems.WHITE_PLAQUE
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§6Rank"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eCurrent: §f"+
-                                        ProfileManager.getCurrentRankName(player)
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eHighest: §f"+
-                                        ProfileManager.getHighestRankName(player)
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§6Rank"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eCurrent: §f"
+                                                + ProfileManager.getCurrentRankName(
+                                                player
+                                        )
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eHighest: §f"
+                                                + ProfileManager.getHighestRankName(
+                                                player
+                                        )
+                                )
+                        )
         );
 
 
-        // Rating
+/* =========================
+ RATING
+========================= */
+
         gui.setSlot(
                 12,
                 new GuiElementBuilder(
                         CobblemonItems.FIRE_GEM
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§cRating"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eRP: §f"+
-                                        ProfileManager.getCurrentRp(player)
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§ePeak: §f"+
-                                        ProfileManager.getPeakRp(player)
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§cRating"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eRP: §f"
+                                                + ProfileManager.getCurrentRp(
+                                                player
+                                        )
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§ePeak: §f"
+                                                + ProfileManager.getPeakRp(
+                                                player
+                                        )
+                                )
+                        )
         );
 
 
-        // Record
+/* =========================
+ RECORD
+========================= */
+
         gui.setSlot(
                 14,
                 new GuiElementBuilder(
                         Items.NETHER_STAR
                 )
-                        .setName(Component.literal(
-                                "§bBattle Record"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§aWins: §f"+
-                                        ProfileManager.getRankedWins(player)
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§cLosses: §f"+
-                                        ProfileManager.getRankedLosses(player)
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§bBattle Record"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§aWins: §f"
+                                                + ProfileManager.getRankedWins(
+                                                player
+                                        )
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§cLosses: §f"
+                                                + ProfileManager.getRankedLosses(
+                                                player
+                                        )
+                                )
+                        )
         );
 
 
-        // Streak
+/* =========================
+ WIN STREAK
+========================= */
+
         gui.setSlot(
                 16,
                 new GuiElementBuilder(
                         Items.BLAZE_POWDER
                 )
-                        .setName(Component.literal(
-                                "§6Win Streak"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eCurrent: §f"+
-                                        ProfileManager.getCurrentStreak(player)
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eBest: §f"+
-                                        ProfileManager.getBestStreak(player)
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§6Win Streak"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eCurrent: §f"
+                                                + ProfileManager.getCurrentStreak(
+                                                player
+                                        )
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eBest: §f"
+                                                + ProfileManager.getBestStreak(
+                                                player
+                                        )
+                                )
+                        )
         );
 
 
-        // Badge Case
+/* =========================
+ BADGE CASE
+========================= */
+
         gui.setSlot(
-                20,
+                29,
                 new GuiElementBuilder(
                         CobblemonItems.EXPERT_BELT
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§dBadge Case"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§70 / 8 Badges"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§7Coming Soon"
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§dBadge Case"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§e"
+                                                + badgeCount
+                                                + " / 8 Badges Earned"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Click to open badge case"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->{
+                                    BadgeMenu.open(
+                                            player
+                                    );
+                                }
+                        )
         );
 
 
-        // Rewards
+/* =========================
+ CLAIM REWARDS
+========================= */
+
         gui.setSlot(
-                24,
+                33,
                 new GuiElementBuilder(
                         CobblemonItems.LUCKY_EGG
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§6Claim Rewards"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§7Season rewards"
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§6Claim Rewards"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Redeem seasonal rewards"
+                                )
+                        )
                         .setCallback(
                                 (i,c,t)->{
+
                                     player.getServer()
                                             .getCommands()
                                             .performPrefixedCommand(
                                                     player.createCommandSourceStack(),
                                                     "claimseasonrewards"
                                             );
+
                                 }
                         )
         );
 
 
+/* =========================
+ BACK
+========================= */
+
         MenuUtil.addBackButton(
                 gui,
                 49,
-                ()->MainMenu.open(player)
+                ()-> MainMenu.open(
+                        player
+                )
         );
 
+
         gui.open();
+
     }
 
 }
