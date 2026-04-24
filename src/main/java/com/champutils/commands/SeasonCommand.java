@@ -415,7 +415,7 @@ public class SeasonCommand {
                                                     })
                                     )
 
-                    ));
+                    );
 
                 });
     }
