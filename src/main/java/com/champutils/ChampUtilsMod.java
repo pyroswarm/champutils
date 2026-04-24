@@ -1,0 +1,164 @@
+package com.champutils;
+
+import com.champutils.commands.MenuCommand;
+import com.champutils.commands.SeasonCommand;
+import com.champutils.commands.LeaderboardCommand;
+
+import com.champutils.config.Config;
+
+import com.champutils.matchmaking.MatchmakingManager;
+import com.champutils.matchmaking.QueueBossBarManager;
+import com.champutils.matchmaking.TeamPreviewManager;
+
+import com.champutils.rank.ActionBarManager;
+import com.champutils.rank.SeasonManager;
+import com.champutils.rank.SeasonArchiveManager;
+
+import com.champutils.battle.CobblemonBattleHandler;
+import com.champutils.battle.CobblemonBattleStartHandler;
+
+import net.fabricmc.api.ModInitializer;
+
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+
+import net.minecraft.server.level.ServerPlayer;
+
+import java.io.File;
+import java.io.FileWriter;
+
+public class ChampUtilsMod implements ModInitializer {
+
+    @Override
+    public void onInitialize() {
+
+        File configDir =
+                new File(
+                        "config/champutils"
+                );
+
+        if(!configDir.exists()){
+            configDir.mkdirs();
+        }
+
+
+        File configFile =
+                new File(
+                        configDir,
+                        "rules.json"
+                );
+
+
+        if(!configFile.exists()){
+
+            try(
+                    FileWriter writer=
+                            new FileWriter(
+                                    configFile
+                            )
+            ){
+
+                writer.write("{}");
+
+            }catch(Exception ignored){}
+        }
+
+
+        // =========================
+        // LOAD CONFIG
+        // =========================
+
+        Config.load(
+                configFile
+        );
+
+
+        // =========================
+        // LOAD SEASON STATE
+        // =========================
+
+        SeasonManager.loadState();
+
+
+
+        // =========================
+        // CREATE PLAYER SEASON FILES
+        // ON FIRST JOIN
+        // =========================
+
+        ServerPlayConnectionEvents.JOIN.register(
+                (handler,sender,server)->{
+
+                    String playerName =
+                            handler.player
+                                    .getName()
+                                    .getString();
+
+                    SeasonArchiveManager
+                            .ensurePlayerFile(
+                                    playerName
+                            );
+                });
+
+
+
+        // =========================
+        // COMMANDS
+        // =========================
+
+        MenuCommand.register();
+
+        SeasonCommand.register();
+
+        LeaderboardCommand.register();
+
+
+
+        // =========================
+        // BATTLE HOOKS
+        // =========================
+
+        CobblemonBattleHandler.register();
+
+        CobblemonBattleStartHandler.register();
+
+
+
+        // =========================
+        // SERVER TICKS
+        // =========================
+
+        ServerTickEvents.END_SERVER_TICK.register(
+                server->{
+
+                    if(
+                            server.getTickCount()
+                                    %20
+                                    ==
+                                    0
+                    ){
+
+                        for(
+                                ServerPlayer player :
+                                server.getPlayerList()
+                                        .getPlayers()
+                        ){
+
+                            ActionBarManager.update(
+                                    player
+                            );
+                        }
+                    }
+
+
+                    MatchmakingManager.tick();
+
+                    QueueBossBarManager.tick();
+
+                    TeamPreviewManager.tick(
+                            server.getPlayerList()
+                                    .getPlayers()
+                    );
+                });
+    }
+}

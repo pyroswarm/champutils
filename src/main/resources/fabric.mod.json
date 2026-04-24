@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "champutils",
+  "version": "1.0.0",
+  "name": "Champ Utils",
+  "description": "Basic server commands like /menu",
+  "authors": ["you"],
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.champutils.ChampUtilsMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.1"
+  }
+}
