@@ -5,6 +5,7 @@ import com.champutils.validation.TeamValidator;
 import com.champutils.profile.ProfileManager;
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
+import com.champutils.rank.LeaderboardManager;
 
 import com.cobblemon.mod.common.CobblemonItems;
 
@@ -19,7 +20,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static net.minecraft.commands.Commands.literal;
@@ -36,82 +36,99 @@ public class MenuCommand {
                                     .executes(ctx -> {
 
                                         ServerPlayer player =
-                                                ctx.getSource().getPlayerOrException();
+                                                ctx.getSource()
+                                                        .getPlayerOrException();
 
                                         openMainMenu(player);
                                         return 1;
                                     })
                     );
 
+
                     dispatcher.register(
                             literal("queue")
 
-                                    .then(literal("ranked")
-                                            .executes(ctx -> {
+                                    .then(
+                                            literal("ranked")
+                                                    .executes(ctx -> {
 
-                                                ServerPlayer player =
-                                                        ctx.getSource().getPlayerOrException();
+                                                        ServerPlayer player =
+                                                                ctx.getSource()
+                                                                        .getPlayerOrException();
 
-                                                String error =
-                                                        TeamValidator.validate(
+                                                        String error =
+                                                                TeamValidator.validate(
+                                                                        player,
+                                                                        "ranked"
+                                                                );
+
+                                                        if(error != null){
+
+                                                            sendTitle(
+                                                                    player,
+                                                                    "§cINVALID TEAM",
+                                                                    "§e"+error
+                                                            );
+
+                                                            return 0;
+                                                        }
+
+                                                        MatchmakingManager.joinQueue(
                                                                 player,
                                                                 "ranked"
                                                         );
 
-                                                if(error != null){
-                                                    sendTitle(
-                                                            player,
-                                                            "§cINVALID TEAM",
-                                                            "§e"+error
-                                                    );
-                                                    return 0;
-                                                }
+                                                        return 1;
 
-                                                MatchmakingManager.joinQueue(
-                                                        player,
-                                                        "ranked"
-                                                );
+                                                    })
+                                    )
 
-                                                return 1;
-                                            }))
+                                    .then(
+                                            literal("casual")
+                                                    .executes(ctx -> {
 
-                                    .then(literal("casual")
-                                            .executes(ctx -> {
+                                                        ServerPlayer player =
+                                                                ctx.getSource()
+                                                                        .getPlayerOrException();
 
-                                                ServerPlayer player =
-                                                        ctx.getSource().getPlayerOrException();
+                                                        MatchmakingManager.joinQueue(
+                                                                player,
+                                                                "casual"
+                                                        );
 
-                                                MatchmakingManager.joinQueue(
-                                                        player,
-                                                        "casual"
-                                                );
+                                                        return 1;
+                                                    })
+                                    )
 
-                                                return 1;
-                                            }))
+                                    .then(
+                                            literal("leave")
+                                                    .executes(ctx -> {
 
-                                    .then(literal("leave")
-                                            .executes(ctx -> {
+                                                        ServerPlayer player =
+                                                                ctx.getSource()
+                                                                        .getPlayerOrException();
 
-                                                ServerPlayer player =
-                                                        ctx.getSource().getPlayerOrException();
+                                                        MatchmakingManager.leaveQueue(
+                                                                player
+                                                        );
 
-                                                MatchmakingManager.leaveQueue(
-                                                        player
-                                                );
-
-                                                return 1;
-                                            }))
+                                                        return 1;
+                                                    })
+                                    )
                     );
 
                 });
     }
 
 
+
 /* =========================
- MAIN MENU
+MAIN MENU
 ========================= */
 
-    private static void openMainMenu(ServerPlayer player){
+    private static void openMainMenu(
+            ServerPlayer player
+    ){
 
         SimpleGui gui=
                 new SimpleGui(
@@ -135,17 +152,22 @@ public class MenuCommand {
                         CobblemonItems.POKE_BALL
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§6Battles"
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§6Battles"
+                                )
+                        )
                         .addLoreLine(Component.literal(
                                 "§7Queue for competitive battles"
                         ))
                         .addLoreLine(Component.literal(
                                 "§7Ranked and casual matchmaking"
                         ))
-                        .setCallback((i,c,t)->
-                                openBattleMenu(player)
+                        .setCallback(
+                                (i,c,t)->
+                                        openBattleMenu(
+                                                player
+                                        )
                         )
         );
 
@@ -156,17 +178,22 @@ public class MenuCommand {
                         CobblemonItems.ICE_GEM
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§bSeasons"
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§bSeasons"
+                                )
+                        )
                         .addLoreLine(Component.literal(
                                 "§7Current season rankings"
                         ))
                         .addLoreLine(Component.literal(
                                 "§7History and leaderboards"
                         ))
-                        .setCallback((i,c,t)->
-                                openSeasonMenu(player)
+                        .setCallback(
+                                (i,c,t)->
+                                        openSeasonMenu(
+                                                player
+                                        )
                         )
         );
 
@@ -177,17 +204,19 @@ public class MenuCommand {
                         CobblemonItems.POKEDEX_RED
                 )
                         .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§dProfile"
-                        ))
+                        .setName(
+                                Component.literal(
+                                        "§dProfile"
+                                )
+                        )
                         .addLoreLine(Component.literal(
-                                "§7View rank, stats"
+                                "§7View rank and trainer card"
                         ))
-                        .addLoreLine(Component.literal(
-                                "§7Trainer card and history"
-                        ))
-                        .setCallback((i,c,t)->
-                                openProfileMenu(player)
+                        .setCallback(
+                                (i,c,t)->
+                                        openProfileMenu(
+                                                player
+                                        )
                         )
         );
 
@@ -197,7 +226,7 @@ public class MenuCommand {
 
 
 /* =========================
- BATTLE QUEUES
+BATTLE MENU
 ========================= */
 
     private static void openBattleMenu(
@@ -233,7 +262,7 @@ public class MenuCommand {
                                 "§7Climb the competitive ladder"
                         ))
                         .addLoreLine(Component.literal(
-                                "§6Earn RP and seasonal rewards"
+                                "§6Earn RP and rewards"
                         ))
                         .setCallback((i,c,t)->{
 
@@ -276,7 +305,7 @@ public class MenuCommand {
                                 "§7Practice battles"
                         ))
                         .addLoreLine(Component.literal(
-                                "§aNo RP gained or lost"
+                                "§aNo RP changes"
                         ))
                         .setCallback((i,c,t)->{
 
@@ -323,7 +352,7 @@ public class MenuCommand {
 
 
 /* =========================
- TRAINER CARD
+TRAINER CARD
 ========================= */
 
     private static void openProfileMenu(
@@ -353,7 +382,6 @@ public class MenuCommand {
         for(int i=0;i<54;i++){
             gui.setSlot(i,filler);
         }
-
 
         gui.setSlot(
                 4,
@@ -387,10 +415,6 @@ public class MenuCommand {
                                 "§eCurrent: §f"+
                                         ProfileManager.getCurrentRankName(player)
                         ))
-                        .addLoreLine(Component.literal(
-                                "§eHighest: §f"+
-                                        ProfileManager.getHighestRankName(player)
-                        ))
         );
 
 
@@ -407,7 +431,7 @@ public class MenuCommand {
                                         ProfileManager.getCurrentRp(player)
                         ))
                         .addLoreLine(Component.literal(
-                                "§ePeak RP: §f"+
+                                "§ePeak: §f"+
                                         ProfileManager.getPeakRp(player)
                         ))
         );
@@ -419,7 +443,7 @@ public class MenuCommand {
                         Items.NETHER_STAR
                 )
                         .setName(Component.literal(
-                                "§6Ranked Record"
+                                "§6Record"
                         ))
                         .addLoreLine(Component.literal(
                                 "§aWins: §f"+
@@ -428,11 +452,6 @@ public class MenuCommand {
                         .addLoreLine(Component.literal(
                                 "§cLosses: §f"+
                                         ProfileManager.getRankedLosses(player)
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eWin Rate: §f"+
-                                        (int)ProfileManager.getWinRate(player)
-                                        +"%"
                         ))
         );
 
@@ -457,51 +476,6 @@ public class MenuCommand {
 
 
         gui.setSlot(
-                37,
-                new GuiElementBuilder(
-                        CobblemonItems.RARE_CANDY
-                )
-                        .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§dSeason Performance"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§7Competitive progress"
-                        ))
-        );
-
-
-        gui.setSlot(
-                40,
-                new GuiElementBuilder(
-                        Items.DRAGON_HEAD
-                )
-                        .setName(Component.literal(
-                                "§6Achievements"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§eUpset Wins: §f"+
-                                        ProfileManager.getUpsetWins(player)
-                        ))
-        );
-
-
-        gui.setSlot(
-                43,
-                new GuiElementBuilder(
-                        CobblemonItems.ICE_GEM
-                )
-                        .hideDefaultTooltip()
-                        .setName(Component.literal(
-                                "§bLeague Badge"
-                        ))
-                        .addLoreLine(Component.literal(
-                                "§7Seasonal rewards coming soon"
-                        ))
-        );
-
-
-        gui.setSlot(
                 49,
                 new GuiElementBuilder(
                         Items.ARROW
@@ -520,7 +494,7 @@ public class MenuCommand {
 
 
 /* =========================
- SEASONS
+SEASONS
 ========================= */
 
     private static void openSeasonMenu(
@@ -572,9 +546,6 @@ public class MenuCommand {
                         .setName(Component.literal(
                                 "§dSeason History"
                         ))
-                        .addLoreLine(Component.literal(
-                                "§7View past finishes"
-                        ))
                         .setCallback((i,c,t)->
                                 openHistoryMenu(player)
                         )
@@ -590,14 +561,10 @@ public class MenuCommand {
                         .setName(Component.literal(
                                 "§eLeaderboard"
                         ))
-                        .addLoreLine(Component.literal(
-                                "§7View top trainers"
-                        ))
                         .setCallback((i,c,t)->
                                 openLeaderboardMenu(player)
                         )
         );
-
 
         addBackButton(
                 gui,
@@ -616,11 +583,6 @@ public class MenuCommand {
             ServerPlayer player
     ){
 
-        List<SeasonArchiveManager.SeasonRecord> history=
-                SeasonArchiveManager.getHistory(
-                        player.getName().getString()
-                );
-
         SimpleGui gui=
                 new SimpleGui(
                         MenuType.GENERIC_9x6,
@@ -637,8 +599,10 @@ public class MenuCommand {
         int slot=0;
 
         for(
-                SeasonArchiveManager.SeasonRecord s
-                :history
+                SeasonArchiveManager.SeasonRecord s :
+                SeasonArchiveManager.getHistory(
+                        player.getName().getString()
+                )
         ){
 
             if(slot>=45) break;
@@ -652,7 +616,8 @@ public class MenuCommand {
                                     Component.literal(
                                             "§6Season "+
                                                     s.season+
-                                                    " §e"+s.seasonName
+                                                    " §e"+
+                                                    s.seasonName
                                     )
                             )
             );
@@ -669,13 +634,15 @@ public class MenuCommand {
 
 
 
-    /* ========================= */
+/* =========================
+NEW OFFLINE LEADERBOARD
+========================= */
 
     private static void openLeaderboardMenu(
             ServerPlayer player
     ){
 
-        SimpleGui gui=
+        SimpleGui gui =
                 new SimpleGui(
                         MenuType.GENERIC_9x6,
                         player,
@@ -688,51 +655,123 @@ public class MenuCommand {
                 )
         );
 
-        List<ServerPlayer> players=
-                new ArrayList<>(
-                        player.getServer()
-                                .getPlayerList()
-                                .getPlayers()
+        List<LeaderboardManager.Entry> top =
+                LeaderboardManager.getTop(
+                        25
                 );
 
-        players.sort((a,b)->
-                Integer.compare(
-                        ProfileManager.getCurrentRp(b),
-                        ProfileManager.getCurrentRp(a)
-                )
-        );
 
         for(
                 int i=0;
-                i<Math.min(10,players.size());
+                i<top.size();
                 i++
         ){
 
-            ServerPlayer p=
-                    players.get(i);
+            LeaderboardManager.Entry entry =
+                    top.get(i);
+
+
+            com.cobblemon.mod.common.item.PokeBallItem icon; // FIXED TYPE
+
+
+            if(i==0){
+
+                icon =
+                        CobblemonItems.MASTER_BALL;
+
+            }else if(i==1){
+
+                icon =
+                        CobblemonItems.ULTRA_BALL;
+
+            }else if(i<=9){
+
+                icon =
+                        CobblemonItems.GREAT_BALL;
+
+            }else{
+
+                icon =
+                        CobblemonItems.POKE_BALL;
+            }
+
+
 
             gui.setSlot(
                     i,
+
                     new GuiElementBuilder(
-                            CobblemonItems.ULTRA_BALL
+                            icon
                     )
+
                             .hideDefaultTooltip()
+
                             .setName(
                                     Component.literal(
-                                            "#"+(i+1)+" "+
-                                                    p.getName().getString()
+                                            "§6#"
+                                                    +(i+1)
+                                                    +" §f"
+                                                    +entry.playerName
+                                    )
+                            )
+
+                            .addLoreLine(
+                                    Component.literal(
+                                            "§eRP: §f"
+                                                    +entry.rp
+                                    )
+                            )
+
+                            .addLoreLine(
+                                    Component.literal(
+                                            "§7"
+                                                    +getRankTitle(
+                                                    entry.rp
+                                            )
                                     )
                             )
             );
         }
 
+
         addBackButton(
                 gui,
                 player,
-                ()->openSeasonMenu(player)
+                ()->openSeasonMenu(
+                        player
+                )
         );
 
         gui.open();
+    }
+
+
+
+    private static String getRankTitle(
+            int rp
+    ){
+
+        if(rp>=1200){
+            return "Grand Master";
+        }
+
+        if(rp>=1000){
+            return "Master";
+        }
+
+        if(rp>=800){
+            return "Ultra";
+        }
+
+        if(rp>=600){
+            return "Veteran";
+        }
+
+        if(rp>=400){
+            return "Ace";
+        }
+
+        return "Youngster";
     }
 
 
@@ -755,8 +794,9 @@ public class MenuCommand {
                                         "§eBack"
                                 )
                         )
-                        .setCallback((i,c,t)->
-                                action.run()
+                        .setCallback(
+                                (i,c,t)->
+                                        action.run()
                         )
         );
     }
@@ -776,11 +816,7 @@ public class MenuCommand {
                         Component.literal(" ")
                 );
 
-        for(
-                int i=0;
-                i<27;
-                i++
-        ){
+        for(int i=0;i<27;i++){
 
             if(
                     i==10||
@@ -789,7 +825,10 @@ public class MenuCommand {
                             i==22
             ) continue;
 
-            gui.setSlot(i,filler);
+            gui.setSlot(
+                    i,
+                    filler
+            );
         }
     }
 
@@ -832,7 +871,6 @@ public class MenuCommand {
                     )
             );
         }
-
     }
 
 }

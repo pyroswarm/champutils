@@ -1,10 +1,11 @@
 package com.champutils.commands;
 
+import com.champutils.rank.LeaderboardManager;
+
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.minecraft.server.level.ServerPlayer;
+
 import net.minecraft.network.chat.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static net.minecraft.commands.Commands.literal;
@@ -21,21 +22,8 @@ public class LeaderboardCommand {
 
                                     .executes(ctx->{
 
-                                        List<ServerPlayer> players =
-                                                new ArrayList<>(
-                                                        ctx.getSource()
-                                                                .getServer()
-                                                                .getPlayerList()
-                                                                .getPlayers()
-                                                );
-
-                                        players.sort(
-                                                (a,b)->
-                                                        Integer.compare(
-                                                                getRp(b),
-                                                                getRp(a)
-                                                        )
-                                        );
+                                        List<LeaderboardManager.Entry> top =
+                                                LeaderboardManager.getTop(10);
 
                                         ctx.getSource().sendSuccess(
                                                 ()->Component.literal(
@@ -46,15 +34,12 @@ public class LeaderboardCommand {
 
                                         for(
                                                 int i=0;
-                                                i<Math.min(
-                                                        10,
-                                                        players.size()
-                                                );
+                                                i<top.size();
                                                 i++
                                         ){
 
-                                            ServerPlayer p=
-                                                    players.get(i);
+                                            LeaderboardManager.Entry p=
+                                                    top.get(i);
 
                                             int pos=i+1;
 
@@ -63,42 +48,20 @@ public class LeaderboardCommand {
                                                             "§e#"
                                                                     +pos
                                                                     +" §f"
-                                                                    +p.getName()
-                                                                    .getString()
+                                                                    +p.playerName
                                                                     +" §7- §6"
-                                                                    +getRp(p)
+                                                                    +p.rp
+                                                                    +" RP"
                                                     ),
                                                     false
                                             );
                                         }
 
                                         return 1;
+
                                     })
                     );
+
                 });
-    }
-
-
-    private static int getRp(
-            ServerPlayer p
-    ){
-
-        var sb=
-                p.getScoreboard();
-
-        var obj=
-                sb.getObjective(
-                        "elo"
-                );
-
-        if(obj==null)
-            return 0;
-
-        return sb
-                .getOrCreatePlayerScore(
-                        p,
-                        obj
-                )
-                .get();
     }
 }

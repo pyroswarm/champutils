@@ -4,15 +4,16 @@ import com.champutils.commands.MenuCommand;
 import com.champutils.commands.SeasonCommand;
 import com.champutils.commands.LeaderboardCommand;
 
+import com.champutils.rank.LeaderboardManager;
+import com.champutils.rank.ActionBarManager;
+import com.champutils.rank.SeasonManager;
+import com.champutils.rank.SeasonArchiveManager;
+
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.matchmaking.QueueBossBarManager;
 import com.champutils.matchmaking.TeamPreviewManager;
-
-import com.champutils.rank.ActionBarManager;
-import com.champutils.rank.SeasonManager;
-import com.champutils.rank.SeasonArchiveManager;
 
 import com.champutils.battle.CobblemonBattleHandler;
 import com.champutils.battle.CobblemonBattleStartHandler;
@@ -20,6 +21,7 @@ import com.champutils.battle.CobblemonBattleStartHandler;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -57,39 +59,58 @@ public class ChampUtilsMod implements ModInitializer {
                                     configFile
                             )
             ){
-
                 writer.write("{}");
-
-            }catch(Exception ignored){}
+            }
+            catch(Exception ignored){}
         }
 
 
-        // =========================
-        // LOAD CONFIG
-        // =========================
+
+/* =========================
+   LOAD CONFIG
+========================= */
 
         Config.load(
                 configFile
         );
 
 
-        // =========================
-        // LOAD SEASON STATE
-        // =========================
+
+/* =========================
+   LOAD SEASONS
+========================= */
 
         SeasonManager.loadState();
 
 
 
-        // =========================
-        // CREATE PLAYER SEASON FILES
-        // ON FIRST JOIN
-        // =========================
+/* =========================
+ INITIAL LEADERBOARD BUILD
+========================= */
+
+        ServerLifecycleEvents.SERVER_STARTED.register(
+                server -> {
+
+                    LeaderboardManager.refresh(
+                            server
+                    );
+
+                    System.out.println(
+                            "[ChampUtils] Leaderboard loaded."
+                    );
+                }
+        );
+
+
+
+/* =========================
+ PLAYER FILE CREATION
+========================= */
 
         ServerPlayConnectionEvents.JOIN.register(
                 (handler,sender,server)->{
 
-                    String playerName =
+                    String playerName=
                             handler.player
                                     .getName()
                                     .getString();
@@ -98,13 +119,14 @@ public class ChampUtilsMod implements ModInitializer {
                             .ensurePlayerFile(
                                     playerName
                             );
-                });
+                }
+        );
 
 
 
-        // =========================
-        // COMMANDS
-        // =========================
+/* =========================
+ COMMANDS
+========================= */
 
         MenuCommand.register();
 
@@ -114,9 +136,9 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 
-        // =========================
-        // BATTLE HOOKS
-        // =========================
+/* =========================
+ BATTLE HOOKS
+========================= */
 
         CobblemonBattleHandler.register();
 
@@ -124,18 +146,27 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 
-        // =========================
-        // SERVER TICKS
-        // =========================
+/* =========================
+ SERVER TICK
+========================= */
 
         ServerTickEvents.END_SERVER_TICK.register(
-                server->{
+                server -> {
+
+                    // refresh ladder every minute
+                    if(
+                            server.getTickCount()
+                                    %1200==0
+                    ){
+                        LeaderboardManager.refresh(
+                                server
+                        );
+                    }
+
 
                     if(
                             server.getTickCount()
-                                    %20
-                                    ==
-                                    0
+                                    %20==0
                     ){
 
                         for(
@@ -159,6 +190,7 @@ public class ChampUtilsMod implements ModInitializer {
                             server.getPlayerList()
                                     .getPlayers()
                     );
+
                 });
     }
 }
