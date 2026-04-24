@@ -8,7 +8,10 @@ import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
+
+import com.champutils.gym.GymCommand;
 import com.champutils.gym.GymBattleHandler;
+
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
@@ -67,7 +70,7 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 /* =========================
-   LOAD CONFIG
+ LOAD CONFIG
 ========================= */
 
         Config.load(
@@ -77,7 +80,7 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 /* =========================
-   LOAD SEASON STATE
+ LOAD SEASON STATE
 ========================= */
 
         SeasonManager.loadState();
@@ -119,6 +122,7 @@ public class ChampUtilsMod implements ModInitializer {
                             .ensurePlayerFile(
                                     playerName
                             );
+
                 }
         );
 
@@ -133,6 +137,8 @@ public class ChampUtilsMod implements ModInitializer {
         SeasonCommand.register();
 
         LeaderboardCommand.register();
+
+        GymCommand.register();
 
 
 
@@ -155,18 +161,19 @@ public class ChampUtilsMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-                    // Refresh leaderboard every 30 seconds
+                    // refresh leaderboard every 30 sec
                     if(
                             server.getTickCount() > 0 &&
                                     server.getTickCount() % 600 == 0
                     ){
+
                         LeaderboardManager.refresh(
                                 server
                         );
                     }
 
 
-                    // Update action bars every second
+                    // action bars every second
                     if(
                             server.getTickCount() % 20 == 0
                     ){
@@ -181,10 +188,10 @@ public class ChampUtilsMod implements ModInitializer {
                                     player
                             );
                         }
+
                     }
 
 
-                    // Matchmaking systems
                     MatchmakingManager.tick();
 
                     QueueBossBarManager.tick();
@@ -196,5 +203,13 @@ public class ChampUtilsMod implements ModInitializer {
 
                 }
         );
+
+
+
+        System.out.println(
+                "[ChampUtils] Gym system loaded."
+        );
+
     }
+
 }

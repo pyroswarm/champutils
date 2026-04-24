@@ -67,8 +67,8 @@ public class BadgeMenu {
                 gui,
                 12,
                 BadgeType.THUNDER,
-                "/pokeheal unlocked",
                 "Lt. Surge",
+                "/pokeheal unlocked",
                 earned
         );
 
