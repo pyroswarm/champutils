@@ -54,7 +54,7 @@ public class ChampUtilsMod implements ModInitializer {
         if(!configFile.exists()){
 
             try(
-                    FileWriter writer=
+                    FileWriter writer =
                             new FileWriter(
                                     configFile
                             )
@@ -77,7 +77,7 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 /* =========================
-   LOAD SEASONS
+   LOAD SEASON STATE
 ========================= */
 
         SeasonManager.loadState();
@@ -110,7 +110,7 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register(
                 (handler,sender,server)->{
 
-                    String playerName=
+                    String playerName =
                             handler.player
                                     .getName()
                                     .getString();
@@ -147,16 +147,16 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 /* =========================
- SERVER TICK
+ SERVER TICKS
 ========================= */
 
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-                    // refresh ladder every minute
+                    // Refresh leaderboard every 30 seconds
                     if(
-                            server.getTickCount()
-                                    %1200==0
+                            server.getTickCount() > 0 &&
+                                    server.getTickCount() % 600 == 0
                     ){
                         LeaderboardManager.refresh(
                                 server
@@ -164,9 +164,9 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
 
+                    // Update action bars every second
                     if(
-                            server.getTickCount()
-                                    %20==0
+                            server.getTickCount() % 20 == 0
                     ){
 
                         for(
@@ -182,6 +182,7 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
 
+                    // Matchmaking systems
                     MatchmakingManager.tick();
 
                     QueueBossBarManager.tick();
@@ -191,6 +192,7 @@ public class ChampUtilsMod implements ModInitializer {
                                     .getPlayers()
                     );
 
-                });
+                }
+        );
     }
 }

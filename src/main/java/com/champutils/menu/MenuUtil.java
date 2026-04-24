@@ -1,0 +1,64 @@
+package com.champutils.menu;
+
+import eu.pb4.sgui.api.gui.SimpleGui;
+import eu.pb4.sgui.api.elements.GuiElementBuilder;
+
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Items;
+
+public class MenuUtil {
+
+    public static void fillBorders(
+            SimpleGui gui,
+            int... skips
+    ){
+
+        outer:
+        for(
+                int i = 0;
+                i < gui.getSize();
+                i++
+        ){
+
+            for(int s : skips){
+
+                if(i == s){
+                    continue outer;
+                }
+            }
+
+            gui.setSlot(
+                    i,
+                    new GuiElementBuilder(
+                            Items.GRAY_STAINED_GLASS_PANE
+                    )
+                            .setName(
+                                    Component.literal(" ")
+                            )
+            );
+        }
+    }
+
+
+    public static void addBackButton(
+            SimpleGui gui,
+            int slot,
+            Runnable action
+    ){
+
+        gui.setSlot(
+                slot,
+                new GuiElementBuilder(
+                        Items.ARROW
+                )
+                        .setName(
+                                Component.literal(
+                                        "§eBack"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->action.run()
+                        )
+        );
+    }
+}
