@@ -1,17 +1,23 @@
 package com.champutils.gym;
 
 import com.champutils.badge.BadgeManager;
-import com.champutils.badge.BadgePermissionManager;
 import com.champutils.badge.BadgeType;
+import com.champutils.badge.BadgeUnlockManager;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
-
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+
+import net.minecraft.server.level.ServerPlayer;
+
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 
 import java.util.UUID;
 
@@ -20,41 +26,30 @@ public class GymBattleHandler {
     public static void register() {
 
         CobblemonEvents.BATTLE_VICTORY.subscribe(
-                event -> {
-
-                    BattleVictoryEvent e =
-                            (BattleVictoryEvent) event;
-
-                    handleVictory(
-                            e
-                    );
-                }
+                GymBattleHandler::handleVictory
         );
     }
 
 
 
     private static void handleVictory(
-            BattleVictoryEvent e
+            BattleVictoryEvent event
     ){
 
         try{
 
-            ServerPlayer winner =
-                    null;
-
-            NPCBattleActor gymNpc =
-                    null;
+            ServerPlayer winner = null;
+            NPCBattleActor gymNpc = null;
 
 
 
-            /*
-             * Find winning player
-             */
+/* =========================
+ FIND PLAYER WINNER
+========================= */
 
             for(
                     var actor :
-                    e.getWinners()
+                    event.getWinners()
             ){
 
                 if(
@@ -71,13 +66,13 @@ public class GymBattleHandler {
 
 
 
-            /*
-             * Find defeated NPC gym leader
-             */
+/* =========================
+ FIND LOSING NPC
+========================= */
 
             for(
                     var actor :
-                    e.getLosers()
+                    event.getLosers()
             ){
 
                 if(
@@ -92,10 +87,8 @@ public class GymBattleHandler {
             }
 
 
-
             if(
-                    winner == null
-                            ||
+                    winner == null ||
                             gymNpc == null
             ){
                 return;
@@ -103,11 +96,13 @@ public class GymBattleHandler {
 
 
 
+/* =========================
+ IS REGISTERED GYM?
+========================= */
+
             UUID npcUUID =
                     gymNpc.getEntity()
                             .getUUID();
-
-
 
             if(
                     !GymRegistry.isGymNpc(
@@ -119,11 +114,14 @@ public class GymBattleHandler {
 
 
 
+/* =========================
+ GET BADGE
+========================= */
+
             BadgeType badge =
                     GymRegistry.getBadgeForNpc(
                             npcUUID
                     );
-
 
             if(
                     badge == null
@@ -133,6 +131,10 @@ public class GymBattleHandler {
 
 
 
+/* =========================
+ AWARD BADGE
+========================= */
+
             boolean awarded =
                     BadgeManager.awardBadge(
                             winner,
@@ -140,59 +142,88 @@ public class GymBattleHandler {
                     );
 
 
-
             if(
-                    awarded
+                    !awarded
             ){
-
-                winner.sendSystemMessage(
-                        Component.literal(
-                                "§aGym badge awarded!"
-                        )
-                );
-
-
-                /*
-                 * Phase 3:
-                 * Notify player of newly
-                 * unlocked commands
-                 */
-
-                BadgePermissionManager.notifyUnlocks(
-                        winner
-                );
-
-
-                /*
-                 * Optional global broadcast
-                 */
-
-                if(
-                        winner.getServer()!=null
-                ){
-                    winner.getServer()
-                            .getPlayerList()
-                            .broadcastSystemMessage(
-                                    Component.literal(
-                                            "§6"
-                                                    +winner.getName().getString()
-                                                    +" earned the "
-                                                    +badge.name()
-                                                    +" Badge!"
-                                    ),
-                                    false
-                            );
-                }
-
-            }
-            else{
 
                 winner.sendSystemMessage(
                         Component.literal(
                                 "§7You already earned this badge."
                         )
                 );
+
+                return;
             }
+
+
+
+/* =========================
+ PROGRESSION UNLOCKS
+========================= */
+
+            BadgeUnlockManager.processUnlocks(
+                    winner
+            );
+
+
+
+/* =========================
+ BADGE POPUP
+========================= */
+
+            winner.connection.send(
+                    new ClientboundSetTitlesAnimationPacket(
+                            10,
+                            70,
+                            20
+                    )
+            );
+
+            winner.connection.send(
+                    new ClientboundSetTitleTextPacket(
+                            Component.literal(
+                                    "§6"
+                                            + badge.name()
+                                            + " BADGE EARNED!"
+                            )
+                    )
+            );
+
+            winner.connection.send(
+                    new ClientboundSetSubtitleTextPacket(
+                            Component.literal(
+                                    "§eGym Leader Defeated"
+                            )
+                    )
+            );
+
+
+            winner.playNotifySound(
+                    SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
+                    SoundSource.PLAYERS,
+                    1f,
+                    1f
+            );
+
+
+
+/* =========================
+ GLOBAL ANNOUNCEMENT
+========================= */
+
+            winner.getServer()
+                    .getPlayerList()
+                    .broadcastSystemMessage(
+                            Component.literal(
+                                    "§6"
+                                            + winner.getName().getString()
+                                            + " earned the "
+                                            + badge.name()
+                                            + " Badge!"
+                            ),
+                            false
+                    );
+
 
         }
         catch(Exception ex){

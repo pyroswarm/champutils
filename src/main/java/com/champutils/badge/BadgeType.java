@@ -3,68 +3,59 @@ package com.champutils.badge;
 public enum BadgeType {
 
     BOULDER(
-            "Boulder Badge",
-            "Defeat Brock",
-            "Rock-type gym badge"
+            "Boulder",
+            "/pc"
     ),
 
     CASCADE(
-            "Cascade Badge",
-            "Defeat Misty",
-            "Water-type gym badge"
+            "Cascade",
+            ""
     ),
 
     THUNDER(
-            "Thunder Badge",
-            "Defeat Lt. Surge",
-            "Electric-type gym badge"
+            "Thunder",
+            "/pokeheal"
     ),
 
     RAINBOW(
-            "Rainbow Badge",
-            "Defeat Erika",
-            "Grass-type gym badge"
+            "Rainbow",
+            ""
     ),
 
     SOUL(
-            "Soul Badge",
-            "Defeat Koga",
-            "Poison-type gym badge"
+            "Soul",
+            ""
     ),
 
     MARSH(
-            "Marsh Badge",
-            "Defeat Sabrina",
-            "Psychic-type gym badge"
+            "Marsh",
+            ""
     ),
 
     VOLCANO(
-            "Volcano Badge",
-            "Defeat Blaine",
-            "Fire-type gym badge"
+            "Volcano",
+            ""
     ),
 
     EARTH(
-            "Earth Badge",
-            "Defeat Giovanni",
-            "Ground-type gym badge"
+            "Earth",
+            ""
     );
 
 
     private final String displayName;
-    private final String leaderName;
-    private final String description;
+    private final String unlockedCommand;
+
 
 
     BadgeType(
             String displayName,
-            String leaderName,
-            String description
+            String unlockedCommand
     ){
         this.displayName = displayName;
-        this.leaderName = leaderName;
-        this.description = description;
+        this.unlockedCommand = unlockedCommand;
     }
+
 
 
     public String getDisplayName(){
@@ -72,28 +63,54 @@ public enum BadgeType {
     }
 
 
-    public String getLeaderName(){
-        return leaderName;
+
+    public String getUnlockedCommand(){
+        return unlockedCommand;
     }
 
 
-    public String getDescription(){
-        return description;
+
+    public boolean unlocksCommand(){
+        return unlockedCommand != null
+                && !unlockedCommand.isBlank();
     }
+
 
 
     public static BadgeType fromString(
             String value
     ){
 
-        try{
-            return BadgeType.valueOf(
-                    value.toUpperCase()
-            );
-        }
-        catch(Exception e){
+        if(
+                value == null
+        ){
             return null;
         }
+
+
+        for(
+                BadgeType badge :
+                values()
+        ){
+
+            if(
+                    badge.name().equalsIgnoreCase(
+                            value
+                    )
+            ){
+                return badge;
+            }
+
+            if(
+                    badge.displayName.equalsIgnoreCase(
+                            value
+                    )
+            ){
+                return badge;
+            }
+        }
+
+        return null;
     }
 
 }

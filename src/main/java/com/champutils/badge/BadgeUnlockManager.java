@@ -1,4 +1,234 @@
 package com.champutils.badge;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.types.InheritanceNode;
+
 public class BadgeUnlockManager {
+
+    private static final String[] GYM_GROUPS = {
+            "gym1",
+            "gym3",
+            "gym5",
+            "gym8"
+    };
+
+
+    public static void processUnlocks(
+            ServerPlayer player
+    ) {
+
+        int badges =
+                BadgeManager.getBadgeCount(
+                        player
+                );
+
+        if (badges >= 8) {
+            promote(
+                    player,
+                    "gym8",
+                    "Elite Four Access Unlocked"
+            );
+            return;
+        }
+
+        if (badges >= 5) {
+            promote(
+                    player,
+                    "gym5",
+                    "EV Training Access Unlocked"
+            );
+            return;
+        }
+
+        if (badges >= 3) {
+            promote(
+                    player,
+                    "gym3",
+                    "Portable Heal Unlocked"
+            );
+            return;
+        }
+
+        if (badges >= 1) {
+            promote(
+                    player,
+                    "gym1",
+                    "Portable PC Unlocked"
+            );
+        }
+    }
+
+
+
+    private static void promote(
+            ServerPlayer player,
+            String newGroup,
+            String unlockMessage
+    ) {
+
+        try {
+
+            LuckPerms lp =
+                    LuckPermsProvider.get();
+
+            User user =
+                    lp.getUserManager()
+                            .getUser(
+                                    player.getUUID()
+                            );
+
+            if(
+                    user == null
+            ){
+                return;
+            }
+
+
+            /*
+             If player already has target group,
+             don't spam promotions.
+             */
+            if(
+                    hasGroup(
+                            user,
+                            newGroup
+                    )
+            ){
+                return;
+            }
+
+
+            /*
+             Remove previous gym progression groups
+             but leave donor groups like vip/vip2 alone.
+             */
+            for(
+                    String group :
+                    GYM_GROUPS
+            ){
+
+                user.data().remove(
+                        InheritanceNode.builder(
+                                group
+                        ).build()
+                );
+            }
+
+
+            /*
+             Add new progression group
+             */
+            user.data().add(
+                    InheritanceNode.builder(
+                            newGroup
+                    ).build()
+            );
+
+
+            lp.getUserManager()
+                    .saveUser(
+                            user
+                    );
+
+
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§6★ "
+                                    + unlockMessage
+                    )
+            );
+
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
+    private static boolean hasGroup(
+            User user,
+            String group
+    ) {
+
+        return user.getInheritedGroups(
+                user.getQueryOptions()
+        ).stream().anyMatch(
+                g ->
+                        g.getName()
+                                .equalsIgnoreCase(
+                                        group
+                                )
+        );
+    }
+
+
+
+/*
+ Optional feature checks
+*/
+
+    public static boolean hasEvTrainingAccess(
+            ServerPlayer player
+    ){
+        return hasPlayerGroup(
+                player,
+                "gym5"
+        ) || hasPlayerGroup(
+                player,
+                "gym8"
+        );
+    }
+
+
+    public static boolean hasEliteFourAccess(
+            ServerPlayer player
+    ){
+        return hasPlayerGroup(
+                player,
+                "gym8"
+        );
+    }
+
+
+
+    private static boolean hasPlayerGroup(
+            ServerPlayer player,
+            String group
+    ) {
+
+        try{
+
+            LuckPerms lp =
+                    LuckPermsProvider.get();
+
+            User user =
+                    lp.getUserManager()
+                            .getUser(
+                                    player.getUUID()
+                            );
+
+            if(
+                    user == null
+            ){
+                return false;
+            }
+
+            return hasGroup(
+                    user,
+                    group
+            );
+
+        }catch(Exception e){
+            return false;
+        }
+    }
+
 }

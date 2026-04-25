@@ -11,7 +11,7 @@ import com.champutils.rank.SeasonArchiveManager;
 
 import com.champutils.gym.GymCommand;
 import com.champutils.gym.GymBattleHandler;
-
+import com.champutils.commands.EVTrainingCommand;
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
