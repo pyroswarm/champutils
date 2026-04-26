@@ -6,9 +6,12 @@ import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
-
+import com.champutils.gym.GymBattleStartHandler;
 import com.champutils.gym.GymCommand;
 import com.champutils.gym.GymBattleHandler;
+import com.champutils.gym.GymRegistry;
+import com.champutils.gym.GymConfig;
+
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
@@ -67,12 +70,21 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 /* =========================
- LOAD CONFIG
+ LOAD MAIN CONFIG
 ========================= */
 
         Config.load(
                 configFile
         );
+
+
+/* =========================
+ LOAD GYM CONFIGS
+========================= */
+
+        GymConfig.load();
+
+        GymRegistry.load();
 
 
 
@@ -153,6 +165,8 @@ public class ChampUtilsMod implements ModInitializer {
 
         GymBattleHandler.register();
 
+        GymBattleStartHandler.register();
+
 
 
 /* =========================
@@ -162,7 +176,6 @@ public class ChampUtilsMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-                    // refresh leaderboard every 30 sec
                     if(
                             server.getTickCount() > 0 &&
                                     server.getTickCount() % 600 == 0
@@ -174,7 +187,7 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
 
-                    // action bars every second
+
                     if(
                             server.getTickCount() % 20 == 0
                     ){

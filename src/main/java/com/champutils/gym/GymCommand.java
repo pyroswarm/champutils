@@ -3,6 +3,8 @@ package com.champutils.gym;
 import com.champutils.badge.BadgeType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
+import com.cobblemon.mod.common.entity.npc.NPCEntity;
+
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.network.chat.Component;
@@ -26,6 +28,12 @@ public class GymCommand {
                     dispatcher.register(
                             literal("gym")
 
+
+
+/* =========================
+ LIST
+========================= */
+
                                     .then(
                                             literal("list")
                                                     .executes(ctx->{
@@ -40,21 +48,29 @@ public class GymCommand {
                                                         GymRegistry.getAllGyms()
                                                                 .forEach(
                                                                         (uuid,badge)->{
+
                                                                             ctx.getSource().sendSuccess(
                                                                                     ()->Component.literal(
                                                                                             "§e"
-                                                                                                    +badge.name()
-                                                                                                    +" §7-> "
-                                                                                                    +uuid
+                                                                                                    + badge.name()
+                                                                                                    + " §7-> "
+                                                                                                    + uuid
                                                                                     ),
                                                                                     false
                                                                             );
+
                                                                         }
                                                                 );
 
                                                         return 1;
                                                     })
                                     )
+
+
+
+/* =========================
+ UNBIND
+========================= */
 
                                     .then(
                                             literal("unbind")
@@ -65,7 +81,7 @@ public class GymCommand {
                                                             )
                                                                     .executes(ctx->{
 
-                                                                        BadgeType badge=
+                                                                        BadgeType badge =
                                                                                 BadgeType.fromString(
                                                                                         StringArgumentType.getString(
                                                                                                 ctx,
@@ -73,7 +89,9 @@ public class GymCommand {
                                                                                         )
                                                                                 );
 
-                                                                        if(badge==null){
+                                                                        if(
+                                                                                badge == null
+                                                                        ){
                                                                             return 0;
                                                                         }
 
@@ -84,15 +102,22 @@ public class GymCommand {
                                                                         ctx.getSource().sendSuccess(
                                                                                 ()->Component.literal(
                                                                                         "§cUnbound "
-                                                                                                +badge.name()
+                                                                                                + badge.name()
                                                                                 ),
                                                                                 false
                                                                         );
 
                                                                         return 1;
+
                                                                     })
                                                     )
                                     )
+
+
+
+/* =========================
+ BIND
+========================= */
 
                                     .then(
                                             literal("bind")
@@ -103,11 +128,11 @@ public class GymCommand {
                                                             )
                                                                     .executes(ctx->{
 
-                                                                        ServerPlayer player=
+                                                                        ServerPlayer player =
                                                                                 ctx.getSource()
                                                                                         .getPlayerOrException();
 
-                                                                        BadgeType badge=
+                                                                        BadgeType badge =
                                                                                 BadgeType.fromString(
                                                                                         StringArgumentType.getString(
                                                                                                 ctx,
@@ -116,33 +141,40 @@ public class GymCommand {
                                                                                 );
 
                                                                         if(
-                                                                                badge==null
+                                                                                badge == null
                                                                         ){
                                                                             return 0;
                                                                         }
 
 
-                                                                        // Find nearest nearby NPC
+
+                                                                        /* Find nearest NPC */
+
                                                                         List<Entity> nearby =
                                                                                 player.level()
                                                                                         .getEntities(
                                                                                                 player,
                                                                                                 new AABB(
                                                                                                         player.blockPosition()
-                                                                                                ).inflate(8)
+                                                                                                ).inflate(
+                                                                                                        8
+                                                                                                )
                                                                                         );
+
 
                                                                         Entity nearestNpc =
                                                                                 nearby.stream()
                                                                                         .filter(
-                                                                                                entity->
+                                                                                                entity ->
                                                                                                         entity.getClass()
                                                                                                                 .getSimpleName()
-                                                                                                                .contains("NPC")
+                                                                                                                .contains(
+                                                                                                                        "NPC"
+                                                                                                                )
                                                                                         )
                                                                                         .min(
                                                                                                 Comparator.comparingDouble(
-                                                                                                        entity->
+                                                                                                        entity ->
                                                                                                                 entity.distanceToSqr(
                                                                                                                         player
                                                                                                                 )
@@ -152,32 +184,82 @@ public class GymCommand {
                                                                                                 null
                                                                                         );
 
+
                                                                         if(
-                                                                                nearestNpc==null
+                                                                                nearestNpc == null
                                                                         ){
+
                                                                             ctx.getSource().sendFailure(
                                                                                     Component.literal(
                                                                                             "§cNo NPC found nearby."
                                                                                     )
                                                                             );
+
                                                                             return 0;
                                                                         }
 
+
+
+                                                                        /* Bind Gym */
 
                                                                         GymRegistry.bindGym(
                                                                                 nearestNpc.getUUID(),
                                                                                 badge
                                                                         );
 
-                                                                        ctx.getSource().sendSuccess(
-                                                                                ()->Component.literal(
-                                                                                        "§aBound "
-                                                                                                +badge.name()
-                                                                                                +" to NPC "
-                                                                                                +nearestNpc.getUUID()
-                                                                                ),
-                                                                                false
-                                                                        );
+
+
+/* =========================
+ APPLY CONFIG TEAM
+========================= */
+
+                                                                        boolean applied = false;
+
+                                                                        if(
+                                                                                nearestNpc instanceof NPCEntity npc
+                                                                        ){
+
+                                                                            System.out.println(
+                                                                                    "[ChampUtils] Running applyGymTeam..."
+                                                                            );
+
+                                                                            applied =
+                                                                                    GymNpcPartyBuilder.applyGymTeam(
+                                                                                            npc,
+                                                                                            badge
+                                                                                    );
+                                                                        }
+
+
+
+                                                                        /* Feedback */
+
+                                                                        if(
+                                                                                applied
+                                                                        ){
+
+                                                                            ctx.getSource().sendSuccess(
+                                                                                    ()->Component.literal(
+                                                                                            "§aBound "
+                                                                                                    + badge.name()
+                                                                                                    + " and applied config team."
+                                                                                    ),
+                                                                                    false
+                                                                            );
+
+                                                                        }
+                                                                        else{
+
+                                                                            ctx.getSource().sendSuccess(
+                                                                                    ()->Component.literal(
+                                                                                            "§eBound "
+                                                                                                    + badge.name()
+                                                                                                    + " (team apply failed)"
+                                                                                    ),
+                                                                                    false
+                                                                            );
+
+                                                                        }
 
                                                                         return 1;
 
@@ -189,6 +271,7 @@ public class GymCommand {
 
                 }
         );
+
     }
 
 }
