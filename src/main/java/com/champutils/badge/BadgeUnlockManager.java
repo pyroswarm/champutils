@@ -7,7 +7,6 @@ import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 
 import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.Node;
 import net.luckperms.api.node.types.InheritanceNode;
 
 public class BadgeUnlockManager {
@@ -20,6 +19,7 @@ public class BadgeUnlockManager {
     };
 
 
+
     public static void processUnlocks(
             ServerPlayer player
     ) {
@@ -29,7 +29,10 @@ public class BadgeUnlockManager {
                         player
                 );
 
-        if (badges >= 8) {
+
+        if(
+                badges >= 8
+        ){
             promote(
                     player,
                     "gym8",
@@ -38,7 +41,10 @@ public class BadgeUnlockManager {
             return;
         }
 
-        if (badges >= 5) {
+
+        if(
+                badges >= 5
+        ){
             promote(
                     player,
                     "gym5",
@@ -47,7 +53,10 @@ public class BadgeUnlockManager {
             return;
         }
 
-        if (badges >= 3) {
+
+        if(
+                badges >= 3
+        ){
             promote(
                     player,
                     "gym3",
@@ -56,13 +65,17 @@ public class BadgeUnlockManager {
             return;
         }
 
-        if (badges >= 1) {
+
+        if(
+                badges >= 1
+        ){
             promote(
                     player,
                     "gym1",
                     "Portable PC Unlocked"
             );
         }
+
     }
 
 
@@ -71,9 +84,9 @@ public class BadgeUnlockManager {
             ServerPlayer player,
             String newGroup,
             String unlockMessage
-    ) {
+    ){
 
-        try {
+        try{
 
             LuckPerms lp =
                     LuckPermsProvider.get();
@@ -91,10 +104,7 @@ public class BadgeUnlockManager {
             }
 
 
-            /*
-             If player already has target group,
-             don't spam promotions.
-             */
+
             if(
                     hasGroup(
                             user,
@@ -105,10 +115,11 @@ public class BadgeUnlockManager {
             }
 
 
-            /*
-             Remove previous gym progression groups
-             but leave donor groups like vip/vip2 alone.
-             */
+
+/* =========================
+ REMOVE OLD GYM GROUPS ONLY
+========================= */
+
             for(
                     String group :
                     GYM_GROUPS
@@ -122,9 +133,11 @@ public class BadgeUnlockManager {
             }
 
 
-            /*
-             Add new progression group
-             */
+
+/* =========================
+ ADD NEW PROGRESSION GROUP
+========================= */
+
             user.data().add(
                     InheritanceNode.builder(
                             newGroup
@@ -138,6 +151,7 @@ public class BadgeUnlockManager {
                     );
 
 
+
             player.sendSystemMessage(
                     Component.literal(
                             "§6★ "
@@ -149,6 +163,7 @@ public class BadgeUnlockManager {
         catch(Exception e){
             e.printStackTrace();
         }
+
     }
 
 
@@ -156,7 +171,7 @@ public class BadgeUnlockManager {
     private static boolean hasGroup(
             User user,
             String group
-    ) {
+    ){
 
         return user.getInheritedGroups(
                 user.getQueryOptions()
@@ -171,26 +186,77 @@ public class BadgeUnlockManager {
 
 
 
-/*
- Optional feature checks
-*/
+/* =====================================
+ ACCESS CHECKS
+===================================== */
+
 
     public static boolean hasEvTrainingAccess(
             ServerPlayer player
     ){
-        return hasPlayerGroup(
-                player,
-                "gym5"
-        ) || hasPlayerGroup(
-                player,
-                "gym8"
-        );
+
+/*
+ Reliable admin/op bypass
+ */
+        if(
+                player.hasPermissions(2)
+                        ||
+                        player.hasPermissions(4)
+                        ||
+                        (
+                                player.getServer() != null
+                                        &&
+                                        player.getServer()
+                                                .getPlayerList()
+                                                .isOp(
+                                                        player.getGameProfile()
+                                                )
+                        )
+        ){
+            return true;
+        }
+
+
+        return
+                hasPlayerGroup(
+                        player,
+                        "gym5"
+                )
+                        ||
+                        hasPlayerGroup(
+                                player,
+                                "gym8"
+                        );
     }
+
 
 
     public static boolean hasEliteFourAccess(
             ServerPlayer player
     ){
+
+/*
+ Reliable admin/op bypass
+ */
+        if(
+                player.hasPermissions(2)
+                        ||
+                        player.hasPermissions(4)
+                        ||
+                        (
+                                player.getServer() != null
+                                        &&
+                                        player.getServer()
+                                                .getPlayerList()
+                                                .isOp(
+                                                        player.getGameProfile()
+                                                )
+                        )
+        ){
+            return true;
+        }
+
+
         return hasPlayerGroup(
                 player,
                 "gym8"
@@ -202,7 +268,7 @@ public class BadgeUnlockManager {
     private static boolean hasPlayerGroup(
             ServerPlayer player,
             String group
-    ) {
+    ){
 
         try{
 
@@ -226,7 +292,8 @@ public class BadgeUnlockManager {
                     group
             );
 
-        }catch(Exception e){
+        }
+        catch(Exception e){
             return false;
         }
     }

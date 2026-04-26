@@ -1,8 +1,6 @@
 package com.champutils;
 
-import com.champutils.commands.MenuCommand;
-import com.champutils.commands.SeasonCommand;
-import com.champutils.commands.LeaderboardCommand;
+import com.champutils.commands.*;
 
 import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
@@ -11,7 +9,6 @@ import com.champutils.rank.SeasonArchiveManager;
 
 import com.champutils.gym.GymCommand;
 import com.champutils.gym.GymBattleHandler;
-import com.champutils.commands.EVTrainingCommand;
 import com.champutils.config.Config;
 
 import com.champutils.matchmaking.MatchmakingManager;
@@ -139,6 +136,10 @@ public class ChampUtilsMod implements ModInitializer {
         LeaderboardCommand.register();
 
         GymCommand.register();
+
+        EVTrainingCommand.register();
+
+        EliteFourCommand.register();
 
 
 
