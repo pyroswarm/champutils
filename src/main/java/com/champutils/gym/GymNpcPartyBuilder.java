@@ -18,6 +18,10 @@ public class GymNpcPartyBuilder {
 
         try{
 
+            System.out.println(
+                    "[ChampUtils] Running applyGymTeam..."
+            );
+
             GymConfig.GymDefinition gym =
                     GymConfig.getGym(
                             badge
@@ -36,7 +40,6 @@ public class GymNpcPartyBuilder {
             boolean debug =
                     gym.debug;
 
-
             if(debug){
 
                 System.out.println(
@@ -51,13 +54,12 @@ public class GymNpcPartyBuilder {
 
 
 /* =========================
- INIT NPC
+ NPC INIT
 ========================= */
 
             npc.initialize(
                     gym.levelCap
             );
-
 
             NPCPartyStore party =
                     new NPCPartyStore(
@@ -85,7 +87,6 @@ public class GymNpcPartyBuilder {
                             pokemon
                     );
                 }
-
             }
 
 
@@ -94,7 +95,6 @@ public class GymNpcPartyBuilder {
             npc.setParty(
                     party
             );
-
 
             npc.setHealth(
                     npc.getMaxHealth()
@@ -133,8 +133,9 @@ public class GymNpcPartyBuilder {
 
 
 
+
 /* =========================
- BUILD POKEMON
+ CREATE POKEMON
 ========================= */
 
     private static Pokemon createPokemon(
@@ -159,11 +160,9 @@ public class GymNpcPartyBuilder {
                             .create();
 
 
+            Class<?> pokemonClass =
+                    pokemon.getClass();
 
-/* =========================
- ABILITY
-(disabled for stability)
-========================= */
 
             if(debug){
 
@@ -176,11 +175,104 @@ public class GymNpcPartyBuilder {
                         "Level: "
                                 + set.level
                 );
+            }
+
+
+
+/* =========================
+ ABILITY
+========================= */
+
+            boolean abilityApplied =
+                    false;
+
+            if(
+                    set.ability != null
+                            &&
+                            !set.ability.isBlank()
+            ){
+
+                try{
+
+                    Object currentAbility =
+                            pokemonClass
+                                    .getMethod(
+                                            "getAbility"
+                                    )
+                                    .invoke(
+                                            pokemon
+                                    );
+
+
+                    Class<?> abilitiesClass =
+                            Class.forName(
+                                    "com.cobblemon.mod.common.api.abilities.Abilities"
+                            );
+
+                    Object template =
+                            abilitiesClass
+                                    .getMethod(
+                                            "get",
+                                            String.class
+                                    )
+                                    .invoke(
+                                            null,
+                                            set.ability.toLowerCase()
+                                    );
+
+
+                    if(
+                            currentAbility != null
+                                    &&
+                                    template != null
+                    ){
+
+                        Class<?> templateClass =
+                                Class.forName(
+                                        "com.cobblemon.mod.common.api.abilities.AbilityTemplate"
+                                );
+
+
+                        Method setTemplate =
+                                currentAbility
+                                        .getClass()
+                                        .getMethod(
+                                                "setTemplate",
+                                                templateClass
+                                        );
+
+
+                        setTemplate.invoke(
+                                currentAbility,
+                                template
+                        );
+
+                        abilityApplied=true;
+                    }
+
+                }
+                catch(Exception e){
+
+                    if(debug){
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+
+
+            if(debug){
 
                 System.out.println(
                         "Ability: "
                                 + set.ability
-                                + " [DISABLED]"
+                                + (
+                                abilityApplied
+                                        ?
+                                        " [OK]"
+                                        :
+                                        " [FAILED]"
+                        )
                 );
             }
 
@@ -218,16 +310,16 @@ public class GymNpcPartyBuilder {
                                     set.nature
                             );
 
+
                     if(
                             nature != null
                     ){
 
                         Method setNature =
-                                pokemon.getClass()
-                                        .getMethod(
-                                                "setNature",
-                                                nature.getClass()
-                                        );
+                                pokemonClass.getMethod(
+                                        "setNature",
+                                        nature.getClass()
+                                );
 
                         setNature.invoke(
                                 pokemon,
@@ -241,7 +333,6 @@ public class GymNpcPartyBuilder {
                 catch(Exception ignored){}
 
 
-
                 if(
                         !natureApplied
                 ){
@@ -249,11 +340,10 @@ public class GymNpcPartyBuilder {
                     try{
 
                         Method setNature =
-                                pokemon.getClass()
-                                        .getMethod(
-                                                "setNature",
-                                                String.class
-                                        );
+                                pokemonClass.getMethod(
+                                        "setNature",
+                                        String.class
+                                );
 
                         setNature.invoke(
                                 pokemon,
@@ -304,13 +394,14 @@ public class GymNpcPartyBuilder {
                 try{
 
                     Object moveSet =
-                            pokemon.getClass()
+                            pokemonClass
                                     .getMethod(
                                             "getMoveSet"
                                     )
                                     .invoke(
                                             pokemon
                                     );
+
 
                     Class<?> movesClass =
                             Class.forName(
@@ -464,6 +555,7 @@ public class GymNpcPartyBuilder {
                         "------------------"
                 );
             }
+
 
             return pokemon;
 
