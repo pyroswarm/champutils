@@ -50,7 +50,6 @@ public class GymNpcPartyBuilder {
             }
 
 
-
 /* =========================
  INIT NPC
 ========================= */
@@ -162,7 +161,8 @@ public class GymNpcPartyBuilder {
 
 
 /* =========================
- DEBUG INFO
+ ABILITY
+(disabled for stability)
 ========================= */
 
             if(debug){
@@ -180,11 +180,107 @@ public class GymNpcPartyBuilder {
                 System.out.println(
                         "Ability: "
                                 + set.ability
+                                + " [DISABLED]"
                 );
+            }
+
+
+
+/* =========================
+ NATURE
+========================= */
+
+            boolean natureApplied =
+                    false;
+
+            if(
+                    set.nature != null
+                            &&
+                            !set.nature.isBlank()
+            ){
+
+                try{
+
+                    Class<?> naturesClass =
+                            Class.forName(
+                                    "com.cobblemon.mod.common.api.pokemon.Natures"
+                            );
+
+                    Method get =
+                            naturesClass.getMethod(
+                                    "getNature",
+                                    String.class
+                            );
+
+                    Object nature =
+                            get.invoke(
+                                    null,
+                                    set.nature
+                            );
+
+                    if(
+                            nature != null
+                    ){
+
+                        Method setNature =
+                                pokemon.getClass()
+                                        .getMethod(
+                                                "setNature",
+                                                nature.getClass()
+                                        );
+
+                        setNature.invoke(
+                                pokemon,
+                                nature
+                        );
+
+                        natureApplied=true;
+                    }
+
+                }
+                catch(Exception ignored){}
+
+
+
+                if(
+                        !natureApplied
+                ){
+
+                    try{
+
+                        Method setNature =
+                                pokemon.getClass()
+                                        .getMethod(
+                                                "setNature",
+                                                String.class
+                                        );
+
+                        setNature.invoke(
+                                pokemon,
+                                set.nature
+                        );
+
+                        natureApplied=true;
+
+                    }
+                    catch(Exception ignored){}
+                }
+
+            }
+
+
+            if(debug){
 
                 System.out.println(
                         "Nature: "
                                 + set.nature
+                                + (
+                                natureApplied
+                                        ?
+                                        " [OK]"
+                                        :
+                                        " [FAILED]"
+                        )
                 );
 
                 System.out.println(
@@ -216,7 +312,6 @@ public class GymNpcPartyBuilder {
                                             pokemon
                                     );
 
-
                     Class<?> movesClass =
                             Class.forName(
                                     "com.cobblemon.mod.common.api.moves.Moves"
@@ -229,9 +324,6 @@ public class GymNpcPartyBuilder {
                             );
 
 
-/*
-clear default generated moves
-*/
                     try{
 
                         moveSet.getClass()
@@ -244,7 +336,6 @@ clear default generated moves
 
                     }
                     catch(Exception ignored){}
-
 
 
                     for(
@@ -289,7 +380,7 @@ clear default generated moves
                                         move
                                 );
 
-                                learned = true;
+                                learned=true;
                             }
 
                         }
@@ -373,7 +464,6 @@ clear default generated moves
                         "------------------"
                 );
             }
-
 
             return pokemon;
 
