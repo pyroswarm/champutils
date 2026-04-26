@@ -160,6 +160,8 @@ public class GymConfig {
 
         public String leaderName;
 
+        public boolean debug;
+
         public int levelCap;
 
         public int partySize;

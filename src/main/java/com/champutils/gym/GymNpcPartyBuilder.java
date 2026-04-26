@@ -7,6 +7,8 @@ import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 
+import java.lang.reflect.Method;
+
 public class GymNpcPartyBuilder {
 
     public static boolean applyGymTeam(
@@ -31,21 +33,32 @@ public class GymNpcPartyBuilder {
                 return false;
             }
 
+            boolean debug =
+                    gym.debug;
+
+
+            if(debug){
+
+                System.out.println(
+                        "=============================="
+                );
+
+                System.out.println(
+                        "[ChampUtils] DEBUG TEAM BUILD "
+                                + badge.name()
+                );
+            }
+
+
 
 /* =========================
- IMPORTANT:
- REINITIALIZE NPC
+ INIT NPC
 ========================= */
 
             npc.initialize(
                     gym.levelCap
             );
 
-
-
-/* =========================
- BUILD PARTY
-========================= */
 
             NPCPartyStore party =
                     new NPCPartyStore(
@@ -61,7 +74,8 @@ public class GymNpcPartyBuilder {
 
                 Pokemon pokemon =
                         createPokemon(
-                                set
+                                set,
+                                debug
                         );
 
                 if(
@@ -75,22 +89,14 @@ public class GymNpcPartyBuilder {
 
             }
 
+
             party.initialize();
-
-
-
-/* =========================
- APPLY PARTY
-========================= */
 
             npc.setParty(
                     party
             );
 
 
-/*
- Force refresh
-*/
             npc.setHealth(
                     npc.getMaxHealth()
             );
@@ -105,11 +111,21 @@ public class GymNpcPartyBuilder {
                             + badge.name()
             );
 
+
+            if(debug){
+
+                System.out.println(
+                        "=============================="
+                );
+            }
+
             return true;
 
         }
         catch(Exception e){
+
             e.printStackTrace();
+
             return false;
         }
 
@@ -117,8 +133,14 @@ public class GymNpcPartyBuilder {
 
 
 
+
+/* =========================
+ BUILD POKEMON
+========================= */
+
     private static Pokemon createPokemon(
-            GymConfig.PokemonSet set
+            GymConfig.PokemonSet set,
+            boolean debug
     ){
 
         try{
@@ -129,11 +151,231 @@ public class GymNpcPartyBuilder {
                             + "\" level="
                             + set.level;
 
-            return PokemonProperties.Companion
-                    .parse(
-                            spec
-                    )
-                    .create();
+
+            Pokemon pokemon =
+                    PokemonProperties.Companion
+                            .parse(
+                                    spec
+                            )
+                            .create();
+
+
+
+/* =========================
+ DEBUG INFO
+========================= */
+
+            if(debug){
+
+                System.out.println(
+                        "Pokemon: "
+                                + set.species
+                );
+
+                System.out.println(
+                        "Level: "
+                                + set.level
+                );
+
+                System.out.println(
+                        "Ability: "
+                                + set.ability
+                );
+
+                System.out.println(
+                        "Nature: "
+                                + set.nature
+                );
+
+                System.out.println(
+                        "Held Item: "
+                                + set.heldItem
+                );
+            }
+
+
+
+/* =========================
+ MOVESETS
+========================= */
+
+            if(
+                    set.moves != null
+                            &&
+                            !set.moves.isEmpty()
+            ){
+
+                try{
+
+                    Object moveSet =
+                            pokemon.getClass()
+                                    .getMethod(
+                                            "getMoveSet"
+                                    )
+                                    .invoke(
+                                            pokemon
+                                    );
+
+
+                    Class<?> movesClass =
+                            Class.forName(
+                                    "com.cobblemon.mod.common.api.moves.Moves"
+                            );
+
+                    Method getByName =
+                            movesClass.getMethod(
+                                    "getByName",
+                                    String.class
+                            );
+
+
+/*
+clear default generated moves
+*/
+                    try{
+
+                        moveSet.getClass()
+                                .getMethod(
+                                        "clear"
+                                )
+                                .invoke(
+                                        moveSet
+                                );
+
+                    }
+                    catch(Exception ignored){}
+
+
+
+                    for(
+                            String moveName :
+                            set.moves
+                    ){
+
+                        boolean learned =
+                                false;
+
+                        try{
+
+                            Object moveTemplate =
+                                    getByName.invoke(
+                                            null,
+                                            moveName
+                                    );
+
+                            if(
+                                    moveTemplate != null
+                            ){
+
+                                Object move =
+                                        moveTemplate.getClass()
+                                                .getMethod(
+                                                        "create"
+                                                )
+                                                .invoke(
+                                                        moveTemplate
+                                                );
+
+
+                                Method add =
+                                        moveSet.getClass()
+                                                .getMethod(
+                                                        "add",
+                                                        move.getClass()
+                                                );
+
+                                add.invoke(
+                                        moveSet,
+                                        move
+                                );
+
+                                learned = true;
+                            }
+
+                        }
+                        catch(Exception ignored){}
+
+
+                        if(debug){
+
+                            System.out.println(
+                                    "Move: "
+                                            + moveName
+                                            + (
+                                            learned
+                                                    ?
+                                                    " [OK]"
+                                                    :
+                                                    " [FAILED]"
+                                    )
+                            );
+                        }
+
+                    }
+
+                }
+                catch(Exception e){
+                    e.printStackTrace();
+                }
+
+            }
+
+
+
+/* =========================
+ DEBUG IVS
+========================= */
+
+            if(
+                    debug
+                            &&
+                            set.ivs != null
+            ){
+
+                System.out.println(
+                        "IVs: "
+                                + set.ivs.hp + "/"
+                                + set.ivs.atk + "/"
+                                + set.ivs.def + "/"
+                                + set.ivs.spa + "/"
+                                + set.ivs.spd + "/"
+                                + set.ivs.spe
+                );
+            }
+
+
+
+/* =========================
+ DEBUG EVS
+========================= */
+
+            if(
+                    debug
+                            &&
+                            set.evs != null
+            ){
+
+                System.out.println(
+                        "EVs: "
+                                + set.evs.hp + "/"
+                                + set.evs.atk + "/"
+                                + set.evs.def + "/"
+                                + set.evs.spa + "/"
+                                + set.evs.spd + "/"
+                                + set.evs.spe
+                );
+            }
+
+
+            if(debug){
+
+                System.out.println(
+                        "------------------"
+                );
+            }
+
+
+            return pokemon;
 
         }
         catch(Exception e){
