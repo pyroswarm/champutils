@@ -1,7 +1,8 @@
 package com.champutils.menu;
 
-import com.champutils.profile.ProfileManager;
-import com.champutils.badge.BadgeManager;
+import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.PlayerDataManager.PlayerData;
+import com.champutils.rank.RankManager;
 
 import com.cobblemon.mod.common.CobblemonItems;
 
@@ -13,44 +14,62 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 
-public class ProfileMenu {
+public class PlayerProfileMenu {
 
     public static void open(
-            ServerPlayer player
+            ServerPlayer viewer,
+            String targetName
     ){
 
-        SimpleGui gui =
+        PlayerData data=null;
+
+        for(
+                var entry :
+                PlayerDataManager.getAllPlayers()
+        ){
+            if(
+                    entry.name.equalsIgnoreCase(
+                            targetName
+                    )
+            ){
+                data=entry.data;
+                break;
+            }
+        }
+
+        if(data==null){
+            viewer.sendSystemMessage(
+                    Component.literal(
+                            "§cPlayer profile not found."
+                    )
+            );
+            return;
+        }
+
+
+        SimpleGui gui=
                 new SimpleGui(
                         MenuType.GENERIC_9x6,
-                        player,
+                        viewer,
                         false
                 );
 
         gui.setTitle(
                 Component.literal(
-                        "Trainer Card"
+                        targetName+"'s Trainer Card"
                 )
         );
-
 
         MenuUtil.fillBorders(
                 gui,
                 4,
                 10,12,14,16,
-                29,33,
+                29,31,33,
                 49
         );
 
 
-        int badgeCount =
-                BadgeManager.getBadgeCount(
-                        player
-                );
-
-
-/* =========================
- HEADER
-========================= */
+        /* HEADER */
 
         gui.setSlot(
                 4,
@@ -60,21 +79,29 @@ public class ProfileMenu {
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§bTrainer Card"
+                                        "§bTrainer Profile"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7Trainer: §f"
-                                                + player.getName().getString()
+                                        "§7Trainer: §f"+data.name
                                 )
                         )
         );
 
 
-/* =========================
- RANK
-========================= */
+        String currentRank=
+                RankManager.getRank(
+                        data.rp
+                ).name;
+
+        String peakRank=
+                RankManager.getRank(
+                        data.peakRp
+                ).name;
+
+
+        /* RANK */
 
         gui.setSlot(
                 10,
@@ -84,31 +111,23 @@ public class ProfileMenu {
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Rank"
+                                        "§6Ranks"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eCurrent: §f"
-                                                + ProfileManager.getCurrentRankName(
-                                                player
-                                        )
+                                        "§eCurrent: §f"+currentRank
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eHighest: §f"
-                                                + ProfileManager.getHighestRankName(
-                                                player
-                                        )
+                                        "§ePeak: §f"+peakRank
                                 )
                         )
         );
 
 
-/* =========================
- RATING
-========================= */
+        /* RP */
 
         gui.setSlot(
                 12,
@@ -123,169 +142,177 @@ public class ProfileMenu {
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eRP: §f"
-                                                + ProfileManager.getCurrentRp(
-                                                player
-                                        )
+                                        "§eRP: §f"+data.rp
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§ePeak: §f"
-                                                + ProfileManager.getPeakRp(
-                                                player
-                                        )
+                                        "§ePeak RP: §f"+data.peakRp
                                 )
                         )
         );
 
 
-/* =========================
- RECORD
-========================= */
+        /* RECORD */
+
+        int total=
+                data.rankedWins+
+                        data.rankedLosses;
+
+        double wr=
+                total==0
+                        ?0
+                        :(((double)data.rankedWins/total)*100);
+
 
         gui.setSlot(
                 14,
                 new GuiElementBuilder(
                         Items.NETHER_STAR
                 )
+                        .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§bBattle Record"
+                                        "§bRanked Record"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§aWins: §f"
-                                                + ProfileManager.getRankedWins(
-                                                player
-                                        )
+                                        "§aWins: §f"+data.rankedWins
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§cLosses: §f"
-                                                + ProfileManager.getRankedLosses(
-                                                player
+                                        "§cLosses: §f"+data.rankedLosses
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        String.format(
+                                                "§eWin Rate: §f%.1f%%",
+                                                wr
                                         )
                                 )
                         )
         );
 
 
-/* =========================
- WIN STREAK
-========================= */
+        /* STREAKS */
 
         gui.setSlot(
                 16,
                 new GuiElementBuilder(
                         Items.BLAZE_POWDER
                 )
+                        .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Win Streak"
+                                        "§6Streaks"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eCurrent: §f"
-                                                + ProfileManager.getCurrentStreak(
-                                                player
-                                        )
+                                        "§eCurrent: §f"+data.currentStreak
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eBest: §f"
-                                                + ProfileManager.getBestStreak(
-                                                player
-                                        )
+                                        "§eBest: §f"+data.bestStreak
                                 )
                         )
         );
 
 
-/* =========================
- BADGE CASE
-========================= */
+        /* UPSET WINS */
 
         gui.setSlot(
                 29,
                 new GuiElementBuilder(
-                        CobblemonItems.EXPERT_BELT
+                        Items.DIAMOND_SWORD
                 )
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§dBadge Case"
+                                        "§dUpset Wins"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7Click to open badge case"
+                                        "§f"+data.upsetWins
                                 )
-                        )
-                        .setCallback(
-                                (i,c,t)->{
-                                    BadgeMenu.open(
-                                            player
-                                    );
-                                }
                         )
         );
 
 
-/* =========================
- CLAIM REWARDS
-========================= */
+        /* SEASONS */
+
+        gui.setSlot(
+                31,
+                new GuiElementBuilder(
+                        Items.CLOCK
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§6Seasons Played"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§f"+data.seasonsPlayed
+                                )
+                        )
+        );
+
+
+        /* HISTORY */
 
         gui.setSlot(
                 33,
                 new GuiElementBuilder(
-                        CobblemonItems.LUCKY_EGG
+                        Items.WRITABLE_BOOK
                 )
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Claim Rewards"
+                                        "§bSeason History"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7Redeem seasonal rewards"
+                                        "§7Click to view archive"
                                 )
                         )
                         .setCallback(
-                                (i,c,t)->{
-
-                                    player.getServer()
-                                            .getCommands()
-                                            .performPrefixedCommand(
-                                                    player.createCommandSourceStack(),
-                                                    "claimseasonrewards"
-                                            );
-
-                                }
+                                (i,c,t)->
+                                        SeasonHistoryMenu.open(
+                                                viewer,
+                                                targetName
+                                        )
                         )
         );
 
 
-/* =========================
- BACK
-========================= */
+        /* CLOSE */
 
-        MenuUtil.addBackButton(
-                gui,
+        gui.setSlot(
                 49,
-                ()-> MainMenu.open(
-                        player
+                new GuiElementBuilder(
+                        Items.BARRIER
                 )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§cClose"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        viewer.closeContainer()
+                        )
         );
 
 
         gui.open();
-
     }
-
 }

@@ -1,18 +1,26 @@
 package com.champutils.menu;
 
 import com.champutils.rank.LeaderboardManager;
+import com.champutils.rank.LeaderboardManager.Entry;
 
-import com.cobblemon.mod.common.CobblemonItems;
-import com.cobblemon.mod.common.item.PokeBallItem;
+import com.mojang.authlib.GameProfile;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+
+import net.minecraft.server.level.ServerPlayer;
+
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+
+import net.minecraft.world.item.component.ResolvableProfile;
 
 import java.util.List;
+import java.util.Optional;
 
 public class LeaderboardMenu {
 
@@ -20,7 +28,7 @@ public class LeaderboardMenu {
             ServerPlayer player
     ){
 
-        SimpleGui gui=
+        SimpleGui gui =
                 new SimpleGui(
                         MenuType.GENERIC_9x6,
                         player,
@@ -29,16 +37,50 @@ public class LeaderboardMenu {
 
         gui.setTitle(
                 Component.literal(
-                        "Top Ladder"
+                        "Ranked Leaderboard"
                 )
         );
 
 
-        List<LeaderboardManager.Entry> top=
+        MenuUtil.fillBorders(
+                gui,
+                4,
+                45,46,47,48,50,51,52,53
+        );
+
+
+
+/* =========================
+HEADER
+========================= */
+
+        gui.setSlot(
+                4,
+                new GuiElementBuilder(
+                        Items.NETHER_STAR
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§6Top Ranked Players"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Click a player to view profile"
+                                )
+                        )
+        );
+
+
+
+        List<Entry> top =
                 LeaderboardManager.getTop(
-                        25
+                        36
                 );
 
+
+        int slot=10;
 
         for(
                 int i=0;
@@ -46,65 +88,158 @@ public class LeaderboardMenu {
                 i++
         ){
 
-            LeaderboardManager.Entry entry=
+            if(slot==17) slot=19;
+            if(slot==26) slot=28;
+            if(slot==35) slot=37;
+
+
+            Entry entry=
                     top.get(i);
 
-            PokeBallItem icon;
-
-            if(i==0){
-
-                icon=
-                        CobblemonItems.MASTER_BALL;
-
-            }else if(i==1){
-
-                icon=
-                        CobblemonItems.ULTRA_BALL;
-
-            }else if(i<=9){
-
-                icon=
-                        CobblemonItems.GREAT_BALL;
-
-            }else{
-
-                icon=
-                        CobblemonItems.POKE_BALL;
-            }
+            int rankPos=
+                    i+1;
 
 
-            gui.setSlot(
-                    i,
 
+            String medal=
+                    switch(rankPos){
+                        case 1 -> "§6#1 ";
+                        case 2 -> "§7#2 ";
+                        case 3 -> "§c#3 ";
+                        default -> "§e#"+rankPos+" ";
+                    };
+
+
+
+/* =========================
+BUILD PLAYER HEAD W/ SKIN
+========================= */
+
+            ItemStack head =
+                    new ItemStack(
+                            Items.PLAYER_HEAD
+                    );
+
+
+            try{
+
+                // First try online player
+                ServerPlayer online=
+                        player.server
+                                .getPlayerList()
+                                .getPlayerByName(
+                                        entry.playerName
+                                );
+
+                if(
+                        online!=null
+                ){
+
+                    GameProfile profile=
+                            online.getGameProfile();
+
+                    head.set(
+                            DataComponents.PROFILE,
+                            new ResolvableProfile(
+                                    profile
+                            )
+                    );
+                }
+
+                else{
+
+                    // Offline player support
+                    Optional<GameProfile> cached=
+                            player.server
+                                    .getProfileCache()
+                                    .get(
+                                            entry.playerName
+                                    );
+
+                    if(
+                            cached.isPresent()
+                    ){
+                        head.set(
+                                DataComponents.PROFILE,
+                                new ResolvableProfile(
+                                        cached.get()
+                                )
+                        );
+                    }
+                }
+
+            }catch(Exception ignored){}
+
+
+
+/* =========================
+HEAD BUTTON
+========================= */
+
+            GuiElementBuilder headButton=
                     new GuiElementBuilder(
-                            icon
+                            head
                     )
-                            .hideDefaultTooltip()
+
                             .setName(
                                     Component.literal(
-                                            "§6#"
-                                                    +(i+1)
-                                                    +" §f"
+                                            medal
+                                                    +"§f"
                                                     +entry.playerName
                                     )
                             )
 
                             .addLoreLine(
                                     Component.literal(
-                                            "§eRP: §f"
+                                            "§6RP: §f"
                                                     +entry.rp
                                     )
                             )
+
+                            .addLoreLine(
+                                    Component.literal(
+                                            "§7Click to inspect profile"
+                                    )
+                            )
+
+                            .setCallback(
+                                    (index,click,type)->
+                                            PlayerProfileMenu.open(
+                                                    player,
+                                                    entry.playerName
+                                            )
+                            );
+
+
+            gui.setSlot(
+                    slot++,
+                    headButton
             );
         }
 
 
-        MenuUtil.addBackButton(
-                gui,
+
+/* =========================
+BACK
+========================= */
+
+        gui.setSlot(
                 49,
-                ()->SeasonMenu.open(
-                        player
+                new GuiElementBuilder(
+                        Items.ARROW
                 )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§cBack"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        MainMenu.open(
+                                                player
+                                        )
+                        )
         );
 
 

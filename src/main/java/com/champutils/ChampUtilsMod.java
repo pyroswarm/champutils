@@ -2,16 +2,16 @@ package com.champutils;
 
 import com.champutils.commands.*;
 
-import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
-import com.champutils.rank.SeasonManager;
+import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.SeasonArchiveManager;
+import com.champutils.rank.SeasonManager;
 
+import com.champutils.gym.GymBattleHandler;
 import com.champutils.gym.GymBattleStartHandler;
 import com.champutils.gym.GymCommand;
-import com.champutils.gym.GymBattleHandler;
-import com.champutils.gym.GymRegistry;
 import com.champutils.gym.GymConfig;
+import com.champutils.gym.GymRegistry;
 
 import com.champutils.config.Config;
 
@@ -23,15 +23,18 @@ import com.champutils.battle.CobblemonBattleHandler;
 import com.champutils.battle.CobblemonBattleStartHandler;
 import com.champutils.battle.BattleItemUseListener;
 import com.champutils.battle.DisconnectForfeitManager;
-import com.champutils.commands.RpAdminCommand;
+
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 
+import com.champutils.menu.ProfileLookupManager;
+
 import net.fabricmc.api.ModInitializer;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -52,7 +55,6 @@ public class ChampUtilsMod implements ModInitializer {
             configDir.mkdirs();
         }
 
-        RpAdminCommand.register();
 
         File configFile =
                 new File(
@@ -63,7 +65,7 @@ public class ChampUtilsMod implements ModInitializer {
         if(!configFile.exists()){
 
             try(
-                    FileWriter writer=
+                    FileWriter writer =
                             new FileWriter(
                                     configFile
                             )
@@ -72,7 +74,6 @@ public class ChampUtilsMod implements ModInitializer {
             }
             catch(Exception ignored){}
         }
-
 
 
         Config.load(
@@ -85,6 +86,9 @@ public class ChampUtilsMod implements ModInitializer {
         SeasonManager.loadState();
 
 
+/* =========================
+SERVER START
+========================= */
 
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
@@ -100,10 +104,9 @@ public class ChampUtilsMod implements ModInitializer {
         );
 
 
-
-        // =========================
-        // PLAYER JOIN
-        // =========================
+/* =========================
+PLAYER JOIN
+========================= */
 
         ServerPlayConnectionEvents.JOIN.register(
                 (handler,sender,server)->{
@@ -116,11 +119,9 @@ public class ChampUtilsMod implements ModInitializer {
                                     .getString();
 
 
-
-                    SeasonArchiveManager
-                            .ensurePlayerFile(
-                                    playerName
-                            );
+                    SeasonArchiveManager.ensurePlayerFile(
+                            playerName
+                    );
 
 
                     PlayerDataManager.ensurePlayer(
@@ -129,13 +130,7 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
 
-
-                    // =========================
-                    // NEW LOGIN SELF-HEAL SYNC
-                    // JSON -> SCOREBOARD
-                    // =========================
-
-                    int storedRp =
+                    int storedRp=
                             PlayerDataManager.getRp(
                                     player.getUUID(),
                                     playerName
@@ -147,19 +142,16 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
 
-
-                    DisconnectForfeitManager
-                            .handleJoin(
-                                    player
-                            );
+                    DisconnectForfeitManager.handleJoin(
+                            player
+                    );
                 }
         );
 
 
-
-        // =========================
-        // DISCONNECT CLEANUP
-        // =========================
+/* =========================
+PLAYER DISCONNECT
+========================= */
 
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler,server)->{
@@ -168,14 +160,42 @@ public class ChampUtilsMod implements ModInitializer {
                             handler.player
                     );
 
-                    DisconnectForfeitManager
-                            .handleDisconnect(
-                                    handler.player
-                            );
+                    DisconnectForfeitManager.handleDisconnect(
+                            handler.player
+                    );
                 }
         );
 
 
+/* =========================
+CHAT PROFILE LOOKUP
+========================= */
+
+        ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
+                (message, player, params)->{
+
+                    if(
+                            ProfileLookupManager.isWaiting(
+                                    player
+                            )
+                    ){
+
+                        ProfileLookupManager.handleChat(
+                                player,
+                                message.signedContent()
+                        );
+
+                        return false;
+                    }
+
+                    return true;
+                }
+        );
+
+
+/* =========================
+COMMANDS
+========================= */
 
         MenuCommand.register();
         SeasonCommand.register();
@@ -188,6 +208,9 @@ public class ChampUtilsMod implements ModInitializer {
         RpAdminCommand.register();
 
 
+/* =========================
+BATTLE SYSTEMS
+========================= */
 
         CobblemonBattleHandler.register();
         CobblemonBattleStartHandler.register();
@@ -198,6 +221,9 @@ public class ChampUtilsMod implements ModInitializer {
         GymBattleStartHandler.register();
 
 
+/* =========================
+SERVER TICK
+========================= */
 
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
@@ -212,7 +238,6 @@ public class ChampUtilsMod implements ModInitializer {
                                 server
                         );
                     }
-
 
 
                     if(
@@ -232,7 +257,6 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
 
-
                     MatchmakingManager.tick();
 
                     QueueBossBarManager.tick();
@@ -246,7 +270,7 @@ public class ChampUtilsMod implements ModInitializer {
 
 
         System.out.println(
-                "[ChampUtils] Gym system loaded."
+                "[ChampUtils] Loaded successfully."
         );
     }
 }

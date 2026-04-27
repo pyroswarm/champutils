@@ -8,21 +8,37 @@ import net.minecraft.world.item.Items;
 
 public class MenuUtil {
 
+    /*
+      Global toggle:
+      false = no glass filler anywhere
+      true  = restore decorative borders
+    */
+    private static final boolean ENABLE_FILLERS = false;
+
+
+
     public static void fillBorders(
             SimpleGui gui,
             int... skips
     ){
 
+        // disabled globally
+        if(!ENABLE_FILLERS){
+            return;
+        }
+
+
         outer:
         for(
-                int i = 0;
-                i < gui.getSize();
+                int i=0;
+                i<gui.getSize();
                 i++
         ){
 
-            for(int s : skips){
-
-                if(i == s){
+            for(
+                    int s : skips
+            ){
+                if(i==s){
                     continue outer;
                 }
             }
@@ -33,11 +49,54 @@ public class MenuUtil {
                             Items.GRAY_STAINED_GLASS_PANE
                     )
                             .setName(
-                                    Component.literal(" ")
+                                    Component.literal(
+                                            " "
+                                    )
                             )
             );
         }
     }
+
+
+
+    /*
+      Optional future decorative filler
+      (if you want specific menus to still use glass)
+    */
+    public static void fillBordersForced(
+            SimpleGui gui,
+            int... skips
+    ){
+
+        outer:
+        for(
+                int i=0;
+                i<gui.getSize();
+                i++
+        ){
+
+            for(
+                    int s : skips
+            ){
+                if(i==s){
+                    continue outer;
+                }
+            }
+
+            gui.setSlot(
+                    i,
+                    new GuiElementBuilder(
+                            Items.GRAY_STAINED_GLASS_PANE
+                    )
+                            .setName(
+                                    Component.literal(
+                                            " "
+                                    )
+                            )
+            );
+        }
+    }
+
 
 
     public static void addBackButton(
@@ -57,7 +116,8 @@ public class MenuUtil {
                                 )
                         )
                         .setCallback(
-                                (i,c,t)->action.run()
+                                (i,c,t)->
+                                        action.run()
                         )
         );
     }
