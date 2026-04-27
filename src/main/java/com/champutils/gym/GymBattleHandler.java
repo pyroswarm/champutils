@@ -5,6 +5,7 @@ import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeUnlockManager;
 
 import com.champutils.permissions.LuckPermsHook;
+import com.champutils.battle.BattleStateManager;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
@@ -31,9 +32,7 @@ public class GymBattleHandler {
         CobblemonEvents.BATTLE_VICTORY.subscribe(
                 GymBattleHandler::handleVictory
         );
-
     }
-
 
 
 
@@ -44,12 +43,40 @@ public class GymBattleHandler {
         try{
 
             ServerPlayer winner=null;
+            ServerPlayer playerParticipant=null;
             NPCBattleActor gymNpc=null;
 
 
+
 /* =========================
- FIND PLAYER WINNER
+ FIND PLAYER PARTICIPANT
+ AND WINNER
 ========================= */
+
+            for(
+                    var actor :
+                    event.getBattle().getActors()
+            ){
+
+                if(
+                        actor instanceof PlayerBattleActor playerActor
+                ){
+
+                    ServerPlayer p =
+                            (ServerPlayer)
+                                    playerActor.getEntity();
+
+                    playerParticipant = p;
+
+                    // IMPORTANT:
+                    // clear gym battle state for queue pause system
+                    BattleStateManager.setInBattle(
+                            p,
+                            false
+                    );
+                }
+            }
+
 
             for(
                     var actor :
@@ -66,7 +93,6 @@ public class GymBattleHandler {
 
                     break;
                 }
-
             }
 
 
@@ -105,9 +131,7 @@ public class GymBattleHandler {
                         gymNpc=npcActor;
                         break;
                     }
-
                 }
-
             }
 
 
@@ -225,7 +249,6 @@ public class GymBattleHandler {
 
 /* =========================
  SILENT LUCKPERMS PROMOTION
-(no player chat spam)
 ========================= */
 
             try{
@@ -284,7 +307,7 @@ public class GymBattleHandler {
 
 
 /* =========================
- SINGLE PERSONAL MESSAGE
+ PERSONAL MESSAGE
 ========================= */
 
             winner.sendSystemMessage(
@@ -298,7 +321,7 @@ public class GymBattleHandler {
 
 
 /* =========================
- SINGLE GLOBAL BROADCAST
+ GLOBAL BROADCAST
 ========================= */
 
             winner.getServer()
@@ -321,7 +344,6 @@ public class GymBattleHandler {
         }
 
     }
-
 
 
 

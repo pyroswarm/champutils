@@ -39,6 +39,12 @@ public class MatchmakingManager {
             new ArrayList<>();
 
 
+    // NEW:
+    // players currently in "match found but not launched"
+    private static final Set<UUID> PENDING_MATCH =
+            new HashSet<>();
+
+
     private static class DelayedTask {
 
         int ticks;
@@ -54,7 +60,7 @@ public class MatchmakingManager {
     }
 
 
-    // =========================
+
     public static void joinQueue(
             ServerPlayer player,
             String type
@@ -79,11 +85,6 @@ public class MatchmakingManager {
         }
 
         if(TeamPreviewManager.isInPreview(player)){
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cAlready in preview."
-                    )
-            );
             return;
         }
 
@@ -107,7 +108,7 @@ public class MatchmakingManager {
                 k->new ArrayList<>()
         ).add(player);
 
-        QUEUE_TIME.put(
+        QUEUE_TIME.putIfAbsent(
                 player.getUUID(),
                 0
         );
@@ -125,6 +126,7 @@ public class MatchmakingManager {
     }
 
 
+
     public static void leaveQueue(
             ServerPlayer player
     ){
@@ -134,18 +136,19 @@ public class MatchmakingManager {
             q.remove(player);
         }
 
-        QueueBossBarManager.stop(
-                player
-        );
+        QueueBossBarManager.stop(player);
 
-        TeamSnapshotManager.clear(
-                player
-        );
+        TeamSnapshotManager.clear(player);
 
         QUEUE_TIME.remove(
                 player.getUUID()
         );
+
+        PENDING_MATCH.remove(
+                player.getUUID()
+        );
     }
+
 
 
     public static boolean isRankedMatch(
@@ -159,6 +162,7 @@ public class MatchmakingManager {
     }
 
 
+
     public static void clearMatch(
             ServerPlayer player
     ){
@@ -169,7 +173,12 @@ public class MatchmakingManager {
         OPPONENTS.remove(
                 player.getUUID()
         );
+
+        PENDING_MATCH.remove(
+                player.getUUID()
+        );
     }
+
 
 
     private static boolean rankedType(
@@ -181,13 +190,13 @@ public class MatchmakingManager {
     }
 
 
+
     private static boolean isInAnyQueue(
             ServerPlayer player
     ){
 
         for(List<ServerPlayer> q:
                 QUEUES.values()){
-
             if(q.contains(player))
                 return true;
         }
@@ -196,7 +205,25 @@ public class MatchmakingManager {
     }
 
 
-    // =========================
+
+    private static boolean canMatch(
+            ServerPlayer player
+    ){
+        return player != null
+                &&
+                player.isAlive()
+                &&
+                !BattleStateManager.isInBattle(player)
+                &&
+                !TeamPreviewManager.isInPreview(player)
+                &&
+                !PENDING_MATCH.contains(
+                        player.getUUID()
+                );
+    }
+
+
+
     public static void tick(){
 
         for(UUID id :
@@ -211,7 +238,6 @@ public class MatchmakingManager {
         }
 
 
-        // rematch decay
         for(var map :
                 RECENT_MATCHES.values()){
 
@@ -221,11 +247,9 @@ public class MatchmakingManager {
 
             while(it.hasNext()){
 
-                var e=
-                        it.next();
+                var e=it.next();
 
-                int t=
-                        e.getValue()+1;
+                int t=e.getValue()+1;
 
                 if(t>6000){
                     it.remove();
@@ -237,7 +261,7 @@ public class MatchmakingManager {
         }
 
 
-        // delayed tasks
+
         List<DelayedTask> run=
                 new ArrayList<>();
 
@@ -262,9 +286,7 @@ public class MatchmakingManager {
         }
 
 
-        // =========================
-        // MATCH SEARCH
-        // =========================
+
         for(String type:
                 QUEUES.keySet()){
 
@@ -273,6 +295,7 @@ public class MatchmakingManager {
 
             if(queue.size()<2)
                 continue;
+
 
             ServerPlayer bestP1=null;
             ServerPlayer bestP2=null;
@@ -289,12 +312,19 @@ public class MatchmakingManager {
                 ServerPlayer p1=
                         queue.get(i);
 
+                if(!canMatch(p1))
+                    continue;
+
+
                 for(int j=i+1;
                     j<queue.size();
                     j++){
 
                     ServerPlayer p2=
                             queue.get(j);
+
+                    if(!canMatch(p2))
+                        continue;
 
 
                     if(rankedType(type)
@@ -305,7 +335,6 @@ public class MatchmakingManager {
                     }
 
 
-                    // casual:
                     if(!rankedType(type)){
                         bestP1=p1;
                         bestP2=p2;
@@ -337,25 +366,20 @@ public class MatchmakingManager {
 
                     int eloDiff=
                             Math.abs(
-                                    getElo(p1)
-                                            -getElo(p2)
+                                    getElo(p1)-getElo(p2)
                             );
 
 
                     if(rankDiff<bestRankDiff
-                            ||(
-                            rankDiff==
-                                    bestRankDiff
-                                    &&
-                                    eloDiff<
-                                            bestEloDiff
-                    )){
+                            ||
+                            (
+                                    rankDiff==bestRankDiff
+                                            &&
+                                            eloDiff<bestEloDiff
+                            )){
 
-                        bestRankDiff=
-                                rankDiff;
-
-                        bestEloDiff=
-                                eloDiff;
+                        bestRankDiff=rankDiff;
+                        bestEloDiff=eloDiff;
 
                         bestP1=p1;
                         bestP2=p2;
@@ -371,24 +395,12 @@ public class MatchmakingManager {
 
             if(bestP1!=null){
 
-                boolean useArenas=
-                        Config.arenas!=null
-                                &&
-                                !Config.arenas.isEmpty();
-
-                if(useArenas
-                        && !ArenaManager.hasOpenArena()){
-                    continue;
-                }
-
-                queue.remove(bestP1);
-                queue.remove(bestP2);
-
-                QUEUE_TIME.remove(
+                // mark pending
+                PENDING_MATCH.add(
                         bestP1.getUUID()
                 );
 
-                QUEUE_TIME.remove(
+                PENDING_MATCH.add(
                         bestP2.getUUID()
                 );
 
@@ -404,6 +416,7 @@ public class MatchmakingManager {
     }
 
 
+
     private static int getRankSearchWindow(
             ServerPlayer player
     ){
@@ -414,8 +427,7 @@ public class MatchmakingManager {
                         0
                 );
 
-        int seconds=
-                ticks/20;
+        int seconds=ticks/20;
 
         if(getRankIndex(player)
                 >= Config.ranks.size()-1){
@@ -436,6 +448,7 @@ public class MatchmakingManager {
     }
 
 
+
     private static int getRankIndex(
             ServerPlayer player
     ){
@@ -448,12 +461,14 @@ public class MatchmakingManager {
         if(rank==null)
             return 0;
 
-        for(int i=0;
-            i<Config.ranks.size();
-            i++){
+        for(int i=0;i<Config.ranks.size();i++){
 
-            if(Config.ranks.get(i)
-                    .name.equals(rank.name)){
+            if(
+                    Config.ranks
+                            .get(i)
+                            .name
+                            .equals(rank.name)
+            ){
                 return i;
             }
         }
@@ -462,12 +477,78 @@ public class MatchmakingManager {
     }
 
 
-    // =========================
+
     private static void startMatch(
             ServerPlayer p1,
             ServerPlayer p2,
             String type
     ){
+
+        // if either entered battle,
+        // dissolve pending match
+        if(
+                BattleStateManager.isInBattle(p1)
+                        ||
+                        BattleStateManager.isInBattle(p2)
+        ){
+            clearMatch(p1);
+            clearMatch(p2);
+            return;
+        }
+
+
+        MATCH_TYPE.put(
+                p1.getUUID(),
+                type
+        );
+
+        MATCH_TYPE.put(
+                p2.getUUID(),
+                type
+        );
+
+
+        sendTitle(
+                p1,
+                "§aMATCH FOUND",
+                "§fPreparing..."
+        );
+
+        sendTitle(
+                p2,
+                "§aMATCH FOUND",
+                "§fPreparing..."
+        );
+
+
+        TASKS.add(
+                new DelayedTask(
+                        40,
+                        ()->runCountdown(
+                                p1,p2,type
+                        )
+                )
+        );
+    }
+
+
+
+    private static void runCountdown(
+            ServerPlayer p1,
+            ServerPlayer p2,
+            String type
+    ){
+
+        if(
+                BattleStateManager.isInBattle(p1)
+                        ||
+                        BattleStateManager.isInBattle(p2)
+        ){
+            clearMatch(p1);
+            clearMatch(p2);
+            return;
+        }
+
 
         boolean useArenas=
                 Config.arenas!=null
@@ -476,100 +557,62 @@ public class MatchmakingManager {
 
         if(useArenas){
 
+            if(!ArenaManager.hasOpenArena()){
+                clearMatch(p1);
+                clearMatch(p2);
+                return;
+            }
+
             var arena=
                     ArenaManager.reserveArena(
-                            p1,
-                            p2
+                            p1,p2
                     );
 
             if(arena==null){
+                clearMatch(p1);
+                clearMatch(p2);
                 return;
             }
 
             ArenaManager.teleportPlayersToArena(
-                    p1,
-                    p2,
-                    arena
+                    p1,p2,arena
             );
         }
 
-
-        MATCH_TYPE.put(
-                p1.getUUID(),
-                type
-        );
-
-        MATCH_TYPE.put(
-                p2.getUUID(),
-                type
-        );
-
-        OPPONENTS.put(
-                p1.getUUID(),
-                p2.getUUID()
-        );
-
-        OPPONENTS.put(
-                p2.getUUID(),
-                p1.getUUID()
-        );
-
-        if(rankedType(type)){
-            recordMatch(
-                    p1,p2
-            );
-        }
-
-        QueueBossBarManager.stop(p1);
-        QueueBossBarManager.stop(p2);
-
-
-        sendTitle(
-                p1,
-                "§aMATCH FOUND",
-                "§fTeleporting..."
-        );
-
-        sendTitle(
-                p2,
-                "§aMATCH FOUND",
-                "§fTeleporting..."
-        );
-
-
-        TASKS.add(
-                new DelayedTask(
-                        40,
-                        ()->runCountdown(
-                                p1,
-                                p2
-                        )
-                )
-        );
-    }
-
-
-    private static void runCountdown(
-            ServerPlayer p1,
-            ServerPlayer p2
-    ){
 
         countdown(p1,p2,"§c3",0);
         countdown(p1,p2,"§e2",20);
         countdown(p1,p2,"§a1",40);
         countdown(p1,p2,"§6GO!",60);
 
+
         TASKS.add(
                 new DelayedTask(
                         80,
-                        ()->TeamPreviewManager
-                                .startPreview(
-                                        p1,
-                                        p2
-                                )
+                        ()->{
+
+                            if(
+                                    BattleStateManager.isInBattle(p1)
+                                            ||
+                                            BattleStateManager.isInBattle(p2)
+                            ){
+                                clearMatch(p1);
+                                clearMatch(p2);
+                                return;
+                            }
+
+                            // NOW remove from queue
+                            leaveQueue(p1);
+                            leaveQueue(p2);
+
+                            TeamPreviewManager.startPreview(
+                                    p1,p2
+                            );
+                        }
                 )
         );
     }
+
 
 
     private static void countdown(
@@ -595,28 +638,23 @@ public class MatchmakingManager {
                             p1.level().playSound(
                                     null,
                                     p1.blockPosition(),
-                                    SoundEvents
-                                            .NOTE_BLOCK_PLING
-                                            .value(),
+                                    SoundEvents.NOTE_BLOCK_PLING.value(),
                                     SoundSource.PLAYERS,
-                                    1f,
-                                    1.2f
+                                    1f,1.2f
                             );
 
                             p2.level().playSound(
                                     null,
                                     p2.blockPosition(),
-                                    SoundEvents
-                                            .NOTE_BLOCK_PLING
-                                            .value(),
+                                    SoundEvents.NOTE_BLOCK_PLING.value(),
                                     SoundSource.PLAYERS,
-                                    1f,
-                                    1.2f
+                                    1f,1.2f
                             );
 
                         })
         );
     }
+
 
 
     private static void sendTitle(
@@ -641,13 +679,12 @@ public class MatchmakingManager {
 
             player.connection.send(
                     new ClientboundSetSubtitleTextPacket(
-                            Component.literal(
-                                    subtitle
-                            )
+                            Component.literal(subtitle)
                     )
             );
         }
     }
+
 
 
     private static void recordMatch(
@@ -677,6 +714,7 @@ public class MatchmakingManager {
     }
 
 
+
     private static boolean recentlyPlayed(
             ServerPlayer p1,
             ServerPlayer p2
@@ -694,6 +732,7 @@ public class MatchmakingManager {
                 p2.getUUID()
         );
     }
+
 
 
     private static int getElo(

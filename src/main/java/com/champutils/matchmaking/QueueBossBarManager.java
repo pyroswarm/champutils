@@ -1,5 +1,7 @@
 package com.champutils.matchmaking;
 
+import com.champutils.battle.BattleStateManager;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.bossevents.CustomBossEvent;
@@ -23,6 +25,7 @@ public class QueueBossBarManager {
 
     private static final Map<UUID, Integer> STAGES =
             new HashMap<>();
+
 
     // =========================
     // START
@@ -83,6 +86,8 @@ public class QueueBossBarManager {
         );
     }
 
+
+
     // =========================
     // STOP
     // =========================
@@ -112,6 +117,8 @@ public class QueueBossBarManager {
         );
     }
 
+
+
     // =========================
     // TICK
     // =========================
@@ -126,6 +133,7 @@ public class QueueBossBarManager {
             if (bar == null)
                 continue;
 
+
             int ticks =
                     TIMES.getOrDefault(
                             id,
@@ -137,6 +145,7 @@ public class QueueBossBarManager {
                     ticks
             );
 
+
             float progress =
                     Math.min(
                             1f,
@@ -147,15 +156,53 @@ public class QueueBossBarManager {
                     progress
             );
 
+
             String type =
                     TYPES.getOrDefault(
                             id,
                             "Queue"
                     );
 
+
+            ServerPlayer player =
+                    bar.getPlayers()
+                            .stream()
+                            .findFirst()
+                            .orElse(null);
+
+
+            if(player == null){
+                continue;
+            }
+
+
+
+            // =========================
+            // NEW:
+            // PAUSED WHILE IN BATTLE
+            // =========================
+
+            if(
+                    BattleStateManager.isInBattle(
+                            player
+                    )
+            ){
+
+                bar.setName(
+                        Component.literal(
+                                "§cQueue Paused §7( In Battle )"
+                        )
+                );
+
+                continue;
+            }
+
+
+
             // =========================
             // CASUAL
             // =========================
+
             if (type.equalsIgnoreCase(
                     "casual"
             )) {
@@ -169,9 +216,12 @@ public class QueueBossBarManager {
                 continue;
             }
 
+
+
             // =========================
             // RANKED
             // =========================
+
             int stage =
                     getStage(
                             ticks
@@ -181,6 +231,7 @@ public class QueueBossBarManager {
                     id,
                     stage
             );
+
 
             String stageText =
                     switch(stage) {
@@ -195,6 +246,7 @@ public class QueueBossBarManager {
                                 "§cWide Search";
                     };
 
+
             bar.setName(
                     Component.literal(
                             "§6Ranked Queue §7: "
@@ -203,6 +255,8 @@ public class QueueBossBarManager {
             );
         }
     }
+
+
 
     // =========================
     // STAGES
@@ -219,6 +273,8 @@ public class QueueBossBarManager {
 
         return 2;
     }
+
+
 
     // =========================
     // FORMAT LABEL

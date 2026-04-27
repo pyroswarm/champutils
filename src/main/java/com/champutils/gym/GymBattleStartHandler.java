@@ -1,6 +1,7 @@
 package com.champutils.gym;
 
 import com.champutils.badge.BadgeType;
+import com.champutils.battle.BattleStateManager;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
@@ -29,60 +30,51 @@ public class GymBattleStartHandler {
             NPCBattleActor gymNpc = null;
 
 
-
-/* =========================
- FIND ACTORS
-========================= */
-
-            for (
+            for(
                     var actor :
                     pre.getBattle().getActors()
-            ) {
+            ){
 
-                if (
+                if(
                         actor instanceof PlayerBattleActor p
-                ) {
-                    player =
-                            p.getEntity();
+                ){
+                    player = p.getEntity();
                 }
 
-                if (
+                if(
                         actor instanceof NPCBattleActor npc
-                ) {
+                ){
                     gymNpc = npc;
                 }
-
             }
 
 
-            if (
+            if(
                     player == null
                             ||
                             gymNpc == null
-            ) {
+            ){
                 return;
             }
 
 
-
-/* =========================
- ONLY REGISTERED GYM NPCS
-========================= */
-
-            if (
+            if(
                     !GymRegistry.isGymNpc(
                             gymNpc.getNpc()
                                     .getUUID()
                     )
-            ) {
+            ){
                 return;
             }
 
 
+            // IMPORTANT:
+            // mark player in battle so queue pauses
+            BattleStateManager.setInBattle(
+                    player,
+                    true
+            );
 
-/* =========================
- GET GYM
-========================= */
 
             BadgeType badge =
                     GymRegistry.getBadgeForNpc(
@@ -95,17 +87,10 @@ public class GymBattleStartHandler {
                             badge
                     );
 
-            if (
-                    gym == null
-            ) {
+            if(gym == null){
                 return;
             }
 
-
-
-/* =========================
- PROGRESSION GATE
-========================= */
 
             String requiredGroup =
                     requiredGroup(
@@ -113,12 +98,17 @@ public class GymBattleStartHandler {
                     );
 
 
-            if (
+            if(
                     !hasGroup(
                             player,
                             requiredGroup
                     )
-            ) {
+            ){
+
+                BattleStateManager.setInBattle(
+                        player,
+                        false
+                );
 
                 player.sendSystemMessage(
                         Component.literal(
@@ -136,47 +126,33 @@ public class GymBattleStartHandler {
 
                 pre.cancel();
 
-                System.out.println(
-                        "[ChampUtils] Battle blocked by progression."
-                );
-
                 return;
             }
 
 
 
-/* =========================
- LEVEL CAP CHECK
-========================= */
-
-            for (
+            for(
                     Pokemon mon :
                     PlayerExtensionsKt.party(
                             player
                     )
-            ) {
+            ){
 
-                if (
-                        mon == null
-                ) {
+                if(mon==null){
                     continue;
                 }
 
 
-                System.out.println(
-                        "[ChampUtils] "
-                                + mon.getSpecies()
-                                .getName()
-                                + " lvl "
-                                + mon.getLevel()
-                );
-
-
-                if (
+                if(
                         mon.getLevel()
                                 >
                                 gym.levelCap
-                ) {
+                ){
+
+                    BattleStateManager.setInBattle(
+                            player,
+                            false
+                    );
 
                     player.sendSystemMessage(
                             Component.literal(
@@ -193,25 +169,14 @@ public class GymBattleStartHandler {
 
                     pre.cancel();
 
-                    System.out.println(
-                            "[ChampUtils] Battle blocked by level cap."
-                    );
-
                     return;
                 }
-
             }
 
         });
-
     }
 
 
-
-
-/* =========================
- REQUIRED LP GROUP
-========================= */
 
     private static String requiredGroup(
             BadgeType badge
@@ -219,63 +184,30 @@ public class GymBattleStartHandler {
 
         return switch(badge){
 
-            case BOULDER ->
-                    null;
-
-            case CASCADE ->
-                    "gym1";
-
-            case THUNDER ->
-                    "gym2";
-
-            case RAINBOW ->
-                    "gym3";
-
-            case SOUL ->
-                    "gym4";
-
-            case MARSH ->
-                    "gym5";
-
-            case VOLCANO ->
-                    "gym6";
-
-            case EARTH ->
-                    "gym7";
-
-            case LORELEI ->
-                    "gym8";
-
-            case BRUNO ->
-                    "elite4-1";
-
-            case AGATHA ->
-                    "elite4-2";
-
-            case LANCE ->
-                    "elite4-3";
-
-            case CHAMPION ->
-                    "elite4-4";
+            case BOULDER -> null;
+            case CASCADE -> "gym1";
+            case THUNDER -> "gym2";
+            case RAINBOW -> "gym3";
+            case SOUL -> "gym4";
+            case MARSH -> "gym5";
+            case VOLCANO -> "gym6";
+            case EARTH -> "gym7";
+            case LORELEI -> "gym8";
+            case BRUNO -> "elite4-1";
+            case AGATHA -> "elite4-2";
+            case LANCE -> "elite4-3";
+            case CHAMPION -> "elite4-4";
         };
-
     }
 
 
-
-
-/* =========================
- CHECK LP GROUP
-========================= */
 
     private static boolean hasGroup(
             ServerPlayer player,
             String group
     ){
 
-        if(
-                group==null
-        ){
+        if(group==null){
             return true;
         }
 
@@ -290,12 +222,9 @@ public class GymBattleStartHandler {
                                     player.getUUID()
                             );
 
-            if(
-                    user==null
-            ){
+            if(user==null){
                 return false;
             }
-
 
             return user.getInheritedGroups(
                     user.getQueryOptions()
@@ -309,20 +238,12 @@ public class GymBattleStartHandler {
 
         }
         catch(Exception e){
-
             e.printStackTrace();
-
             return false;
         }
-
     }
 
 
-
-
-/* =========================
- LOCKED MESSAGE
-========================= */
 
     private static String lockedMessage(
             BadgeType badge
@@ -330,46 +251,19 @@ public class GymBattleStartHandler {
 
         return switch(badge){
 
-            case CASCADE ->
-                    "§cDefeat Brock first.";
-
-            case THUNDER ->
-                    "§cDefeat Misty first.";
-
-            case RAINBOW ->
-                    "§cDefeat Lt. Surge first.";
-
-            case SOUL ->
-                    "§cDefeat Erika first.";
-
-            case MARSH ->
-                    "§cDefeat Koga first.";
-
-            case VOLCANO ->
-                    "§cDefeat Sabrina first.";
-
-            case EARTH ->
-                    "§cDefeat Blaine first.";
-
-            case LORELEI ->
-                    "§cDefeat Giovanni first.";
-
-            case BRUNO ->
-                    "§cDefeat Lorelei first.";
-
-            case AGATHA ->
-                    "§cDefeat Bruno first.";
-
-            case LANCE ->
-                    "§cDefeat Agatha first.";
-
-            case CHAMPION ->
-                    "§cDefeat Lance first.";
-
-            default ->
-                    "§cThis challenge is locked.";
+            case CASCADE -> "§cDefeat Brock first.";
+            case THUNDER -> "§cDefeat Misty first.";
+            case RAINBOW -> "§cDefeat Lt. Surge first.";
+            case SOUL -> "§cDefeat Erika first.";
+            case MARSH -> "§cDefeat Koga first.";
+            case VOLCANO -> "§cDefeat Sabrina first.";
+            case EARTH -> "§cDefeat Blaine first.";
+            case LORELEI -> "§cDefeat Giovanni first.";
+            case BRUNO -> "§cDefeat Lorelei first.";
+            case AGATHA -> "§cDefeat Bruno first.";
+            case LANCE -> "§cDefeat Agatha first.";
+            case CHAMPION -> "§cDefeat Lance first.";
+            default -> "§cThis challenge is locked.";
         };
-
     }
-
 }
