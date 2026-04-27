@@ -9,4 +9,5 @@ public class Format {
     public List<String> banned_items;
     public List<String> banned_abilities;
     public Matchmaking matchmaking;
+    public boolean allow_battle_items = true;
 }

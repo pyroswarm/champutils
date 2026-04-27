@@ -5,12 +5,9 @@ import com.champutils.badge.BadgeType;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 
-import net.luckperms.api.context.ImmutableContextSet;
-
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.track.Track;
 
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 public class LuckPermsHook {
@@ -20,24 +17,13 @@ public class LuckPermsHook {
 
 
 
-/* =========================
- PROMOTE ONE STEP
-========================= */
-
     public static void promoteForBadge(
             ServerPlayer player,
             BadgeType badge
     ){
 
-        /*
-         strict linear progression:
-         every badge promotes
-        */
-
         if(
-                !isPromotionBattle(
-                        badge
-                )
+                badge == null
         ){
             return;
         }
@@ -51,7 +37,11 @@ public class LuckPermsHook {
                     lp.getUserManager()
                             .loadUser(
                                     player.getUUID()
-                            ).join();
+                            )
+                            .join();
+
+            String before =
+                    user.getPrimaryGroup();
 
 
             Track track =
@@ -60,33 +50,22 @@ public class LuckPermsHook {
                                     TRACK_NAME
                             );
 
-
             if(
                     track == null
             ){
-
                 System.out.println(
-                        "[ChampUtils] Missing LuckPerms track: "
+                        "[ChampUtils] Missing LP track "
                                 + TRACK_NAME
                 );
-
-                player.sendSystemMessage(
-                        Component.literal(
-                                "§cGym progression track missing."
-                        )
-                );
-
                 return;
             }
 
 
-
-            var result =
-                    track.promote(
-                            user,
-                            ImmutableContextSet.empty()
-                    );
-
+            track.promote(
+                    user,
+                    user.getQueryOptions()
+                            .context()
+            );
 
 
             lp.getUserManager()
@@ -95,71 +74,40 @@ public class LuckPermsHook {
                     );
 
 
+            user =
+                    lp.getUserManager()
+                            .loadUser(
+                                    player.getUUID()
+                            )
+                            .join();
 
-            System.out.println(
-                    "[ChampUtils] LuckPerms promote success="
-                            + result.wasSuccessful()
-            );
-
+            String after =
+                    user.getPrimaryGroup();
 
 
             if(
-                    result.wasSuccessful()
+                    !before.equalsIgnoreCase(
+                            after
+                    )
             ){
-
-                player.sendSystemMessage(
-                        Component.literal(
-                                "§aProgression rank advanced!"
-                        )
+                System.out.println(
+                        "[ChampUtils] Rank advanced "
+                                + before
+                                + " -> "
+                                + after
                 );
-
             }
             else{
-
-                player.sendSystemMessage(
-                        Component.literal(
-                                "§cProgression promotion failed."
-                        )
+                System.out.println(
+                        "[ChampUtils] Promotion did not advance rank."
                 );
             }
 
         }
         catch(Exception e){
-
             e.printStackTrace();
-
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cLuckPerms error during promotion."
-                    )
-            );
         }
 
-    }
-
-
-
-
-/* =========================
- EVERY BADGE PROMOTES
-========================= */
-
-    private static boolean isPromotionBattle(
-            BadgeType badge
-    ){
-
-        return badge != null;
-    }
-
-
-
-
-/* =========================
- OPTIONAL DEBUG HELPER
-========================= */
-
-    public static String getTrackName(){
-        return TRACK_NAME;
     }
 
 }

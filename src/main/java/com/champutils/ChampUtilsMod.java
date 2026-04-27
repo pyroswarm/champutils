@@ -20,6 +20,7 @@ import com.champutils.matchmaking.TeamPreviewManager;
 
 import com.champutils.battle.CobblemonBattleHandler;
 import com.champutils.battle.CobblemonBattleStartHandler;
+import com.champutils.battle.BattleItemUseListener;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -162,6 +163,8 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleHandler.register();
 
         CobblemonBattleStartHandler.register();
+
+        BattleItemUseListener.register();
 
         GymBattleHandler.register();
 

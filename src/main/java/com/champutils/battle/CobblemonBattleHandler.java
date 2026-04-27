@@ -12,35 +12,91 @@ public class CobblemonBattleHandler {
 
         CobblemonEvents.BATTLE_VICTORY.subscribe(event -> {
 
-            BattleVictoryEvent e = (BattleVictoryEvent) event;
+            BattleVictoryEvent e =
+                    (BattleVictoryEvent) event;
 
-            for (var actor : e.getBattle().getActors()) {
-                if (actor instanceof PlayerBattleActor playerActor) {
-                    ServerPlayer player = (ServerPlayer) playerActor.getEntity();
-                    BattleStateManager.setInBattle(player, false);
+
+            // =========================
+            // CLEAR BATTLE STATE
+            // =========================
+
+            for (
+                    var actor :
+                    e.getBattle().getActors()
+            ) {
+
+                if (
+                        actor instanceof PlayerBattleActor playerActor
+                ) {
+
+                    ServerPlayer player =
+                            (ServerPlayer)
+                                    playerActor.getEntity();
+
+                    BattleStateManager.setInBattle(
+                            player,
+                            false
+                    );
+
+                    BattleItemLockManager.unlock(
+                            player
+                    );
                 }
             }
+
 
             ServerPlayer winner = null;
             ServerPlayer loser = null;
 
-            for (var actor : e.getWinners()) {
-                if (actor instanceof PlayerBattleActor playerActor) {
-                    winner = (ServerPlayer) playerActor.getEntity();
+
+            for (
+                    var actor :
+                    e.getWinners()
+            ) {
+
+                if (
+                        actor instanceof PlayerBattleActor playerActor
+                ) {
+
+                    winner =
+                            (ServerPlayer)
+                                    playerActor.getEntity();
+
                     break;
                 }
             }
 
-            for (var actor : e.getLosers()) {
-                if (actor instanceof PlayerBattleActor playerActor) {
-                    loser = (ServerPlayer) playerActor.getEntity();
+
+            for (
+                    var actor :
+                    e.getLosers()
+            ) {
+
+                if (
+                        actor instanceof PlayerBattleActor playerActor
+                ) {
+
+                    loser =
+                            (ServerPlayer)
+                                    playerActor.getEntity();
+
                     break;
                 }
             }
 
-            if (winner != null && loser != null) {
-                BattleListener.onBattleEnd(winner, loser);
+
+            if (
+                    winner != null
+                            &&
+                            loser != null
+            ) {
+
+                BattleListener.onBattleEnd(
+                        winner,
+                        loser
+                );
             }
+
         });
     }
 }

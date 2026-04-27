@@ -31,6 +31,7 @@ public class GymBattleHandler {
         CobblemonEvents.BATTLE_VICTORY.subscribe(
                 GymBattleHandler::handleVictory
         );
+
     }
 
 
@@ -223,7 +224,8 @@ public class GymBattleHandler {
 
 
 /* =========================
- LUCKPERMS TRACK PROMOTION
+ SILENT LUCKPERMS PROMOTION
+(no player chat spam)
 ========================= */
 
             try{
@@ -241,7 +243,7 @@ public class GymBattleHandler {
 
 
 /* =========================
- BADGE POPUP
+ BADGE TITLE POPUP
 ========================= */
 
             winner.connection.send(
@@ -272,7 +274,6 @@ public class GymBattleHandler {
                     )
             );
 
-
             winner.playNotifySound(
                     SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                     SoundSource.PLAYERS,
@@ -283,7 +284,21 @@ public class GymBattleHandler {
 
 
 /* =========================
- GLOBAL ANNOUNCEMENT
+ SINGLE PERSONAL MESSAGE
+========================= */
+
+            winner.sendSystemMessage(
+                    Component.literal(
+                            "§eYou earned the "
+                                    + badge.getDisplayName()
+                                    + " Badge!"
+                    )
+            );
+
+
+
+/* =========================
+ SINGLE GLOBAL BROADCAST
 ========================= */
 
             winner.getServer()
@@ -291,10 +306,11 @@ public class GymBattleHandler {
                     .broadcastSystemMessage(
                             Component.literal(
                                     "§6"
-                                            + winner.getName().getString()
-                                            + " defeated "
+                                            + winner.getName()
+                                            .getString()
+                                            + " defeated the "
                                             + badge.getDisplayName()
-                                            + "!"
+                                            + " gym!"
                             ),
                             false
                     );
@@ -318,7 +334,9 @@ public class GymBattleHandler {
             BadgeType badge
     ){
 
-        return switch(badge){
+        return switch(
+                badge
+                ){
 
             case BOULDER,
                  CASCADE,
