@@ -36,6 +36,7 @@ public class CobblemonBattleStartHandler {
                     if (
                             p1 == null
                     ) {
+
                         p1 =
                                 (ServerPlayer)
                                         playerActor.getEntity();
@@ -62,6 +63,7 @@ public class CobblemonBattleStartHandler {
             }
 
 
+
             // =========================
             // MARK IN BATTLE
             // =========================
@@ -77,6 +79,7 @@ public class CobblemonBattleStartHandler {
             );
 
 
+
             // =========================
             // ONLY RANKED ENFORCEMENT
             // =========================
@@ -89,6 +92,7 @@ public class CobblemonBattleStartHandler {
             ) {
                 return;
             }
+
 
 
             // =========================
@@ -115,8 +119,19 @@ public class CobblemonBattleStartHandler {
 
 
             // =========================
+            // HEAL BOTH TEAMS
+            // =========================
+
+            BattlePrepManager.prepareRankedBattle(
+                    p1,
+                    p2
+            );
+
+
+
+            // =========================
             // FINAL PRE-BATTLE VALIDATION
-            // (pokemon/items/moves/abilities)
+            // pokemon/items/moves/abilities
             // =========================
 
             String err1 =
@@ -142,6 +157,7 @@ public class CobblemonBattleStartHandler {
                         e,
                         p1,
                         p2,
+
                         err1 != null
                                 ? err1
                                 : "Opponent has invalid team",
@@ -168,6 +184,7 @@ public class CobblemonBattleStartHandler {
         event.cancel();
 
 
+
         BattleStateManager.setInBattle(
                 p1,
                 false
@@ -178,6 +195,8 @@ public class CobblemonBattleStartHandler {
                 false
         );
 
+
+
         BattleItemLockManager.unlock(
                 p1
         );
@@ -185,6 +204,7 @@ public class CobblemonBattleStartHandler {
         BattleItemLockManager.unlock(
                 p2
         );
+
 
 
         p1.sendSystemMessage(
@@ -198,6 +218,7 @@ public class CobblemonBattleStartHandler {
                         "§c" + m2
                 )
         );
+
 
 
         MatchmakingManager.clearMatch(
