@@ -67,7 +67,8 @@ public class GymBattleHandler {
 
 
 /* =========================
- FIND LOSING NPC
+ FIND GYM NPC
+ Works whether NPC won or lost
 ========================= */
 
             for(
@@ -78,18 +79,32 @@ public class GymBattleHandler {
                 if(
                         actor instanceof NPCBattleActor npcActor
                 ){
-
-                    gymNpc =
-                            npcActor;
-
+                    gymNpc=npcActor;
                     break;
+                }
+            }
+
+            if(
+                    gymNpc==null
+            ){
+
+                for(
+                        var actor :
+                        event.getWinners()
+                ){
+
+                    if(
+                            actor instanceof NPCBattleActor npcActor
+                    ){
+                        gymNpc=npcActor;
+                        break;
+                    }
                 }
             }
 
 
             if(
-                    winner == null ||
-                            gymNpc == null
+                    gymNpc == null
             ){
                 return;
             }
@@ -97,10 +112,10 @@ public class GymBattleHandler {
 
 
 /* =========================
- IS REGISTERED GYM?
+ REGISTERED GYM?
 ========================= */
 
-            UUID npcUUID =
+            UUID npcUUID=
                     gymNpc.getEntity()
                             .getUUID();
 
@@ -118,13 +133,49 @@ public class GymBattleHandler {
  GET BADGE
 ========================= */
 
-            BadgeType badge =
+            BadgeType badge=
                     GymRegistry.getBadgeForNpc(
                             npcUUID
                     );
 
             if(
-                    badge == null
+                    badge==null
+            ){
+                return;
+            }
+
+
+
+/* =========================
+ ALWAYS RESET/HEAL NPC TEAM
+ (NEW CHANGE)
+========================= */
+
+            try{
+
+                GymNpcPartyBuilder.applyGymTeam(
+                        gymNpc.getEntity(),
+                        badge
+                );
+
+                System.out.println(
+                        "[ChampUtils] Gym NPC healed/reset after battle."
+                );
+
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
+
+
+
+/* =========================
+ IF PLAYER LOST,
+ stop here after reset
+========================= */
+
+            if(
+                    winner == null
             ){
                 return;
             }
@@ -135,12 +186,11 @@ public class GymBattleHandler {
  AWARD BADGE
 ========================= */
 
-            boolean awarded =
+            boolean awarded=
                     BadgeManager.awardBadge(
                             winner,
                             badge
                     );
-
 
             if(
                     !awarded
@@ -223,7 +273,6 @@ public class GymBattleHandler {
                             ),
                             false
                     );
-
 
         }
         catch(Exception ex){
