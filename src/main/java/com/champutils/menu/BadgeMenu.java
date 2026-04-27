@@ -45,9 +45,13 @@ public class BadgeMenu {
         );
 
 
+/* =========================
+ KANTO GYMS
+========================= */
+
         addBadge(
                 gui,
-                10,
+                0,
                 BadgeType.BOULDER,
                 "Brock",
                 "/pc unlocked",
@@ -56,7 +60,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                11,
+                1,
                 BadgeType.CASCADE,
                 "Misty",
                 "Progression Badge",
@@ -65,7 +69,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                12,
+                2,
                 BadgeType.THUNDER,
                 "Lt. Surge",
                 "/pokeheal unlocked",
@@ -74,7 +78,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                13,
+                3,
                 BadgeType.RAINBOW,
                 "Erika",
                 "Progression Badge",
@@ -83,7 +87,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                14,
+                4,
                 BadgeType.SOUL,
                 "Koga",
                 "Midgame Unlock",
@@ -92,7 +96,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                15,
+                5,
                 BadgeType.MARSH,
                 "Sabrina",
                 "Midgame Unlock",
@@ -101,7 +105,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                16,
+                6,
                 BadgeType.VOLCANO,
                 "Blaine",
                 "Late Unlock",
@@ -110,10 +114,60 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                17,
+                7,
                 BadgeType.EARTH,
                 "Giovanni",
-                "Champion Access",
+                "Elite Four Access",
+                earned
+        );
+
+
+/* =========================
+ ELITE FOUR + CHAMPION
+========================= */
+
+        addBadge(
+                gui,
+                9,
+                BadgeType.LORELEI,
+                "Lorelei",
+                "Elite Four I",
+                earned
+        );
+
+        addBadge(
+                gui,
+                10,
+                BadgeType.BRUNO,
+                "Bruno",
+                "Elite Four II",
+                earned
+        );
+
+        addBadge(
+                gui,
+                11,
+                BadgeType.AGATHA,
+                "Agatha",
+                "Elite Four III",
+                earned
+        );
+
+        addBadge(
+                gui,
+                12,
+                BadgeType.LANCE,
+                "Lance",
+                "Elite Four IV",
+                earned
+        );
+
+        addBadge(
+                gui,
+                13,
+                BadgeType.CHAMPION,
+                "Champion",
+                "Hall of Fame",
                 earned
         );
 
@@ -129,6 +183,7 @@ public class BadgeMenu {
 
         gui.open();
     }
+
 
 
 
@@ -219,6 +274,7 @@ public class BadgeMenu {
 
 
 
+
     private static Item getBadgeItem(
             BadgeType badge
     ){
@@ -251,9 +307,34 @@ public class BadgeMenu {
             case EARTH ->
                     Items.GRASS_BLOCK;
 
+
+/* =========================
+ ELITE FOUR
+========================= */
+
+            case LORELEI ->
+                    Items.BLUE_ICE;
+
+            case BRUNO ->
+                    Items.IRON_BLOCK;
+
+            case AGATHA ->
+                    Items.SOUL_LANTERN;
+
+            case LANCE ->
+                    Items.DRAGON_HEAD;
+
+
+/* =========================
+ CHAMPION
+========================= */
+
+            case CHAMPION ->
+                    Items.NETHER_STAR;
         };
 
     }
+
 
 
 

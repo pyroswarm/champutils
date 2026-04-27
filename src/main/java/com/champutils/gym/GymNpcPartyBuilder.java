@@ -43,7 +43,7 @@ public class GymNpcPartyBuilder {
             if(debug){
 
                 System.out.println(
-                        "=============================="
+                        "==========================="
                 );
 
                 System.out.println(
@@ -52,10 +52,6 @@ public class GymNpcPartyBuilder {
                 );
             }
 
-
-/* =========================
- RESET NPC
-========================= */
 
             npc.initialize(
                     gym.levelCap
@@ -68,10 +64,6 @@ public class GymNpcPartyBuilder {
 
             int slot=0;
 
-
-/* =========================
- BUILD TEAM
-========================= */
 
             for(
                     GymConfig.PokemonSet set :
@@ -108,10 +100,6 @@ public class GymNpcPartyBuilder {
             );
 
 
-/* =========================
- FORCE HEAL ENTIRE PARTY
-========================= */
-
             try{
 
                 for(
@@ -139,6 +127,7 @@ public class GymNpcPartyBuilder {
 
             npc.setPersistenceRequired();
 
+
             System.out.println(
                     "[ChampUtils] Applied "
                             + slot
@@ -146,10 +135,11 @@ public class GymNpcPartyBuilder {
                             + badge.name()
             );
 
+
             if(debug){
 
                 System.out.println(
-                        "=============================="
+                        "==========================="
                 );
             }
 
@@ -168,9 +158,7 @@ public class GymNpcPartyBuilder {
 
 
 
-/* =========================
- CREATE POKEMON
-========================= */
+
 
     private static Pokemon createPokemon(
             GymConfig.PokemonSet set,
@@ -190,9 +178,8 @@ public class GymNpcPartyBuilder {
                             .create();
 
 
-/* =========================
- ABILITY
-========================= */
+
+            /* ABILITY */
 
             boolean abilityApplied=false;
 
@@ -226,34 +213,8 @@ public class GymNpcPartyBuilder {
             catch(Exception ignored){}
 
 
-            if(debug){
 
-                System.out.println(
-                        "Pokemon: "
-                                + set.species
-                );
-
-                System.out.println(
-                        "Level: "
-                                + set.level
-                );
-
-                System.out.println(
-                        "Ability: "
-                                + set.ability
-                                + " "
-                                + (
-                                abilityApplied ?
-                                        "[OK]" :
-                                        "[FAILED]"
-                        )
-                );
-            }
-
-
-/* =========================
- NATURE
-========================= */
+            /* NATURE */
 
             boolean natureApplied=false;
 
@@ -279,91 +240,59 @@ public class GymNpcPartyBuilder {
             }
             catch(Exception ignored){}
 
-            if(debug){
-
-                System.out.println(
-                        "Nature: "
-                                + set.nature
-                                + " "
-                                + (
-                                natureApplied?
-                                        "[OK]":
-                                        "[FAILED]"
-                        )
-                );
-            }
 
 
+            /* MOVES */
 
-/* =========================
- HELD ITEMS DISABLED
-========================= */
+            if(
+                    set.moves!=null &&
+                            !set.moves.isEmpty()
+            ){
 
-            if(debug){
-                System.out.println(
-                        "Held Item: disabled"
-                );
-            }
+                pokemon.getMoveSet().clear();
 
-
-
-/* =========================
- MOVES
-========================= */
-
-            try{
-
-                if(
-                        set.moves!=null &&
-                                !set.moves.isEmpty()
+                for(
+                        String move :
+                        set.moves
                 ){
 
-                    pokemon.getMoveSet().clear();
+                    boolean learned=false;
 
-                    for(
-                            String move :
-                            set.moves
-                    ){
+                    try{
 
-                        boolean learned=false;
+                        pokemon.getMoveSet().add(
+                                Moves.getByName(
+                                        move
+                                ).create()
+                        );
 
-                        try{
+                        learned=true;
 
-                            pokemon.getMoveSet().add(
-                                    Moves.getByName(
-                                            move
-                                    ).create()
-                            );
+                    }
+                    catch(Exception ignored){}
 
-                            learned=true;
+                    if(debug){
 
-                        }catch(Exception ignored){}
-
-                        if(debug){
-
-                            System.out.println(
-                                    "Move: "
-                                            + move
-                                            + " "
-                                            + (
-                                            learned ?
-                                                    "[OK]" :
-                                                    "[FAILED]"
-                                    )
-                            );
-                        }
-
+                        System.out.println(
+                                "Move: "
+                                        + move
+                                        + (
+                                        learned
+                                                ?
+                                                " [OK]"
+                                                :
+                                                " [FAILED]"
+                                )
+                        );
                     }
 
                 }
 
-            }catch(Exception ignored){}
+            }
 
 
 
-/* =========================
- IVs
-========================= */
+            /* IVS */
 
             applyIVs(
                     pokemon,
@@ -372,32 +301,63 @@ public class GymNpcPartyBuilder {
             );
 
 
+            /* EVS */
 
-/* =========================
- EVs DEBUG ONLY FOR NOW
-========================= */
+            applyEVs(
+                    pokemon,
+                    set,
+                    debug
+            );
 
-            if(
-                    debug &&
-                            set.evs!=null
-            ){
 
-                System.out.println(
-                        "EVs (not applied yet): "
-                                + set.evs.hp+"/"
-                                + set.evs.atk+"/"
-                                + set.evs.def+"/"
-                                + set.evs.spa+"/"
-                                + set.evs.spd+"/"
-                                + set.evs.spe
-                );
-            }
+            pokemon.heal();
 
+
+
+            /* DEBUG */
 
             if(debug){
 
                 System.out.println(
-                        "-----------------------"
+                        "Pokemon: "
+                                + set.species
+                );
+
+                System.out.println(
+                        "Level: "
+                                + set.level
+                );
+
+                System.out.println(
+                        "Ability: "
+                                + set.ability
+                                + (
+                                abilityApplied
+                                        ?
+                                        " [OK]"
+                                        :
+                                        " [FAILED]"
+                        )
+                );
+
+                System.out.println(
+                        "Nature: "
+                                + set.nature
+                                + (
+                                natureApplied
+                                        ?
+                                        " [OK]"
+                                        :
+                                        " [FAILED]"
+                        )
+                );
+
+                System.out.println(
+                        "Held Item: disabled"
+                );
+
+                System.out.println(
+                        "------------------"
                 );
             }
 
@@ -416,9 +376,12 @@ public class GymNpcPartyBuilder {
 
 
 
-/* =========================
- IV APPLICATION
-========================= */
+
+
+
+/* =================
+ IVs
+================= */
 
     private static void applyIVs(
             Pokemon pokemon,
@@ -436,7 +399,6 @@ public class GymNpcPartyBuilder {
 
             var ivs=
                     pokemon.getIvs();
-
 
             ivs.set(
                     Stats.HP,
@@ -481,10 +443,6 @@ public class GymNpcPartyBuilder {
             );
 
 
-            /* force stat refresh */
-            pokemon.heal();
-
-
             if(debug){
 
                 System.out.println(
@@ -508,6 +466,150 @@ public class GymNpcPartyBuilder {
 
                 System.out.println(
                         "IVs [FAILED]"
+                );
+            }
+        }
+
+    }
+
+
+
+
+
+
+/* =================
+ EVs
+================= */
+
+    private static void applyEVs(
+            Pokemon pokemon,
+            GymConfig.PokemonSet set,
+            boolean debug
+    ){
+
+        if(
+                set.evs==null
+        ){
+            return;
+        }
+
+        try{
+
+            int hp=
+                    Math.min(
+                            252,
+                            set.evs.hp
+                    );
+
+            int atk=
+                    Math.min(
+                            252,
+                            set.evs.atk
+                    );
+
+            int def=
+                    Math.min(
+                            252,
+                            set.evs.def
+                    );
+
+            int spa=
+                    Math.min(
+                            252,
+                            set.evs.spa
+                    );
+
+            int spd=
+                    Math.min(
+                            252,
+                            set.evs.spd
+                    );
+
+            int spe=
+                    Math.min(
+                            252,
+                            set.evs.spe
+                    );
+
+
+            int total=
+                    hp+atk+def+spa+spd+spe;
+
+            if(
+                    total>510
+            ){
+
+                double scale=
+                        510D/
+                                total;
+
+                hp=(int)(hp*scale);
+                atk=(int)(atk*scale);
+                def=(int)(def*scale);
+                spa=(int)(spa*scale);
+                spd=(int)(spd*scale);
+                spe=(int)(spe*scale);
+            }
+
+
+            var evs=
+                    pokemon.getEvs();
+
+
+            evs.set(
+                    Stats.HP,
+                    hp
+            );
+
+            evs.set(
+                    Stats.ATTACK,
+                    atk
+            );
+
+            evs.set(
+                    Stats.DEFENCE,
+                    def
+            );
+
+            evs.set(
+                    Stats.SPECIAL_ATTACK,
+                    spa
+            );
+
+            evs.set(
+                    Stats.SPECIAL_DEFENCE,
+                    spd
+            );
+
+            evs.set(
+                    Stats.SPEED,
+                    spe
+            );
+
+
+            if(debug){
+
+                System.out.println(
+                        "EVs applied: "
+                                + hp+"/"
+                                + atk+"/"
+                                + def+"/"
+                                + spa+"/"
+                                + spd+"/"
+                                + spe
+                                + " [OK]"
+                );
+            }
+
+        }
+        catch(Exception e){
+
+            if(debug){
+
+                e.printStackTrace();
+
+                System.out.println(
+                        "EVs [FAILED]"
                 );
             }
         }

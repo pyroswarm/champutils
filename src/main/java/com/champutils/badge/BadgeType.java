@@ -2,91 +2,52 @@ package com.champutils.badge;
 
 public enum BadgeType {
 
-    BOULDER(
-            "Boulder",
-            "/pc"
-    ),
+    BOULDER("Boulder","/pc"),
+    CASCADE("Cascade",""),
+    THUNDER("Thunder","/pokeheal"),
+    RAINBOW("Rainbow",""),
+    SOUL("Soul",""),
+    MARSH("Marsh",""),
+    VOLCANO("Volcano",""),
+    EARTH("Earth",""),
 
-    CASCADE(
-            "Cascade",
-            ""
-    ),
-
-    THUNDER(
-            "Thunder",
-            "/pokeheal"
-    ),
-
-    RAINBOW(
-            "Rainbow",
-            ""
-    ),
-
-    SOUL(
-            "Soul",
-            ""
-    ),
-
-    MARSH(
-            "Marsh",
-            ""
-    ),
-
-    VOLCANO(
-            "Volcano",
-            ""
-    ),
-
-    EARTH(
-            "Earth",
-            ""
-    );
-
+    LORELEI("Lorelei",""),
+    BRUNO("Bruno",""),
+    AGATHA("Agatha",""),
+    LANCE("Lance",""),
+    CHAMPION("Champion","");
 
     private final String displayName;
     private final String unlockedCommand;
-
-
 
     BadgeType(
             String displayName,
             String unlockedCommand
     ){
-        this.displayName = displayName;
-        this.unlockedCommand = unlockedCommand;
+        this.displayName=displayName;
+        this.unlockedCommand=unlockedCommand;
     }
-
-
 
     public String getDisplayName(){
         return displayName;
     }
 
-
-
     public String getUnlockedCommand(){
         return unlockedCommand;
     }
 
-
-
     public boolean unlocksCommand(){
-        return unlockedCommand != null
+        return unlockedCommand!=null
                 && !unlockedCommand.isBlank();
     }
-
-
 
     public static BadgeType fromString(
             String value
     ){
 
-        if(
-                value == null
-        ){
+        if(value==null){
             return null;
         }
-
 
         for(
                 BadgeType badge :
@@ -112,5 +73,4 @@ public enum BadgeType {
 
         return null;
     }
-
 }

@@ -4,12 +4,15 @@ import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeUnlockManager;
 
+import com.champutils.permissions.LuckPermsHook;
+
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 
 import net.minecraft.network.chat.Component;
+
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
@@ -23,12 +26,13 @@ import java.util.UUID;
 
 public class GymBattleHandler {
 
-    public static void register() {
+    public static void register(){
 
         CobblemonEvents.BATTLE_VICTORY.subscribe(
                 GymBattleHandler::handleVictory
         );
     }
+
 
 
 
@@ -38,9 +42,8 @@ public class GymBattleHandler {
 
         try{
 
-            ServerPlayer winner = null;
-            NPCBattleActor gymNpc = null;
-
+            ServerPlayer winner=null;
+            NPCBattleActor gymNpc=null;
 
 
 /* =========================
@@ -56,19 +59,19 @@ public class GymBattleHandler {
                         actor instanceof PlayerBattleActor playerActor
                 ){
 
-                    winner =
+                    winner=
                             (ServerPlayer)
                                     playerActor.getEntity();
 
                     break;
                 }
+
             }
 
 
 
 /* =========================
  FIND GYM NPC
- Works whether NPC won or lost
 ========================= */
 
             for(
@@ -82,7 +85,9 @@ public class GymBattleHandler {
                     gymNpc=npcActor;
                     break;
                 }
+
             }
+
 
             if(
                     gymNpc==null
@@ -99,12 +104,14 @@ public class GymBattleHandler {
                         gymNpc=npcActor;
                         break;
                     }
+
                 }
+
             }
 
 
             if(
-                    gymNpc == null
+                    gymNpc==null
             ){
                 return;
             }
@@ -147,8 +154,7 @@ public class GymBattleHandler {
 
 
 /* =========================
- ALWAYS RESET/HEAL NPC TEAM
- (NEW CHANGE)
+ ALWAYS RESET NPC TEAM
 ========================= */
 
             try{
@@ -170,12 +176,11 @@ public class GymBattleHandler {
 
 
 /* =========================
- IF PLAYER LOST,
- stop here after reset
+ PLAYER LOST?
 ========================= */
 
             if(
-                    winner == null
+                    winner==null
             ){
                 return;
             }
@@ -208,12 +213,30 @@ public class GymBattleHandler {
 
 
 /* =========================
- PROGRESSION UNLOCKS
+ FEATURE UNLOCKS
 ========================= */
 
             BadgeUnlockManager.processUnlocks(
                     winner
             );
+
+
+
+/* =========================
+ LUCKPERMS TRACK PROMOTION
+========================= */
+
+            try{
+
+                LuckPermsHook.promoteForBadge(
+                        winner,
+                        badge
+                );
+
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
 
 
 
@@ -233,8 +256,8 @@ public class GymBattleHandler {
                     new ClientboundSetTitleTextPacket(
                             Component.literal(
                                     "§6"
-                                            + badge.name()
-                                            + " BADGE EARNED!"
+                                            + badge.getDisplayName()
+                                            + " DEFEATED!"
                             )
                     )
             );
@@ -242,7 +265,9 @@ public class GymBattleHandler {
             winner.connection.send(
                     new ClientboundSetSubtitleTextPacket(
                             Component.literal(
-                                    "§eGym Leader Defeated"
+                                    titleSubtitle(
+                                            badge
+                                    )
                             )
                     )
             );
@@ -267,9 +292,9 @@ public class GymBattleHandler {
                             Component.literal(
                                     "§6"
                                             + winner.getName().getString()
-                                            + " earned the "
-                                            + badge.name()
-                                            + " Badge!"
+                                            + " defeated "
+                                            + badge.getDisplayName()
+                                            + "!"
                             ),
                             false
                     );
@@ -278,6 +303,42 @@ public class GymBattleHandler {
         catch(Exception ex){
             ex.printStackTrace();
         }
+
+    }
+
+
+
+
+
+/* =========================
+ SUBTITLE TEXT
+========================= */
+
+    private static String titleSubtitle(
+            BadgeType badge
+    ){
+
+        return switch(badge){
+
+            case BOULDER,
+                 CASCADE,
+                 THUNDER,
+                 RAINBOW,
+                 SOUL,
+                 MARSH,
+                 VOLCANO,
+                 EARTH ->
+                    "§eGym Leader Defeated";
+
+            case LORELEI,
+                 BRUNO,
+                 AGATHA,
+                 LANCE ->
+                    "§dElite Four Defeated";
+
+            case CHAMPION ->
+                    "§bChampion Defeated";
+        };
 
     }
 
