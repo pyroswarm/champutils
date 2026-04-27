@@ -38,11 +38,9 @@ public class MatchmakingManager {
     private static final List<DelayedTask> TASKS =
             new ArrayList<>();
 
-
-    // NEW:
-    // players currently in "match found but not launched"
     private static final Set<UUID> PENDING_MATCH =
             new HashSet<>();
+
 
 
     private static class DelayedTask {
@@ -136,9 +134,13 @@ public class MatchmakingManager {
             q.remove(player);
         }
 
-        QueueBossBarManager.stop(player);
+        QueueBossBarManager.stop(
+                player
+        );
 
-        TeamSnapshotManager.clear(player);
+        TeamSnapshotManager.clear(
+                player
+        );
 
         QUEUE_TIME.remove(
                 player.getUUID()
@@ -163,9 +165,41 @@ public class MatchmakingManager {
 
 
 
+    // NEW
+    public static ServerPlayer getOpponent(
+            ServerPlayer player
+    ){
+
+        if(player==null){
+            return null;
+        }
+
+        UUID opponentId=
+                OPPONENTS.get(
+                        player.getUUID()
+                );
+
+        if(opponentId==null){
+            return null;
+        }
+
+        if(player.getServer()==null){
+            return null;
+        }
+
+        return player.getServer()
+                .getPlayerList()
+                .getPlayer(
+                        opponentId
+                );
+    }
+
+
+
     public static void clearMatch(
             ServerPlayer player
     ){
+
         MATCH_TYPE.remove(
                 player.getUUID()
         );
@@ -197,8 +231,10 @@ public class MatchmakingManager {
 
         for(List<ServerPlayer> q:
                 QUEUES.values()){
-            if(q.contains(player))
+
+            if(q.contains(player)){
                 return true;
+            }
         }
 
         return false;
@@ -226,10 +262,12 @@ public class MatchmakingManager {
 
     public static void tick(){
 
-        for(UUID id :
+        for(
+                UUID id :
                 new ArrayList<>(
                         QUEUE_TIME.keySet()
-                )){
+                )
+        ){
 
             QUEUE_TIME.put(
                     id,
@@ -238,8 +276,11 @@ public class MatchmakingManager {
         }
 
 
-        for(var map :
-                RECENT_MATCHES.values()){
+
+        for(
+                var map :
+                RECENT_MATCHES.values()
+        ){
 
             Iterator<Map.Entry<UUID,Integer>>
                     it=
@@ -249,7 +290,8 @@ public class MatchmakingManager {
 
                 var e=it.next();
 
-                int t=e.getValue()+1;
+                int t=
+                        e.getValue()+1;
 
                 if(t>6000){
                     it.remove();
@@ -281,20 +323,26 @@ public class MatchmakingManager {
             }
         }
 
-        for(DelayedTask t:run){
+        for(
+                DelayedTask t :
+                run
+        ){
             t.action.run();
         }
 
 
 
-        for(String type:
-                QUEUES.keySet()){
+        for(
+                String type :
+                QUEUES.keySet()
+        ){
 
             List<ServerPlayer> queue=
                     QUEUES.get(type);
 
-            if(queue.size()<2)
+            if(queue.size()<2){
                 continue;
+            }
 
 
             ServerPlayer bestP1=null;
@@ -307,30 +355,43 @@ public class MatchmakingManager {
                     Integer.MAX_VALUE;
 
 
-            for(int i=0;i<queue.size();i++){
+
+            for(
+                    int i=0;
+                    i<queue.size();
+                    i++
+            ){
 
                 ServerPlayer p1=
                         queue.get(i);
 
-                if(!canMatch(p1))
+                if(!canMatch(p1)){
                     continue;
+                }
 
 
-                for(int j=i+1;
-                    j<queue.size();
-                    j++){
+                for(
+                        int j=i+1;
+                        j<queue.size();
+                        j++
+                ){
 
                     ServerPlayer p2=
                             queue.get(j);
 
-                    if(!canMatch(p2))
+                    if(!canMatch(p2)){
                         continue;
+                    }
 
 
-                    if(rankedType(type)
-                            && recentlyPlayed(
-                            p1,p2
-                    )){
+                    if(
+                            rankedType(type)
+                                    &&
+                                    recentlyPlayed(
+                                            p1,
+                                            p2
+                                    )
+                    ){
                         continue;
                     }
 
@@ -340,6 +401,7 @@ public class MatchmakingManager {
                         bestP2=p2;
                         break;
                     }
+
 
 
                     int rank1=
@@ -359,43 +421,58 @@ public class MatchmakingManager {
                                     rank1-rank2
                             );
 
-                    if(rankDiff>range1
-                            || rankDiff>range2)
+                    if(
+                            rankDiff>range1
+                                    ||
+                                    rankDiff>range2
+                    ){
                         continue;
+                    }
 
 
                     int eloDiff=
                             Math.abs(
-                                    getElo(p1)-getElo(p2)
+                                    getElo(p1)
+                                            -
+                                            getElo(p2)
                             );
 
 
-                    if(rankDiff<bestRankDiff
-                            ||
-                            (
-                                    rankDiff==bestRankDiff
-                                            &&
-                                            eloDiff<bestEloDiff
-                            )){
+                    if(
+                            rankDiff<bestRankDiff
+                                    ||
+                                    (
+                                            rankDiff==bestRankDiff
+                                                    &&
+                                                    eloDiff<bestEloDiff
+                                    )
+                    ){
 
-                        bestRankDiff=rankDiff;
-                        bestEloDiff=eloDiff;
+                        bestRankDiff=
+                                rankDiff;
+
+                        bestEloDiff=
+                                eloDiff;
 
                         bestP1=p1;
                         bestP2=p2;
                     }
                 }
 
-                if(bestP1!=null
-                        && !rankedType(type)){
+
+                if(
+                        bestP1!=null
+                                &&
+                                !rankedType(type)
+                ){
                     break;
                 }
             }
 
 
+
             if(bestP1!=null){
 
-                // mark pending
                 PENDING_MATCH.add(
                         bestP1.getUUID()
                 );
@@ -427,10 +504,14 @@ public class MatchmakingManager {
                         0
                 );
 
-        int seconds=ticks/20;
+        int seconds=
+                ticks/20;
 
-        if(getRankIndex(player)
-                >= Config.ranks.size()-1){
+
+        if(
+                getRankIndex(player)
+                        >= Config.ranks.size()-1
+        ){
 
             if(seconds<120)
                 return 1;
@@ -458,16 +539,20 @@ public class MatchmakingManager {
                         getElo(player)
                 );
 
-        if(rank==null)
+        if(rank==null){
             return 0;
+        }
 
-        for(int i=0;i<Config.ranks.size();i++){
+
+        for(
+                int i=0;
+                i<Config.ranks.size();
+                i++
+        ){
 
             if(
-                    Config.ranks
-                            .get(i)
-                            .name
-                            .equals(rank.name)
+                    Config.ranks.get(i)
+                            .name.equals(rank.name)
             ){
                 return i;
             }
@@ -484,8 +569,6 @@ public class MatchmakingManager {
             String type
     ){
 
-        // if either entered battle,
-        // dissolve pending match
         if(
                 BattleStateManager.isInBattle(p1)
                         ||
@@ -508,6 +591,18 @@ public class MatchmakingManager {
         );
 
 
+        // IMPORTANT:
+        OPPONENTS.put(
+                p1.getUUID(),
+                p2.getUUID()
+        );
+
+        OPPONENTS.put(
+                p2.getUUID(),
+                p1.getUUID()
+        );
+
+
         sendTitle(
                 p1,
                 "§aMATCH FOUND",
@@ -525,7 +620,9 @@ public class MatchmakingManager {
                 new DelayedTask(
                         40,
                         ()->runCountdown(
-                                p1,p2,type
+                                p1,
+                                p2,
+                                type
                         )
                 )
         );
@@ -565,7 +662,8 @@ public class MatchmakingManager {
 
             var arena=
                     ArenaManager.reserveArena(
-                            p1,p2
+                            p1,
+                            p2
                     );
 
             if(arena==null){
@@ -575,7 +673,9 @@ public class MatchmakingManager {
             }
 
             ArenaManager.teleportPlayersToArena(
-                    p1,p2,arena
+                    p1,
+                    p2,
+                    arena
             );
         }
 
@@ -584,6 +684,7 @@ public class MatchmakingManager {
         countdown(p1,p2,"§e2",20);
         countdown(p1,p2,"§a1",40);
         countdown(p1,p2,"§6GO!",60);
+
 
 
         TASKS.add(
@@ -601,12 +702,12 @@ public class MatchmakingManager {
                                 return;
                             }
 
-                            // NOW remove from queue
                             leaveQueue(p1);
                             leaveQueue(p2);
 
                             TeamPreviewManager.startPreview(
-                                    p1,p2
+                                    p1,
+                                    p2
                             );
                         }
                 )
@@ -628,11 +729,15 @@ public class MatchmakingManager {
                         ()->{
 
                             sendTitle(
-                                    p1,text,""
+                                    p1,
+                                    text,
+                                    ""
                             );
 
                             sendTitle(
-                                    p2,text,""
+                                    p2,
+                                    text,
+                                    ""
                             );
 
                             p1.level().playSound(
@@ -640,7 +745,8 @@ public class MatchmakingManager {
                                     p1.blockPosition(),
                                     SoundEvents.NOTE_BLOCK_PLING.value(),
                                     SoundSource.PLAYERS,
-                                    1f,1.2f
+                                    1f,
+                                    1.2f
                             );
 
                             p2.level().playSound(
@@ -648,10 +754,12 @@ public class MatchmakingManager {
                                     p2.blockPosition(),
                                     SoundEvents.NOTE_BLOCK_PLING.value(),
                                     SoundSource.PLAYERS,
-                                    1f,1.2f
+                                    1f,
+                                    1.2f
                             );
 
-                        })
+                        }
+                )
         );
     }
 
@@ -665,21 +773,29 @@ public class MatchmakingManager {
 
         player.connection.send(
                 new ClientboundSetTitlesAnimationPacket(
-                        5,20,5
+                        5,
+                        20,
+                        5
                 )
         );
 
         player.connection.send(
                 new ClientboundSetTitleTextPacket(
-                        Component.literal(title)
+                        Component.literal(
+                                title
+                        )
                 )
         );
 
-        if(!subtitle.isEmpty()){
+        if(
+                !subtitle.isEmpty()
+        ){
 
             player.connection.send(
                     new ClientboundSetSubtitleTextPacket(
-                            Component.literal(subtitle)
+                            Component.literal(
+                                    subtitle
+                            )
                     )
             );
         }
@@ -725,8 +841,9 @@ public class MatchmakingManager {
                         p1.getUUID()
                 );
 
-        if(map==null)
+        if(map==null){
             return false;
+        }
 
         return map.containsKey(
                 p2.getUUID()
@@ -747,8 +864,9 @@ public class MatchmakingManager {
                         "elo"
                 );
 
-        if(obj==null)
+        if(obj==null){
             return 0;
+        }
 
         return sb.getOrCreatePlayerScore(
                 player,

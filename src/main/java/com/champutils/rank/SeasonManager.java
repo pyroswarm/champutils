@@ -1,6 +1,9 @@
 package com.champutils.rank;
 
 import com.champutils.profile.ProfileManager;
+import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.PlayerDataManager.PlayerData;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -8,43 +11,66 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class SeasonManager {
 
-    public static int CURRENT_SEASON = 1;
-    public static String CURRENT_NAME = "Indigo Cup";
+    public static int CURRENT_SEASON=1;
+    public static String CURRENT_NAME="Indigo Cup";
 
-    public static int RESET_FLOOR = 300;
-    public static double RESET_PERCENT = .50;
+    public static int RESET_FLOOR=300;
+    public static double RESET_PERCENT=.50;
 
-    private static final Gson GSON =
+    private static final Gson GSON=
             new GsonBuilder()
                     .setPrettyPrinting()
                     .create();
 
 
-    // =====================================
-    // PERSISTENT SEASON STATE
-    // =====================================
 
-    public static class SeasonState {
-
-        public int currentSeason = 1;
-
-        public String currentName =
-                "Indigo Cup";
+    public static class SeasonState{
+        public int currentSeason=1;
+        public String currentName="Indigo Cup";
     }
+
+
+
+    public static class PlayerSnapshot{
+        public int rp;
+        public int peakRp;
+        public int wins;
+        public int losses;
+        public int currentStreak;
+        public int bestStreak;
+        public int upsetWins;
+    }
+
+
+
+    public static class RollbackState{
+
+        public int season;
+        public String seasonName;
+
+        public Map<String,PlayerSnapshot> players=
+                new HashMap<>();
+    }
+
 
 
     private static File getStateFile(){
 
-        File dir =
+        File dir=
                 new File(
                         "config/champutils"
                 );
@@ -61,36 +87,37 @@ public class SeasonManager {
 
 
 
+    private static File getRollbackFile(){
+
+        return new File(
+                "config/champutils/rollback_state.json"
+        );
+    }
+
+
+
     public static void loadState(){
 
         try{
 
-            File f =
-                    getStateFile();
+            File f=getStateFile();
 
             if(!f.exists()){
                 saveState();
                 return;
             }
 
-            try(
-                    FileReader r =
-                            new FileReader(f)
-            ){
+            try(FileReader r=new FileReader(f)){
 
-                SeasonState s =
+                SeasonState s=
                         GSON.fromJson(
                                 r,
                                 SeasonState.class
                         );
 
-                if(s != null){
-
-                    CURRENT_SEASON =
-                            s.currentSeason;
-
-                    CURRENT_NAME =
-                            s.currentName;
+                if(s!=null){
+                    CURRENT_SEASON=s.currentSeason;
+                    CURRENT_NAME=s.currentName;
                 }
             }
 
@@ -105,22 +132,21 @@ public class SeasonManager {
 
         try{
 
-            SeasonState s =
+            SeasonState s=
                     new SeasonState();
 
-            s.currentSeason =
+            s.currentSeason=
                     CURRENT_SEASON;
 
-            s.currentName =
+            s.currentName=
                     CURRENT_NAME;
 
             try(
-                    FileWriter w =
+                    FileWriter w=
                             new FileWriter(
                                     getStateFile()
                             )
             ){
-
                 GSON.toJson(
                         s,
                         w
@@ -134,113 +160,57 @@ public class SeasonManager {
 
 
 
-    // =====================================
-    // ROLLBACK SNAPSHOT
-    // =====================================
-
-    public static class PlayerSnapshot {
-
-        public int rp;
-        public int peakRp;
-        public int wins;
-        public int losses;
-        public int currentStreak;
-        public int bestStreak;
-        public int upsetWins;
-    }
-
-
-    public static class RollbackState {
-
-        public int season;
-
-        public String seasonName;
-
-        public Map<String, PlayerSnapshot>
-                players =
-                new HashMap<>();
-    }
-
-
-
-    private static File getRollbackFile(){
-
-        return new File(
-                "config/champutils/rollback_state.json"
-        );
-    }
-
-
-
     private static void saveRollbackState(
             MinecraftServer server
     ){
 
         try{
 
-            RollbackState r =
+            RollbackState r=
                     new RollbackState();
 
-            r.season =
+            r.season=
                     CURRENT_SEASON;
 
-            r.seasonName =
+            r.seasonName=
                     CURRENT_NAME;
 
 
             for(
-                    ServerPlayer p :
-                    server.getPlayerList()
-                            .getPlayers()
+                    var entry :
+                    PlayerDataManager.getAllPlayers()
             ){
 
-                PlayerSnapshot s =
+                PlayerSnapshot s=
                         new PlayerSnapshot();
 
-                s.rp =
-                        ProfileManager
-                                .getCurrentRp(p);
+                s.rp=entry.data.rp;
+                s.peakRp=entry.data.peakRp;
 
-                s.peakRp =
-                        ProfileManager
-                                .getPeakRp(p);
+                s.wins=entry.data.rankedWins;
+                s.losses=entry.data.rankedLosses;
 
-                s.wins =
-                        ProfileManager
-                                .getRankedWins(p);
+                s.currentStreak=
+                        entry.data.currentStreak;
 
-                s.losses =
-                        ProfileManager
-                                .getRankedLosses(p);
+                s.bestStreak=
+                        entry.data.bestStreak;
 
-                s.currentStreak =
-                        ProfileManager
-                                .getCurrentStreak(p);
-
-                s.bestStreak =
-                        ProfileManager
-                                .getBestStreak(p);
-
-                s.upsetWins =
-                        ProfileManager
-                                .getUpsetWins(p);
-
+                s.upsetWins=
+                        entry.data.upsetWins;
 
                 r.players.put(
-                        p.getName()
-                                .getString(),
+                        entry.name,
                         s
                 );
             }
 
-
             try(
-                    FileWriter w =
+                    FileWriter w=
                             new FileWriter(
                                     getRollbackFile()
                             )
             ){
-
                 GSON.toJson(
                         r,
                         w
@@ -254,12 +224,11 @@ public class SeasonManager {
 
 
 
-    private static RollbackState
-    loadRollbackState(){
+    private static RollbackState loadRollbackState(){
 
         try{
 
-            File f =
+            File f=
                     getRollbackFile();
 
             if(!f.exists()){
@@ -267,7 +236,7 @@ public class SeasonManager {
             }
 
             try(
-                    FileReader r =
+                    FileReader r=
                             new FileReader(f)
             ){
 
@@ -285,14 +254,9 @@ public class SeasonManager {
 
 
 
-    // =====================================
-    // SOFT RESET
-    // =====================================
-
     public static int softReset(
             int rp
     ){
-
         return Math.max(
                 RESET_FLOOR,
 
@@ -310,10 +274,6 @@ public class SeasonManager {
 
 
 
-    // =====================================
-    // START NEW SEASON
-    // =====================================
-
     public static void startNewSeason(
             MinecraftServer server,
             String name
@@ -324,55 +284,339 @@ public class SeasonManager {
         );
 
 
+
+        ArrayList<
+                SeasonArchiveManager.LadderEntry
+                > top=
+                new ArrayList<>();
+
+        for(
+                var e :
+                LeaderboardManager.getTop(100)
+        ){
+
+            top.add(
+                    new SeasonArchiveManager
+                            .LadderEntry(
+                            e.playerName,
+                            e.rp,
+                            RankManager
+                                    .getRank(
+                                            e.rp
+                                    ).name
+                    )
+            );
+        }
+
+        SeasonArchiveManager.saveTop100Snapshot(
+                CURRENT_SEASON,
+                top
+        );
+
+
+
+        // ======================
+        // SEASON END POPUP FIRST
+        // ======================
+
         for(
                 ServerPlayer p :
                 server.getPlayerList()
                         .getPlayers()
         ){
 
-            archivePlayer(
-                    p
+            int current=
+                    ProfileManager.getCurrentRp(
+                            p
+                    );
+
+            int peak=
+                    ProfileManager.getPeakRp(
+                            p
+                    );
+
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
+                            Component.literal(
+                                    "§c§lSEASON END"
+                            )
+                    )
             );
 
-            resetPlayer(
-                    p
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
+                            Component.literal(
+                                    "§6Peak RP "
+                                            +peak
+                                            +"  §7|  Final RP "
+                                            +current
+                            )
+                    )
+            );
+
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(
+                            20,
+                            80,
+                            20
+                    )
+            );
+
+            p.playNotifySound(
+                    SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
+                    SoundSource.MASTER,
+                    1f,
+                    .8f
             );
         }
 
 
-        CURRENT_SEASON++;
 
-        CURRENT_NAME =
-                name;
+        try{
+            Thread.sleep(
+                    5000
+            );
+        }
+        catch(Exception ignored){}
+
+
+
+        for(
+                ServerPlayer p :
+                server.getPlayerList()
+                        .getPlayers()
+        ){
+            archivePlayer(p);
+            resetPlayer(p);
+        }
+
+
+
+        for(
+                var entry :
+                PlayerDataManager.getAllPlayers()
+        ){
+
+            boolean online=
+                    server.getPlayerList()
+                            .getPlayerByName(
+                                    entry.name
+                            )!=null;
+
+            if(online){
+                continue;
+            }
+
+            PlayerData d=
+                    entry.data;
+
+            var r=
+                    new SeasonArchiveManager
+                            .SeasonRecord();
+
+            r.season=
+                    CURRENT_SEASON;
+
+            r.seasonName=
+                    CURRENT_NAME;
+
+            r.finalRp=d.rp;
+            r.peakRp=d.peakRp;
+
+            r.wins=d.rankedWins;
+            r.losses=d.rankedLosses;
+
+            r.bestStreak=
+                    d.bestStreak;
+
+            r.finishRank=
+                    RankManager
+                            .getRank(
+                                    d.rp
+                            ).name;
+
+            r.peakRank=
+                    r.finishRank;
+
+            SeasonArchiveManager.archive(
+                    d.name,
+                    r
+            );
+
+
+            d.rp=
+                    softReset(
+                            d.rp
+                    );
+
+            d.peakRp=d.rp;
+
+            d.rankedWins=0;
+            d.rankedLosses=0;
+
+            d.currentStreak=0;
+            d.bestStreak=0;
+            d.upsetWins=0;
+
+            d.seasonsPlayed++;
+
+            PlayerDataManager.save(
+                    UUID.fromString(
+                            d.uuid
+                    ),
+                    d
+            );
+        }
+
+
+
+        CURRENT_SEASON++;
+        CURRENT_NAME=name;
 
         saveState();
+
+        LeaderboardManager.refresh(
+                server
+        );
+
+
+
+        // ======================
+        // NEW SEASON POPUP
+        // ======================
+
+        for(
+                ServerPlayer p :
+                server.getPlayerList()
+                        .getPlayers()
+        ){
+
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
+                            Component.literal(
+                                    "§6§lNEW SEASON BEGINNING"
+                            )
+                    )
+            );
+
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
+                            Component.literal(
+                                    "§e("
+                                            +CURRENT_NAME
+                                            +"!!!)"
+                            )
+                    )
+            );
+
+            p.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(
+                            20,
+                            120,
+                            40
+                    )
+            );
+
+            p.playNotifySound(
+                    SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
+                    SoundSource.MASTER,
+                    1f,
+                    1.2f
+            );
+        }
+
 
 
         server.getPlayerList()
                 .broadcastSystemMessage(
-
                         Component.literal(
-                                "§6New Season "
+                                "§6Season "
                                         +CURRENT_SEASON
                                         +" §e"
                                         +CURRENT_NAME
+                                        +" has begun!"
                         ),
-
                         false
                 );
     }
 
 
 
-    // =====================================
-    // ROLLBACK
-    // =====================================
+    private static void archivePlayer(
+            ServerPlayer player
+    ){
+
+        var r=
+                new SeasonArchiveManager
+                        .SeasonRecord();
+
+        r.season=
+                CURRENT_SEASON;
+
+        r.seasonName=
+                CURRENT_NAME;
+
+        r.finalRp=
+                ProfileManager.getCurrentRp(player);
+
+        r.peakRp=
+                ProfileManager.getPeakRp(player);
+
+        r.wins=
+                ProfileManager.getRankedWins(player);
+
+        r.losses=
+                ProfileManager.getRankedLosses(player);
+
+        r.bestStreak=
+                ProfileManager.getBestStreak(player);
+
+        r.finishRank=
+                RankManager.getRank(
+                        r.finalRp
+                ).name;
+
+        r.peakRank=
+                r.finishRank;
+
+        SeasonArchiveManager.archive(
+                player.getName().getString(),
+                r
+        );
+    }
+
+
+
+    private static void resetPlayer(
+            ServerPlayer player
+    ){
+
+        int reset=
+                softReset(
+                        ProfileManager.getCurrentRp(
+                                player
+                        )
+                );
+
+        ProfileManager.setElo(
+                player,
+                reset
+        );
+
+        PlayerDataManager.setRp(
+                player.getUUID(),
+                player.getName().getString(),
+                reset
+        );
+    }
+
+
 
     public static void rollbackSeason(
             MinecraftServer server
     ){
 
-        RollbackState state =
+        RollbackState state=
                 loadRollbackState();
 
         if(state==null){
@@ -380,11 +624,72 @@ public class SeasonManager {
         }
 
 
-        CURRENT_SEASON =
+
+        for(
+                var entry :
+                PlayerDataManager.getAllPlayers()
+        ){
+            SeasonArchiveManager.removeLastSeason(
+                    entry.name
+            );
+        }
+
+        SeasonArchiveManager.removeSeasonSnapshot(
+                CURRENT_SEASON
+        );
+
+
+
+        CURRENT_SEASON=
                 state.season;
 
-        CURRENT_NAME =
+        CURRENT_NAME=
                 state.seasonName;
+
+        saveState();
+
+
+
+        for(
+                var entry :
+                PlayerDataManager.getAllPlayers()
+        ){
+
+            PlayerSnapshot s=
+                    state.players.get(
+                            entry.name
+                    );
+
+            if(s==null){
+                continue;
+            }
+
+            PlayerData d=
+                    entry.data;
+
+            d.rp=s.rp;
+            d.peakRp=s.peakRp;
+
+            d.rankedWins=s.wins;
+            d.rankedLosses=s.losses;
+
+            d.currentStreak=
+                    s.currentStreak;
+
+            d.bestStreak=
+                    s.bestStreak;
+
+            d.upsetWins=
+                    s.upsetWins;
+
+            PlayerDataManager.save(
+                    UUID.fromString(
+                            d.uuid
+                    ),
+                    d
+            );
+        }
+
 
 
         for(
@@ -393,208 +698,23 @@ public class SeasonManager {
                         .getPlayers()
         ){
 
-            PlayerSnapshot snap =
+            PlayerSnapshot s=
                     state.players.get(
-                            p.getName()
-                                    .getString()
+                            p.getName().getString()
                     );
 
-            if(snap==null){
-                continue;
+            if(s!=null){
+                ProfileManager.setElo(
+                        p,
+                        s.rp
+                );
             }
-
-
-            ProfileManager.setElo(
-                    p,
-                    snap.rp
-            );
-
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "peak_rp",
-                    snap.peakRp
-            );
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "ranked_wins",
-                    snap.wins
-            );
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "ranked_losses",
-                    snap.losses
-            );
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "current_streak",
-                    snap.currentStreak
-            );
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "best_streak",
-                    snap.bestStreak
-            );
-
-            ProfileManager.setSeasonStat(
-                    p,
-                    "upset_wins",
-                    snap.upsetWins
-            );
-
-
-            SeasonArchiveManager
-                    .removeLastSeason(
-                            p.getName()
-                                    .getString()
-                    );
         }
 
 
-        saveState();
 
-
-        server.getPlayerList()
-                .broadcastSystemMessage(
-                        Component.literal(
-                                "§cSeason rollback restored."
-                        ),
-                        false
-                );
-    }
-
-
-
-    // =====================================
-    // ARCHIVE PLAYER
-    // =====================================
-
-    private static void archivePlayer(
-            ServerPlayer player
-    ){
-
-        SeasonArchiveManager.SeasonRecord r =
-                new SeasonArchiveManager
-                        .SeasonRecord();
-
-        r.season =
-                CURRENT_SEASON;
-
-        r.seasonName =
-                CURRENT_NAME;
-
-        r.finishRank =
-                ProfileManager
-                        .getCurrentRankName(
-                                player
-                        );
-
-        r.finalRp =
-                ProfileManager
-                        .getCurrentRp(
-                                player
-                        );
-
-        r.peakRp =
-                ProfileManager
-                        .getPeakRp(
-                                player
-                        );
-
-        r.wins =
-                ProfileManager
-                        .getRankedWins(
-                                player
-                        );
-
-        r.losses =
-                ProfileManager
-                        .getRankedLosses(
-                                player
-                        );
-
-        r.bestStreak =
-                ProfileManager
-                        .getBestStreak(
-                                player
-                        );
-
-
-        SeasonArchiveManager.archive(
-                player.getName()
-                        .getString(),
-                r
-        );
-    }
-
-
-
-    // =====================================
-    // RESET PLAYER
-    // =====================================
-
-    private static void resetPlayer(
-            ServerPlayer player
-    ){
-
-        int newRp =
-                softReset(
-                        ProfileManager
-                                .getCurrentRp(
-                                        player
-                                )
-                );
-
-
-        ProfileManager.setElo(
-                player,
-                newRp
-        );
-
-
-        ProfileManager.setSeasonStat(
-                player,
-                "ranked_wins",
-                0
-        );
-
-        ProfileManager.setSeasonStat(
-                player,
-                "ranked_losses",
-                0
-        );
-
-        ProfileManager.setSeasonStat(
-                player,
-                "current_streak",
-                0
-        );
-
-        ProfileManager.setSeasonStat(
-                player,
-                "best_streak",
-                0
-        );
-
-        ProfileManager.setSeasonStat(
-                player,
-                "upset_wins",
-                0
-        );
-
-        ProfileManager.setSeasonStat(
-                player,
-                "peak_rp",
-                newRp
-        );
-
-
-        ProfileManager.incrementSeasons(
-                player
+        LeaderboardManager.refresh(
+                server
         );
     }
 

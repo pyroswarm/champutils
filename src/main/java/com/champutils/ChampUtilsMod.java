@@ -6,6 +6,7 @@ import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.ActionBarManager;
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
+
 import com.champutils.gym.GymBattleStartHandler;
 import com.champutils.gym.GymCommand;
 import com.champutils.gym.GymBattleHandler;
@@ -21,6 +22,10 @@ import com.champutils.matchmaking.TeamPreviewManager;
 import com.champutils.battle.CobblemonBattleHandler;
 import com.champutils.battle.CobblemonBattleStartHandler;
 import com.champutils.battle.BattleItemUseListener;
+import com.champutils.battle.DisconnectForfeitManager;
+import com.champutils.commands.RpAdminCommand;
+import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.ProfileManager;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -47,6 +52,7 @@ public class ChampUtilsMod implements ModInitializer {
             configDir.mkdirs();
         }
 
+        RpAdminCommand.register();
 
         File configFile =
                 new File(
@@ -54,11 +60,10 @@ public class ChampUtilsMod implements ModInitializer {
                         "rules.json"
                 );
 
-
         if(!configFile.exists()){
 
             try(
-                    FileWriter writer =
+                    FileWriter writer=
                             new FileWriter(
                                     configFile
                             )
@@ -70,36 +75,16 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 
-/* =========================
- LOAD MAIN CONFIG
-========================= */
-
         Config.load(
                 configFile
         );
 
-
-/* =========================
- LOAD GYM CONFIGS
-========================= */
-
         GymConfig.load();
-
         GymRegistry.load();
-
-
-
-/* =========================
- LOAD SEASON STATE
-========================= */
 
         SeasonManager.loadState();
 
 
-
-/* =========================
- INITIAL LEADERBOARD BUILD
-========================= */
 
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
@@ -116,72 +101,111 @@ public class ChampUtilsMod implements ModInitializer {
 
 
 
-/* =========================
- PLAYER FILE CREATION
-========================= */
+        // =========================
+        // PLAYER JOIN
+        // =========================
 
         ServerPlayConnectionEvents.JOIN.register(
                 (handler,sender,server)->{
 
-                    String playerName =
-                            handler.player
-                                    .getName()
+                    ServerPlayer player=
+                            handler.player;
+
+                    String playerName=
+                            player.getName()
                                     .getString();
+
+
 
                     SeasonArchiveManager
                             .ensurePlayerFile(
                                     playerName
                             );
 
+
+                    PlayerDataManager.ensurePlayer(
+                            player.getUUID(),
+                            playerName
+                    );
+
+
+
+                    // =========================
+                    // NEW LOGIN SELF-HEAL SYNC
+                    // JSON -> SCOREBOARD
+                    // =========================
+
+                    int storedRp =
+                            PlayerDataManager.getRp(
+                                    player.getUUID(),
+                                    playerName
+                            );
+
+                    ProfileManager.setElo(
+                            player,
+                            storedRp
+                    );
+
+
+
+                    DisconnectForfeitManager
+                            .handleJoin(
+                                    player
+                            );
                 }
         );
 
 
 
-/* =========================
- COMMANDS
-========================= */
+        // =========================
+        // DISCONNECT CLEANUP
+        // =========================
+
+        ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler,server)->{
+
+                    MatchmakingManager.leaveQueue(
+                            handler.player
+                    );
+
+                    DisconnectForfeitManager
+                            .handleDisconnect(
+                                    handler.player
+                            );
+                }
+        );
+
+
 
         MenuCommand.register();
-
         SeasonCommand.register();
-
         LeaderboardCommand.register();
 
         GymCommand.register();
-
         EVTrainingCommand.register();
-
         EliteFourCommand.register();
 
+        RpAdminCommand.register();
 
 
-/* =========================
- BATTLE HOOKS
-========================= */
 
         CobblemonBattleHandler.register();
-
         CobblemonBattleStartHandler.register();
 
         BattleItemUseListener.register();
 
         GymBattleHandler.register();
-
         GymBattleStartHandler.register();
 
 
-
-/* =========================
- SERVER TICKS
-========================= */
 
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
                     if(
-                            server.getTickCount() > 0 &&
-                                    server.getTickCount() % 600 == 0
+                            server.getTickCount()>0
+                                    &&
+                                    server.getTickCount()%600==0
                     ){
 
                         LeaderboardManager.refresh(
@@ -192,7 +216,7 @@ public class ChampUtilsMod implements ModInitializer {
 
 
                     if(
-                            server.getTickCount() % 20 == 0
+                            server.getTickCount()%20==0
                     ){
 
                         for(
@@ -205,8 +229,8 @@ public class ChampUtilsMod implements ModInitializer {
                                     player
                             );
                         }
-
                     }
+
 
 
                     MatchmakingManager.tick();
@@ -217,16 +241,12 @@ public class ChampUtilsMod implements ModInitializer {
                             server.getPlayerList()
                                     .getPlayers()
                     );
-
                 }
         );
-
 
 
         System.out.println(
                 "[ChampUtils] Gym system loaded."
         );
-
     }
-
 }

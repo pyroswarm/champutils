@@ -27,9 +27,7 @@ public class QueueBossBarManager {
             new HashMap<>();
 
 
-    // =========================
-    // START
-    // =========================
+
     public static void start(
             ServerPlayer player,
             String type
@@ -88,9 +86,6 @@ public class QueueBossBarManager {
 
 
 
-    // =========================
-    // STOP
-    // =========================
     public static void stop(
             ServerPlayer player
     ) {
@@ -100,7 +95,7 @@ public class QueueBossBarManager {
                         player.getUUID()
                 );
 
-        if (bar != null) {
+        if(bar!=null){
             bar.removeAllPlayers();
         }
 
@@ -119,49 +114,19 @@ public class QueueBossBarManager {
 
 
 
-    // =========================
-    // TICK
-    // =========================
     public static void tick() {
 
-        for (UUID id :
-                new HashMap<>(BARS).keySet()) {
+        for(
+                UUID id :
+                new HashMap<>(BARS).keySet()
+        ){
 
             CustomBossEvent bar =
                     BARS.get(id);
 
-            if (bar == null)
+            if(bar==null){
                 continue;
-
-
-            int ticks =
-                    TIMES.getOrDefault(
-                            id,
-                            0
-                    ) + 1;
-
-            TIMES.put(
-                    id,
-                    ticks
-            );
-
-
-            float progress =
-                    Math.min(
-                            1f,
-                            ticks / 2400f
-                    );
-
-            bar.setProgress(
-                    progress
-            );
-
-
-            String type =
-                    TYPES.getOrDefault(
-                            id,
-                            "Queue"
-                    );
+            }
 
 
             ServerPlayer player =
@@ -170,16 +135,21 @@ public class QueueBossBarManager {
                             .findFirst()
                             .orElse(null);
 
-
-            if(player == null){
+            if(player==null){
                 continue;
             }
 
 
+            int ticks=
+                    TIMES.getOrDefault(
+                            id,
+                            0
+                    );
+
 
             // =========================
-            // NEW:
-            // PAUSED WHILE IN BATTLE
+            // TRUE PAUSE
+            // no timer movement while paused
             // =========================
 
             if(
@@ -187,6 +157,10 @@ public class QueueBossBarManager {
                             player
                     )
             ){
+
+                bar.setColor(
+                        BossEvent.BossBarColor.RED
+                );
 
                 bar.setName(
                         Component.literal(
@@ -198,14 +172,42 @@ public class QueueBossBarManager {
             }
 
 
+            // resume active searching
+            bar.setColor(
+                    BossEvent.BossBarColor.YELLOW
+            );
 
-            // =========================
-            // CASUAL
-            // =========================
+            ticks++;
 
-            if (type.equalsIgnoreCase(
-                    "casual"
-            )) {
+            TIMES.put(
+                    id,
+                    ticks
+            );
+
+
+            float progress=
+                    Math.min(
+                            1f,
+                            ticks/2400f
+                    );
+
+            bar.setProgress(
+                    progress
+            );
+
+
+            String type=
+                    TYPES.getOrDefault(
+                            id,
+                            "Queue"
+                    );
+
+
+            if(
+                    type.equalsIgnoreCase(
+                            "casual"
+                    )
+            ){
 
                 bar.setName(
                         Component.literal(
@@ -217,12 +219,7 @@ public class QueueBossBarManager {
             }
 
 
-
-            // =========================
-            // RANKED
-            // =========================
-
-            int stage =
+            int stage=
                     getStage(
                             ticks
                     );
@@ -233,8 +230,8 @@ public class QueueBossBarManager {
             );
 
 
-            String stageText =
-                    switch(stage) {
+            String stageText=
+                    switch(stage){
 
                         case 0 ->
                                 "§aClose Search";
@@ -258,46 +255,16 @@ public class QueueBossBarManager {
 
 
 
-    // =========================
-    // STAGES
-    // =========================
     private static int getStage(
             int ticks
-    ) {
+    ){
 
-        if (ticks < 1200)
+        if(ticks<1200)
             return 0;
 
-        if (ticks < 2400)
+        if(ticks<2400)
             return 1;
 
         return 2;
-    }
-
-
-
-    // =========================
-    // FORMAT LABEL
-    // =========================
-    private static String formatType(
-            String type
-    ) {
-
-        if (type == null)
-            return "Queue";
-
-        return switch (
-                type.toLowerCase()
-                ) {
-
-            case "ranked" ->
-                    "§6Ranked";
-
-            case "casual" ->
-                    "§bCasual";
-
-            default ->
-                    type;
-        };
     }
 }

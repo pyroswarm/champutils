@@ -1,23 +1,23 @@
 package com.champutils.menu;
 
-import com.champutils.rank.SeasonManager;
-
-import com.cobblemon.mod.common.CobblemonItems;
+import com.champutils.rank.SeasonArchiveManager;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Items;
+import net.minecraft.network.chat.Component;
 
-public class SeasonMenu {
+public class SeasonDetailMenu {
 
     public static void open(
-            ServerPlayer player
+            ServerPlayer player,
+            SeasonArchiveManager.SeasonRecord s
     ){
 
-        SimpleGui gui =
+        SimpleGui gui=
                 new SimpleGui(
                         MenuType.GENERIC_9x3,
                         player,
@@ -26,105 +26,75 @@ public class SeasonMenu {
 
         gui.setTitle(
                 Component.literal(
-                        "Season Hub"
+                        "Season "+s.season
                 )
         );
 
 
-        MenuUtil.fillBorders(
-                gui,
-                11,13,15,22
-        );
-
-
-
-        // Current Season
         gui.setSlot(
                 11,
                 new GuiElementBuilder(
-                        CobblemonItems.ICE_GEM
+                        Items.NETHER_STAR
                 )
-                        .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§bCurrent Season"
+                                        "§6Season Stats"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7"
-                                                + SeasonManager.CURRENT_NAME
+                                        "§7Final RP: "+s.finalRp
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Peak RP: "+s.peakRp
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Final Rank: "
+                                                +s.finishRank
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Peak Rank: "
+                                                +s.peakRank
                                 )
                         )
         );
 
 
-
-        // Season History GUI
-        gui.setSlot(
-                13,
-                new GuiElementBuilder(
-                        CobblemonItems.EXP_SHARE
-                )
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "§dSeason History"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7View previous season stats"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§8Click to open archive"
-                                )
-                        )
-                        .setCallback(
-                                (i,c,t)->
-                                        SeasonHistoryMenu.open(
-                                                player
-                                        )
-                        )
-        );
-
-
-
-        // Leaderboard
         gui.setSlot(
                 15,
                 new GuiElementBuilder(
-                        CobblemonItems.ULTRA_BALL
+                        Items.DIAMOND
                 )
-                        .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Leaderboard"
+                                        "§bSeason Top 100"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7View Top Players"
+                                        "§eClick to view"
                                 )
                         )
                         .setCallback(
                                 (i,c,t)->
-                                        LeaderboardMenu.open(
-                                                player
+                                        SeasonTop100Menu.open(
+                                                player,
+                                                s.season
                                         )
                         )
         );
-
 
 
         MenuUtil.addBackButton(
                 gui,
                 22,
-                () -> MainMenu.open(
-                        player
-                )
+                ()->SeasonHistoryMenu.open(player)
         );
 
         gui.open();

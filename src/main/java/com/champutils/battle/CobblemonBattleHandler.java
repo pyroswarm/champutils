@@ -2,6 +2,8 @@ package com.champutils.battle;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
+import com.cobblemon.mod.common.api.events.battles.BattleFaintedEvent;
+
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -10,53 +12,34 @@ public class CobblemonBattleHandler {
 
     public static void register() {
 
+
+        // =========================
+        // NORMAL BATTLE ENDS
+        // =========================
+
         CobblemonEvents.BATTLE_VICTORY.subscribe(event -> {
 
             BattleVictoryEvent e =
                     (BattleVictoryEvent) event;
 
 
-            // =========================
-            // CLEAR BATTLE STATE
-            // =========================
-
-            for (
-                    var actor :
+            clearPlayersFromBattle(
                     e.getBattle().getActors()
-            ) {
-
-                if (
-                        actor instanceof PlayerBattleActor playerActor
-                ) {
-
-                    ServerPlayer player =
-                            (ServerPlayer)
-                                    playerActor.getEntity();
-
-                    BattleStateManager.setInBattle(
-                            player,
-                            false
-                    );
-
-                    BattleItemLockManager.unlock(
-                            player
-                    );
-                }
-            }
+            );
 
 
             ServerPlayer winner = null;
             ServerPlayer loser = null;
 
 
-            for (
+            for(
                     var actor :
                     e.getWinners()
-            ) {
+            ){
 
-                if (
+                if(
                         actor instanceof PlayerBattleActor playerActor
-                ) {
+                ){
 
                     winner =
                             (ServerPlayer)
@@ -67,14 +50,14 @@ public class CobblemonBattleHandler {
             }
 
 
-            for (
+            for(
                     var actor :
                     e.getLosers()
-            ) {
+            ){
 
-                if (
+                if(
                         actor instanceof PlayerBattleActor playerActor
-                ) {
+                ){
 
                     loser =
                             (ServerPlayer)
@@ -85,11 +68,11 @@ public class CobblemonBattleHandler {
             }
 
 
-            if (
+            if(
                     winner != null
                             &&
                             loser != null
-            ) {
+            ){
 
                 BattleListener.onBattleEnd(
                         winner,
@@ -98,5 +81,58 @@ public class CobblemonBattleHandler {
             }
 
         });
+
+
+
+        // =========================
+        // SAFETY CLEANUP
+        // catches wild flee / odd exits
+        // =========================
+
+        CobblemonEvents.BATTLE_FAINTED.subscribe(event -> {
+
+            BattleFaintedEvent e =
+                    (BattleFaintedEvent) event;
+
+            try{
+
+                clearPlayersFromBattle(
+                        e.getBattle()
+                                .getActors()
+                );
+
+            }
+            catch(Exception ignored){
+            }
+
+        });
+
+    }
+
+
+
+    private static void clearPlayersFromBattle(
+            Iterable<?> actors
+    ){
+
+        for(
+                Object actor :
+                actors
+        ){
+
+            if(
+                    actor instanceof PlayerBattleActor playerActor
+            ){
+
+                ServerPlayer player =
+                        (ServerPlayer)
+                                playerActor.getEntity();
+
+                BattleStateManager.setInBattle(
+                        player,
+                        false
+                );
+            }
+        }
     }
 }

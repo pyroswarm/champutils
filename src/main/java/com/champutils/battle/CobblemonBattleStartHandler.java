@@ -10,6 +10,9 @@ import com.champutils.validation.TeamValidator;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CobblemonBattleStartHandler {
 
     public static void register() {
@@ -20,63 +23,69 @@ public class CobblemonBattleStartHandler {
                     (BattleStartedEvent.Pre) event;
 
 
-            ServerPlayer p1 = null;
-            ServerPlayer p2 = null;
+            List<ServerPlayer> players =
+                    new ArrayList<>();
 
 
-            for (
+            // =========================
+            // MARK ALL PLAYER ACTORS
+            // (covers wild battles too)
+            // =========================
+            for(
                     var actor :
                     e.getBattle().getActors()
-            ) {
+            ){
 
-                if (
+                if(
                         actor instanceof PlayerBattleActor playerActor
-                ) {
+                ){
 
-                    if (
-                            p1 == null
-                    ) {
+                    ServerPlayer player =
+                            (ServerPlayer)
+                                    playerActor.getEntity();
 
-                        p1 =
-                                (ServerPlayer)
-                                        playerActor.getEntity();
-                    }
+                    players.add(
+                            player
+                    );
 
-                    else {
-
-                        p2 =
-                                (ServerPlayer)
-                                        playerActor.getEntity();
-
-                        break;
-                    }
+                    // IMPORTANT:
+                    // mark any battle (wild/gym/pvp)
+                    BattleStateManager.setInBattle(
+                            player,
+                            true
+                    );
                 }
             }
 
 
-            if (
-                    p1 == null
-                            ||
-                            p2 == null
-            ) {
+
+            // No player somehow
+            if(
+                    players.isEmpty()
+            ){
                 return;
             }
 
 
 
             // =========================
-            // MARK IN BATTLE
+            // ONLY RUN RANKED PVP LOGIC
+            // IF THERE ARE 2 PLAYERS
             // =========================
 
-            BattleStateManager.setInBattle(
-                    p1,
-                    true
-            );
+            if(
+                    players.size() < 2
+            ){
+                // wild / npc battle
+                return;
+            }
 
-            BattleStateManager.setInBattle(
-                    p2,
-                    true
-            );
+
+            ServerPlayer p1 =
+                    players.get(0);
+
+            ServerPlayer p2 =
+                    players.get(1);
 
 
 
@@ -84,12 +93,12 @@ public class CobblemonBattleStartHandler {
             // ONLY RANKED ENFORCEMENT
             // =========================
 
-            if (
+            if(
                     !MatchmakingManager
                             .isRankedMatch(
                                     p1
                             )
-            ) {
+            ){
                 return;
             }
 
@@ -99,13 +108,13 @@ public class CobblemonBattleStartHandler {
             // LOCK BATTLE ITEMS
             // =========================
 
-            if (
+            if(
                     BattleItemRules
                             .battleItemsBlocked(
                                     p1,
                                     "ranked"
                             )
-            ) {
+            ){
 
                 BattleItemLockManager.lock(
                         p1
@@ -130,39 +139,38 @@ public class CobblemonBattleStartHandler {
 
 
             // =========================
-            // FINAL PRE-BATTLE VALIDATION
-            // pokemon/items/moves/abilities
+            // FINAL LEGALITY CHECK
             // =========================
 
-            String err1 =
+            String err1=
                     TeamValidator.validate(
                             p1,
                             "ranked"
                     );
 
-            String err2 =
+            String err2=
                     TeamValidator.validate(
                             p2,
                             "ranked"
                     );
 
 
-            if (
-                    err1 != null
+            if(
+                    err1!=null
                             ||
-                            err2 != null
-            ) {
+                            err2!=null
+            ){
 
                 cancelMatch(
                         e,
                         p1,
                         p2,
 
-                        err1 != null
+                        err1!=null
                                 ? err1
                                 : "Opponent has invalid team",
 
-                        err2 != null
+                        err2!=null
                                 ? err2
                                 : "Opponent has invalid team"
                 );
@@ -173,16 +181,16 @@ public class CobblemonBattleStartHandler {
 
 
 
+
     private static void cancelMatch(
             BattleStartedEvent.Pre event,
             ServerPlayer p1,
             ServerPlayer p2,
             String m1,
             String m2
-    ) {
+    ){
 
         event.cancel();
-
 
 
         BattleStateManager.setInBattle(
@@ -196,7 +204,6 @@ public class CobblemonBattleStartHandler {
         );
 
 
-
         BattleItemLockManager.unlock(
                 p1
         );
@@ -206,19 +213,17 @@ public class CobblemonBattleStartHandler {
         );
 
 
-
         p1.sendSystemMessage(
                 Component.literal(
-                        "§c" + m1
+                        "§c"+m1
                 )
         );
 
         p2.sendSystemMessage(
                 Component.literal(
-                        "§c" + m2
+                        "§c"+m2
                 )
         );
-
 
 
         MatchmakingManager.clearMatch(

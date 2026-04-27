@@ -18,21 +18,39 @@ public class SeasonArchiveManager {
     public static class SeasonRecord {
 
         public int season;
-
         public String seasonName;
 
         public String finishRank;
+        public String peakRank;
 
         public int finalRp;
-
         public int peakRp;
 
         public int wins;
-
         public int losses;
 
         public int bestStreak;
     }
+
+
+
+    public static class LadderEntry {
+
+        public String player;
+        public int rp;
+        public String rank;
+
+        public LadderEntry(
+                String player,
+                int rp,
+                String rank
+        ){
+            this.player=player;
+            this.rp=rp;
+            this.rank=rank;
+        }
+    }
+
 
 
     private static final Gson GSON =
@@ -42,11 +60,9 @@ public class SeasonArchiveManager {
 
 
 
-    private static File getFile(
-            String player
-    ){
+    private static File seasonDir(){
 
-        File dir =
+        File dir=
                 new File(
                         "config/champutils/seasons"
                 );
@@ -55,39 +71,52 @@ public class SeasonArchiveManager {
             dir.mkdirs();
         }
 
+        return dir;
+    }
+
+
+
+    private static File getPlayerFile(
+            String player
+    ){
         return new File(
-                dir,
-                player + ".json"
+                seasonDir(),
+                player+".json"
         );
     }
 
 
 
-    // =====================================
-    // CREATE PLAYER FILE ON FIRST JOIN
-    // =====================================
+    private static File getTop100File(
+            int season
+    ){
+        return new File(
+                seasonDir(),
+                "season_"
+                        +season
+                        +"_top100.json"
+        );
+    }
+
+
 
     public static void ensurePlayerFile(
             String player
     ){
 
-        try{
+        File f=
+                getPlayerFile(
+                        player
+                );
 
-            File f =
-                    getFile(player);
-
-            if(f.exists()){
-                return;
-            }
-
-            saveHistory(
-                    player,
-                    new ArrayList<>()
-            );
-
-        }catch(Exception e){
-            e.printStackTrace();
+        if(f.exists()){
+            return;
         }
+
+        saveHistory(
+                player,
+                new ArrayList<>()
+        );
     }
 
 
@@ -98,8 +127,10 @@ public class SeasonArchiveManager {
 
         try{
 
-            File f =
-                    getFile(player);
+            File f=
+                    getPlayerFile(
+                            player
+                    );
 
             if(!f.exists()){
 
@@ -111,25 +142,25 @@ public class SeasonArchiveManager {
             }
 
 
-            Type type =
+            Type type=
                     new TypeToken<
                             List<SeasonRecord>
                             >(){}.getType();
 
             try(
-                    FileReader reader =
+                    FileReader r=
                             new FileReader(f)
             ){
 
-                List<SeasonRecord> data =
+                List<SeasonRecord> d=
                         GSON.fromJson(
-                                reader,
+                                r,
                                 type
                         );
 
-                return data==null
+                return d==null
                         ? new ArrayList<>()
-                        : data;
+                        : d;
             }
 
         }catch(Exception e){
@@ -147,8 +178,10 @@ public class SeasonArchiveManager {
             SeasonRecord record
     ){
 
-        List<SeasonRecord> history =
-                getHistory(player);
+        List<SeasonRecord> history=
+                getHistory(
+                        player
+                );
 
         history.add(
                 record
@@ -162,14 +195,122 @@ public class SeasonArchiveManager {
 
 
 
+    private static void saveHistory(
+            String player,
+            List<SeasonRecord> history
+    ){
+
+        try(
+                FileWriter w=
+                        new FileWriter(
+                                getPlayerFile(
+                                        player
+                                )
+                        )
+        ){
+
+            GSON.toJson(
+                    history,
+                    w
+            );
+
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
+/* =========================
+ TOP 100 SNAPSHOTS
+========================= */
+
+    public static void saveTop100Snapshot(
+            int season,
+            List<LadderEntry> top
+    ){
+
+        try(
+                FileWriter w=
+                        new FileWriter(
+                                getTop100File(
+                                        season
+                                )
+                        )
+        ){
+
+            GSON.toJson(
+                    top,
+                    w
+            );
+
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
+    public static List<LadderEntry> getTop100Snapshot(
+            int season
+    ){
+
+        try{
+
+            File f=
+                    getTop100File(
+                            season
+                    );
+
+            if(!f.exists()){
+                return new ArrayList<>();
+            }
+
+            Type type=
+                    new TypeToken<
+                            List<LadderEntry>
+                            >(){}.getType();
+
+            try(
+                    FileReader r=
+                            new FileReader(f)
+            ){
+
+                List<LadderEntry> d=
+                        GSON.fromJson(
+                                r,
+                                type
+                        );
+
+                return d==null
+                        ? new ArrayList<>()
+                        : d;
+            }
+
+        }catch(Exception e){
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+
+
+/* =========================
+ ADMIN REMOVAL SUPPORT
+========================= */
+
     public static void removeLastSeason(
             String player
     ){
 
-        List<SeasonRecord> history =
-                getHistory(player);
+        List<SeasonRecord> history=
+                getHistory(
+                        player
+                );
 
-        if(history.isEmpty()){
+        if(
+                history.isEmpty()
+        ){
             return;
         }
 
@@ -190,13 +331,16 @@ public class SeasonArchiveManager {
             int seasonNumber
     ){
 
-        List<SeasonRecord> history =
-                getHistory(player);
+        List<SeasonRecord> history=
+                getHistory(
+                        player
+                );
 
         history.removeIf(
-                s -> s.season
-                        ==
-                        seasonNumber
+                r->
+                        r.season
+                                ==
+                                seasonNumber
         );
 
         saveHistory(
@@ -207,37 +351,19 @@ public class SeasonArchiveManager {
 
 
 
-    public static void wipeHistory(
-            String player
+    public static void removeSeasonSnapshot(
+            int season
     ){
 
-        saveHistory(
-                player,
-                new ArrayList<>()
-        );
-    }
+        File f=
+                getTop100File(
+                        season
+                );
 
-
-
-    private static void saveHistory(
-            String player,
-            List<SeasonRecord> history
-    ){
-
-        try(
-                FileWriter writer =
-                        new FileWriter(
-                                getFile(player)
-                        )
+        if(
+                f.exists()
         ){
-
-            GSON.toJson(
-                    history,
-                    writer
-            );
-
-        }catch(Exception e){
-            e.printStackTrace();
+            f.delete();
         }
     }
 

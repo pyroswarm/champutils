@@ -1,13 +1,13 @@
 package com.champutils.rank;
 
+import com.champutils.profile.PlayerDataManager;
+
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.scores.Scoreboard;
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ScoreHolder;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
 
 public class LeaderboardManager {
 
@@ -20,14 +20,15 @@ public class LeaderboardManager {
                 String playerName,
                 int rp
         ){
-            this.playerName = playerName;
-            this.rp = rp;
+            this.playerName=playerName;
+            this.rp=rp;
         }
     }
 
 
-    private static final List<Entry> CACHE =
-            new CopyOnWriteArrayList<>();
+
+    private static final List<Entry> TOP =
+            new ArrayList<>();
 
 
 
@@ -35,75 +36,34 @@ public class LeaderboardManager {
             MinecraftServer server
     ){
 
-        try{
-
-            List<Entry> ladder =
-                    new ArrayList<>();
+        TOP.clear();
 
 
-            Scoreboard sb =
-                    server.getScoreboard();
+        Map<String,Integer> ratings =
+                PlayerDataManager
+                        .getAllRatings();
 
 
-            Objective elo =
-                    sb.getObjective(
-                            "elo"
-                    );
+        for(
+                var e :
+                ratings.entrySet()
+        ){
 
-
-            if(elo == null){
-                return;
-            }
-
-
-
-            for(
-                    ScoreHolder holder :
-                    sb.getTrackedPlayers()
-            ){
-
-                try{
-
-                    int rp =
-                            sb.getOrCreatePlayerScore(
-                                    holder,
-                                    elo
-                            ).get();
-
-
-                    if(rp > 0){
-
-                        ladder.add(
-                                new Entry(
-                                        holder.getScoreboardName(),
-                                        rp
-                                )
-                        );
-                    }
-
-                }catch(Exception ignored){}
-            }
-
-
-
-            ladder.sort(
-                    (a,b)->
-                            Integer.compare(
-                                    b.rp,
-                                    a.rp
-                            )
+            TOP.add(
+                    new Entry(
+                            e.getKey(),
+                            e.getValue()
+                    )
             );
-
-
-            CACHE.clear();
-
-            CACHE.addAll(
-                    ladder
-            );
-
-        }catch(Exception e){
-            e.printStackTrace();
         }
+
+
+
+        TOP.sort(
+                Comparator.comparingInt(
+                        (Entry e)->e.rp
+                ).reversed()
+        );
     }
 
 
@@ -112,18 +72,46 @@ public class LeaderboardManager {
             int amount
     ){
 
-        int size =
-                Math.min(
-                        amount,
-                        CACHE.size()
-                );
+        if(
+                amount>=TOP.size()
+        ){
+            return new ArrayList<>(
+                    TOP
+            );
+        }
 
         return new ArrayList<>(
-                CACHE.subList(
+                TOP.subList(
                         0,
-                        size
+                        amount
                 )
         );
+    }
+
+
+
+    public static int getRankPosition(
+            String playerName
+    ){
+
+        for(
+                int i=0;
+                i<TOP.size();
+                i++
+        ){
+
+            if(
+                    TOP.get(i)
+                            .playerName
+                            .equalsIgnoreCase(
+                                    playerName
+                            )
+            ){
+                return i+1;
+            }
+        }
+
+        return -1;
     }
 
 }

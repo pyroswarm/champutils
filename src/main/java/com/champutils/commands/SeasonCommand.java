@@ -2,11 +2,16 @@ package com.champutils.commands;
 
 import com.champutils.rank.SeasonManager;
 import com.champutils.rank.SeasonArchiveManager;
+import com.champutils.rank.LeaderboardManager;
+import com.champutils.profile.PlayerDataManager;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.context.CommandContext;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 
 import java.io.File;
@@ -16,14 +21,14 @@ import static net.minecraft.commands.Commands.argument;
 
 public class SeasonCommand {
 
-    private static String pendingAction = null;
-    private static String pendingSeasonName = null;
-    private static int pendingSeasonRemove = -1;
+    private static String pendingAction=null;
+    private static String pendingSeasonName=null;
+    private static int pendingSeasonRemove=-1;
 
-    private static long confirmExpiry = 0;
+    private static long confirmExpiry=0;
 
-    private static final long CONFIRM_MS =
-            30000; //30 sec
+    private static final long CONFIRM_MS=
+            30000;
 
 
 
@@ -32,20 +37,48 @@ public class SeasonCommand {
             String seasonName,
             int seasonNum
     ){
-        pendingAction = action;
-        pendingSeasonName = seasonName;
-        pendingSeasonRemove = seasonNum;
 
-        confirmExpiry =
+        pendingAction=action;
+        pendingSeasonName=seasonName;
+        pendingSeasonRemove=seasonNum;
+
+        confirmExpiry=
                 System.currentTimeMillis()
-                        +CONFIRM_MS;
+                        +
+                        CONFIRM_MS;
     }
 
 
+
     private static boolean confirmExpired(){
+
         return
                 System.currentTimeMillis()
-                        >confirmExpiry;
+                        >
+                        confirmExpiry;
+    }
+
+
+
+    private static void sendPreview(
+            CommandContext<CommandSourceStack> ctx,
+            int rp
+    ){
+
+        int reset=
+                SeasonManager.softReset(
+                        rp
+                );
+
+        ctx.getSource().sendSuccess(
+                ()->Component.literal(
+                        "§7"
+                                +rp
+                                +" → "
+                                +reset
+                ),
+                false
+        );
     }
 
 
@@ -53,7 +86,7 @@ public class SeasonCommand {
     public static void register(){
 
         CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registry, env)->{
+                (dispatcher,registry,env)->{
 
                     dispatcher.register(
 
@@ -61,50 +94,126 @@ public class SeasonCommand {
 
 
 
-                                    // ========================
-                                    .then(literal("info")
-                                            .executes(ctx->{
+                                    .then(
+                                            literal("info")
+                                                    .executes(ctx->{
 
-                                                ctx.getSource().sendSuccess(
-                                                        ()->Component.literal(
-                                                                "§6Season "
-                                                                        +SeasonManager.CURRENT_SEASON
-                                                                        +" §7- §e"
-                                                                        +SeasonManager.CURRENT_NAME
-                                                        ),
-                                                        false
-                                                );
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§6Season "
+                                                                                +SeasonManager.CURRENT_SEASON
+                                                                                +" §e"
+                                                                                +SeasonManager.CURRENT_NAME
+                                                                ),
+                                                                false
+                                                        );
 
-                                                return 1;
-                                            }))
-
-
-
-                                    // ========================
-                                    .then(literal("list")
-                                            .executes(ctx->{
-
-                                                for(
-                                                        int i=1;
-                                                        i<=SeasonManager.CURRENT_SEASON;
-                                                        i++
-                                                ){
-                                                    int s=i;
-
-                                                    ctx.getSource().sendSuccess(
-                                                            ()->Component.literal(
-                                                                    "§eSeason "+s
-                                                            ),
-                                                            false
-                                                    );
-                                                }
-
-                                                return 1;
-                                            }))
+                                                        return 1;
+                                                    })
+                                    )
 
 
 
-                                    // ========================
+                                    // =====================
+                                    // NEW PREVIEW COMMAND
+                                    // =====================
+
+                                    .then(
+                                            literal("preview")
+                                                    .requires(
+                                                            s->s.hasPermission(4)
+                                                    )
+
+                                                    .executes(ctx->{
+
+                                                        var top=
+                                                                LeaderboardManager.getTop(
+                                                                        1
+                                                                );
+
+                                                        int players=
+                                                                PlayerDataManager
+                                                                        .getAllPlayers()
+                                                                        .size();
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§6--- Season Preview ---"
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§ePlayers affected: §f"
+                                                                                +players
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§7Soft Reset Examples"
+                                                                ),
+                                                                false
+                                                        );
+
+
+                                                        sendPreview(
+                                                                ctx,
+                                                                300
+                                                        );
+
+                                                        sendPreview(
+                                                                ctx,
+                                                                500
+                                                        );
+
+                                                        sendPreview(
+                                                                ctx,
+                                                                1000
+                                                        );
+
+
+                                                        if(
+                                                                !top.isEmpty()
+                                                        ){
+
+                                                            var p=
+                                                                    top.get(0);
+
+                                                            int newRp=
+                                                                    SeasonManager.softReset(
+                                                                            p.rp
+                                                                    );
+
+                                                            ctx.getSource().sendSuccess(
+                                                                    ()->Component.literal(
+                                                                            "§6Top Player: §f"
+                                                                                    +p.playerName
+                                                                                    +" "
+                                                                                    +p.rp
+                                                                                    +" → "
+                                                                                    +newRp
+                                                                    ),
+                                                                    false
+                                                            );
+                                                        }
+
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§aRunning /season start will archive Top100 snapshot."
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        return 1;
+                                                    })
+                                    )
+
+
+
                                     .then(
                                             literal("start")
                                                     .requires(
@@ -133,9 +242,7 @@ public class SeasonCommand {
 
                                                                         ctx.getSource().sendSuccess(
                                                                                 ()->Component.literal(
-                                                                                        "§cWARNING:\n"
-                                                                                                +"Starting a season resets ladder data.\n"
-                                                                                                +"Run §e/season confirm §cwithin 30 seconds."
+                                                                                        "§cRun /season confirm"
                                                                                 ),
                                                                                 false
                                                                         );
@@ -147,13 +254,11 @@ public class SeasonCommand {
 
 
 
-                                    // ========================
                                     .then(
                                             literal("rollback")
                                                     .requires(
                                                             s->s.hasPermission(4)
                                                     )
-
                                                     .executes(ctx->{
 
                                                         armConfirm(
@@ -164,8 +269,7 @@ public class SeasonCommand {
 
                                                         ctx.getSource().sendSuccess(
                                                                 ()->Component.literal(
-                                                                        "§cRollback armed.\n"
-                                                                                +"Run §e/season confirm"
+                                                                        "§cRun /season confirm to rollback."
                                                                 ),
                                                                 false
                                                         );
@@ -176,13 +280,11 @@ public class SeasonCommand {
 
 
 
-                                    // ========================
                                     .then(
                                             literal("removeLast")
                                                     .requires(
                                                             s->s.hasPermission(4)
                                                     )
-
                                                     .executes(ctx->{
 
                                                         armConfirm(
@@ -193,8 +295,7 @@ public class SeasonCommand {
 
                                                         ctx.getSource().sendSuccess(
                                                                 ()->Component.literal(
-                                                                        "§cArchive removal armed.\n"
-                                                                                +"Run §e/season confirm"
+                                                                        "§cRun /season confirm"
                                                                 ),
                                                                 false
                                                         );
@@ -205,7 +306,6 @@ public class SeasonCommand {
 
 
 
-                                    // ========================
                                     .then(
                                             literal("remove")
                                                     .requires(
@@ -234,10 +334,16 @@ public class SeasonCommand {
 
                                                                         ctx.getSource().sendSuccess(
                                                                                 ()->Component.literal(
-                                                                                        "§cRemove Season "
+                                                                                        "§cDeletes Season "
                                                                                                 +season
-                                                                                                +" armed.\n"
-                                                                                                +"Run §e/season confirm"
+                                                                                                +" archives + top100 snapshot."
+                                                                                ),
+                                                                                false
+                                                                        );
+
+                                                                        ctx.getSource().sendSuccess(
+                                                                                ()->Component.literal(
+                                                                                        "§cRun /season confirm"
                                                                                 ),
                                                                                 false
                                                                         );
@@ -249,7 +355,6 @@ public class SeasonCommand {
 
 
 
-                                    // ========================
                                     .then(
                                             literal("confirm")
                                                     .requires(
@@ -266,18 +371,21 @@ public class SeasonCommand {
 
                                                             pendingAction=null;
 
-                                                            ctx.getSource().sendFailure(
-                                                                    Component.literal(
-                                                                            "§cNothing pending."
-                                                                    )
-                                                            );
+                                                            ctx.getSource()
+                                                                    .sendFailure(
+                                                                            Component.literal(
+                                                                                    "Nothing pending."
+                                                                            )
+                                                                    );
 
                                                             return 0;
                                                         }
 
 
 
-                                                        switch(pendingAction){
+                                                        switch(
+                                                                pendingAction
+                                                        ){
 
                                                             case "start":
 
@@ -286,7 +394,6 @@ public class SeasonCommand {
                                                                                 .getServer(),
                                                                         pendingSeasonName
                                                                 );
-
                                                                 break;
 
 
@@ -297,7 +404,6 @@ public class SeasonCommand {
                                                                         ctx.getSource()
                                                                                 .getServer()
                                                                 );
-
                                                                 break;
 
 
@@ -317,7 +423,19 @@ public class SeasonCommand {
 
                                                                 if(files!=null){
 
-                                                                    for(File f:files){
+                                                                    for(
+                                                                            File f :
+                                                                            files
+                                                                    ){
+
+                                                                        if(
+                                                                                f.getName()
+                                                                                        .startsWith(
+                                                                                                "season_"
+                                                                                        )
+                                                                        ){
+                                                                            continue;
+                                                                        }
 
                                                                         String player=
                                                                                 f.getName()
@@ -352,7 +470,19 @@ public class SeasonCommand {
 
                                                                 if(files2!=null){
 
-                                                                    for(File f:files2){
+                                                                    for(
+                                                                            File f :
+                                                                            files2
+                                                                    ){
+
+                                                                        if(
+                                                                                f.getName()
+                                                                                        .startsWith(
+                                                                                                "season_"
+                                                                                        )
+                                                                        ){
+                                                                            continue;
+                                                                        }
 
                                                                         String player=
                                                                                 f.getName()
@@ -367,6 +497,11 @@ public class SeasonCommand {
                                                                                         pendingSeasonRemove
                                                                                 );
                                                                     }
+
+                                                                    SeasonArchiveManager
+                                                                            .removeSeasonSnapshot(
+                                                                                    pendingSeasonRemove
+                                                                            );
                                                                 }
 
                                                                 break;
@@ -378,39 +513,6 @@ public class SeasonCommand {
                                                         pendingSeasonName=null;
                                                         pendingSeasonRemove=-1;
 
-                                                        ctx.getSource().sendSuccess(
-                                                                ()->Component.literal(
-                                                                        "§aConfirmed."
-                                                                ),
-                                                                true
-                                                        );
-
-                                                        return 1;
-                                                    })
-                                    )
-
-
-
-                                    // ========================
-                                    .then(
-                                            literal("cancel")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
-
-                                                    .executes(ctx->{
-
-                                                        pendingAction=null;
-                                                        pendingSeasonName=null;
-                                                        pendingSeasonRemove=-1;
-
-                                                        ctx.getSource().sendSuccess(
-                                                                ()->Component.literal(
-                                                                        "§7Pending action cancelled."
-                                                                ),
-                                                                false
-                                                        );
-
                                                         return 1;
                                                     })
                                     )
@@ -419,4 +521,5 @@ public class SeasonCommand {
 
                 });
     }
+
 }

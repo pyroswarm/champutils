@@ -6,6 +6,7 @@ import com.champutils.matchmaking.ArenaManager;
 import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.config.Config;
 import com.champutils.profile.ProfileManager;
+import com.champutils.profile.PlayerDataManager;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,22 +25,32 @@ public class BattleListener {
             ServerPlayer loser
     ) {
 
-        if (winner == null || loser == null)
+        if(
+                winner==null
+                        ||
+                        loser==null
+        ){
             return;
+        }
+
 
         boolean ranked =
                 MatchmakingManager
-                        .isRankedMatch(winner);
+                        .isRankedMatch(
+                                winner
+                        );
 
 
-        /*
-         * NEW PROFILE STATS
-         * (doesn't affect existing systems)
-         */
+
         boolean upsetWin =
-                getRankIndex(loser)
+                getRankIndex(
+                        loser
+                )
                         >
-                        getRankIndex(winner);
+                        getRankIndex(
+                                winner
+                        );
+
 
         ProfileManager.recordWin(
                 winner,
@@ -53,9 +64,12 @@ public class BattleListener {
         );
 
 
-        // Existing arena return logic preserved
-        if (Config.arenas != null
-                && !Config.arenas.isEmpty()) {
+
+        if(
+                Config.arenas!=null
+                        &&
+                        !Config.arenas.isEmpty()
+        ){
 
             ArenaManager.returnPlayer(
                     winner
@@ -75,8 +89,12 @@ public class BattleListener {
         }
 
 
-        // Casual exits unchanged
-        if (!ranked) {
+
+        // Casual battles:
+        // no RP changes
+        if(
+                !ranked
+        ){
 
             MatchmakingManager.clearMatch(
                     winner
@@ -98,12 +116,21 @@ public class BattleListener {
         }
 
 
-        // Existing RP logic preserved
+
+        // =========================
+        // Ranked RP changes
+        // =========================
+
         int winnerElo =
-                getElo(winner);
+                getElo(
+                        winner
+                );
 
         int loserElo =
-                getElo(loser);
+                getElo(
+                        loser
+                );
+
 
         int change =
                 calculateRpChange(
@@ -111,8 +138,11 @@ public class BattleListener {
                         loser
                 );
 
+
         int newWinner =
-                winnerElo + change;
+                winnerElo
+                        +
+                        change;
 
         int newLoser =
                 Math.max(
@@ -121,6 +151,8 @@ public class BattleListener {
                 );
 
 
+
+        // update scoreboard RP
         setElo(
                 winner,
                 newWinner
@@ -132,10 +164,32 @@ public class BattleListener {
         );
 
 
-        // NEW peak RP sync
+
+        // =========================
+        // NEW:
+        // update persistent offline RP
+        // =========================
+
+        PlayerDataManager.setRp(
+                winner.getUUID(),
+                winner.getName()
+                        .getString(),
+                newWinner
+        );
+
+        PlayerDataManager.setRp(
+                loser.getUUID(),
+                loser.getName()
+                        .getString(),
+                newLoser
+        );
+
+
+
         ProfileManager.syncPeakRp(
                 winner
         );
+
 
 
         RankManager.updatePlayerRank(
@@ -151,25 +205,27 @@ public class BattleListener {
         );
 
 
+
         winner.sendSystemMessage(
                 Component.literal(
                         "§a+"
-                                + change
-                                + " RP (§f"
-                                + newWinner
-                                + "§a)"
+                                +change
+                                +" RP (§f"
+                                +newWinner
+                                +"§a)"
                 )
         );
 
         loser.sendSystemMessage(
                 Component.literal(
                         "§c-"
-                                + change
-                                + " RP (§f"
-                                + newLoser
-                                + "§c)"
+                                +change
+                                +" RP (§f"
+                                +newLoser
+                                +"§c)"
                 )
         );
+
 
 
         MatchmakingManager.clearMatch(
@@ -188,56 +244,72 @@ public class BattleListener {
                 loser
         );
     }
+
 
 
 
     private static int calculateRpChange(
             ServerPlayer winner,
             ServerPlayer loser
-    ) {
+    ){
 
         int winnerRank =
-                getRankIndex(winner);
+                getRankIndex(
+                        winner
+                );
 
         int loserRank =
-                getRankIndex(loser);
+                getRankIndex(
+                        loser
+                );
 
         int rankDiff =
                 loserRank-winnerRank;
 
-        int change =
-                20 + (
-                        rankDiff * 2
-                );
+        int change=
+                20
+                        +
+                        (
+                                rankDiff*2
+                        );
 
-        if(change<15)
+
+        if(change<15){
             change=15;
+        }
 
-        if(change>30)
+        if(change>30){
             change=30;
+        }
 
         return change;
     }
 
 
 
+
     private static int getRankIndex(
             ServerPlayer player
-    ) {
+    ){
 
-        var rank =
+        var rank=
                 RankManager.getRank(
                         getElo(player)
                 );
 
-        if(rank==null)
+        if(
+                rank==null
+        ){
             return 0;
+        }
+
 
         for(
                 int i=0;
                 i<Config.ranks.size();
                 i++
         ){
+
             if(
                     Config.ranks
                             .get(i)
@@ -254,29 +326,35 @@ public class BattleListener {
 
 
 
+
     private static int getElo(
             ServerPlayer player
-    ) {
+    ){
 
-        Scoreboard sb =
+        Scoreboard sb=
                 player.getScoreboard();
 
-        Objective obj =
+        Objective obj=
                 sb.getObjective(
                         "elo"
                 );
 
+
         if(obj==null){
 
-            obj=sb.addObjective(
-                    "elo",
-                    ObjectiveCriteria.DUMMY,
-                    Component.literal("RP"),
-                    RenderType.INTEGER,
-                    false,
-                    null
-            );
+            obj=
+                    sb.addObjective(
+                            "elo",
+                            ObjectiveCriteria.DUMMY,
+                            Component.literal(
+                                    "RP"
+                            ),
+                            RenderType.INTEGER,
+                            false,
+                            null
+                    );
         }
+
 
         return sb
                 .getOrCreatePlayerScore(
@@ -288,37 +366,46 @@ public class BattleListener {
 
 
 
+
     private static void setElo(
             ServerPlayer player,
             int value
     ){
 
-        Scoreboard sb =
+        Scoreboard sb=
                 player.getScoreboard();
 
-        Objective obj =
+        Objective obj=
                 sb.getObjective(
                         "elo"
                 );
 
+
         if(obj==null){
 
-            obj=sb.addObjective(
-                    "elo",
-                    ObjectiveCriteria.DUMMY,
-                    Component.literal("RP"),
-                    RenderType.INTEGER,
-                    false,
-                    null
-            );
+            obj=
+                    sb.addObjective(
+                            "elo",
+                            ObjectiveCriteria.DUMMY,
+                            Component.literal(
+                                    "RP"
+                            ),
+                            RenderType.INTEGER,
+                            false,
+                            null
+                    );
         }
 
-        ScoreAccess score =
+
+        ScoreAccess score=
                 sb.getOrCreatePlayerScore(
                         player,
                         obj
                 );
 
-        score.set(value);
+        score.set(
+                value
+        );
     }
+
 }
