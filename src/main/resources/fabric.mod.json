@@ -6,11 +6,17 @@
   "description": "Basic server commands like /menu",
   "authors": ["you"],
   "environment": "server",
+
   "entrypoints": {
     "main": [
       "com.champutils.ChampUtilsMod"
     ]
   },
+
+  "mixins": [
+    "champ-utils.mixins.json"
+  ],
+
   "depends": {
     "fabricloader": ">=0.18.0",
     "fabric-api": "*",

@@ -1,5 +1,6 @@
 package com.champutils;
 
+import com.champutils.battle.*;
 import com.champutils.commands.*;
 
 import com.champutils.rank.ActionBarManager;
@@ -18,11 +19,6 @@ import com.champutils.config.Config;
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.matchmaking.QueueBossBarManager;
 import com.champutils.matchmaking.TeamPreviewManager;
-
-import com.champutils.battle.CobblemonBattleHandler;
-import com.champutils.battle.CobblemonBattleStartHandler;
-import com.champutils.battle.BattleItemUseListener;
-import com.champutils.battle.DisconnectForfeitManager;
 
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
@@ -46,12 +42,20 @@ public class ChampUtilsMod implements ModInitializer {
     @Override
     public void onInitialize() {
 
+
+
+/* =========================
+CONFIG
+========================= */
+
         File configDir =
                 new File(
                         "config/champutils"
                 );
 
-        if(!configDir.exists()){
+        if(
+                !configDir.exists()
+        ){
             configDir.mkdirs();
         }
 
@@ -62,7 +66,9 @@ public class ChampUtilsMod implements ModInitializer {
                         "rules.json"
                 );
 
-        if(!configFile.exists()){
+        if(
+                !configFile.exists()
+        ){
 
             try(
                     FileWriter writer =
@@ -70,7 +76,9 @@ public class ChampUtilsMod implements ModInitializer {
                                     configFile
                             )
             ){
-                writer.write("{}");
+                writer.write(
+                        "{}"
+                );
             }
             catch(Exception ignored){}
         }
@@ -86,12 +94,22 @@ public class ChampUtilsMod implements ModInitializer {
         SeasonManager.loadState();
 
 
+
 /* =========================
 SERVER START
 ========================= */
 
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
+
+/*
+IMPORTANT:
+Store server reference here
+NOT in onInitialize()
+ */
+                    ServerLifecycleBridge.setServer(
+                            server
+                    );
 
                     LeaderboardManager.refresh(
                             server
@@ -104,12 +122,17 @@ SERVER START
         );
 
 
+
 /* =========================
 PLAYER JOIN
 ========================= */
 
         ServerPlayConnectionEvents.JOIN.register(
-                (handler,sender,server)->{
+                (
+                        handler,
+                        sender,
+                        server
+                )->{
 
                     ServerPlayer player=
                             handler.player;
@@ -149,12 +172,16 @@ PLAYER JOIN
         );
 
 
+
 /* =========================
 PLAYER DISCONNECT
 ========================= */
 
         ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler,server)->{
+                (
+                        handler,
+                        server
+                )->{
 
                     MatchmakingManager.leaveQueue(
                             handler.player
@@ -167,12 +194,17 @@ PLAYER DISCONNECT
         );
 
 
+
 /* =========================
 CHAT PROFILE LOOKUP
 ========================= */
 
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
-                (message, player, params)->{
+                (
+                        message,
+                        player,
+                        params
+                )->{
 
                     if(
                             ProfileLookupManager.isWaiting(
@@ -193,19 +225,25 @@ CHAT PROFILE LOOKUP
         );
 
 
+
 /* =========================
 COMMANDS
 ========================= */
 
         MenuCommand.register();
+
         SeasonCommand.register();
+
         LeaderboardCommand.register();
 
         GymCommand.register();
+
         EVTrainingCommand.register();
+
         EliteFourCommand.register();
 
         RpAdminCommand.register();
+
 
 
 /* =========================
@@ -213,12 +251,15 @@ BATTLE SYSTEMS
 ========================= */
 
         CobblemonBattleHandler.register();
+
         CobblemonBattleStartHandler.register();
 
         BattleItemUseListener.register();
 
         GymBattleHandler.register();
+
         GymBattleStartHandler.register();
+
 
 
 /* =========================
@@ -227,6 +268,9 @@ SERVER TICK
 
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
+
+
+                    /* leaderboard refresh */
 
                     if(
                             server.getTickCount()>0
@@ -239,6 +283,9 @@ SERVER TICK
                         );
                     }
 
+
+
+                    /* action bar refresh */
 
                     if(
                             server.getTickCount()%20==0
@@ -257,14 +304,19 @@ SERVER TICK
                     }
 
 
-                    MatchmakingManager.tick();
 
+                    /* ticking systems */
+
+                    MatchmakingManager.tick();
                     QueueBossBarManager.tick();
+
+
 
                     TeamPreviewManager.tick(
                             server.getPlayerList()
                                     .getPlayers()
                     );
+
                 }
         );
 
@@ -273,4 +325,5 @@ SERVER TICK
                 "[ChampUtils] Loaded successfully."
         );
     }
+
 }

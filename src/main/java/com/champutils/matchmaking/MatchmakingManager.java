@@ -166,6 +166,17 @@ public class MatchmakingManager {
 
 
     // NEW
+    public static boolean isMatchmadeBattle(
+            ServerPlayer player
+    ){
+
+        return player != null
+                &&
+                OPPONENTS.containsKey(
+                        player.getUUID()
+                );
+    }
+
     public static ServerPlayer getOpponent(
             ServerPlayer player
     ){

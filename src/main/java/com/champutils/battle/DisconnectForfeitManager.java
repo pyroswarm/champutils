@@ -1,46 +1,74 @@
 package com.champutils.battle;
 
 import com.champutils.matchmaking.MatchmakingManager;
-import com.champutils.matchmaking.ArenaManager;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DisconnectForfeitManager {
 
-    private static final Map<UUID, PendingReturn> PENDING_RETURNS =
-            new HashMap<>();
+    /*
+    Store original locations in case player disconnects mid-ranked battle
+     */
+    private static final Map<UUID, SavedLocation> RETURN_LOCATIONS =
+            new ConcurrentHashMap<>();
 
 
-    private static class PendingReturn {
+    private static class SavedLocation {
 
-        double x;
-        double y;
-        double z;
+        String dimensionId;
+        BlockPos pos;
 
-        float yaw;
-        float pitch;
-
-        PendingReturn(
-                double x,
-                double y,
-                double z,
-                float yaw,
-                float pitch
+        SavedLocation(
+                String dimensionId,
+                BlockPos pos
         ){
-            this.x=x;
-            this.y=y;
-            this.z=z;
-            this.yaw=yaw;
-            this.pitch=pitch;
+            this.dimensionId=dimensionId;
+            this.pos=pos;
         }
     }
 
 
+
+/* =========================
+SAVE LOCATION BEFORE BATTLE
+========================= */
+
+    public static void saveReturnLocation(
+            ServerPlayer player
+    ){
+
+        try{
+
+            RETURN_LOCATIONS.put(
+                    player.getUUID(),
+                    new SavedLocation(
+                            player.level()
+                                    .dimension()
+                                    .location()
+                                    .toString(),
+
+                            player.blockPosition()
+                    )
+            );
+
+        }
+        catch(Exception ignored){
+        }
+    }
+
+
+
+/* =========================
+DISCONNECT FORFEIT
+========================= */
 
     public static void handleDisconnect(
             ServerPlayer quitter
@@ -53,7 +81,16 @@ public class DisconnectForfeitManager {
         }
 
 
-        ServerPlayer opponent =
+        if(
+                !BattleStateManager.isInBattle(
+                        quitter
+                )
+        ){
+            return;
+        }
+
+
+        ServerPlayer opponent=
                 MatchmakingManager.getOpponent(
                         quitter
                 );
@@ -61,54 +98,43 @@ public class DisconnectForfeitManager {
         if(
                 opponent==null
         ){
+            BattleStateManager.setInBattle(
+                    quitter,
+                    false
+            );
+
             return;
         }
 
 
-        boolean ranked =
-                MatchmakingManager.isRankedMatch(
-                        quitter
-                );
 
+/* =========================
+RP RESULT
+========================= */
 
-
-        // save quitter return location
-        PENDING_RETURNS.put(
-                quitter.getUUID(),
-
-                new PendingReturn(
-                        quitter.getX(),
-                        quitter.getY(),
-                        quitter.getZ(),
-                        quitter.getYRot(),
-                        quitter.getXRot()
-                )
+        BattleListener.onBattleEnd(
+                opponent,
+                quitter
         );
 
 
+
+/* =========================
+MESSAGING
+========================= */
 
         opponent.sendSystemMessage(
                 Component.literal(
-                        ranked
-                                ? "§aOpponent disconnected. Win by forfeit."
-                                : "§eOpponent disconnected. Casual match ended."
+                        "§aOpponent forfeited by disconnect."
                 )
         );
 
 
 
-        // return opponent from arena
-        ArenaManager.returnPlayer(
-                opponent
-        );
+/* =========================
+CLEAR BATTLE STATE
+========================= */
 
-        ArenaManager.releaseArena(
-                opponent
-        );
-
-
-
-        // clear battle flags
         BattleStateManager.setInBattle(
                 quitter,
                 false
@@ -119,70 +145,132 @@ public class DisconnectForfeitManager {
                 false
         );
 
+        BattleStateManager.clearBattle(
+                quitter
+        );
+
+        BattleStateManager.clearBattle(
+                opponent
+        );
 
 
-        if(
-                ranked
-        ){
 
-            // ranked disconnect loss
-            BattleListener.onBattleEnd(
-                    opponent,
-                    quitter
-            );
 
-        } else {
 
-            // casual:
-            // no rating changes
-            MatchmakingManager.clearMatch(
-                    quitter
-            );
 
-            MatchmakingManager.clearMatch(
-                    opponent
-            );
-        }
+/* =========================
+CLEAR MATCH DATA
+========================= */
+
+        MatchmakingManager.clearMatch(
+                quitter
+        );
+
+        MatchmakingManager.clearMatch(
+                opponent
+        );
 
     }
 
 
+
+/* =========================
+REJOIN RETURN LOCATION
+========================= */
 
     public static void handleJoin(
             ServerPlayer player
     ){
 
-        PendingReturn loc =
-                PENDING_RETURNS.remove(
+        SavedLocation saved=
+                RETURN_LOCATIONS.remove(
                         player.getUUID()
                 );
 
         if(
-                loc==null
+                saved==null
         ){
             return;
         }
 
+        try{
 
-        player.teleportTo(
-                loc.x,
-                loc.y,
-                loc.z
-        );
+            MinecraftServer server=
+                    player.server;
 
-        player.connection.teleport(
-                loc.x,
-                loc.y,
-                loc.z,
-                loc.yaw,
-                loc.pitch
-        );
+            if(
+                    server==null
+            ){
+                return;
+            }
 
 
-        player.sendSystemMessage(
-                Component.literal(
-                        "§cDisconnect counted as a loss."
-                )
-        );
+            ServerLevel targetLevel=
+                    null;
+
+            for(
+                    ServerLevel level :
+                    server.getAllLevels()
+            ){
+
+                if(
+                        level.dimension()
+                                .location()
+                                .toString()
+                                .equals(
+                                        saved.dimensionId
+                                )
+                ){
+                    targetLevel=level;
+                    break;
+                }
+            }
+
+
+
+/*
+Return to original location
+ */
+            if(
+                    targetLevel!=null
+            ){
+
+                player.teleportTo(
+                        targetLevel,
+                        saved.pos.getX()+0.5,
+                        saved.pos.getY(),
+                        saved.pos.getZ()+0.5,
+                        player.getYRot(),
+                        player.getXRot()
+                );
+
+                return;
+            }
+
+
+/*
+Fallback:
+spawn if original location unavailable
+ */
+            ServerLevel overworld=
+                    server.overworld();
+
+            BlockPos spawn=
+                    overworld.getSharedSpawnPos();
+
+            player.teleportTo(
+                    overworld,
+                    spawn.getX()+0.5,
+                    spawn.getY(),
+                    spawn.getZ()+0.5,
+                    player.getYRot(),
+                    player.getXRot()
+            );
+
+        }
+        catch(Exception ignored){
+        }
+
     }
+
 }

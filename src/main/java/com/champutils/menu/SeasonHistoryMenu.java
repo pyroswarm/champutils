@@ -15,6 +15,7 @@ public class SeasonHistoryMenu {
     public static void open(
             ServerPlayer player
     ){
+        // self profile history
         open(
                 player,
                 player.getName()
@@ -29,13 +30,20 @@ public class SeasonHistoryMenu {
             String targetName
     ){
 
-        var history=
+        boolean selfView =
+                targetName.equalsIgnoreCase(
+                        viewer.getName()
+                                .getString()
+                );
+
+
+        var history =
                 SeasonArchiveManager.getHistory(
                         targetName
                 );
 
 
-        SimpleGui gui=
+        SimpleGui gui =
                 new SimpleGui(
                         MenuType.GENERIC_9x6,
                         viewer,
@@ -121,19 +129,21 @@ public class SeasonHistoryMenu {
 
 
 
-        if(
-                history.isEmpty()
-        ){
+/* =========================
+EMPTY HISTORY
+========================= */
+
+        if(history.isEmpty()){
 
             gui.setSlot(
                     22,
                     new GuiElementBuilder(
-                            Items.BARRIER
+                            Items.GRAY_STAINED_GLASS_PANE
                     )
                             .hideDefaultTooltip()
                             .setName(
                                     Component.literal(
-                                            "§cNo archived seasons."
+                                            "§7No Archived Seasons Yet"
                                     )
                             )
             );
@@ -142,25 +152,51 @@ public class SeasonHistoryMenu {
 
 
 /* =========================
-CLOSE BUTTON
+SELF VIEW -> CLOSE
+OTHER PLAYER -> BACK
 ========================= */
 
-        gui.setSlot(
-                49,
-                new GuiElementBuilder(
-                        Items.BARRIER
-                )
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "§cClose"
-                                )
-                        )
-                        .setCallback(
-                                (i,c,t)->
-                                        viewer.closeContainer()
-                        )
-        );
+        if(selfView){
+
+            gui.setSlot(
+                    49,
+                    new GuiElementBuilder(
+                            Items.BARRIER
+                    )
+                            .hideDefaultTooltip()
+                            .setName(
+                                    Component.literal(
+                                            "§cClose"
+                                    )
+                            )
+                            .setCallback(
+                                    (i,c,t)->
+                                            viewer.closeContainer()
+                            )
+            );
+
+        } else {
+
+            gui.setSlot(
+                    49,
+                    new GuiElementBuilder(
+                            Items.ARROW
+                    )
+                            .hideDefaultTooltip()
+                            .setName(
+                                    Component.literal(
+                                            "§eBack to Profile"
+                                    )
+                            )
+                            .setCallback(
+                                    (i,c,t)->
+                                            PlayerProfileMenu.open(
+                                                    viewer,
+                                                    targetName
+                                            )
+                            )
+            );
+        }
 
 
         gui.open();

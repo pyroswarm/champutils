@@ -2,6 +2,7 @@ package com.champutils.menu;
 
 import com.champutils.rank.LeaderboardManager;
 import com.champutils.rank.LeaderboardManager.Entry;
+import com.champutils.profile.PlayerDataManager;
 
 import com.mojang.authlib.GameProfile;
 
@@ -16,11 +17,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
-
 import net.minecraft.world.item.component.ResolvableProfile;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class LeaderboardMenu {
 
@@ -49,7 +50,6 @@ public class LeaderboardMenu {
         );
 
 
-
 /* =========================
 HEADER
 ========================= */
@@ -74,7 +74,7 @@ HEADER
 
 
 
-        List<Entry> top =
+        List<Entry> top=
                 LeaderboardManager.getTop(
                         36
                 );
@@ -100,7 +100,6 @@ HEADER
                     i+1;
 
 
-
             String medal=
                     switch(rankPos){
                         case 1 -> "§6#1 ";
@@ -110,20 +109,22 @@ HEADER
                     };
 
 
-
 /* =========================
-BUILD PLAYER HEAD W/ SKIN
+BUILD SKINNED HEAD
 ========================= */
 
-            ItemStack head =
+            ItemStack head=
                     new ItemStack(
                             Items.PLAYER_HEAD
                     );
 
-
             try{
 
-                // First try online player
+                boolean applied=false;
+
+
+                /* ---- online player skin ---- */
+
                 ServerPlayer online=
                         player.server
                                 .getPlayerList()
@@ -134,21 +135,68 @@ BUILD PLAYER HEAD W/ SKIN
                 if(
                         online!=null
                 ){
-
-                    GameProfile profile=
-                            online.getGameProfile();
-
                     head.set(
                             DataComponents.PROFILE,
                             new ResolvableProfile(
-                                    profile
+                                    online.getGameProfile()
                             )
                     );
+
+                    applied=true;
                 }
 
-                else{
 
-                    // Offline player support
+
+                /* ---- offline uuid skin ---- */
+
+                if(!applied){
+
+                    for(
+                            var p :
+                            PlayerDataManager.getAllPlayers()
+                    ){
+
+                        if(
+                                p.name.equalsIgnoreCase(
+                                        entry.playerName
+                                )
+                        ){
+
+                            try{
+
+                                UUID uuid=
+                                        UUID.fromString(
+                                                p.uuid
+                                        );
+
+                                GameProfile offlineProfile=
+                                        new GameProfile(
+                                                uuid,
+                                                p.name
+                                        );
+
+                                head.set(
+                                        DataComponents.PROFILE,
+                                        new ResolvableProfile(
+                                                offlineProfile
+                                        )
+                                );
+
+                                applied=true;
+
+                            }catch(Exception ignored){}
+
+                            break;
+                        }
+                    }
+                }
+
+
+
+                /* ---- name cache fallback ---- */
+
+                if(!applied){
+
                     Optional<GameProfile> cached=
                             player.server
                                     .getProfileCache()
@@ -159,6 +207,7 @@ BUILD PLAYER HEAD W/ SKIN
                     if(
                             cached.isPresent()
                     ){
+
                         head.set(
                                 DataComponents.PROFILE,
                                 new ResolvableProfile(
@@ -173,7 +222,7 @@ BUILD PLAYER HEAD W/ SKIN
 
 
 /* =========================
-HEAD BUTTON
+ENTRY BUTTON
 ========================= */
 
             GuiElementBuilder headButton=
@@ -245,5 +294,4 @@ BACK
 
         gui.open();
     }
-
 }
