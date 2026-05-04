@@ -1,41 +1,43 @@
 package com.champutils;
 
+/*
+ =========================
+ Internal package imports
+ =========================
+*/
 import com.champutils.battle.*;
 import com.champutils.commands.*;
-
-import com.champutils.rank.ActionBarManager;
-import com.champutils.rank.LeaderboardManager;
-import com.champutils.rank.SeasonArchiveManager;
-import com.champutils.rank.SeasonManager;
-
-import com.champutils.gym.GymBattleHandler;
-import com.champutils.gym.GymBattleStartHandler;
-import com.champutils.gym.GymCommand;
-import com.champutils.gym.GymConfig;
-import com.champutils.gym.GymRegistry;
-
-import com.champutils.config.Config;
-
-import com.champutils.matchmaking.MatchmakingManager;
-import com.champutils.matchmaking.QueueBossBarManager;
-import com.champutils.matchmaking.TeamPreviewManager;
-
-import com.champutils.profile.PlayerDataManager;
-import com.champutils.profile.ProfileManager;
-
-import com.champutils.menu.ProfileLookupManager;
-
+import com.champutils.config.*;
+import com.champutils.gym.*;
+import com.champutils.matchmaking.*;
+import com.champutils.menu.*;
 import com.champutils.profession.*;
+import com.champutils.profile.*;
+import com.champutils.rank.*;
 
+/*
+ =========================
+ Fabric imports
+ =========================
+*/
 import net.fabricmc.api.ModInitializer;
-
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
+/*
+ =========================
+ Minecraft imports
+ =========================
+*/
 import net.minecraft.server.level.ServerPlayer;
 
+/*
+ =========================
+ Java imports
+ =========================
+*/
 import java.io.File;
 import java.io.FileWriter;
 
@@ -69,7 +71,8 @@ public class ChampUtilsMod implements ModInitializer {
             ) {
                 writer.write("{}");
             }
-            catch (Exception ignored) {}
+            catch (Exception ignored) {
+            }
         }
 
         Config.load(configFile);
@@ -82,14 +85,19 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionConfig.load();
 
         /*
+         Custom tools
+         */
+        ProfessionToolConfig.load();
+        ProfessionToolManager.registerTools();
+        ProfessionToolRequirementListener.register();
+
+        /*
          Profession loot config
-         (mining/forestry/fishing/farming)
          */
         ProfessionLootConfig.load();
 
         /*
          Wild battle loot config
-         (wild pokemon only)
          */
         WildBattleLootConfig.load();
 
@@ -252,6 +260,11 @@ public class ChampUtilsMod implements ModInitializer {
         EVTrainingCommand.register();
         EliteFourCommand.register();
         RpAdminCommand.register();
+
+        /*
+         New custom item test command
+         */
+        GiveChampItemCommand.register();
 
         /*
          =========================
