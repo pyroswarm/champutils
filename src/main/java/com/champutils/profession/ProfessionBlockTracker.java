@@ -1,17 +1,26 @@
 package com.champutils.profession;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ProfessionBlockTracker {
 
-    private static final Set<String> PLACED_BLOCKS =
-            new HashSet<>();
+    /*
+     key:
+     dimension|x|y|z
+
+     value:
+     player uuid
+     */
+    private static final Map<String, UUID> PLACED_BLOCKS =
+            new ConcurrentHashMap<>();
 
     private static final Path SAVE_PATH =
             Path.of(
@@ -21,37 +30,59 @@ public class ProfessionBlockTracker {
             );
 
     public static void markPlaced(
-            BlockPos pos
+            ServerLevel level,
+            BlockPos pos,
+            UUID playerId
     ) {
-        PLACED_BLOCKS.add(
-                serialize(pos)
+        String key =
+                serialize(level, pos);
+
+        PLACED_BLOCKS.put(
+                key,
+                playerId
         );
     }
 
     public static boolean isPlayerPlaced(
+            ServerLevel level,
             BlockPos pos
     ) {
-        return PLACED_BLOCKS.contains(
-                serialize(pos)
+        return PLACED_BLOCKS.containsKey(
+                serialize(level, pos)
         );
     }
 
     public static void remove(
+            ServerLevel level,
             BlockPos pos
     ) {
         PLACED_BLOCKS.remove(
-                serialize(pos)
+                serialize(level, pos)
+        );
+    }
+
+    public static UUID getOwner(
+            ServerLevel level,
+            BlockPos pos
+    ) {
+        return PLACED_BLOCKS.get(
+                serialize(level, pos)
         );
     }
 
     private static String serialize(
+            ServerLevel level,
             BlockPos pos
     ) {
-        return pos.getX() +
-                "," +
-                pos.getY() +
-                "," +
-                pos.getZ();
+        return level.dimension()
+                .location()
+                .toString()
+                + "|"
+                + pos.getX()
+                + "|"
+                + pos.getY()
+                + "|"
+                + pos.getZ();
     }
 
     public static void save() {
@@ -68,10 +99,14 @@ public class ProfessionBlockTracker {
                             )
             ) {
                 for (
-                        String entry :
-                        PLACED_BLOCKS
+                        Map.Entry<String, UUID> entry :
+                        PLACED_BLOCKS.entrySet()
                 ) {
-                    writer.write(entry);
+                    writer.write(
+                            entry.getKey() +
+                                    "=" +
+                                    entry.getValue()
+                    );
                     writer.newLine();
                 }
             }
@@ -84,9 +119,7 @@ public class ProfessionBlockTracker {
     public static void load() {
         try {
 
-            if (
-                    !Files.exists(SAVE_PATH)
-            ) {
+            if (!Files.exists(SAVE_PATH)) {
                 return;
             }
 
@@ -98,13 +131,22 @@ public class ProfessionBlockTracker {
                                     SAVE_PATH
                             )
             ) {
-
                 String line;
 
                 while (
                         (line = reader.readLine()) != null
                 ) {
-                    PLACED_BLOCKS.add(line);
+                    String[] split =
+                            line.split("=");
+
+                    if (split.length != 2) {
+                        continue;
+                    }
+
+                    PLACED_BLOCKS.put(
+                            split[0],
+                            UUID.fromString(split[1])
+                    );
                 }
             }
 

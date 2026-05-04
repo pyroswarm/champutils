@@ -46,7 +46,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
-         CONFIG SETUP
+         CONFIG DIRECTORY
          =========================
          */
         File configDir =
@@ -76,14 +76,25 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
-         PROFESSION CONFIG
+         PROFESSION CONFIGS
          =========================
          */
         ProfessionConfig.load();
 
         /*
-         IMPORTANT:
-         Load persistent placed block tracking
+         Profession loot config
+         (mining/forestry/fishing/farming)
+         */
+        ProfessionLootConfig.load();
+
+        /*
+         Wild battle loot config
+         (wild pokemon only)
+         */
+        WildBattleLootConfig.load();
+
+        /*
+         Anti exploit block tracking
          */
         ProfessionBlockTracker.load();
 
@@ -97,7 +108,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
-         SEASONS
+         SEASON STATE
          =========================
          */
         SeasonManager.loadState();
@@ -128,10 +139,6 @@ public class ChampUtilsMod implements ModInitializer {
                 server -> {
 
                     ProfessionManager.saveAll();
-
-                    /*
-                     Save placed blocks
-                     */
                     ProfessionBlockTracker.save();
 
                     System.out.println(
@@ -210,7 +217,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
-         CHAT LOOKUP
+         CHAT LISTENER
          =========================
          */
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
@@ -271,7 +278,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
-         SERVER TICK
+         SERVER TICK LOOP
          =========================
          */
         ServerTickEvents.END_SERVER_TICK.register(
@@ -317,7 +324,7 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
                     /*
-                     Matchmaking
+                     Matchmaking systems
                      */
                     MatchmakingManager.tick();
                     QueueBossBarManager.tick();
@@ -328,7 +335,7 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     /*
-                     Seasons
+                     Season systems
                      */
                     SeasonManager.tick(server);
                 }

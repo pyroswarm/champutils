@@ -1,7 +1,6 @@
 package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.FishingRodItem;
@@ -9,13 +8,9 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 
 public class FishingProfessionListener {
-
-    private static final Random RANDOM =
-            new Random();
 
     private static final Map<UUID, Long> ACTIVE_CASTS =
             new HashMap<>();
@@ -47,94 +42,47 @@ public class FishingProfessionListener {
                     UUID uuid =
                             player.getUUID();
 
-                    /*
-                     First click = cast
-                     */
                     if (!ACTIVE_CASTS.containsKey(uuid)) {
                         ACTIVE_CASTS.put(
                                 uuid,
                                 System.currentTimeMillis()
                         );
-                    }
-
-                    /*
-                     Second click = reel
-                     */
-                    else {
+                    } else {
                         long castTime =
                                 ACTIVE_CASTS.get(uuid);
 
                         ACTIVE_CASTS.remove(uuid);
 
                         long duration =
-                                System.currentTimeMillis() -
-                                        castTime;
+                                System.currentTimeMillis() - castTime;
 
-                        /*
-                         Prevent spam abuse
-                         */
                         if (duration < 3000) {
                             return InteractionResultHolder.pass(stack);
                         }
 
-                        awardFishingXp(serverPlayer);
+                        Integer xp =
+                                ProfessionConfig
+                                        .SETTINGS
+                                        .fishingXp
+                                        .getOrDefault(
+                                                "default",
+                                                10
+                                        );
+
+                        ProfessionManager.addXp(
+                                serverPlayer,
+                                ProfessionType.FISHING,
+                                xp
+                        );
+
+                        ProfessionLootManager.rollReward(
+                                serverPlayer,
+                                ProfessionType.FISHING
+                        );
                     }
 
                     return InteractionResultHolder.pass(stack);
                 }
-        );
-    }
-
-    private static void awardFishingXp(
-            ServerPlayer player
-    ) {
-        Integer xp =
-                ProfessionConfig
-                        .SETTINGS
-                        .fishingXp
-                        .get("default");
-
-        if (xp == null || xp <= 0) {
-            xp = 10;
-        }
-
-        ProfessionManager.addXp(
-                player,
-                ProfessionType.FISHING,
-                xp
-        );
-
-        rollReward(player);
-    }
-
-    private static void rollReward(
-            ServerPlayer player
-    ) {
-        var reward =
-                ProfessionConfig
-                        .SETTINGS
-                        .rewards
-                        .get("FISHING_RARE_DROP");
-
-        if (reward == null) {
-            return;
-        }
-
-        if (RANDOM.nextDouble() > reward.chance) {
-            return;
-        }
-
-        int amount =
-                reward.minAmount +
-                        RANDOM.nextInt(
-                                reward.maxAmount -
-                                        reward.minAmount + 1
-                        );
-
-        ProfessionActionBarManager.sendRareDropMessage(
-                player,
-                reward.itemId,
-                amount
         );
     }
 }

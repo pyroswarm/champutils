@@ -4,9 +4,9 @@ import com.champutils.config.Config;
 import com.champutils.matchmaking.ArenaManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
-import com.champutils.profession.ProfessionConfig;
-import com.champutils.profession.ProfessionManager;
-import com.champutils.profession.ProfessionType;
+
+import com.champutils.profession.*;
+
 import com.champutils.rank.RankManager;
 import com.champutils.validation.TeamSnapshotManager;
 
@@ -29,9 +29,6 @@ public class BattleListener {
                         winner.getUUID()
                 );
 
-        /*
-         Default null context to wild battle
-         */
         if (battleType == null) {
             battleType =
                     BattleContextManager.BattleType.UNKNOWN;
@@ -42,9 +39,6 @@ public class BattleListener {
                 battleType
         );
 
-        /*
-         Wild/NPC battles end here
-         */
         if (loser == null) {
             cleanupSingle(winner);
             return;
@@ -142,21 +136,13 @@ public class BattleListener {
 
         winner.sendSystemMessage(
                 Component.literal(
-                        "§a+" +
-                                change +
-                                " RP (§f" +
-                                newWinner +
-                                "§a)"
+                        "§a+" + change + " RP"
                 )
         );
 
         loser.sendSystemMessage(
                 Component.literal(
-                        "§c-" +
-                                change +
-                                " RP (§f" +
-                                newLoser +
-                                "§c)"
+                        "§c-" + change + " RP"
                 )
         );
 
@@ -181,10 +167,16 @@ public class BattleListener {
 
             case NPC:
                 xp = getBattleXp("npc");
+                NpcBattleRewardManager.rollReward(
+                        winner
+                );
                 break;
 
             case WORLD_BOSS:
                 xp = getBattleXp("world_boss");
+                WorldBossRewardManager.rollReward(
+                        winner
+                );
                 break;
 
             case PROFESSION:
@@ -194,6 +186,10 @@ public class BattleListener {
             case UNKNOWN:
             default:
                 xp = getBattleXp("wild");
+
+                WildBattleRewardManager.rollReward(
+                        winner
+                );
                 break;
         }
 

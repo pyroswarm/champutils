@@ -4,16 +4,11 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 
-import java.util.Random;
-
 public class MiningProfessionListener {
-
-    private static final Random RANDOM =
-            new Random();
 
     public static void register() {
 
-        PlayerBlockBreakEvents.AFTER.register(
+        PlayerBlockBreakEvents.BEFORE.register(
                 (
                         world,
                         player,
@@ -23,7 +18,7 @@ public class MiningProfessionListener {
                 ) -> {
 
                     if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return;
+                        return true;
                     }
 
                     Block block =
@@ -35,11 +30,10 @@ public class MiningProfessionListener {
                                     .location()
                                     .toString();
 
-                    if (ProfessionBlockTracker.isPlayerPlaced(pos)) {
-                        ProfessionBlockTracker.remove(pos);
-                        return;
-                    }
-
+                    /*
+                     Ignore anything not configured for mining
+                     immediately
+                     */
                     Integer xp =
                             ProfessionConfig
                                     .SETTINGS
@@ -47,7 +41,20 @@ public class MiningProfessionListener {
                                     .get(blockId);
 
                     if (xp == null || xp <= 0) {
-                        return;
+                        return true;
+                    }
+
+                    if (
+                            ProfessionBlockTracker.isPlayerPlaced(
+                                    serverPlayer.serverLevel(),
+                                    pos
+                            )
+                    ) {
+                        ProfessionBlockTracker.remove(
+                                serverPlayer.serverLevel(),
+                                pos
+                        );
+                        return true;
                     }
 
                     ProfessionManager.addXp(
@@ -56,40 +63,13 @@ public class MiningProfessionListener {
                             xp
                     );
 
-                    rollReward(serverPlayer);
+                    ProfessionLootManager.rollReward(
+                            serverPlayer,
+                            ProfessionType.MINING
+                    );
+
+                    return true;
                 }
-        );
-    }
-
-    private static void rollReward(
-            ServerPlayer player
-    ) {
-
-        var reward =
-                ProfessionConfig
-                        .SETTINGS
-                        .rewards
-                        .get("MINING_RARE_DROP");
-
-        if (reward == null) {
-            return;
-        }
-
-        if (RANDOM.nextDouble() > reward.chance) {
-            return;
-        }
-
-        int amount =
-                reward.minAmount +
-                        RANDOM.nextInt(
-                                reward.maxAmount -
-                                        reward.minAmount + 1
-                        );
-
-        ProfessionActionBarManager.sendRareDropMessage(
-                player,
-                reward.itemId,
-                amount
         );
     }
 }

@@ -1,22 +1,14 @@
 package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.LeavesBlock;
-
-import java.util.Random;
 
 public class ForestryProfessionListener {
 
-    private static final Random RANDOM =
-            new Random();
-
     public static void register() {
 
-        PlayerBlockBreakEvents.AFTER.register(
+        PlayerBlockBreakEvents.BEFORE.register(
                 (
                         world,
                         player,
@@ -26,7 +18,7 @@ public class ForestryProfessionListener {
                 ) -> {
 
                     if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return;
+                        return true;
                     }
 
                     Block block =
@@ -38,6 +30,9 @@ public class ForestryProfessionListener {
                                     .location()
                                     .toString();
 
+                    /*
+                     Ignore anything not configured for forestry immediately
+                     */
                     Integer xp =
                             ProfessionConfig
                                     .SETTINGS
@@ -45,14 +40,20 @@ public class ForestryProfessionListener {
                                     .get(blockId);
 
                     if (xp == null || xp <= 0) {
-                        return;
+                        return true;
                     }
 
-                    /*
-                     Prevent manually placed log farming
-                     */
-                    if (!looksNaturalTree(world, pos)) {
-                        return;
+                    if (
+                            ProfessionBlockTracker.isPlayerPlaced(
+                                    serverPlayer.serverLevel(),
+                                    pos
+                            )
+                    ) {
+                        ProfessionBlockTracker.remove(
+                                serverPlayer.serverLevel(),
+                                pos
+                        );
+                        return true;
                     }
 
                     ProfessionManager.addXp(
@@ -61,69 +62,13 @@ public class ForestryProfessionListener {
                             xp
                     );
 
-                    rollReward(serverPlayer);
+                    ProfessionLootManager.rollReward(
+                            serverPlayer,
+                            ProfessionType.FORESTRY
+                    );
+
+                    return true;
                 }
-        );
-    }
-
-    private static boolean looksNaturalTree(
-            net.minecraft.world.level.Level world,
-            BlockPos pos
-    ) {
-
-        /*
-         Check nearby leaves
-         */
-        for (int x = -3; x <= 3; x++) {
-            for (int y = -3; y <= 3; y++) {
-                for (int z = -3; z <= 3; z++) {
-
-                    BlockPos check =
-                            pos.offset(x, y, z);
-
-                    Block nearby =
-                            world.getBlockState(check)
-                                    .getBlock();
-
-                    if (nearby instanceof LeavesBlock) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static void rollReward(
-            ServerPlayer player
-    ) {
-
-        var reward =
-                ProfessionConfig
-                        .SETTINGS
-                        .rewards
-                        .get("FORESTRY_RARE_DROP");
-
-        if (reward == null) {
-            return;
-        }
-
-        if (RANDOM.nextDouble() > reward.chance) {
-            return;
-        }
-
-        int amount =
-                reward.minAmount +
-                        RANDOM.nextInt(
-                                reward.maxAmount -
-                                        reward.minAmount + 1
-                        );
-
-        ProfessionActionBarManager.sendRareDropMessage(
-                player,
-                reward.itemId,
-                amount
         );
     }
 }
