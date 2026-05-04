@@ -15,483 +15,179 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType;
 
 public class ProfileManager {
 
-    // =========================
     public static void recordWin(
             ServerPlayer player,
             boolean ranked,
             boolean upsetWin
     ) {
-
-        add(
-                player,
-                ranked
-                        ? "ranked_wins"
-                        : "casual_wins"
+        var data = PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
         );
 
-        if(!ranked) return;
+        if (ranked) {
+            data.rankedWins++;
+            setStat(player, "ranked_wins", data.rankedWins);
 
-        add(
-                player,
-                "current_streak"
-        );
+            data.currentStreak++;
+            setStat(player, "current_streak", data.currentStreak);
 
-        syncBestStreak(
-                player
-        );
+            if (data.currentStreak > data.bestStreak) {
+                data.bestStreak = data.currentStreak;
+                setStat(player, "best_streak", data.bestStreak);
+            }
 
-        syncPeakRp(
-                player
-        );
+            if (upsetWin) {
+                data.upsetWins++;
+                setStat(player, "upset_wins", data.upsetWins);
+            }
 
-        syncHighestRank(
-                player
-        );
-
-        if(upsetWin){
-            add(
-                    player,
-                    "upset_wins"
-            );
+            syncPeakRp(player);
+            syncHighestRank(player);
         }
-    }
+        else {
+            data.casualWins++;
+            setStat(player, "casual_wins", data.casualWins);
+        }
 
+        PlayerDataManager.save(
+                player.getUUID(),
+                data
+        );
+    }
 
     public static void recordLoss(
             ServerPlayer player,
             boolean ranked
     ) {
-
-        add(
-                player,
-                ranked
-                        ? "ranked_losses"
-                        : "casual_losses"
+        var data = PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
         );
 
-        if(ranked){
+        if (ranked) {
+            data.rankedLosses++;
+            data.currentStreak = 0;
 
-            setStat(
-                    player,
-                    "current_streak",
-                    0
+            setStat(player, "ranked_losses", data.rankedLosses);
+            setStat(player, "current_streak", 0);
+        }
+        else {
+            data.casualLosses++;
+            setStat(player, "casual_losses", data.casualLosses);
+        }
+
+        PlayerDataManager.save(
+                player.getUUID(),
+                data
+        );
+    }
+
+    public static void syncPeakRp(ServerPlayer player) {
+        int rp = getCurrentRp(player);
+
+        var data = PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        );
+
+        if (rp > data.peakRp) {
+            data.peakRp = rp;
+            setStat(player, "peak_rp", rp);
+
+            PlayerDataManager.save(
+                    player.getUUID(),
+                    data
             );
         }
     }
 
+    private static void syncHighestRank(ServerPlayer player) {
+        int currentRank = getRankIndex(player);
 
-    // =========================
-    public static void syncPeakRp(
-            ServerPlayer player
+        var data = PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        );
+
+        if (currentRank > data.highestRank) {
+            data.highestRank = currentRank;
+
+            PlayerDataManager.save(
+                    player.getUUID(),
+                    data
+            );
+        }
+    }
+
+    public static int getCurrentRp(ServerPlayer player) {
+        return getElo(player);
+    }
+
+    public static int getPeakRp(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).peakRp;
+    }
+
+    public static int getRankedWins(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).rankedWins;
+    }
+
+    public static int getRankedLosses(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).rankedLosses;
+    }
+
+    public static int getCurrentStreak(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).currentStreak;
+    }
+
+    public static int getBestStreak(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).bestStreak;
+    }
+
+    public static int getUpsetWins(ServerPlayer player) {
+        return PlayerDataManager.load(
+                player.getUUID(),
+                player.getName().getString()
+        ).upsetWins;
+    }
+
+    public static String getCurrentRankName(ServerPlayer player) {
+        var rank = RankManager.getRank(getCurrentRp(player));
+        return rank == null ? "Youngster" : rank.name;
+    }
+
+    public static void setElo(
+            ServerPlayer player,
+            int rp
     ) {
-
-        int rp=
-                getCurrentRp(player);
-
-        int peak=
-                getStat(
-                        player,
-                        "peak_rp"
-                );
-
-        if(rp>peak){
-
-            setStat(
-                    player,
-                    "peak_rp",
-                    rp
-            );
-        }
-
-        int seasonBest=
-                getStat(
-                        player,
-                        "season_best_rp"
-                );
-
-        if(rp>seasonBest){
-
-            setStat(
-                    player,
-                    "season_best_rp",
-                    rp
-            );
-        }
-    }
-
-
-    private static void syncBestStreak(
-            ServerPlayer player
-    ){
-
-        int current=
-                getCurrentStreak(
-                        player
-                );
-
-        int best=
-                getBestStreak(
-                        player
-                );
-
-        if(current>best){
-
-            setStat(
-                    player,
-                    "best_streak",
-                    current
-            );
-        }
-    }
-
-
-    private static void syncHighestRank(
-            ServerPlayer player
-    ){
-
-        int current=
-                getRankIndex(
-                        player
-                );
-
-        int best=
-                getStat(
-                        player,
-                        "highest_rank"
-                );
-
-        if(current>best){
-
-            setStat(
-                    player,
-                    "highest_rank",
-                    current
-            );
-        }
-    }
-
-
-    // =========================
-    public static int getCurrentRp(
-            ServerPlayer player
-    ){
-        return getElo(
-                player
-        );
-    }
-
-    public static int getPeakRp(
-            ServerPlayer player
-    ){
-        return getStat(
-                player,
-                "peak_rp"
-        );
-    }
-
-
-    public static double getWinRate(
-            ServerPlayer player
-    ){
-
-        int wins=
-                getRankedWins(
-                        player
-                );
-
-        int losses=
-                getRankedLosses(
-                        player
-                );
-
-        if(wins+losses==0)
-            return 0;
-
-        return (
-                (double)wins
-                        /
-                        (wins+losses)
-        )*100;
-    }
-
-
-    public static int getCurrentStreak(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "current_streak"
-        );
-    }
-
-    public static int getBestStreak(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "best_streak"
-        );
-    }
-
-    public static int getUpsetWins(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "upset_wins"
-        );
-    }
-
-
-    public static int getHighestRankIndex(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "highest_rank"
-        );
-    }
-
-
-    public static String getHighestRankName(
-            ServerPlayer p
-    ){
-
-        int index=
-                getHighestRankIndex(p);
-
-        if(index<
-                Config.ranks.size()){
-            return Config.ranks
-                    .get(index)
-                    .name;
-        }
-
-        return "Youngster";
-    }
-
-
-    public static String getCurrentRankName(
-            ServerPlayer p
-    ){
-
-        var rank=
-                RankManager.getRank(
-                        getCurrentRp(p)
-                );
-
-        return rank==null
-                ? "Youngster"
-                : rank.name;
-    }
-
-
-    public static int getRankedWins(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "ranked_wins"
-        );
-    }
-
-    public static int getRankedLosses(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "ranked_losses"
-        );
-    }
-
-    public static int getCasualWins(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "casual_wins"
-        );
-    }
-
-    public static int getCasualLosses(
-            ServerPlayer p
-    ){
-        return getStat(
-                p,
-                "casual_losses"
-        );
-    }
-
-
-    // =========================
-    private static int getRankIndex(
-            ServerPlayer player
-    ){
-
-        var rank=
-                RankManager.getRank(
-                        getElo(player)
-                );
-
-        if(rank==null)
-            return 0;
-
-        for(
-                int i=0;
-                i<Config.ranks.size();
-                i++
-        ){
-
-            if(
-                    Config.ranks
-                            .get(i)
-                            .name.equals(
-                                    rank.name
-                            )
-            ){
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-
-    private static int getElo(
-            ServerPlayer player
-    ){
-
-        Scoreboard sb=
-                player.getScoreboard();
-
-        Objective obj=
-                sb.getObjective(
-                        "elo"
-                );
-
-        if(obj==null)
-            return 0;
-
-        return sb.getOrCreatePlayerScore(
-                player,
-                obj
-        ).get();
-    }
-
-
-    private static void add(
-            ServerPlayer player,
-            String stat
-    ){
-
-        setStat(
-                player,
-                stat,
-                getStat(
-                        player,
-                        stat
-                )+1
-        );
-    }
-
-
-    private static void setStat(
-            ServerPlayer player,
-            String stat,
-            int value
-    ){
-
-        Scoreboard sb=
-                player.getScoreboard();
-
-        Objective obj=
-                getObjective(
-                        sb,
-                        stat
-                );
-
-        ScoreAccess score=
-                sb.getOrCreatePlayerScore(
-                        player,
-                        obj
-                );
-
-        score.set(
-                value
-        );
-    }
-
-
-    private static int getStat(
-            ServerPlayer player,
-            String stat
-    ){
-
-        Scoreboard sb=
-                player.getScoreboard();
-
-        Objective obj=
-                getObjective(
-                        sb,
-                        stat
-                );
-
-        return sb.getOrCreatePlayerScore(
-                player,
-                obj
-        ).get();
-    }
-
-
-    private static Objective getObjective(
-            Scoreboard sb,
-            String name
-    ){
-
-        Objective obj=
-                sb.getObjective(name);
-
-        if(obj==null){
-
-            obj=sb.addObjective(
-                    name,
+        var sb = player.getScoreboard();
+        var obj = sb.getObjective("elo");
+
+        if (obj == null) {
+            obj = sb.addObjective(
+                    "elo",
                     ObjectiveCriteria.DUMMY,
-                    Component.literal(name),
+                    Component.literal("RP"),
                     RenderType.INTEGER,
                     false,
                     null
             );
         }
-
-        return obj;
-    }
-    public static void setSeasonStat(
-            ServerPlayer player,
-            String name,
-            int value
-    ){
-        setStat(
-                player,
-                name,
-                value
-        );
-    }
-
-
-    public static void setElo(
-            ServerPlayer player,
-            int rp
-    ){
-
-        var sb=
-                player.getScoreboard();
-
-        var obj=
-                sb.getObjective(
-                        "elo"
-                );
-
-        if(obj==null) return;
 
         sb.getOrCreatePlayerScore(
                 player,
@@ -499,24 +195,61 @@ public class ProfileManager {
         ).set(rp);
     }
 
+    private static int getElo(ServerPlayer player) {
+        var sb = player.getScoreboard();
+        var obj = sb.getObjective("elo");
 
-    public static void incrementSeasons(
-            ServerPlayer player
-    ){
-        add(
+        if (obj == null) {
+            return 0;
+        }
+
+        return sb.getOrCreatePlayerScore(
                 player,
-                "seasons_played"
-        );
+                obj
+        ).get();
     }
 
+    private static void setStat(
+            ServerPlayer player,
+            String stat,
+            int value
+    ) {
+        Scoreboard sb = player.getScoreboard();
 
-    public static int getSeasonsPlayed(
-            ServerPlayer player
-    ){
-        return getStat(
+        Objective obj = sb.getObjective(stat);
+
+        if (obj == null) {
+            obj = sb.addObjective(
+                    stat,
+                    ObjectiveCriteria.DUMMY,
+                    Component.literal(stat),
+                    RenderType.INTEGER,
+                    false,
+                    null
+            );
+        }
+
+        ScoreAccess score = sb.getOrCreatePlayerScore(
                 player,
-                "seasons_played"
+                obj
         );
+
+        score.set(value);
     }
 
+    private static int getRankIndex(ServerPlayer player) {
+        var rank = RankManager.getRank(getCurrentRp(player));
+
+        if (rank == null) {
+            return 0;
+        }
+
+        for (int i = 0; i < Config.ranks.size(); i++) {
+            if (Config.ranks.get(i).name.equals(rank.name)) {
+                return i;
+            }
+        }
+
+        return 0;
+    }
 }

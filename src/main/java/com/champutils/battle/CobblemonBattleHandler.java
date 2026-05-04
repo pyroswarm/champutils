@@ -13,30 +13,27 @@ public class CobblemonBattleHandler {
 
     public static void register() {
 
-
-/* =========================
-TRACK BATTLE STATE ONLY
-========================= */
-
+        /*
+         =========================
+         TRACK BATTLE STATE
+         =========================
+         */
         CobblemonEvents.BATTLE_STARTED_POST.subscribe(event -> {
 
             BattleStartedEvent e =
                     (BattleStartedEvent) event;
 
-
-            for(
+            for (
                     Object actor :
                     e.getBattle().getActors()
-            ){
+            ) {
 
-                if(
+                if (
                         actor instanceof PlayerBattleActor p
-                ){
+                ) {
 
                     ServerPlayer player =
-                            (ServerPlayer)
-                                    p.getEntity();
-
+                            (ServerPlayer) p.getEntity();
 
                     BattleStateManager.setInBattle(
                             player,
@@ -49,133 +46,134 @@ TRACK BATTLE STATE ONLY
                     );
                 }
             }
-
         });
 
 
 
-/* =========================
-NORMAL BATTLE END
-========================= */
-
+        /*
+         =========================
+         BATTLE END
+         =========================
+         */
         CobblemonEvents.BATTLE_VICTORY.subscribe(event -> {
 
             BattleVictoryEvent e =
-                    (BattleVictoryEvent)event;
-
+                    (BattleVictoryEvent) event;
 
             clearPlayersFromBattle(
                     e.getBattle()
                             .getActors()
             );
 
+            ServerPlayer winner = null;
+            ServerPlayer loser = null;
 
-            ServerPlayer winner=null;
-            ServerPlayer loser=null;
-
-
-            for(
+            /*
+             Find player winner
+             */
+            for (
                     var actor :
                     e.getWinners()
-            ){
+            ) {
 
-                if(
+                if (
                         actor instanceof PlayerBattleActor p
-                ){
+                ) {
 
-                    winner=
-                            (ServerPlayer)
-                                    p.getEntity();
+                    winner =
+                            (ServerPlayer) p.getEntity();
 
                     break;
                 }
             }
 
-
-            for(
+            /*
+             Find player loser (if one exists)
+             */
+            for (
                     var actor :
                     e.getLosers()
-            ){
+            ) {
 
-                if(
+                if (
                         actor instanceof PlayerBattleActor p
-                ){
+                ) {
 
-                    loser=
-                            (ServerPlayer)
-                                    p.getEntity();
+                    loser =
+                            (ServerPlayer) p.getEntity();
 
                     break;
                 }
             }
 
+            /*
+             IMPORTANT FIX:
 
-            if(
-                    winner!=null
-                            &&
-                            loser!=null
-            ){
+             Wild battles:
+             - winner exists
+             - loser is wild pokemon
+
+             NPC battles:
+             - winner exists
+             - loser may be NPC
+
+             We still want profession XP.
+             */
+            if (winner != null) {
 
                 BattleListener.onBattleEnd(
                         winner,
                         loser
                 );
             }
-
         });
 
 
 
-/* =========================
-SAFETY CLEANUP
-========================= */
-
+        /*
+         =========================
+         SAFETY CLEANUP
+         =========================
+         */
         CobblemonEvents.BATTLE_FAINTED.subscribe(event -> {
 
-            BattleFaintedEvent e=
-                    (BattleFaintedEvent)event;
+            BattleFaintedEvent e =
+                    (BattleFaintedEvent) event;
 
-            try{
+            try {
 
                 clearPlayersFromBattle(
                         e.getBattle()
                                 .getActors()
                 );
 
+            } catch (Exception ignored) {
             }
-            catch(Exception ignored){
-            }
-
         });
-
     }
-
 
 
 
     private static void clearPlayersFromBattle(
             Iterable<?> actors
-    ){
+    ) {
 
-        for(
+        for (
                 Object actor :
                 actors
-        ){
+        ) {
 
-            if(
+            if (
                     actor instanceof PlayerBattleActor p
-            ){
+            ) {
 
-                ServerPlayer player=
-                        (ServerPlayer)
-                                p.getEntity();
-
+                ServerPlayer player =
+                        (ServerPlayer) p.getEntity();
 
                 BattleStateManager.setInBattle(
                         player,
                         false
                 );
-
 
                 BattleStateManager.clearBattle(
                         player
@@ -183,5 +181,4 @@ SAFETY CLEANUP
             }
         }
     }
-
 }

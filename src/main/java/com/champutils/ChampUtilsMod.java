@@ -25,6 +25,8 @@ import com.champutils.profile.ProfileManager;
 
 import com.champutils.menu.ProfileLookupManager;
 
+import com.champutils.profession.*;
+
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -42,23 +44,17 @@ public class ChampUtilsMod implements ModInitializer {
     @Override
     public void onInitialize() {
 
-
-
-/* =========================
-CONFIG
-========================= */
-
+        /*
+         =========================
+         CONFIG SETUP
+         =========================
+         */
         File configDir =
-                new File(
-                        "config/champutils"
-                );
+                new File("config/champutils");
 
-        if(
-                !configDir.exists()
-        ){
+        if (!configDir.exists()) {
             configDir.mkdirs();
         }
-
 
         File configFile =
                 new File(
@@ -66,54 +62,56 @@ CONFIG
                         "rules.json"
                 );
 
-        if(
-                !configFile.exists()
-        ){
-
-            try(
+        if (!configFile.exists()) {
+            try (
                     FileWriter writer =
-                            new FileWriter(
-                                    configFile
-                            )
-            ){
-                writer.write(
-                        "{}"
-                );
+                            new FileWriter(configFile)
+            ) {
+                writer.write("{}");
             }
-            catch(Exception ignored){}
+            catch (Exception ignored) {}
         }
 
+        Config.load(configFile);
 
-        Config.load(
-                configFile
-        );
+        /*
+         =========================
+         PROFESSION CONFIG
+         =========================
+         */
+        ProfessionConfig.load();
 
+        /*
+         IMPORTANT:
+         Load persistent placed block tracking
+         */
+        ProfessionBlockTracker.load();
+
+        /*
+         =========================
+         GYM CONFIG
+         =========================
+         */
         GymConfig.load();
         GymRegistry.load();
 
+        /*
+         =========================
+         SEASONS
+         =========================
+         */
         SeasonManager.loadState();
 
-
-
-/* =========================
-SERVER START
-========================= */
-
+        /*
+         =========================
+         SERVER START
+         =========================
+         */
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
+                    ServerLifecycleBridge.setServer(server);
 
-/*
-IMPORTANT:
-Store server reference here
-NOT in onInitialize()
- */
-                    ServerLifecycleBridge.setServer(
-                            server
-                    );
-
-                    LeaderboardManager.refresh(
-                            server
-                    );
+                    LeaderboardManager.refresh(server);
 
                     System.out.println(
                             "[ChampUtils] Leaderboard loaded."
@@ -121,39 +119,57 @@ NOT in onInitialize()
                 }
         );
 
+        /*
+         =========================
+         SERVER STOP
+         =========================
+         */
+        ServerLifecycleEvents.SERVER_STOPPING.register(
+                server -> {
 
+                    ProfessionManager.saveAll();
 
-/* =========================
-PLAYER JOIN
-========================= */
+                    /*
+                     Save placed blocks
+                     */
+                    ProfessionBlockTracker.save();
 
+                    System.out.println(
+                            "[ChampUtils] Saved profession data."
+                    );
+                }
+        );
+
+        /*
+         =========================
+         PLAYER JOIN
+         =========================
+         */
         ServerPlayConnectionEvents.JOIN.register(
-                (
-                        handler,
-                        sender,
-                        server
-                )->{
+                (handler, sender, server) -> {
 
-                    ServerPlayer player=
+                    ServerPlayer player =
                             handler.player;
 
-                    String playerName=
+                    String playerName =
                             player.getName()
                                     .getString();
-
 
                     SeasonArchiveManager.ensurePlayerFile(
                             playerName
                     );
-
 
                     PlayerDataManager.ensurePlayer(
                             player.getUUID(),
                             playerName
                     );
 
+                    ProfessionDataManager.ensurePlayer(
+                            player.getUUID(),
+                            playerName
+                    );
 
-                    int storedRp=
+                    int storedRp =
                             PlayerDataManager.getRp(
                                     player.getUUID(),
                                     playerName
@@ -164,24 +180,19 @@ PLAYER JOIN
                             storedRp
                     );
 
-
                     DisconnectForfeitManager.handleJoin(
                             player
                     );
                 }
         );
 
-
-
-/* =========================
-PLAYER DISCONNECT
-========================= */
-
+        /*
+         =========================
+         PLAYER DISCONNECT
+         =========================
+         */
         ServerPlayConnectionEvents.DISCONNECT.register(
-                (
-                        handler,
-                        server
-                )->{
+                (handler, server) -> {
 
                     MatchmakingManager.leaveQueue(
                             handler.player
@@ -190,28 +201,26 @@ PLAYER DISCONNECT
                     DisconnectForfeitManager.handleDisconnect(
                             handler.player
                     );
+
+                    ProfessionManager.unloadPlayer(
+                            handler.player
+                    );
                 }
         );
 
-
-
-/* =========================
-CHAT PROFILE LOOKUP
-========================= */
-
+        /*
+         =========================
+         CHAT LOOKUP
+         =========================
+         */
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
-                (
-                        message,
-                        player,
-                        params
-                )->{
+                (message, player, params) -> {
 
-                    if(
+                    if (
                             ProfileLookupManager.isWaiting(
                                     player
                             )
-                    ){
-
+                    ) {
                         ProfileLookupManager.handleChat(
                                 player,
                                 message.signedContent()
@@ -224,106 +233,109 @@ CHAT PROFILE LOOKUP
                 }
         );
 
-
-
-/* =========================
-COMMANDS
-========================= */
-
+        /*
+         =========================
+         COMMANDS
+         =========================
+         */
         MenuCommand.register();
-
         SeasonCommand.register();
-
         LeaderboardCommand.register();
-
         GymCommand.register();
-
         EVTrainingCommand.register();
-
         EliteFourCommand.register();
-
         RpAdminCommand.register();
 
-
-
-/* =========================
-BATTLE SYSTEMS
-========================= */
-
+        /*
+         =========================
+         BATTLE SYSTEMS
+         =========================
+         */
         CobblemonBattleHandler.register();
-
         CobblemonBattleStartHandler.register();
-
         BattleItemUseListener.register();
 
         GymBattleHandler.register();
-
         GymBattleStartHandler.register();
 
+        /*
+         =========================
+         PROFESSION SYSTEMS
+         =========================
+         */
+        MiningProfessionListener.register();
+        ForestryProfessionListener.register();
+        FishingProfessionListener.register();
+        FarmingProfessionListener.register();
+        ProfessionPlacementListener.register();
 
-
-/* =========================
-SERVER TICK
-========================= */
-
+        /*
+         =========================
+         SERVER TICK
+         =========================
+         */
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-
-                    /* leaderboard refresh */
-
-                    if(
-                            server.getTickCount()>0
-                                    &&
-                                    server.getTickCount()%600==0
-                    ){
-
+                    /*
+                     Leaderboard refresh
+                     */
+                    if (
+                            server.getTickCount() > 0 &&
+                                    server.getTickCount() % 600 == 0
+                    ) {
                         LeaderboardManager.refresh(
                                 server
                         );
                     }
 
+                    /*
+                     Profession autosave
+                     */
+                    if (
+                            server.getTickCount() > 0 &&
+                                    server.getTickCount() % 1200 == 0
+                    ) {
+                        ProfessionManager.saveAll();
+                    }
 
-
-                    /* action bar refresh */
-
-                    if(
-                            server.getTickCount()%20==0
-                    ){
-
-                        for(
+                    /*
+                     Ranked action bar
+                     */
+                    if (
+                            server.getTickCount() % 20 == 0
+                    ) {
+                        for (
                                 ServerPlayer player :
                                 server.getPlayerList()
                                         .getPlayers()
-                        ){
-
+                        ) {
                             ActionBarManager.update(
                                     player
                             );
                         }
                     }
 
-
-
-                    /* ticking systems */
-
+                    /*
+                     Matchmaking
+                     */
                     MatchmakingManager.tick();
                     QueueBossBarManager.tick();
-
-
 
                     TeamPreviewManager.tick(
                             server.getPlayerList()
                                     .getPlayers()
                     );
 
+                    /*
+                     Seasons
+                     */
+                    SeasonManager.tick(server);
                 }
         );
-
 
         System.out.println(
                 "[ChampUtils] Loaded successfully."
         );
     }
-
 }

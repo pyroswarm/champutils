@@ -1,22 +1,17 @@
 package com.champutils.battle;
 
-import com.champutils.rank.RankManager;
-import com.champutils.matchmaking.MatchmakingManager;
-import com.champutils.matchmaking.ArenaManager;
-import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.config.Config;
-import com.champutils.profile.ProfileManager;
+import com.champutils.matchmaking.ArenaManager;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.ProfileManager;
+import com.champutils.profession.ProfessionConfig;
+import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionType;
+import com.champutils.rank.RankManager;
+import com.champutils.validation.TeamSnapshotManager;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ScoreAccess;
-import net.minecraft.world.scores.Scoreboard;
-
-import net.minecraft.world.scores.criteria.ObjectiveCriteria;
-import net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType;
 
 public class BattleListener {
 
@@ -25,32 +20,43 @@ public class BattleListener {
             ServerPlayer loser
     ) {
 
-        if(
-                winner==null
-                        ||
-                        loser==null
-        ){
+        if (winner == null) {
             return;
         }
 
+        BattleContextManager.BattleType battleType =
+                BattleContextManager.getContext(
+                        winner.getUUID()
+                );
+
+        /*
+         Default null context to wild battle
+         */
+        if (battleType == null) {
+            battleType =
+                    BattleContextManager.BattleType.UNKNOWN;
+        }
+
+        awardBattleProfessionXp(
+                winner,
+                battleType
+        );
+
+        /*
+         Wild/NPC battles end here
+         */
+        if (loser == null) {
+            cleanupSingle(winner);
+            return;
+        }
 
         boolean ranked =
-                MatchmakingManager
-                        .isRankedMatch(
-                                winner
-                        );
-
-
+                battleType ==
+                        BattleContextManager.BattleType.RANKED;
 
         boolean upsetWin =
-                getRankIndex(
-                        loser
-                )
-                        >
-                        getRankIndex(
-                                winner
-                        );
-
+                getRankIndex(loser) >
+                        getRankIndex(winner);
 
         ProfileManager.recordWin(
                 winner,
@@ -63,74 +69,27 @@ public class BattleListener {
                 ranked
         );
 
-
-
-        if(
-                Config.arenas!=null
-                        &&
+        if (
+                Config.arenas != null &&
                         !Config.arenas.isEmpty()
-        ){
+        ) {
+            ArenaManager.returnPlayer(winner);
+            ArenaManager.returnPlayer(loser);
 
-            ArenaManager.returnPlayer(
-                    winner
-            );
-
-            ArenaManager.returnPlayer(
-                    loser
-            );
-
-            ArenaManager.releaseArena(
-                    winner
-            );
-
-            ArenaManager.releaseArena(
-                    loser
-            );
+            ArenaManager.releaseArena(winner);
+            ArenaManager.releaseArena(loser);
         }
 
-
-
-        // Casual battles:
-        // no RP changes
-        if(
-                !ranked
-        ){
-
-            MatchmakingManager.clearMatch(
-                    winner
-            );
-
-            MatchmakingManager.clearMatch(
-                    loser
-            );
-
-            TeamSnapshotManager.clear(
-                    winner
-            );
-
-            TeamSnapshotManager.clear(
-                    loser
-            );
-
+        if (!ranked) {
+            cleanup(winner, loser);
             return;
         }
 
-
-
-        // =========================
-        // Ranked RP changes
-        // =========================
-
         int winnerElo =
-                getElo(
-                        winner
-                );
+                ProfileManager.getCurrentRp(winner);
 
         int loserElo =
-                getElo(
-                        loser
-                );
-
+                ProfileManager.getCurrentRp(loser);
 
         int change =
                 calculateRpChange(
@@ -138,59 +97,36 @@ public class BattleListener {
                         loser
                 );
 
-
         int newWinner =
-                winnerElo
-                        +
-                        change;
+                winnerElo + change;
 
         int newLoser =
                 Math.max(
                         0,
-                        loserElo-change
+                        loserElo - change
                 );
 
-
-
-        // update scoreboard RP
-        setElo(
+        ProfileManager.setElo(
                 winner,
                 newWinner
         );
 
-        setElo(
+        ProfileManager.setElo(
                 loser,
                 newLoser
         );
 
-
-
-        // =========================
-        // NEW:
-        // update persistent offline RP
-        // =========================
-
         PlayerDataManager.setRp(
                 winner.getUUID(),
-                winner.getName()
-                        .getString(),
+                winner.getName().getString(),
                 newWinner
         );
 
         PlayerDataManager.setRp(
                 loser.getUUID(),
-                loser.getName()
-                        .getString(),
+                loser.getName().getString(),
                 newLoser
         );
-
-
-
-        ProfileManager.syncPeakRp(
-                winner
-        );
-
-
 
         RankManager.updatePlayerRank(
                 winner,
@@ -204,208 +140,118 @@ public class BattleListener {
                 newLoser
         );
 
-
-
         winner.sendSystemMessage(
                 Component.literal(
-                        "§a+"
-                                +change
-                                +" RP (§f"
-                                +newWinner
-                                +"§a)"
+                        "§a+" +
+                                change +
+                                " RP (§f" +
+                                newWinner +
+                                "§a)"
                 )
         );
 
         loser.sendSystemMessage(
                 Component.literal(
-                        "§c-"
-                                +change
-                                +" RP (§f"
-                                +newLoser
-                                +"§c)"
+                        "§c-" +
+                                change +
+                                " RP (§f" +
+                                newLoser +
+                                "§c)"
                 )
         );
 
+        cleanup(winner, loser);
+    }
 
+    private static void awardBattleProfessionXp(
+            ServerPlayer winner,
+            BattleContextManager.BattleType type
+    ) {
+        int xp = 0;
 
-        MatchmakingManager.clearMatch(
-                winner
-        );
+        switch (type) {
 
-        MatchmakingManager.clearMatch(
-                loser
-        );
+            case RANKED:
+            case CASUAL:
+            case GYM:
+            case ELITE_FOUR:
+            case TOURNAMENT:
+                xp = 0;
+                break;
 
-        TeamSnapshotManager.clear(
-                winner
-        );
+            case NPC:
+                xp = getBattleXp("npc");
+                break;
 
-        TeamSnapshotManager.clear(
-                loser
+            case WORLD_BOSS:
+                xp = getBattleXp("world_boss");
+                break;
+
+            case PROFESSION:
+                xp = getBattleXp("profession");
+                break;
+
+            case UNKNOWN:
+            default:
+                xp = getBattleXp("wild");
+                break;
+        }
+
+        if (xp <= 0) {
+            return;
+        }
+
+        ProfessionManager.addXp(
+                winner,
+                ProfessionType.BATTLING,
+                xp
         );
     }
 
+    private static int getBattleXp(String key) {
+        Integer value =
+                ProfessionConfig
+                        .SETTINGS
+                        .battleXp
+                        .get(key);
 
+        return value == null ? 0 : value;
+    }
 
+    private static void cleanup(
+            ServerPlayer winner,
+            ServerPlayer loser
+    ) {
+        TeamSnapshotManager.clear(winner);
+        TeamSnapshotManager.clear(loser);
+
+        BattleContextManager.clearContext(
+                winner.getUUID()
+        );
+
+        BattleContextManager.clearContext(
+                loser.getUUID()
+        );
+    }
+
+    private static void cleanupSingle(
+            ServerPlayer player
+    ) {
+        BattleContextManager.clearContext(
+                player.getUUID()
+        );
+    }
 
     private static int calculateRpChange(
             ServerPlayer winner,
             ServerPlayer loser
-    ){
-
-        int winnerRank =
-                getRankIndex(
-                        winner
-                );
-
-        int loserRank =
-                getRankIndex(
-                        loser
-                );
-
-        int rankDiff =
-                loserRank-winnerRank;
-
-        int change=
-                20
-                        +
-                        (
-                                rankDiff*2
-                        );
-
-
-        if(change<15){
-            change=15;
-        }
-
-        if(change>30){
-            change=30;
-        }
-
-        return change;
+    ) {
+        return 20;
     }
-
-
-
 
     private static int getRankIndex(
             ServerPlayer player
-    ){
-
-        var rank=
-                RankManager.getRank(
-                        getElo(player)
-                );
-
-        if(
-                rank==null
-        ){
-            return 0;
-        }
-
-
-        for(
-                int i=0;
-                i<Config.ranks.size();
-                i++
-        ){
-
-            if(
-                    Config.ranks
-                            .get(i)
-                            .name.equals(
-                                    rank.name
-                            )
-            ){
-                return i;
-            }
-        }
-
+    ) {
         return 0;
     }
-
-
-
-
-    private static int getElo(
-            ServerPlayer player
-    ){
-
-        Scoreboard sb=
-                player.getScoreboard();
-
-        Objective obj=
-                sb.getObjective(
-                        "elo"
-                );
-
-
-        if(obj==null){
-
-            obj=
-                    sb.addObjective(
-                            "elo",
-                            ObjectiveCriteria.DUMMY,
-                            Component.literal(
-                                    "RP"
-                            ),
-                            RenderType.INTEGER,
-                            false,
-                            null
-                    );
-        }
-
-
-        return sb
-                .getOrCreatePlayerScore(
-                        player,
-                        obj
-                )
-                .get();
-    }
-
-
-
-
-    private static void setElo(
-            ServerPlayer player,
-            int value
-    ){
-
-        Scoreboard sb=
-                player.getScoreboard();
-
-        Objective obj=
-                sb.getObjective(
-                        "elo"
-                );
-
-
-        if(obj==null){
-
-            obj=
-                    sb.addObjective(
-                            "elo",
-                            ObjectiveCriteria.DUMMY,
-                            Component.literal(
-                                    "RP"
-                            ),
-                            RenderType.INTEGER,
-                            false,
-                            null
-                    );
-        }
-
-
-        ScoreAccess score=
-                sb.getOrCreatePlayerScore(
-                        player,
-                        obj
-                );
-
-        score.set(
-                value
-        );
-    }
-
 }

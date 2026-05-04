@@ -114,7 +114,7 @@ RANK
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§Peak: §f"
+                                        "§PPeak: §f"
                                                 +peakRank
                                 )
                         )
