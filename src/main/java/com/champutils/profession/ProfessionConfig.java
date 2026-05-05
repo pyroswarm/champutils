@@ -23,7 +23,6 @@ public class ProfessionConfig {
         public Map<String, Integer> miningXp = new HashMap<>();
         public Map<String, Integer> forestryXp = new HashMap<>();
         public Map<String, Integer> battleXp = new HashMap<>();
-        public Map<String, Integer> fishingXp = new HashMap<>();
         public Map<String, Integer> farmingXp = new HashMap<>();
         public Map<String, RewardTable> rewards = new HashMap<>();
     }
@@ -125,11 +124,6 @@ public class ProfessionConfig {
             config.battleXp.put("profession", 25);
 
             /*
-             Fishing XP
-             */
-            config.fishingXp.put("default", 15);
-
-            /*
              Farming XP
              */
             config.farmingXp.put("default", 10);
@@ -150,13 +144,6 @@ public class ProfessionConfig {
             forestryReward.minAmount = 1;
             forestryReward.maxAmount = 3;
             config.rewards.put("FORESTRY_RARE_DROP", forestryReward);
-
-            RewardTable fishingReward = new RewardTable();
-            fishingReward.chance = 0.04;
-            fishingReward.itemId = "minecraft:nautilus_shell";
-            fishingReward.minAmount = 1;
-            fishingReward.maxAmount = 2;
-            config.rewards.put("FISHING_RARE_DROP", fishingReward);
 
             RewardTable farmingReward = new RewardTable();
             farmingReward.chance = 0.04;

@@ -287,7 +287,6 @@ public class ChampUtilsMod implements ModInitializer {
          */
         MiningProfessionListener.register();
         ForestryProfessionListener.register();
-        FishingProfessionListener.register();
         FarmingProfessionListener.register();
         ProfessionPlacementListener.register();
 

@@ -5,7 +5,6 @@ public enum ProfessionType {
     BATTLING,
     MINING,
     FORESTRY,
-    FISHING,
     FARMING
 
 }

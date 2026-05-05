@@ -96,16 +96,6 @@ public class ProfessionLootConfig {
             );
 
             config.TABLES.put(
-                    "FISHING",
-                    createTable(
-                            0.15,
-                            loot("minecraft:cod",50,1,3),
-                            loot("minecraft:salmon",35,1,3),
-                            loot("cobblemon:prism_scale",10,1,1)
-                    )
-            );
-
-            config.TABLES.put(
                     "FARMING",
                     createTable(
                             0.15,

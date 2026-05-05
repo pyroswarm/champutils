@@ -93,31 +93,6 @@ public class ProfessionToolManager {
             return;
         }
 
-        /*
-         Keep all rods as their real item.
-         This preserves Cobblemon fishing behavior.
-         */
-        if (
-                isRodItem(
-                        toolData.baseItem,
-                        baseItem
-                )
-        ) {
-            REGISTERED_TOOLS.put(
-                    toolId,
-                    baseItem
-            );
-
-            System.out.println(
-                    "[ChampUtils] Registered rod tool: " +
-                            toolId +
-                            " -> " +
-                            toolData.baseItem
-            );
-
-            return;
-        }
-
         Item customTool =
                 createProperToolType(
                         toolData,
@@ -151,34 +126,6 @@ public class ProfessionToolManager {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private static boolean isRodItem(
-            String baseItemId,
-            Item baseItem
-    ) {
-
-        if (
-                baseItem instanceof FishingRodItem
-        ) {
-            return true;
-        }
-
-        if (
-                baseItemId == null
-        ) {
-            return false;
-        }
-
-        String id =
-                baseItemId.toLowerCase();
-
-        return id.startsWith(
-                "cobblemon:"
-        ) &&
-                id.endsWith(
-                        "_rod"
-                );
     }
 
     private static Item createProperToolType(
@@ -251,7 +198,7 @@ public class ProfessionToolManager {
                 );
 
         /*
-         fallback for rods
+         Fallback lookup for config-defined tools.
          */
         if (item == null) {
 

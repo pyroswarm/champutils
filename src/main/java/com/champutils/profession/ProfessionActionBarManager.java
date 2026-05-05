@@ -38,7 +38,6 @@ public class ProfessionActionBarManager {
                 switch (type) {
                     case MINING -> "§b";
                     case FORESTRY -> "§a";
-                    case FISHING -> "§9";
                     case FARMING -> "§e";
                     case BATTLING -> "§6";
                 };

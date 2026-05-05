@@ -2,7 +2,6 @@ package com.champutils.profession;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -48,17 +47,6 @@ public class ProfessionToolUtil {
 
         Item item =
                 stack.getItem();
-
-        /*
-         IMPORTANT:
-         Plain fishing rods should never be treated as custom tools by item type.
-         Custom fishing tools are detected only by ChampUtilsToolId.
-        */
-        if (
-                item instanceof FishingRodItem
-        ) {
-            return null;
-        }
 
         for (
                 Map.Entry<String, Item> entry :

@@ -201,26 +201,6 @@ public class ProfessionToolConfig {
             );
 
             defaults.put(
-                    "poseidons_line",
-                    createTool(
-                            "FISHING",
-                            100,
-                            "Poseidon's Line",
-                            "LEGENDARY",
-                            "minecraft:fishing_rod",
-                            3001,
-                            Map.of(
-                                    "rareLootChance", 25.0
-                            ),
-                            List.of(
-                                    "rare_loot_boost"
-                            ),
-                            null,
-                            60
-                    )
-            );
-
-            defaults.put(
                     "gaias_blessing",
                     createTool(
                             "FARMING",

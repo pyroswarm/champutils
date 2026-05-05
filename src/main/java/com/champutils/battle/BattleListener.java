@@ -2,6 +2,7 @@ package com.champutils.battle;
 
 import com.champutils.config.Config;
 import com.champutils.matchmaking.ArenaManager;
+import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 
@@ -228,6 +229,9 @@ public class BattleListener {
         BattleContextManager.clearContext(
                 loser.getUUID()
         );
+
+        MatchmakingManager.clearMatch(winner);
+        MatchmakingManager.clearMatch(loser);
     }
 
     private static void cleanupSingle(
@@ -236,6 +240,8 @@ public class BattleListener {
         BattleContextManager.clearContext(
                 player.getUUID()
         );
+
+        MatchmakingManager.clearMatch(player);
     }
 
     private static int calculateRpChange(
