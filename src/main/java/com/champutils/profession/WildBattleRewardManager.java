@@ -15,8 +15,24 @@ public class WildBattleRewardManager {
             ServerPlayer player
     ) {
 
+        if (player == null) {
+            return;
+        }
+
+        if (
+                WildBattleLootConfig.TABLE == null ||
+                        WildBattleLootConfig.TABLE.items == null ||
+                        WildBattleLootConfig.TABLE.items.isEmpty()
+        ) {
+            return;
+        }
+
         var table =
                 WildBattleLootConfig.TABLE;
+
+        if (table.dropChance <= 0) {
+            return;
+        }
 
         if (
                 RANDOM.nextDouble() >
@@ -25,7 +41,7 @@ public class WildBattleRewardManager {
             return;
         }
 
-        var reward =
+        WildBattleLootConfig.LootEntry reward =
                 getWeightedReward(
                         table.items
                 );
@@ -34,11 +50,22 @@ public class WildBattleRewardManager {
             return;
         }
 
+        int min =
+                Math.max(
+                        1,
+                        reward.minAmount
+                );
+
+        int max =
+                Math.max(
+                        min,
+                        reward.maxAmount
+                );
+
         int amount =
-                reward.minAmount +
+                min +
                         RANDOM.nextInt(
-                                reward.maxAmount -
-                                        reward.minAmount + 1
+                                max - min + 1
                         );
 
         giveReward(
@@ -52,19 +79,53 @@ public class WildBattleRewardManager {
             List<WildBattleLootConfig.LootEntry> items
     ) {
 
-        int totalWeight = 0;
+        int totalWeight =
+                0;
 
-        for (var item : items) {
-            totalWeight += item.weight;
+        for (
+                WildBattleLootConfig.LootEntry item :
+                items
+        ) {
+            if (
+                    item == null ||
+                            item.itemId == null ||
+                            item.itemId.isBlank() ||
+                            item.weight <= 0
+            ) {
+                continue;
+            }
+
+            totalWeight +=
+                    item.weight;
+        }
+
+        if (totalWeight <= 0) {
+            return null;
         }
 
         int roll =
-                RANDOM.nextInt(totalWeight);
+                RANDOM.nextInt(
+                        totalWeight
+                );
 
-        int current = 0;
+        int current =
+                0;
 
-        for (var item : items) {
-            current += item.weight;
+        for (
+                WildBattleLootConfig.LootEntry item :
+                items
+        ) {
+            if (
+                    item == null ||
+                            item.itemId == null ||
+                            item.itemId.isBlank() ||
+                            item.weight <= 0
+            ) {
+                continue;
+            }
+
+            current +=
+                    item.weight;
 
             if (roll < current) {
                 return item;
@@ -87,8 +148,16 @@ public class WildBattleRewardManager {
             return;
         }
 
+        if (
+                itemId == null ||
+                        itemId.isBlank() ||
+                        amount <= 0
+        ) {
+            return;
+        }
+
         String command =
-                "nucleus item give " +
+                "give " +
                         player.getName().getString() +
                         " " +
                         itemId +
@@ -101,11 +170,10 @@ public class WildBattleRewardManager {
                         command
                 );
 
-        ProfessionActionBarManager
-                .sendRareDropMessage(
-                        player,
-                        itemId,
-                        amount
-                );
+        ProfessionActionBarManager.sendRareDropMessage(
+                player,
+                itemId,
+                amount
+        );
     }
 }

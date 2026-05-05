@@ -1,88 +1,58 @@
 package com.champutils.profession;
 
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.item.FishingRodItem;
-import net.minecraft.world.item.ItemStack;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.fishing.BobberSpawnPokemonEvent;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 public class FishingProfessionListener {
 
-    private static final Map<UUID, Long> ACTIVE_CASTS =
-            new HashMap<>();
-
     public static void register() {
 
-        UseItemCallback.EVENT.register(
-                (player, world, hand) -> {
+        CobblemonEvents.BOBBER_SPAWN_POKEMON_POST.subscribe(
+                FishingProfessionListener::handleBobberSpawnPokemon
+        );
+    }
 
-                    if (world.isClientSide()) {
-                        return InteractionResultHolder.pass(
-                                player.getItemInHand(hand)
-                        );
-                    }
+    private static void handleBobberSpawnPokemon(
+            BobberSpawnPokemonEvent.Post event
+    ) {
 
-                    if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return InteractionResultHolder.pass(
-                                player.getItemInHand(hand)
-                        );
-                    }
+        if (
+                event == null ||
+                        event.getBobber() == null
+        ) {
+            return;
+        }
 
-                    ItemStack stack =
-                            player.getItemInHand(hand);
+        Entity owner =
+                event.getBobber()
+                        .getOwner();
 
-                    if (!(stack.getItem() instanceof FishingRodItem)) {
-                        return InteractionResultHolder.pass(stack);
-                    }
+        if (!(owner instanceof ServerPlayer player)) {
+            return;
+        }
 
-                    UUID uuid =
-                            player.getUUID();
-
-                    if (!ACTIVE_CASTS.containsKey(uuid)) {
-                        ACTIVE_CASTS.put(
-                                uuid,
-                                System.currentTimeMillis()
-                        );
-                    } else {
-                        long castTime =
-                                ACTIVE_CASTS.get(uuid);
-
-                        ACTIVE_CASTS.remove(uuid);
-
-                        long duration =
-                                System.currentTimeMillis() - castTime;
-
-                        if (duration < 3000) {
-                            return InteractionResultHolder.pass(stack);
-                        }
-
-                        Integer xp =
-                                ProfessionConfig
-                                        .SETTINGS
-                                        .fishingXp
-                                        .getOrDefault(
-                                                "default",
-                                                10
-                                        );
-
-                        ProfessionManager.addXp(
-                                serverPlayer,
-                                ProfessionType.FISHING,
-                                xp
+        int xp =
+                ProfessionConfig
+                        .SETTINGS
+                        .fishingXp
+                        .getOrDefault(
+                                "default",
+                                10
                         );
 
-                        ProfessionLootManager.rollReward(
-                                serverPlayer,
-                                ProfessionType.FISHING
-                        );
-                    }
+        ProfessionManager.addXp(
+                player,
+                ProfessionType.FISHING,
+                xp
+        );
 
-                    return InteractionResultHolder.pass(stack);
-                }
+        ProfessionLootManager.rollReward(
+                player,
+                ProfessionType.FISHING
         );
     }
 }

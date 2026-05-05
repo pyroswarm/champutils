@@ -90,6 +90,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionToolConfig.load();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
+        ProfessionToolActiveAbilityListener.register();
 
         /*
          Profession loot config
@@ -260,6 +261,7 @@ public class ChampUtilsMod implements ModInitializer {
         EVTrainingCommand.register();
         EliteFourCommand.register();
         RpAdminCommand.register();
+        ProfessionAdminCommand.register();
 
         /*
          New custom item test command

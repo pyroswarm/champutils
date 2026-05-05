@@ -50,6 +50,12 @@ public class ProfessionToolConfig {
          */
         public List<String> passives =
                 new ArrayList<>();
+
+        /*
+         Active ability
+         */
+        public String activeAbility;
+        public int activeCooldownSeconds = 30;
     }
 
     public static void load() {
@@ -107,9 +113,6 @@ public class ProfessionToolConfig {
             Map<String, ToolData> defaults =
                     new HashMap<>();
 
-            /*
-             MINING TOOL
-             */
             defaults.put(
                     "miners_fang",
                     createTool(
@@ -126,13 +129,12 @@ public class ProfessionToolConfig {
                             ),
                             List.of(
                                     "bonus_ore_drops"
-                            )
+                            ),
+                            "prospect",
+                            30
                     )
             );
 
-            /*
-             LEGENDARY MINING TOOL
-             */
             defaults.put(
                     "titanbreaker",
                     createTool(
@@ -150,13 +152,12 @@ public class ProfessionToolConfig {
                             List.of(
                                     "vein_mining",
                                     "bonus_ore_drops"
-                            )
+                            ),
+                            "vein_burst",
+                            60
                     )
             );
 
-            /*
-             FORESTRY TOOL
-             */
             defaults.put(
                     "woodcleaver",
                     createTool(
@@ -172,13 +173,12 @@ public class ProfessionToolConfig {
                             ),
                             List.of(
                                     "faster_tree_chopping"
-                            )
+                            ),
+                            null,
+                            30
                     )
             );
 
-            /*
-             LEGENDARY FORESTRY TOOL
-             */
             defaults.put(
                     "worldtree_axe",
                     createTool(
@@ -194,13 +194,12 @@ public class ProfessionToolConfig {
                             ),
                             List.of(
                                     "timber_break"
-                            )
+                            ),
+                            null,
+                            60
                     )
             );
 
-            /*
-             FISHING TOOL
-             */
             defaults.put(
                     "poseidons_line",
                     createTool(
@@ -215,13 +214,12 @@ public class ProfessionToolConfig {
                             ),
                             List.of(
                                     "rare_loot_boost"
-                            )
+                            ),
+                            null,
+                            60
                     )
             );
 
-            /*
-             FARMING TOOL
-             */
             defaults.put(
                     "gaias_blessing",
                     createTool(
@@ -236,7 +234,9 @@ public class ProfessionToolConfig {
                             ),
                             List.of(
                                     "auto_replant"
-                            )
+                            ),
+                            null,
+                            60
                     )
             );
 
@@ -263,7 +263,9 @@ public class ProfessionToolConfig {
             String baseItem,
             int customModelData,
             Map<String, Double> stats,
-            List<String> passives
+            List<String> passives,
+            String activeAbility,
+            int activeCooldownSeconds
     ) {
         ToolData tool =
                 new ToolData();
@@ -291,6 +293,12 @@ public class ProfessionToolConfig {
 
         tool.passives =
                 passives;
+
+        tool.activeAbility =
+                activeAbility;
+
+        tool.activeCooldownSeconds =
+                activeCooldownSeconds;
 
         return tool;
     }

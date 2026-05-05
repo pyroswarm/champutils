@@ -6,7 +6,8 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WildBattleLootConfig {
 
@@ -18,8 +19,13 @@ public class WildBattleLootConfig {
     public static LootTable TABLE =
             new LootTable();
 
+    public static class Wrapper {
+        public LootTable table =
+                new LootTable();
+    }
+
     public static class LootTable {
-        public double dropChance = 0.10;
+        public double dropChance = 1.0;
         public List<LootEntry> items =
                 new ArrayList<>();
     }
@@ -54,14 +60,33 @@ public class WildBattleLootConfig {
                     FileReader reader =
                             new FileReader(file)
             ) {
-                WildBattleLootConfig loaded =
+                Wrapper loaded =
                         GSON.fromJson(
                                 reader,
-                                WildBattleLootConfig.class
+                                Wrapper.class
                         );
 
-                TABLE = loaded.TABLE;
+                if (
+                        loaded != null &&
+                                loaded.table != null
+                ) {
+                    TABLE =
+                            loaded.table;
+                }
             }
+
+            if (
+                    TABLE.items == null
+            ) {
+                TABLE.items =
+                        new ArrayList<>();
+            }
+
+            System.out.println(
+                    "[ChampUtils] Loaded wild battle loot: " +
+                            TABLE.items.size() +
+                            " entries."
+            );
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -73,33 +98,16 @@ public class WildBattleLootConfig {
     ) {
         try {
 
-            WildBattleLootConfig config =
-                    new WildBattleLootConfig();
+            Wrapper config =
+                    new Wrapper();
 
-            config.TABLE.dropChance = 0.10;
+            config.table.dropChance =
+                    1.0;
 
-            config.TABLE.items.add(
+            config.table.items.add(
                     loot(
-                            "tm_protect",
-                            40,
-                            1,
-                            1
-                    )
-            );
-
-            config.TABLE.items.add(
-                    loot(
-                            "tm_shadow_ball",
-                            25,
-                            1,
-                            1
-                    )
-            );
-
-            config.TABLE.items.add(
-                    loot(
-                            "rare_tm_earthquake",
-                            10,
+                            "cobblemon:poke_ball",
+                            100,
                             1,
                             1
                     )
@@ -129,10 +137,17 @@ public class WildBattleLootConfig {
         LootEntry entry =
                 new LootEntry();
 
-        entry.itemId = itemId;
-        entry.weight = weight;
-        entry.minAmount = min;
-        entry.maxAmount = max;
+        entry.itemId =
+                itemId;
+
+        entry.weight =
+                weight;
+
+        entry.minAmount =
+                min;
+
+        entry.maxAmount =
+                max;
 
         return entry;
     }

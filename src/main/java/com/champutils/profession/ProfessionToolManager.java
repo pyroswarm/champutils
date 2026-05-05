@@ -5,16 +5,15 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.*;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class ProfessionToolManager {
 
@@ -22,6 +21,9 @@ public class ProfessionToolManager {
             new HashMap<>();
 
     public static void registerTools() {
+
+        REGISTERED_TOOLS.clear();
+
         for (
                 Map.Entry<String, ProfessionToolConfig.ToolData> entry :
                 ProfessionToolConfig.TOOLS.entrySet()
@@ -43,8 +45,84 @@ public class ProfessionToolManager {
             String toolId,
             ProfessionToolConfig.ToolData toolData
     ) {
+
+        if (
+                toolData == null ||
+                        toolData.baseItem == null ||
+                        toolData.baseItem.isBlank()
+        ) {
+            System.out.println(
+                    "[ChampUtils] Invalid config for tool: " +
+                            toolId
+            );
+            return;
+        }
+
+        ResourceLocation resourceLocation;
+
+        try {
+            resourceLocation =
+                    ResourceLocation.parse(
+                            toolData.baseItem
+                    );
+        }
+        catch (Exception e) {
+            System.out.println(
+                    "[ChampUtils] Invalid item id for tool: " +
+                            toolId +
+                            " -> " +
+                            toolData.baseItem
+            );
+            return;
+        }
+
+        Item baseItem =
+                BuiltInRegistries.ITEM.get(
+                        resourceLocation
+                );
+
+        if (
+                baseItem == Items.AIR
+        ) {
+            System.out.println(
+                    "[ChampUtils] Invalid base item for tool: " +
+                            toolId +
+                            " -> " +
+                            toolData.baseItem
+            );
+            return;
+        }
+
+        /*
+         Keep all rods as their real item.
+         This preserves Cobblemon fishing behavior.
+         */
+        if (
+                isRodItem(
+                        toolData.baseItem,
+                        baseItem
+                )
+        ) {
+            REGISTERED_TOOLS.put(
+                    toolId,
+                    baseItem
+            );
+
+            System.out.println(
+                    "[ChampUtils] Registered rod tool: " +
+                            toolId +
+                            " -> " +
+                            toolData.baseItem
+            );
+
+            return;
+        }
+
         Item customTool =
-                createProperToolType(toolData);
+                createProperToolType(
+                        toolData,
+                        baseItem
+                );
 
         if (customTool == null) {
             System.out.println(
@@ -54,24 +132,60 @@ public class ProfessionToolManager {
             return;
         }
 
-        Registry.register(
-                BuiltInRegistries.ITEM,
-                ResourceLocation.fromNamespaceAndPath(
-                        "champutils",
-                        toolId
-                ),
-                customTool
-        );
+        try {
 
-        REGISTERED_TOOLS.put(
-                toolId,
-                customTool
-        );
+            Registry.register(
+                    BuiltInRegistries.ITEM,
+                    ResourceLocation.fromNamespaceAndPath(
+                            "champutils",
+                            toolId
+                    ),
+                    customTool
+            );
+
+            REGISTERED_TOOLS.put(
+                    toolId,
+                    customTool
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static boolean isRodItem(
+            String baseItemId,
+            Item baseItem
+    ) {
+
+        if (
+                baseItem instanceof FishingRodItem
+        ) {
+            return true;
+        }
+
+        if (
+                baseItemId == null
+        ) {
+            return false;
+        }
+
+        String id =
+                baseItemId.toLowerCase();
+
+        return id.startsWith(
+                "cobblemon:"
+        ) &&
+                id.endsWith(
+                        "_rod"
+                );
     }
 
     private static Item createProperToolType(
-            ProfessionToolConfig.ToolData toolData
+            ProfessionToolConfig.ToolData toolData,
+            Item baseItem
     ) {
+
         String base =
                 toolData.baseItem;
 
@@ -83,11 +197,6 @@ public class ProfessionToolManager {
                                         toolData.rarity
                                 )
                         );
-
-        Item baseItem =
-                BuiltInRegistries.ITEM.get(
-                        ResourceLocation.parse(base)
-                );
 
         if (base.contains("pickaxe")) {
             return new CustomPickaxeItem(
@@ -113,13 +222,6 @@ public class ProfessionToolManager {
             );
         }
 
-        if (base.contains("fishing_rod")) {
-            return new CustomFishingRodItem(
-                    baseItem,
-                    properties
-            );
-        }
-
         return new CustomGenericToolItem(
                 baseItem,
                 properties
@@ -129,34 +231,98 @@ public class ProfessionToolManager {
     public static ItemStack createTool(
             String toolId
     ) {
+
         ProfessionToolConfig.ToolData toolData =
-                ProfessionToolConfig.TOOLS.get(toolId);
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
 
         if (toolData == null) {
+            System.out.println(
+                    "[ChampUtils] Unknown tool id: " +
+                            toolId
+            );
             return ItemStack.EMPTY;
         }
 
         Item item =
-                REGISTERED_TOOLS.get(toolId);
+                REGISTERED_TOOLS.get(
+                        toolId
+                );
 
+        /*
+         fallback for rods
+         */
         if (item == null) {
-            return ItemStack.EMPTY;
+
+            try {
+
+                item =
+                        BuiltInRegistries.ITEM.get(
+                                ResourceLocation.parse(
+                                        toolData.baseItem
+                                )
+                        );
+
+                if (
+                        item == null ||
+                                item == Items.AIR
+                ) {
+                    System.out.println(
+                            "[ChampUtils] Failed fallback tool lookup: " +
+                                    toolId
+                    );
+                    return ItemStack.EMPTY;
+                }
+
+                REGISTERED_TOOLS.put(
+                        toolId,
+                        item
+                );
+
+                System.out.println(
+                        "[ChampUtils] Late-registered tool: " +
+                                toolId
+                );
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return ItemStack.EMPTY;
+            }
         }
 
         ItemStack stack =
-                new ItemStack(item);
+                new ItemStack(
+                        item
+                );
 
-        /*
-         Fix Polymer name issue
-         Convert tool_id -> Tool Id
-         */
-        String formattedName =
-                formatToolName(toolId);
+        CompoundTag tag =
+                new CompoundTag();
+
+        tag.putString(
+                "ChampUtilsToolId",
+                toolId
+        );
+
+        stack.set(
+                DataComponents.CUSTOM_DATA,
+                CustomData.of(
+                        tag
+                )
+        );
+
+        String displayName =
+                toolData.displayName == null ||
+                        toolData.displayName.isBlank()
+                        ? formatWords(
+                        toolId
+                )
+                        : toolData.displayName;
 
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        formattedName
+                        displayName
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
@@ -167,20 +333,46 @@ public class ProfessionToolManager {
         List<Component> lore =
                 new ArrayList<>();
 
-        lore.add(
-                Component.literal(
-                        "Requires " +
-                                toolData.profession +
-                                " Level " +
-                                toolData.requiredLevel
-                ).withStyle(
-                        ChatFormatting.GRAY
+        addHeaderLore(
+                lore,
+                toolData
+        );
+
+        addStatsLore(
+                lore,
+                toolData
+        );
+
+        addPassivesLore(
+                lore,
+                toolData
+        );
+
+        addActiveAbilityLore(
+                lore,
+                toolData
+        );
+
+        stack.set(
+                DataComponents.LORE,
+                new ItemLore(
+                        lore
                 )
         );
 
+        return stack;
+    }
+
+    private static void addHeaderLore(
+            List<Component> lore,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
         lore.add(
                 Component.literal(
-                        toolData.rarity
+                        formatRarity(
+                                toolData.rarity
+                        )
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
@@ -188,92 +380,210 @@ public class ProfessionToolManager {
                 )
         );
 
-        if (
-                toolData.stats != null &&
-                        !toolData.stats.isEmpty()
-        ) {
-            lore.add(
-                    Component.literal(" ")
-            );
-
-            for (
-                    Map.Entry<String, Double> stat :
-                    toolData.stats.entrySet()
-            ) {
-                lore.add(
-                        Component.literal(
-                                stat.getKey() +
-                                        ": +" +
-                                        stat.getValue()
-                        ).withStyle(
-                                ChatFormatting.GREEN
-                        )
-                );
-            }
-        }
-
-        if (
-                toolData.passives != null &&
-                        !toolData.passives.isEmpty()
-        ) {
-            lore.add(
-                    Component.literal(" ")
-            );
-
-            for (
-                    String passive :
-                    toolData.passives
-            ) {
-                lore.add(
-                        Component.literal(
-                                "Passive: " +
-                                        passive
-                        ).withStyle(
-                                ChatFormatting.GOLD
-                        )
-                );
-            }
-        }
-
-        stack.set(
-                DataComponents.LORE,
-                new ItemLore(lore)
+        lore.add(
+                Component.literal(
+                        "Requires " +
+                                formatWords(
+                                        toolData.profession
+                                ) +
+                                " level " +
+                                toolData.requiredLevel
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
         );
-
-        return stack;
     }
 
-    private static String formatToolName(
-            String toolId
+    private static void addStatsLore(
+            List<Component> lore,
+            ProfessionToolConfig.ToolData toolData
     ) {
+
+        if (
+                toolData.stats == null ||
+                        toolData.stats.isEmpty()
+        ) {
+            return;
+        }
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "Stats"
+                ).withStyle(
+                        ChatFormatting.YELLOW
+                )
+        );
+
+        for (
+                Map.Entry<String, Double> stat :
+                toolData.stats.entrySet()
+        ) {
+
+            lore.add(
+                    Component.literal(
+                            " " +
+                                    formatStatName(
+                                            stat.getKey()
+                                    ) +
+                                    ": +" +
+                                    formatStatValue(
+                                            stat.getValue()
+                                    )
+                    ).withStyle(
+                            ChatFormatting.GREEN
+                    )
+            );
+        }
+    }
+
+    private static void addPassivesLore(
+            List<Component> lore,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                toolData.passives == null ||
+                        toolData.passives.isEmpty()
+        ) {
+            return;
+        }
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "Passives"
+                ).withStyle(
+                        ChatFormatting.GOLD
+                )
+        );
+
+        for (
+                String passive :
+                toolData.passives
+        ) {
+
+            lore.add(
+                    Component.literal(
+                            " " +
+                                    formatWords(
+                                            passive
+                                    )
+                    ).withStyle(
+                            ChatFormatting.GRAY
+                    )
+            );
+        }
+    }
+
+    private static void addActiveAbilityLore(
+            List<Component> lore,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                toolData.activeAbility == null ||
+                        toolData.activeAbility.isBlank()
+        ) {
+            return;
+        }
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "Active Ability"
+                ).withStyle(
+                        ChatFormatting.AQUA
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        " " +
+                                formatWords(
+                                        toolData.activeAbility
+                                )
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        " Cooldown: " +
+                                toolData.activeCooldownSeconds +
+                                "s"
+                ).withStyle(
+                        ChatFormatting.DARK_GRAY
+                )
+        );
+    }
+
+    private static String formatRarity(
+            String rarity
+    ) {
+        return rarity
+                .replace("_", " ")
+                .toUpperCase();
+    }
+
+    private static String formatWords(
+            String value
+    ) {
+
         String[] parts =
-                toolId.split("_");
+                value.replace("_", " ")
+                        .split(" ");
 
         StringBuilder builder =
                 new StringBuilder();
 
         for (String part : parts) {
-            if (part.isEmpty()) {
-                continue;
-            }
-
             builder.append(
                     Character.toUpperCase(
                             part.charAt(0)
                     )
-            );
-
-            if (part.length() > 1) {
-                builder.append(
-                        part.substring(1)
-                                .toLowerCase()
-                );
-            }
-
-            builder.append(" ");
+            ).append(
+                    part.substring(1)
+                            .toLowerCase()
+            ).append(" ");
         }
 
         return builder.toString().trim();
+    }
+
+    private static String formatStatName(
+            String stat
+    ) {
+        return formatWords(
+                stat.replaceAll(
+                        "([a-z])([A-Z])",
+                        "$1 $2"
+                )
+        );
+    }
+
+    private static String formatStatValue(
+            double value
+    ) {
+
+        if (value == Math.floor(value)) {
+            return ((int) value) + "%";
+        }
+
+        return String.format(
+                "%.1f%%",
+                value
+        );
     }
 
     public static Item getTool(
@@ -282,13 +592,17 @@ public class ProfessionToolManager {
         return REGISTERED_TOOLS.get(toolId);
     }
 
+    public static Map<String, Item> getRegisteredTools() {
+        return REGISTERED_TOOLS;
+    }
+
     private static Rarity getRarity(
             String rarity
     ) {
+
         return switch (
                 rarity.toUpperCase()
                 ) {
-            case "COMMON" -> Rarity.COMMON;
             case "UNCOMMON" -> Rarity.UNCOMMON;
             case "RARE" -> Rarity.RARE;
             case "EPIC" -> Rarity.EPIC;
@@ -299,148 +613,71 @@ public class ProfessionToolManager {
     private static ChatFormatting getRarityColor(
             String rarity
     ) {
+
         return switch (
                 rarity.toUpperCase()
                 ) {
-            case "COMMON" -> ChatFormatting.WHITE;
             case "UNCOMMON" -> ChatFormatting.GREEN;
             case "RARE" -> ChatFormatting.BLUE;
             case "EPIC" -> ChatFormatting.DARK_PURPLE;
             case "LEGENDARY" -> ChatFormatting.GOLD;
             case "MYTHIC" -> ChatFormatting.LIGHT_PURPLE;
-            default -> ChatFormatting.GRAY;
+            default -> ChatFormatting.WHITE;
         };
     }
 
-    /*
-     PICKAXE
-     */
-    public static class CustomPickaxeItem
-            extends PickaxeItem
-            implements PolymerItem {
-
+    public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
         private final Item baseItem;
 
-        public CustomPickaxeItem(
-                Item baseItem,
-                Tier tier,
-                Properties properties
-        ) {
+        public CustomPickaxeItem(Item baseItem, Tier tier, Properties properties) {
             super(tier, properties);
             this.baseItem = baseItem;
         }
 
         @Override
-        public Item getPolymerItem(
-                ItemStack stack,
-                ServerPlayer player
-        ) {
+        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
             return baseItem;
         }
     }
 
-    /*
-     AXE
-     */
-    public static class CustomAxeItem
-            extends AxeItem
-            implements PolymerItem {
-
+    public static class CustomAxeItem extends AxeItem implements PolymerItem {
         private final Item baseItem;
 
-        public CustomAxeItem(
-                Item baseItem,
-                Tier tier,
-                Properties properties
-        ) {
+        public CustomAxeItem(Item baseItem, Tier tier, Properties properties) {
             super(tier, properties);
             this.baseItem = baseItem;
         }
 
         @Override
-        public Item getPolymerItem(
-                ItemStack stack,
-                ServerPlayer player
-        ) {
+        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
             return baseItem;
         }
     }
 
-    /*
-     HOE
-     */
-    public static class CustomHoeItem
-            extends HoeItem
-            implements PolymerItem {
-
+    public static class CustomHoeItem extends HoeItem implements PolymerItem {
         private final Item baseItem;
 
-        public CustomHoeItem(
-                Item baseItem,
-                Tier tier,
-                Properties properties
-        ) {
+        public CustomHoeItem(Item baseItem, Tier tier, Properties properties) {
             super(tier, properties);
             this.baseItem = baseItem;
         }
 
         @Override
-        public Item getPolymerItem(
-                ItemStack stack,
-                ServerPlayer player
-        ) {
+        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
             return baseItem;
         }
     }
 
-    /*
-     FISHING ROD
-     */
-    public static class CustomFishingRodItem
-            extends FishingRodItem
-            implements PolymerItem {
-
+    public static class CustomGenericToolItem extends Item implements PolymerItem {
         private final Item baseItem;
 
-        public CustomFishingRodItem(
-                Item baseItem,
-                Properties properties
-        ) {
+        public CustomGenericToolItem(Item baseItem, Properties properties) {
             super(properties);
             this.baseItem = baseItem;
         }
 
         @Override
-        public Item getPolymerItem(
-                ItemStack stack,
-                ServerPlayer player
-        ) {
-            return baseItem;
-        }
-    }
-
-    /*
-     fallback
-     */
-    public static class CustomGenericToolItem
-            extends Item
-            implements PolymerItem {
-
-        private final Item baseItem;
-
-        public CustomGenericToolItem(
-                Item baseItem,
-                Properties properties
-        ) {
-            super(properties);
-            this.baseItem = baseItem;
-        }
-
-        @Override
-        public Item getPolymerItem(
-                ItemStack stack,
-                ServerPlayer player
-        ) {
+        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
             return baseItem;
         }
     }

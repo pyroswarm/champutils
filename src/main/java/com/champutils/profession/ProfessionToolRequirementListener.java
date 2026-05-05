@@ -1,72 +1,94 @@
 package com.champutils.profession;
 
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class ProfessionToolRequirementListener {
+
+    private static final Map<UUID, Long> LAST_DENY_MESSAGE =
+            new HashMap<>();
+
+    private static final long DENY_MESSAGE_COOLDOWN_MS =
+            1500L;
 
     public static void register() {
 
         /*
-         Mining / Forestry / Farming
+         Left click block breaking
          */
-        PlayerBlockBreakEvents.BEFORE.register(
+        AttackBlockCallback.EVENT.register(
                 (
-                        world,
                         player,
+                        world,
+                        hand,
                         pos,
-                        state,
-                        blockEntity
+                        direction
                 ) -> {
 
                     if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return true;
+                        return InteractionResult.PASS;
                     }
 
-                    return canUseTool(
-                            serverPlayer,
-                            player.getMainHandItem()
-                    );
+                    ItemStack stack =
+                            player.getItemInHand(
+                                    hand
+                            );
+
+                    if (
+                            !canUseTool(
+                                    serverPlayer,
+                                    stack
+                            )
+                    ) {
+                        return InteractionResult.FAIL;
+                    }
+
+                    return InteractionResult.PASS;
                 }
         );
 
         /*
-         Fishing rods
-         */
-        UseItemCallback.EVENT.register(
+         Right click block interactions only.
+         No UseItemCallback here.
+         This avoids interfering with vanilla/Cobblemon rod use.
+        */
+        UseBlockCallback.EVENT.register(
                 (
                         player,
                         world,
-                        hand
+                        hand,
+                        hitResult
                 ) -> {
 
-                    ItemStack stack =
-                            player.getItemInHand(hand);
-
                     if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return InteractionResultHolder.pass(stack);
+                        return InteractionResult.PASS;
                     }
 
-                    boolean allowed =
-                            canUseTool(
-                                    serverPlayer,
-                                    stack
+                    ItemStack stack =
+                            player.getItemInHand(
+                                    hand
                             );
 
-                    if (!allowed) {
-                        return InteractionResultHolder.fail(stack);
+                    if (
+                            !canUseTool(
+                                    serverPlayer,
+                                    stack
+                            )
+                    ) {
+                        return InteractionResult.FAIL;
                     }
 
-                    return InteractionResultHolder.pass(stack);
+                    return InteractionResult.PASS;
                 }
         );
     }
@@ -76,65 +98,167 @@ public class ProfessionToolRequirementListener {
             ItemStack stack
     ) {
 
-        if (stack.isEmpty()) {
+        String toolId =
+                ProfessionToolUtil.getToolId(
+                        stack
+                );
+
+        if (toolId == null) {
             return true;
         }
 
-        Item heldItem =
-                stack.getItem();
-
-        String heldId =
-                BuiltInRegistries.ITEM
-                        .getKey(heldItem)
-                        .toString();
-
-        for (
-                Map.Entry<String, ProfessionToolConfig.ToolData> entry :
-                ProfessionToolConfig.TOOLS.entrySet()
-        ) {
-
-            String toolId =
-                    "champutils:" +
-                            entry.getKey();
-
-            if (!heldId.equals(toolId)) {
-                continue;
-            }
-
-            ProfessionToolConfig.ToolData data =
-                    entry.getValue();
-
-            ProfessionType profession =
-                    ProfessionType.valueOf(
-                            data.profession
-                    );
-
-            int playerLevel =
-                    ProfessionManager.getLevel(
-                            player,
-                            profession
-                    );
-
-            if (
-                    playerLevel <
-                            data.requiredLevel
-            ) {
-                player.displayClientMessage(
-                        Component.literal(
-                                "Requires " +
-                                        data.profession +
-                                        " Level " +
-                                        data.requiredLevel
-                        ),
-                        true
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
                 );
 
-                return false;
-            }
-
+        if (toolData == null) {
             return true;
+        }
+
+        ProfessionType professionType;
+
+        try {
+            professionType =
+                    ProfessionType.valueOf(
+                            toolData.profession
+                                    .toUpperCase()
+                    );
+        }
+        catch (Exception e) {
+            return true;
+        }
+
+        int playerLevel =
+                ProfessionManager.getLevel(
+                        player,
+                        professionType
+                );
+
+        if (
+                playerLevel <
+                        toolData.requiredLevel
+        ) {
+
+            sendDeniedMessage(
+                    player,
+                    toolData
+            );
+
+            return false;
         }
 
         return true;
+    }
+
+    private static void sendDeniedMessage(
+            ServerPlayer player,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        long now =
+                System.currentTimeMillis();
+
+        long last =
+                LAST_DENY_MESSAGE.getOrDefault(
+                        player.getUUID(),
+                        0L
+                );
+
+        if (
+                now - last <
+                        DENY_MESSAGE_COOLDOWN_MS
+        ) {
+            return;
+        }
+
+        LAST_DENY_MESSAGE.put(
+                player.getUUID(),
+                now
+        );
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "You need " +
+                                formatWords(
+                                        toolData.profession
+                                ) +
+                                " level " +
+                                toolData.requiredLevel +
+                                " to use this item."
+                ).withStyle(
+                        ChatFormatting.RED
+                )
+        );
+    }
+
+    private static String formatWords(
+            String value
+    ) {
+
+        if (
+                value == null ||
+                        value.isBlank()
+        ) {
+            return "";
+        }
+
+        String normalized =
+                value.replace(
+                                "_",
+                                " "
+                        )
+                        .replace(
+                                "-",
+                                " "
+                        )
+                        .trim()
+                        .toLowerCase();
+
+        String[] parts =
+                normalized.split(
+                        "\\s+"
+                );
+
+        StringBuilder builder =
+                new StringBuilder();
+
+        for (
+                String part :
+                parts
+        ) {
+
+            if (
+                    part.isBlank()
+            ) {
+                continue;
+            }
+
+            builder.append(
+                    Character.toUpperCase(
+                            part.charAt(
+                                    0
+                            )
+                    )
+            );
+
+            if (
+                    part.length() > 1
+            ) {
+                builder.append(
+                        part.substring(
+                                1
+                        )
+                );
+            }
+
+            builder.append(
+                    " "
+            );
+        }
+
+        return builder
+                .toString()
+                .trim();
     }
 }
