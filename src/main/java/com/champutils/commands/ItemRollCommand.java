@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.economy.EconomyCraftHook;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profession.ProfessionToolMetadata;
@@ -35,6 +36,27 @@ public class ItemRollCommand {
                                                         ItemStack stack =
                                                                 player.getMainHandItem();
 
+                                                        long cost =
+                                                                ProfessionToolRollService.getIdentifyCost(
+                                                                        stack
+                                                                );
+
+                                                        EconomyCraftHook.AffordResult affordResult =
+                                                                EconomyCraftHook.canAfford(
+                                                                        player,
+                                                                        cost
+                                                                );
+
+                                                        if (!affordResult.success) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§c" + affordResult.error
+                                                                    )
+                                                            );
+
+                                                            return 0;
+                                                        }
+
                                                         ProfessionToolRollService.RollResult result =
                                                                 ProfessionToolRollService.identify(
                                                                         player,
@@ -51,6 +73,22 @@ public class ItemRollCommand {
                                                             return 0;
                                                         }
 
+                                                        EconomyCraftHook.ChargeResult chargeResult =
+                                                                EconomyCraftHook.withdraw(
+                                                                        player,
+                                                                        cost
+                                                                );
+
+                                                        if (!chargeResult.success) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§c" + chargeResult.error
+                                                                    )
+                                                            );
+
+                                                            return 0;
+                                                        }
+
                                                         ProfessionToolManager.refreshToolStack(
                                                                 stack
                                                         );
@@ -60,6 +98,21 @@ public class ItemRollCommand {
                                                                         result
                                                                 )
                                                         );
+
+                                                        if (cost > 0L) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§7Paid §6" +
+                                                                                    EconomyCraftHook.formatMoney(
+                                                                                            cost
+                                                                                    ) +
+                                                                                    "§7. New Balance: §6" +
+                                                                                    EconomyCraftHook.formatMoney(
+                                                                                            chargeResult.newBalance
+                                                                                    )
+                                                                    )
+                                                            );
+                                                        }
 
                                                         return 1;
                                                     })
@@ -75,6 +128,27 @@ public class ItemRollCommand {
 
                                                         ItemStack stack =
                                                                 player.getMainHandItem();
+
+                                                        long cost =
+                                                                ProfessionToolRollService.getRerollCost(
+                                                                        stack
+                                                                );
+
+                                                        EconomyCraftHook.AffordResult affordResult =
+                                                                EconomyCraftHook.canAfford(
+                                                                        player,
+                                                                        cost
+                                                                );
+
+                                                        if (!affordResult.success) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§c" + affordResult.error
+                                                                    )
+                                                            );
+
+                                                            return 0;
+                                                        }
 
                                                         ProfessionToolRollService.RollResult result =
                                                                 ProfessionToolRollService.reroll(
@@ -92,6 +166,22 @@ public class ItemRollCommand {
                                                             return 0;
                                                         }
 
+                                                        EconomyCraftHook.ChargeResult chargeResult =
+                                                                EconomyCraftHook.withdraw(
+                                                                        player,
+                                                                        cost
+                                                                );
+
+                                                        if (!chargeResult.success) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§c" + chargeResult.error
+                                                                    )
+                                                            );
+
+                                                            return 0;
+                                                        }
+
                                                         ProfessionToolManager.refreshToolStack(
                                                                 stack
                                                         );
@@ -101,6 +191,21 @@ public class ItemRollCommand {
                                                                         result
                                                                 )
                                                         );
+
+                                                        if (cost > 0L) {
+                                                            player.sendSystemMessage(
+                                                                    Component.literal(
+                                                                            "§7Paid §6" +
+                                                                                    EconomyCraftHook.formatMoney(
+                                                                                            cost
+                                                                                    ) +
+                                                                                    "§7. New Balance: §6" +
+                                                                                    EconomyCraftHook.formatMoney(
+                                                                                            chargeResult.newBalance
+                                                                                    )
+                                                                    )
+                                                            );
+                                                        }
 
                                                         return 1;
                                                     })
