@@ -14,9 +14,12 @@ public final class ProfessionToolMetadata {
 
     private static final String TOOL_ID_KEY = "ToolId";
     private static final String IDENTIFIED_KEY = "Identified";
+    private static final String ASCENDED_KEY = "Ascended";
     private static final String REROLLS_KEY = "Rerolls";
     private static final String QUALITY_KEY = "Quality";
     private static final String ROLLED_STATS_KEY = "RolledStats";
+    private static final String TRACKERS_KEY = "Trackers";
+    private static final String SELECTED_TRACKER_KEY = "SelectedTracker";
 
     private ProfessionToolMetadata() {
     }
@@ -76,6 +79,30 @@ public final class ProfessionToolMetadata {
                 root -> root.putBoolean(
                         IDENTIFIED_KEY,
                         identified
+                )
+        );
+    }
+
+    public static boolean isAscended(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return root.getBoolean(ASCENDED_KEY);
+    }
+
+    public static void setAscended(
+            ItemStack stack,
+            boolean ascended
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putBoolean(
+                        ASCENDED_KEY,
+                        ascended
                 )
         );
     }
@@ -227,9 +254,199 @@ public final class ProfessionToolMetadata {
         );
     }
 
+
+    public static String getSelectedTracker(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(SELECTED_TRACKER_KEY)) {
+            return null;
+        }
+
+        String trackerId =
+                root.getString(SELECTED_TRACKER_KEY);
+
+        return trackerId == null || trackerId.isBlank()
+                ? null
+                : trackerId;
+    }
+
+    public static void setSelectedTracker(
+            ItemStack stack,
+            String trackerId
+    ) {
+
+        updateRoot(
+                stack,
+                root -> {
+                    if (trackerId == null || trackerId.isBlank()) {
+                        root.remove(SELECTED_TRACKER_KEY);
+                    } else {
+                        root.putString(
+                                SELECTED_TRACKER_KEY,
+                                trackerId
+                        );
+                    }
+                }
+        );
+    }
+
+    public static void setTracker(
+            ItemStack stack,
+            String trackerId,
+            long value
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        trackerId == null ||
+                        trackerId.isBlank()
+        ) {
+            return;
+        }
+
+        updateRoot(
+                stack,
+                root -> {
+                    CompoundTag trackerTag =
+                            root.contains(TRACKERS_KEY)
+                                    ? root.getCompound(TRACKERS_KEY)
+                                    : new CompoundTag();
+
+                    trackerTag.putLong(
+                            trackerId,
+                            Math.max(
+                                    0L,
+                                    value
+                            )
+                    );
+
+                    root.put(
+                            TRACKERS_KEY,
+                            trackerTag
+                    );
+                }
+        );
+    }
+
+    public static Map<String, Long> getTrackers(
+            ItemStack stack
+    ) {
+
+        Map<String, Long> trackers =
+                new LinkedHashMap<>();
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(TRACKERS_KEY)) {
+            return trackers;
+        }
+
+        CompoundTag trackerTag =
+                root.getCompound(TRACKERS_KEY);
+
+        for (String key : trackerTag.getAllKeys()) {
+            trackers.put(
+                    key,
+                    trackerTag.getLong(key)
+            );
+        }
+
+        return trackers;
+    }
+
+    public static long getTracker(
+            ItemStack stack,
+            String trackerId
+    ) {
+
+        if (
+                trackerId == null ||
+                        trackerId.isBlank()
+        ) {
+            return 0L;
+        }
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(TRACKERS_KEY)) {
+            return 0L;
+        }
+
+        CompoundTag trackerTag =
+                root.getCompound(TRACKERS_KEY);
+
+        return Math.max(
+                0L,
+                trackerTag.getLong(trackerId)
+        );
+    }
+
+    public static void incrementTracker(
+            ItemStack stack,
+            String trackerId,
+            long amount
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        trackerId == null ||
+                        trackerId.isBlank() ||
+                        amount <= 0
+        ) {
+            return;
+        }
+
+        updateRoot(
+                stack,
+                root -> {
+                    CompoundTag trackerTag =
+                            root.contains(TRACKERS_KEY)
+                                    ? root.getCompound(TRACKERS_KEY)
+                                    : new CompoundTag();
+
+                    long current =
+                            Math.max(
+                                    0L,
+                                    trackerTag.getLong(trackerId)
+                            );
+
+                    trackerTag.putLong(
+                            trackerId,
+                            current + amount
+                    );
+
+                    root.put(
+                            TRACKERS_KEY,
+                            trackerTag
+                    );
+                }
+        );
+    }
+
     public static void initializeUnidentifiedTool(
             ItemStack stack,
             String toolId
+    ) {
+
+        initializeUnidentifiedTool(
+                stack,
+                toolId,
+                false
+        );
+    }
+
+    public static void initializeUnidentifiedTool(
+            ItemStack stack,
+            String toolId,
+            boolean ascended
     ) {
 
         updateRoot(
@@ -245,6 +462,11 @@ public final class ProfessionToolMetadata {
                             false
                     );
 
+                    root.putBoolean(
+                            ASCENDED_KEY,
+                            ascended
+                    );
+
                     root.putInt(
                             REROLLS_KEY,
                             0
@@ -257,6 +479,14 @@ public final class ProfessionToolMetadata {
 
                     root.remove(
                             ROLLED_STATS_KEY
+                    );
+
+                    root.remove(
+                            TRACKERS_KEY
+                    );
+
+                    root.remove(
+                            SELECTED_TRACKER_KEY
                     );
                 }
         );

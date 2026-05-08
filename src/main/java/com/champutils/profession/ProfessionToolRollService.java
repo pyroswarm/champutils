@@ -84,6 +84,11 @@ public final class ProfessionToolRollService {
                 false
         );
 
+        assignAscendedTrackerOnIdentify(
+                stack,
+                toolData
+        );
+
         return RollResult.success(
                 toolId,
                 toolData,
@@ -396,6 +401,69 @@ public final class ProfessionToolRollService {
                 (weightedTotal / totalWeight) *
                         100.0D
         );
+    }
+
+    private static void assignAscendedTrackerOnIdentify(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        toolData == null ||
+                        !ProfessionToolMetadata.isAscended(stack) ||
+                        toolData.profession == null ||
+                        !toolData.profession.equalsIgnoreCase("MINING")
+        ) {
+            return;
+        }
+
+        String trackerId =
+                rollMiningTrackerId();
+
+        ProfessionToolMetadata.setSelectedTracker(
+                stack,
+                trackerId
+        );
+
+        ProfessionToolMetadata.setTracker(
+                stack,
+                trackerId,
+                0L
+        );
+    }
+
+    private static String rollMiningTrackerId() {
+
+        double roll =
+                RANDOM.nextDouble() * 100.0D;
+
+        if (roll >= 90.0D) {
+            return "ancient_debris_mined";
+        }
+
+        if (roll >= 70.0D) {
+            return "diamonds_mined";
+        }
+
+        String[] commonTrackers =
+                new String[]{
+                        "stone_mined",
+                        "coal_mined",
+                        "copper_mined",
+                        "iron_mined",
+                        "gold_mined",
+                        "redstone_mined",
+                        "lapis_mined",
+                        "emerald_mined"
+                };
+
+        return commonTrackers[
+                RANDOM.nextInt(
+                        commonTrackers.length
+                )
+        ];
     }
 
     public static Component buildSuccessMessage(

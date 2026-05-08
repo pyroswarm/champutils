@@ -5,14 +5,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
-import java.util.List;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.lang.reflect.Type;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ProfessionToolConfig {
@@ -52,20 +52,29 @@ public class ProfessionToolConfig {
         public String rarity;
         public String baseItem;
         public int customModelData;
-        public List<String> passives;
+
+        /*
+         If true, this item can be created as an ascended/stat-tracker variant.
+         Normal and ascended copies use the same stats, rolls, passives, and active ability.
+         The ascended variant only adds glint + tracker lore.
+         */
+        public boolean hasAscendedVariant = false;
 
         /*
          Old fixed-stat support.
-         Keep this for compatibility while we migrate.
+         Kept so older configs/tools do not instantly break while migrating to statRanges.
          */
         public Map<String, Double> stats =
                 new LinkedHashMap<>();
 
         /*
-         New Wynncraft-style roll ranges.
+         Wynncraft-style roll ranges.
          */
         public Map<String, StatRange> statRanges =
                 new LinkedHashMap<>();
+
+        public List<String> passives =
+                new ArrayList<>();
 
         public String activeAbility;
         public int activeCooldownSeconds = 30;
@@ -231,6 +240,7 @@ public class ProfessionToolConfig {
                             "RARE",
                             "minecraft:diamond_pickaxe",
                             1001,
+                            true,
                             Map.of(
                                     "miningSpeed",
                                     new StatRange(
@@ -251,6 +261,9 @@ public class ProfessionToolConfig {
                                             1.0D
                                     )
                             ),
+                            List.of(
+                                    "bonus_ore_drops"
+                            ),
                             "prospect",
                             30
                     )
@@ -265,6 +278,7 @@ public class ProfessionToolConfig {
                             "LEGENDARY",
                             "minecraft:netherite_pickaxe",
                             1002,
+                            true,
                             Map.of(
                                     "miningSpeed",
                                     new StatRange(
@@ -285,6 +299,10 @@ public class ProfessionToolConfig {
                                             1.0D
                                     )
                             ),
+                            List.of(
+                                    "vein_mining",
+                                    "bonus_ore_drops"
+                            ),
                             "vein_burst",
                             60
                     )
@@ -299,6 +317,7 @@ public class ProfessionToolConfig {
                             "RARE",
                             "minecraft:diamond_axe",
                             2001,
+                            false,
                             Map.of(
                                     "chopSpeed",
                                     new StatRange(
@@ -312,6 +331,9 @@ public class ProfessionToolConfig {
                                             8.0D,
                                             3.0D
                                     )
+                            ),
+                            List.of(
+                                    "faster_tree_chopping"
                             ),
                             null,
                             30
@@ -327,6 +349,7 @@ public class ProfessionToolConfig {
                             "LEGENDARY",
                             "minecraft:netherite_axe",
                             2002,
+                            false,
                             Map.of(
                                     "chopSpeed",
                                     new StatRange(
@@ -340,6 +363,9 @@ public class ProfessionToolConfig {
                                             25.0D,
                                             3.0D
                                     )
+                            ),
+                            List.of(
+                                    "timber_break"
                             ),
                             null,
                             60
@@ -355,6 +381,7 @@ public class ProfessionToolConfig {
                             "LEGENDARY",
                             "minecraft:diamond_hoe",
                             4001,
+                            false,
                             Map.of(
                                     "bonusCropYield",
                                     new StatRange(
@@ -362,6 +389,9 @@ public class ProfessionToolConfig {
                                             25.0D,
                                             3.0D
                                     )
+                            ),
+                            List.of(
+                                    "auto_replant"
                             ),
                             null,
                             60
@@ -390,7 +420,9 @@ public class ProfessionToolConfig {
             String rarity,
             String baseItem,
             int customModelData,
+            boolean hasAscendedVariant,
             Map<String, StatRange> statRanges,
+            List<String> passives,
             String activeAbility,
             int activeCooldownSeconds
     ) {
@@ -416,10 +448,18 @@ public class ProfessionToolConfig {
         tool.customModelData =
                 customModelData;
 
+        tool.hasAscendedVariant =
+                hasAscendedVariant;
+
         tool.statRanges =
                 statRanges == null
                         ? new LinkedHashMap<>()
                         : new LinkedHashMap<>(statRanges);
+
+        tool.passives =
+                passives == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(passives);
 
         tool.activeAbility =
                 activeAbility;

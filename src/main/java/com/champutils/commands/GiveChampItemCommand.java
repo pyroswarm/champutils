@@ -36,9 +36,6 @@ public class GiveChampItemCommand {
                                                             StringArgumentType.word()
                                                     )
 
-                                                    /*
-                                                     Tab autocomplete
-                                                     */
                                                     .suggests(
                                                             (
                                                                     context,
@@ -58,65 +55,83 @@ public class GiveChampItemCommand {
                                                             }
                                                     )
 
-                                                    .executes(context -> {
-
-                                                        ServerPlayer player =
-                                                                context.getSource()
-                                                                        .getPlayerOrException();
-
-                                                        String itemId =
-                                                                StringArgumentType.getString(
-                                                                        context,
-                                                                        "itemId"
-                                                                );
-
-                                                        ItemStack item =
-                                                                ProfessionToolManager.createTool(
-                                                                        itemId
-                                                                );
-
-                                                        if (
-                                                                item.isEmpty()
-                                                        ) {
+                                                    .executes(context -> giveItem(
                                                             context.getSource()
-                                                                    .sendFailure(
-                                                                            Component.literal(
-                                                                                    "Invalid custom item: " +
-                                                                                            itemId
-                                                                            )
-                                                                    );
+                                                                    .getPlayerOrException(),
+                                                            StringArgumentType.getString(
+                                                                    context,
+                                                                    "itemId"
+                                                            ),
+                                                            false
+                                                    ))
 
-                                                            return 0;
-                                                        }
-
-                                                        boolean added =
-                                                                player.getInventory()
-                                                                        .add(
-                                                                                item
-                                                                        );
-
-                                                        if (!added) {
-                                                            player.drop(
-                                                                    item,
-                                                                    false
-                                                            );
-                                                        }
-
-                                                        context.getSource()
-                                                                .sendSuccess(
-                                                                        () ->
-                                                                                Component.literal(
-                                                                                        "Given custom item: " +
-                                                                                                itemId
-                                                                                ),
-                                                                        false
-                                                                );
-
-                                                        return 1;
-                                                    })
+                                                    .then(
+                                                            Commands.literal(
+                                                                            "ascended"
+                                                                    )
+                                                                    .executes(context -> giveItem(
+                                                                            context.getSource()
+                                                                                    .getPlayerOrException(),
+                                                                            StringArgumentType.getString(
+                                                                                    context,
+                                                                                    "itemId"
+                                                                            ),
+                                                                            true
+                                                                    ))
+                                                    )
                                     )
                     );
                 }
         );
+    }
+
+    private static int giveItem(
+            ServerPlayer player,
+            String itemId,
+            boolean ascended
+    ) {
+
+        ItemStack item =
+                ProfessionToolManager.createTool(
+                        itemId,
+                        ascended
+                );
+
+        if (
+                item.isEmpty()
+        ) {
+            player.sendSystemMessage(
+                    Component.literal(
+                            ascended
+                                    ? "§cInvalid custom item or ascended variant is not enabled: " + itemId
+                                    : "§cInvalid custom item: " + itemId
+                    )
+            );
+
+            return 0;
+        }
+
+        boolean added =
+                player.getInventory()
+                        .add(
+                                item
+                        );
+
+        if (!added) {
+            player.drop(
+                    item,
+                    false
+            );
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        ascended
+                                ? "§dGiven ascended custom item: " + itemId
+                                : "§aGiven custom item: " + itemId
+                )
+        );
+
+        return 1;
     }
 }

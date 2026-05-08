@@ -268,6 +268,7 @@ public class ChampUtilsMod implements ModInitializer {
          New custom item test command
          */
         GiveChampItemCommand.register();
+        ShowItemCommand.register();
 
         /*
          =========================

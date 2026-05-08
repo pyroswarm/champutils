@@ -2,11 +2,8 @@ package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
@@ -41,16 +38,6 @@ public class MiningProfessionListener {
                                     .location()
                                     .toString();
 
-                    Integer xp =
-                            ProfessionConfig
-                                    .SETTINGS
-                                    .miningXp
-                                    .get(blockId);
-
-                    if (xp == null || xp <= 0) {
-                        return true;
-                    }
-
                     if (
                             ProfessionBlockTracker.isPlayerPlaced(
                                     serverPlayer.serverLevel(),
@@ -61,6 +48,21 @@ public class MiningProfessionListener {
                                 serverPlayer.serverLevel(),
                                 pos
                         );
+                        return true;
+                    }
+
+                    handleAscendedToolTracker(
+                            serverPlayer,
+                            blockId
+                    );
+
+                    Integer xp =
+                            ProfessionConfig
+                                    .SETTINGS
+                                    .miningXp
+                                    .get(blockId);
+
+                    if (xp == null || xp <= 0) {
                         return true;
                     }
 
@@ -75,7 +77,7 @@ public class MiningProfessionListener {
                             ProfessionType.MINING
                     );
 
-                    handleBonusOreDrops(
+                    handleMiningToolPassives(
                             serverPlayer,
                             blockId
                     );
@@ -85,7 +87,144 @@ public class MiningProfessionListener {
         );
     }
 
-    private static void handleBonusOreDrops(
+    private static void handleAscendedToolTracker(
+            ServerPlayer player,
+            String blockId
+    ) {
+
+        ItemStack stack =
+                player.getMainHandItem();
+
+        if (
+                stack == null ||
+                        stack.isEmpty()
+        ) {
+            return;
+        }
+
+        if (
+                !ProfessionToolMetadata.isProfessionTool(
+                        stack
+                ) ||
+                        !ProfessionToolMetadata.isIdentified(
+                                stack
+                        ) ||
+                        !ProfessionToolMetadata.isAscended(
+                                stack
+                        )
+        ) {
+            return;
+        }
+
+        String selectedTracker =
+                ProfessionToolMetadata.getSelectedTracker(
+                        stack
+                );
+
+        if (
+                selectedTracker == null ||
+                        selectedTracker.isBlank()
+        ) {
+            return;
+        }
+
+        if (
+                !doesBlockMatchTracker(
+                        selectedTracker,
+                        blockId
+                )
+        ) {
+            return;
+        }
+
+        ProfessionToolMetadata.incrementTracker(
+                stack,
+                selectedTracker,
+                1L
+        );
+
+        ProfessionToolManager.refreshToolStack(
+                stack
+        );
+    }
+
+    private static boolean doesBlockMatchTracker(
+            String trackerId,
+            String blockId
+    ) {
+
+        return switch (trackerId) {
+
+            case "stone_mined" ->
+                    isStoneTrackedBlock(
+                            blockId
+                    );
+
+            case "coal_mined" ->
+                    blockId.equals("minecraft:coal_ore") ||
+                            blockId.equals("minecraft:deepslate_coal_ore");
+
+            case "copper_mined" ->
+                    blockId.equals("minecraft:copper_ore") ||
+                            blockId.equals("minecraft:deepslate_copper_ore");
+
+            case "iron_mined" ->
+                    blockId.equals("minecraft:iron_ore") ||
+                            blockId.equals("minecraft:deepslate_iron_ore");
+
+            case "gold_mined" ->
+                    blockId.equals("minecraft:gold_ore") ||
+                            blockId.equals("minecraft:deepslate_gold_ore") ||
+                            blockId.equals("minecraft:nether_gold_ore");
+
+            case "redstone_mined" ->
+                    blockId.equals("minecraft:redstone_ore") ||
+                            blockId.equals("minecraft:deepslate_redstone_ore");
+
+            case "lapis_mined" ->
+                    blockId.equals("minecraft:lapis_ore") ||
+                            blockId.equals("minecraft:deepslate_lapis_ore");
+
+            case "emerald_mined" ->
+                    blockId.equals("minecraft:emerald_ore") ||
+                            blockId.equals("minecraft:deepslate_emerald_ore");
+
+            case "diamonds_mined" ->
+                    blockId.equals("minecraft:diamond_ore") ||
+                            blockId.equals("minecraft:deepslate_diamond_ore");
+
+            case "ancient_debris_mined" ->
+                    blockId.equals("minecraft:ancient_debris");
+
+            default ->
+                    false;
+        };
+    }
+
+    private static boolean isStoneTrackedBlock(
+            String blockId
+    ) {
+
+        return switch (blockId) {
+            case "minecraft:stone",
+                 "minecraft:deepslate",
+                 "minecraft:granite",
+                 "minecraft:diorite",
+                 "minecraft:andesite",
+                 "minecraft:tuff",
+                 "minecraft:calcite",
+                 "minecraft:dripstone_block",
+                 "minecraft:blackstone",
+                 "minecraft:basalt",
+                 "minecraft:smooth_basalt" ->
+                    true;
+
+            default ->
+                    false;
+        };
+    }
+
+    private static void handleMiningToolPassives(
             ServerPlayer player,
             String blockId
     ) {
@@ -121,31 +260,22 @@ public class MiningProfessionListener {
             return;
         }
 
-        Item item =
-                BuiltInRegistries.ITEM.get(
-                        ResourceLocation.parse(
-                                getBonusDrop(
-                                        blockId
-                                )
-                        )
+        String command =
+                "give " +
+                        player.getName().getString() +
+                        " " +
+                        getBonusDrop(
+                                blockId
+                        ) +
+                        " 1";
+
+        player.getServer()
+                .getCommands()
+                .performPrefixedCommand(
+                        player.getServer()
+                                .createCommandSourceStack(),
+                        command
                 );
-
-        if (item == null) {
-            return;
-        }
-
-        ItemStack reward =
-                new ItemStack(
-                        item,
-                        1
-                );
-
-        if (!player.getInventory().add(reward)) {
-            player.drop(
-                    reward,
-                    false
-            );
-        }
 
         player.displayClientMessage(
                 Component.literal(

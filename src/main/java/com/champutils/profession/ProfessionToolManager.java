@@ -191,6 +191,17 @@ public class ProfessionToolManager {
             String toolId
     ) {
 
+        return createTool(
+                toolId,
+                false
+        );
+    }
+
+    public static ItemStack createTool(
+            String toolId,
+            boolean ascended
+    ) {
+
         ProfessionToolConfig.ToolData toolData =
                 ProfessionToolConfig.TOOLS.get(
                         toolId
@@ -199,6 +210,17 @@ public class ProfessionToolManager {
         if (toolData == null) {
             System.out.println(
                     "[ChampUtils] Unknown tool id: " +
+                            toolId
+            );
+            return ItemStack.EMPTY;
+        }
+
+        if (
+                ascended &&
+                        !toolData.hasAscendedVariant
+        ) {
+            System.out.println(
+                    "[ChampUtils] Tool does not have an ascended variant enabled: " +
                             toolId
             );
             return ItemStack.EMPTY;
@@ -254,7 +276,8 @@ public class ProfessionToolManager {
 
         ProfessionToolMetadata.initializeUnidentifiedTool(
                 stack,
-                toolId
+                toolId,
+                ascended
         );
 
         applyUnbreakable(
@@ -313,6 +336,10 @@ public class ProfessionToolManager {
                 stack
         );
 
+        applyAscendedGlint(
+                stack
+        );
+
         boolean identified =
                 ProfessionToolMetadata.isIdentified(
                         stack
@@ -345,10 +372,15 @@ public class ProfessionToolManager {
                         toolData
                 );
 
+        boolean ascended =
+                ProfessionToolMetadata.isAscended(
+                        stack
+                );
+
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        "Unidentified " +
+                        (ascended ? "Ascended Unidentified " : "Unidentified ") +
                                 displayName
                 ).withStyle(
                         ChatFormatting.DARK_GRAY
@@ -362,6 +394,24 @@ public class ProfessionToolManager {
                 lore,
                 toolData
         );
+
+        if (ascended) {
+            lore.add(
+                    Component.literal(
+                            "Ascended Tracker Variant"
+                    ).withStyle(
+                            ChatFormatting.GRAY
+                    )
+            );
+
+            lore.add(
+                    Component.literal(
+                            "Tracker rolls when identified."
+                    ).withStyle(
+                            ChatFormatting.DARK_GRAY
+                    )
+            );
+        }
 
         lore.add(
                 Component.literal(" ")
@@ -431,10 +481,16 @@ public class ProfessionToolManager {
                         stack
                 );
 
+        boolean ascended =
+                ProfessionToolMetadata.isAscended(
+                        stack
+                );
+
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        displayName +
+                        (ascended ? "Ascended " : "") +
+                                displayName +
                                 " "
                 ).withStyle(
                         getRarityColor(
@@ -454,6 +510,16 @@ public class ProfessionToolManager {
                 lore,
                 toolData
         );
+
+        if (ascended) {
+            lore.add(
+                    Component.literal(
+                            "Ascended Tracker Variant"
+                    ).withStyle(
+                            ChatFormatting.GRAY
+                    )
+            );
+        }
 
         lore.add(
                 Component.literal(
@@ -482,6 +548,11 @@ public class ProfessionToolManager {
                 lore,
                 stack,
                 toolData
+        );
+
+        addTrackerLore(
+                lore,
+                stack
         );
 
         addPassivesLore(
@@ -611,6 +682,72 @@ public class ProfessionToolManager {
             );
         }
     }
+
+
+    private static void addTrackerLore(
+            List<Component> lore,
+            ItemStack stack
+    ) {
+
+        if (
+                !ProfessionToolMetadata.isAscended(
+                        stack
+                )
+        ) {
+            return;
+        }
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "Ascended Tracker"
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
+        );
+
+        String selectedTracker =
+                ProfessionToolMetadata.getSelectedTracker(
+                        stack
+                );
+
+        if (
+                selectedTracker == null ||
+                        selectedTracker.isBlank()
+        ) {
+            lore.add(
+                    Component.literal(
+                            " No tracker selected yet."
+                    ).withStyle(
+                            ChatFormatting.DARK_GRAY
+                    )
+            );
+            return;
+        }
+
+        long value =
+                ProfessionToolMetadata.getTracker(
+                        stack,
+                        selectedTracker
+                );
+
+        lore.add(
+                Component.literal(
+                        " " +
+                                formatTrackerName(
+                                        selectedTracker
+                                ) +
+                                ": " +
+                                value
+                ).withStyle(
+                        ChatFormatting.WHITE
+                )
+        );
+    }
+
 
     private static void addPassivesLore(
             List<Component> lore,
@@ -920,6 +1057,43 @@ public class ProfessionToolManager {
         stack.set(
                 DataComponents.DAMAGE,
                 0
+        );
+    }
+
+    private static void applyAscendedGlint(
+            ItemStack stack
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty()
+        ) {
+            return;
+        }
+
+        stack.set(
+                DataComponents.ENCHANTMENT_GLINT_OVERRIDE,
+                ProfessionToolMetadata.isAscended(
+                        stack
+                )
+        );
+    }
+
+
+
+    private static String formatTrackerName(
+            String trackerId
+    ) {
+
+        if (
+                trackerId == null ||
+                        trackerId.isBlank()
+        ) {
+            return "Unknown";
+        }
+
+        return formatWords(
+                trackerId
         );
     }
 
