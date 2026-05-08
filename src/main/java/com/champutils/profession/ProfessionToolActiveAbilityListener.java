@@ -1,17 +1,15 @@
 package com.champutils.profession;
 
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,28 +22,44 @@ public class ProfessionToolActiveAbilityListener {
 
     public static void register() {
 
-        UseItemCallback.EVENT.register(
+        UseBlockCallback.EVENT.register(
                 (
                         player,
                         world,
-                        hand
+                        hand,
+                        hitResult
                 ) -> {
+
+                    if (world.isClientSide()) {
+                        return InteractionResult.PASS;
+                    }
+
+                    if (!(player instanceof ServerPlayer serverPlayer)) {
+                        return InteractionResult.PASS;
+                    }
 
                     ItemStack stack =
                             player.getItemInHand(
                                     hand
                             );
 
-                    if (world.isClientSide()) {
-                        return InteractionResultHolder.pass(
-                                stack
-                        );
-                    }
+                    String toolId =
+                            ProfessionToolUtil.getToolId(
+                                    stack
+                            );
 
-                    if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return InteractionResultHolder.pass(
-                                stack
+                    if (toolId != null &&
+                            !ProfessionToolMetadata.isIdentified(
+                                    stack
+                            )
+                    ) {
+                        serverPlayer.sendSystemMessage(
+                                Component.literal(
+                                        "§cYou must identify this item before using its active ability."
+                                )
                         );
+
+                        return InteractionResult.FAIL;
                     }
 
                     ProfessionToolConfig.ToolData toolData =
@@ -58,9 +72,7 @@ public class ProfessionToolActiveAbilityListener {
                                     toolData.activeAbility == null ||
                                     toolData.activeAbility.isBlank()
                     ) {
-                        return InteractionResultHolder.pass(
-                                stack
-                        );
+                        return InteractionResult.PASS;
                     }
 
                     if (
@@ -69,9 +81,7 @@ public class ProfessionToolActiveAbilityListener {
                                     toolData
                             )
                     ) {
-                        return InteractionResultHolder.fail(
-                                stack
-                        );
+                        return InteractionResult.FAIL;
                     }
 
                     String ability =
@@ -89,9 +99,7 @@ public class ProfessionToolActiveAbilityListener {
                                 ability
                         );
 
-                        return InteractionResultHolder.fail(
-                                stack
-                        );
+                        return InteractionResult.FAIL;
                     }
 
                     boolean used =
@@ -101,19 +109,12 @@ public class ProfessionToolActiveAbilityListener {
                                                 serverPlayer
                                         );
 
-                                case "vein_burst" ->
-                                        useVeinBurst(
-                                                serverPlayer
-                                        );
-
                                 default ->
                                         false;
                             };
 
                     if (!used) {
-                        return InteractionResultHolder.pass(
-                                stack
-                        );
+                        return InteractionResult.PASS;
                     }
 
                     setCooldown(
@@ -122,9 +123,7 @@ public class ProfessionToolActiveAbilityListener {
                             toolData.activeCooldownSeconds
                     );
 
-                    return InteractionResultHolder.success(
-                            stack
-                    );
+                    return InteractionResult.SUCCESS;
                 }
         );
     }
@@ -135,6 +134,7 @@ public class ProfessionToolActiveAbilityListener {
     ) {
 
         try {
+
             ProfessionType professionType =
                     ProfessionType.valueOf(
                             toolData.profession
@@ -196,16 +196,18 @@ public class ProfessionToolActiveAbilityListener {
                                     z
                             );
 
-                    BlockState state =
+                    Block block =
                             player.serverLevel()
                                     .getBlockState(
                                             pos
-                                    );
+                                    )
+                                    .getBlock();
 
                     String blockId =
-                            getBlockId(
-                                    state.getBlock()
-                            );
+                            block.builtInRegistryHolder()
+                                    .key()
+                                    .location()
+                                    .toString();
 
                     if (
                             !ProfessionConfig
@@ -300,130 +302,6 @@ public class ProfessionToolActiveAbilityListener {
         return true;
     }
 
-    private static boolean useVeinBurst(
-            ServerPlayer player
-    ) {
-
-        ServerLevel level =
-                player.serverLevel();
-
-        BlockPos origin =
-                player.blockPosition();
-
-        int radius =
-                5;
-
-        int maxBlocks =
-                20;
-
-        int broken =
-                0;
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-
-                    if (broken >= maxBlocks) {
-                        break;
-                    }
-
-                    BlockPos pos =
-                            origin.offset(
-                                    x,
-                                    y,
-                                    z
-                            );
-
-                    BlockState state =
-                            level.getBlockState(
-                                    pos
-                            );
-
-                    String blockId =
-                            getBlockId(
-                                    state.getBlock()
-                            );
-
-                    Integer xp =
-                            ProfessionConfig
-                                    .SETTINGS
-                                    .miningXp
-                                    .get(
-                                            blockId
-                                    );
-
-                    if (xp == null || xp <= 0) {
-                        continue;
-                    }
-
-                    if (
-                            ProfessionBlockTracker.isPlayerPlaced(
-                                    level,
-                                    pos
-                            )
-                    ) {
-                        continue;
-                    }
-
-                    boolean destroyed =
-                            level.destroyBlock(
-                                    pos,
-                                    true,
-                                    player
-                            );
-
-                    if (!destroyed) {
-                        continue;
-                    }
-
-                    ProfessionManager.addXp(
-                            player,
-                            ProfessionType.MINING,
-                            xp
-                    );
-
-                    broken++;
-                }
-            }
-        }
-
-        if (broken <= 0) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§7Vein Burst found no natural ore nearby."
-                    ),
-                    true
-            );
-
-            player.playNotifySound(
-                    SoundEvents.NOTE_BLOCK_BASS.value(),
-                    SoundSource.PLAYERS,
-                    0.7f,
-                    0.7f
-            );
-
-            return true;
-        }
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§6Vein Burst broke §e" +
-                                broken +
-                                " §6ores!"
-                ),
-                true
-        );
-
-        player.playNotifySound(
-                SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.PLAYERS,
-                0.6f,
-                1.4f
-        );
-
-        return true;
-    }
-
     private static boolean isOnCooldown(
             ServerPlayer player,
             String ability
@@ -459,7 +337,10 @@ public class ProfessionToolActiveAbilityListener {
         ).put(
                 ability,
                 System.currentTimeMillis() +
-                        seconds * 1000L
+                        Math.max(
+                                0,
+                                seconds
+                        ) * 1000L
         );
     }
 
@@ -502,16 +383,6 @@ public class ProfessionToolActiveAbilityListener {
                 ),
                 true
         );
-    }
-
-    private static String getBlockId(
-            Block block
-    ) {
-
-        return block.builtInRegistryHolder()
-                .key()
-                .location()
-                .toString();
     }
 
     private static String formatBlockName(

@@ -2,11 +2,13 @@ package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
@@ -24,7 +26,8 @@ public class ProfessionToolRequirementListener {
     public static void register() {
 
         /*
-         Left click block breaking
+         Left click block breaking.
+         This prevents unidentified profession gear from breaking blocks.
          */
         AttackBlockCallback.EVENT.register(
                 (
@@ -58,10 +61,9 @@ public class ProfessionToolRequirementListener {
         );
 
         /*
-         Right click block interactions only.
-         No UseItemCallback here.
-         This avoids interfering with vanilla/Cobblemon rod use.
-        */
+         Right click block interactions.
+         This prevents unidentified profession gear from using block interactions.
+         */
         UseBlockCallback.EVENT.register(
                 (
                         player,
@@ -91,6 +93,45 @@ public class ProfessionToolRequirementListener {
                     return InteractionResult.PASS;
                 }
         );
+
+        /*
+         Right click air / item use.
+         This prevents unidentified profession gear from triggering any use behavior.
+        */
+        UseItemCallback.EVENT.register(
+                (
+                        player,
+                        world,
+                        hand
+                ) -> {
+
+                    ItemStack stack =
+                            player.getItemInHand(
+                                    hand
+                            );
+
+                    if (!(player instanceof ServerPlayer serverPlayer)) {
+                        return InteractionResultHolder.pass(
+                                stack
+                        );
+                    }
+
+                    if (
+                            !canUseTool(
+                                    serverPlayer,
+                                    stack
+                            )
+                    ) {
+                        return InteractionResultHolder.fail(
+                                stack
+                        );
+                    }
+
+                    return InteractionResultHolder.pass(
+                            stack
+                    );
+                }
+        );
     }
 
     private static boolean canUseTool(
@@ -114,6 +155,19 @@ public class ProfessionToolRequirementListener {
 
         if (toolData == null) {
             return true;
+        }
+
+        if (
+                !ProfessionToolMetadata.isIdentified(
+                        stack
+                )
+        ) {
+            sendUnidentifiedMessage(
+                    player,
+                    toolData
+            );
+
+            return false;
         }
 
         ProfessionType professionType;
@@ -140,7 +194,7 @@ public class ProfessionToolRequirementListener {
                         toolData.requiredLevel
         ) {
 
-            sendDeniedMessage(
+            sendLevelDeniedMessage(
                     player,
                     toolData
             );
@@ -151,9 +205,54 @@ public class ProfessionToolRequirementListener {
         return true;
     }
 
-    private static void sendDeniedMessage(
+    private static void sendUnidentifiedMessage(
             ServerPlayer player,
             ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (!canSendMessage(player)) {
+            return;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "You must identify " +
+                                getDisplayName(
+                                        toolData
+                                ) +
+                                " before you can use it."
+                ).withStyle(
+                        ChatFormatting.RED
+                )
+        );
+    }
+
+    private static void sendLevelDeniedMessage(
+            ServerPlayer player,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (!canSendMessage(player)) {
+            return;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "You need " +
+                                formatWords(
+                                        toolData.profession
+                                ) +
+                                " level " +
+                                toolData.requiredLevel +
+                                " to use this item."
+                ).withStyle(
+                        ChatFormatting.RED
+                )
+        );
+    }
+
+    private static boolean canSendMessage(
+            ServerPlayer player
     ) {
 
         long now =
@@ -169,7 +268,7 @@ public class ProfessionToolRequirementListener {
                 now - last <
                         DENY_MESSAGE_COOLDOWN_MS
         ) {
-            return;
+            return false;
         }
 
         LAST_DENY_MESSAGE.put(
@@ -177,19 +276,22 @@ public class ProfessionToolRequirementListener {
                 now
         );
 
-        player.sendSystemMessage(
-                Component.literal(
-                        "You need " +
-                                formatWords(
-                                        toolData.profession
-                                ) +
-                                " level " +
-                                toolData.requiredLevel +
-                                " to use this item."
-                ).withStyle(
-                        ChatFormatting.RED
-                )
-        );
+        return true;
+    }
+
+    private static String getDisplayName(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                toolData != null &&
+                        toolData.displayName != null &&
+                        !toolData.displayName.isBlank()
+        ) {
+            return toolData.displayName;
+        }
+
+        return "this item";
     }
 
     private static String formatWords(

@@ -21,6 +21,7 @@ import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.component.Unbreakable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -256,6 +257,10 @@ public class ProfessionToolManager {
                 toolId
         );
 
+        applyUnbreakable(
+                stack
+        );
+
         /*
          Keep legacy key for your older helper/listener code until we migrate
          ProfessionToolUtil fully to ProfessionToolMetadata.
@@ -303,6 +308,10 @@ public class ProfessionToolManager {
         if (toolData == null) {
             return;
         }
+
+        applyUnbreakable(
+                stack
+        );
 
         boolean identified =
                 ProfessionToolMetadata.isIdentified(
@@ -368,14 +377,6 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        " Use /profession identify"
-                ).withStyle(
-                        ChatFormatting.GRAY
-                )
-        );
-
-        lore.add(
-                Component.literal(
                         " Cost: $" +
                                 ProfessionToolConfig.getBaseRollCost(
                                         toolData
@@ -394,6 +395,14 @@ public class ProfessionToolManager {
                         "This item's stats have not been revealed."
                 ).withStyle(
                         ChatFormatting.DARK_GRAY
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        "Cannot be used until identified."
+                ).withStyle(
+                        ChatFormatting.RED
                 )
         );
 
@@ -426,14 +435,14 @@ public class ProfessionToolManager {
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
                         displayName +
-                                " [" +
-                                formatDecimal(
-                                        quality
-                                ) +
-                                "%]"
+                                " "
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
+                        )
+                ).append(
+                        buildPercentComponent(
+                                quality
                         )
                 )
         );
@@ -448,13 +457,13 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        "Quality: " +
-                                formatDecimal(
-                                        quality
-                                ) +
-                                "%"
+                        "Quality: "
                 ).withStyle(
                         ChatFormatting.WHITE
+                ).append(
+                        buildPercentComponent(
+                                quality
+                        )
                 )
         );
 
@@ -573,19 +582,26 @@ public class ProfessionToolManager {
 
             Component line =
                     Component.literal(
-                            " +" +
-                                    formatStatValue(
-                                            stat.getValue()
-                                    ) +
-                                    " " +
-                                    formatStatName(
-                                            stat.getKey()
-                                    ) +
-                                    " "
+                            " +"
                     ).withStyle(
                             ChatFormatting.WHITE
                     ).append(
-                            buildStatQualityComponent(
+                            buildStatValueComponent(
+                                    stat.getValue(),
+                                    statQuality
+                            )
+                    ).append(
+                            Component.literal(
+                                    " " +
+                                            formatStatName(
+                                                    stat.getKey()
+                                            ) +
+                                            " "
+                            ).withStyle(
+                                    ChatFormatting.WHITE
+                            )
+                    ).append(
+                            buildPercentComponent(
                                     statQuality
                             )
                     );
@@ -742,7 +758,7 @@ public class ProfessionToolManager {
         );
     }
 
-    private static Component buildStatQualityComponent(
+    private static Component buildPercentComponent(
             double quality
     ) {
 
@@ -768,6 +784,36 @@ public class ProfessionToolManager {
                         "%]"
         ).withStyle(
                 color
+        );
+    }
+
+    private static Component buildStatValueComponent(
+            double value,
+            double quality
+    ) {
+
+        int rounded =
+                (int) Math.round(
+                        quality
+                );
+
+        String text =
+                formatStatValue(
+                        value
+                );
+
+        if (rounded >= 100) {
+            return buildRainbowText(
+                    text
+            );
+        }
+
+        return Component.literal(
+                text
+        ).withStyle(
+                getStatQualityColor(
+                        rounded
+                )
         );
     }
 
@@ -849,6 +895,31 @@ public class ProfessionToolManager {
                 CustomData.of(
                         tag
                 )
+        );
+    }
+
+
+    private static void applyUnbreakable(
+            ItemStack stack
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty()
+        ) {
+            return;
+        }
+
+        stack.set(
+                DataComponents.UNBREAKABLE,
+                new Unbreakable(
+                        false
+                )
+        );
+
+        stack.set(
+                DataComponents.DAMAGE,
+                0
         );
     }
 
