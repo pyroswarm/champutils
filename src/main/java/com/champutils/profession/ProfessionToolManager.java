@@ -1,6 +1,7 @@
 package com.champutils.profession;
 
 import eu.pb4.polymer.core.api.item.PolymerItem;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -9,11 +10,22 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.*;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ProfessionToolManager {
 
@@ -65,8 +77,7 @@ public class ProfessionToolManager {
                     ResourceLocation.parse(
                             toolData.baseItem
                     );
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println(
                     "[ChampUtils] Invalid item id for tool: " +
                             toolId +
@@ -81,9 +92,7 @@ public class ProfessionToolManager {
                         resourceLocation
                 );
 
-        if (
-                baseItem == Items.AIR
-        ) {
+        if (baseItem == Items.AIR) {
             System.out.println(
                     "[ChampUtils] Invalid base item for tool: " +
                             toolId +
@@ -134,7 +143,9 @@ public class ProfessionToolManager {
     ) {
 
         String base =
-                toolData.baseItem;
+                toolData.baseItem == null
+                        ? ""
+                        : toolData.baseItem.toLowerCase();
 
         Item.Properties properties =
                 new Item.Properties()
@@ -197,9 +208,6 @@ public class ProfessionToolManager {
                         toolId
                 );
 
-        /*
-         Fallback lookup for config-defined tools.
-         */
         if (item == null) {
 
             try {
@@ -243,33 +251,186 @@ public class ProfessionToolManager {
                         item
                 );
 
-        CompoundTag tag =
-                new CompoundTag();
-
-        tag.putString(
-                "ChampUtilsToolId",
+        ProfessionToolMetadata.initializeUnidentifiedTool(
+                stack,
                 toolId
         );
 
-        stack.set(
-                DataComponents.CUSTOM_DATA,
-                CustomData.of(
-                        tag
-                )
+        /*
+         Keep legacy key for your older helper/listener code until we migrate
+         ProfessionToolUtil fully to ProfessionToolMetadata.
+         */
+        setLegacyToolId(
+                stack,
+                toolId
         );
 
-        String displayName =
-                toolData.displayName == null ||
-                        toolData.displayName.isBlank()
-                        ? formatWords(
+        refreshToolStack(
+                stack
+        );
+
+        return stack;
+    }
+
+    public static void refreshToolStack(
+            ItemStack stack
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty()
+        ) {
+            return;
+        }
+
+        String toolId =
+                ProfessionToolMetadata.getToolId(
+                        stack
+                );
+
+        if (
+                toolId == null ||
+                        toolId.isBlank()
+        ) {
+            return;
+        }
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
                         toolId
-                )
-                        : toolData.displayName;
+                );
+
+        if (toolData == null) {
+            return;
+        }
+
+        boolean identified =
+                ProfessionToolMetadata.isIdentified(
+                        stack
+                );
+
+        if (identified) {
+            applyIdentifiedDisplay(
+                    stack,
+                    toolId,
+                    toolData
+            );
+        } else {
+            applyUnidentifiedDisplay(
+                    stack,
+                    toolId,
+                    toolData
+            );
+        }
+    }
+
+    private static void applyUnidentifiedDisplay(
+            ItemStack stack,
+            String toolId,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        String displayName =
+                ProfessionToolConfig.getDisplayName(
+                        toolId,
+                        toolData
+                );
 
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        displayName
+                        "Unidentified " +
+                                displayName
+                ).withStyle(
+                        ChatFormatting.DARK_GRAY
+                )
+        );
+
+        List<Component> lore =
+                new ArrayList<>();
+
+        addHeaderLore(
+                lore,
+                toolData
+        );
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "Unidentified"
+                ).withStyle(
+                        ChatFormatting.GOLD
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        " Use /profession identify"
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        " Cost: $" +
+                                ProfessionToolConfig.getBaseRollCost(
+                                        toolData
+                                )
+                ).withStyle(
+                        ChatFormatting.GOLD
+                )
+        );
+
+        lore.add(
+                Component.literal(" ")
+        );
+
+        lore.add(
+                Component.literal(
+                        "This item's stats have not been revealed."
+                ).withStyle(
+                        ChatFormatting.DARK_GRAY
+                )
+        );
+
+        stack.set(
+                DataComponents.LORE,
+                new ItemLore(
+                        lore
+                )
+        );
+    }
+
+    private static void applyIdentifiedDisplay(
+            ItemStack stack,
+            String toolId,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        String displayName =
+                ProfessionToolConfig.getDisplayName(
+                        toolId,
+                        toolData
+                );
+
+        double quality =
+                ProfessionToolMetadata.getQuality(
+                        stack
+                );
+
+        stack.set(
+                DataComponents.CUSTOM_NAME,
+                Component.literal(
+                        displayName +
+                                " [" +
+                                formatDecimal(
+                                        quality
+                                ) +
+                                "%]"
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
@@ -285,8 +446,32 @@ public class ProfessionToolManager {
                 toolData
         );
 
-        addStatsLore(
+        lore.add(
+                Component.literal(
+                        "Quality: " +
+                                formatDecimal(
+                                        quality
+                                ) +
+                                "%"
+                ).withStyle(
+                        ChatFormatting.WHITE
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        "Rerolls: " +
+                                ProfessionToolMetadata.getRerolls(
+                                        stack
+                                )
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
+        );
+
+        addRolledStatsLore(
                 lore,
+                stack,
                 toolData
         );
 
@@ -306,8 +491,6 @@ public class ProfessionToolManager {
                         lore
                 )
         );
-
-        return stack;
     }
 
     private static void addHeaderLore(
@@ -319,7 +502,12 @@ public class ProfessionToolManager {
                 Component.literal(
                         formatRarity(
                                 toolData.rarity
-                        )
+                        ) +
+                                " " +
+                                formatWords(
+                                        toolData.profession
+                                ) +
+                                " Tool"
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
@@ -341,14 +529,20 @@ public class ProfessionToolManager {
         );
     }
 
-    private static void addStatsLore(
+    private static void addRolledStatsLore(
             List<Component> lore,
+            ItemStack stack,
             ProfessionToolConfig.ToolData toolData
     ) {
 
+        Map<String, Double> rolledStats =
+                ProfessionToolMetadata.getRolledStats(
+                        stack
+                );
+
         if (
-                toolData.stats == null ||
-                        toolData.stats.isEmpty()
+                rolledStats == null ||
+                        rolledStats.isEmpty()
         ) {
             return;
         }
@@ -359,30 +553,45 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        "Stats"
+                        "Rolled Stats"
                 ).withStyle(
-                        ChatFormatting.YELLOW
+                        ChatFormatting.GOLD
                 )
         );
 
         for (
                 Map.Entry<String, Double> stat :
-                toolData.stats.entrySet()
+                rolledStats.entrySet()
         ) {
 
-            lore.add(
+            double statQuality =
+                    getStatQualityPercent(
+                            toolData,
+                            stat.getKey(),
+                            stat.getValue()
+                    );
+
+            Component line =
                     Component.literal(
-                            " " +
+                            " +" +
+                                    formatStatValue(
+                                            stat.getValue()
+                                    ) +
+                                    " " +
                                     formatStatName(
                                             stat.getKey()
                                     ) +
-                                    ": +" +
-                                    formatStatValue(
-                                            stat.getValue()
-                                    )
+                                    " "
                     ).withStyle(
-                            ChatFormatting.GREEN
-                    )
+                            ChatFormatting.WHITE
+                    ).append(
+                            buildStatQualityComponent(
+                                    statQuality
+                            )
+                    );
+
+            lore.add(
+                    line
             );
         }
     }
@@ -475,9 +684,185 @@ public class ProfessionToolManager {
         );
     }
 
+    private static double getStatQualityPercent(
+            ProfessionToolConfig.ToolData toolData,
+            String statId,
+            double rolledValue
+    ) {
+
+        if (
+                toolData == null ||
+                        toolData.statRanges == null ||
+                        statId == null
+        ) {
+            return 0.0D;
+        }
+
+        ProfessionToolConfig.StatRange range =
+                toolData.statRanges.get(
+                        statId
+                );
+
+        if (range == null) {
+            return 0.0D;
+        }
+
+        double min =
+                Math.min(
+                        range.min,
+                        range.max
+                );
+
+        double max =
+                Math.max(
+                        range.min,
+                        range.max
+                );
+
+        if (max <= min) {
+            return 100.0D;
+        }
+
+        double percent =
+                ((rolledValue - min) /
+                        (max - min)) *
+                        100.0D;
+
+        percent =
+                Math.max(
+                        0.0D,
+                        Math.min(
+                                100.0D,
+                                percent
+                        )
+                );
+
+        return Math.round(
+                percent
+        );
+    }
+
+    private static Component buildStatQualityComponent(
+            double quality
+    ) {
+
+        int rounded =
+                (int) Math.round(
+                        quality
+                );
+
+        if (rounded >= 100) {
+            return buildRainbowText(
+                    "[100%]"
+            );
+        }
+
+        ChatFormatting color =
+                getStatQualityColor(
+                        rounded
+                );
+
+        return Component.literal(
+                "[" +
+                        rounded +
+                        "%]"
+        ).withStyle(
+                color
+        );
+    }
+
+    private static ChatFormatting getStatQualityColor(
+            int quality
+    ) {
+
+        if (quality <= 25) {
+            return ChatFormatting.RED;
+        }
+
+        if (quality <= 50) {
+            return ChatFormatting.YELLOW;
+        }
+
+        if (quality <= 75) {
+            return ChatFormatting.GREEN;
+        }
+
+        return ChatFormatting.BLUE;
+    }
+
+    private static Component buildRainbowText(
+            String text
+    ) {
+
+        ChatFormatting[] colors =
+                new ChatFormatting[]{
+                        ChatFormatting.RED,
+                        ChatFormatting.GOLD,
+                        ChatFormatting.YELLOW,
+                        ChatFormatting.GREEN,
+                        ChatFormatting.AQUA,
+                        ChatFormatting.BLUE,
+                        ChatFormatting.LIGHT_PURPLE
+                };
+
+        Component result =
+                Component.empty();
+
+        for (int i = 0; i < text.length(); i++) {
+            result =
+                    result.copy()
+                            .append(
+                                    Component.literal(
+                                            String.valueOf(
+                                                    text.charAt(i)
+                                            )
+                                    ).withStyle(
+                                            colors[i % colors.length]
+                                    )
+                            );
+        }
+
+        return result;
+    }
+
+    private static void setLegacyToolId(
+            ItemStack stack,
+            String toolId
+    ) {
+
+        CustomData customData =
+                stack.getOrDefault(
+                        DataComponents.CUSTOM_DATA,
+                        CustomData.EMPTY
+                );
+
+        CompoundTag tag =
+                customData.copyTag();
+
+        tag.putString(
+                "ChampUtilsToolId",
+                toolId
+        );
+
+        stack.set(
+                DataComponents.CUSTOM_DATA,
+                CustomData.of(
+                        tag
+                )
+        );
+    }
+
     private static String formatRarity(
             String rarity
     ) {
+
+        if (
+                rarity == null ||
+                        rarity.isBlank()
+        ) {
+            return "COMMON";
+        }
+
         return rarity
                 .replace("_", " ")
                 .toUpperCase();
@@ -487,30 +872,60 @@ public class ProfessionToolManager {
             String value
     ) {
 
+        if (
+                value == null ||
+                        value.isBlank()
+        ) {
+            return "";
+        }
+
         String[] parts =
                 value.replace("_", " ")
-                        .split(" ");
+                        .replace("-", " ")
+                        .trim()
+                        .split("\\s+");
 
         StringBuilder builder =
                 new StringBuilder();
 
         for (String part : parts) {
+
+            if (part.isBlank()) {
+                continue;
+            }
+
             builder.append(
                     Character.toUpperCase(
                             part.charAt(0)
                     )
-            ).append(
-                    part.substring(1)
-                            .toLowerCase()
-            ).append(" ");
+            );
+
+            if (part.length() > 1) {
+                builder.append(
+                        part.substring(1)
+                                .toLowerCase()
+                );
+            }
+
+            builder.append(" ");
         }
 
-        return builder.toString().trim();
+        return builder
+                .toString()
+                .trim();
     }
 
     private static String formatStatName(
             String stat
     ) {
+
+        if (
+                stat == null ||
+                        stat.isBlank()
+        ) {
+            return "";
+        }
+
         return formatWords(
                 stat.replaceAll(
                         "([a-z])([A-Z])",
@@ -523,23 +938,53 @@ public class ProfessionToolManager {
             double value
     ) {
 
+        return formatDecimal(
+                value
+        ) + "%";
+    }
+
+    private static String formatDecimal(
+            double value
+    ) {
+
         if (value == Math.floor(value)) {
-            return ((int) value) + "%";
+            return String.valueOf(
+                    (int) value
+            );
         }
 
         return String.format(
-                "%.1f%%",
+                "%.1f",
                 value
         );
+    }
+
+    private static ChatFormatting getQualityColor(
+            double quality
+    ) {
+
+        if (quality >= 90.0D) {
+            return ChatFormatting.LIGHT_PURPLE;
+        }
+
+        if (quality >= 75.0D) {
+            return ChatFormatting.GOLD;
+        }
+
+        return ChatFormatting.WHITE;
     }
 
     public static Item getTool(
             String toolId
     ) {
-        return REGISTERED_TOOLS.get(toolId);
+
+        return REGISTERED_TOOLS.get(
+                toolId
+        );
     }
 
     public static Map<String, Item> getRegisteredTools() {
+
         return REGISTERED_TOOLS;
     }
 
@@ -547,12 +992,16 @@ public class ProfessionToolManager {
             String rarity
     ) {
 
+        if (rarity == null) {
+            return Rarity.COMMON;
+        }
+
         return switch (
                 rarity.toUpperCase()
                 ) {
             case "UNCOMMON" -> Rarity.UNCOMMON;
             case "RARE" -> Rarity.RARE;
-            case "EPIC" -> Rarity.EPIC;
+            case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC;
             default -> Rarity.COMMON;
         };
     }
@@ -561,11 +1010,15 @@ public class ProfessionToolManager {
             String rarity
     ) {
 
+        if (rarity == null) {
+            return ChatFormatting.WHITE;
+        }
+
         return switch (
                 rarity.toUpperCase()
                 ) {
-            case "UNCOMMON" -> ChatFormatting.GREEN;
-            case "RARE" -> ChatFormatting.BLUE;
+            case "UNCOMMON" -> ChatFormatting.DARK_GREEN;
+            case "RARE" -> ChatFormatting.AQUA;
             case "EPIC" -> ChatFormatting.DARK_PURPLE;
             case "LEGENDARY" -> ChatFormatting.GOLD;
             case "MYTHIC" -> ChatFormatting.LIGHT_PURPLE;
@@ -574,57 +1027,115 @@ public class ProfessionToolManager {
     }
 
     public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
+
         private final Item baseItem;
 
-        public CustomPickaxeItem(Item baseItem, Tier tier, Properties properties) {
-            super(tier, properties);
-            this.baseItem = baseItem;
+        public CustomPickaxeItem(
+                Item baseItem,
+                Tier tier,
+                Properties properties
+        ) {
+
+            super(
+                    tier,
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
         }
 
         @Override
-        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
             return baseItem;
         }
     }
 
     public static class CustomAxeItem extends AxeItem implements PolymerItem {
+
         private final Item baseItem;
 
-        public CustomAxeItem(Item baseItem, Tier tier, Properties properties) {
-            super(tier, properties);
-            this.baseItem = baseItem;
+        public CustomAxeItem(
+                Item baseItem,
+                Tier tier,
+                Properties properties
+        ) {
+
+            super(
+                    tier,
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
         }
 
         @Override
-        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
             return baseItem;
         }
     }
 
     public static class CustomHoeItem extends HoeItem implements PolymerItem {
+
         private final Item baseItem;
 
-        public CustomHoeItem(Item baseItem, Tier tier, Properties properties) {
-            super(tier, properties);
-            this.baseItem = baseItem;
+        public CustomHoeItem(
+                Item baseItem,
+                Tier tier,
+                Properties properties
+        ) {
+
+            super(
+                    tier,
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
         }
 
         @Override
-        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
             return baseItem;
         }
     }
 
     public static class CustomGenericToolItem extends Item implements PolymerItem {
+
         private final Item baseItem;
 
-        public CustomGenericToolItem(Item baseItem, Properties properties) {
-            super(properties);
-            this.baseItem = baseItem;
+        public CustomGenericToolItem(
+                Item baseItem,
+                Properties properties
+        ) {
+
+            super(
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
         }
 
         @Override
-        public Item getPolymerItem(ItemStack stack, ServerPlayer player) {
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
             return baseItem;
         }
     }

@@ -2,8 +2,11 @@ package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
@@ -72,7 +75,7 @@ public class MiningProfessionListener {
                             ProfessionType.MINING
                     );
 
-                    handleMiningToolPassives(
+                    handleBonusOreDrops(
                             serverPlayer,
                             blockId
                     );
@@ -82,7 +85,7 @@ public class MiningProfessionListener {
         );
     }
 
-    private static void handleMiningToolPassives(
+    private static void handleBonusOreDrops(
             ServerPlayer player,
             String blockId
     ) {
@@ -118,26 +121,35 @@ public class MiningProfessionListener {
             return;
         }
 
-        String command =
-                "give " +
-                        player.getName().getString() +
-                        " " +
-                        getBonusDrop(
-                                blockId
-                        ) +
-                        " 1";
-
-        player.getServer()
-                .getCommands()
-                .performPrefixedCommand(
-                        player.getServer()
-                                .createCommandSourceStack(),
-                        command
+        Item item =
+                BuiltInRegistries.ITEM.get(
+                        ResourceLocation.parse(
+                                getBonusDrop(
+                                        blockId
+                                )
+                        )
                 );
+
+        if (item == null) {
+            return;
+        }
+
+        ItemStack reward =
+                new ItemStack(
+                        item,
+                        1
+                );
+
+        if (!player.getInventory().add(reward)) {
+            player.drop(
+                    reward,
+                    false
+            );
+        }
 
         player.displayClientMessage(
                 Component.literal(
-                        "§bMiner's Fang found an extra drop!"
+                        "§bBonus ore drop!"
                 ),
                 true
         );
