@@ -91,6 +91,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
+        ProfessionToolAnnouncementManager.register();
         ItemRollCommand.register();
 
         /*

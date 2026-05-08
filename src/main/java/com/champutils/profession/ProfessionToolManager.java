@@ -197,6 +197,30 @@ public class ProfessionToolManager {
         );
     }
 
+    public static ItemStack createLootTool(
+            String toolId,
+            boolean ascended
+    ) {
+
+        ItemStack stack =
+                createTool(
+                        toolId,
+                        ascended
+                );
+
+        if (
+                !stack.isEmpty() &&
+                        ascended
+        ) {
+            ProfessionToolMetadata.setDiscoveryAnnouncementEligible(
+                    stack,
+                    true
+            );
+        }
+
+        return stack;
+    }
+
     public static ItemStack createTool(
             String toolId,
             boolean ascended

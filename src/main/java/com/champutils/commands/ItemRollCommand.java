@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.economy.EconomyCraftHook;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
+import com.champutils.profession.ProfessionToolAnnouncementManager;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolRollService;
 
@@ -91,6 +92,12 @@ public class ItemRollCommand {
 
                                                         ProfessionToolManager.refreshToolStack(
                                                                 stack
+                                                        );
+
+                                                        ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(
+                                                                player,
+                                                                stack,
+                                                                result.quality
                                                         );
 
                                                         player.sendSystemMessage(
@@ -184,6 +191,12 @@ public class ItemRollCommand {
 
                                                         ProfessionToolManager.refreshToolStack(
                                                                 stack
+                                                        );
+
+                                                        ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(
+                                                                player,
+                                                                stack,
+                                                                result.quality
                                                         );
 
                                                         player.sendSystemMessage(

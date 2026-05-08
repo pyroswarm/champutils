@@ -20,6 +20,9 @@ public final class ProfessionToolMetadata {
     private static final String ROLLED_STATS_KEY = "RolledStats";
     private static final String TRACKERS_KEY = "Trackers";
     private static final String SELECTED_TRACKER_KEY = "SelectedTracker";
+    private static final String DISCOVERY_ANNOUNCEMENT_ELIGIBLE_KEY = "DiscoveryAnnouncementEligible";
+    private static final String DISCOVERY_ANNOUNCED_KEY = "DiscoveryAnnounced";
+    private static final String PERFECT_ROLL_ANNOUNCED_KEY = "PerfectRollAnnounced";
 
     private ProfessionToolMetadata() {
     }
@@ -103,6 +106,78 @@ public final class ProfessionToolMetadata {
                 root -> root.putBoolean(
                         ASCENDED_KEY,
                         ascended
+                )
+        );
+    }
+
+    public static boolean isDiscoveryAnnouncementEligible(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return root.getBoolean(DISCOVERY_ANNOUNCEMENT_ELIGIBLE_KEY);
+    }
+
+    public static void setDiscoveryAnnouncementEligible(
+            ItemStack stack,
+            boolean eligible
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putBoolean(
+                        DISCOVERY_ANNOUNCEMENT_ELIGIBLE_KEY,
+                        eligible
+                )
+        );
+    }
+
+    public static boolean isDiscoveryAnnounced(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return root.getBoolean(DISCOVERY_ANNOUNCED_KEY);
+    }
+
+    public static void setDiscoveryAnnounced(
+            ItemStack stack,
+            boolean announced
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putBoolean(
+                        DISCOVERY_ANNOUNCED_KEY,
+                        announced
+                )
+        );
+    }
+
+    public static boolean isPerfectRollAnnounced(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return root.getBoolean(PERFECT_ROLL_ANNOUNCED_KEY);
+    }
+
+    public static void setPerfectRollAnnounced(
+            ItemStack stack,
+            boolean announced
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putBoolean(
+                        PERFECT_ROLL_ANNOUNCED_KEY,
+                        announced
                 )
         );
     }
@@ -487,6 +562,21 @@ public final class ProfessionToolMetadata {
 
                     root.remove(
                             SELECTED_TRACKER_KEY
+                    );
+
+                    root.putBoolean(
+                            DISCOVERY_ANNOUNCEMENT_ELIGIBLE_KEY,
+                            false
+                    );
+
+                    root.putBoolean(
+                            DISCOVERY_ANNOUNCED_KEY,
+                            false
+                    );
+
+                    root.putBoolean(
+                            PERFECT_ROLL_ANNOUNCED_KEY,
+                            false
                     );
                 }
         );
