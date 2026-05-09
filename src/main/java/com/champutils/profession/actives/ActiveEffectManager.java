@@ -1,5 +1,8 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionToolMetadata;
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
@@ -9,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -24,7 +28,7 @@ public class ActiveEffectManager {
     private static final Map<UUID, Map<String, TimedEffect>> TIMED_EFFECTS =
             new HashMap<>();
 
-    private static final Map<UUID, Set<String>> TOGGLED_EFFECTS =
+    private static final Map<UUID, Map<String, ToggleEffect>> TOGGLED_EFFECTS =
             new HashMap<>();
 
     private ActiveEffectManager() {
@@ -34,7 +38,8 @@ public class ActiveEffectManager {
             ServerPlayer player,
             String effectId,
             String displayName,
-            int seconds
+            int seconds,
+            ItemStack stack
     ) {
 
         int safeSeconds =
@@ -43,11 +48,21 @@ public class ActiveEffectManager {
                         seconds
                 );
 
+        String toolInstanceId =
+                getOrCreateToolInstanceId(
+                        stack
+                );
+
+        if (toolInstanceId == null) {
+            return;
+        }
+
         TimedEffect effect =
                 new TimedEffect(
                         normalize(effectId),
                         displayName,
-                        System.currentTimeMillis() + safeSeconds * 1000L
+                        System.currentTimeMillis() + safeSeconds * 1000L,
+                        toolInstanceId
                 );
 
         TIMED_EFFECTS.computeIfAbsent(
@@ -59,16 +74,58 @@ public class ActiveEffectManager {
         );
     }
 
+    public static void activateTimed(
+            ServerPlayer player,
+            String effectId,
+            String displayName,
+            int seconds
+    ) {
+
+        activateTimed(
+                player,
+                effectId,
+                displayName,
+                seconds,
+                player.getMainHandItem()
+        );
+    }
+
     public static void activateExcavation(
             ServerPlayer player,
-            int seconds
+            int seconds,
+            ItemStack stack
     ) {
 
         activateTimed(
                 player,
                 "excavation",
                 "Excavation",
-                seconds
+                seconds,
+                stack
+        );
+    }
+
+    public static void activateExcavation(
+            ServerPlayer player,
+            int seconds
+    ) {
+
+        activateExcavation(
+                player,
+                seconds,
+                player.getMainHandItem()
+        );
+    }
+
+    public static boolean hasExcavation(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        return hasTimedEffect(
+                player,
+                "excavation",
+                stack
         );
     }
 
@@ -76,9 +133,9 @@ public class ActiveEffectManager {
             ServerPlayer player
     ) {
 
-        return hasTimedEffect(
+        return hasExcavation(
                 player,
-                "excavation"
+                player.getMainHandItem()
         );
     }
 
@@ -94,7 +151,8 @@ public class ActiveEffectManager {
 
     public static boolean hasTimedEffect(
             ServerPlayer player,
-            String effectId
+            String effectId,
+            ItemStack stack
     ) {
 
         TimedEffect effect =
@@ -115,7 +173,21 @@ public class ActiveEffectManager {
             return false;
         }
 
-        return true;
+        return effect.matchesTool(
+                stack
+        );
+    }
+
+    public static boolean hasTimedEffect(
+            ServerPlayer player,
+            String effectId
+    ) {
+
+        return hasTimedEffect(
+                player,
+                effectId,
+                player.getMainHandItem()
+        );
     }
 
     public static long getTimedSecondsLeft(
@@ -152,28 +224,67 @@ public class ActiveEffectManager {
     public static boolean toggleEffect(
             ServerPlayer player,
             String effectId,
-            String displayName
+            String displayName,
+            ItemStack stack
     ) {
 
         String normalized =
                 normalize(effectId);
 
-        Set<String> effects =
-                TOGGLED_EFFECTS.computeIfAbsent(
-                        player.getUUID(),
-                        id -> new HashSet<>()
+        String toolInstanceId =
+                getOrCreateToolInstanceId(
+                        stack
                 );
 
-        boolean nowEnabled;
+        if (toolInstanceId == null) {
+            return false;
+        }
 
-        if (effects.contains(normalized)) {
-            effects.remove(normalized);
-            nowEnabled = false;
+        Map<String, ToggleEffect> effects =
+                TOGGLED_EFFECTS.computeIfAbsent(
+                        player.getUUID(),
+                        id -> new HashMap<>()
+                );
+
+        ToggleEffect existing =
+                effects.get(
+                        normalized
+                );
+
+        boolean currentlyEnabled =
+                ProfessionToolMetadata.getActiveToggle(
+                        stack,
+                        normalized
+                ) || (
+                        existing != null &&
+                                existing.matchesTool(
+                                        stack
+                                )
+                );
+
+        boolean nowEnabled =
+                !currentlyEnabled;
+
+        if (nowEnabled) {
+            effects.put(
+                    normalized,
+                    new ToggleEffect(
+                            normalized,
+                            displayName,
+                            toolInstanceId
+                    )
+            );
+        } else {
+            effects.remove(
+                    normalized
+            );
         }
-        else {
-            effects.add(normalized);
-            nowEnabled = true;
-        }
+
+        ProfessionToolMetadata.setActiveToggle(
+                stack,
+                normalized,
+                nowEnabled
+        );
 
         sendToggleMessage(
                 player,
@@ -184,32 +295,120 @@ public class ActiveEffectManager {
         return nowEnabled;
     }
 
+    public static boolean toggleEffect(
+            ServerPlayer player,
+            String effectId,
+            String displayName
+    ) {
+
+        return toggleEffect(
+                player,
+                effectId,
+                displayName,
+                player.getMainHandItem()
+        );
+    }
+
+    public static boolean hasToggle(
+            ServerPlayer player,
+            String effectId,
+            ItemStack stack
+    ) {
+
+        String normalized =
+                normalize(effectId);
+
+        Map<String, ToggleEffect> effects =
+                TOGGLED_EFFECTS.computeIfAbsent(
+                        player.getUUID(),
+                        id -> new HashMap<>()
+                );
+
+        ToggleEffect effect =
+                effects.get(
+                        normalized
+                );
+
+        if (
+                effect != null &&
+                        effect.matchesTool(
+                                stack
+                        )
+        ) {
+            return true;
+        }
+
+        /*
+         * Safety resync:
+         * Toggle state is also stored directly on the tool instance.
+         * If the server-side map ever misses/desyncs, the held tool can
+         * restore the runtime toggle without leaking to a different tool.
+         */
+        if (
+                ProfessionToolMetadata.getActiveToggle(
+                        stack,
+                        normalized
+                )
+        ) {
+            String toolInstanceId =
+                    getOrCreateToolInstanceId(
+                            stack
+                    );
+
+            if (toolInstanceId == null) {
+                return false;
+            }
+
+            effects.put(
+                    normalized,
+                    new ToggleEffect(
+                            normalized,
+                            normalized,
+                            toolInstanceId
+                    )
+            );
+
+            return true;
+        }
+
+        return false;
+    }
+
     public static boolean hasToggle(
             ServerPlayer player,
             String effectId
     ) {
 
-        Set<String> effects =
-                TOGGLED_EFFECTS.get(
-                        player.getUUID()
-                );
+        return hasToggle(
+                player,
+                effectId,
+                player.getMainHandItem()
+        );
+    }
 
-        return effects != null &&
-                effects.contains(
-                        normalize(effectId)
-                );
+    public static boolean hasAutoSmelt(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        return hasTimedEffect(
+                player,
+                "auto_smelt",
+                stack
+        ) || hasToggle(
+                player,
+                "auto_smelt",
+                stack
+        );
     }
 
     public static boolean hasAutoSmelt(
             ServerPlayer player
     ) {
 
-        return hasTimedEffect(
+        return hasAutoSmelt(
                 player,
-                "auto_smelt"
-        ) || hasToggle(
-                player,
-                "auto_smelt"
+                player.getMainHandItem()
         );
     }
 
@@ -292,7 +491,8 @@ public class ActiveEffectManager {
 
             if (!hasToggle(
                     player,
-                    "ore_magnet"
+                    "ore_magnet",
+                    player.getMainHandItem()
             )) {
                 continue;
             }
@@ -382,10 +582,12 @@ public class ActiveEffectManager {
                             "§e" + effect.displayName + " ends in 10s!"
                     );
 
-            player.displayClientMessage(
-                    message,
-                    true
-            );
+            if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+                player.displayClientMessage(
+                        message,
+                        true
+                );
+            }
             player.sendSystemMessage(message);
             showCountdownTitle(
                     player,
@@ -411,10 +613,12 @@ public class ActiveEffectManager {
                                 "§c" + effect.displayName + " ends in " + secondsLeft + "..."
                         );
 
-                player.displayClientMessage(
-                        message,
-                        true
-                );
+                if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+                    player.displayClientMessage(
+                            message,
+                            true
+                    );
+                }
                 showCountdownTitle(
                         player,
                         "§c" + secondsLeft,
@@ -441,6 +645,10 @@ public class ActiveEffectManager {
             int stayTicks,
             int fadeOutTicks
     ) {
+
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            return;
+        }
 
         player.connection.send(
                 new ClientboundSetTitlesAnimationPacket(
@@ -472,12 +680,14 @@ public class ActiveEffectManager {
             String displayName
     ) {
 
-        player.displayClientMessage(
-                Component.literal(
-                        "§7" + displayName + " has ended."
-                ),
-                true
-        );
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(
+                    Component.literal(
+                            "§7" + displayName + " has ended."
+                    ),
+                    true
+            );
+        }
 
         player.sendSystemMessage(
                 Component.literal(
@@ -508,13 +718,34 @@ public class ActiveEffectManager {
                 );
 
         player.sendSystemMessage(message);
-        player.displayClientMessage(message, true);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(message, true);
+        }
 
         player.playNotifySound(
                 enabled ? SoundEvents.EXPERIENCE_ORB_PICKUP : SoundEvents.NOTE_BLOCK_BASS.value(),
                 SoundSource.PLAYERS,
                 0.75F,
                 enabled ? 1.4F : 0.7F
+        );
+    }
+
+    private static String getOrCreateToolInstanceId(
+            ItemStack stack
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(
+                                stack
+                        )
+        ) {
+            return null;
+        }
+
+        return ProfessionToolMetadata.getOrCreateActiveInstanceId(
+                stack
         );
     }
 
@@ -533,6 +764,7 @@ public class ActiveEffectManager {
         private final String effectId;
         private final String displayName;
         private final long expiresAt;
+        private final String toolInstanceId;
         private boolean warned10 = false;
         private final Set<Long> warnedFinalSeconds =
                 new HashSet<>();
@@ -540,12 +772,52 @@ public class ActiveEffectManager {
         private TimedEffect(
                 String effectId,
                 String displayName,
-                long expiresAt
+                long expiresAt,
+                String toolInstanceId
         ) {
 
             this.effectId = effectId;
             this.displayName = displayName;
             this.expiresAt = expiresAt;
+            this.toolInstanceId = toolInstanceId;
+        }
+
+        private boolean matchesTool(
+                ItemStack stack
+        ) {
+
+            return ProfessionToolMetadata.matchesActiveInstanceId(
+                    stack,
+                    toolInstanceId
+            );
+        }
+    }
+
+    private static class ToggleEffect {
+
+        private final String effectId;
+        private final String displayName;
+        private final String toolInstanceId;
+
+        private ToggleEffect(
+                String effectId,
+                String displayName,
+                String toolInstanceId
+        ) {
+
+            this.effectId = effectId;
+            this.displayName = displayName;
+            this.toolInstanceId = toolInstanceId;
+        }
+
+        private boolean matchesTool(
+                ItemStack stack
+        ) {
+
+            return ProfessionToolMetadata.matchesActiveInstanceId(
+                    stack,
+                    toolInstanceId
+            );
         }
     }
 }

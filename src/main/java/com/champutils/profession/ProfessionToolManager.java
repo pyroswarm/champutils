@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.profession.passives.DurabilitySavePassive;
+
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
 import net.minecraft.ChatFormatting;
@@ -10,6 +12,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.AxeItem;
@@ -1221,13 +1224,16 @@ public class ProfessionToolManager {
                         rolledValue
                 );
 
-        if (displayedMax > displayedMin) {
-            min = displayedMin;
-            max = displayedMax;
-            rolledValue = displayedValue;
-        }
+        // Quality must match what the player actually sees in lore.
+        min = displayedMin;
+        max = displayedMax;
+        rolledValue = displayedValue;
 
         if (max <= min) {
+            if (max <= 0.0D) {
+                return 0.0D;
+            }
+
             return 100.0D;
         }
 
@@ -2129,10 +2135,26 @@ public class ProfessionToolManager {
         ) {
 
             if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
-                ProfessionToolManager.damageTool(
-                        stack,
-                        1
-                );
+                if (
+                        miningEntity instanceof ServerPlayer serverPlayer &&
+                                level instanceof ServerLevel serverLevel &&
+                                DurabilitySavePassive.shouldPreserveDurability(
+                                        serverPlayer,
+                                        stack,
+                                        serverLevel,
+                                        pos,
+                                        state
+                                )
+                ) {
+                    ProfessionToolManager.refreshToolStack(
+                            stack
+                    );
+                } else {
+                    ProfessionToolManager.damageTool(
+                            stack,
+                            1
+                    );
+                }
             }
 
             return true;

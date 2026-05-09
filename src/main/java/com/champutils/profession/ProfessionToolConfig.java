@@ -124,6 +124,12 @@ public class ProfessionToolConfig {
          Example: excavation uses this for how long 3x3 mining stays active.
          */
         public int activeDurationSeconds = 0;
+
+        /*
+         Maximum extra connected ore blocks mined by vein_miner_burst.
+         This is intentionally capped for server safety.
+         */
+        public int maxVeinBlocks = 30;
     }
 
 

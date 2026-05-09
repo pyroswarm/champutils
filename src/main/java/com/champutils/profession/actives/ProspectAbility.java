@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionToolUtil;
@@ -161,8 +163,9 @@ public class ProspectAbility implements ProfessionActiveAbility {
                 )
         );
 
-        player.displayClientMessage(
-                Component.literal(
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(
+                    Component.literal(
                         "§b" +
                                 oreName +
                                 " detected " +
@@ -170,8 +173,9 @@ public class ProspectAbility implements ProfessionActiveAbility {
                                 " blocks " +
                                 direction
                 ),
-                true
-        );
+                    true
+            );
+        }
 
         player.playNotifySound(
                 SoundEvents.AMETHYST_BLOCK_CHIME,

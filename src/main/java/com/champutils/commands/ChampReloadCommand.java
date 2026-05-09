@@ -5,6 +5,7 @@ import com.champutils.gym.GymConfig;
 import com.champutils.gym.GymRegistry;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionLootConfig;
+import com.champutils.profession.ProfessionRewardPassiveConfig;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.WildBattleLootConfig;
 
@@ -55,6 +56,7 @@ public class ChampReloadCommand {
             Config.load(rulesFile);
             ProfessionConfig.load();
             ProfessionToolConfig.load();
+            ProfessionRewardPassiveConfig.load();
             ProfessionLootConfig.load();
             WildBattleLootConfig.load();
             GymConfig.load();
@@ -69,7 +71,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_loot.json, wild_battle_loot.json, gyms.json, gymleaders.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_loot.json, wild_battle_loot.json, profession_reward_passives.json, gyms.json, gymleaders.json"
                     ),
                     false
             );

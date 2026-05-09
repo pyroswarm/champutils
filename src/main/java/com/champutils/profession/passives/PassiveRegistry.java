@@ -25,6 +25,22 @@ public class PassiveRegistry {
         MINING_PASSIVES.add(
                 new DropMultiplierPassive()
         );
+
+        MINING_PASSIVES.add(
+                new ShardFinderPassive()
+        );
+
+        MINING_PASSIVES.add(
+                new GemFinderPassive()
+        );
+
+        MINING_PASSIVES.add(
+                new XpSurgePassive()
+        );
+
+        MINING_PASSIVES.add(
+                new TreasurePingPassive()
+        );
     }
 
     public static void applyMiningPassives(

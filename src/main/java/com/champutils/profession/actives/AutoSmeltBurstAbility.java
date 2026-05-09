@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -34,7 +36,8 @@ public class AutoSmeltBurstAbility implements ProfessionActiveAbility {
                 player,
                 "auto_smelt",
                 "Molten Touch",
-                seconds
+                seconds,
+                stack
         );
 
         player.sendSystemMessage(
@@ -45,12 +48,14 @@ public class AutoSmeltBurstAbility implements ProfessionActiveAbility {
                 )
         );
 
-        player.displayClientMessage(
-                Component.literal(
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(
+                    Component.literal(
                         "§6Molten Touch active: auto-smelt for " + seconds + "s"
                 ),
-                true
-        );
+                    true
+            );
+        }
 
         player.playNotifySound(
                 SoundEvents.FIRECHARGE_USE,

@@ -86,6 +86,8 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ProfessionConfig.load();
+        ProfessionNotificationSettings.load();
+        ProfessionRewardPassiveConfig.load();
 
         /*
          Custom tools
@@ -99,6 +101,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionToolStatEffectListener.register();
         ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
+        ProfessionPopupsCommand.register();
         ItemRollCommand.register();
 
         /*
@@ -158,6 +161,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     ProfessionManager.saveAll();
                     ProfessionBlockTracker.save();
+                    ProfessionNotificationSettings.save();
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."

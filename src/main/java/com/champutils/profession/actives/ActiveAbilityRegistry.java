@@ -33,6 +33,9 @@ public class ActiveAbilityRegistry {
         register(
                 new OreMagnetToggleAbility()
         );
+        register(
+                new VeinMinerBurstAbility()
+        );
     }
 
     public static void register(

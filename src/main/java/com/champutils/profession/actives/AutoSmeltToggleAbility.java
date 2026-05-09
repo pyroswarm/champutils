@@ -19,7 +19,8 @@ public class AutoSmeltToggleAbility implements ProfessionActiveAbility {
         ActiveEffectManager.toggleEffect(
                 player,
                 "auto_smelt",
-                "Infernal Core Auto-Smelt"
+                "Infernal Core Auto-Smelt",
+                stack
         );
 
         return true;

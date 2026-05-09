@@ -7,6 +7,7 @@ import net.minecraft.world.item.component.CustomData;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public final class ProfessionToolMetadata {
 
@@ -27,6 +28,8 @@ public final class ProfessionToolMetadata {
     private static final String MAX_DURABILITY_KEY = "MaxDurability";
     private static final String CUSTOM_ENCHANTS_KEY = "CustomEnchants";
     private static final String LOCKED_KEY = "Locked";
+    private static final String ACTIVE_INSTANCE_ID_KEY = "ActiveInstanceId";
+    private static final String ACTIVE_TOGGLES_KEY = "ActiveToggles";
 
     private ProfessionToolMetadata() {
     }
@@ -610,6 +613,157 @@ public final class ProfessionToolMetadata {
                 )
         );
     }
+
+
+    public static String getActiveInstanceId(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(ACTIVE_INSTANCE_ID_KEY)) {
+            return null;
+        }
+
+        String id =
+                root.getString(ACTIVE_INSTANCE_ID_KEY);
+
+        return id == null || id.isBlank()
+                ? null
+                : id;
+    }
+
+    public static String getOrCreateActiveInstanceId(
+            ItemStack stack
+    ) {
+
+        String existing =
+                getActiveInstanceId(
+                        stack
+                );
+
+        if (existing != null) {
+            return existing;
+        }
+
+        String created =
+                UUID.randomUUID()
+                        .toString();
+
+        updateRoot(
+                stack,
+                root -> root.putString(
+                        ACTIVE_INSTANCE_ID_KEY,
+                        created
+                )
+        );
+
+        return created;
+    }
+
+    public static boolean matchesActiveInstanceId(
+            ItemStack stack,
+            String expectedId
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        expectedId == null ||
+                        expectedId.isBlank()
+        ) {
+            return false;
+        }
+
+        String actual =
+                getActiveInstanceId(
+                        stack
+                );
+
+        return expectedId.equals(
+                actual
+        );
+    }
+
+
+
+
+    public static boolean getActiveToggle(
+            ItemStack stack,
+            String effectId
+    ) {
+
+        if (effectId == null || effectId.isBlank()) {
+            return false;
+        }
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(ACTIVE_TOGGLES_KEY)) {
+            return false;
+        }
+
+        CompoundTag toggles =
+                root.getCompound(ACTIVE_TOGGLES_KEY);
+
+        return toggles.getBoolean(
+                effectId.trim().toLowerCase()
+        );
+    }
+
+    public static void setActiveToggle(
+            ItemStack stack,
+            String effectId,
+            boolean enabled
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        effectId == null ||
+                        effectId.isBlank()
+        ) {
+            return;
+        }
+
+        updateRoot(
+                stack,
+                root -> {
+                    CompoundTag toggles =
+                            root.contains(ACTIVE_TOGGLES_KEY)
+                                    ? root.getCompound(ACTIVE_TOGGLES_KEY)
+                                    : new CompoundTag();
+
+                    String key =
+                            effectId.trim().toLowerCase();
+
+                    if (enabled) {
+                        toggles.putBoolean(
+                                key,
+                                true
+                        );
+                    } else {
+                        toggles.remove(
+                                key
+                        );
+                    }
+
+                    if (toggles.isEmpty()) {
+                        root.remove(
+                                ACTIVE_TOGGLES_KEY
+                        );
+                    } else {
+                        root.put(
+                                ACTIVE_TOGGLES_KEY,
+                                toggles
+                        );
+                    }
+                }
+        );
+    }
+
 
     public static Map<String, Integer> getCustomEnchants(
             ItemStack stack

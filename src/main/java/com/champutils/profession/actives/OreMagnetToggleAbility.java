@@ -19,7 +19,8 @@ public class OreMagnetToggleAbility implements ProfessionActiveAbility {
         ActiveEffectManager.toggleEffect(
                 player,
                 "ore_magnet",
-                "Ore Magnet"
+                "Ore Magnet",
+                stack
         );
 
         return true;

@@ -11,14 +11,14 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
 
-public class ExcavationAbility implements ProfessionActiveAbility {
+public class VeinMinerBurstAbility implements ProfessionActiveAbility {
 
     private static final int DEFAULT_SECONDS =
-            15;
+            20;
 
     @Override
     public String id() {
-        return "excavation";
+        return "vein_miner_burst";
     }
 
     @Override
@@ -32,15 +32,17 @@ public class ExcavationAbility implements ProfessionActiveAbility {
                         stack
                 );
 
-        ActiveEffectManager.activateExcavation(
+        ActiveEffectManager.activateTimed(
                 player,
+                "vein_miner_burst",
+                "Vein Miner Burst",
                 seconds,
                 stack
         );
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§6Excavation active: §fYour pickaxe breaks a §e3x3 §farea for §e" +
+                        "§6Vein Miner Burst active: §fConnected natural ore veins will chain mine for §e" +
                                 seconds +
                                 "s§f."
                 )
@@ -49,7 +51,7 @@ public class ExcavationAbility implements ProfessionActiveAbility {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(
                     Component.literal(
-                        "§6Excavation active: 3x3 mining for " +
+                        "§6Vein Miner Burst active: chain ore mining for " +
                                 seconds +
                                 "s"
                 ),
@@ -58,10 +60,10 @@ public class ExcavationAbility implements ProfessionActiveAbility {
         }
 
         player.playNotifySound(
-                SoundEvents.ANVIL_USE,
+                SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
-                0.6F,
-                1.35F
+                0.8F,
+                1.25F
         );
 
         return true;
@@ -89,7 +91,7 @@ public class ExcavationAbility implements ProfessionActiveAbility {
         double rolledSeconds =
                 ProfessionToolUtil.getStat(
                         stack,
-                        "excavationSeconds"
+                        "veinMinerSeconds"
                 );
 
         if (rolledSeconds <= 0.0D) {

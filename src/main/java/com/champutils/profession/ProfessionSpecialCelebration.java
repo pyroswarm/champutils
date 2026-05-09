@@ -8,7 +8,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public final class ProfessionSpecialCelebration {
+
+    private static final Map<UUID, Long> TITLE_BUSY_UNTIL_MS =
+            new HashMap<>();
 
     private ProfessionSpecialCelebration() {
     }
@@ -30,6 +37,7 @@ public final class ProfessionSpecialCelebration {
                     player,
                     "§bDouble Drop!",
                     "§f2x drops triggered",
+                    "§bMining passive: §f2x drops triggered!",
                     5,
                     30,
                     10,
@@ -41,6 +49,7 @@ public final class ProfessionSpecialCelebration {
                     player,
                     "§aTriple Drop!",
                     "§f3x drops triggered",
+                    "§aMining passive: §f3x drops triggered!",
                     5,
                     40,
                     10,
@@ -52,23 +61,25 @@ public final class ProfessionSpecialCelebration {
                     player,
                     "§dQuadruple Drop!",
                     "§f4x drops triggered",
+                    "§dMining passive: §f4x drops triggered!",
                     5,
-                    50,
-                    15,
-                    1.0F,
-                    1.6F,
-                    CelebrationSound.BIG
+                    35,
+                    10,
+                    0.85F,
+                    1.75F,
+                    CelebrationSound.PING
             );
             default -> show(
                     player,
                     "§6§lQUINTUPLE DROP!",
                     "§e§l5x JACKPOT DROPS!",
+                    "§6Mining passive: §f5x jackpot drops triggered!",
                     5,
-                    70,
-                    20,
-                    1.2F,
-                    1.0F,
-                    CelebrationSound.JACKPOT
+                    40,
+                    10,
+                    0.9F,
+                    1.95F,
+                    CelebrationSound.PING
             );
         }
     }
@@ -79,14 +90,26 @@ public final class ProfessionSpecialCelebration {
             String subtitle
     ) {
 
-        show(
-                player,
+        String safeTitle =
                 title == null || title.isBlank()
                         ? "§6Active Ability!"
-                        : title,
+                        : title;
+
+        String safeSubtitle =
                 subtitle == null
                         ? ""
-                        : subtitle,
+                        : subtitle;
+
+        String chatFallback =
+                safeSubtitle.isBlank()
+                        ? safeTitle
+                        : safeTitle + " §7- " + safeSubtitle;
+
+        show(
+                player,
+                safeTitle,
+                safeSubtitle,
+                chatFallback,
                 5,
                 35,
                 10,
@@ -100,6 +123,7 @@ public final class ProfessionSpecialCelebration {
             ServerPlayer player,
             String title,
             String subtitle,
+            String chatFallback,
             int fadeInTicks,
             int stayTicks,
             int fadeOutTicks,
@@ -111,6 +135,51 @@ public final class ProfessionSpecialCelebration {
         if (player == null) {
             return;
         }
+
+        if (
+                !ProfessionNotificationSettings.areProfessionPopupsEnabled(
+                        player
+                )
+        ) {
+            return;
+        }
+
+        long nowMs =
+                System.currentTimeMillis();
+
+        UUID playerId =
+                player.getUUID();
+
+        long busyUntilMs =
+                TITLE_BUSY_UNTIL_MS.getOrDefault(
+                        playerId,
+                        0L
+                );
+
+        if (nowMs < busyUntilMs) {
+            if (
+                    chatFallback != null &&
+                            !chatFallback.isBlank()
+            ) {
+                player.sendSystemMessage(
+                        Component.literal(
+                                chatFallback
+                        )
+                );
+            }
+            return;
+        }
+
+        long durationMs =
+                Math.max(
+                        750L,
+                        (long) (fadeInTicks + stayTicks + fadeOutTicks) * 50L
+                );
+
+        TITLE_BUSY_UNTIL_MS.put(
+                playerId,
+                nowMs + durationMs
+        );
 
         player.connection.send(
                 new ClientboundSetTitlesAnimationPacket(
@@ -169,47 +238,18 @@ public final class ProfessionSpecialCelebration {
                     volume,
                     pitch
             );
-            case BIG -> {
-                player.playNotifySound(
-                        SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
-                        SoundSource.PLAYERS,
-                        volume,
-                        1.15F
-                );
-                player.playNotifySound(
-                        SoundEvents.PLAYER_LEVELUP,
-                        SoundSource.PLAYERS,
-                        0.9F,
-                        1.35F
-                );
-            }
-            case JACKPOT -> {
-                player.playNotifySound(
-                        SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
-                        SoundSource.PLAYERS,
-                        volume,
-                        pitch
-                );
-                player.playNotifySound(
-                        SoundEvents.PLAYER_LEVELUP,
-                        SoundSource.PLAYERS,
-                        1.0F,
-                        0.7F
-                );
-                player.playNotifySound(
-                        SoundEvents.AMETHYST_BLOCK_CHIME,
-                        SoundSource.PLAYERS,
-                        1.0F,
-                        1.8F
-                );
-            }
+            case PING -> player.playNotifySound(
+                    SoundEvents.EXPERIENCE_ORB_PICKUP,
+                    SoundSource.PLAYERS,
+                    volume,
+                    pitch
+            );
         }
     }
 
     private enum CelebrationSound {
         SMALL,
         MEDIUM,
-        BIG,
-        JACKPOT
+        PING
     }
 }

@@ -291,59 +291,40 @@ public final class ProfessionToolRollService {
                             range.max
                     );
 
-            double value;
+            /*
+             * Tool lore currently displays every stat as a whole percent.
+             * Roll whole displayed values too so there is no hidden decimal
+             * quality mismatch like +0% showing [15%].
+             *
+             * Example: range 0.0 -> 1.0 now rolls either 0 or 1.
+             *   0 displays as +0% [0%]
+             *   1 displays as +1% [100%]
+             */
+            int minLevel =
+                    (int) Math.floor(
+                            min
+                    );
 
-            if (
-                    statId.equalsIgnoreCase(
-                            "miningSpeed"
-                    )
-            ) {
-                int minLevel =
-                        (int) Math.floor(
-                                min
-                        );
+            int maxLevel =
+                    (int) Math.floor(
+                            max
+                    );
 
-                int maxLevel =
-                        (int) Math.floor(
-                                max
-                        );
+            maxLevel =
+                    Math.max(
+                            minLevel,
+                            maxLevel
+                    );
 
-                minLevel =
-                        Math.max(
-                                1,
-                                minLevel
-                        );
-
-                maxLevel =
-                        Math.max(
-                                minLevel,
-                                maxLevel
-                        );
-
-                value =
-                        minLevel +
-                                RANDOM.nextInt(
-                                        maxLevel - minLevel + 1
-                                );
-            }
-            else {
-                value =
-                        min +
-                                RANDOM.nextDouble() *
-                                        (max - min);
-            }
+            double value =
+                    minLevel +
+                            RANDOM.nextInt(
+                                    maxLevel - minLevel + 1
+                            );
 
             rolledStats.put(
                     statId,
-                    statId.equalsIgnoreCase(
-                            "miningSpeed"
-                    )
-                            ? Math.floor(
-                                    value
-                            )
-                            : roundOneDecimal(
-                                    value
-                            )
+                    value
             );
         }
 
