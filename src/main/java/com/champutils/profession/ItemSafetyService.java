@@ -108,6 +108,33 @@ public final class ItemSafetyService {
         return false;
     }
 
+
+    public static boolean blockIfLocked(
+            ServerPlayer player,
+            ItemStack stack,
+            String actionName
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(stack) ||
+                        !ProfessionToolMetadata.isLocked(stack)
+        ) {
+            return false;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "§cThis item is locked. Use §f/itemlock §cto unlock it before you " +
+                                actionName +
+                                "."
+                )
+        );
+
+        return true;
+    }
+
     public static boolean requestConfirmationIfNeeded(
             ServerPlayer player,
             ItemStack stack,

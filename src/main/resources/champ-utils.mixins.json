@@ -2,9 +2,7 @@
   "required": true,
   "package": "com.champutils.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [
-    "LockedItemDropMixin"
-  ],
+  "mixins": [],
   "injectors": {
     "defaultRequire": 1
   },

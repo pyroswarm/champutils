@@ -144,6 +144,16 @@ public class ItemRollCommand {
                                                                 player.getMainHandItem();
 
                                                         if (
+                                                                ItemSafetyService.blockIfLocked(
+                                                                        player,
+                                                                        stack,
+                                                                        "reroll it"
+                                                                )
+                                                        ) {
+                                                            return 0;
+                                                        }
+
+                                                        if (
                                                                 ItemSafetyService.requestConfirmationIfNeeded(
                                                                         player,
                                                                         stack,
@@ -169,6 +179,16 @@ public class ItemRollCommand {
 
                                                                         ItemStack stack =
                                                                                 player.getMainHandItem();
+
+                                                                        if (
+                                                                                ItemSafetyService.blockIfLocked(
+                                                                                        player,
+                                                                                        stack,
+                                                                                        "reroll it"
+                                                                                )
+                                                                        ) {
+                                                                            return 0;
+                                                                        }
 
                                                                         if (
                                                                                 ItemSafetyService.requestConfirmationIfNeeded(

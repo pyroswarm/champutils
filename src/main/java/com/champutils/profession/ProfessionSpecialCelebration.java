@@ -169,12 +169,20 @@ public final class ProfessionSpecialCelebration {
                     volume,
                     pitch
             );
-            case BIG -> player.playNotifySound(
-                    SoundEvents.AMETHYST_BLOCK_CHIME,
-                    SoundSource.PLAYERS,
-                    volume,
-                    pitch
-            );
+            case BIG -> {
+                player.playNotifySound(
+                        SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
+                        SoundSource.PLAYERS,
+                        volume,
+                        1.15F
+                );
+                player.playNotifySound(
+                        SoundEvents.PLAYER_LEVELUP,
+                        SoundSource.PLAYERS,
+                        0.9F,
+                        1.35F
+                );
+            }
             case JACKPOT -> {
                 player.playNotifySound(
                         SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
@@ -187,6 +195,12 @@ public final class ProfessionSpecialCelebration {
                         SoundSource.PLAYERS,
                         1.0F,
                         0.7F
+                );
+                player.playNotifySound(
+                        SoundEvents.AMETHYST_BLOCK_CHIME,
+                        SoundSource.PLAYERS,
+                        1.0F,
+                        1.8F
                 );
             }
         }

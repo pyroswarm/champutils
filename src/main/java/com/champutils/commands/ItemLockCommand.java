@@ -71,7 +71,7 @@ public final class ItemLockCommand {
                                         player.sendSystemMessage(
                                                 Component.literal(
                                                         locked
-                                                                ? "§6§lItem Locked §7- this item cannot be dropped."
+                                                                ? "§6§lItem Locked §7- protected from rerolls, salvage, and item UI actions."
                                                                 : "§7Item unlocked."
                                                 )
                                         );

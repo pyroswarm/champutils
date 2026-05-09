@@ -92,6 +92,21 @@ public class MiningProfessionListener {
                             blockId
                     );
 
+                    if (
+                            MiningBlockUtil.isPickaxeBlock(
+                                    serverPlayer.serverLevel(),
+                                    pos,
+                                    state
+                            )
+                    ) {
+                        PassiveRegistry.applyMiningPassives(
+                                serverPlayer,
+                                serverPlayer.serverLevel(),
+                                pos,
+                                blockId
+                        );
+                    }
+
                     Integer xp =
                             ProfessionConfig
                                     .SETTINGS
@@ -121,13 +136,6 @@ public class MiningProfessionListener {
                     ProfessionLootManager.rollReward(
                             serverPlayer,
                             ProfessionType.MINING
-                    );
-
-                    PassiveRegistry.applyMiningPassives(
-                            serverPlayer,
-                            serverPlayer.serverLevel(),
-                            pos,
-                            blockId
                     );
 
                     if (!isBreakingExtraBlock(

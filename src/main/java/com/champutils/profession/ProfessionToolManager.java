@@ -839,7 +839,7 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        "🔒 Locked - cannot be dropped"
+                        "🔒 Locked - protected from reroll/salvage"
                 ).withStyle(
                         ChatFormatting.GOLD,
                         ChatFormatting.BOLD
