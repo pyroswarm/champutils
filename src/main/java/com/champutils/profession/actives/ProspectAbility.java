@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.Block;
 public class ProspectAbility implements ProfessionActiveAbility {
 
     private static final int DEFAULT_RADIUS =
-            28;
+            48;
 
     @Override
     public String id() {
@@ -153,7 +153,7 @@ public class ProspectAbility implements ProfessionActiveAbility {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§bProspect: §f" +
+                        "§bProspect: §fClosest ore is §f" +
                                 oreName +
                                 " §7detected §e" +
                                 blocksAway +
@@ -166,9 +166,9 @@ public class ProspectAbility implements ProfessionActiveAbility {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(
                     Component.literal(
-                        "§b" +
+                        "§bClosest: " +
                                 oreName +
-                                " detected " +
+                                " " +
                                 blocksAway +
                                 " blocks " +
                                 direction

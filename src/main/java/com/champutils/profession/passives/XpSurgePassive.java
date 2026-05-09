@@ -1,11 +1,11 @@
 package com.champutils.profession.passives;
 
 import com.champutils.profession.ProfessionBlockTracker;
-import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionSpecialCelebration;
 import com.champutils.profession.ProfessionToolUtil;
+import com.champutils.profession.actives.ActiveEffectManager;
 import com.champutils.profession.ProfessionType;
 
 import net.minecraft.core.BlockPos;
@@ -83,11 +83,17 @@ public class XpSurgePassive implements ProfessionPassive {
             return;
         }
 
+        double focusMultiplier =
+                ActiveEffectManager.getMiningPassiveChanceMultiplier(
+                        player,
+                        stack
+                );
+
         if (
                 RANDOM.nextDouble() >=
                         Math.min(
                                 100.0D,
-                                chancePercent
+                                chancePercent * focusMultiplier
                         ) / 100.0D
         ) {
             return;
@@ -105,16 +111,14 @@ public class XpSurgePassive implements ProfessionPassive {
                 bonusXp
         );
 
-        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§aXP Surge: §f+" +
-                                    bonusXp +
-                                    " bonus MINING XP!"
-                    ),
-                    true
-            );
-        }
+        player.displayClientMessage(
+                Component.literal(
+                        "§aXP Surge: §f+" +
+                                bonusXp +
+                                " bonus MINING XP!"
+                ),
+                true
+        );
 
         ProfessionSpecialCelebration.celebrateSpecialActive(
                 player,

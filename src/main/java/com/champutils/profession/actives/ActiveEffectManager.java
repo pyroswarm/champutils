@@ -1,7 +1,6 @@
 package com.champutils.profession.actives;
 
 import com.champutils.profession.ProfessionToolMetadata;
-import com.champutils.profession.ProfessionNotificationSettings;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
@@ -62,7 +61,8 @@ public class ActiveEffectManager {
                         normalize(effectId),
                         displayName,
                         System.currentTimeMillis() + safeSeconds * 1000L,
-                        toolInstanceId
+                        toolInstanceId,
+                        1.0D
                 );
 
         TIMED_EFFECTS.computeIfAbsent(
@@ -71,6 +71,84 @@ public class ActiveEffectManager {
         ).put(
                 normalize(effectId),
                 effect
+        );
+    }
+
+    public static void activateTimedWithMultiplier(
+            ServerPlayer player,
+            String effectId,
+            String displayName,
+            int seconds,
+            ItemStack stack,
+            double multiplier
+    ) {
+
+        int safeSeconds =
+                Math.max(
+                        1,
+                        seconds
+                );
+
+        String toolInstanceId =
+                getOrCreateToolInstanceId(
+                        stack
+                );
+
+        if (toolInstanceId == null) {
+            return;
+        }
+
+        TimedEffect effect =
+                new TimedEffect(
+                        normalize(effectId),
+                        displayName,
+                        System.currentTimeMillis() + safeSeconds * 1000L,
+                        toolInstanceId,
+                        Math.max(
+                                1.0D,
+                                multiplier
+                        )
+                );
+
+        TIMED_EFFECTS.computeIfAbsent(
+                player.getUUID(),
+                id -> new HashMap<>()
+        ).put(
+                normalize(effectId),
+                effect
+        );
+    }
+
+    public static double getMiningPassiveChanceMultiplier(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        TimedEffect effect =
+                getTimedEffect(
+                        player,
+                        "miners_focus"
+                );
+
+        if (effect == null) {
+            return 1.0D;
+        }
+
+        if (System.currentTimeMillis() > effect.expiresAt) {
+            removeTimedEffect(
+                    player,
+                    "miners_focus"
+            );
+            return 1.0D;
+        }
+
+        if (!effect.matchesTool(stack)) {
+            return 1.0D;
+        }
+
+        return Math.max(
+                1.0D,
+                effect.multiplier
         );
     }
 
@@ -582,12 +660,10 @@ public class ActiveEffectManager {
                             "§e" + effect.displayName + " ends in 10s!"
                     );
 
-            if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-                player.displayClientMessage(
-                        message,
-                        true
-                );
-            }
+            player.displayClientMessage(
+                    message,
+                    true
+            );
             player.sendSystemMessage(message);
             showCountdownTitle(
                     player,
@@ -613,12 +689,10 @@ public class ActiveEffectManager {
                                 "§c" + effect.displayName + " ends in " + secondsLeft + "..."
                         );
 
-                if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-                    player.displayClientMessage(
-                            message,
-                            true
-                    );
-                }
+                player.displayClientMessage(
+                        message,
+                        true
+                );
                 showCountdownTitle(
                         player,
                         "§c" + secondsLeft,
@@ -645,10 +719,6 @@ public class ActiveEffectManager {
             int stayTicks,
             int fadeOutTicks
     ) {
-
-        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            return;
-        }
 
         player.connection.send(
                 new ClientboundSetTitlesAnimationPacket(
@@ -680,14 +750,12 @@ public class ActiveEffectManager {
             String displayName
     ) {
 
-        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§7" + displayName + " has ended."
-                    ),
-                    true
-            );
-        }
+        player.displayClientMessage(
+                Component.literal(
+                        "§7" + displayName + " has ended."
+                ),
+                true
+        );
 
         player.sendSystemMessage(
                 Component.literal(
@@ -718,9 +786,7 @@ public class ActiveEffectManager {
                 );
 
         player.sendSystemMessage(message);
-        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(message, true);
-        }
+        player.displayClientMessage(message, true);
 
         player.playNotifySound(
                 enabled ? SoundEvents.EXPERIENCE_ORB_PICKUP : SoundEvents.NOTE_BLOCK_BASS.value(),
@@ -765,6 +831,7 @@ public class ActiveEffectManager {
         private final String displayName;
         private final long expiresAt;
         private final String toolInstanceId;
+        private final double multiplier;
         private boolean warned10 = false;
         private final Set<Long> warnedFinalSeconds =
                 new HashSet<>();
@@ -773,13 +840,15 @@ public class ActiveEffectManager {
                 String effectId,
                 String displayName,
                 long expiresAt,
-                String toolInstanceId
+                String toolInstanceId,
+                double multiplier
         ) {
 
             this.effectId = effectId;
             this.displayName = displayName;
             this.expiresAt = expiresAt;
             this.toolInstanceId = toolInstanceId;
+            this.multiplier = multiplier;
         }
 
         private boolean matchesTool(

@@ -4,6 +4,7 @@ import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionRewardPassiveConfig;
 import com.champutils.profession.ProfessionSpecialCelebration;
 import com.champutils.profession.ProfessionToolUtil;
+import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -72,11 +73,17 @@ public class TreasurePingPassive implements ProfessionPassive {
             return;
         }
 
+        double focusMultiplier =
+                ActiveEffectManager.getMiningPassiveChanceMultiplier(
+                        player,
+                        stack
+                );
+
         if (
                 RANDOM.nextDouble() >=
                         Math.min(
                                 100.0D,
-                                chancePercent
+                                chancePercent * focusMultiplier
                         ) / 100.0D
         ) {
             return;

@@ -1,10 +1,10 @@
 package com.champutils.profession.passives;
 
 import com.champutils.profession.ProfessionBlockTracker;
-import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.MiningBlockUtil;
+import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -122,11 +122,17 @@ public final class DurabilitySavePassive {
             return false;
         }
 
+        double focusMultiplier =
+                ActiveEffectManager.getMiningPassiveChanceMultiplier(
+                        player,
+                        stack
+                );
+
         boolean preserved =
                 RANDOM.nextDouble() <
                         Math.min(
                                 100.0D,
-                                chancePercent
+                                chancePercent * focusMultiplier
                         ) / 100.0D;
 
         if (preserved) {
@@ -181,10 +187,6 @@ public final class DurabilitySavePassive {
     private static void celebrate(
             ServerPlayer player
     ) {
-
-        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            return;
-        }
 
         player.displayClientMessage(
                 Component.literal(

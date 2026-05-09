@@ -36,6 +36,18 @@ public class ActiveAbilityRegistry {
         register(
                 new VeinMinerBurstAbility()
         );
+        register(
+                new MinersFocusAbility()
+        );
+        register(
+                new TreasureSenseAbility()
+        );
+        register(
+                new BlastMineAbility()
+        );
+        register(
+                new StonebreakerAbility()
+        );
     }
 
     public static void register(

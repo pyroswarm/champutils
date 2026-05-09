@@ -86,23 +86,6 @@ public class MiningProfessionListener {
                                 pos
                         );
 
-                        if (!isBreakingExtraBlock(
-                                serverPlayer
-                        )) {
-                            handleVeinMinerActive(
-                                    serverPlayer,
-                                    pos,
-                                    state,
-                                    blockId
-                            );
-
-                            handleExcavationActive(
-                                    serverPlayer,
-                                    pos,
-                                    state
-                            );
-                        }
-
                         return true;
                     }
 
@@ -165,6 +148,18 @@ public class MiningProfessionListener {
                         if (!isBreakingExtraBlock(
                                 serverPlayer
                         )) {
+                            handleBlastMineActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+
+                            handleStonebreakerActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+
                             handleExcavationActive(
                                     serverPlayer,
                                     pos,
@@ -194,6 +189,18 @@ public class MiningProfessionListener {
                                 pos,
                                 state,
                                 blockId
+                        );
+
+                        handleBlastMineActive(
+                                serverPlayer,
+                                pos,
+                                state
+                        );
+
+                        handleStonebreakerActive(
+                                serverPlayer,
+                                pos,
+                                state
                         );
 
                         handleExcavationActive(
@@ -296,6 +303,18 @@ public class MiningProfessionListener {
                 pos,
                 state,
                 blockId
+        );
+
+        handleBlastMineActive(
+                player,
+                pos,
+                state
+        );
+
+        handleStonebreakerActive(
+                player,
+                pos,
+                state
         );
 
         handleExcavationActive(
@@ -706,6 +725,196 @@ public class MiningProfessionListener {
                                         "minecraft:ancient_debris"
                                 )
                 );
+    }
+
+
+    private static void handleBlastMineActive(
+            ServerPlayer player,
+            BlockPos center,
+            BlockState centerState
+    ) {
+
+        if (!ActiveEffectManager.hasTimedEffect(
+                player,
+                "blast_mine",
+                player.getMainHandItem()
+        )) {
+            return;
+        }
+
+        ServerLevel level =
+                player.serverLevel();
+
+        if (!MiningBlockUtil.isPickaxeBlock(
+                level,
+                center,
+                centerState
+        )) {
+            return;
+        }
+
+        breakLargeMiningArea(
+                player,
+                center,
+                2,
+                false
+        );
+    }
+
+    private static void handleStonebreakerActive(
+            ServerPlayer player,
+            BlockPos center,
+            BlockState centerState
+    ) {
+
+        if (!ActiveEffectManager.hasTimedEffect(
+                player,
+                "stonebreaker",
+                player.getMainHandItem()
+        )) {
+            return;
+        }
+
+        ServerLevel level =
+                player.serverLevel();
+
+        if (!MiningBlockUtil.isPickaxeBlock(
+                level,
+                center,
+                centerState
+        )) {
+            return;
+        }
+
+        String centerBlockId =
+                centerState.getBlock()
+                        .builtInRegistryHolder()
+                        .key()
+                        .location()
+                        .toString();
+
+        if (!isStonebreakerBlock(
+                centerBlockId
+        )) {
+            return;
+        }
+
+        breakLargeMiningArea(
+                player,
+                center,
+                2,
+                true
+        );
+    }
+
+    private static void breakLargeMiningArea(
+            ServerPlayer player,
+            BlockPos center,
+            int radius,
+            boolean stoneOnly
+    ) {
+
+        ServerLevel level =
+                player.serverLevel();
+
+        Direction direction =
+                getMiningPlaneDirection(
+                        player
+                );
+
+        BREAKING_EXTRA_BLOCKS.add(
+                player.getUUID()
+        );
+
+        try {
+            for (int a = -radius; a <= radius; a++) {
+                for (int b = -radius; b <= radius; b++) {
+
+                    if (a == 0 && b == 0) {
+                        continue;
+                    }
+
+                    BlockPos target =
+                            offsetForPlane(
+                                    center,
+                                    direction,
+                                    a,
+                                    b
+                            );
+
+                    BlockState targetState =
+                            level.getBlockState(
+                                    target
+                            );
+
+                    if (!MiningBlockUtil.isPickaxeBlock(
+                            level,
+                            target,
+                            targetState
+                    )) {
+                        continue;
+                    }
+
+                    if (ProfessionBlockTracker.isPlayerPlaced(
+                            level,
+                            target
+                    )) {
+                        continue;
+                    }
+
+                    String targetBlockId =
+                            targetState.getBlock()
+                                    .builtInRegistryHolder()
+                                    .key()
+                                    .location()
+                                    .toString();
+
+                    if (
+                            stoneOnly &&
+                                    !isStonebreakerBlock(
+                                            targetBlockId
+                                    )
+                    ) {
+                        continue;
+                    }
+
+                    processExtraMiningBlock(
+                            player,
+                            level,
+                            target,
+                            targetState,
+                            targetBlockId
+                    );
+                }
+            }
+        }
+        finally {
+            BREAKING_EXTRA_BLOCKS.remove(
+                    player.getUUID()
+            );
+        }
+    }
+
+    private static boolean isStonebreakerBlock(
+            String blockId
+    ) {
+
+        return switch (blockId) {
+            case "minecraft:stone",
+                 "minecraft:deepslate",
+                 "minecraft:granite",
+                 "minecraft:diorite",
+                 "minecraft:andesite",
+                 "minecraft:tuff",
+                 "minecraft:calcite",
+                 "minecraft:dripstone_block",
+                 "minecraft:blackstone",
+                 "minecraft:basalt",
+                 "minecraft:smooth_basalt",
+                 "minecraft:netherrack" -> true;
+
+            default -> false;
+        };
     }
 
     private static void handleExcavationActive(

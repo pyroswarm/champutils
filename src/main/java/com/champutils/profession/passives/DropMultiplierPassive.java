@@ -6,6 +6,7 @@ import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -56,6 +57,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
 
         int multiplier =
                 rollMiningDropMultiplier(
+                        player,
                         stack
                 );
 
@@ -82,6 +84,14 @@ public class DropMultiplierPassive implements ProfessionPassive {
                         command
                 );
 
+        player.displayClientMessage(
+                Component.literal(
+                        "§bMining passive: §f" +
+                                multiplier +
+                                "x drops!"
+                ),
+                true
+        );
 
         ProfessionSpecialCelebration.celebrateDropMultiplier(
                 player,
@@ -90,6 +100,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
     }
 
     private int rollMiningDropMultiplier(
+            ServerPlayer player,
             ItemStack stack
     ) {
 
@@ -104,6 +115,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
          */
         if (
                 rollChance(
+                        player,
                         stack,
                         "quintupleDropChance"
                 )
@@ -113,6 +125,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
 
         if (
                 rollChance(
+                        player,
                         stack,
                         "quadrupleDropChance"
                 )
@@ -122,6 +135,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
 
         if (
                 rollChance(
+                        player,
                         stack,
                         "tripleDropChance"
                 )
@@ -131,6 +145,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
 
         if (
                 rollChance(
+                        player,
                         stack,
                         "doubleDropChance"
                 )
@@ -142,6 +157,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
     }
 
     private boolean rollChance(
+            ServerPlayer player,
             ItemStack stack,
             String statId
     ) {
@@ -156,10 +172,16 @@ public class DropMultiplierPassive implements ProfessionPassive {
             return false;
         }
 
+        double focusMultiplier =
+                ActiveEffectManager.getMiningPassiveChanceMultiplier(
+                        player,
+                        stack
+                );
+
         return RANDOM.nextDouble() <
                 Math.min(
                         100.0D,
-                        chancePercent
+                        chancePercent * focusMultiplier
                 ) / 100.0D;
     }
 

@@ -130,6 +130,12 @@ public class ProfessionToolConfig {
          This is intentionally capped for server safety.
          */
         public int maxVeinBlocks = 30;
+
+        /*
+         Optional scan radius for treasure_sense.
+         0 or omitted = the ability uses its own default radius.
+         */
+        public int treasureSenseRadius = 0;
     }
 
 
