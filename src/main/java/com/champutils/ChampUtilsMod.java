@@ -12,6 +12,9 @@ import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
 import com.champutils.profession.*;
+import com.champutils.profession.actives.ActiveAbilityRegistry;
+import com.champutils.profession.actives.ActiveEffectManager;
+import com.champutils.profession.passives.PassiveRegistry;
 import com.champutils.profile.*;
 import com.champutils.rank.*;
 
@@ -88,9 +91,13 @@ public class ChampUtilsMod implements ModInitializer {
          Custom tools
          */
         ProfessionToolConfig.load();
+        ActiveAbilityRegistry.registerDefaults();
+        PassiveRegistry.registerDefaults();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
+        ProfessionToolStatEffectListener.register();
+        ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
         ItemRollCommand.register();
 
@@ -264,12 +271,14 @@ public class ChampUtilsMod implements ModInitializer {
         EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
+        ChampReloadCommand.register();
 
         /*
          New custom item test command
          */
         GiveChampItemCommand.register();
         ShowItemCommand.register();
+        ItemLockCommand.register();
 
         /*
          =========================
@@ -339,6 +348,11 @@ public class ChampUtilsMod implements ModInitializer {
                             );
                         }
                     }
+
+                    /*
+                     Active profession abilities
+                     */
+                    ActiveEffectManager.tick(server);
 
                     /*
                      Matchmaking systems

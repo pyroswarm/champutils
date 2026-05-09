@@ -23,6 +23,10 @@ public final class ProfessionToolMetadata {
     private static final String DISCOVERY_ANNOUNCEMENT_ELIGIBLE_KEY = "DiscoveryAnnouncementEligible";
     private static final String DISCOVERY_ANNOUNCED_KEY = "DiscoveryAnnounced";
     private static final String PERFECT_ROLL_ANNOUNCED_KEY = "PerfectRollAnnounced";
+    private static final String CURRENT_DURABILITY_KEY = "CurrentDurability";
+    private static final String MAX_DURABILITY_KEY = "MaxDurability";
+    private static final String CUSTOM_ENCHANTS_KEY = "CustomEnchants";
+    private static final String LOCKED_KEY = "Locked";
 
     private ProfessionToolMetadata() {
     }
@@ -180,6 +184,81 @@ public final class ProfessionToolMetadata {
                         announced
                 )
         );
+    }
+
+
+    public static int getCurrentDurability(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return Math.max(
+                0,
+                root.getInt(CURRENT_DURABILITY_KEY)
+        );
+    }
+
+    public static void setCurrentDurability(
+            ItemStack stack,
+            int durability
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putInt(
+                        CURRENT_DURABILITY_KEY,
+                        Math.max(
+                                0,
+                                durability
+                        )
+                )
+        );
+    }
+
+    public static int getMaxDurability(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return Math.max(
+                0,
+                root.getInt(MAX_DURABILITY_KEY)
+        );
+    }
+
+    public static void setMaxDurability(
+            ItemStack stack,
+            int durability
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putInt(
+                        MAX_DURABILITY_KEY,
+                        Math.max(
+                                0,
+                                durability
+                        )
+                )
+        );
+    }
+
+    public static boolean isBroken(
+            ItemStack stack
+    ) {
+
+        int max =
+                getMaxDurability(stack);
+
+        if (max <= 0) {
+            return false;
+        }
+
+        return getCurrentDurability(stack) <= 0;
     }
 
     public static int getRerolls(
@@ -506,6 +585,140 @@ public final class ProfessionToolMetadata {
         );
     }
 
+
+
+    public static boolean isLocked(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        return root.getBoolean(LOCKED_KEY);
+    }
+
+    public static void setLocked(
+            ItemStack stack,
+            boolean locked
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putBoolean(
+                        LOCKED_KEY,
+                        locked
+                )
+        );
+    }
+
+    public static Map<String, Integer> getCustomEnchants(
+            ItemStack stack
+    ) {
+
+        Map<String, Integer> enchants =
+                new LinkedHashMap<>();
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(CUSTOM_ENCHANTS_KEY)) {
+            return enchants;
+        }
+
+        CompoundTag enchantTag =
+                root.getCompound(CUSTOM_ENCHANTS_KEY);
+
+        for (String key : enchantTag.getAllKeys()) {
+            int level =
+                    Math.max(
+                            0,
+                            enchantTag.getInt(key)
+                    );
+
+            if (level > 0) {
+                enchants.put(
+                        key,
+                        level
+                );
+            }
+        }
+
+        return enchants;
+    }
+
+    public static int getCustomEnchantLevel(
+            ItemStack stack,
+            String enchantId
+    ) {
+
+        if (enchantId == null || enchantId.isBlank()) {
+            return 0;
+        }
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(CUSTOM_ENCHANTS_KEY)) {
+            return 0;
+        }
+
+        CompoundTag enchantTag =
+                root.getCompound(CUSTOM_ENCHANTS_KEY);
+
+        return Math.max(
+                0,
+                enchantTag.getInt(
+                        enchantId.trim().toLowerCase()
+                )
+        );
+    }
+
+    public static void setCustomEnchantLevel(
+            ItemStack stack,
+            String enchantId,
+            int level
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        enchantId == null ||
+                        enchantId.isBlank()
+        ) {
+            return;
+        }
+
+        String cleanId =
+                enchantId.trim()
+                        .toLowerCase();
+
+        updateRoot(
+                stack,
+                root -> {
+                    CompoundTag enchantTag =
+                            root.contains(CUSTOM_ENCHANTS_KEY)
+                                    ? root.getCompound(CUSTOM_ENCHANTS_KEY)
+                                    : new CompoundTag();
+
+                    if (level <= 0) {
+                        enchantTag.remove(
+                                cleanId
+                        );
+                    } else {
+                        enchantTag.putInt(
+                                cleanId,
+                                level
+                        );
+                    }
+
+                    root.put(
+                            CUSTOM_ENCHANTS_KEY,
+                            enchantTag
+                    );
+                }
+        );
+    }
+
     public static void initializeUnidentifiedTool(
             ItemStack stack,
             String toolId
@@ -576,6 +789,25 @@ public final class ProfessionToolMetadata {
 
                     root.putBoolean(
                             PERFECT_ROLL_ANNOUNCED_KEY,
+                            false
+                    );
+
+                    root.putInt(
+                            CURRENT_DURABILITY_KEY,
+                            0
+                    );
+
+                    root.putInt(
+                            MAX_DURABILITY_KEY,
+                            0
+                    );
+
+                    root.remove(
+                            CUSTOM_ENCHANTS_KEY
+                    );
+
+                    root.putBoolean(
+                            LOCKED_KEY,
                             false
                     );
                 }

@@ -2,14 +2,12 @@ package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
+
+import com.champutils.profession.actives.ActiveAbilityRegistry;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -68,6 +66,21 @@ public class ProfessionToolActiveAbilityListener {
                             );
 
                     if (
+                            toolData != null &&
+                                    ProfessionToolMetadata.isBroken(
+                                            stack
+                                    )
+                    ) {
+                        serverPlayer.sendSystemMessage(
+                                Component.literal(
+                                        "§cThis item is broken. Use /itemroll repair before using it again."
+                                )
+                        );
+
+                        return InteractionResult.FAIL;
+                    }
+
+                    if (
                             toolData == null ||
                                     toolData.activeAbility == null ||
                                     toolData.activeAbility.isBlank()
@@ -103,15 +116,11 @@ public class ProfessionToolActiveAbilityListener {
                     }
 
                     boolean used =
-                            switch (ability) {
-                                case "prospect" ->
-                                        useProspect(
-                                                serverPlayer
-                                        );
-
-                                default ->
-                                        false;
-                            };
+                            ActiveAbilityRegistry.use(
+                                    ability,
+                                    serverPlayer,
+                                    stack
+                            );
 
                     if (!used) {
                         return InteractionResult.PASS;
@@ -168,136 +177,6 @@ public class ProfessionToolActiveAbilityListener {
 
         } catch (Exception ignored) {
         }
-
-        return true;
-    }
-
-    private static boolean useProspect(
-            ServerPlayer player
-    ) {
-
-        BlockPos origin =
-                player.blockPosition();
-
-        int radius =
-                12;
-
-        FoundOre nearest =
-                null;
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-
-                    BlockPos pos =
-                            origin.offset(
-                                    x,
-                                    y,
-                                    z
-                            );
-
-                    Block block =
-                            player.serverLevel()
-                                    .getBlockState(
-                                            pos
-                                    )
-                                    .getBlock();
-
-                    String blockId =
-                            block.builtInRegistryHolder()
-                                    .key()
-                                    .location()
-                                    .toString();
-
-                    if (
-                            !ProfessionConfig
-                                    .SETTINGS
-                                    .miningXp
-                                    .containsKey(
-                                            blockId
-                                    )
-                    ) {
-                        continue;
-                    }
-
-                    if (
-                            ProfessionBlockTracker.isPlayerPlaced(
-                                    player.serverLevel(),
-                                    pos
-                            )
-                    ) {
-                        continue;
-                    }
-
-                    double distance =
-                            Math.sqrt(
-                                    origin.distSqr(
-                                            pos
-                                    )
-                            );
-
-                    if (
-                            nearest == null ||
-                                    distance < nearest.distance
-                    ) {
-                        nearest =
-                                new FoundOre(
-                                        blockId,
-                                        distance
-                                );
-                    }
-                }
-            }
-        }
-
-        if (nearest == null) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§7Prospect found no natural ore nearby."
-                    ),
-                    true
-            );
-
-            player.playNotifySound(
-                    SoundEvents.NOTE_BLOCK_BASS.value(),
-                    SoundSource.PLAYERS,
-                    0.7f,
-                    0.7f
-            );
-
-            return true;
-        }
-
-        player.sendSystemMessage(
-                Component.literal(
-                        "§bProspect: §f" +
-                                formatBlockName(
-                                        nearest.blockId
-                                ) +
-                                " §7is about §e" +
-                                Math.round(
-                                        nearest.distance
-                                ) +
-                                " blocks §7away."
-                )
-        );
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§bProspect found " +
-                                formatBlockName(
-                                        nearest.blockId
-                                )
-                ),
-                true
-        );
-
-        player.playNotifySound(
-                SoundEvents.AMETHYST_BLOCK_CHIME,
-                SoundSource.PLAYERS,
-                0.9f,
-                1.4f
-        );
 
         return true;
     }
@@ -385,26 +264,6 @@ public class ProfessionToolActiveAbilityListener {
         );
     }
 
-    private static String formatBlockName(
-            String blockId
-    ) {
-
-        if (blockId == null || blockId.isBlank()) {
-            return "Unknown";
-        }
-
-        String name =
-                blockId.contains(":")
-                        ? blockId.substring(
-                        blockId.indexOf(":") + 1
-                )
-                        : blockId;
-
-        return formatWords(
-                name
-        );
-    }
-
     private static String formatWords(
             String value
     ) {
@@ -451,20 +310,4 @@ public class ProfessionToolActiveAbilityListener {
                 .trim();
     }
 
-    private static class FoundOre {
-
-        String blockId;
-        double distance;
-
-        FoundOre(
-                String blockId,
-                double distance
-        ) {
-            this.blockId =
-                    blockId;
-
-            this.distance =
-                    distance;
-        }
-    }
 }

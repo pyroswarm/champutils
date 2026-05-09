@@ -31,6 +31,9 @@ public class ProfessionToolConfig {
     public static double REROLL_COST_MULTIPLIER =
             2.0D;
 
+    public static Map<String, Map<String, EnchantData>> ENCHANTING =
+            new LinkedHashMap<>();
+
     public static class ConfigRoot {
 
         public Map<String, ToolData> tools =
@@ -41,6 +44,14 @@ public class ProfessionToolConfig {
 
         public double rerollCostMultiplier =
                 2.0D;
+
+        /**
+         * Deprecated. Custom tool enchanting has been removed.
+         * Kept transient so old configs can contain the field without
+         * ChampUtils writing it back into newly generated configs.
+         */
+        public transient Map<String, Map<String, EnchantData>> enchanting =
+                new LinkedHashMap<>();
     }
 
     public static class ToolData {
@@ -52,6 +63,34 @@ public class ProfessionToolConfig {
         public String rarity;
         public String baseItem;
         public int customModelData;
+
+        /*
+         Mining/harvest tier for custom tools.
+         Supported values: WOOD, STONE, IRON, DIAMOND, NETHERITE.
+         If omitted, ChampUtils derives the tier from baseItem.
+         */
+        public String toolTier = "";
+
+        /*
+         Custom durability. The item will never vanish when this reaches 0.
+         Instead, ChampUtils marks it as broken and blocks use until repaired.
+         If omitted or <= 0, ChampUtils uses the vanilla max durability of baseItem.
+         durabilityBonus rolled stats are treated as a percent bonus to this value.
+         */
+        public int baseDurability = 0;
+
+        /*
+         Materials consumed by /itemroll repair.
+         Example: { "minecraft:iron_ingot": 4 }
+         */
+        public Map<String, Integer> repairMaterials =
+                new LinkedHashMap<>();
+
+        /*
+         Percent of max durability restored per repair.
+         100 = full repair, 25 = restore 25% of max each repair.
+         */
+        public double repairDurabilityPercent = 100.0D;
 
         /*
          If true, this item can be created as an ascended/stat-tracker variant.
@@ -78,6 +117,40 @@ public class ProfessionToolConfig {
 
         public String activeAbility;
         public int activeCooldownSeconds = 30;
+
+        /*
+         Optional duration for active abilities that use timed effects.
+         0 or omitted = the ability uses its own default duration.
+         Example: excavation uses this for how long 3x3 mining stays active.
+         */
+        public int activeDurationSeconds = 0;
+    }
+
+
+    public static class EnchantData {
+
+        public String displayName = "";
+        public int maxLevel = 1;
+
+        /*
+         Materials consumed each time this enchant is upgraded by 1 level.
+         Example: { "minecraft:lapis_lazuli": 16 }
+         */
+        public Map<String, Integer> cost =
+                new LinkedHashMap<>();
+
+        /*
+         Optional multiplier applied to the material cost based on the NEXT level.
+         1.0 = flat cost every level.
+         2.0 = level 1 costs 1x, level 2 costs 2x, level 3 costs 4x, etc.
+         */
+        public double costMultiplierPerLevel = 1.0D;
+
+        /*
+         Used by efficiency. Each custom efficiency level adds this much virtual
+         miningSpeed percent to the held tool.
+         */
+        public double statBonusPerLevel = 50.0D;
     }
 
     public static class StatRange {
@@ -131,6 +204,9 @@ public class ProfessionToolConfig {
                 RARITY_COSTS =
                         defaultRarityCosts();
             }
+
+            ENCHANTING =
+                    new LinkedHashMap<>();
 
             System.out.println(
                     "[ChampUtils] Loaded " +
@@ -188,6 +264,9 @@ public class ProfessionToolConfig {
                                 ? 2.0D
                                 : config.rerollCostMultiplier;
 
+                ENCHANTING =
+                        new LinkedHashMap<>();
+
                 return;
             }
 
@@ -214,6 +293,9 @@ public class ProfessionToolConfig {
 
             REROLL_COST_MULTIPLIER =
                     2.0D;
+
+            ENCHANTING =
+                    new LinkedHashMap<>();
         }
     }
 
@@ -467,7 +549,72 @@ public class ProfessionToolConfig {
         tool.activeCooldownSeconds =
                 activeCooldownSeconds;
 
+        tool.baseDurability =
+                0;
+
+        tool.repairDurabilityPercent =
+                100.0D;
+
+        tool.repairMaterials =
+                defaultRepairMaterials(baseItem);
+
         return tool;
+    }
+
+    private static Map<String, Integer> defaultRepairMaterials(
+            String baseItem
+    ) {
+
+        Map<String, Integer> materials =
+                new LinkedHashMap<>();
+
+        String base =
+                baseItem == null
+                        ? ""
+                        : baseItem.toLowerCase();
+
+        if (base.contains("netherite")) {
+            materials.put(
+                    "minecraft:netherite_ingot",
+                    1
+            );
+            materials.put(
+                    "minecraft:diamond",
+                    2
+            );
+            return materials;
+        }
+
+        if (base.contains("diamond")) {
+            materials.put(
+                    "minecraft:diamond",
+                    3
+            );
+            return materials;
+        }
+
+        if (base.contains("iron")) {
+            materials.put(
+                    "minecraft:iron_ingot",
+                    3
+            );
+            return materials;
+        }
+
+        if (base.contains("stone")) {
+            materials.put(
+                    "minecraft:cobblestone",
+                    3
+            );
+            return materials;
+        }
+
+        materials.put(
+                "minecraft:iron_ingot",
+                1
+        );
+
+        return materials;
     }
 
     private static Map<String, Long> defaultRarityCosts() {
@@ -506,6 +653,216 @@ public class ProfessionToolConfig {
         );
 
         return costs;
+    }
+
+
+    private static Map<String, Map<String, EnchantData>> defaultEnchanting() {
+        return new LinkedHashMap<>();
+    }
+
+
+    private static EnchantData createEnchant(
+            String displayName,
+            int maxLevel,
+            double statBonusPerLevel,
+            double costMultiplierPerLevel,
+            Map<String, Integer> cost
+    ) {
+
+        EnchantData data =
+                new EnchantData();
+
+        data.displayName =
+                displayName;
+
+        data.maxLevel =
+                Math.max(
+                        1,
+                        maxLevel
+                );
+
+        data.statBonusPerLevel =
+                Math.max(
+                        0.0D,
+                        statBonusPerLevel
+                );
+
+        data.costMultiplierPerLevel =
+                costMultiplierPerLevel <= 0.0D
+                        ? 1.0D
+                        : costMultiplierPerLevel;
+
+        data.cost =
+                cost == null
+                        ? new LinkedHashMap<>()
+                        : new LinkedHashMap<>(cost);
+
+        return data;
+    }
+
+    private static Map<String, Map<String, EnchantData>> cleanEnchanting(
+            Map<String, Map<String, EnchantData>> input
+    ) {
+
+        Map<String, Map<String, EnchantData>> clean =
+                new LinkedHashMap<>();
+
+        if (input == null) {
+            return clean;
+        }
+
+        for (Map.Entry<String, Map<String, EnchantData>> professionEntry : input.entrySet()) {
+            if (
+                    professionEntry.getKey() == null ||
+                            professionEntry.getKey().isBlank() ||
+                            professionEntry.getValue() == null
+            ) {
+                continue;
+            }
+
+            Map<String, EnchantData> enchants =
+                    new LinkedHashMap<>();
+
+            for (Map.Entry<String, EnchantData> enchantEntry : professionEntry.getValue().entrySet()) {
+                if (
+                        enchantEntry.getKey() == null ||
+                                enchantEntry.getKey().isBlank() ||
+                                enchantEntry.getValue() == null
+                ) {
+                    continue;
+                }
+
+                String enchantId =
+                        enchantEntry.getKey()
+                                .trim()
+                                .toLowerCase();
+
+                /*
+                 Fortune is intentionally blocked for custom tool enchanting.
+                 Keep fortuneBonus as a rolled item stat only.
+                 */
+                if ("fortune".equals(enchantId)) {
+                    continue;
+                }
+
+                EnchantData data =
+                        enchantEntry.getValue();
+
+                if (data.displayName == null || data.displayName.isBlank()) {
+                    data.displayName =
+                            formatEnchantName(
+                                    enchantId
+                            );
+                }
+
+                data.maxLevel =
+                        Math.max(
+                                1,
+                                data.maxLevel
+                        );
+
+                data.costMultiplierPerLevel =
+                        data.costMultiplierPerLevel <= 0.0D
+                                ? 1.0D
+                                : data.costMultiplierPerLevel;
+
+                if (data.cost == null) {
+                    data.cost =
+                            new LinkedHashMap<>();
+                }
+
+                enchants.put(
+                        enchantId,
+                        data
+                );
+            }
+
+            clean.put(
+                    professionEntry.getKey()
+                            .trim()
+                            .toUpperCase(),
+                    enchants
+            );
+        }
+
+        return clean;
+    }
+
+    public static Map<String, EnchantData> getAllowedEnchantments(
+            String profession
+    ) {
+
+        if (profession == null || profession.isBlank()) {
+            return new LinkedHashMap<>();
+        }
+
+        Map<String, EnchantData> enchants =
+                ENCHANTING.get(
+                        profession.trim().toUpperCase()
+                );
+
+        return enchants == null
+                ? new LinkedHashMap<>()
+                : enchants;
+    }
+
+    public static EnchantData getEnchantData(
+            String profession,
+            String enchantId
+    ) {
+
+        if (enchantId == null || enchantId.isBlank()) {
+            return null;
+        }
+
+        return getAllowedEnchantments(
+                profession
+        ).get(
+                enchantId.trim().toLowerCase()
+        );
+    }
+
+    public static String formatEnchantName(
+            String enchantId
+    ) {
+
+        if (enchantId == null || enchantId.isBlank()) {
+            return "Unknown";
+        }
+
+        String[] parts =
+                enchantId.trim()
+                        .toLowerCase()
+                        .split("_");
+
+        StringBuilder result =
+                new StringBuilder();
+
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+
+            if (!result.isEmpty()) {
+                result.append(" ");
+            }
+
+            result.append(
+                    Character.toUpperCase(
+                            part.charAt(0)
+                    )
+            );
+
+            if (part.length() > 1) {
+                result.append(
+                        part.substring(1)
+                );
+            }
+        }
+
+        return result.isEmpty()
+                ? enchantId
+                : result.toString();
     }
 
     public static long getBaseRollCost(

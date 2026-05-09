@@ -1,18 +1,29 @@
 package com.champutils.profession;
 
+import com.champutils.profession.actives.ActiveEffectManager;
+import com.champutils.profession.actives.MiningBlockUtil;
+import com.champutils.profession.passives.PassiveRegistry;
+
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class MiningProfessionListener {
 
-    private static final Random RANDOM =
-            new Random();
+    private static final Set<UUID> BREAKING_EXTRA_BLOCKS =
+            new HashSet<>();
 
     public static void register() {
 
@@ -48,7 +59,32 @@ public class MiningProfessionListener {
                                 serverPlayer.serverLevel(),
                                 pos
                         );
+
+                        if (!isBreakingExtraBlock(
+                                serverPlayer
+                        )) {
+                            handleExcavationActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+                        }
+
                         return true;
+                    }
+
+                    if (
+                            !isBreakingExtraBlock(
+                                    serverPlayer
+                            ) &&
+                                    handleAutoSmeltActive(
+                                            serverPlayer,
+                                            pos,
+                                            state,
+                                            blockId
+                                    )
+                    ) {
+                        return false;
                     }
 
                     handleAscendedToolTracker(
@@ -63,6 +99,16 @@ public class MiningProfessionListener {
                                     .get(blockId);
 
                     if (xp == null || xp <= 0) {
+                        if (!isBreakingExtraBlock(
+                                serverPlayer
+                        )) {
+                            handleExcavationActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+                        }
+
                         return true;
                     }
 
@@ -77,13 +123,361 @@ public class MiningProfessionListener {
                             ProfessionType.MINING
                     );
 
-                    handleMiningToolPassives(
+                    PassiveRegistry.applyMiningPassives(
                             serverPlayer,
+                            serverPlayer.serverLevel(),
+                            pos,
                             blockId
                     );
 
+                    if (!isBreakingExtraBlock(
+                            serverPlayer
+                    )) {
+                        handleExcavationActive(
+                                serverPlayer,
+                                pos,
+                                state
+                        );
+                    }
+
                     return true;
                 }
+        );
+    }
+
+    private static boolean handleAutoSmeltActive(
+            ServerPlayer player,
+            BlockPos pos,
+            BlockState state,
+            String blockId
+    ) {
+
+        if (!ActiveEffectManager.hasAutoSmelt(
+                player
+        )) {
+            return false;
+        }
+
+        SmeltDrop smeltDrop =
+                getSmeltDrop(
+                        blockId
+                );
+
+        if (smeltDrop == null) {
+            return false;
+        }
+
+        if (!MiningBlockUtil.isPickaxeBlock(
+                player.serverLevel(),
+                pos,
+                state
+        )) {
+            return false;
+        }
+
+        handleAscendedToolTracker(
+                player,
+                blockId
+        );
+
+        Integer xp =
+                ProfessionConfig
+                        .SETTINGS
+                        .miningXp
+                        .get(blockId);
+
+        if (xp != null && xp > 0) {
+            ProfessionManager.addXp(
+                    player,
+                    ProfessionType.MINING,
+                    xp
+            );
+
+            ProfessionLootManager.rollReward(
+                    player,
+                    ProfessionType.MINING
+            );
+
+            PassiveRegistry.applyMiningPassives(
+                    player,
+                    player.serverLevel(),
+                    pos,
+                    blockId
+            );
+        }
+
+        player.serverLevel().destroyBlock(
+                pos,
+                false,
+                player
+        );
+
+        giveOrDrop(
+                player,
+                new ItemStack(
+                        smeltDrop.item,
+                        smeltDrop.amount
+                )
+        );
+
+        player.displayClientMessage(
+                net.minecraft.network.chat.Component.literal(
+                        "§6Auto-Smelt: §fOre smelted."
+                ),
+                true
+        );
+
+        handleExcavationActive(
+                player,
+                pos,
+                state
+        );
+
+        return true;
+    }
+
+    private static void giveOrDrop(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        if (!player.getInventory().add(
+                stack
+        )) {
+            player.drop(
+                    stack,
+                    false
+            );
+        }
+    }
+
+    private static SmeltDrop getSmeltDrop(
+            String blockId
+    ) {
+
+        return switch (blockId) {
+
+            case "minecraft:iron_ore",
+                 "minecraft:deepslate_iron_ore" ->
+                    new SmeltDrop(
+                            Items.IRON_INGOT,
+                            1
+                    );
+
+            case "minecraft:gold_ore",
+                 "minecraft:deepslate_gold_ore",
+                 "minecraft:nether_gold_ore" ->
+                    new SmeltDrop(
+                            Items.GOLD_INGOT,
+                            1
+                    );
+
+            case "minecraft:copper_ore",
+                 "minecraft:deepslate_copper_ore" ->
+                    new SmeltDrop(
+                            Items.COPPER_INGOT,
+                            3
+                    );
+
+            case "minecraft:ancient_debris" ->
+                    new SmeltDrop(
+                            Items.NETHERITE_SCRAP,
+                            1
+                    );
+
+            default ->
+                    null;
+        };
+    }
+
+    private record SmeltDrop(
+            Item item,
+            int amount
+    ) {
+    }
+
+    private static void handleExcavationActive(
+            ServerPlayer player,
+            BlockPos center,
+            BlockState centerState
+    ) {
+
+        if (!ActiveEffectManager.hasExcavation(
+                player
+        )) {
+            return;
+        }
+
+        ServerLevel level =
+                player.serverLevel();
+
+        if (!MiningBlockUtil.isPickaxeBlock(
+                level,
+                center,
+                centerState
+        )) {
+            return;
+        }
+
+        ItemStack tool =
+                player.getMainHandItem();
+
+        if (
+                tool == null ||
+                        tool.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(
+                                tool
+                        ) ||
+                        !ProfessionToolMetadata.isIdentified(
+                                tool
+                        ) ||
+                        ProfessionToolMetadata.isBroken(
+                                tool
+                        )
+        ) {
+            return;
+        }
+
+        BREAKING_EXTRA_BLOCKS.add(
+                player.getUUID()
+        );
+
+        try {
+            breakExcavationArea(
+                    player,
+                    center
+            );
+        }
+        finally {
+            BREAKING_EXTRA_BLOCKS.remove(
+                    player.getUUID()
+            );
+        }
+    }
+
+    private static void breakExcavationArea(
+            ServerPlayer player,
+            BlockPos center
+    ) {
+
+        ServerLevel level =
+                player.serverLevel();
+
+        Direction direction =
+                getMiningPlaneDirection(
+                        player
+                );
+
+        for (int a = -1; a <= 1; a++) {
+            for (int b = -1; b <= 1; b++) {
+
+                if (a == 0 && b == 0) {
+                    continue;
+                }
+
+                BlockPos target =
+                        offsetForPlane(
+                                center,
+                                direction,
+                                a,
+                                b
+                        );
+
+                BlockState targetState =
+                        level.getBlockState(
+                                target
+                        );
+
+                if (!MiningBlockUtil.isPickaxeBlock(
+                        level,
+                        target,
+                        targetState
+                )) {
+                    continue;
+                }
+
+
+                String targetBlockId =
+                        targetState.getBlock()
+                                .builtInRegistryHolder()
+                                .key()
+                                .location()
+                                .toString();
+
+                /*
+                 * ServerLevel.destroyBlock does not reliably flow back through
+                 * the player's normal block-break callback in every mapping/version.
+                 * Apply mining passives explicitly here so Excavation's extra
+                 * 3x3 blocks can trigger Double/Triple/Quadruple/Quintuple Drop.
+                 * PassiveRegistry still enforces natural-only blocks.
+                 */
+                PassiveRegistry.applyMiningPassives(
+                        player,
+                        level,
+                        target,
+                        targetBlockId
+                );
+
+                level.destroyBlock(
+                        target,
+                        true,
+                        player
+                );
+            }
+        }
+    }
+
+    private static Direction getMiningPlaneDirection(
+            ServerPlayer player
+    ) {
+
+        float pitch =
+                player.getXRot();
+
+        if (pitch > 55.0F || pitch < -55.0F) {
+            return Direction.UP;
+        }
+
+        return player.getDirection();
+    }
+
+    private static BlockPos offsetForPlane(
+            BlockPos center,
+            Direction direction,
+            int a,
+            int b
+    ) {
+
+        return switch (direction) {
+            case EAST, WEST ->
+                    center.offset(
+                            0,
+                            a,
+                            b
+                    );
+
+            case NORTH, SOUTH ->
+                    center.offset(
+                            a,
+                            b,
+                            0
+                    );
+
+            case UP, DOWN ->
+                    center.offset(
+                            a,
+                            0,
+                            b
+                    );
+        };
+    }
+
+    private static boolean isBreakingExtraBlock(
+            ServerPlayer player
+    ) {
+
+        return BREAKING_EXTRA_BLOCKS.contains(
+                player.getUUID()
         );
     }
 
@@ -221,113 +615,6 @@ public class MiningProfessionListener {
 
             default ->
                     false;
-        };
-    }
-
-    private static void handleMiningToolPassives(
-            ServerPlayer player,
-            String blockId
-    ) {
-
-        ItemStack stack =
-                player.getMainHandItem();
-
-        if (
-                !ProfessionToolUtil.hasPassive(
-                        stack,
-                        "bonus_ore_drops"
-                )
-        ) {
-            return;
-        }
-
-        double fortuneBonus =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        "fortuneBonus"
-                );
-
-        if (fortuneBonus <= 0) {
-            return;
-        }
-
-        double chance =
-                fortuneBonus / 100D;
-
-        if (
-                RANDOM.nextDouble() > chance
-        ) {
-            return;
-        }
-
-        String command =
-                "give " +
-                        player.getName().getString() +
-                        " " +
-                        getBonusDrop(
-                                blockId
-                        ) +
-                        " 1";
-
-        player.getServer()
-                .getCommands()
-                .performPrefixedCommand(
-                        player.getServer()
-                                .createCommandSourceStack(),
-                        command
-                );
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§bBonus ore drop!"
-                ),
-                true
-        );
-    }
-
-    private static String getBonusDrop(
-            String blockId
-    ) {
-
-        return switch (blockId) {
-
-            case "minecraft:coal_ore",
-                 "minecraft:deepslate_coal_ore" ->
-                    "minecraft:coal";
-
-            case "minecraft:iron_ore",
-                 "minecraft:deepslate_iron_ore" ->
-                    "minecraft:raw_iron";
-
-            case "minecraft:gold_ore",
-                 "minecraft:deepslate_gold_ore" ->
-                    "minecraft:raw_gold";
-
-            case "minecraft:copper_ore",
-                 "minecraft:deepslate_copper_ore" ->
-                    "minecraft:raw_copper";
-
-            case "minecraft:diamond_ore",
-                 "minecraft:deepslate_diamond_ore" ->
-                    "minecraft:diamond";
-
-            case "minecraft:emerald_ore",
-                 "minecraft:deepslate_emerald_ore" ->
-                    "minecraft:emerald";
-
-            case "minecraft:redstone_ore",
-                 "minecraft:deepslate_redstone_ore" ->
-                    "minecraft:redstone";
-
-            case "minecraft:lapis_ore",
-                 "minecraft:deepslate_lapis_ore" ->
-                    "minecraft:lapis_lazuli";
-
-            case "minecraft:ancient_debris" ->
-                    "minecraft:ancient_debris";
-
-            default ->
-                    blockId;
         };
     }
 }

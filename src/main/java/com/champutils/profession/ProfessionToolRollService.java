@@ -291,16 +291,59 @@ public final class ProfessionToolRollService {
                             range.max
                     );
 
-            double value =
-                    min +
-                            RANDOM.nextDouble() *
-                                    (max - min);
+            double value;
+
+            if (
+                    statId.equalsIgnoreCase(
+                            "miningSpeed"
+                    )
+            ) {
+                int minLevel =
+                        (int) Math.floor(
+                                min
+                        );
+
+                int maxLevel =
+                        (int) Math.floor(
+                                max
+                        );
+
+                minLevel =
+                        Math.max(
+                                1,
+                                minLevel
+                        );
+
+                maxLevel =
+                        Math.max(
+                                minLevel,
+                                maxLevel
+                        );
+
+                value =
+                        minLevel +
+                                RANDOM.nextInt(
+                                        maxLevel - minLevel + 1
+                                );
+            }
+            else {
+                value =
+                        min +
+                                RANDOM.nextDouble() *
+                                        (max - min);
+            }
 
             rolledStats.put(
                     statId,
-                    roundOneDecimal(
-                            value
+                    statId.equalsIgnoreCase(
+                            "miningSpeed"
                     )
+                            ? Math.floor(
+                                    value
+                            )
+                            : roundOneDecimal(
+                                    value
+                            )
             );
         }
 
@@ -371,6 +414,33 @@ public final class ProfessionToolRollService {
                     range.weight <= 0
                             ? 1.0D
                             : range.weight;
+
+            /*
+             * Match the quality math used by the item lore.
+             * Since stats display as whole percentages, decimal rolls should not
+             * secretly inflate quality. A 0.9 roll in a 0-1 range displays as
+             * +0%, so it contributes 0% quality. A 1.0 roll contributes 100%.
+             */
+            double displayedMin =
+                    Math.floor(
+                            min
+                    );
+
+            double displayedMax =
+                    Math.floor(
+                            max
+                    );
+
+            double displayedValue =
+                    Math.floor(
+                            rolledValue
+                    );
+
+            if (displayedMax > displayedMin) {
+                min = displayedMin;
+                max = displayedMax;
+                rolledValue = displayedValue;
+            }
 
             double statPercent =
                     (rolledValue - min) /
@@ -483,7 +553,7 @@ public final class ProfessionToolRollService {
                 "§a" +
                         result.message +
                         " §7Quality: §e" +
-                        result.quality +
+                        (int) Math.floor(result.quality) +
                         "%"
         );
     }

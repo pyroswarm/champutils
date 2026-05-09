@@ -7,9 +7,11 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Item;
@@ -21,7 +23,9 @@ import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
-import net.minecraft.world.item.component.Unbreakable;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -148,19 +152,36 @@ public class ProfessionToolManager {
                         ? ""
                         : toolData.baseItem.toLowerCase();
 
+        int configuredDurability =
+                getBaseMaxDurability(
+                        toolData,
+                        baseItem
+                );
+
         Item.Properties properties =
                 new Item.Properties()
                         .stacksTo(1)
+                        .durability(
+                                Math.max(
+                                        1,
+                                        configuredDurability
+                                )
+                        )
                         .rarity(
                                 getRarity(
                                         toolData.rarity
                                 )
                         );
 
+        Tier configuredTier =
+                getConfiguredTier(
+                        toolData
+                );
+
         if (base.contains("pickaxe")) {
             return new CustomPickaxeItem(
                     baseItem,
-                    Tiers.DIAMOND,
+                    configuredTier,
                     properties
             );
         }
@@ -168,7 +189,7 @@ public class ProfessionToolManager {
         if (base.contains("axe")) {
             return new CustomAxeItem(
                     baseItem,
-                    Tiers.DIAMOND,
+                    configuredTier,
                     properties
             );
         }
@@ -176,7 +197,7 @@ public class ProfessionToolManager {
         if (base.contains("hoe")) {
             return new CustomHoeItem(
                     baseItem,
-                    Tiers.DIAMOND,
+                    configuredTier,
                     properties
             );
         }
@@ -185,6 +206,144 @@ public class ProfessionToolManager {
                 baseItem,
                 properties
         );
+    }
+
+    public static Tier getConfiguredTier(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        String tierName =
+                getConfiguredTierName(
+                        toolData
+                );
+
+        return switch (
+                tierName
+        ) {
+            case "WOOD" -> Tiers.WOOD;
+            case "STONE" -> Tiers.STONE;
+            case "IRON" -> Tiers.IRON;
+            case "NETHERITE" -> Tiers.NETHERITE;
+            case "DIAMOND" -> Tiers.DIAMOND;
+            default -> Tiers.WOOD;
+        };
+    }
+
+    public static String getConfiguredTierName(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                toolData != null &&
+                        toolData.toolTier != null &&
+                        !toolData.toolTier.isBlank()
+        ) {
+            return toolData.toolTier
+                    .trim()
+                    .toUpperCase();
+        }
+
+        String base =
+                toolData == null || toolData.baseItem == null
+                        ? ""
+                        : toolData.baseItem.toLowerCase();
+
+        if (base.contains("netherite")) {
+            return "NETHERITE";
+        }
+
+        if (base.contains("diamond")) {
+            return "DIAMOND";
+        }
+
+        if (base.contains("iron")) {
+            return "IRON";
+        }
+
+        if (base.contains("stone")) {
+            return "STONE";
+        }
+
+        if (base.contains("wooden") || base.contains("wood")) {
+            return "WOOD";
+        }
+
+        return "WOOD";
+    }
+
+    public static int getConfiguredTierLevel(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        return switch (
+                getConfiguredTierName(
+                        toolData
+                )
+        ) {
+            case "STONE" -> 1;
+            case "IRON" -> 2;
+            case "DIAMOND", "NETHERITE" -> 3;
+            default -> 0;
+        };
+    }
+
+    public static int getRequiredTierLevel(
+            BlockState state
+    ) {
+
+        if (state == null) {
+            return 0;
+        }
+
+        if (state.is(BlockTags.NEEDS_DIAMOND_TOOL)) {
+            return 3;
+        }
+
+        if (state.is(BlockTags.NEEDS_IRON_TOOL)) {
+            return 2;
+        }
+
+        if (state.is(BlockTags.NEEDS_STONE_TOOL)) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    public static boolean canHarvestWithConfiguredTier(
+            ItemStack stack,
+            BlockState state
+    ) {
+
+        String toolId =
+                ProfessionToolUtil.getToolId(
+                        stack
+                );
+
+        if (toolId == null) {
+            return true;
+        }
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        if (toolData == null) {
+            return true;
+        }
+
+        int toolTier =
+                getConfiguredTierLevel(
+                        toolData
+                );
+
+        int requiredTier =
+                getRequiredTierLevel(
+                        state
+                );
+
+        return toolTier >= requiredTier;
     }
 
     public static ItemStack createTool(
@@ -304,8 +463,15 @@ public class ProfessionToolManager {
                 ascended
         );
 
-        applyUnbreakable(
-                stack
+        initializeDurabilityIfNeeded(
+                stack,
+                toolData,
+                true
+        );
+
+        applyDurabilityComponents(
+                stack,
+                toolData
         );
 
         /*
@@ -356,8 +522,15 @@ public class ProfessionToolManager {
             return;
         }
 
-        applyUnbreakable(
-                stack
+        initializeDurabilityIfNeeded(
+                stack,
+                toolData,
+                false
+        );
+
+        applyDurabilityComponents(
+                stack,
+                toolData
         );
 
         applyAscendedGlint(
@@ -417,6 +590,16 @@ public class ProfessionToolManager {
         addHeaderLore(
                 lore,
                 toolData
+        );
+
+        addDurabilityLore(
+                lore,
+                stack
+        );
+
+        addItemLockLore(
+                lore,
+                stack
         );
 
         if (ascended) {
@@ -535,6 +718,16 @@ public class ProfessionToolManager {
                 toolData
         );
 
+        addDurabilityLore(
+                lore,
+                stack
+        );
+
+        addItemLockLore(
+                lore,
+                stack
+        );
+
         if (ascended) {
             lore.add(
                     Component.literal(
@@ -573,6 +766,7 @@ public class ProfessionToolManager {
                 stack,
                 toolData
         );
+
 
         addTrackerLore(
                 lore,
@@ -633,6 +827,78 @@ public class ProfessionToolManager {
         );
     }
 
+
+    private static void addItemLockLore(
+            List<Component> lore,
+            ItemStack stack
+    ) {
+
+        if (!ProfessionToolMetadata.isLocked(stack)) {
+            return;
+        }
+
+        lore.add(
+                Component.literal(
+                        "🔒 Locked - cannot be dropped"
+                ).withStyle(
+                        ChatFormatting.GOLD,
+                        ChatFormatting.BOLD
+                )
+        );
+    }
+
+    private static void addDurabilityLore(
+            List<Component> lore,
+            ItemStack stack
+    ) {
+
+        int max =
+                ProfessionToolMetadata.getMaxDurability(
+                        stack
+                );
+
+        if (max <= 0) {
+            return;
+        }
+
+        int current =
+                Math.max(
+                        0,
+                        Math.min(
+                                max,
+                                ProfessionToolMetadata.getCurrentDurability(
+                                        stack
+                                )
+                        )
+                );
+
+        ChatFormatting color =
+                current <= 0
+                        ? ChatFormatting.RED
+                        : ChatFormatting.GRAY;
+
+        lore.add(
+                Component.literal(
+                        "Durability: " +
+                                current +
+                                "/" +
+                                max
+                ).withStyle(
+                        color
+                )
+        );
+
+        if (current <= 0) {
+            lore.add(
+                    Component.literal(
+                            "Broken - repair before use."
+                    ).withStyle(
+                            ChatFormatting.RED
+                    )
+            );
+        }
+    }
+
     private static void addRolledStatsLore(
             List<Component> lore,
             ItemStack stack,
@@ -675,37 +941,60 @@ public class ProfessionToolManager {
                             stat.getValue()
                     );
 
-            Component line =
-                    Component.literal(
-                            " +"
-                    ).withStyle(
-                            ChatFormatting.WHITE
-                    ).append(
-                            buildStatValueComponent(
-                                    stat.getValue(),
-                                    statQuality
-                            )
-                    ).append(
-                            Component.literal(
-                                    " " +
-                                            formatStatName(
-                                                    stat.getKey()
-                                            ) +
-                                            " "
-                            ).withStyle(
-                                    ChatFormatting.WHITE
-                            )
-                    ).append(
-                            buildPercentComponent(
-                                    statQuality
-                            )
-                    );
+            Component line;
+
+            if (statQuality >= 100.0D) {
+                line =
+                        Component.literal(
+                                " +" +
+                                        formatStatValue(
+                                                stat.getKey(),
+                                                stat.getValue()
+                                        ) +
+                                        " " +
+                                        formatStatName(
+                                                stat.getKey()
+                                        ) +
+                                        " [100%]"
+                        ).withStyle(
+                                ChatFormatting.GOLD,
+                                ChatFormatting.BOLD
+                        );
+            } else {
+                line =
+                        Component.literal(
+                                " +"
+                        ).withStyle(
+                                ChatFormatting.WHITE
+                        ).append(
+                                buildStatValueComponent(
+                                        stat.getKey(),
+                                        stat.getValue(),
+                                        statQuality
+                                )
+                        ).append(
+                                Component.literal(
+                                        " " +
+                                                formatStatName(
+                                                        stat.getKey()
+                                                ) +
+                                                " "
+                                ).withStyle(
+                                        ChatFormatting.WHITE
+                                )
+                        ).append(
+                                buildPercentComponent(
+                                        statQuality
+                                )
+                        );
+            }
 
             lore.add(
                     line
             );
         }
     }
+
 
 
     private static void addTrackerLore(
@@ -859,6 +1148,18 @@ public class ProfessionToolManager {
                         ChatFormatting.DARK_GRAY
                 )
         );
+
+        if (toolData.activeDurationSeconds > 0) {
+            lore.add(
+                    Component.literal(
+                            " Duration: " +
+                                    toolData.activeDurationSeconds +
+                                    "s"
+                    ).withStyle(
+                            ChatFormatting.DARK_GRAY
+                    )
+            );
+        }
     }
 
     private static double getStatQualityPercent(
@@ -896,6 +1197,36 @@ public class ProfessionToolManager {
                         range.max
                 );
 
+        /*
+         * Lore displays stat values as whole percentages.
+         * Quality should therefore be based on the displayed value, not the
+         * hidden decimal.
+         *
+         * Example: range 0.0 -> 1.0
+         *   rolled 0.9 displays as +0%, so quality should show [0%]
+         *   rolled 1.0 displays as +1%, so quality should show [100%]
+         */
+        double displayedMin =
+                Math.floor(
+                        min
+                );
+
+        double displayedMax =
+                Math.floor(
+                        max
+                );
+
+        double displayedValue =
+                Math.floor(
+                        rolledValue
+                );
+
+        if (displayedMax > displayedMin) {
+            min = displayedMin;
+            max = displayedMax;
+            rolledValue = displayedValue;
+        }
+
         if (max <= min) {
             return 100.0D;
         }
@@ -914,7 +1245,7 @@ public class ProfessionToolManager {
                         )
                 );
 
-        return Math.round(
+        return Math.floor(
                 percent
         );
     }
@@ -924,7 +1255,7 @@ public class ProfessionToolManager {
     ) {
 
         int rounded =
-                (int) Math.round(
+                (int) Math.floor(
                         quality
                 );
 
@@ -949,17 +1280,19 @@ public class ProfessionToolManager {
     }
 
     private static Component buildStatValueComponent(
+            String statId,
             double value,
             double quality
     ) {
 
         int rounded =
-                (int) Math.round(
+                (int) Math.floor(
                         quality
                 );
 
         String text =
                 formatStatValue(
+                        statId,
                         value
                 );
 
@@ -1060,8 +1393,315 @@ public class ProfessionToolManager {
     }
 
 
-    private static void applyUnbreakable(
+    public static boolean damageTool(
+            ItemStack stack,
+            int amount
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        amount <= 0 ||
+                        !ProfessionToolMetadata.isProfessionTool(stack)
+        ) {
+            return false;
+        }
+
+        String toolId =
+                ProfessionToolMetadata.getToolId(
+                        stack
+                );
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        if (toolData == null) {
+            return false;
+        }
+
+        initializeDurabilityIfNeeded(
+                stack,
+                toolData,
+                false
+        );
+
+        int max =
+                ProfessionToolMetadata.getMaxDurability(
+                        stack
+                );
+
+        if (max <= 0) {
+            return false;
+        }
+
+        int current =
+                ProfessionToolMetadata.getCurrentDurability(
+                        stack
+                );
+
+        if (current <= 0) {
+            applyDurabilityComponents(
+                    stack,
+                    toolData
+            );
+            return true;
+        }
+
+
+        ProfessionToolMetadata.setCurrentDurability(
+                stack,
+                Math.max(
+                        0,
+                        current - amount
+                )
+        );
+
+        refreshToolStack(
+                stack
+        );
+
+        return true;
+    }
+
+    public static boolean repairTool(
             ItemStack stack
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(stack)
+        ) {
+            return false;
+        }
+
+        String toolId =
+                ProfessionToolMetadata.getToolId(
+                        stack
+                );
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        if (toolData == null) {
+            return false;
+        }
+
+        initializeDurabilityIfNeeded(
+                stack,
+                toolData,
+                false
+        );
+
+        int max =
+                ProfessionToolMetadata.getMaxDurability(
+                        stack
+                );
+
+        if (max <= 0) {
+            return false;
+        }
+
+        int current =
+                ProfessionToolMetadata.getCurrentDurability(
+                        stack
+                );
+
+        double percent =
+                toolData.repairDurabilityPercent <= 0.0D
+                        ? 100.0D
+                        : toolData.repairDurabilityPercent;
+
+        int restore =
+                Math.max(
+                        1,
+                        (int) Math.ceil(
+                                max * (percent / 100.0D)
+                        )
+                );
+
+        ProfessionToolMetadata.setCurrentDurability(
+                stack,
+                Math.min(
+                        max,
+                        current + restore
+                )
+        );
+
+        refreshToolStack(
+                stack
+        );
+
+        return true;
+    }
+
+    public static void initializeDurabilityIfNeeded(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData,
+            boolean forceFull
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        toolData == null
+        ) {
+            return;
+        }
+
+        int max =
+                calculateMaxDurability(
+                        stack,
+                        toolData
+                );
+
+        if (max <= 0) {
+            return;
+        }
+
+        int oldMax =
+                ProfessionToolMetadata.getMaxDurability(
+                        stack
+                );
+
+        int oldCurrent =
+                ProfessionToolMetadata.getCurrentDurability(
+                        stack
+                );
+
+        if (forceFull || oldMax <= 0) {
+            ProfessionToolMetadata.setMaxDurability(
+                    stack,
+                    max
+            );
+
+            ProfessionToolMetadata.setCurrentDurability(
+                    stack,
+                    max
+            );
+            return;
+        }
+
+        if (oldMax != max) {
+            double ratio =
+                    oldMax <= 0
+                            ? 1.0D
+                            : Math.max(
+                                    0.0D,
+                                    Math.min(
+                                            1.0D,
+                                            oldCurrent / (double) oldMax
+                                    )
+                            );
+
+            ProfessionToolMetadata.setMaxDurability(
+                    stack,
+                    max
+            );
+
+            ProfessionToolMetadata.setCurrentDurability(
+                    stack,
+                    Math.max(
+                            0,
+                            Math.min(
+                                    max,
+                                    (int) Math.round(
+                                            max * ratio
+                                    )
+                            )
+                    )
+            );
+        }
+    }
+
+    private static int calculateMaxDurability(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        int base =
+                getBaseMaxDurability(
+                        toolData,
+                        null
+                );
+
+        double durabilityBonus =
+                ProfessionToolMetadata.isIdentified(
+                        stack
+                )
+                        ? ProfessionToolUtil.getStat(
+                                stack,
+                                "durabilityBonus"
+                        )
+                        : 0.0D;
+
+        return Math.max(
+                1,
+                (int) Math.round(
+                        base * (1.0D + Math.max(0.0D, durabilityBonus) / 100.0D)
+                )
+        );
+    }
+
+    private static int getBaseMaxDurability(
+            ProfessionToolConfig.ToolData toolData,
+            Item fallbackBaseItem
+    ) {
+
+        if (
+                toolData != null &&
+                        toolData.baseDurability > 0
+        ) {
+            return toolData.baseDurability;
+        }
+
+        Item baseItem =
+                fallbackBaseItem;
+
+        if (
+                baseItem == null &&
+                        toolData != null &&
+                        toolData.baseItem != null &&
+                        !toolData.baseItem.isBlank()
+        ) {
+            try {
+                baseItem =
+                        BuiltInRegistries.ITEM.get(
+                                ResourceLocation.parse(
+                                        toolData.baseItem
+                                )
+                        );
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (
+                baseItem != null &&
+                        baseItem != Items.AIR
+        ) {
+            ItemStack baseStack =
+                    new ItemStack(
+                            baseItem
+                    );
+
+            if (baseStack.isDamageableItem()) {
+                return Math.max(
+                        1,
+                        baseStack.getMaxDamage()
+                );
+            }
+        }
+
+        return 250;
+    }
+
+    private static void applyDurabilityComponents(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
     ) {
 
         if (
@@ -1071,16 +1711,50 @@ public class ProfessionToolManager {
             return;
         }
 
+        initializeDurabilityIfNeeded(
+                stack,
+                toolData,
+                false
+        );
+
+        int max =
+                ProfessionToolMetadata.getMaxDurability(
+                        stack
+                );
+
+        if (max <= 0) {
+            return;
+        }
+
+        int current =
+                Math.max(
+                        0,
+                        Math.min(
+                                max,
+                                ProfessionToolMetadata.getCurrentDurability(
+                                        stack
+                                )
+                        )
+                );
+
+        stack.remove(
+                DataComponents.UNBREAKABLE
+        );
+
         stack.set(
-                DataComponents.UNBREAKABLE,
-                new Unbreakable(
-                        false
-                )
+                DataComponents.MAX_DAMAGE,
+                max
         );
 
         stack.set(
                 DataComponents.DAMAGE,
-                0
+                Math.max(
+                        0,
+                        Math.min(
+                                max - 1,
+                                max - current
+                        )
+                )
         );
     }
 
@@ -1204,6 +1878,7 @@ public class ProfessionToolManager {
     }
 
     private static String formatStatValue(
+            String statId,
             double value
     ) {
 
@@ -1216,15 +1891,10 @@ public class ProfessionToolManager {
             double value
     ) {
 
-        if (value == Math.floor(value)) {
-            return String.valueOf(
-                    (int) value
-            );
-        }
-
-        return String.format(
-                "%.1f",
-                value
+        return String.valueOf(
+                (int) Math.floor(
+                        value
+                )
         );
     }
 
@@ -1275,6 +1945,39 @@ public class ProfessionToolManager {
         };
     }
 
+
+    private static String toRoman(
+            int value
+    ) {
+
+        if (value <= 0) {
+            return "0";
+        }
+
+        String[] romans =
+                new String[]{
+                        "",
+                        "I",
+                        "II",
+                        "III",
+                        "IV",
+                        "V",
+                        "VI",
+                        "VII",
+                        "VIII",
+                        "IX",
+                        "X"
+                };
+
+        if (value < romans.length) {
+            return romans[value];
+        }
+
+        return String.valueOf(
+                value
+        );
+    }
+
     private static ChatFormatting getRarityColor(
             String rarity
     ) {
@@ -1295,6 +1998,81 @@ public class ProfessionToolManager {
         };
     }
 
+    public static float applyMiningSpeedStat(
+            ItemStack stack,
+            float baseSpeed
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        baseSpeed <= 1.0F ||
+                        !ProfessionToolMetadata.isProfessionTool(stack) ||
+                        !ProfessionToolMetadata.isIdentified(stack) ||
+                        ProfessionToolMetadata.isBroken(stack)
+        ) {
+            return baseSpeed;
+        }
+
+        double miningSpeed =
+                ProfessionToolUtil.getStat(
+                        stack,
+                        "miningSpeed"
+                );
+
+        if (miningSpeed <= 0.0D) {
+            return baseSpeed;
+        }
+
+        return (float) (
+                baseSpeed +
+                        getEfficiencyStyleMiningSpeedBonus(
+                                miningSpeed
+                        )
+        );
+    }
+
+    public static double getMiningSpeedMultiplier(
+            double miningSpeedPercent
+    ) {
+
+        if (miningSpeedPercent <= 0.0D) {
+            return 1.0D;
+        }
+
+        return 1.0D +
+                (miningSpeedPercent / 100.0D);
+    }
+
+    public static double getEfficiencyStyleMiningSpeedBonus(
+            double miningSpeedPercent
+    ) {
+
+        if (miningSpeedPercent <= 0.0D) {
+            return 0.0D;
+        }
+
+        /*
+         * Vanilla Efficiency does not multiply speed by a flat percent.
+         * It adds an efficiency bonus to the tool's destroy speed:
+         *
+         *   level 1 -> +2
+         *   level 2 -> +5
+         *   level 3 -> +10
+         *   level 4 -> +17
+         *   level 5 -> +26
+         *
+         * ChampUtils keeps the config/display as percentages, then converts
+         * every 50% miningSpeed into one virtual Efficiency level. Fractional
+         * values are allowed so 23% and 230% are no longer in the same
+         * barely-noticeable vanilla multiplier bucket.
+         */
+        double virtualEfficiencyLevel =
+                miningSpeedPercent / 50.0D;
+
+        return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
+    }
+
     public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
 
         private final Item baseItem;
@@ -1312,6 +2090,60 @@ public class ProfessionToolManager {
 
             this.baseItem =
                     baseItem;
+        }
+
+        @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return ProfessionToolManager.applyMiningSpeedStat(
+                    stack,
+                    super.getDestroySpeed(
+                            stack,
+                            state
+                    )
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return ProfessionToolManager.canHarvestWithConfiguredTier(
+                    stack,
+                    state
+            );
+        }
+
+        @Override
+        public boolean mineBlock(
+                ItemStack stack,
+                Level level,
+                BlockState state,
+                BlockPos pos,
+                LivingEntity miningEntity
+        ) {
+
+            if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
         }
 
         @Override
@@ -1344,6 +2176,29 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return ProfessionToolManager.applyMiningSpeedStat(
+                    stack,
+                    super.getDestroySpeed(
+                            stack,
+                            state
+                    )
+            );
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
+        }
+
+        @Override
         public Item getPolymerItem(
                 ItemStack stack,
                 ServerPlayer player
@@ -1373,6 +2228,29 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return ProfessionToolManager.applyMiningSpeedStat(
+                    stack,
+                    super.getDestroySpeed(
+                            stack,
+                            state
+                    )
+            );
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
+        }
+
+        @Override
         public Item getPolymerItem(
                 ItemStack stack,
                 ServerPlayer player
@@ -1397,6 +2275,14 @@ public class ProfessionToolManager {
 
             this.baseItem =
                     baseItem;
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
         }
 
         @Override

@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,6 +52,21 @@ public class ProfessionToolRequirementListener {
                             !canUseTool(
                                     serverPlayer,
                                     stack
+                            )
+                    ) {
+                        return InteractionResult.FAIL;
+                    }
+
+                    BlockState state =
+                            world.getBlockState(
+                                    pos
+                            );
+
+                    if (
+                            !canHarvestBlock(
+                                    serverPlayer,
+                                    stack,
+                                    state
                             )
                     ) {
                         return InteractionResult.FAIL;
@@ -170,6 +186,19 @@ public class ProfessionToolRequirementListener {
             return false;
         }
 
+        if (
+                ProfessionToolMetadata.isBroken(
+                        stack
+                )
+        ) {
+            sendBrokenMessage(
+                    player,
+                    toolData
+            );
+
+            return false;
+        }
+
         ProfessionType professionType;
 
         try {
@@ -205,6 +234,103 @@ public class ProfessionToolRequirementListener {
         return true;
     }
 
+    private static boolean canHarvestBlock(
+            ServerPlayer player,
+            ItemStack stack,
+            BlockState state
+    ) {
+
+        String toolId =
+                ProfessionToolUtil.getToolId(
+                        stack
+                );
+
+        if (toolId == null) {
+            return true;
+        }
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        if (toolData == null) {
+            return true;
+        }
+
+        if (
+                !"MINING".equalsIgnoreCase(
+                        toolData.profession
+                )
+        ) {
+            return true;
+        }
+
+        if (
+                ProfessionToolManager.canHarvestWithConfiguredTier(
+                        stack,
+                        state
+                )
+        ) {
+            return true;
+        }
+
+        sendTierDeniedMessage(
+                player,
+                toolData,
+                state
+        );
+
+        return false;
+    }
+
+    private static void sendTierDeniedMessage(
+            ServerPlayer player,
+            ProfessionToolConfig.ToolData toolData,
+            BlockState state
+    ) {
+
+        if (!canSendMessage(player)) {
+            return;
+        }
+
+        String toolTier =
+                ProfessionToolManager.getConfiguredTierName(
+                        toolData
+                );
+
+        int requiredTierLevel =
+                ProfessionToolManager.getRequiredTierLevel(
+                        state
+                );
+
+        String requiredTier =
+                switch (requiredTierLevel) {
+                    case 1 -> "STONE";
+                    case 2 -> "IRON";
+                    case 3 -> "DIAMOND";
+                    default -> "WOOD";
+                };
+
+        player.sendSystemMessage(
+                Component.literal(
+                                "Your tool tier is too low to mine this. "
+                        )
+                        .withStyle(
+                                ChatFormatting.RED
+                        )
+                        .append(
+                                Component.literal(
+                                                "Requires " + requiredTier + ", your tool is " + toolTier + "."
+                                        )
+                                        .withStyle(
+                                                ChatFormatting.GRAY
+                                        )
+                        ),
+                true
+        );
+    }
+
     private static void sendUnidentifiedMessage(
             ServerPlayer player,
             ProfessionToolConfig.ToolData toolData
@@ -221,6 +347,27 @@ public class ProfessionToolRequirementListener {
                                         toolData
                                 ) +
                                 " before you can use it."
+                ).withStyle(
+                        ChatFormatting.RED
+                )
+        );
+    }
+
+    private static void sendBrokenMessage(
+            ServerPlayer player,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (!canSendMessage(player)) {
+            return;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        getDisplayName(
+                                toolData
+                        ) +
+                                " is broken. Use /itemroll repair before using it again."
                 ).withStyle(
                         ChatFormatting.RED
                 )
