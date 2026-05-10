@@ -1,16 +1,22 @@
 package com.champutils.profession;
 
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import com.champutils.profession.actives.ActiveEffectManager;
 
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayDeque;
@@ -20,311 +26,151 @@ import java.util.Set;
 
 public class ForestryProfessionListener {
 
-    private static final Random RANDOM =
-            new Random();
+    private static final Random RANDOM = new Random();
 
     public static void register() {
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+            if (!(player instanceof ServerPlayer serverPlayer)) return true;
+            String blockId = getBlockId(state.getBlock());
+            Integer xp = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
+            if (xp == null || xp <= 0) return true;
+            if (ProfessionBlockTracker.isPlayerPlaced(serverPlayer.serverLevel(), pos)) {
+                ProfessionBlockTracker.remove(serverPlayer.serverLevel(), pos);
+                return true;
+            }
 
-        PlayerBlockBreakEvents.BEFORE.register(
-                (
-                        world,
-                        player,
-                        pos,
-                        state,
-                        blockEntity
-                ) -> {
+            ItemStack tool = serverPlayer.getMainHandItem();
+            ProfessionManager.addXp(serverPlayer, ProfessionType.FORESTRY, xp);
+            rollXpSurge(serverPlayer, tool, xp);
+            ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
+            rollDropMultiplier(serverPlayer, state, tool);
+            rollRewardPassive(serverPlayer, tool, "sapFinderChance", "forestry_sap_finder");
+            rollRewardPassive(serverPlayer, tool, "seedFinderChance", "forestry_seed_finder");
 
-                    if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return true;
-                    }
+            if (ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool)) {
+                breakConnectedLogs(serverPlayer, pos, state, getIntStat(tool, "maxTimberBlocks", 32));
+            }
 
-                    Block block =
-                            state.getBlock();
+            if (ActiveEffectManager.hasTimedEffect(serverPlayer, "leafstorm", tool)) {
+                clearNearbyLeaves(serverPlayer, pos, getIntStat(tool, "leafstormRadius", 5));
+            }
 
-                    String blockId =
-                            getBlockId(
-                                    block
-                            );
+            if (ActiveEffectManager.hasToggle(serverPlayer, "tree_replant", tool)) {
+                tryReplantSapling(serverPlayer, pos, state);
+            }
 
-                    Integer xp =
-                            ProfessionConfig
-                                    .SETTINGS
-                                    .forestryXp
-                                    .get(blockId);
-
-                    if (xp == null || xp <= 0) {
-                        return true;
-                    }
-
-                    if (
-                            ProfessionBlockTracker.isPlayerPlaced(
-                                    serverPlayer.serverLevel(),
-                                    pos
-                            )
-                    ) {
-                        ProfessionBlockTracker.remove(
-                                serverPlayer.serverLevel(),
-                                pos
-                        );
-                        return true;
-                    }
-
-                    ProfessionManager.addXp(
-                            serverPlayer,
-                            ProfessionType.FORESTRY,
-                            xp
-                    );
-
-                    ProfessionLootManager.rollReward(
-                            serverPlayer,
-                            ProfessionType.FORESTRY
-                    );
-
-                    handleBonusLogs(
-                            serverPlayer,
-                            blockId
-                    );
-
-                    handleTimberBreak(
-                            serverPlayer,
-                            pos
-                    );
-
-                    return true;
-                }
-        );
+            return true;
+        });
     }
 
-    private static void handleBonusLogs(
-            ServerPlayer player,
-            String blockId
-    ) {
-
-        ItemStack held =
-                player.getMainHandItem();
-
-        if (
-                !ProfessionToolUtil.hasPassive(
-                        held,
-                        "faster_tree_chopping"
-                ) &&
-                        !ProfessionToolUtil.hasPassive(
-                                held,
-                                "timber_break"
-                        )
-        ) {
-            return;
-        }
-
-        double bonusLogs =
-                ProfessionToolUtil.getStat(
-                        held,
-                        "bonusLogs"
-                );
-
-        if (bonusLogs <= 0) {
-            return;
-        }
-
-        double chance =
-                bonusLogs / 100D;
-
-        if (RANDOM.nextDouble() > chance) {
-            return;
-        }
-
-        Item item =
-                BuiltInRegistries.ITEM.get(
-                        ResourceLocation.parse(
-                                blockId
-                        )
-                );
-
-        if (item == null) {
-            return;
-        }
-
-        ItemStack reward =
-                new ItemStack(
-                        item,
-                        1
-                );
-
-        if (!player.getInventory().add(reward)) {
-            player.drop(
-                    reward,
-                    false
-            );
-        }
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§aBonus log drop!"
-                ),
-                true
-        );
+    private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool) {
+        int multiplier = 1;
+        if (roll(player, tool, "tripleChopChance")) multiplier = 3;
+        else if (roll(player, tool, "doubleChopChance")) multiplier = 2;
+        if (multiplier <= 1) return;
+        Item item = state.getBlock().asItem();
+        if (item == Items.AIR) return;
+        ItemStack reward = new ItemStack(item, multiplier - 1);
+        if (!player.getInventory().add(reward)) player.drop(reward, false);
+        player.displayClientMessage(Component.literal("§a" + multiplier + "x Chop!"), true);
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
     }
 
-    private static void handleTimberBreak(
-            ServerPlayer player,
-            BlockPos start
-    ) {
+    private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {
+        if (!roll(player, tool, "forestryXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
+        int bonus = Math.max(1, baseXp);
+        ProfessionManager.addXp(player, ProfessionType.FORESTRY, bonus);
+        player.displayClientMessage(Component.literal("§aForestry XP Surge! +" + bonus), true);
+    }
 
-        ItemStack held =
-                player.getMainHandItem();
+    private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table) {
+        if (!roll(player, tool, stat)) return;
 
-        if (
-                !ProfessionToolUtil.hasPassive(
-                        held,
-                        "timber_break"
-                )
-        ) {
+        if ("forestry_sap_finder".equals(table)) {
+            ProfessionRewardPassiveConfig.giveRolled(player, table, "§6Sap Finder!", "§fFound ");
             return;
         }
 
-        ServerLevel level =
-                player.serverLevel();
-
-        int maxBlocks =
-                24;
-
-        Set<BlockPos> visited =
-                new HashSet<>();
-
-        ArrayDeque<BlockPos> queue =
-                new ArrayDeque<>();
-
-        queue.add(
-                start
-        );
-
-        int broken =
-                0;
-
-        while (
-                !queue.isEmpty() &&
-                        broken < maxBlocks
-        ) {
-
-            BlockPos current =
-                    queue.poll();
-
-            if (!visited.add(current)) {
-                continue;
-            }
-
-            if (current.equals(start)) {
-                addNeighbors(
-                        queue,
-                        current
-                );
-                continue;
-            }
-
-            BlockState state =
-                    level.getBlockState(
-                            current
-                    );
-
-            String blockId =
-                    getBlockId(
-                            state.getBlock()
-                    );
-
-            Integer xp =
-                    ProfessionConfig
-                            .SETTINGS
-                            .forestryXp
-                            .get(
-                                    blockId
-                            );
-
-            if (xp == null || xp <= 0) {
-                continue;
-            }
-
-            if (
-                    ProfessionBlockTracker.isPlayerPlaced(
-                            level,
-                            current
-                    )
-            ) {
-                continue;
-            }
-
-            boolean destroyed =
-                    level.destroyBlock(
-                            current,
-                            true,
-                            player
-                    );
-
-            if (!destroyed) {
-                continue;
-            }
-
-            ProfessionManager.addXp(
-                    player,
-                    ProfessionType.FORESTRY,
-                    xp
-            );
-
-            broken++;
-
-            addNeighbors(
-                    queue,
-                    current
-            );
+        if ("forestry_seed_finder".equals(table)) {
+            ProfessionRewardPassiveConfig.giveRolled(player, table, "§aSeed Finder!", "§fFound ");
+            return;
         }
 
-        if (broken > 0) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§2Timber Break felled §a" +
-                                    broken +
-                                    " §2extra logs!"
-                    ),
-                    true
-            );
+        ProfessionRewardPassiveConfig.giveRolled(player, table);
+    }
+
+    private static boolean roll(ServerPlayer player, ItemStack tool, String stat) {
+        double chance = ProfessionToolUtil.getStat(tool, stat);
+        if (ActiveEffectManager.hasTimedEffect(player, "lumberjack_focus", tool)) {
+            chance *= 1.0D + (ProfessionToolUtil.getStat(tool, "lumberjackFocusBoost") / 100.0D);
+        }
+        return chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance;
+    }
+
+    private static void breakConnectedLogs(ServerPlayer player, BlockPos start, BlockState original, int maxBlocks) {
+        ServerLevel level = player.serverLevel();
+        Set<BlockPos> visited = new HashSet<>();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        queue.add(start);
+        int broken = 0;
+        while (!queue.isEmpty() && broken < Math.max(1, maxBlocks)) {
+            BlockPos current = queue.poll();
+            if (!visited.add(current)) continue;
+            if (!current.equals(start)) {
+                BlockState state = level.getBlockState(current);
+                if (state.getBlock() != original.getBlock()) continue;
+                if (ProfessionBlockTracker.isPlayerPlaced(level, current)) continue;
+                if (level.destroyBlock(current, true, player)) broken++;
+            }
+            for (BlockPos next : neighbors(current)) queue.add(next);
         }
     }
 
-    private static void addNeighbors(
-            ArrayDeque<BlockPos> queue,
-            BlockPos pos
-    ) {
-
-        for (int x = -1; x <= 1; x++) {
-            for (int y = 0; y <= 1; y++) {
-                for (int z = -1; z <= 1; z++) {
-
-                    if (
-                            x == 0 &&
-                                    y == 0 &&
-                                    z == 0
-                    ) {
-                        continue;
-                    }
-
-                    queue.add(
-                            pos.offset(
-                                    x,
-                                    y,
-                                    z
-                            )
-                    );
-                }
-            }
+    private static void clearNearbyLeaves(ServerPlayer player, BlockPos center, int radius) {
+        ServerLevel level = player.serverLevel();
+        int cleared = 0;
+        int r = Math.max(1, Math.min(radius, 8));
+        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-r, -r, -r), center.offset(r, r, r))) {
+            if (cleared >= 80) return;
+            BlockState state = level.getBlockState(pos);
+            if (!state.is(BlockTags.LEAVES)) continue;
+            level.destroyBlock(pos.immutable(), true, player);
+            cleared++;
         }
+        if (cleared > 0) player.displayClientMessage(Component.literal("§aLeafstorm cleared " + cleared + " leaves."), true);
     }
 
-    private static String getBlockId(
-            Block block
-    ) {
+    private static void tryReplantSapling(ServerPlayer player, BlockPos pos, BlockState oldState) {
+        Block sapling = saplingFor(oldState.getBlock());
+        if (sapling == Blocks.AIR) return;
+        player.serverLevel().setBlock(pos, sapling.defaultBlockState(), 3);
+    }
 
-        return block.builtInRegistryHolder()
-                .key()
-                .location()
-                .toString();
+    private static Block saplingFor(Block block) {
+        String id = getBlockId(block);
+        return switch (id) {
+            case "minecraft:oak_log" -> Blocks.OAK_SAPLING;
+            case "minecraft:spruce_log" -> Blocks.SPRUCE_SAPLING;
+            case "minecraft:birch_log" -> Blocks.BIRCH_SAPLING;
+            case "minecraft:jungle_log" -> Blocks.JUNGLE_SAPLING;
+            case "minecraft:acacia_log" -> Blocks.ACACIA_SAPLING;
+            case "minecraft:dark_oak_log" -> Blocks.DARK_OAK_SAPLING;
+            case "minecraft:mangrove_log" -> Blocks.MANGROVE_PROPAGULE;
+            case "minecraft:cherry_log" -> Blocks.CHERRY_SAPLING;
+            default -> Blocks.AIR;
+        };
+    }
+
+    private static Iterable<BlockPos> neighbors(BlockPos pos) {
+        return java.util.List.of(pos.above(), pos.below(), pos.north(), pos.south(), pos.east(), pos.west());
+    }
+
+    private static int getIntStat(ItemStack stack, String stat, int fallback) {
+        double value = ProfessionToolUtil.getStat(stack, stat);
+        return value <= 0 ? fallback : (int) Math.round(value);
+    }
+
+    private static String getBlockId(Block block) {
+        return BuiltInRegistries.BLOCK.getKey(block).toString();
     }
 }

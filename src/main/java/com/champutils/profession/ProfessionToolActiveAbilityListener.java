@@ -307,7 +307,8 @@ public class ProfessionToolActiveAbilityListener {
 
         return builder
                 .toString()
-                .trim();
+                .trim()
+                .replaceAll("\\bXp\\b", "XP");
     }
 
 }

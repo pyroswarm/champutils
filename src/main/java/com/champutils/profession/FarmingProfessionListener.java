@@ -1,14 +1,18 @@
 package com.champutils.profession;
 
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import com.champutils.profession.actives.ActiveEffectManager;
 
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -20,187 +24,106 @@ public class FarmingProfessionListener {
     private static final Random RANDOM = new Random();
 
     public static void register() {
+        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+            if (!(player instanceof ServerPlayer serverPlayer)) return;
+            if (!(state.getBlock() instanceof CropBlock crop)) return;
+            if (!crop.isMaxAge(state)) return;
 
-        PlayerBlockBreakEvents.AFTER.register(
-                (
-                        world,
-                        player,
-                        pos,
-                        state,
-                        blockEntity
-                ) -> {
+            ItemStack tool = serverPlayer.getMainHandItem();
+            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10);
+            ProfessionManager.addXp(serverPlayer, ProfessionType.FARMING, xp);
+            rollXpSurge(serverPlayer, tool, xp);
+            ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FARMING);
+            rollHarvestMultiplier(serverPlayer, state.getBlock(), tool);
+            rollRewardPassive(serverPlayer, tool, "seedSaverChance", "farming_seed_saver");
+            rollRewardPassive(serverPlayer, tool, "goldenHarvestChance", "farming_golden_harvest");
 
-                    if (!(player instanceof ServerPlayer serverPlayer)) {
-                        return;
-                    }
+            if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
+                serverPlayer.serverLevel().setBlock(pos, crop.getStateForAge(0), 3);
+            }
 
-                    Block block = state.getBlock();
-
-                    if (!(block instanceof CropBlock crop)) {
-                        return;
-                    }
-
-                    // IMPORTANT:
-                    // No XP, loot, bonus yield, or auto-replant unless the crop was fully grown.
-                    if (!crop.isMaxAge(state)) {
-                        return;
-                    }
-
-                    int xp = ProfessionConfig
-                            .SETTINGS
-                            .farmingXp
-                            .getOrDefault(
-                                    "default",
-                                    10
-                            );
-
-                    ProfessionManager.addXp(
-                            serverPlayer,
-                            ProfessionType.FARMING,
-                            xp
-                    );
-
-                    ProfessionLootManager.rollReward(
-                            serverPlayer,
-                            ProfessionType.FARMING
-                    );
-
-                    handleBonusCropYield(
-                            serverPlayer,
-                            block
-                    );
-
-                    handleAutoReplant(
-                            serverPlayer,
-                            pos,
-                            crop
-                    );
-                }
-        );
+            if (ActiveEffectManager.hasTimedEffect(serverPlayer, "harvest_wave", tool)) {
+                harvestNearbyCrops(serverPlayer, pos, getIntStat(tool, "harvestWaveRadius", 4));
+            }
+        });
     }
 
-    private static void handleBonusCropYield(
-            ServerPlayer player,
-            Block cropBlock
-    ) {
-
-        ItemStack held = player.getMainHandItem();
-
-        double bonusYield =
-                ProfessionToolUtil.getStat(
-                        held,
-                        "bonusCropYield"
-                );
-
-        if (bonusYield <= 0) {
-            return;
-        }
-
-        double chance = bonusYield / 100D;
-
-        if (RANDOM.nextDouble() > chance) {
-            return;
-        }
-
-        String bonusItemId =
-                getCropRewardItem(
-                        cropBlock
-                );
-
-        if (bonusItemId == null) {
-            return;
-        }
-
-        Item item =
-                BuiltInRegistries.ITEM.get(
-                        ResourceLocation.parse(
-                                bonusItemId
-                        )
-                );
-
-        ItemStack reward =
-                new ItemStack(
-                        item,
-                        1
-                );
-
-        if (!player.getInventory().add(reward)) {
-            player.drop(
-                    reward,
-                    false
-            );
-        }
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§aBonus crop yield!"
-                ),
-                true
-        );
+    private static void rollHarvestMultiplier(ServerPlayer player, Block cropBlock, ItemStack tool) {
+        int multiplier = 1;
+        if (roll(player, tool, "tripleHarvestChance")) multiplier = 3;
+        else if (roll(player, tool, "doubleHarvestChance")) multiplier = 2;
+        if (multiplier <= 1) return;
+        Item item = cropReward(cropBlock);
+        if (item == Items.AIR) return;
+        ItemStack reward = new ItemStack(item, multiplier - 1);
+        if (!player.getInventory().add(reward)) player.drop(reward, false);
+        player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
     }
 
-    private static void handleAutoReplant(
-            ServerPlayer player,
-            BlockPos pos,
-            CropBlock crop
-    ) {
+    private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {
+        if (!roll(player, tool, "farmingXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
+        int bonus = Math.max(1, baseXp);
+        ProfessionManager.addXp(player, ProfessionType.FARMING, bonus);
+        player.displayClientMessage(Component.literal("§aFarming XP Surge! +" + bonus), true);
+    }
 
-        ItemStack held = player.getMainHandItem();
+    private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table) {
+        if (!roll(player, tool, stat)) return;
 
-        if (
-                !ProfessionToolUtil.hasPassive(
-                        held,
-                        "auto_replant"
-                )
-        ) {
+        if ("farming_seed_saver".equals(table)) {
+            ProfessionRewardPassiveConfig.giveRolled(player, table, "§aSeed Saver!", "§fFound ");
             return;
         }
 
-        BlockState replanted =
-                crop.getStateForAge(
-                        0
-                );
+        if ("farming_golden_harvest".equals(table)) {
+            ProfessionRewardPassiveConfig.giveRolled(player, table, "§6Golden Harvest!", "§fFound ");
+            return;
+        }
 
-        player.serverLevel()
-                .setBlock(
-                        pos,
-                        replanted,
-                        3
-                );
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§2Auto Replant"
-                ),
-                true
-        );
+        ProfessionRewardPassiveConfig.giveRolled(player, table);
     }
 
-    private static String getCropRewardItem(
-            Block cropBlock
-    ) {
+    private static boolean roll(ServerPlayer player, ItemStack tool, String stat) {
+        double chance = ProfessionToolUtil.getStat(tool, stat);
+        if (ActiveEffectManager.hasTimedEffect(player, "golden_rain", tool)) {
+            chance *= 1.0D + (ProfessionToolUtil.getStat(tool, "goldenRainBoost") / 100.0D);
+        }
+        return chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance;
+    }
 
-        String blockId =
-                cropBlock.builtInRegistryHolder()
-                        .key()
-                        .location()
-                        .toString();
+    private static void harvestNearbyCrops(ServerPlayer player, BlockPos center, int radius) {
+        ServerLevel level = player.serverLevel();
+        int harvested = 0;
+        int r = Math.max(1, Math.min(radius, 8));
+        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-r, -1, -r), center.offset(r, 1, r))) {
+            if (harvested >= 64) return;
+            if (pos.equals(center)) continue;
+            BlockState state = level.getBlockState(pos);
+            if (!(state.getBlock() instanceof CropBlock crop)) continue;
+            if (!crop.isMaxAge(state)) continue;
+            level.destroyBlock(pos.immutable(), true, player);
+            if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
+                level.setBlock(pos.immutable(), crop.getStateForAge(0), 3);
+            }
+            harvested++;
+        }
+        if (harvested > 0) player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
+    }
 
-        return switch (blockId) {
-            case "minecraft:wheat" ->
-                    "minecraft:wheat";
-
-            case "minecraft:carrots" ->
-                    "minecraft:carrot";
-
-            case "minecraft:potatoes" ->
-                    "minecraft:potato";
-
-            case "minecraft:beetroots" ->
-                    "minecraft:beetroot";
-
-            default ->
-                    null;
+    private static Item cropReward(Block cropBlock) {
+        String id = BuiltInRegistries.BLOCK.getKey(cropBlock).toString();
+        return switch (id) {
+            case "minecraft:wheat" -> Items.WHEAT;
+            case "minecraft:carrots" -> Items.CARROT;
+            case "minecraft:potatoes" -> Items.POTATO;
+            case "minecraft:beetroots" -> Items.BEETROOT;
+            default -> cropBlock.asItem();
         };
+    }
+
+    private static int getIntStat(ItemStack stack, String stat, int fallback) {
+        double value = ProfessionToolUtil.getStat(stack, stat);
+        return value <= 0 ? fallback : (int) Math.round(value);
     }
 }

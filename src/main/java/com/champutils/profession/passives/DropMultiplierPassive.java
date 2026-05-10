@@ -1,12 +1,13 @@
 package com.champutils.profession.passives;
 
 import com.champutils.profession.ProfessionBlockTracker;
-import com.champutils.profession.ProfessionSpecialCelebration;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -93,9 +94,12 @@ public class DropMultiplierPassive implements ProfessionPassive {
                 true
         );
 
-        ProfessionSpecialCelebration.celebrateDropMultiplier(
-                player,
-                multiplier
+
+        player.playNotifySound(
+                SoundEvents.EXPERIENCE_ORB_PICKUP,
+                SoundSource.PLAYERS,
+                0.45F,
+                multiplier >= 4 ? 1.75F : 1.35F
         );
     }
 

@@ -86,28 +86,30 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ProfessionConfig.load();
-        ProfessionNotificationSettings.load();
-        ProfessionRewardPassiveConfig.load();
 
         /*
          Custom tools
          */
         ProfessionToolConfig.load();
+        ProfessionFragmentConfig.load();
         ActiveAbilityRegistry.registerDefaults();
         PassiveRegistry.registerDefaults();
+        ProfessionFragmentManager.registerFragments();
+        ProfessionFragmentUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
         ProfessionToolStatEffectListener.register();
         ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
-        ProfessionPopupsCommand.register();
         ItemRollCommand.register();
+        ProfessionSalvageCommand.register();
 
         /*
          Profession loot config
          */
         ProfessionLootConfig.load();
+        ProfessionRewardPassiveConfig.load();
 
         /*
          Wild battle loot config
@@ -161,7 +163,6 @@ public class ChampUtilsMod implements ModInitializer {
 
                     ProfessionManager.saveAll();
                     ProfessionBlockTracker.save();
-                    ProfessionNotificationSettings.save();
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."

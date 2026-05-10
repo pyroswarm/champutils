@@ -128,6 +128,7 @@ public class ProfessionConfig {
              */
             config.farmingXp.put("default", 10);
 
+
             /*
              Rewards
              */

@@ -1,6 +1,7 @@
 package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
@@ -67,6 +68,42 @@ public class ProfessionToolRequirementListener {
                                     serverPlayer,
                                     stack,
                                     state
+                            )
+                    ) {
+                        return InteractionResult.FAIL;
+                    }
+
+                    return InteractionResult.PASS;
+                }
+        );
+
+        /*
+         Left click entity attacks.
+         This prevents under-level, unidentified, or broken profession weapons
+         from being used against mobs/players.
+         */
+        AttackEntityCallback.EVENT.register(
+                (
+                        player,
+                        world,
+                        hand,
+                        entity,
+                        hitResult
+                ) -> {
+
+                    if (!(player instanceof ServerPlayer serverPlayer)) {
+                        return InteractionResult.PASS;
+                    }
+
+                    ItemStack stack =
+                            player.getItemInHand(
+                                    hand
+                            );
+
+                    if (
+                            !canUseTool(
+                                    serverPlayer,
+                                    stack
                             )
                     ) {
                         return InteractionResult.FAIL;
@@ -508,6 +545,7 @@ public class ProfessionToolRequirementListener {
 
         return builder
                 .toString()
-                .trim();
+                .trim()
+                .replaceAll("\\bXp\\b", "XP");
     }
 }

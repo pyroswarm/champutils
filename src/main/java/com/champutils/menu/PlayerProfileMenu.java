@@ -64,7 +64,7 @@ public class PlayerProfileMenu {
                 gui,
                 4,
                 10,12,14,16,
-                29,31,33,
+                29,31,33,35,
                 49
         );
 
@@ -288,6 +288,38 @@ public class PlayerProfileMenu {
                                         SeasonHistoryMenu.open(
                                                 viewer,
                                                 targetName
+                                        )
+                        )
+        );
+
+
+        /* PROFESSIONS */
+
+        gui.setSlot(
+                35,
+                new GuiElementBuilder(
+                        Items.DIAMOND_PICKAXE
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§aProfessions"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7View profession progress"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7and profession leaderboards"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        ProfessionMenu.open(
+                                                viewer
                                         )
                         )
         );

@@ -1,7 +1,5 @@
 package com.champutils.profession;
 
-import com.champutils.profession.passives.DurabilitySavePassive;
-
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
 import net.minecraft.ChatFormatting;
@@ -12,7 +10,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.AxeItem;
@@ -22,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
@@ -199,6 +197,14 @@ public class ProfessionToolManager {
 
         if (base.contains("hoe")) {
             return new CustomHoeItem(
+                    baseItem,
+                    configuredTier,
+                    properties
+            );
+        }
+
+        if (base.contains("sword")) {
+            return new CustomSwordItem(
                     baseItem,
                     configuredTier,
                     properties
@@ -566,11 +572,15 @@ public class ProfessionToolManager {
             ProfessionToolConfig.ToolData toolData
     ) {
 
-        String displayName =
-                ProfessionToolConfig.getDisplayName(
-                        toolId,
-                        toolData
-                );
+        String mysteryName =
+                formatRarity(
+                        toolData.rarity
+                ) +
+                        " Unidentified " +
+                        formatUnidentifiedToolType(
+                                toolId,
+                                toolData
+                        );
 
         boolean ascended =
                 ProfessionToolMetadata.isAscended(
@@ -580,10 +590,12 @@ public class ProfessionToolManager {
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        (ascended ? "Ascended Unidentified " : "Unidentified ") +
-                                displayName
+                        (ascended ? "Ascended " : "") +
+                                mysteryName
                 ).withStyle(
-                        ChatFormatting.DARK_GRAY
+                        getRarityColor(
+                                toolData.rarity
+                        )
                 )
         );
 
@@ -1861,7 +1873,8 @@ public class ProfessionToolManager {
 
         return builder
                 .toString()
-                .trim();
+                .trim()
+                .replaceAll("\\bXp\\b", "XP");
     }
 
     private static String formatStatName(
@@ -1875,12 +1888,17 @@ public class ProfessionToolManager {
             return "";
         }
 
-        return formatWords(
-                stat.replaceAll(
-                        "([a-z])([A-Z])",
-                        "$1 $2"
-                )
-        );
+        return switch (stat) {
+            case "damage", "slayingDamage", "damageBonus" -> "Damage";
+            case "critChance" -> "Crit Chance";
+            case "lifestealChance" -> "Lifesteal Chance";
+            default -> formatWords(
+                    stat.replaceAll(
+                            "([a-z])([A-Z])",
+                            "$1 $2"
+                    )
+            );
+        };
     }
 
     private static String formatStatValue(
@@ -2079,6 +2097,62 @@ public class ProfessionToolManager {
         return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
     }
 
+    public static Item getPolymerBaseForDisplay(
+            ItemStack stack,
+            Item identifiedBaseItem
+    ) {
+
+        if (
+                stack != null &&
+                        !stack.isEmpty() &&
+                        ProfessionToolMetadata.isProfessionTool(stack) &&
+                        !ProfessionToolMetadata.isIdentified(stack)
+        ) {
+            return Items.PAPER;
+        }
+
+        return identifiedBaseItem == null
+                ? Items.PAPER
+                : identifiedBaseItem;
+    }
+
+    private static String formatUnidentifiedToolType(
+            String toolId,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        String raw =
+                ((toolData == null || toolData.baseItem == null)
+                        ? ""
+                        : toolData.baseItem) +
+                        " " +
+                        (toolId == null ? "" : toolId);
+
+        raw = raw.toLowerCase();
+
+        if (raw.contains("pickaxe")) {
+            return "Pickaxe";
+        }
+
+        if (raw.contains("axe")) {
+            return "Axe";
+        }
+
+        if (raw.contains("hoe")) {
+            return "Hoe";
+        }
+
+        if (raw.contains("sword")) {
+            return "Sword";
+        }
+
+        if (raw.contains("shovel")) {
+            return "Shovel";
+        }
+
+        return "Tool";
+    }
+
     public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
 
         private final Item baseItem;
@@ -2135,26 +2209,10 @@ public class ProfessionToolManager {
         ) {
 
             if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
-                if (
-                        miningEntity instanceof ServerPlayer serverPlayer &&
-                                level instanceof ServerLevel serverLevel &&
-                                DurabilitySavePassive.shouldPreserveDurability(
-                                        serverPlayer,
-                                        stack,
-                                        serverLevel,
-                                        pos,
-                                        state
-                                )
-                ) {
-                    ProfessionToolManager.refreshToolStack(
-                            stack
-                    );
-                } else {
-                    ProfessionToolManager.damageTool(
-                            stack,
-                            1
-                    );
-                }
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
             }
 
             return true;
@@ -2174,7 +2232,10 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerBaseForDisplay(
+                    stack,
+                    baseItem
+            );
         }
     }
 
@@ -2226,7 +2287,10 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerBaseForDisplay(
+                    stack,
+                    baseItem
+            );
         }
     }
 
@@ -2278,7 +2342,50 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerBaseForDisplay(
+                    stack,
+                    baseItem
+            );
+        }
+    }
+
+    public static class CustomSwordItem extends SwordItem implements PolymerItem {
+
+        private final Item baseItem;
+
+        public CustomSwordItem(
+                Item baseItem,
+                Tier tier,
+                Properties properties
+        ) {
+
+            super(
+                    tier,
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
+        }
+
+        @Override
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
+            return ProfessionToolManager.getPolymerBaseForDisplay(
+                    stack,
+                    baseItem
+            );
         }
     }
 
@@ -2313,7 +2420,10 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerBaseForDisplay(
+                    stack,
+                    baseItem
+            );
         }
     }
 }

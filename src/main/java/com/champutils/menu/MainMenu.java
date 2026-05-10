@@ -31,9 +31,8 @@ public class MainMenu {
 
         MenuUtil.fillBorders(
                 gui,
-                10,13,16,22
+                10,12,14,16,20,24
         );
-
 
         gui.setSlot(
                 10,
@@ -54,9 +53,37 @@ public class MainMenu {
                         )
         );
 
+        gui.setSlot(
+                12,
+                new GuiElementBuilder(
+                        Items.CHEST
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§aItems"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Identify, reroll, salvage, and manage fragments"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        ItemsMenu.open(
+                                                player
+                                        )
+                        )
+        );
 
         gui.setSlot(
-                13,
+                14,
                 new GuiElementBuilder(
                         CobblemonItems.ICE_GEM
                 )
@@ -73,7 +100,6 @@ public class MainMenu {
                                         )
                         )
         );
-
 
         gui.setSlot(
                 16,
@@ -94,10 +120,37 @@ public class MainMenu {
                         )
         );
 
-
-        // NEW CHAT LOOKUP BUTTON
         gui.setSlot(
-                22,
+                20,
+                new GuiElementBuilder(
+                        Items.NETHER_STAR
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§6Profession Leaderboard"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7View top profession players"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        ProfessionLeaderboardMenu.open(
+                                                player
+                                        )
+                        )
+        );
+
+        gui.setSlot(
+                24,
                 new GuiElementBuilder(
                         Items.COMPASS
                 )

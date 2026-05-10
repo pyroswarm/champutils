@@ -136,6 +136,86 @@ public class ProfessionManager {
                 );
     }
 
+
+
+    public static int getFragments(
+            ServerPlayer player,
+            String fragmentKey
+    ) {
+        if (player == null || fragmentKey == null || fragmentKey.isBlank()) {
+            return 0;
+        }
+
+        return getData(player)
+                .fragments
+                .getOrDefault(
+                        fragmentKey,
+                        0
+                );
+    }
+
+    public static void addFragments(
+            ServerPlayer player,
+            String fragmentKey,
+            int amount
+    ) {
+        if (player == null || fragmentKey == null || fragmentKey.isBlank() || amount <= 0) {
+            return;
+        }
+
+        ProfessionDataManager.ProfessionData data =
+                getData(player);
+
+        int current =
+                data.fragments.getOrDefault(
+                        fragmentKey,
+                        0
+                );
+
+        data.fragments.put(
+                fragmentKey,
+                current + amount
+        );
+
+        markDirty(
+                player.getUUID()
+        );
+    }
+
+    public static boolean removeFragments(
+            ServerPlayer player,
+            String fragmentKey,
+            int amount
+    ) {
+        if (player == null || fragmentKey == null || fragmentKey.isBlank() || amount <= 0) {
+            return false;
+        }
+
+        ProfessionDataManager.ProfessionData data =
+                getData(player);
+
+        int current =
+                data.fragments.getOrDefault(
+                        fragmentKey,
+                        0
+                );
+
+        if (current < amount) {
+            return false;
+        }
+
+        data.fragments.put(
+                fragmentKey,
+                current - amount
+        );
+
+        markDirty(
+                player.getUUID()
+        );
+
+        return true;
+    }
+
     private static void markDirty(
             UUID uuid
     ) {

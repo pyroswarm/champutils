@@ -152,6 +152,76 @@ public class ActiveEffectManager {
         );
     }
 
+
+    public static double getForestryPassiveChanceMultiplier(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        TimedEffect effect =
+                getTimedEffect(
+                        player,
+                        "forestry_focus"
+                );
+
+        if (effect == null) {
+            return 1.0D;
+        }
+
+        if (System.currentTimeMillis() > effect.expiresAt) {
+            removeTimedEffect(
+                    player,
+                    "forestry_focus"
+            );
+            return 1.0D;
+        }
+
+        if (!effect.matchesTool(stack)) {
+            return 1.0D;
+        }
+
+        return Math.max(
+                1.0D,
+                effect.multiplier
+        );
+    }
+
+    public static boolean hasTimberBurst(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        return hasTimedEffect(
+                player,
+                "timber_burst",
+                stack
+        );
+    }
+
+    public static boolean hasLeafstorm(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        return hasTimedEffect(
+                player,
+                "leafstorm",
+                stack
+        );
+    }
+
+    public static boolean hasForestryReplant(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        return hasToggle(
+                player,
+                "forestry_replant",
+                stack
+        );
+    }
+
     public static void activateTimed(
             ServerPlayer player,
             String effectId,

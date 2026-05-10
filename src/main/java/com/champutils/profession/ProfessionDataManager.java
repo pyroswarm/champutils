@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +29,9 @@ public class ProfessionDataManager {
                 new HashMap<>();
 
         public Map<String, Integer> xp =
+                new HashMap<>();
+
+        public Map<String, Integer> fragments =
                 new HashMap<>();
     }
 
@@ -70,19 +75,9 @@ public class ProfessionDataManager {
         data.name =
                 name;
 
-        for (ProfessionType type :
-                ProfessionType.values()) {
-
-            data.levels.put(
-                    type.name(),
-                    1
-            );
-
-            data.xp.put(
-                    type.name(),
-                    0
-            );
-        }
+        ensureProfessionDefaults(
+                data
+        );
 
         save(
                 uuid,
@@ -124,6 +119,10 @@ public class ProfessionDataManager {
                 data.name =
                         name;
 
+                ensureProfessionDefaults(
+                        data
+                );
+
                 return data;
             }
 
@@ -139,7 +138,130 @@ public class ProfessionDataManager {
             d.name =
                     name;
 
+            ensureProfessionDefaults(
+                    d
+            );
+
             return d;
+        }
+    }
+
+    public static List<ProfessionData> getAllPlayers() {
+        List<ProfessionData> result =
+                new ArrayList<>();
+
+        File dir =
+                professionDir();
+
+        File[] files =
+                dir.listFiles(
+                        (d, name) -> name.endsWith(".json")
+                );
+
+        if (files == null) {
+            return result;
+        }
+
+        for (File file : files) {
+            try (
+                    FileReader r =
+                            new FileReader(
+                                    file
+                            )
+            ) {
+                ProfessionData data =
+                        GSON.fromJson(
+                                r,
+                                ProfessionData.class
+                        );
+
+                if (data == null) {
+                    continue;
+                }
+
+                if (data.uuid == null || data.uuid.isBlank()) {
+                    String fileName =
+                            file.getName();
+
+                    data.uuid =
+                            fileName.substring(
+                                    0,
+                                    fileName.length() - 5
+                            );
+                }
+
+                if (data.name == null || data.name.isBlank()) {
+                    data.name =
+                            data.uuid;
+                }
+
+                ensureProfessionDefaults(
+                        data
+                );
+
+                result.add(
+                        data
+                );
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return result;
+    }
+
+    public static int getOverallLevel(
+            ProfessionData data
+    ) {
+        ensureProfessionDefaults(
+                data
+        );
+
+        int total =
+                0;
+
+        for (ProfessionType type :
+                ProfessionType.values()) {
+            total +=
+                    data.levels.getOrDefault(
+                            type.name(),
+                            1
+                    );
+        }
+
+        return total;
+    }
+
+    public static void ensureProfessionDefaults(
+            ProfessionData data
+    ) {
+        if (data.levels == null) {
+            data.levels =
+                    new HashMap<>();
+        }
+
+        if (data.xp == null) {
+            data.xp =
+                    new HashMap<>();
+        }
+
+        if (data.fragments == null) {
+            data.fragments =
+                    new HashMap<>();
+        }
+
+        for (ProfessionType type :
+                ProfessionType.values()) {
+            data.levels.putIfAbsent(
+                    type.name(),
+                    1
+            );
+
+            data.xp.putIfAbsent(
+                    type.name(),
+                    0
+            );
         }
     }
 
@@ -147,6 +269,10 @@ public class ProfessionDataManager {
             UUID uuid,
             ProfessionData data
     ) {
+        ensureProfessionDefaults(
+                data
+        );
+
         try (
                 FileWriter w =
                         new FileWriter(

@@ -18,90 +18,51 @@ public class ActiveAbilityRegistry {
     public static void registerDefaults() {
 
         ABILITIES.clear();
-        register(
-                new ProspectAbility()
-        );
-        register(
-                new ExcavationAbility()
-        );
-        register(
-                new AutoSmeltBurstAbility()
-        );
-        register(
-                new AutoSmeltToggleAbility()
-        );
-        register(
-                new OreMagnetToggleAbility()
-        );
-        register(
-                new VeinMinerBurstAbility()
-        );
-        register(
-                new MinersFocusAbility()
-        );
-        register(
-                new TreasureSenseAbility()
-        );
-        register(
-                new BlastMineAbility()
-        );
-        register(
-                new StonebreakerAbility()
-        );
+
+        // Mining
+        register(new ProspectAbility());
+        register(new ExcavationAbility());
+        register(new AutoSmeltBurstAbility());
+        register(new AutoSmeltToggleAbility());
+        register(new OreMagnetToggleAbility());
+        register(new VeinMinerBurstAbility());
+        register(new MinersFocusAbility());
+        register(new TreasureSenseAbility());
+        register(new BlastMineAbility());
+        register(new StonebreakerAbility());
+
+        // Forestry
+        register(new TimberBurstAbility());
+        register(new LeafstormAbility());
+        register(new LumberjackFocusAbility());
+        register(new ForestersFocusAbility());
+        register(new TreeReplantToggleAbility());
+
+        // Farming
+        register(new HarvestWaveAbility());
+        register(new AutoReplantToggleAbility());
+        register(new GoldenRainAbility());
     }
 
-    public static void register(
-            ProfessionActiveAbility ability
-    ) {
-
-        if (
-                ability == null ||
-                        ability.id() == null ||
-                        ability.id().isBlank()
-        ) {
+    public static void register(ProfessionActiveAbility ability) {
+        if (ability == null || ability.id() == null || ability.id().isBlank()) {
             return;
         }
 
-        ABILITIES.put(
-                normalize(
-                        ability.id()
-                ),
-                ability
-        );
+        ABILITIES.put(normalize(ability.id()), ability);
     }
 
-    public static boolean use(
-            String abilityId,
-            ServerPlayer player,
-            ItemStack stack
-    ) {
-
-        ProfessionActiveAbility ability =
-                ABILITIES.get(
-                        normalize(
-                                abilityId
-                        )
-                );
+    public static boolean use(String abilityId, ServerPlayer player, ItemStack stack) {
+        ProfessionActiveAbility ability = ABILITIES.get(normalize(abilityId));
 
         if (ability == null) {
             return false;
         }
 
-        return ability.use(
-                player,
-                stack
-        );
+        return ability.use(player, stack);
     }
 
-    private static String normalize(
-            String value
-    ) {
-
-        return value == null
-                ? ""
-                : value.trim()
-                .toLowerCase(
-                        Locale.ROOT
-                );
+    private static String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 }

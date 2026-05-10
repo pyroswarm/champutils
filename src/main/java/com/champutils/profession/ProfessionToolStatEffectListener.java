@@ -29,38 +29,51 @@ public class ProfessionToolStatEffectListener {
     }
 
     public static void register() {
-
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        updateMiningSpeedModifier(
-                                player
-                        );
+                        updateMiningSpeedModifier(player);
                     }
                 }
         );
     }
 
-    private static void updateMiningSpeedModifier(
-            ServerPlayer player
-    ) {
-
-        AttributeInstance attribute =
-                getBlockBreakSpeedAttribute(
-                        player
-                );
+    private static void updateMiningSpeedModifier(ServerPlayer player) {
+        AttributeInstance attribute = getAttribute(player, BLOCK_BREAK_SPEED_ID);
 
         if (attribute == null) {
             return;
         }
 
-        attribute.removeModifier(
-                MINING_SPEED_MODIFIER_ID
+        attribute.removeModifier(MINING_SPEED_MODIFIER_ID);
+
+        ItemStack stack = player.getMainHandItem();
+
+        if (!isUsableProfessionTool(player, stack)) {
+            return;
+        }
+
+        double miningSpeed = ProfessionToolUtil.getStat(stack, "miningSpeed");
+
+        if (miningSpeed <= 0.0D) {
+            return;
+        }
+
+        double modifierAmount = Math.max(
+                0.0D,
+                ProfessionToolManager.getMiningSpeedMultiplier(miningSpeed) - 1.0D
         );
 
-        ItemStack stack =
-                player.getMainHandItem();
+        AttributeModifier modifier = new AttributeModifier(
+                MINING_SPEED_MODIFIER_ID,
+                modifierAmount,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
+        );
 
+        attribute.addTransientModifier(modifier);
+    }
+
+    private static boolean isUsableProfessionTool(ServerPlayer player, ItemStack stack) {
         if (
                 stack == null ||
                         stack.isEmpty() ||
@@ -68,106 +81,42 @@ public class ProfessionToolStatEffectListener {
                         !ProfessionToolMetadata.isIdentified(stack) ||
                         ProfessionToolMetadata.isBroken(stack)
         ) {
-            return;
+            return false;
         }
 
-        String toolId =
-                ProfessionToolUtil.getToolId(
-                        stack
-                );
+        String toolId = ProfessionToolUtil.getToolId(stack);
 
         if (toolId == null) {
-            return;
+            return false;
         }
 
-        ProfessionToolConfig.ToolData toolData =
-                ProfessionToolConfig.TOOLS.get(
-                        toolId
-                );
+        ProfessionToolConfig.ToolData toolData = ProfessionToolConfig.TOOLS.get(toolId);
 
-        if (toolData == null) {
-            return;
+        if (toolData == null || toolData.profession == null) {
+            return false;
         }
 
         ProfessionType professionType;
 
         try {
-            professionType =
-                    ProfessionType.valueOf(
-                            toolData.profession.toUpperCase()
-                    );
+            professionType = ProfessionType.valueOf(toolData.profession.toUpperCase());
         }
         catch (Exception ignored) {
-            return;
+            return false;
         }
 
-        int playerLevel =
-                ProfessionManager.getLevel(
-                        player,
-                        professionType
-                );
-
-        if (playerLevel < toolData.requiredLevel) {
-            return;
-        }
-
-        double miningSpeed =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        "miningSpeed"
-                );
-
-        if (miningSpeed <= 0.0D) {
-            return;
-        }
-
-        /*
-         * Keep the visible Polymer/client mining animation close to the
-         * server-side percentage multiplier.
-         *
-         * IMPORTANT: for the smoothest feel, the configured baseItem should
-         * match toolTier so the client starts from the same vanilla baseline
-         * as the server. Example: toolTier WOOD + minecraft:wooden_pickaxe.
-         */
-        double modifierAmount =
-                Math.max(
-                        0.0D,
-                        ProfessionToolManager.getMiningSpeedMultiplier(
-                                miningSpeed
-                        ) - 1.0D
-                );
-
-        AttributeModifier modifier =
-                new AttributeModifier(
-                        MINING_SPEED_MODIFIER_ID,
-                        modifierAmount,
-                        AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
-                );
-
-        attribute.addTransientModifier(
-                modifier
-        );
+        return ProfessionManager.getLevel(player, professionType) >= toolData.requiredLevel;
     }
 
-    private static AttributeInstance getBlockBreakSpeedAttribute(
-            ServerPlayer player
-    ) {
-
-        Holder<Attribute> holder =
-                BuiltInRegistries.ATTRIBUTE
-                        .getHolder(
-                                BLOCK_BREAK_SPEED_ID
-                        )
-                        .orElse(
-                                null
-                        );
+    private static AttributeInstance getAttribute(ServerPlayer player, ResourceLocation attributeId) {
+        Holder<Attribute> holder = BuiltInRegistries.ATTRIBUTE
+                .getHolder(attributeId)
+                .orElse(null);
 
         if (holder == null) {
             return null;
         }
 
-        return player.getAttribute(
-                holder
-        );
+        return player.getAttribute(holder);
     }
 }

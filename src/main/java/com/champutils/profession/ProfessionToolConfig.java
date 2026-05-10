@@ -136,6 +136,22 @@ public class ProfessionToolConfig {
          0 or omitted = the ability uses its own default radius.
          */
         public int treasureSenseRadius = 0;
+
+        /*
+         Optional scan radius for nature_sense.
+         0 or omitted = the ability uses its own default radius.
+         */
+        public int natureSenseRadius = 0;
+
+        /*
+         Maximum connected logs felled by timber_burst.
+         */
+        public int maxTimberBlocks = 32;
+
+        /*
+         Radius around the chopped log cleared by leafstorm.
+         */
+        public int leafstormRadius = 5;
     }
 
 
@@ -990,6 +1006,7 @@ public class ProfessionToolConfig {
 
         return builder
                 .toString()
-                .trim();
+                .trim()
+                .replaceAll("\\bXp\\b", "XP");
     }
 }

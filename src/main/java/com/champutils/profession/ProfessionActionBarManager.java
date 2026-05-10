@@ -5,58 +5,34 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class ProfessionActionBarManager {
 
-    private static final Map<UUID, Long> LAST_MESSAGE =
-            new HashMap<>();
+    private static final Map<UUID, Long> XP_COOLDOWNS = new HashMap<>();
+    private static final long XP_COOLDOWN_MS = 900L;
 
-    private static final long COOLDOWN_MS = 750;
+    private ProfessionActionBarManager() {
+    }
 
-    public static void sendXpMessage(
-            ServerPlayer player,
-            ProfessionType type,
-            int xp
-    ) {
-
-        if (player == null || xp <= 0) {
+    public static void sendXpMessage(ServerPlayer player, ProfessionType type, int xp) {
+        if (player == null || type == null || xp <= 0) {
             return;
         }
 
-        if (isOnCooldown(player)) {
+        if (isXpOnCooldown(player)) {
             return;
         }
 
-        String color =
-                switch (type) {
-                    case MINING -> "§b";
-                    case FORESTRY -> "§a";
-                    case FARMING -> "§e";
-                    case BATTLING -> "§6";
-                };
+        String color = getProfessionColor(type);
 
         player.displayClientMessage(
-                Component.literal(
-                        color +
-                                "+" +
-                                xp +
-                                " " +
-                                type.name() +
-                                " XP"
-                ),
+                Component.literal(color + "+" + xp + " " + type.name() + " XP"),
                 true
         );
 
-        /*
-         XP ding sound
-         */
         player.level().playSound(
                 null,
                 player.blockPosition(),
@@ -66,47 +42,19 @@ public class ProfessionActionBarManager {
                 1.8f
         );
 
-        LAST_MESSAGE.put(
-                player.getUUID(),
-                System.currentTimeMillis()
-        );
+        XP_COOLDOWNS.put(player.getUUID(), System.currentTimeMillis());
     }
 
-    public static void sendLevelUpMessage(
-            ServerPlayer player,
-            ProfessionType type,
-            int level
-    ) {
-
-        if (player == null) {
+    public static void sendLevelUpMessage(ServerPlayer player, ProfessionType type, int level) {
+        if (player == null || type == null || level <= 0) {
             return;
         }
 
-        player.connection.send(
-                new ClientboundSetTitlesAnimationPacket(
-                        5,
-                        40,
-                        10
-                )
-        );
+        String color = getProfessionColor(type);
 
-        player.connection.send(
-                new ClientboundSetTitleTextPacket(
-                        Component.literal(
-                                "§dLEVEL UP!"
-                        )
-                )
-        );
-
-        player.connection.send(
-                new ClientboundSetSubtitleTextPacket(
-                        Component.literal(
-                                "§f" +
-                                        type.name() +
-                                        " Lv. " +
-                                        level
-                        )
-                )
+        player.displayClientMessage(
+                Component.literal(color + type.name() + " Level Up! §fLevel " + level),
+                true
         );
 
         player.level().playSound(
@@ -114,87 +62,46 @@ public class ProfessionActionBarManager {
                 player.blockPosition(),
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
-                1f,
-                1.1f
-        );
-
-        LAST_MESSAGE.put(
-                player.getUUID(),
-                System.currentTimeMillis()
+                0.8f,
+                1.25f
         );
     }
 
-    public static void sendRareDropMessage(
-            ServerPlayer player,
-            String itemId,
-            int amount
-    ) {
-
-        if (player == null) {
+    public static void sendRareDropMessage(ServerPlayer player, String itemId, int amount) {
+        if (player == null || itemId == null || itemId.isBlank() || amount <= 0) {
             return;
         }
 
-        /*
-         Big center-screen popup
-         */
-        player.connection.send(
-                new ClientboundSetTitlesAnimationPacket(
-                        5,
-                        50,
-                        15
-                )
+        player.displayClientMessage(
+                Component.literal("§6Rare Drop! §e" + itemId + " x" + amount),
+                true
         );
 
-        player.connection.send(
-                new ClientboundSetTitleTextPacket(
-                        Component.literal(
-                                "§6✦ RARE FIND ✦"
-                        )
-                )
-        );
-
-        player.connection.send(
-                new ClientboundSetSubtitleTextPacket(
-                        Component.literal(
-                                "§e" +
-                                        itemId +
-                                        " x" +
-                                        amount
-                        )
-                )
-        );
-
-        /*
-         Rare reward sound
-         */
         player.level().playSound(
                 null,
                 player.blockPosition(),
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,
-                1f,
-                1f
-        );
-
-        LAST_MESSAGE.put(
-                player.getUUID(),
-                System.currentTimeMillis()
+                1.0f,
+                1.2f
         );
     }
 
-    private static boolean isOnCooldown(
-            ServerPlayer player
-    ) {
+    private static boolean isXpOnCooldown(ServerPlayer player) {
+        Long last = XP_COOLDOWNS.get(player.getUUID());
+        if (last == null) {
+            return false;
+        }
+        return System.currentTimeMillis() - last < XP_COOLDOWN_MS;
+    }
 
-        long now =
-                System.currentTimeMillis();
-
-        long last =
-                LAST_MESSAGE.getOrDefault(
-                        player.getUUID(),
-                        0L
-                );
-
-        return now - last < COOLDOWN_MS;
+    private static String getProfessionColor(ProfessionType type) {
+        return switch (type) {
+            case MINING -> "§b";
+            case FORESTRY -> "§a";
+            case FARMING -> "§e";
+            case BATTLING -> "§6";
+            default -> "§f";
+        };
     }
 }

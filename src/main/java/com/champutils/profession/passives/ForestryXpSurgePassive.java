@@ -4,8 +4,8 @@ import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionToolUtil;
-import com.champutils.profession.actives.ActiveEffectManager;
 import com.champutils.profession.ProfessionType;
+import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -17,9 +17,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Random;
 
-public class XpSurgePassive implements ProfessionPassive {
-
-    public static final String STAT_ID = "xpSurgeChance";
+public class ForestryXpSurgePassive implements ProfessionPassive {
 
     private static final Random RANDOM =
             new Random();
@@ -45,11 +43,6 @@ public class XpSurgePassive implements ProfessionPassive {
             return;
         }
 
-        /*
-         * Economy/progression guard: XP Surge must only trigger from natural
-         * mining blocks. PassiveRegistry already checks this, but this keeps
-         * the passive safe if it is ever called directly later.
-         */
         if (
                 ProfessionBlockTracker.isPlayerPlaced(
                         level,
@@ -62,30 +55,35 @@ public class XpSurgePassive implements ProfessionPassive {
         Integer baseXp =
                 ProfessionConfig
                         .SETTINGS
-                        .miningXp
+                        .forestryXp
                         .get(
                                 blockId
                         );
 
-        if (
-                baseXp == null ||
-                        baseXp <= 0
-        ) {
+        if (baseXp == null || baseXp <= 0) {
             return;
         }
 
         double chancePercent =
                 ProfessionToolUtil.getStat(
                         stack,
-                        STAT_ID
+                        "forestryXpSurgeChance"
                 );
+
+        if (chancePercent <= 0.0D) {
+            chancePercent =
+                    ProfessionToolUtil.getStat(
+                            stack,
+                            "xpSurgeChance"
+                    );
+        }
 
         if (chancePercent <= 0.0D) {
             return;
         }
 
-        double focusMultiplier =
-                ActiveEffectManager.getMiningPassiveChanceMultiplier(
+        double multiplier =
+                ActiveEffectManager.getForestryPassiveChanceMultiplier(
                         player,
                         stack
                 );
@@ -94,7 +92,7 @@ public class XpSurgePassive implements ProfessionPassive {
                 RANDOM.nextDouble() >=
                         Math.min(
                                 100.0D,
-                                chancePercent * focusMultiplier
+                                chancePercent * multiplier
                         ) / 100.0D
         ) {
             return;
@@ -108,7 +106,7 @@ public class XpSurgePassive implements ProfessionPassive {
 
         ProfessionManager.addXp(
                 player,
-                ProfessionType.MINING,
+                ProfessionType.FORESTRY,
                 bonusXp
         );
 
@@ -116,7 +114,7 @@ public class XpSurgePassive implements ProfessionPassive {
                 Component.literal(
                         "§aXP Surge: §f+" +
                                 bonusXp +
-                                " bonus MINING XP!"
+                                " bonus FORESTRY XP!"
                 ),
                 true
         );

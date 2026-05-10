@@ -38,7 +38,7 @@ public class ProfileMenu {
                 gui,
                 4,
                 10,12,14,16,
-                29,33,
+                29,31,33,35,
                 49
         );
 
@@ -246,6 +246,74 @@ BADGE CASE
                         .setCallback(
                                 (i,c,t)->
                                         BadgeMenu.open(
+                                                player
+                                        )
+                        )
+        );
+
+
+/* =========================
+PROFESSIONS
+========================= */
+
+        gui.setSlot(
+                31,
+                new GuiElementBuilder(
+                        Items.EXPERIENCE_BOTTLE
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§aProfessions"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7View profession levels"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        ProfessionMenu.open(
+                                                player
+                                        )
+                        )
+        );
+
+
+/* =========================
+PROFESSION LEADERBOARD
+========================= */
+
+        gui.setSlot(
+                35,
+                new GuiElementBuilder(
+                        Items.NETHER_STAR
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§6Profession Leaderboard"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7View top profession players"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        ProfessionLeaderboardMenu.open(
                                                 player
                                         )
                         )

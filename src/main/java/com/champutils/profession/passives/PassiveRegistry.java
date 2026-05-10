@@ -16,6 +16,9 @@ public class PassiveRegistry {
     private static final List<ProfessionPassive> MINING_PASSIVES =
             new ArrayList<>();
 
+    private static final List<ProfessionPassive> FORESTRY_PASSIVES =
+            new ArrayList<>();
+
     private PassiveRegistry() {
     }
 
@@ -40,6 +43,17 @@ public class PassiveRegistry {
 
         MINING_PASSIVES.add(
                 new TreasurePingPassive()
+        );
+
+        FORESTRY_PASSIVES.clear();
+        FORESTRY_PASSIVES.add(
+                new ForestryDropMultiplierPassive()
+        );
+        FORESTRY_PASSIVES.add(
+                new ForestryRewardFinderPassive()
+        );
+        FORESTRY_PASSIVES.add(
+                new ForestryXpSurgePassive()
         );
     }
 
@@ -107,4 +121,63 @@ public class PassiveRegistry {
             );
         }
     }
+    public static void applyForestryPassives(
+            ServerPlayer player,
+            ServerLevel level,
+            BlockPos pos,
+            String blockId
+    ) {
+
+        if (
+                player == null ||
+                        level == null ||
+                        pos == null ||
+                        blockId == null ||
+                        blockId.isBlank()
+        ) {
+            return;
+        }
+
+        if (
+                ProfessionBlockTracker.isPlayerPlaced(
+                        level,
+                        pos
+                )
+        ) {
+            return;
+        }
+
+        ItemStack stack =
+                player.getMainHandItem();
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(
+                                stack
+                        ) ||
+                        !ProfessionToolMetadata.isIdentified(
+                                stack
+                        ) ||
+                        ProfessionToolMetadata.isBroken(
+                                stack
+                        )
+        ) {
+            return;
+        }
+
+        for (
+                ProfessionPassive passive :
+                FORESTRY_PASSIVES
+        ) {
+            passive.apply(
+                    player,
+                    stack,
+                    level,
+                    pos,
+                    blockId
+            );
+        }
+    }
+
 }

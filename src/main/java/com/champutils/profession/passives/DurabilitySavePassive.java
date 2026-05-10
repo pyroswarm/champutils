@@ -4,6 +4,7 @@ import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.MiningBlockUtil;
+import com.champutils.profession.actives.ForestryBlockUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
@@ -97,7 +98,10 @@ public final class DurabilitySavePassive {
                         level,
                         pos,
                         state
-                )
+                ) &&
+                        !ForestryBlockUtil.isForestryLog(
+                                state
+                        )
         ) {
             return false;
         }
