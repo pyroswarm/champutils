@@ -2,6 +2,8 @@ package com.champutils.gym;
 
 import com.champutils.badge.BadgeType;
 import com.champutils.battle.BattleStateManager;
+import com.champutils.worldevent.WorldEventManager;
+import com.champutils.worldevent.WorldEventBindingRegistry;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
@@ -53,6 +55,27 @@ public class GymBattleStartHandler {
                     player == null
                             ||
                             gymNpc == null
+            ){
+                return;
+            }
+
+
+            /*
+             * World event NPCs can be bound to existing NPCs, including NPCs
+             * that were previously gym-bound. Bound world-event NPCs must never
+             * run gym logic, even before/after the event is active, otherwise
+             * the old gym level cap/reward handler can intercept the click.
+             */
+            if(
+                    WorldEventBindingRegistry.isBoundNpc(
+                            gymNpc.getNpc()
+                                    .getUUID()
+                    )
+                            ||
+                    WorldEventManager.getByNpc(
+                            gymNpc.getNpc()
+                                    .getUUID()
+                    ) != null
             ){
                 return;
             }

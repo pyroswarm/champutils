@@ -9,6 +9,7 @@ import com.champutils.profession.ProfessionRewardPassiveConfig;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.WildBattleLootConfig;
+import com.champutils.worldevent.WorldEventConfig;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -61,6 +62,7 @@ public class ChampReloadCommand {
             ProfessionRewardPassiveConfig.load();
             ProfessionLootConfig.load();
             WildBattleLootConfig.load();
+            WorldEventConfig.load();
             GymConfig.load();
             GymRegistry.load();
 
@@ -73,7 +75,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, profession_reward_passives.json, gyms.json, gymleaders.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, world_events.json, profession_reward_passives.json, gyms.json, gymleaders.json"
                     ),
                     false
             );

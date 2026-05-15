@@ -6,6 +6,8 @@ import com.champutils.badge.BadgeUnlockManager;
 
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.battle.BattleStateManager;
+import com.champutils.worldevent.WorldEventManager;
+import com.champutils.worldevent.WorldEventBindingRegistry;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
@@ -150,6 +152,23 @@ public class GymBattleHandler {
             UUID npcUUID=
                     gymNpc.getEntity()
                             .getUUID();
+
+            /*
+             * If this NPC is bound to a world event, never run gym reward/reset
+             * logic for it. This prevents old gym bindings from leaking level
+             * caps, badge rewards, or team resets into world-event bosses.
+             */
+            if(
+                    WorldEventBindingRegistry.isBoundNpc(
+                            npcUUID
+                    )
+                            ||
+                    WorldEventManager.getByNpc(
+                            npcUUID
+                    ) != null
+            ){
+                return;
+            }
 
             if(
                     !GymRegistry.isGymNpc(

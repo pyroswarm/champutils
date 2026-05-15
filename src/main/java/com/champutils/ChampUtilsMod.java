@@ -17,6 +17,7 @@ import com.champutils.profession.actives.ActiveEffectManager;
 import com.champutils.profession.passives.PassiveRegistry;
 import com.champutils.profile.*;
 import com.champutils.rank.*;
+import com.champutils.worldevent.*;
 
 /*
  =========================
@@ -86,18 +87,15 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ProfessionConfig.load();
-        ProfessionNotificationSettings.load();
 
         /*
          Custom tools
          */
         ProfessionToolConfig.load();
         ProfessionFragmentConfig.load();
-        ProfessionWeaponFragmentConfig.load();
         ActiveAbilityRegistry.registerDefaults();
         PassiveRegistry.registerDefaults();
         ProfessionFragmentManager.registerFragments();
-        ProfessionWeaponFragmentManager.registerFragments();
         ProfessionFragmentUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
@@ -134,6 +132,14 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
+         WORLD EVENT CONFIG
+         =========================
+         */
+        WorldEventConfig.load();
+        WorldEventBindingRegistry.load();
+
+        /*
+         =========================
          SEASON STATE
          =========================
          */
@@ -166,6 +172,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     ProfessionManager.saveAll();
                     ProfessionBlockTracker.save();
+                    WorldEventBindingRegistry.save();
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."
@@ -279,8 +286,8 @@ public class ChampUtilsMod implements ModInitializer {
         EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
-        ProfessionPopupsCommand.register();
         ChampReloadCommand.register();
+        WorldEventCommand.register();
 
         /*
          New custom item test command
@@ -300,6 +307,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();
+        WorldEventBattleListener.register();
 
         /*
          =========================
@@ -373,6 +381,11 @@ public class ChampUtilsMod implements ModInitializer {
                             server.getPlayerList()
                                     .getPlayers()
                     );
+
+                    /*
+                     World event systems
+                     */
+                    WorldEventManager.tick(server);
 
                     /*
                      Season systems
