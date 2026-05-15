@@ -137,10 +137,12 @@ public class ProfessionRewardPassiveConfig {
             player.drop(toGive, false);
         }
 
-        player.displayClientMessage(
-                Component.literal("§6Found §e" + count + "x " + rewardName),
-                true
-        );
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(
+                    Component.literal("§6Found §e" + count + "x " + rewardName),
+                    true
+            );
+        }
 
         if (title != null && !title.isBlank()) {
             String prefix = subtitlePrefix == null || subtitlePrefix.isBlank()

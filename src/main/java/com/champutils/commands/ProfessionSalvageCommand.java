@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.profession.ItemSafetyService;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.menu.FragmentCraftingMenu;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 
@@ -80,14 +81,14 @@ public class ProfessionSalvageCommand {
                                                     )
                                     )
                                     .then(
-                                            Commands.literal("trade")
+                                            Commands.literal("craft")
                                                     .then(
                                                             Commands.argument(
                                                                             "rarity",
                                                                             StringArgumentType.word()
                                                                     )
                                                                     .suggests((context, builder) -> {
-                                                                        for (String rarity : ProfessionFragmentConfig.TRADES.keySet()) {
+                                                                        for (String rarity : ProfessionFragmentConfig.TOOL_CRAFTING.keySet()) {
                                                                             builder.suggest(rarity.toLowerCase());
                                                                         }
 
@@ -102,8 +103,6 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("pickaxe");
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
-                                                                                        builder.suggest("sword");
-                                                                                        builder.suggest("shovel");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -124,7 +123,7 @@ public class ProfessionSalvageCommand {
                                                                                                         "toolType"
                                                                                                 );
 
-                                                                                        return trade(
+                                                                                        return craft(
                                                                                                 player,
                                                                                                 rarity,
                                                                                                 toolType
@@ -132,6 +131,69 @@ public class ProfessionSalvageCommand {
                                                                                     })
                                                                     )
                                                     )
+                                    )
+                                    .then(
+                                            Commands.literal("trade")
+                                                    .then(
+                                                            Commands.argument(
+                                                                            "rarity",
+                                                                            StringArgumentType.word()
+                                                                    )
+                                                                    .suggests((context, builder) -> {
+                                                                        for (String rarity : ProfessionFragmentConfig.TOOL_CRAFTING.keySet()) {
+                                                                            builder.suggest(rarity.toLowerCase());
+                                                                        }
+
+                                                                        return builder.buildFuture();
+                                                                    })
+                                                                    .then(
+                                                                            Commands.argument(
+                                                                                            "toolType",
+                                                                                            StringArgumentType.word()
+                                                                                    )
+                                                                                    .suggests((context, builder) -> {
+                                                                                        builder.suggest("pickaxe");
+                                                                                        builder.suggest("axe");
+                                                                                        builder.suggest("hoe");
+
+                                                                                        return builder.buildFuture();
+                                                                                    })
+                                                                                    .executes(context -> {
+                                                                                        ServerPlayer player =
+                                                                                                context.getSource()
+                                                                                                        .getPlayerOrException();
+
+                                                                                        String rarity =
+                                                                                                StringArgumentType.getString(
+                                                                                                        context,
+                                                                                                        "rarity"
+                                                                                                );
+
+                                                                                        String toolType =
+                                                                                                StringArgumentType.getString(
+                                                                                                        context,
+                                                                                                        "toolType"
+                                                                                                );
+
+                                                                                        return craft(
+                                                                                                player,
+                                                                                                rarity,
+                                                                                                toolType
+                                                                                        );
+                                                                                    })
+                                                                    )
+                                                    )
+                                    )
+                                    .then(
+                                            Commands.literal("menu")
+                                                    .executes(context -> {
+                                                        ServerPlayer player =
+                                                                context.getSource()
+                                                                        .getPlayerOrException();
+
+                                                        FragmentCraftingMenu.open(player);
+                                                        return 1;
+                                                    })
                                     )
                                     .then(
                                             Commands.literal("list")
@@ -247,13 +309,13 @@ public class ProfessionSalvageCommand {
     }
 
 
-    private static int trade(
+    private static int craft(
             ServerPlayer player,
             String rarity,
             String toolType
     ) {
-        ProfessionFragmentManager.TradeResult result =
-                ProfessionFragmentManager.tradeForRandomTool(
+        ProfessionFragmentManager.CraftResult result =
+                ProfessionFragmentManager.craftRandomUnidentifiedTool(
                         player,
                         rarity,
                         toolType
@@ -271,17 +333,13 @@ public class ProfessionSalvageCommand {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§aTraded §6" +
+                        "§aCrafted an unidentified tool using §6" +
                                 result.cost() +
                                 "x " +
                                 ProfessionFragmentManager.formatWords(result.fragmentKey()) +
-                                " Fragment §afor an unidentified §f" +
-                                result.displayName() +
-                                " §7(" +
-                                ProfessionFragmentManager.formatWords(result.rarity()) +
-                                " " +
+                                " Fragment§a. Result: §f" +
                                 ProfessionFragmentManager.formatWords(result.toolType()) +
-                                ")."
+                                "§a."
                 )
         );
 

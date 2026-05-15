@@ -25,8 +25,20 @@ public final class ProfessionFragmentConfig {
     public static Map<String, UpgradeData> UPGRADES =
             new LinkedHashMap<>();
 
-    public static Map<String, TradeData> TRADES =
+    /**
+     * Config for crafting random unidentified profession tools from stored fragments.
+     * Keyed by rarity: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC.
+     */
+    public static Map<String, ToolCraftingData> TOOL_CRAFTING =
             new LinkedHashMap<>();
+
+    /**
+     * Backwards-compatible alias for older code/configs that called this "trades".
+     * New configs should use toolCrafting.
+     */
+    @Deprecated
+    public static Map<String, ToolCraftingData> TRADES =
+            TOOL_CRAFTING;
 
     private ProfessionFragmentConfig() {
     }
@@ -41,14 +53,21 @@ public final class ProfessionFragmentConfig {
         public Map<String, UpgradeData> upgrades =
                 new LinkedHashMap<>();
 
-        public Map<String, TradeData> trades =
+        public Map<String, ToolCraftingData> toolCrafting =
+                new LinkedHashMap<>();
+
+        /**
+         * Legacy field. If your current file still has "trades", it will be read
+         * and converted into TOOL_CRAFTING automatically.
+         */
+        public Map<String, ToolCraftingData> trades =
                 new LinkedHashMap<>();
     }
 
     public static class FragmentData {
         public String itemId = "";
         public String displayName = "";
-        public String baseItem = "minecraft:amethyst_shard";
+        public String baseItem = "minecraft:paper";
         public int customModelData = 0;
         public String color = "WHITE";
         public String lore = "Used to craft and upgrade profession tools.";
@@ -67,9 +86,9 @@ public final class ProfessionFragmentConfig {
         public int output = 1;
     }
 
-    public static class TradeData {
+    public static class ToolCraftingData {
         public String fragment = "";
-        public int cost = 25;
+        public int cost = 64;
     }
 
     public static void load() {
@@ -110,21 +129,34 @@ public final class ProfessionFragmentConfig {
                         ? new LinkedHashMap<>()
                         : root.upgrades;
 
-                TRADES = root == null || root.trades == null
+                TOOL_CRAFTING = root == null || root.toolCrafting == null
                         ? new LinkedHashMap<>()
-                        : root.trades;
+                        : root.toolCrafting;
+
+                if (
+                        TOOL_CRAFTING.isEmpty() &&
+                                root != null &&
+                                root.trades != null &&
+                                !root.trades.isEmpty()
+                ) {
+                    TOOL_CRAFTING = root.trades;
+                }
             }
 
             ensureDefaultsIfEmpty();
+            TRADES = TOOL_CRAFTING;
 
             System.out.println(
                     "[ChampUtils] Loaded " +
                             FRAGMENTS.size() +
-                            " profession fragments."
+                            " profession fragments and " +
+                            TOOL_CRAFTING.size() +
+                            " tool crafting rules."
             );
         } catch (Exception e) {
             e.printStackTrace();
             ensureDefaultsIfEmpty();
+            TRADES = TOOL_CRAFTING;
         }
     }
 
@@ -138,27 +170,28 @@ public final class ProfessionFragmentConfig {
         if (UPGRADES == null) {
             UPGRADES = new LinkedHashMap<>();
         }
-        if (TRADES == null) {
-            TRADES = new LinkedHashMap<>();
+        if (TOOL_CRAFTING == null) {
+            TOOL_CRAFTING = new LinkedHashMap<>();
         }
 
-        if (!TRADES.isEmpty() && !FRAGMENTS.isEmpty()) {
-            return;
+        ConfigRoot defaults =
+                defaultRoot();
+
+        if (FRAGMENTS.isEmpty()) {
+            FRAGMENTS = defaults.fragments;
         }
 
-        if (!FRAGMENTS.isEmpty()) {
-            ConfigRoot defaults = defaultRoot();
-            if (TRADES.isEmpty()) {
-                TRADES = defaults.trades;
-            }
-            return;
+        if (SALVAGE.isEmpty()) {
+            SALVAGE = defaults.salvage;
         }
 
-        ConfigRoot root = defaultRoot();
-        FRAGMENTS = root.fragments;
-        SALVAGE = root.salvage;
-        UPGRADES = root.upgrades;
-        TRADES = root.trades;
+        if (UPGRADES.isEmpty()) {
+            UPGRADES = defaults.upgrades;
+        }
+
+        if (TOOL_CRAFTING.isEmpty()) {
+            TOOL_CRAFTING = defaults.toolCrafting;
+        }
     }
 
     private static void createDefault(File file) {
@@ -173,12 +206,12 @@ public final class ProfessionFragmentConfig {
         ConfigRoot root =
                 new ConfigRoot();
 
-        addFragment(root, "COMMON", "common_tool_fragment", "Common Tool Fragment", "minecraft:flint", 9101, "WHITE");
-        addFragment(root, "UNCOMMON", "uncommon_tool_fragment", "Uncommon Tool Fragment", "minecraft:copper_ingot", 9102, "GREEN");
-        addFragment(root, "RARE", "rare_tool_fragment", "Rare Tool Fragment", "minecraft:lapis_lazuli", 9103, "BLUE");
-        addFragment(root, "EPIC", "epic_tool_fragment", "Epic Tool Fragment", "minecraft:amethyst_shard", 9104, "LIGHT_PURPLE");
-        addFragment(root, "LEGENDARY", "legendary_tool_fragment", "Legendary Tool Fragment", "minecraft:gold_ingot", 9105, "GOLD");
-        addFragment(root, "MYTHIC", "mythic_tool_fragment", "Mythic Tool Fragment", "minecraft:nether_star", 9106, "DARK_PURPLE");
+        addFragment(root, "COMMON", "common_tool_fragment", "Common Tool Fragment", "minecraft:paper", 9101, "WHITE");
+        addFragment(root, "UNCOMMON", "uncommon_tool_fragment", "Uncommon Tool Fragment", "minecraft:paper", 9102, "GREEN");
+        addFragment(root, "RARE", "rare_tool_fragment", "Rare Tool Fragment", "minecraft:paper", 9103, "BLUE");
+        addFragment(root, "EPIC", "epic_tool_fragment", "Epic Tool Fragment", "minecraft:paper", 9104, "LIGHT_PURPLE");
+        addFragment(root, "LEGENDARY", "legendary_tool_fragment", "Legendary Tool Fragment", "minecraft:paper", 9105, "GOLD");
+        addFragment(root, "MYTHIC", "mythic_tool_fragment", "Mythic Tool Fragment", "minecraft:paper", 9106, "DARK_PURPLE");
 
         addSalvage(root, "COMMON", "COMMON", 3, 5);
         addSalvage(root, "UNCOMMON", "UNCOMMON", 3, 5);
@@ -193,12 +226,12 @@ public final class ProfessionFragmentConfig {
         addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 32, "LEGENDARY", 1);
         addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 24, "MYTHIC", 1);
 
-        addTrade(root, "COMMON", "COMMON", 32);
-        addTrade(root, "UNCOMMON", "UNCOMMON", 32);
-        addTrade(root, "RARE", "RARE", 32);
-        addTrade(root, "EPIC", "EPIC", 24);
-        addTrade(root, "LEGENDARY", "LEGENDARY", 16);
-        addTrade(root, "MYTHIC", "MYTHIC", 12);
+        addToolCrafting(root, "COMMON", "COMMON", 64);
+        addToolCrafting(root, "UNCOMMON", "UNCOMMON", 64);
+        addToolCrafting(root, "RARE", "RARE", 48);
+        addToolCrafting(root, "EPIC", "EPIC", 32);
+        addToolCrafting(root, "LEGENDARY", "LEGENDARY", 24);
+        addToolCrafting(root, "MYTHIC", "MYTHIC", 16);
 
         return root;
     }
@@ -267,18 +300,18 @@ public final class ProfessionFragmentConfig {
         );
     }
 
-    private static void addTrade(
+    private static void addToolCrafting(
             ConfigRoot root,
             String rarity,
             String fragment,
             int cost
     ) {
-        TradeData data =
-                new TradeData();
+        ToolCraftingData data =
+                new ToolCraftingData();
         data.fragment = fragment;
         data.cost = cost;
 
-        root.trades.put(
+        root.toolCrafting.put(
                 rarity,
                 data
         );

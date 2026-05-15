@@ -181,6 +181,11 @@ public class MiningProfessionListener {
                             ProfessionType.MINING
                     );
 
+                    ProfessionWeaponFragmentDropManager.rollReward(
+                            serverPlayer,
+                            ProfessionType.MINING
+                    );
+
                     if (!isBreakingExtraBlock(
                             serverPlayer
                     )) {
@@ -275,6 +280,11 @@ public class MiningProfessionListener {
                     player,
                     ProfessionType.MINING
             );
+
+            ProfessionWeaponFragmentDropManager.rollReward(
+                    player,
+                    ProfessionType.MINING
+            );
         }
 
         removeBlockWithoutDrops(
@@ -291,12 +301,14 @@ public class MiningProfessionListener {
                 )
         );
 
-        player.displayClientMessage(
-                net.minecraft.network.chat.Component.literal(
-                        "§6Auto-Smelt: §fOre smelted."
-                ),
-                true
-        );
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal(
+                            "§6Auto-Smelt: §fOre smelted."
+                    ),
+                    true
+            );
+        }
 
         handleVeinMinerActive(
                 player,
@@ -620,14 +632,16 @@ public class MiningProfessionListener {
         }
 
         if (broken > 0) {
-            player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal(
-                            "§bVein Miner Burst: §fMined §e" +
-                                    broken +
-                                    " §fextra ore blocks."
-                    ),
-                    true
-            );
+            if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+                player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal(
+                                "§bVein Miner Burst: §fMined §e" +
+                                        broken +
+                                        " §fextra ore blocks."
+                        ),
+                        true
+                );
+            }
         }
     }
 
@@ -665,6 +679,11 @@ public class MiningProfessionListener {
             );
 
             ProfessionLootManager.rollReward(
+                    player,
+                    ProfessionType.MINING
+            );
+
+            ProfessionWeaponFragmentDropManager.rollReward(
                     player,
                     ProfessionType.MINING
             );

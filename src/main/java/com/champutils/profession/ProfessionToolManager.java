@@ -23,6 +23,7 @@ import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -34,6 +35,39 @@ import java.util.List;
 import java.util.Map;
 
 public class ProfessionToolManager {
+
+    private static final int UNIDENTIFIED_PICKAXE_MODEL_DATA = 9901;
+    private static final int UNIDENTIFIED_AXE_MODEL_DATA = 9902;
+    private static final int UNIDENTIFIED_HOE_MODEL_DATA = 9903;
+    private static final int UNIDENTIFIED_SWORD_MODEL_DATA = 9904;
+
+    private static final int UNIDENTIFIED_PICKAXE_COMMON_MODEL_DATA = 9911;
+    private static final int UNIDENTIFIED_PICKAXE_UNCOMMON_MODEL_DATA = 9912;
+    private static final int UNIDENTIFIED_PICKAXE_RARE_MODEL_DATA = 9913;
+    private static final int UNIDENTIFIED_PICKAXE_EPIC_MODEL_DATA = 9914;
+    private static final int UNIDENTIFIED_PICKAXE_LEGENDARY_MODEL_DATA = 9915;
+    private static final int UNIDENTIFIED_PICKAXE_MYTHIC_MODEL_DATA = 9916;
+
+    private static final int UNIDENTIFIED_AXE_COMMON_MODEL_DATA = 9921;
+    private static final int UNIDENTIFIED_AXE_UNCOMMON_MODEL_DATA = 9922;
+    private static final int UNIDENTIFIED_AXE_RARE_MODEL_DATA = 9923;
+    private static final int UNIDENTIFIED_AXE_EPIC_MODEL_DATA = 9924;
+    private static final int UNIDENTIFIED_AXE_LEGENDARY_MODEL_DATA = 9925;
+    private static final int UNIDENTIFIED_AXE_MYTHIC_MODEL_DATA = 9926;
+
+    private static final int UNIDENTIFIED_HOE_COMMON_MODEL_DATA = 9931;
+    private static final int UNIDENTIFIED_HOE_UNCOMMON_MODEL_DATA = 9932;
+    private static final int UNIDENTIFIED_HOE_RARE_MODEL_DATA = 9933;
+    private static final int UNIDENTIFIED_HOE_EPIC_MODEL_DATA = 9934;
+    private static final int UNIDENTIFIED_HOE_LEGENDARY_MODEL_DATA = 9935;
+    private static final int UNIDENTIFIED_HOE_MYTHIC_MODEL_DATA = 9936;
+
+    private static final int UNIDENTIFIED_SWORD_COMMON_MODEL_DATA = 9941;
+    private static final int UNIDENTIFIED_SWORD_UNCOMMON_MODEL_DATA = 9942;
+    private static final int UNIDENTIFIED_SWORD_RARE_MODEL_DATA = 9943;
+    private static final int UNIDENTIFIED_SWORD_EPIC_MODEL_DATA = 9944;
+    private static final int UNIDENTIFIED_SWORD_LEGENDARY_MODEL_DATA = 9945;
+    private static final int UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA = 9946;
 
     private static final Map<String, Item> REGISTERED_TOOLS =
             new HashMap<>();
@@ -572,15 +606,15 @@ public class ProfessionToolManager {
             ProfessionToolConfig.ToolData toolData
     ) {
 
-        String mysteryName =
-                formatRarity(
-                        toolData.rarity
-                ) +
-                        " Unidentified " +
-                        formatUnidentifiedToolType(
-                                toolId,
-                                toolData
-                        );
+        applyUnidentifiedCustomModelData(
+                stack,
+                toolData
+        );
+
+        String toolType =
+                getMysteryToolTypeName(
+                        toolData
+                );
 
         boolean ascended =
                 ProfessionToolMetadata.isAscended(
@@ -590,50 +624,28 @@ public class ProfessionToolManager {
         stack.set(
                 DataComponents.CUSTOM_NAME,
                 Component.literal(
-                        (ascended ? "Ascended " : "") +
-                                mysteryName
+                        (ascended ? "Ascended Unidentified " : "Unidentified ") +
+                                toolType
                 ).withStyle(
-                        getRarityColor(
-                                toolData.rarity
-                        )
+                        ChatFormatting.DARK_GRAY
                 )
         );
 
         List<Component> lore =
                 new ArrayList<>();
 
-        addHeaderLore(
-                lore,
-                toolData
-        );
-
-        addDurabilityLore(
-                lore,
-                stack
+        lore.add(
+                Component.literal(
+                        "Mystery " + toolType
+                ).withStyle(
+                        ChatFormatting.GRAY
+                )
         );
 
         addItemLockLore(
                 lore,
                 stack
         );
-
-        if (ascended) {
-            lore.add(
-                    Component.literal(
-                            "Ascended Tracker Variant"
-                    ).withStyle(
-                            ChatFormatting.GRAY
-                    )
-            );
-
-            lore.add(
-                    Component.literal(
-                            "Tracker rolls when identified."
-                    ).withStyle(
-                            ChatFormatting.DARK_GRAY
-                    )
-            );
-        }
 
         lore.add(
                 Component.literal(" ")
@@ -649,22 +661,7 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        " Cost: $" +
-                                ProfessionToolConfig.getBaseRollCost(
-                                        toolData
-                                )
-                ).withStyle(
-                        ChatFormatting.GOLD
-                )
-        );
-
-        lore.add(
-                Component.literal(" ")
-        );
-
-        lore.add(
-                Component.literal(
-                        "This item's stats have not been revealed."
+                        "Identify this item to reveal its name, rarity, stats, level requirement, and abilities."
                 ).withStyle(
                         ChatFormatting.DARK_GRAY
                 )
@@ -686,11 +683,50 @@ public class ProfessionToolManager {
         );
     }
 
+
+    private static String getMysteryToolTypeName(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+        if (toolData == null || toolData.baseItem == null) {
+            return "Tool";
+        }
+
+        String baseItem =
+                toolData.baseItem.toLowerCase();
+
+        if (baseItem.contains("pickaxe")) {
+            return "Pickaxe";
+        }
+
+        if (baseItem.contains("axe")) {
+            return "Axe";
+        }
+
+        if (baseItem.contains("hoe")) {
+            return "Hoe";
+        }
+
+        if (baseItem.contains("sword")) {
+            return "Sword";
+        }
+
+        if (baseItem.contains("shovel")) {
+            return "Shovel";
+        }
+
+        return "Tool";
+    }
+
     private static void applyIdentifiedDisplay(
             ItemStack stack,
             String toolId,
             ProfessionToolConfig.ToolData toolData
     ) {
+
+        applyCustomModelData(
+                stack,
+                toolData.customModelData
+        );
 
         String displayName =
                 ProfessionToolConfig.getDisplayName(
@@ -1776,6 +1812,171 @@ public class ProfessionToolManager {
         );
     }
 
+    private static void applyUnidentifiedCustomModelData(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        toolData == null ||
+                        toolData.baseItem == null
+        ) {
+            return;
+        }
+
+        String baseItem =
+                toolData.baseItem.toLowerCase();
+
+        String rarity =
+                normalizeRarityName(
+                        toolData.rarity
+                );
+
+        if (baseItem.contains("pickaxe")) {
+            applyCustomModelData(
+                    stack,
+                    getUnidentifiedPickaxeModelData(
+                            rarity
+                    )
+            );
+            return;
+        }
+
+        if (baseItem.contains("axe")) {
+            applyCustomModelData(
+                    stack,
+                    getUnidentifiedAxeModelData(
+                            rarity
+                    )
+            );
+            return;
+        }
+
+        if (baseItem.contains("hoe")) {
+            applyCustomModelData(
+                    stack,
+                    getUnidentifiedHoeModelData(
+                            rarity
+                    )
+            );
+            return;
+        }
+
+        if (baseItem.contains("sword")) {
+            applyCustomModelData(
+                    stack,
+                    getUnidentifiedSwordModelData(
+                            rarity
+                    )
+            );
+        }
+    }
+
+    private static String normalizeRarityName(
+            String rarity
+    ) {
+
+        if (
+                rarity == null ||
+                        rarity.isBlank()
+        ) {
+            return "COMMON";
+        }
+
+        return rarity
+                .trim()
+                .toUpperCase();
+    }
+
+    private static int getUnidentifiedPickaxeModelData(
+            String rarity
+    ) {
+
+        return switch (rarity) {
+            case "UNCOMMON" -> UNIDENTIFIED_PICKAXE_UNCOMMON_MODEL_DATA;
+            case "RARE" -> UNIDENTIFIED_PICKAXE_RARE_MODEL_DATA;
+            case "EPIC" -> UNIDENTIFIED_PICKAXE_EPIC_MODEL_DATA;
+            case "LEGENDARY" -> UNIDENTIFIED_PICKAXE_LEGENDARY_MODEL_DATA;
+            case "MYTHIC" -> UNIDENTIFIED_PICKAXE_MYTHIC_MODEL_DATA;
+            case "COMMON" -> UNIDENTIFIED_PICKAXE_COMMON_MODEL_DATA;
+            default -> UNIDENTIFIED_PICKAXE_MODEL_DATA;
+        };
+    }
+
+    private static int getUnidentifiedAxeModelData(
+            String rarity
+    ) {
+
+        return switch (rarity) {
+            case "UNCOMMON" -> UNIDENTIFIED_AXE_UNCOMMON_MODEL_DATA;
+            case "RARE" -> UNIDENTIFIED_AXE_RARE_MODEL_DATA;
+            case "EPIC" -> UNIDENTIFIED_AXE_EPIC_MODEL_DATA;
+            case "LEGENDARY" -> UNIDENTIFIED_AXE_LEGENDARY_MODEL_DATA;
+            case "MYTHIC" -> UNIDENTIFIED_AXE_MYTHIC_MODEL_DATA;
+            case "COMMON" -> UNIDENTIFIED_AXE_COMMON_MODEL_DATA;
+            default -> UNIDENTIFIED_AXE_MODEL_DATA;
+        };
+    }
+
+    private static int getUnidentifiedHoeModelData(
+            String rarity
+    ) {
+
+        return switch (rarity) {
+            case "UNCOMMON" -> UNIDENTIFIED_HOE_UNCOMMON_MODEL_DATA;
+            case "RARE" -> UNIDENTIFIED_HOE_RARE_MODEL_DATA;
+            case "EPIC" -> UNIDENTIFIED_HOE_EPIC_MODEL_DATA;
+            case "LEGENDARY" -> UNIDENTIFIED_HOE_LEGENDARY_MODEL_DATA;
+            case "MYTHIC" -> UNIDENTIFIED_HOE_MYTHIC_MODEL_DATA;
+            case "COMMON" -> UNIDENTIFIED_HOE_COMMON_MODEL_DATA;
+            default -> UNIDENTIFIED_HOE_MODEL_DATA;
+        };
+    }
+
+    private static int getUnidentifiedSwordModelData(
+            String rarity
+    ) {
+
+        return switch (rarity) {
+            case "UNCOMMON" -> UNIDENTIFIED_SWORD_UNCOMMON_MODEL_DATA;
+            case "RARE" -> UNIDENTIFIED_SWORD_RARE_MODEL_DATA;
+            case "EPIC" -> UNIDENTIFIED_SWORD_EPIC_MODEL_DATA;
+            case "LEGENDARY" -> UNIDENTIFIED_SWORD_LEGENDARY_MODEL_DATA;
+            case "MYTHIC" -> UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA;
+            case "COMMON" -> UNIDENTIFIED_SWORD_COMMON_MODEL_DATA;
+            default -> UNIDENTIFIED_SWORD_MODEL_DATA;
+        };
+    }
+
+    private static void applyCustomModelData(
+            ItemStack stack,
+            int customModelData
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty()
+        ) {
+            return;
+        }
+
+        if (customModelData <= 0) {
+            stack.remove(
+                    DataComponents.CUSTOM_MODEL_DATA
+            );
+            return;
+        }
+
+        stack.set(
+                DataComponents.CUSTOM_MODEL_DATA,
+                new CustomModelData(
+                        customModelData
+                )
+        );
+    }
+
     private static void applyAscendedGlint(
             ItemStack stack
     ) {
@@ -2097,62 +2298,6 @@ public class ProfessionToolManager {
         return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
     }
 
-    public static Item getPolymerBaseForDisplay(
-            ItemStack stack,
-            Item identifiedBaseItem
-    ) {
-
-        if (
-                stack != null &&
-                        !stack.isEmpty() &&
-                        ProfessionToolMetadata.isProfessionTool(stack) &&
-                        !ProfessionToolMetadata.isIdentified(stack)
-        ) {
-            return Items.PAPER;
-        }
-
-        return identifiedBaseItem == null
-                ? Items.PAPER
-                : identifiedBaseItem;
-    }
-
-    private static String formatUnidentifiedToolType(
-            String toolId,
-            ProfessionToolConfig.ToolData toolData
-    ) {
-
-        String raw =
-                ((toolData == null || toolData.baseItem == null)
-                        ? ""
-                        : toolData.baseItem) +
-                        " " +
-                        (toolId == null ? "" : toolId);
-
-        raw = raw.toLowerCase();
-
-        if (raw.contains("pickaxe")) {
-            return "Pickaxe";
-        }
-
-        if (raw.contains("axe")) {
-            return "Axe";
-        }
-
-        if (raw.contains("hoe")) {
-            return "Hoe";
-        }
-
-        if (raw.contains("sword")) {
-            return "Sword";
-        }
-
-        if (raw.contains("shovel")) {
-            return "Shovel";
-        }
-
-        return "Tool";
-    }
-
     public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
 
         private final Item baseItem;
@@ -2232,10 +2377,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return ProfessionToolManager.getPolymerBaseForDisplay(
-                    stack,
-                    baseItem
-            );
+            return baseItem;
         }
     }
 
@@ -2287,10 +2429,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return ProfessionToolManager.getPolymerBaseForDisplay(
-                    stack,
-                    baseItem
-            );
+            return baseItem;
         }
     }
 
@@ -2342,10 +2481,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return ProfessionToolManager.getPolymerBaseForDisplay(
-                    stack,
-                    baseItem
-            );
+            return baseItem;
         }
     }
 
@@ -2382,10 +2518,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return ProfessionToolManager.getPolymerBaseForDisplay(
-                    stack,
-                    baseItem
-            );
+            return baseItem;
         }
     }
 
@@ -2420,10 +2553,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return ProfessionToolManager.getPolymerBaseForDisplay(
-                    stack,
-                    baseItem
-            );
+            return baseItem;
         }
     }
 }

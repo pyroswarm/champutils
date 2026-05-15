@@ -9,6 +9,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.component.DataComponents;
 
 public class MainMenu {
 
@@ -128,12 +130,12 @@ public class MainMenu {
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Profession Leaderboard"
+                                        "§6Leaderboard"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7View top profession players"
+                                        "§7View RP and profession rankings"
                                 )
                         )
                         .addLoreLine(
@@ -143,7 +145,7 @@ public class MainMenu {
                         )
                         .setCallback(
                                 (i,c,t)->
-                                        ProfessionLeaderboardMenu.open(
+                                        LeaderboardMenu.open(
                                                 player
                                         )
                         )
@@ -154,6 +156,7 @@ public class MainMenu {
                 new GuiElementBuilder(
                         Items.COMPASS
                 )
+                        .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
                                         "§aPlayer Lookup"
@@ -171,9 +174,17 @@ public class MainMenu {
                         )
                         .setCallback(
                                 (i,c,t)->{
+                                    removeLeakedLookupCompass(
+                                            player
+                                    );
+
                                     player.closeContainer();
 
                                     ProfileLookupManager.beginLookup(
+                                            player
+                                    );
+
+                                    removeLeakedLookupCompass(
                                             player
                                     );
                                 }
@@ -181,5 +192,50 @@ public class MainMenu {
         );
 
         gui.open();
+    }
+
+
+
+    private static void removeLeakedLookupCompass(
+            ServerPlayer player
+    ){
+
+        for(
+                int slot=0;
+                slot<player.getInventory().getContainerSize();
+                slot++
+        ){
+
+            ItemStack stack=
+                    player.getInventory().getItem(
+                            slot
+                    );
+
+            if(
+                    stack.isEmpty() ||
+                            !stack.is(
+                                    Items.COMPASS
+                            )
+            ){
+                continue;
+            }
+
+            Component customName=
+                    stack.get(
+                            DataComponents.CUSTOM_NAME
+                    );
+
+            if(
+                    customName!=null &&
+                            "Player Lookup".equals(
+                                    customName.getString()
+                            )
+            ){
+                player.getInventory().setItem(
+                        slot,
+                        ItemStack.EMPTY
+                );
+            }
+        }
     }
 }

@@ -83,6 +83,10 @@ public class ProfessionLootManager {
     }
 
     private static void sendRareDropMessage(ServerPlayer player, String itemId, int amount) {
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            return;
+        }
+
         player.displayClientMessage(
                 Component.literal("§6Rare Drop! §e" + itemId + " x" + amount),
                 true

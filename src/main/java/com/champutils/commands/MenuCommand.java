@@ -4,7 +4,7 @@ import com.champutils.menu.MainMenu;
 import com.champutils.menu.ProfileMenu;
 import com.champutils.menu.PlayerProfileMenu;
 import com.champutils.menu.ItemsMenu;
-import com.champutils.menu.ProfessionLeaderboardMenu;
+import com.champutils.menu.LeaderboardMenu;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -63,7 +63,27 @@ public class MenuCommand {
 
                                     .executes(ctx->{
 
-                                        ProfessionLeaderboardMenu.open(
+                                        LeaderboardMenu.openProfessionOverall(
+                                                ctx.getSource()
+                                                        .getPlayerOrException()
+                                        );
+
+                                        return 1;
+                                    })
+
+                    );
+
+
+
+
+
+                    dispatcher.register(
+
+                            literal("leaderboards")
+
+                                    .executes(ctx->{
+
+                                        LeaderboardMenu.open(
                                                 ctx.getSource()
                                                         .getPlayerOrException()
                                         );

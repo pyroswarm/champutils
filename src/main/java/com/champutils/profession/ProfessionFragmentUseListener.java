@@ -2,7 +2,6 @@ package com.champutils.profession;
 
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.ItemStack;
@@ -37,32 +36,16 @@ public final class ProfessionFragmentUseListener {
                         return InteractionResultHolder.success(stack);
                     }
 
-                    int deposited =
+                    boolean deposited =
                             ProfessionFragmentManager.depositFragmentStack(
                                     serverPlayer,
-                                    stack
-                            );
-
-                    if (deposited <= 0) {
-                        return InteractionResultHolder.fail(stack);
-                    }
-
-                    int stored =
-                            ProfessionFragmentManager.countFragments(
-                                    serverPlayer,
+                                    stack,
                                     fragmentKey
                             );
 
-                    serverPlayer.sendSystemMessage(
-                            Component.literal(
-                                    "§aDeposited §6" +
-                                            deposited +
-                                            "x " +
-                                            ProfessionFragmentManager.formatWords(fragmentKey) +
-                                            " Fragment§a. Stored: §e" +
-                                            stored
-                            )
-                    );
+                    if (!deposited) {
+                        return InteractionResultHolder.fail(stack);
+                    }
 
                     return InteractionResultHolder.success(stack);
                 }

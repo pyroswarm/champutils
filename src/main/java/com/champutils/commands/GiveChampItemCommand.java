@@ -1,7 +1,10 @@
 package com.champutils.commands;
 
+import com.champutils.profession.ProfessionFragmentConfig;
+import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -51,6 +54,12 @@ public class GiveChampItemCommand {
                                                                     );
                                                                 }
 
+                                                                for (ProfessionFragmentConfig.FragmentData fragmentData : ProfessionFragmentConfig.FRAGMENTS.values()) {
+                                                                    if (fragmentData != null && fragmentData.itemId != null && !fragmentData.itemId.isBlank()) {
+                                                                        builder.suggest(fragmentData.itemId);
+                                                                    }
+                                                                }
+
                                                                 return builder.buildFuture();
                                                             }
                                                     )
@@ -62,8 +71,29 @@ public class GiveChampItemCommand {
                                                                     context,
                                                                     "itemId"
                                                             ),
+                                                            1,
                                                             false
                                                     ))
+
+                                                    .then(
+                                                            Commands.argument(
+                                                                            "amount",
+                                                                            IntegerArgumentType.integer(1, 640)
+                                                                    )
+                                                                    .executes(context -> giveItem(
+                                                                            context.getSource()
+                                                                                    .getPlayerOrException(),
+                                                                            StringArgumentType.getString(
+                                                                                    context,
+                                                                                    "itemId"
+                                                                            ),
+                                                                            IntegerArgumentType.getInteger(
+                                                                                    context,
+                                                                                    "amount"
+                                                                            ),
+                                                                            false
+                                                                    ))
+                                                    )
 
                                                     .then(
                                                             Commands.literal(
@@ -76,6 +106,7 @@ public class GiveChampItemCommand {
                                                                                     context,
                                                                                     "itemId"
                                                                             ),
+                                                                            1,
                                                                             true
                                                                     ))
                                                     )
@@ -88,8 +119,21 @@ public class GiveChampItemCommand {
     private static int giveItem(
             ServerPlayer player,
             String itemId,
+            int amount,
             boolean ascended
     ) {
+
+        String fragmentKey =
+                ProfessionFragmentManager.getFragmentKeyByItemId(itemId);
+
+        if (fragmentKey != null) {
+            return giveFragment(
+                    player,
+                    itemId,
+                    fragmentKey,
+                    amount
+            );
+        }
 
         ItemStack item =
                 ProfessionToolManager.createTool(
@@ -129,6 +173,38 @@ public class GiveChampItemCommand {
                         ascended
                                 ? "§dGiven ascended custom item: " + itemId
                                 : "§aGiven custom item: " + itemId
+                )
+        );
+
+        return 1;
+    }
+
+    private static int giveFragment(
+            ServerPlayer player,
+            String itemId,
+            String fragmentKey,
+            int amount
+    ) {
+        boolean given =
+                ProfessionFragmentManager.giveFragments(
+                        player,
+                        fragmentKey,
+                        amount
+                );
+
+        if (!given) {
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§cCould not create fragment item: " + itemId
+                    )
+            );
+
+            return 0;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "§aGiven " + amount + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Tool Fragment."
                 )
         );
 

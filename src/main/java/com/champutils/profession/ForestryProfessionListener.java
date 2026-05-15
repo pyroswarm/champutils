@@ -43,6 +43,7 @@ public class ForestryProfessionListener {
             ProfessionManager.addXp(serverPlayer, ProfessionType.FORESTRY, xp);
             rollXpSurge(serverPlayer, tool, xp);
             ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
+            ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
             rollDropMultiplier(serverPlayer, state, tool);
             rollRewardPassive(serverPlayer, tool, "sapFinderChance", "forestry_sap_finder");
             rollRewardPassive(serverPlayer, tool, "seedFinderChance", "forestry_seed_finder");
@@ -72,15 +73,19 @@ public class ForestryProfessionListener {
         if (item == Items.AIR) return;
         ItemStack reward = new ItemStack(item, multiplier - 1);
         if (!player.getInventory().add(reward)) player.drop(reward, false);
-        player.displayClientMessage(Component.literal("§a" + multiplier + "x Chop!"), true);
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§a" + multiplier + "x Chop!"), true);
+            player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+        }
     }
 
     private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {
         if (!roll(player, tool, "forestryXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
         int bonus = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, bonus);
-        player.displayClientMessage(Component.literal("§aForestry XP Surge! +" + bonus), true);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§aForestry XP Surge! +" + bonus), true);
+        }
     }
 
     private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table) {
@@ -137,7 +142,9 @@ public class ForestryProfessionListener {
             level.destroyBlock(pos.immutable(), true, player);
             cleared++;
         }
-        if (cleared > 0) player.displayClientMessage(Component.literal("§aLeafstorm cleared " + cleared + " leaves."), true);
+        if (cleared > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§aLeafstorm cleared " + cleared + " leaves."), true);
+        }
     }
 
     private static void tryReplantSapling(ServerPlayer player, BlockPos pos, BlockState oldState) {

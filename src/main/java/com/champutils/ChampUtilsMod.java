@@ -92,9 +92,11 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ProfessionToolConfig.load();
         ProfessionFragmentConfig.load();
+        ProfessionWeaponFragmentConfig.load();
         ActiveAbilityRegistry.registerDefaults();
         PassiveRegistry.registerDefaults();
         ProfessionFragmentManager.registerFragments();
+        ProfessionWeaponFragmentManager.registerFragments();
         ProfessionFragmentUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();

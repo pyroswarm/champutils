@@ -9,15 +9,18 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
@@ -68,6 +71,7 @@ public final class ProfessionFragmentManager {
 
         Item fragmentItem =
                 new FragmentItem(
+                        ProfessionFragmentConfig.normalizeRarity(fragmentKey),
                         baseItem,
                         new Item.Properties()
                                 .stacksTo(64)
@@ -94,7 +98,7 @@ public final class ProfessionFragmentManager {
 
     private static Item getBaseItem(String baseItemId) {
         if (baseItemId == null || baseItemId.isBlank()) {
-            return Items.AMETHYST_SHARD;
+            return Items.PAPER;
         }
 
         try {
@@ -104,10 +108,10 @@ public final class ProfessionFragmentManager {
                     );
 
             return item == null || item == Items.AIR
-                    ? Items.AMETHYST_SHARD
+                    ? Items.PAPER
                     : item;
         } catch (Exception e) {
-            return Items.AMETHYST_SHARD;
+            return Items.PAPER;
         }
     }
 
@@ -179,7 +183,7 @@ public final class ProfessionFragmentManager {
 
         lore.add(
                 Component.literal(
-                        "Used by the profession salvage system."
+                        "Right-click to deposit into your fragment storage."
                 ).withStyle(ChatFormatting.DARK_GRAY)
         );
 
@@ -188,59 +192,12 @@ public final class ProfessionFragmentManager {
                 new ItemLore(lore)
         );
 
-        /*
-         * customModelData is kept in profession_fragments.json for when you add
-         * server resource-pack models later. It is intentionally not applied here
-         * yet because Minecraft 1.21.1 changed the component type across mappings.
-         */
-    }
-
-
-    public static String getFragmentKey(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return null;
+        if (data.customModelData > 0) {
+            stack.set(
+                    DataComponents.CUSTOM_MODEL_DATA,
+                    new CustomModelData(data.customModelData)
+            );
         }
-
-        for (Map.Entry<String, Item> entry : REGISTERED_FRAGMENTS.entrySet()) {
-            if (stack.getItem() == entry.getValue()) {
-                return entry.getKey();
-            }
-        }
-
-        return null;
-    }
-
-    public static boolean isFragmentStack(ItemStack stack) {
-        return getFragmentKey(stack) != null;
-    }
-
-    public static int depositFragmentStack(
-            ServerPlayer player,
-            ItemStack stack
-    ) {
-        if (player == null || stack == null || stack.isEmpty()) {
-            return 0;
-        }
-
-        String fragmentKey =
-                getFragmentKey(stack);
-
-        if (fragmentKey == null || fragmentKey.isBlank()) {
-            return 0;
-        }
-
-        int amount =
-                stack.getCount();
-
-        stack.shrink(amount);
-
-        ProfessionManager.addFragments(
-                player,
-                fragmentKey,
-                amount
-        );
-
-        return amount;
     }
 
     public static boolean giveFragments(
@@ -282,6 +239,50 @@ public final class ProfessionFragmentManager {
 
             remaining -= stackSize;
         }
+
+        return true;
+    }
+
+    public static boolean depositFragmentStack(
+            ServerPlayer player,
+            ItemStack stack,
+            String fragmentKey
+    ) {
+        if (player == null || stack == null || stack.isEmpty()) {
+            return false;
+        }
+
+        String normalized =
+                ProfessionFragmentConfig.normalizeRarity(fragmentKey);
+
+        if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(normalized)) {
+            return false;
+        }
+
+        int amount =
+                stack.getCount();
+
+        if (amount <= 0) {
+            return false;
+        }
+
+        ProfessionManager.addFragments(
+                player,
+                normalized,
+                amount
+        );
+
+        stack.shrink(amount);
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "§aDeposited §6" +
+                                amount +
+                                "x " +
+                                formatWords(normalized) +
+                                " Fragment§a."
+                )
+        );
 
         return true;
     }
@@ -367,7 +368,6 @@ public final class ProfessionFragmentManager {
                 player,
                 ProfessionFragmentConfig.normalizeRarity(fragmentKey)
         );
-
     }
 
     public static boolean removeFragments(
@@ -395,9 +395,7 @@ public final class ProfessionFragmentManager {
         }
 
         ProfessionFragmentConfig.UpgradeData upgrade =
-                ProfessionFragmentConfig.UPGRADES.get(
-                        upgradeId
-                );
+                ProfessionFragmentConfig.UPGRADES.get(upgradeId);
 
         if (upgrade == null) {
             return UpgradeResult.fail("Unknown upgrade: " + upgradeId);
@@ -446,31 +444,34 @@ public final class ProfessionFragmentManager {
         );
     }
 
-
-    public static TradeResult tradeForRandomTool(
+    public static CraftResult craftRandomUnidentifiedTool(
             ServerPlayer player,
             String rarity,
             String toolType
     ) {
         if (player == null) {
-            return TradeResult.fail("Player missing.");
+            return CraftResult.fail("Player missing.");
+        }
+
+        String normalizedToolType =
+                normalizeToolType(toolType);
+
+        if (
+                !normalizedToolType.equals("pickaxe") &&
+                        !normalizedToolType.equals("axe") &&
+                        !normalizedToolType.equals("hoe")
+        ) {
+            return CraftResult.fail("Choose pickaxe, axe, or hoe.");
         }
 
         String normalizedRarity =
                 ProfessionFragmentConfig.normalizeRarity(rarity);
 
-        String normalizedToolType =
-                normalizeToolType(toolType);
-
-        if (normalizedToolType.isBlank()) {
-            return TradeResult.fail("Choose a tool type: pickaxe, axe, hoe, sword, or shovel.");
-        }
-
-        ProfessionFragmentConfig.TradeData trade =
-                ProfessionFragmentConfig.TRADES.get(normalizedRarity);
+        ProfessionFragmentConfig.ToolCraftingData trade =
+                ProfessionFragmentConfig.TOOL_CRAFTING.get(normalizedRarity);
 
         if (trade == null) {
-            return TradeResult.fail("No fragment trade exists for rarity: " + normalizedRarity);
+            return CraftResult.fail("No fragment crafting rule exists for rarity: " + normalizedRarity);
         }
 
         String fragmentKey =
@@ -480,30 +481,36 @@ public final class ProfessionFragmentManager {
                 Math.max(1, trade.cost);
 
         int available =
-                countFragments(player, fragmentKey);
+                countFragments(
+                        player,
+                        fragmentKey
+                );
 
         if (available < cost) {
-            return TradeResult.fail(
+            return CraftResult.fail(
                     "You need " + cost + " " + formatWords(fragmentKey) + " fragments. You have " + available + "."
             );
         }
 
-        List<String> eligibleTools =
-                getEligibleToolIds(
+        List<String> candidates =
+                findToolCandidates(
                         normalizedRarity,
                         normalizedToolType
                 );
 
-        if (eligibleTools.isEmpty()) {
-            return TradeResult.fail(
-                    "No " + formatWords(normalizedRarity) + " " + normalizedToolType + " tools exist in profession_tools.json."
+        if (candidates.isEmpty()) {
+            return CraftResult.fail(
+                    "No " + formatWords(normalizedRarity) + " " + formatWords(normalizedToolType) + " tools exist in profession_tools.json."
             );
         }
 
         String selectedToolId =
-                eligibleTools.get(
-                        RANDOM.nextInt(eligibleTools.size())
+                candidates.get(
+                        RANDOM.nextInt(candidates.size())
                 );
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(selectedToolId);
 
         ItemStack reward =
                 ProfessionToolManager.createTool(
@@ -512,11 +519,11 @@ public final class ProfessionFragmentManager {
                 );
 
         if (reward.isEmpty()) {
-            return TradeResult.fail("Could not create selected tool: " + selectedToolId);
+            return CraftResult.fail("Could not create selected tool: " + selectedToolId);
         }
 
         if (!removeFragments(player, fragmentKey, cost)) {
-            return TradeResult.fail("Could not remove input fragments.");
+            return CraftResult.fail("Could not remove fragments.");
         }
 
         boolean added =
@@ -530,105 +537,139 @@ public final class ProfessionFragmentManager {
             );
         }
 
-        ProfessionToolConfig.ToolData toolData =
-                ProfessionToolConfig.TOOLS.get(selectedToolId);
-
-        return TradeResult.success(
-                normalizedRarity,
-                fragmentKey,
-                cost,
-                normalizedToolType,
+        return CraftResult.success(
                 selectedToolId,
                 ProfessionToolConfig.getDisplayName(selectedToolId, toolData),
-                eligibleTools.size()
+                normalizedRarity,
+                normalizedToolType,
+                fragmentKey,
+                cost
         );
     }
 
-    public static List<String> getEligibleToolIds(
+    private static List<String> findToolCandidates(
             String rarity,
             String toolType
     ) {
-        String normalizedRarity =
-                ProfessionFragmentConfig.normalizeRarity(rarity);
-
-        String normalizedToolType =
-                normalizeToolType(toolType);
-
-        List<String> eligible =
+        List<String> candidates =
                 new ArrayList<>();
 
         for (Map.Entry<String, ProfessionToolConfig.ToolData> entry : ProfessionToolConfig.TOOLS.entrySet()) {
             String toolId =
                     entry.getKey();
 
-            ProfessionToolConfig.ToolData toolData =
+            ProfessionToolConfig.ToolData data =
                     entry.getValue();
 
-            if (toolId == null || toolData == null) {
+            if (data == null) {
                 continue;
             }
 
-            String toolRarity =
-                    ProfessionFragmentConfig.normalizeRarity(toolData.rarity);
-
-            if (!toolRarity.equals(normalizedRarity)) {
+            if (!ProfessionFragmentConfig.normalizeRarity(data.rarity).equals(rarity)) {
                 continue;
             }
 
-            if (!toolMatchesType(toolData, normalizedToolType)) {
+            if (!matchesToolType(toolId, data, toolType)) {
                 continue;
             }
 
-            eligible.add(toolId);
+            candidates.add(toolId);
         }
 
-        return eligible;
+        return candidates;
+    }
+
+    private static boolean matchesToolType(
+            String toolId,
+            ProfessionToolConfig.ToolData data,
+            String toolType
+    ) {
+        String normalizedToolType =
+                normalizeToolType(toolType);
+
+        String haystack =
+                ((toolId == null ? "" : toolId) + " " +
+                        (data == null || data.baseItem == null ? "" : data.baseItem))
+                        .toLowerCase();
+
+        return switch (normalizedToolType) {
+            case "pickaxe" -> haystack.contains("pickaxe");
+            case "axe" -> !haystack.contains("pickaxe") && (haystack.contains("_axe") || haystack.endsWith("axe") || haystack.contains(":axe"));
+            case "hoe" -> haystack.contains("hoe");
+            case "sword" -> haystack.contains("sword");
+            case "shovel" -> haystack.contains("shovel");
+            default -> haystack.contains(normalizedToolType);
+        };
     }
 
     public static String normalizeToolType(String toolType) {
-        if (toolType == null) {
-            return "";
+        if (toolType == null || toolType.isBlank()) {
+            return "pickaxe";
         }
 
         String normalized =
                 toolType.trim()
-                        .toLowerCase(Locale.ROOT);
+                        .toLowerCase();
 
-        if (normalized.endsWith("s")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
+        if (normalized.equals("pick") || normalized.equals("pickaxes")) {
+            return "pickaxe";
         }
 
-        return switch (normalized) {
-            case "pick", "pickaxe" -> "pickaxe";
-            case "axe" -> "axe";
-            case "hoe" -> "hoe";
-            case "sword" -> "sword";
-            case "shovel", "spade" -> "shovel";
-            default -> normalized;
-        };
+        if (normalized.equals("axes")) {
+            return "axe";
+        }
+
+        if (normalized.equals("hoes")) {
+            return "hoe";
+        }
+
+        return normalized;
     }
 
-    private static boolean toolMatchesType(
-            ProfessionToolConfig.ToolData toolData,
-            String toolType
-    ) {
-        if (toolData == null || toolType == null || toolType.isBlank()) {
-            return false;
+    public static boolean isFragmentId(String itemId) {
+        return getFragmentKeyByItemId(itemId) != null;
+    }
+
+    public static String getFragmentKey(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
         }
 
-        String baseItem =
-                toolData.baseItem == null
-                        ? ""
-                        : toolData.baseItem.toLowerCase(Locale.ROOT);
+        for (Map.Entry<String, Item> entry : REGISTERED_FRAGMENTS.entrySet()) {
+            if (stack.getItem() == entry.getValue()) {
+                return ProfessionFragmentConfig.normalizeRarity(entry.getKey());
+            }
+        }
 
-        return switch (toolType) {
-            case "pickaxe" -> baseItem.endsWith("_pickaxe");
-            case "axe" -> baseItem.endsWith("_axe") && !baseItem.endsWith("_pickaxe");
-            case "hoe" -> baseItem.endsWith("_hoe");
-            case "sword" -> baseItem.endsWith("_sword");
-            case "shovel" -> baseItem.endsWith("_shovel");
-            default -> false;
-        };
+        return null;
+    }
+
+    public static String getFragmentKeyByItemId(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return null;
+        }
+
+        String normalizedInput =
+                itemId.trim().toLowerCase();
+
+        for (Map.Entry<String, ProfessionFragmentConfig.FragmentData> entry : ProfessionFragmentConfig.FRAGMENTS.entrySet()) {
+            ProfessionFragmentConfig.FragmentData data = entry.getValue();
+
+            if (data == null || data.itemId == null) {
+                continue;
+            }
+
+            if (data.itemId.equalsIgnoreCase(normalizedInput)) {
+                return ProfessionFragmentConfig.normalizeRarity(entry.getKey());
+            }
+        }
+
+        String rarityKey =
+                ProfessionFragmentConfig.normalizeRarity(itemId);
+
+        return ProfessionFragmentConfig.FRAGMENTS.containsKey(rarityKey)
+                ? rarityKey
+                : null;
     }
 
     private static ChatFormatting parseColor(String color) {
@@ -728,44 +769,68 @@ public final class ProfessionFragmentManager {
         }
     }
 
-    public record TradeResult(
+    public record CraftResult(
             boolean success,
             String error,
-            String rarity,
-            String fragmentKey,
-            int cost,
-            String toolType,
             String toolId,
             String displayName,
-            int possibleRolls
+            String rarity,
+            String toolType,
+            String fragmentKey,
+            int cost
     ) {
-        public static TradeResult fail(String error) {
-            return new TradeResult(false, error, null, null, 0, null, null, null, 0);
+        public static CraftResult fail(String error) {
+            return new CraftResult(false, error, null, null, null, null, null, 0);
         }
 
-        public static TradeResult success(
-                String rarity,
-                String fragmentKey,
-                int cost,
-                String toolType,
+        public static CraftResult success(
                 String toolId,
                 String displayName,
-                int possibleRolls
+                String rarity,
+                String toolType,
+                String fragmentKey,
+                int cost
         ) {
-            return new TradeResult(true, null, rarity, fragmentKey, cost, toolType, toolId, displayName, possibleRolls);
+            return new CraftResult(true, null, toolId, displayName, rarity, toolType, fragmentKey, cost);
         }
     }
 
     public static class FragmentItem extends Item implements PolymerItem {
 
+        private final String fragmentKey;
         private final Item baseItem;
 
         public FragmentItem(
+                String fragmentKey,
                 Item baseItem,
                 Properties properties
         ) {
             super(properties);
+            this.fragmentKey = fragmentKey;
             this.baseItem = baseItem;
+        }
+
+        @Override
+        public InteractionResultHolder<ItemStack> use(
+                Level level,
+                net.minecraft.world.entity.player.Player player,
+                InteractionHand hand
+        ) {
+            ItemStack stack =
+                    player.getItemInHand(hand);
+
+            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+                depositFragmentStack(
+                        serverPlayer,
+                        stack,
+                        fragmentKey
+                );
+            }
+
+            return InteractionResultHolder.sidedSuccess(
+                    stack,
+                    level.isClientSide
+            );
         }
 
         @Override

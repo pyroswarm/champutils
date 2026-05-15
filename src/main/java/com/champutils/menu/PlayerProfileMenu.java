@@ -46,10 +46,9 @@ public class PlayerProfileMenu {
             return;
         }
 
-
         SimpleGui gui=
                 new SimpleGui(
-                        MenuType.GENERIC_9x6,
+                        MenuType.GENERIC_9x5,
                         viewer,
                         false
                 );
@@ -64,12 +63,9 @@ public class PlayerProfileMenu {
                 gui,
                 4,
                 10,12,14,16,
-                29,31,33,35,
-                49
+                19,21,23,25,
+                40
         );
-
-
-        /* HEADER */
 
         gui.setSlot(
                 4,
@@ -89,7 +85,6 @@ public class PlayerProfileMenu {
                         )
         );
 
-
         String currentRank=
                 RankManager.getRank(
                         data.rp
@@ -99,9 +94,6 @@ public class PlayerProfileMenu {
                 RankManager.getRank(
                         data.peakRp
                 ).name;
-
-
-        /* RANK */
 
         gui.setSlot(
                 10,
@@ -126,9 +118,6 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* RP */
-
         gui.setSlot(
                 12,
                 new GuiElementBuilder(
@@ -152,9 +141,6 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* RECORD */
-
         int total=
                 data.rankedWins+
                         data.rankedLosses;
@@ -163,7 +149,6 @@ public class PlayerProfileMenu {
                 total==0
                         ?0
                         :(((double)data.rankedWins/total)*100);
-
 
         gui.setSlot(
                 14,
@@ -196,9 +181,6 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* STREAKS */
-
         gui.setSlot(
                 16,
                 new GuiElementBuilder(
@@ -222,11 +204,8 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* UPSET WINS */
-
         gui.setSlot(
-                29,
+                19,
                 new GuiElementBuilder(
                         Items.DIAMOND_SWORD
                 )
@@ -243,11 +222,8 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* SEASONS */
-
         gui.setSlot(
-                31,
+                21,
                 new GuiElementBuilder(
                         Items.CLOCK
                 )
@@ -264,11 +240,8 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* HISTORY */
-
         gui.setSlot(
-                33,
+                23,
                 new GuiElementBuilder(
                         Items.WRITABLE_BOOK
                 )
@@ -292,11 +265,8 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* PROFESSIONS */
-
         gui.setSlot(
-                35,
+                25,
                 new GuiElementBuilder(
                         Items.DIAMOND_PICKAXE
                 )
@@ -311,11 +281,6 @@ public class PlayerProfileMenu {
                                         "§7View profession progress"
                                 )
                         )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7and profession leaderboards"
-                                )
-                        )
                         .setCallback(
                                 (i,c,t)->
                                         ProfessionMenu.open(
@@ -324,11 +289,8 @@ public class PlayerProfileMenu {
                         )
         );
 
-
-        /* CLOSE */
-
         gui.setSlot(
-                49,
+                40,
                 new GuiElementBuilder(
                         Items.BARRIER
                 )
@@ -343,7 +305,6 @@ public class PlayerProfileMenu {
                                         viewer.closeContainer()
                         )
         );
-
 
         gui.open();
     }

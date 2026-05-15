@@ -34,6 +34,7 @@ public class FarmingProfessionListener {
             ProfessionManager.addXp(serverPlayer, ProfessionType.FARMING, xp);
             rollXpSurge(serverPlayer, tool, xp);
             ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FARMING);
+            ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FARMING);
             rollHarvestMultiplier(serverPlayer, state.getBlock(), tool);
             rollRewardPassive(serverPlayer, tool, "seedSaverChance", "farming_seed_saver");
             rollRewardPassive(serverPlayer, tool, "goldenHarvestChance", "farming_golden_harvest");
@@ -57,15 +58,19 @@ public class FarmingProfessionListener {
         if (item == Items.AIR) return;
         ItemStack reward = new ItemStack(item, multiplier - 1);
         if (!player.getInventory().add(reward)) player.drop(reward, false);
-        player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
+            player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+        }
     }
 
     private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {
         if (!roll(player, tool, "farmingXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
         int bonus = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FARMING, bonus);
-        player.displayClientMessage(Component.literal("§aFarming XP Surge! +" + bonus), true);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§aFarming XP Surge! +" + bonus), true);
+        }
     }
 
     private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table) {
@@ -108,7 +113,9 @@ public class FarmingProfessionListener {
             }
             harvested++;
         }
-        if (harvested > 0) player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
+        if (harvested > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
+        }
     }
 
     private static Item cropReward(Block cropBlock) {

@@ -22,6 +22,10 @@ public class ProfessionActionBarManager {
             return;
         }
 
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            return;
+        }
+
         if (isXpOnCooldown(player)) {
             return;
         }
@@ -50,6 +54,10 @@ public class ProfessionActionBarManager {
             return;
         }
 
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            return;
+        }
+
         String color = getProfessionColor(type);
 
         player.displayClientMessage(
@@ -69,6 +77,10 @@ public class ProfessionActionBarManager {
 
     public static void sendRareDropMessage(ServerPlayer player, String itemId, int amount) {
         if (player == null || itemId == null || itemId.isBlank() || amount <= 0) {
+            return;
+        }
+
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             return;
         }
 
