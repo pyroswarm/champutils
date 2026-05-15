@@ -10,7 +10,10 @@ import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 
+import com.champutils.util.CobblemonHeldItemUtil;
+
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 public final class WorldEventBossPartyBuilder {
 
@@ -84,11 +87,24 @@ public final class WorldEventBossPartyBuilder {
 
             applyIVs(pokemon, set.ivs);
             applyEVs(pokemon, set.evs);
+            applyHeldItem(pokemon, set.heldItem);
             pokemon.heal();
             return pokemon;
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    private static boolean applyHeldItem(Pokemon pokemon, String heldItemId) {
+        if (pokemon == null) return false;
+        try {
+            ItemStack heldItem = CobblemonHeldItemUtil.createHeldItemStack(heldItemId);
+            if (heldItem.isEmpty()) return false;
+            pokemon.swapHeldItem(heldItem, false, false);
+            return !pokemon.heldItem().isEmpty();
+        } catch (Exception ignored) {
+            return false;
         }
     }
 

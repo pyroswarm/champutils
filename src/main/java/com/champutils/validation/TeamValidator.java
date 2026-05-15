@@ -9,6 +9,8 @@ import com.champutils.config.Format;
 
 import net.minecraft.server.level.ServerPlayer;
 
+import com.champutils.util.CobblemonHeldItemUtil;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -130,18 +132,16 @@ public class TeamValidator {
                     pokemon.heldItem() != null &&
                             !pokemon.heldItem().isEmpty()
             ) {
-                String item =
-                        pokemon.heldItem()
-                                .getItem()
-                                .toString()
-                                .toLowerCase();
-
                 if (
-                        bannedItems.contains(
-                                item
+                        CobblemonHeldItemUtil.matchesConfiguredItem(
+                                pokemon.heldItem(),
+                                bannedItems
                         )
                 ) {
-                    return "Banned item: " + item;
+                    return "Banned item: " +
+                            CobblemonHeldItemUtil.getDisplayId(
+                                    pokemon.heldItem()
+                            );
                 }
             }
 
