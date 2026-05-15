@@ -86,6 +86,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ProfessionConfig.load();
+        ProfessionNotificationSettings.load();
 
         /*
          Custom tools
@@ -278,6 +279,7 @@ public class ChampUtilsMod implements ModInitializer {
         EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
+        ProfessionPopupsCommand.register();
         ChampReloadCommand.register();
 
         /*
