@@ -68,6 +68,8 @@ public final class DungeonRewardConfig {
         public double chance = 0.0D;
         public double shinyChance = 0.0D;
         public boolean announce = false;
+        /** Optional GUI icon item. Use this if your resource pack exposes custom Pokemon sprite items. */
+        public String iconItem = "";
         /** These run from console if this Pokemon reward rolls. */
         public List<String> commands = new ArrayList<>();
     }

@@ -4,15 +4,16 @@ import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
@@ -27,7 +28,10 @@ public final class DungeonCrateOpeningGui {
     private static final Map<UUID, Opening> OPENINGS = new ConcurrentHashMap<>();
     private static final int[] SPIN_SLOTS = new int[]{9, 10, 11, 12, 13, 14, 15, 16, 17};
     private static final int CENTER_SLOT = 13;
-    private static final int TOTAL_TICKS = 64;
+    private static final int CENTER_INDEX_IN_REEL = 4;
+    private static final int SPIN_END_TICKS = 64;
+    private static final int TOTAL_TICKS = 96;
+    private static final int REVEAL_SLOT_BELOW_CENTER = 22;
 
     private DungeonCrateOpeningGui() {
     }
@@ -37,16 +41,18 @@ public final class DungeonCrateOpeningGui {
         final DungeonRarity rarity;
         final DungeonNativeCrateRegistry.CrateType type;
         final SimpleGui gui;
-        final List<Item> icons;
+        final DungeonRewardManager.PlannedCrateReward plan;
+        final List<DungeonCrateRewardSummary.RewardLine> spinRewards;
         int tick;
         int offset;
 
-        Opening(ServerPlayer player, DungeonRarity rarity, DungeonNativeCrateRegistry.CrateType type, SimpleGui gui, List<Item> icons) {
+        Opening(ServerPlayer player, DungeonRewardManager.PlannedCrateReward plan, SimpleGui gui) {
             this.playerId = player.getUUID();
-            this.rarity = rarity == null ? DungeonRarity.COMMON : rarity;
-            this.type = type == null ? DungeonNativeCrateRegistry.CrateType.NORMAL : type;
+            this.rarity = plan == null ? DungeonRarity.COMMON : plan.rarity();
+            this.type = plan == null ? DungeonNativeCrateRegistry.CrateType.NORMAL : plan.type();
             this.gui = gui;
-            this.icons = icons == null || icons.isEmpty() ? defaultIcons(this.type) : icons;
+            this.plan = plan;
+            this.spinRewards = buildSpinRewards(plan);
         }
     }
 
@@ -69,6 +75,12 @@ public final class DungeonCrateOpeningGui {
             }
         }
 
+        DungeonRewardManager.PlannedCrateReward plan = DungeonRewardManager.planCrateReward(safeRarity, safeType);
+        if (plan == null) {
+            player.sendSystemMessage(Component.literal("Could not prepare crate reward. Check the crate config.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
         OPENINGS.remove(player.getUUID());
 
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
@@ -78,16 +90,18 @@ public final class DungeonCrateOpeningGui {
             gui.setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).setName(Component.literal(" ")));
         }
 
+        DungeonCrateRewardSummary.RewardLine finalReward = plan.finalReward();
         gui.setSlot(4, new GuiElementBuilder(safeType == DungeonNativeCrateRegistry.CrateType.POKEMON ? Items.DRAGON_EGG : Items.CHEST)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Opening...").withStyle(ChatFormatting.BOLD))
-                .addLoreLine(Component.literal("§7The reward will land in the center.")));
+                .addLoreLine(Component.literal("§7The center slot will land on your real reward."))
+                .addLoreLine(Component.literal("§8Final: ").append(finalReward.title())));
 
         gui.open();
 
-        Opening opening = new Opening(player, safeRarity, safeType, gui, defaultIcons(safeType));
+        Opening opening = new Opening(player, plan, gui);
         OPENINGS.put(player.getUUID(), opening);
-        updateSpin(player, opening);
+        updateSpin(opening, false);
         playLocalSound(player, "minecraft:ui.button.click", 0.6F, 1.2F);
         return true;
     }
@@ -107,24 +121,25 @@ public final class DungeonCrateOpeningGui {
 
             opening.tick++;
 
+            boolean finalLock = opening.tick >= SPIN_END_TICKS;
             int speed = opening.tick < 26 ? 2 : opening.tick < 46 ? 4 : 6;
-            if (opening.tick % speed == 0) {
-                opening.offset++;
-                updateSpin(player, opening);
-                playLocalSound(player, "minecraft:block.note_block.hat", 0.25F, 1.0F + (opening.tick / 80.0F));
+            if (finalLock || opening.tick % speed == 0) {
+                if (!finalLock) {
+                    opening.offset++;
+                }
+                updateSpin(opening, finalLock);
+                if (opening.tick == SPIN_END_TICKS) {
+                    playLocalSound(player, "minecraft:entity.player.levelup", 0.7F, 1.4F);
+                } else if (!finalLock) {
+                    playCrateTickSound(player, opening.tick);
+                }
             }
 
             if (opening.tick >= TOTAL_TICKS) {
                 iterator.remove();
                 player.closeContainer();
 
-                boolean opened;
-                if (opening.type == DungeonNativeCrateRegistry.CrateType.POKEMON) {
-                    opened = DungeonRewardManager.openPendingPokemonChest(player, opening.rarity);
-                } else {
-                    opened = DungeonRewardManager.openPendingDungeonChest(player, opening.rarity);
-                }
-
+                boolean opened = DungeonRewardManager.grantPlannedCrateReward(player, opening.plan);
                 if (opened) {
                     playLocalSound(player, "minecraft:ui.toast.challenge_complete", 0.8F, 1.0F);
                 }
@@ -157,8 +172,7 @@ public final class DungeonCrateOpeningGui {
         } else {
             for (int i = 0; i < rewards.size() && i < rewardSlots.length; i++) {
                 DungeonCrateRewardSummary.RewardLine line = rewards.get(i);
-                Item icon = line.icon().getItem();
-                gui.setSlot(rewardSlots[i], new GuiElementBuilder(icon)
+                gui.setSlot(rewardSlots[i], rewardElement(line)
                         .hideDefaultTooltip()
                         .setName(line.title())
                         .addLoreLine(line.detail()));
@@ -173,54 +187,100 @@ public final class DungeonCrateOpeningGui {
         gui.open();
     }
 
-    private static void updateSpin(ServerPlayer player, Opening opening) {
+    private static void updateSpin(Opening opening, boolean finalLock) {
+        DungeonCrateRewardSummary.RewardLine finalReward = opening.plan.finalReward();
+
         for (int i = 0; i < SPIN_SLOTS.length; i++) {
-            Item icon = opening.icons.get((opening.offset + i) % opening.icons.size());
             boolean center = SPIN_SLOTS[i] == CENTER_SLOT;
-            opening.gui.setSlot(SPIN_SLOTS[i], new GuiElementBuilder(icon)
+            DungeonCrateRewardSummary.RewardLine line;
+            if (finalLock && center) {
+                line = finalReward;
+            } else {
+                line = opening.spinRewards.get((opening.offset + i) % opening.spinRewards.size());
+            }
+
+            opening.gui.setSlot(SPIN_SLOTS[i], rewardElement(line)
                     .hideDefaultTooltip()
-                    .setName(Component.literal(center ? "§e§l???" : "§7???"))
-                    .addLoreLine(Component.literal(center ? "§6Final reward lands here" : "§8Rolling...")));
+                    .setName(center && finalLock ? Component.literal("§e§lYOUR REWARD").append(Component.literal(" - ")).append(line.title()) : line.title())
+                    .addLoreLine(center && finalLock ? Component.literal("§aThis is what you won.") : Component.literal("§8Rolling..."))
+                    .addLoreLine(line.detail()));
         }
+
+        if (finalLock) {
+            opening.gui.setSlot(REVEAL_SLOT_BELOW_CENTER, new GuiElementBuilder(Items.LIME_STAINED_GLASS_PANE)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§a§lWINNING REWARD"))
+                    .addLoreLine(finalReward.title()));
+        } else {
+            opening.gui.setSlot(REVEAL_SLOT_BELOW_CENTER, new GuiElementBuilder(Items.YELLOW_STAINED_GLASS_PANE)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§eLanding slot")));
+        }
+    }
+
+    private static GuiElementBuilder rewardElement(DungeonCrateRewardSummary.RewardLine line) {
+        ItemStack stack = line == null || line.icon() == null || line.icon().isEmpty() ? new ItemStack(Items.BARRIER) : line.icon().copy();
+        try {
+            return new GuiElementBuilder(stack);
+        } catch (Throwable ignored) {
+            return new GuiElementBuilder(stack.getItem());
+        }
+    }
+
+    private static List<DungeonCrateRewardSummary.RewardLine> buildSpinRewards(DungeonRewardManager.PlannedCrateReward plan) {
+        List<DungeonCrateRewardSummary.RewardLine> rewards = new ArrayList<>();
+        if (plan != null && plan.spinRewards() != null && !plan.spinRewards().isEmpty()) {
+            rewards.addAll(plan.spinRewards());
+        }
+
+        DungeonCrateRewardSummary.RewardLine finalReward = plan == null ? null : plan.finalReward();
+        if (rewards.isEmpty()) {
+            rewards.add(new DungeonCrateRewardSummary.RewardLine(
+                    new ItemStack(plan != null && plan.type() == DungeonNativeCrateRegistry.CrateType.POKEMON ? Items.EGG : Items.CHEST),
+                    Component.literal("Crate Reward").withStyle(ChatFormatting.GOLD),
+                    Component.literal("Opening...").withStyle(ChatFormatting.GRAY)
+            ));
+        }
+
+        // Build a deterministic reel. The final reward is placed at the exact index that will be
+        // under the center slot on the final real movement frame. This prevents the old clunky
+        // end-swap where the GUI showed one item and then suddenly changed it to the real reward.
+        List<DungeonCrateRewardSummary.RewardLine> expanded = new ArrayList<>();
+        while (expanded.size() < 36) {
+            expanded.addAll(rewards);
+        }
+
+        if (finalReward != null) {
+            int finalOffset = calculateFinalOffsetBeforeLock();
+            int landingIndex = Math.floorMod(finalOffset + CENTER_INDEX_IN_REEL, expanded.size());
+            expanded.set(landingIndex, finalReward);
+        }
+
+        return expanded;
+    }
+
+    private static int calculateFinalOffsetBeforeLock() {
+        int advances = 0;
+        for (int tick = 1; tick < SPIN_END_TICKS; tick++) {
+            int speed = tick < 26 ? 2 : tick < 46 ? 4 : 6;
+            if (tick % speed == 0) {
+                advances++;
+            }
+        }
+        return advances;
+    }
+
+    private static void playCrateTickSound(ServerPlayer player, int tick) {
+        // CS2-style tick each time the reel advances past an item.
+        float pitch = Math.min(1.85F, 0.85F + (tick / 70.0F));
+        playLocalSound(player, "minecraft:block.note_block.hat", 0.45F, pitch);
     }
 
     private static void playLocalSound(ServerPlayer player, String soundId, float volume, float pitch) {
         if (player == null || soundId == null || soundId.isBlank()) return;
         SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
         if (sound == null) return;
-        player.level().playSound(
-                player,
-                player.getX(),
-                player.getY(),
-                player.getZ(),
-                sound,
-                SoundSource.PLAYERS,
-                volume,
-                pitch
-        );
-    }
-
-    private static List<Item> defaultIcons(DungeonNativeCrateRegistry.CrateType type) {
-        List<Item> icons = new ArrayList<>();
-        if (type == DungeonNativeCrateRegistry.CrateType.POKEMON) {
-            icons.add(Items.EGG);
-            icons.add(Items.DRAGON_EGG);
-            icons.add(Items.NETHER_STAR);
-            icons.add(Items.ENDER_EYE);
-            icons.add(Items.AMETHYST_SHARD);
-            icons.add(Items.GOLDEN_APPLE);
-            icons.add(Items.EMERALD);
-        } else {
-            icons.add(Items.CHEST);
-            icons.add(Items.AMETHYST_SHARD);
-            icons.add(Items.DIAMOND);
-            icons.add(Items.EMERALD);
-            icons.add(Items.NETHERITE_SCRAP);
-            icons.add(Items.NETHER_STAR);
-            icons.add(Items.ENCHANTED_BOOK);
-            icons.add(Items.GOLDEN_APPLE);
-        }
-        return icons;
+        player.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
     }
 
     private static String nice(String value) {

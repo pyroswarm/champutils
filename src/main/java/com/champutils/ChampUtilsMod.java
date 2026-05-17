@@ -8,6 +8,7 @@ package com.champutils;
 import com.champutils.battle.*;
 import com.champutils.commands.*;
 import com.champutils.config.*;
+import com.champutils.database.DatabaseManager;
 import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
@@ -82,6 +83,13 @@ public class ChampUtilsMod implements ModInitializer {
         }
 
         Config.load(configFile);
+
+        /*
+         =========================
+         DATABASE
+         =========================
+         */
+        DatabaseManager.init();
 
         /*
          =========================
@@ -193,6 +201,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonBindingRegistry.save();
                     DungeonNativeCrateRegistry.save();
                     DungeonManager.handleServerStopping(server);
+                    DatabaseManager.shutdown();
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."

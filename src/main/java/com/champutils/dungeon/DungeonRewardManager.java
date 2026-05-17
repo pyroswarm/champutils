@@ -30,6 +30,98 @@ public final class DungeonRewardManager {
     private DungeonRewardManager() {
     }
 
+    @FunctionalInterface
+    private interface PlannedGrant {
+        void grant(ServerPlayer player);
+    }
+
+    public static final class PlannedCrateReward {
+        private final DungeonRarity rarity;
+        private final DungeonNativeCrateRegistry.CrateType type;
+        private final DungeonCrateRewardSummary summary;
+        private final List<PlannedGrant> grants = new ArrayList<>();
+        private final List<DungeonCrateRewardSummary.RewardLine> spinPool = new ArrayList<>();
+        private DungeonCrateRewardSummary.RewardLine bonusReward;
+
+        private PlannedCrateReward(DungeonRarity rarity, DungeonNativeCrateRegistry.CrateType type, Component title) {
+            this.rarity = rarity == null ? DungeonRarity.COMMON : rarity;
+            this.type = type == null ? DungeonNativeCrateRegistry.CrateType.NORMAL : type;
+            this.summary = new DungeonCrateRewardSummary(title, this.rarity, this.type == DungeonNativeCrateRegistry.CrateType.POKEMON);
+        }
+
+        public DungeonRarity rarity() {
+            return rarity;
+        }
+
+        public DungeonNativeCrateRegistry.CrateType type() {
+            return type;
+        }
+
+        public DungeonCrateRewardSummary summary() {
+            return summary;
+        }
+
+        public List<DungeonCrateRewardSummary.RewardLine> rewards() {
+            return summary.rewards();
+        }
+
+        public List<DungeonCrateRewardSummary.RewardLine> spinRewards() {
+            return java.util.Collections.unmodifiableList(spinPool);
+        }
+
+        public DungeonCrateRewardSummary.RewardLine finalReward() {
+            if (bonusReward != null) {
+                return bonusReward;
+            }
+            if (!spinPool.isEmpty()) {
+                return spinPool.get(0);
+            }
+            return new DungeonCrateRewardSummary.RewardLine(
+                    new ItemStack(type == DungeonNativeCrateRegistry.CrateType.POKEMON ? Items.EGG : Items.CHEST),
+                    Component.literal("Crate Reward").withStyle(ChatFormatting.GOLD),
+                    Component.literal("Opening...").withStyle(ChatFormatting.GRAY)
+            );
+        }
+
+        private void addGuaranteed(ItemStack icon, Component title, Component detail, PlannedGrant grant) {
+            summary.add(icon, title, detail);
+            if (grant != null) {
+                grants.add(grant);
+            }
+        }
+
+        private void addPossibleBonus(ItemStack icon, Component title, Component detail) {
+            spinPool.add(new DungeonCrateRewardSummary.RewardLine(icon, title, detail));
+        }
+
+        private void addBonus(ItemStack icon, Component title, Component detail, PlannedGrant grant) {
+            DungeonCrateRewardSummary.RewardLine line = new DungeonCrateRewardSummary.RewardLine(icon, title, detail);
+            bonusReward = line;
+            summary.add(line.icon(), line.title(), line.detail());
+            if (grant != null) {
+                grants.add(grant);
+            }
+            if (spinPool.isEmpty()) {
+                spinPool.add(line);
+            }
+        }
+
+        // Kept for older helper methods in this file. New crate planning uses addGuaranteed/addBonus.
+        private void add(ItemStack icon, Component title, Component detail, PlannedGrant grant) {
+            addBonus(icon, title, detail, grant);
+        }
+
+        private void grantAll(ServerPlayer player) {
+            for (PlannedGrant grant : grants) {
+                try {
+                    grant.grant(player);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
     public static void grantCompletionRewards(ServerPlayer player, DungeonSession session) {
         if (player == null || session == null) {
             return;
@@ -51,23 +143,124 @@ public final class DungeonRewardManager {
         player.sendSystemMessage(Component.literal("Go to spawn and open the matching crate. Credits are bound to you and cannot be traded.").withStyle(ChatFormatting.GRAY));
     }
 
-    private static DungeonCrateRewardSummary openVirtualChest(ServerPlayer player, DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table, int chest, int chestCount) {
-        DungeonCrateRewardSummary summary = new DungeonCrateRewardSummary(
-                Component.literal(displayName + " Rewards"),
+    public static PlannedCrateReward planCrateReward(DungeonRarity requestedRarity, DungeonNativeCrateRegistry.CrateType requestedType) {
+        DungeonRarity rarity = requestedRarity == null ? DungeonRarity.COMMON : requestedRarity;
+        DungeonNativeCrateRegistry.CrateType type = requestedType == null ? DungeonNativeCrateRegistry.CrateType.NORMAL : requestedType;
+        DungeonRewardConfig.RewardTable table = DungeonRewardConfig.getTable(rarity);
+        String displayName = nice(rarity.name()) + (type == DungeonNativeCrateRegistry.CrateType.POKEMON ? " Pokemon Crate" : " Reward Crate");
+
+        if (type == DungeonNativeCrateRegistry.CrateType.POKEMON) {
+            return planPokemonChest(rarity, displayName, table);
+        }
+        return planNormalChest(rarity, displayName, table);
+    }
+
+    public static boolean grantPlannedCrateReward(ServerPlayer player, PlannedCrateReward plan) {
+        if (player == null || plan == null) {
+            return false;
+        }
+
+        DungeonRarity rarity = plan.rarity();
+        boolean pokemon = plan.type() == DungeonNativeCrateRegistry.CrateType.POKEMON;
+
+        if (pokemon) {
+            if (!DungeonCrateCreditManager.consumePokemonCredit(player.getUUID(), rarity)) {
+                player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Pokemon Crate credits.").withStyle(ChatFormatting.RED));
+                return false;
+            }
+            player.sendSystemMessage(Component.literal("Pokemon Crate opened!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        } else {
+            if (!DungeonCrateCreditManager.consumeNormalCredit(player.getUUID(), rarity)) {
+                player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Reward Crate credits.").withStyle(ChatFormatting.RED));
+                return false;
+            }
+            player.sendSystemMessage(Component.literal("Loot Crate opened!").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        }
+
+        plan.grantAll(player);
+        sendSummaryToChat(player, plan.summary());
+        sendCreditRemaining(player, rarity);
+        DungeonCrateOpeningGui.openRewardSummary(player, plan.summary());
+        return true;
+    }
+
+    private interface BonusCandidate {
+        ItemStack icon();
+        Component title();
+        Component detail();
+        void grant(ServerPlayer player);
+    }
+
+    private static final class WeightedBonusCandidate {
+        private final double weight;
+        private final BonusCandidate candidate;
+
+        private WeightedBonusCandidate(double weight, BonusCandidate candidate) {
+            this.weight = Math.max(0.0D, weight);
+            this.candidate = candidate;
+        }
+    }
+
+    private static PlannedCrateReward planNormalChest(DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table) {
+        PlannedCrateReward plan = new PlannedCrateReward(
                 rarity,
-                false
+                DungeonNativeCrateRegistry.CrateType.NORMAL,
+                Component.literal(displayName + " Rewards")
         );
 
-        player.sendSystemMessage(Component.literal("Loot Crate " + chest + "/" + chestCount).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        player.level().playSound(null, player.blockPosition(), SoundEvents.CHEST_OPEN, SoundSource.PLAYERS, 0.8F, 1.0F + (chest * 0.05F));
+        addGuaranteedFragments(plan, rarity, table);
 
+        List<WeightedBonusCandidate> candidates = buildNormalBonusCandidates(rarity, displayName, table);
+        for (WeightedBonusCandidate weighted : candidates) {
+            BonusCandidate candidate = weighted.candidate;
+            plan.addPossibleBonus(candidate.icon(), candidate.title(), candidate.detail());
+        }
+
+        WeightedBonusCandidate selected = selectWeighted(candidates);
+        if (selected != null && selected.candidate != null) {
+            BonusCandidate candidate = selected.candidate;
+            plan.addBonus(candidate.icon(), candidate.title(), candidate.detail(), candidate::grant);
+        } else {
+            Component line = Component.literal("No bonus reward configured").withStyle(ChatFormatting.GRAY);
+            plan.addBonus(new ItemStack(Items.CHEST), line, Component.literal("Add crate bonus rewards in dungeon_rewards.json.").withStyle(ChatFormatting.DARK_GRAY), null);
+        }
+
+        return plan;
+    }
+
+    private static PlannedCrateReward planPokemonChest(DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table) {
+        PlannedCrateReward plan = new PlannedCrateReward(
+                rarity,
+                DungeonNativeCrateRegistry.CrateType.POKEMON,
+                Component.literal(displayName + " Rewards")
+        );
+
+        addGuaranteedFragments(plan, rarity, table);
+
+        List<WeightedBonusCandidate> candidates = buildPokemonBonusCandidates(rarity, displayName, table);
+        for (WeightedBonusCandidate weighted : candidates) {
+            BonusCandidate candidate = weighted.candidate;
+            plan.addPossibleBonus(candidate.icon(), candidate.title(), candidate.detail());
+        }
+
+        WeightedBonusCandidate selected = selectWeighted(candidates);
+        if (selected != null && selected.candidate != null) {
+            BonusCandidate candidate = selected.candidate;
+            plan.addBonus(candidate.icon(), candidate.title(), candidate.detail(), candidate::grant);
+        } else {
+            Component line = Component.literal("No Pokemon rewards configured").withStyle(ChatFormatting.GRAY);
+            plan.addBonus(new ItemStack(Items.BARRIER), line, Component.literal("Check dungeon_rewards.json").withStyle(ChatFormatting.RED), null);
+        }
+
+        return plan;
+    }
+
+    private static void addGuaranteedFragments(PlannedCrateReward plan, DungeonRarity rarity, DungeonRewardConfig.RewardTable table) {
         int fragments = randomBetween(table.guaranteedFragmentsMin, table.guaranteedFragmentsMax);
         if (fragments > 0) {
             ItemStack stack = ProfessionFragmentManager.createFragmentStack(rarity.name(), fragments);
-            giveStack(player, stack.copy());
             Component line = Component.literal(fragments + "x " + nice(rarity.name()) + " Tool Fragment").withStyle(rarity.getColor());
-            player.sendSystemMessage(Component.literal("  + ").append(line));
-            summary.add(stack, line, Component.literal("Guaranteed crate fragments").withStyle(ChatFormatting.GRAY));
+            plan.addGuaranteed(stack, line, Component.literal("Guaranteed crate fragments").withStyle(ChatFormatting.GRAY), player -> giveStack(player, stack.copy()));
         }
 
         DungeonRarity higher = nextRarity(rarity);
@@ -75,125 +268,225 @@ public final class DungeonRewardManager {
             int higherFragments = randomBetween(table.higherTierFragmentsMin, table.higherTierFragmentsMax);
             if (higherFragments > 0) {
                 ItemStack stack = ProfessionFragmentManager.createFragmentStack(higher.name(), higherFragments);
-                giveStack(player, stack.copy());
                 Component line = Component.literal(higherFragments + "x " + nice(higher.name()) + " Tool Fragment").withStyle(higher.getColor(), ChatFormatting.BOLD);
-                player.sendSystemMessage(Component.literal("  + ").append(line));
-                summary.add(stack, line, Component.literal("Bonus higher-tier fragments").withStyle(ChatFormatting.GRAY));
+                plan.addGuaranteed(stack, line, Component.literal("Bonus higher-tier fragments").withStyle(ChatFormatting.GRAY), player -> giveStack(player, stack.copy()));
             }
         }
+    }
+
+    private static List<WeightedBonusCandidate> buildNormalBonusCandidates(DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table) {
+        List<WeightedBonusCandidate> candidates = new ArrayList<>();
 
         if (table.itemRewards != null) {
             for (DungeonRewardConfig.ItemReward reward : table.itemRewards) {
-                rollItemReward(player, reward, summary);
+                WeightedBonusCandidate candidate = itemBonusCandidate(reward);
+                if (candidate != null) {
+                    candidates.add(candidate);
+                }
             }
         }
 
         if (table.commandRewards != null) {
             for (DungeonRewardConfig.CommandReward reward : table.commandRewards) {
-                rollCommandReward(player, reward, summary);
-            }
-        }
-
-        if (roll(table.unidentifiedToolChance)) {
-            ItemStack tool = createRandomDungeonTool(rarity, roll(table.ascendedToolChance));
-            if (!tool.isEmpty()) {
-                giveStack(player, tool.copy());
-                Component line = Component.literal("Unidentified " + nice(rarity.name()) + " Profession Tool").withStyle(rarity.getColor(), ChatFormatting.BOLD);
-                player.sendSystemMessage(Component.literal("  ★ ").append(line));
-                summary.add(tool, line, Component.literal("Rare full tool drop").withStyle(ChatFormatting.GOLD));
-                player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
-
-                if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
-                    broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC dungeon tool from " + displayName + "!")
-                            .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
+                WeightedBonusCandidate candidate = commandBonusCandidate(reward);
+                if (candidate != null) {
+                    candidates.add(candidate);
                 }
             }
         }
 
-        if (summary.isEmpty()) {
-            summary.add(new ItemStack(Items.CHEST), Component.literal("No bonus rewards rolled").withStyle(ChatFormatting.GRAY), Component.literal("You still consumed a crate credit.").withStyle(ChatFormatting.DARK_GRAY));
+        if (table.unidentifiedToolChance > 0.0D) {
+            boolean ascended = roll(table.ascendedToolChance);
+            ItemStack rolledTool = createRandomDungeonTool(rarity, ascended);
+            if (!rolledTool.isEmpty()) {
+                candidates.add(new WeightedBonusCandidate(table.unidentifiedToolChance, new BonusCandidate() {
+                    @Override
+                    public ItemStack icon() {
+                        return rolledTool.copy();
+                    }
+
+                    @Override
+                    public Component title() {
+                        return Component.literal((ascended ? "Ascended " : "") + "Unidentified " + nice(rarity.name()) + " Profession Tool").withStyle(rarity.getColor(), ChatFormatting.BOLD);
+                    }
+
+                    @Override
+                    public Component detail() {
+                        return Component.literal("Rare full tool drop").withStyle(ChatFormatting.GOLD);
+                    }
+
+                    @Override
+                    public void grant(ServerPlayer player) {
+                        giveStack(player, rolledTool.copy());
+                        player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                        if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
+                            broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC crate tool from " + displayName + "!")
+                                    .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
+                        }
+                    }
+                }));
+            }
         }
 
-        return summary;
+        return candidates;
     }
 
-    private static DungeonCrateRewardSummary openPokemonChest(ServerPlayer player, DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table, int chest, int chestCount) {
-        DungeonCrateRewardSummary summary = new DungeonCrateRewardSummary(
-                Component.literal(displayName + " Rewards"),
-                rarity,
-                true
-        );
-
-        player.sendSystemMessage(Component.literal("Pokemon Crate " + chest + "/" + chestCount).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_IN, SoundSource.PLAYERS, 0.8F, 1.0F);
-
+    private static List<WeightedBonusCandidate> buildPokemonBonusCandidates(DungeonRarity rarity, String displayName, DungeonRewardConfig.RewardTable table) {
+        List<WeightedBonusCandidate> candidates = new ArrayList<>();
         if (table.pokemonRewards == null || table.pokemonRewards.isEmpty()) {
-            Component line = Component.literal("No Pokemon rewards configured").withStyle(ChatFormatting.GRAY);
-            player.sendSystemMessage(Component.literal("  ").append(line));
-            summary.add(new ItemStack(Items.BARRIER), line, Component.literal("Check dungeon_rewards.json").withStyle(ChatFormatting.RED));
-            return summary;
+            return candidates;
         }
 
-        DungeonRewardConfig.PokemonReward selected = selectPokemonReward(table);
-        if (selected == null) {
-            Component line = Component.literal("No Pokemon reward is available").withStyle(ChatFormatting.GRAY);
-            player.sendSystemMessage(Component.literal("  ").append(line));
-            summary.add(new ItemStack(Items.BARRIER), line, Component.literal("Check dungeon_rewards.json").withStyle(ChatFormatting.RED));
-            return summary;
-        }
-
-        boolean shiny = roll(selected.shinyChance);
-        runPokemonRewardCommands(player, selected, shiny);
-
-        String label = selected.display == null || selected.display.isBlank() ? selected.pokemon : selected.display;
-        Component line = Component.literal(label + " Lv. " + selected.level + (shiny ? " ✨" : "")).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
-        player.sendSystemMessage(Component.literal("  ★ Pokemon Reward: ").append(line));
-        summary.add(new ItemStack(Items.EGG), line, Component.literal("Sent to your party or PC").withStyle(ChatFormatting.GRAY));
-        player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
-
-        if (selected.announce && DungeonRewardConfig.CONFIG.announceLegendaryPokemon) {
-            broadcast(player, Component.literal("✦ " + player.getName().getString() + " found " + label + " from a " + nice(rarity.name()) + " Pokemon crate!")
-                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        }
-
-        return summary;
-    }
-
-    private static DungeonRewardConfig.PokemonReward selectPokemonReward(DungeonRewardConfig.RewardTable table) {
-        if (table == null || table.pokemonRewards == null || table.pokemonRewards.isEmpty()) {
-            return null;
-        }
-
-        double totalWeight = 0.0D;
-        List<DungeonRewardConfig.PokemonReward> candidates = new ArrayList<>();
         for (DungeonRewardConfig.PokemonReward reward : table.pokemonRewards) {
             if (reward == null || reward.pokemon == null || reward.pokemon.isBlank() || reward.chance <= 0.0D) {
                 continue;
             }
-            candidates.add(reward);
-            totalWeight += reward.chance;
+
+            String label = reward.display == null || reward.display.isBlank() ? reward.pokemon : reward.display;
+            boolean shiny = roll(reward.shinyChance);
+            ItemStack icon = pokemonRewardIcon(reward, shiny);
+            candidates.add(new WeightedBonusCandidate(reward.chance, new BonusCandidate() {
+                @Override
+                public ItemStack icon() {
+                    return icon.copy();
+                }
+
+                @Override
+                public Component title() {
+                    return Component.literal(label + " Lv. " + reward.level + (shiny ? " ✨" : "")).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+                }
+
+                @Override
+                public Component detail() {
+                    return Component.literal("Sent to your party or PC").withStyle(ChatFormatting.GRAY);
+                }
+
+                @Override
+                public void grant(ServerPlayer player) {
+                    runPokemonRewardCommands(player, reward, shiny);
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
+                    if (reward.announce && DungeonRewardConfig.CONFIG.announceLegendaryPokemon) {
+                        broadcast(player, Component.literal("✦ " + player.getName().getString() + " found " + label + " from a " + nice(rarity.name()) + " Pokemon crate!")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                    }
+                }
+            }));
         }
 
-        if (candidates.isEmpty() || totalWeight <= 0.0D) {
+        return candidates;
+    }
+
+    private static WeightedBonusCandidate itemBonusCandidate(DungeonRewardConfig.ItemReward reward) {
+        if (reward == null || reward.id == null || reward.id.isBlank() || reward.chance <= 0.0D) {
             return null;
         }
 
-        // Pokemon crates are meant to feel special, so they guarantee one Pokemon by default.
-        // The chance field is treated as a relative weight for choosing WHICH Pokemon is won.
-        if (!table.guaranteePokemonReward && !roll(Math.min(100.0D, totalWeight))) {
+        Item item;
+        try {
+            item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(reward.id));
+        } catch (Exception ignored) {
+            item = Items.AIR;
+        }
+
+        if (item == null || item == Items.AIR) {
             return null;
         }
 
-        double roll = RANDOM.nextDouble() * totalWeight;
+        int rolledAmount = Math.max(1, randomBetween(reward.min, reward.max));
+        ItemStack preview = new ItemStack(item, Math.min(64, rolledAmount));
+        String label = reward.display == null || reward.display.isBlank() ? reward.id : reward.display;
+
+        return new WeightedBonusCandidate(reward.chance, new BonusCandidate() {
+            @Override
+            public ItemStack icon() {
+                return preview.copy();
+            }
+
+            @Override
+            public Component title() {
+                int shown = preview.getCount();
+                return Component.literal(shown + "x " + label).withStyle(ChatFormatting.GREEN);
+            }
+
+            @Override
+            public Component detail() {
+                return Component.literal("Bonus item reward").withStyle(ChatFormatting.GRAY);
+            }
+
+            @Override
+            public void grant(ServerPlayer player) {
+                giveStack(player, preview.copy());
+            }
+        });
+    }
+
+    private static WeightedBonusCandidate commandBonusCandidate(DungeonRewardConfig.CommandReward reward) {
+        if (reward == null || reward.commands == null || reward.commands.isEmpty() || reward.chance <= 0.0D) {
+            return null;
+        }
+
+        String label = reward.display == null || reward.display.isBlank() ? "Command Reward" : reward.display;
+        List<String> commands = new ArrayList<>(reward.commands);
+        return new WeightedBonusCandidate(reward.chance, new BonusCandidate() {
+            @Override
+            public ItemStack icon() {
+                return new ItemStack(Items.COMMAND_BLOCK);
+            }
+
+            @Override
+            public Component title() {
+                return Component.literal(label).withStyle(ChatFormatting.AQUA);
+            }
+
+            @Override
+            public Component detail() {
+                return Component.literal("Console reward command").withStyle(ChatFormatting.GRAY);
+            }
+
+            @Override
+            public void grant(ServerPlayer player) {
+                runCommands(player, commands, null, 0, false);
+            }
+        });
+    }
+
+    private static WeightedBonusCandidate selectWeighted(List<WeightedBonusCandidate> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return null;
+        }
+
+        double total = 0.0D;
+        for (WeightedBonusCandidate candidate : candidates) {
+            if (candidate != null && candidate.candidate != null && candidate.weight > 0.0D) {
+                total += candidate.weight;
+            }
+        }
+
+        if (total <= 0.0D) {
+            return null;
+        }
+
+        double roll = RANDOM.nextDouble() * total;
         double cursor = 0.0D;
-        for (DungeonRewardConfig.PokemonReward reward : candidates) {
-            cursor += reward.chance;
+        for (WeightedBonusCandidate candidate : candidates) {
+            if (candidate == null || candidate.candidate == null || candidate.weight <= 0.0D) {
+                continue;
+            }
+            cursor += candidate.weight;
             if (roll <= cursor) {
-                return reward;
+                return candidate;
             }
         }
 
         return candidates.get(candidates.size() - 1);
+    }
+
+    private static ItemStack pokemonRewardIcon(DungeonRewardConfig.PokemonReward reward, boolean shiny) {
+        if (reward == null) {
+            return new ItemStack(Items.EGG);
+        }
+
+        return PokemonIconUtil.createPokemonIcon(reward.pokemon, shiny, reward.iconItem, reward.announce);
     }
 
     public static boolean openPendingDungeonChest(ServerPlayer player, DungeonRarity requestedRarity) {
@@ -208,16 +501,8 @@ public final class DungeonRewardManager {
             return false;
         }
 
-        if (!DungeonCrateCreditManager.consumeNormalCredit(player.getUUID(), rarity)) {
-            player.sendSystemMessage(Component.literal("Could not consume your crate credit. Try again.").withStyle(ChatFormatting.RED));
-            return false;
-        }
-
-        DungeonRewardConfig.RewardTable table = DungeonRewardConfig.getTable(rarity);
-        DungeonCrateRewardSummary summary = openVirtualChest(player, rarity, nice(rarity.name()) + " Reward Crate", table, 1, 1);
-        sendCreditRemaining(player, rarity);
-        DungeonCrateOpeningGui.openRewardSummary(player, summary);
-        return true;
+        PlannedCrateReward plan = planCrateReward(rarity, DungeonNativeCrateRegistry.CrateType.NORMAL);
+        return grantPlannedCrateReward(player, plan);
     }
 
     public static boolean openPendingPokemonChest(ServerPlayer player, DungeonRarity requestedRarity) {
@@ -232,16 +517,8 @@ public final class DungeonRewardManager {
             return false;
         }
 
-        if (!DungeonCrateCreditManager.consumePokemonCredit(player.getUUID(), rarity)) {
-            player.sendSystemMessage(Component.literal("Could not consume your Pokemon crate credit. Try again.").withStyle(ChatFormatting.RED));
-            return false;
-        }
-
-        DungeonRewardConfig.RewardTable table = DungeonRewardConfig.getTable(rarity);
-        DungeonCrateRewardSummary summary = openPokemonChest(player, rarity, nice(rarity.name()) + " Pokemon Crate", table, 1, 1);
-        sendCreditRemaining(player, rarity);
-        DungeonCrateOpeningGui.openRewardSummary(player, summary);
-        return true;
+        PlannedCrateReward plan = planCrateReward(rarity, DungeonNativeCrateRegistry.CrateType.POKEMON);
+        return grantPlannedCrateReward(player, plan);
     }
 
     public static int getPendingChestCount(ServerPlayer player) {
@@ -249,6 +526,13 @@ public final class DungeonRewardManager {
             return 0;
         }
         return DungeonCrateCreditManager.getTotalCredits(player.getUUID());
+    }
+
+    private static void sendSummaryToChat(ServerPlayer player, DungeonCrateRewardSummary summary) {
+        if (player == null || summary == null) return;
+        for (DungeonCrateRewardSummary.RewardLine line : summary.rewards()) {
+            player.sendSystemMessage(Component.literal("  + ").append(line.title()));
+        }
     }
 
     private static void sendCreditRemaining(ServerPlayer player, DungeonRarity rarity) {
@@ -261,7 +545,7 @@ public final class DungeonRewardManager {
         }
     }
 
-    private static void rollItemReward(ServerPlayer player, DungeonRewardConfig.ItemReward reward, DungeonCrateRewardSummary summary) {
+    private static void planItemReward(DungeonRewardConfig.ItemReward reward, PlannedCrateReward plan) {
         if (reward == null || reward.id == null || reward.id.isBlank() || !roll(reward.chance)) {
             return;
         }
@@ -274,7 +558,6 @@ public final class DungeonRewardManager {
         }
 
         if (item == null || item == Items.AIR) {
-            player.sendSystemMessage(Component.literal("  ! Invalid reward item in dungeon_rewards.json: " + reward.id).withStyle(ChatFormatting.RED));
             return;
         }
 
@@ -284,27 +567,20 @@ public final class DungeonRewardManager {
         }
 
         ItemStack stack = new ItemStack(item, Math.min(64, amount));
-        giveStack(player, stack.copy());
         String label = reward.display == null || reward.display.isBlank() ? reward.id : reward.display;
         Component line = Component.literal(amount + "x " + label).withStyle(ChatFormatting.GREEN);
-        player.sendSystemMessage(Component.literal("  + ").append(line));
-        if (summary != null) {
-            summary.add(stack, line, Component.literal("Item reward").withStyle(ChatFormatting.GRAY));
-        }
+        plan.add(stack, line, Component.literal("Item reward").withStyle(ChatFormatting.GRAY), player -> giveStack(player, stack.copy()));
     }
 
-    private static void rollCommandReward(ServerPlayer player, DungeonRewardConfig.CommandReward reward, DungeonCrateRewardSummary summary) {
+    private static void planCommandReward(DungeonRewardConfig.CommandReward reward, PlannedCrateReward plan) {
         if (reward == null || reward.commands == null || reward.commands.isEmpty() || !roll(reward.chance)) {
             return;
         }
 
-        runCommands(player, reward.commands, null, 0, false);
         String label = reward.display == null || reward.display.isBlank() ? "Command Reward" : reward.display;
         Component line = Component.literal(label).withStyle(ChatFormatting.AQUA);
-        player.sendSystemMessage(Component.literal("  + ").append(line));
-        if (summary != null) {
-            summary.add(new ItemStack(Items.COMMAND_BLOCK), line, Component.literal("Console reward command").withStyle(ChatFormatting.GRAY));
-        }
+        List<String> commands = new ArrayList<>(reward.commands);
+        plan.add(new ItemStack(Items.COMMAND_BLOCK), line, Component.literal("Console reward command").withStyle(ChatFormatting.GRAY), player -> runCommands(player, commands, null, 0, false));
     }
 
     private static void runPokemonRewardCommands(ServerPlayer player, DungeonRewardConfig.PokemonReward reward, boolean shiny) {
@@ -515,5 +791,4 @@ public final class DungeonRewardManager {
         }
         return builder.toString();
     }
-
 }
