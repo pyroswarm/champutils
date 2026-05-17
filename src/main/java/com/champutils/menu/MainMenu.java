@@ -33,7 +33,7 @@ public class MainMenu {
 
         MenuUtil.fillBorders(
                 gui,
-                10,12,14,16,20,24
+                10,12,14,16,20,22,24
         );
 
         gui.setSlot(
@@ -146,6 +146,37 @@ public class MainMenu {
                         .setCallback(
                                 (i,c,t)->
                                         LeaderboardMenu.open(
+                                                player
+                                        )
+                        )
+        );
+
+
+
+        gui.setSlot(
+                22,
+                new GuiElementBuilder(
+                        Items.ENDER_EYE
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§5Dungeons"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Enter solo trainer dungeons and view crate credits"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        DungeonMenu.open(
                                                 player
                                         )
                         )

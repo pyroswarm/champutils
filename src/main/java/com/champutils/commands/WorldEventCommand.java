@@ -182,7 +182,8 @@ public final class WorldEventCommand {
             source.sendSuccess(() -> Component.literal("§aStarted world event: " + eventId), true);
             return 1;
         }
-        source.sendFailure(Component.literal("§cCould not start world event: " + eventId + " §7(No bound NPC found, event already active, or team apply failed.)"));
+        String reason = WorldEventManager.getLastStartFailure();
+        source.sendFailure(Component.literal("§cCould not start world event: " + eventId + (reason == null || reason.isBlank() ? "" : " §7(" + reason + ")")));
         return 0;
     }
 
@@ -192,7 +193,8 @@ public final class WorldEventCommand {
             source.sendSuccess(() -> Component.literal("§aStarted a random world event."), true);
             return 1;
         }
-        source.sendFailure(Component.literal("§cCould not start a random world event. §7(No usable bound event NPC was found.)"));
+        String reason = WorldEventManager.getLastStartFailure();
+        source.sendFailure(Component.literal("§cCould not start a random world event." + (reason == null || reason.isBlank() ? "" : " §7(" + reason + ")")));
         return 0;
     }
 
@@ -215,7 +217,7 @@ public final class WorldEventCommand {
     private static int reload(CommandSourceStack source) {
         WorldEventConfig.load();
         WorldEventBindingRegistry.load();
-        source.sendSuccess(() -> Component.literal("§aReloaded world_events.json and world_event_bindings.json."), true);
+        source.sendSuccess(() -> Component.literal("§aReloaded world_events.json."), true);
         return 1;
     }
 }

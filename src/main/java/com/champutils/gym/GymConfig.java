@@ -160,6 +160,20 @@ public class GymConfig {
 
         public String leaderName;
 
+        public String spawnName;
+
+        public String skin;
+
+        public String spawnSkin;
+
+        // Optional aliases. All of these are accepted by the native trainer spawner.
+        // Example: "spawnSkin": "Notch" uses that Minecraft player's skin.
+        public String playerSkin;
+
+        public String skinPlayer;
+
+        public String texture;
+
         public boolean debug;
 
         public int levelCap;

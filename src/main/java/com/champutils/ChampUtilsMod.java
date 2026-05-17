@@ -18,6 +18,8 @@ import com.champutils.profession.passives.PassiveRegistry;
 import com.champutils.profile.*;
 import com.champutils.rank.*;
 import com.champutils.worldevent.*;
+import com.champutils.trainer.*;
+import com.champutils.dungeon.*;
 
 /*
  =========================
@@ -140,6 +142,20 @@ public class ChampUtilsMod implements ModInitializer {
 
         /*
          =========================
+         DUNGEON CONFIG
+         =========================
+         */
+        DungeonKeyConfig.load();
+        DungeonKeyDropConfig.load();
+        DungeonConfig.load();
+        DungeonBindingRegistry.load();
+        DungeonNativeCrateRegistry.load();
+        DungeonTrainerConfig.load();
+        DungeonRewardConfig.load();
+        DungeonKeyManager.registerKeys();
+
+        /*
+         =========================
          SEASON STATE
          =========================
          */
@@ -155,6 +171,7 @@ public class ChampUtilsMod implements ModInitializer {
                     ServerLifecycleBridge.setServer(server);
 
                     LeaderboardManager.refresh(server);
+                    DungeonNativeCrateRegistry.respawnAllHolograms(server);
 
                     System.out.println(
                             "[ChampUtils] Leaderboard loaded."
@@ -173,6 +190,9 @@ public class ChampUtilsMod implements ModInitializer {
                     ProfessionManager.saveAll();
                     ProfessionBlockTracker.save();
                     WorldEventBindingRegistry.save();
+                    DungeonBindingRegistry.save();
+                    DungeonNativeCrateRegistry.save();
+                    DungeonManager.handleServerStopping(server);
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."
@@ -223,6 +243,10 @@ public class ChampUtilsMod implements ModInitializer {
                     DisconnectForfeitManager.handleJoin(
                             player
                     );
+
+                    DungeonManager.handleJoinCleanup(
+                            player
+                    );
                 }
         );
 
@@ -239,6 +263,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     DisconnectForfeitManager.handleDisconnect(
+                            handler.player
+                    );
+
+                    DungeonManager.handleDisconnect(
                             handler.player
                     );
 
@@ -288,6 +316,8 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionAdminCommand.register();
         ChampReloadCommand.register();
         WorldEventCommand.register();
+        SpawnTrainerCommand.register();
+        DungeonCommand.register();
 
         /*
          New custom item test command
@@ -304,10 +334,16 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleHandler.register();
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
+        DungeonCommandLock.register();
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();
         WorldEventBattleListener.register();
+        DungeonBattleListener.register();
+        DungeonBindInteractionListener.register();
+        DungeonNativeCrateInteractionListener.register();
+        DungeonInteractionLock.register();
+        ChampTrainerInteractionListener.register();
 
         /*
          =========================
@@ -326,6 +362,9 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
+
+                    DungeonManager.tickTeleportGuard(server);
+                    DungeonCrateOpeningGui.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -386,6 +425,7 @@ public class ChampUtilsMod implements ModInitializer {
                      World event systems
                      */
                     WorldEventManager.tick(server);
+                    ChampTrainerProtectionManager.tick(server);
 
                     /*
                      Season systems

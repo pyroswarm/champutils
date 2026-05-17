@@ -9,6 +9,8 @@ import java.lang.reflect.Method;
 
 public final class FlanClaimCompat {
 
+    private static boolean warnedReflectionFailure = false;
+
     private FlanClaimCompat() {}
 
     public static boolean isAreaUnclaimed(ServerLevel level, BlockPos center, int radius) {
@@ -39,26 +41,39 @@ public final class FlanClaimCompat {
 
             Method getForPermissionCheck = storage.getClass().getMethod("getForPermissionCheck", BlockPos.class);
             Object container = getForPermissionCheck.invoke(storage, pos);
+
+            // In Flan, no container at this position means no claim there.
             if (container == null) return true;
 
             Object breakPermission = getBuiltinPermission("BREAK");
-            if (breakPermission == null) {
-                breakPermission = ResourceLocation.fromNamespaceAndPath("flan", "break");
-            }
+            if (breakPermission == null) breakPermission = ResourceLocation.fromNamespaceAndPath("flan", "break");
 
             for (Method method : container.getClass().getMethods()) {
                 if (!method.getName().equals("canInteract")) continue;
                 Class<?>[] params = method.getParameterTypes();
+
+                // Known Flan API shape used by recent Fabric builds:
+                // canInteract(ServerPlayer player, Object permission, BlockPos pos, boolean message)
                 if (params.length == 4 && params[2] == BlockPos.class) {
                     Object result = method.invoke(container, null, breakPermission, pos, false);
                     if (result instanceof Boolean allowed) return allowed;
                 }
             }
 
+            // If a claim exists but the exact permission method was not found, be conservative
+            // for this one position. Reflection failures below are handled separately.
+            return false;
+        } catch (ClassNotFoundException missing) {
             return true;
         } catch (Throwable t) {
-            System.out.println("[ChampUtils] Flan claim check failed; rejecting world event location to be safe: " + t.getClass().getSimpleName());
-            return false;
+            // Do not make every world event impossible just because Flan changed an internal
+            // method name. This still checks claims when the API shape matches, but fails open
+            // with one warning instead of hard-blocking all spawns.
+            if (!warnedReflectionFailure) {
+                warnedReflectionFailure = true;
+                System.out.println("[ChampUtils] Flan claim check could not be completed (" + t.getClass().getSimpleName() + "). Allowing world event spawn instead of blocking all events.");
+            }
+            return true;
         }
     }
 

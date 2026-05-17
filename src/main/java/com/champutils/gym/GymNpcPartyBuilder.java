@@ -131,6 +131,16 @@ public class GymNpcPartyBuilder {
 
             npc.setPersistenceRequired();
 
+            try {
+                String name = gym.spawnName != null && !gym.spawnName.isBlank()
+                        ? gym.spawnName
+                        : gym.leaderName;
+                if (name != null && !name.isBlank()) {
+                    npc.setCustomName(net.minecraft.network.chat.Component.literal(name));
+                    npc.setCustomNameVisible(true);
+                }
+            } catch (Exception ignored) {}
+
 
             System.out.println(
                     "[ChampUtils] Applied "

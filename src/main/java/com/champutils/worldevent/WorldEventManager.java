@@ -3,13 +3,17 @@ package com.champutils.worldevent;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.trainer.ChampTrainerProtectionManager;
+import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,13 +31,17 @@ import java.util.Random;
 import java.util.UUID;
 
 /**
- * World events now use pre-existing bound NPCs instead of spawning/despawning NPCs.
+ * Random overworld world events backed by ChampUtils native trainer NPCs.
+ * Events choose a safe ground-level position, spawn a protected trainer NPC,
+ * announce a teleport button, and despawn after the configured duration.
  */
 public final class WorldEventManager {
 
     private static final Random RANDOM = new Random();
     private static final Map<String, ActiveEvent> ACTIVE_EVENTS = new HashMap<>();
     private static long nextCheckTick = -1L;
+    private static String lastStartFailure = "";
+    private static String lastRandomEventId = null;
 
     private WorldEventManager() {}
 
@@ -69,38 +78,76 @@ public final class WorldEventManager {
     }
 
     public static boolean startRandom(MinecraftServer server, boolean force) {
+        lastStartFailure = "";
         List<String> ids = new ArrayList<>();
         for (Map.Entry<String, WorldEventConfig.EventDefinition> entry : WorldEventConfig.EVENTS.entrySet()) {
             if (entry.getValue() != null && entry.getValue().enabled) ids.add(entry.getKey());
         }
-        if (ids.isEmpty()) return false;
-
-        for (int i = 0; i < ids.size(); i++) {
-            String id = ids.remove(RANDOM.nextInt(ids.size()));
-            if (start(server, id, force)) return true;
+        if (ids.isEmpty()) {
+            lastStartFailure = "No enabled world events are configured.";
+            return false;
         }
 
+        String finalFailure = "";
+        while (!ids.isEmpty()) {
+            String id = pickWeightedRandomEvent(ids);
+            ids.remove(id);
+
+            if (start(server, id, force)) {
+                lastRandomEventId = id;
+                return true;
+            }
+
+            String reason = getLastStartFailure();
+            if (reason != null && !reason.isBlank()) {
+                finalFailure = id + ": " + reason;
+            }
+        }
+
+        lastStartFailure = finalFailure.isBlank() ? "No random world event could start." : finalFailure;
         return false;
     }
 
     public static boolean start(MinecraftServer server, String eventId, boolean force) {
-        if (server == null || eventId == null || eventId.isBlank()) return false;
-        if (!force && ACTIVE_EVENTS.size() >= WorldEventConfig.MAX_ACTIVE_EVENTS) return false;
-        if (ACTIVE_EVENTS.containsKey(eventId)) return false;
+        lastStartFailure = "";
+        if (server == null || eventId == null || eventId.isBlank()) { lastStartFailure = "Server or event id was invalid."; return false; }
+        if (!force && ACTIVE_EVENTS.size() >= WorldEventConfig.MAX_ACTIVE_EVENTS) { lastStartFailure = "Maximum active world events reached."; return false; }
+        if (ACTIVE_EVENTS.containsKey(eventId)) { lastStartFailure = "That event is already active."; return false; }
 
         WorldEventConfig.EventDefinition event = WorldEventConfig.EVENTS.get(eventId);
-        if (event == null || !event.enabled) return false;
+        if (event == null || !event.enabled) { lastStartFailure = "Event is missing or disabled in world_events.json."; return false; }
 
-        Entity bound = WorldEventBindingRegistry.findBoundNpc(server, eventId);
-        if (!(bound instanceof NPCEntity npc)) {
+        ServerLevel level = getEventLevel(server, event);
+        if (level == null) { lastStartFailure = "Could not find the configured event world/dimension."; return false; }
+
+        BlockPos spawnPos = WorldEventSpawnFinder.find(level, event);
+        if (spawnPos == null) {
+            lastStartFailure = "No safe ground spawn was found. Check spawnRadiusMin/spawnRadiusMax, ocean-heavy maps, world border, and Flan claims.";
+            System.out.println("[ChampUtils] Could not find safe world event spawn for " + eventId + ". " + lastStartFailure);
             return false;
         }
 
         WorldEventConfig.TeamDefinition team = selectTeam(event);
-        if (team == null) return false;
+        if (team == null) { lastStartFailure = "No team is configured for this world event."; return false; }
+
+        float yaw = RANDOM.nextFloat() * 360.0F;
+        Vec3 precisePos = Vec3.atBottomCenterOf(spawnPos);
+        ChampTrainerSpawner.SpawnResult spawn = ChampTrainerSpawner.spawn(level, precisePos, yaw, eventId);
+        if (spawn == null || !spawn.success || spawn.npc == null) {
+            lastStartFailure = "Trainer NPC spawn failed: " + (spawn == null ? "null result" : spawn.message);
+            System.out.println("[ChampUtils] Failed to spawn world event trainer " + eventId + ": " + (spawn == null ? "null result" : spawn.message));
+            return false;
+        }
+        NPCEntity npc = spawn.npc;
 
         boolean applied = WorldEventBossPartyBuilder.applyTeam(npc, team);
-        if (!applied) return false;
+        if (!applied) {
+            removeNpc(server, npc.getUUID());
+            WorldEventBindingRegistry.unbind(eventId);
+            ChampTrainerProtectionManager.untrack(npc.getUUID());
+            lastStartFailure = "NPC spawned, but applying the configured Pokémon team failed.";
+            return false;
+        }
 
         try { npc.setCustomName(Component.literal(event.bossName == null || event.bossName.isBlank() ? event.displayName : event.bossName)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
@@ -111,7 +158,7 @@ public final class WorldEventManager {
         active.displayName = event.displayName;
         active.bossName = event.bossName;
         active.npcUuid = npc.getUUID();
-        active.world = npc.level().dimension().location();
+        active.world = level.dimension().location();
         active.pos = npc.blockPosition();
         active.expireTick = server.getTickCount() + minutesToTicks(event.despawnMinutes);
         active.definition = event;
@@ -122,10 +169,55 @@ public final class WorldEventManager {
         return true;
     }
 
+    private static String pickWeightedRandomEvent(List<String> ids) {
+        if (ids == null || ids.isEmpty()) return null;
+
+        int total = 0;
+        Map<String, Integer> effectiveWeights = new HashMap<>();
+        boolean hasNonRepeatCandidate = ids.stream().anyMatch(id -> !id.equals(lastRandomEventId));
+
+        for (String id : ids) {
+            WorldEventConfig.EventDefinition event = WorldEventConfig.EVENTS.get(id);
+            int baseWeight = event == null ? 1 : Math.max(1, event.weight);
+            int effectiveWeight = baseWeight;
+
+            if (hasNonRepeatCandidate && id.equals(lastRandomEventId)) {
+                effectiveWeight = (int) Math.floor(baseWeight * WorldEventConfig.REPEAT_EVENT_WEIGHT_MULTIPLIER);
+                effectiveWeight = Math.max(0, effectiveWeight);
+            }
+
+            effectiveWeights.put(id, effectiveWeight);
+            total += effectiveWeight;
+        }
+
+        if (total <= 0) {
+            List<String> fallback = new ArrayList<>();
+            for (String id : ids) {
+                if (!id.equals(lastRandomEventId)) fallback.add(id);
+            }
+            if (fallback.isEmpty()) fallback.addAll(ids);
+            return fallback.get(RANDOM.nextInt(fallback.size()));
+        }
+
+        int roll = RANDOM.nextInt(total);
+        for (String id : ids) {
+            roll -= effectiveWeights.getOrDefault(id, 0);
+            if (roll < 0) return id;
+        }
+        return ids.get(RANDOM.nextInt(ids.size()));
+    }
+
+    public static String getLastStartFailure() {
+        return lastStartFailure == null ? "" : lastStartFailure;
+    }
+
     public static boolean stop(MinecraftServer server, String eventId, boolean announce) {
         if (server == null || eventId == null) return false;
         ActiveEvent active = ACTIVE_EVENTS.remove(eventId);
         if (active == null) return false;
+
+        despawnActiveNpc(server, active);
+
         if (announce) {
             broadcast(server, Component.literal("§cThe world event §6" + active.displayName + " §chas ended."));
         }
@@ -153,7 +245,7 @@ public final class WorldEventManager {
         ActiveEvent active = ACTIVE_EVENTS.get(eventId);
         if (active == null) return false;
 
-        Entity npc = WorldEventBindingRegistry.findBoundNpc(player.getServer(), eventId);
+        Entity npc = findNpcByUuid(player.getServer(), active.npcUuid);
         if (npc != null) {
             active.world = npc.level().dimension().location();
             active.pos = npc.blockPosition();
@@ -164,13 +256,7 @@ public final class WorldEventManager {
 
         int yOffset = active.definition == null ? 1 : active.definition.teleportYOffset;
         try {
-            String playerName = player.getGameProfile().getName();
-            String command = "execute in " + active.world + " run tp " + playerName + " "
-                    + (active.pos.getX() + 0.5D) + " "
-                    + (active.pos.getY() + yOffset) + " "
-                    + (active.pos.getZ() + 0.5D);
-            var source = player.getServer().createCommandSourceStack().withSuppressedOutput().withPermission(4);
-            player.getServer().getCommands().performPrefixedCommand(source, "/" + command);
+            player.teleportTo(level, active.pos.getX() + 0.5D, active.pos.getY() + yOffset, active.pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
         } catch (Exception e) {
             return false;
         }
@@ -197,6 +283,7 @@ public final class WorldEventManager {
         if (winners.size() > 1) winnerNames += " and allies";
 
         broadcast(server, Component.literal("§6" + winnerNames + " §ahas defeated §c" + active.bossName + " §ain §e" + active.displayName + "§a!"));
+        despawnActiveNpc(server, active);
     }
 
     private static void rewardWinner(ServerPlayer player, ActiveEvent active) {
@@ -241,9 +328,35 @@ public final class WorldEventManager {
         for (ActiveEvent active : new ArrayList<>(ACTIVE_EVENTS.values())) {
             if (now >= active.expireTick) {
                 ACTIVE_EVENTS.remove(active.eventId);
+                despawnActiveNpc(server, active);
                 broadcast(server, Component.literal("§cThe world event §6" + active.displayName + " §chas disappeared."));
             }
         }
+    }
+
+    private static void despawnActiveNpc(MinecraftServer server, ActiveEvent active) {
+        if (server == null || active == null) return;
+        if (active.npcUuid != null) {
+            ChampTrainerProtectionManager.untrack(active.npcUuid);
+            removeNpc(server, active.npcUuid);
+        }
+        WorldEventBindingRegistry.unbind(active.eventId);
+    }
+
+    private static void removeNpc(MinecraftServer server, UUID uuid) {
+        Entity entity = findNpcByUuid(server, uuid);
+        if (entity == null) return;
+        try { entity.discard(); } catch (Exception ignored) {}
+        try { entity.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
+    }
+
+    private static Entity findNpcByUuid(MinecraftServer server, UUID uuid) {
+        if (server == null || uuid == null) return null;
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity entity = level.getEntity(uuid);
+            if (entity != null) return entity;
+        }
+        return null;
     }
 
     private static WorldEventConfig.TeamDefinition selectTeam(WorldEventConfig.EventDefinition event) {
@@ -258,9 +371,16 @@ public final class WorldEventManager {
         return event.teams.get(0);
     }
 
+    private static ServerLevel getEventLevel(MinecraftServer server, WorldEventConfig.EventDefinition event) {
+        if (server == null) return null;
+        if (WorldEventConfig.OVERWORLD_ONLY) return server.overworld();
+        ResourceLocation id = ResourceLocation.parse(event.world == null || event.world.isBlank() ? "minecraft:overworld" : event.world);
+        return getLevel(server, id);
+    }
+
     private static ServerLevel getLevel(MinecraftServer server, ResourceLocation worldId) {
         if (server == null || worldId == null) return null;
-        var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, worldId);
+        ResourceKey<net.minecraft.world.level.Level> key = ResourceKey.create(Registries.DIMENSION, worldId);
         return server.getLevel(key);
     }
 

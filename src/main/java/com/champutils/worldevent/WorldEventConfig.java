@@ -22,6 +22,7 @@ public final class WorldEventConfig {
     public static boolean OVERWORLD_ONLY = true;
     public static boolean REQUIRE_FLAN_UNCLAIMED = true;
     public static boolean ANNOUNCE_TELEPORT_BUTTON = true;
+    public static double REPEAT_EVENT_WEIGHT_MULTIPLIER = 0.15D;
     public static Map<String, EventDefinition> EVENTS = new LinkedHashMap<>();
 
     private WorldEventConfig() {}
@@ -34,13 +35,28 @@ public final class WorldEventConfig {
         public boolean overworldOnly = true;
         public boolean requireFlanUnclaimed = true;
         public boolean announceTeleportButton = true;
+        /**
+         * Random event picker multiplier for the event that most recently started.
+         * 0.15 means the previous event still can repeat, but is 85% less likely.
+         * Use 0.0 to almost completely prevent repeats when another event can start.
+         * Use 1.0 to disable anti-repeat behavior.
+         */
+        public double repeatEventWeightMultiplier = 0.15D;
         public Map<String, EventDefinition> events = new LinkedHashMap<>();
     }
 
     public static class EventDefinition {
         public boolean enabled = true;
         public String displayName = "World Event";
+        /** Higher weight = more common when /worldevent start random or random timer picks an event. */
+        public int weight = 1;
         public String bossName = "World Boss";
+        public String spawnName = "";
+        public String skin = "";
+        public String spawnSkin = "";
+        public String playerSkin = "";
+        public String skinPlayer = "";
+        public String texture = "";
         public String world = "minecraft:overworld";
         public int spawnRadiusMin = 1500;
         public int spawnRadiusMax = 8000;
@@ -115,6 +131,7 @@ public final class WorldEventConfig {
                 OVERWORLD_ONLY = root.overworldOnly;
                 REQUIRE_FLAN_UNCLAIMED = root.requireFlanUnclaimed;
                 ANNOUNCE_TELEPORT_BUTTON = root.announceTeleportButton;
+                REPEAT_EVENT_WEIGHT_MULTIPLIER = Math.max(0D, Math.min(1D, root.repeatEventWeightMultiplier));
                 EVENTS = root.events == null ? new LinkedHashMap<>() : root.events;
             }
             if (EVENTS.isEmpty()) EVENTS = defaultRoot().events;
@@ -154,6 +171,7 @@ public final class WorldEventConfig {
     private static EventDefinition moltenEvent() {
         EventDefinition e = new EventDefinition();
         e.displayName = "Molten Excavation";
+        e.weight = 30;
         e.bossName = "Molten Excavator";
         e.spawnRadiusMin = 1500;
         e.spawnRadiusMax = 8000;
@@ -183,6 +201,7 @@ public final class WorldEventConfig {
     private static EventDefinition groveEvent() {
         EventDefinition e = new EventDefinition();
         e.displayName = "Ancient Grove";
+        e.weight = 70;
         e.bossName = "Grove Warden";
         e.spawnRadiusMin = 1000;
         e.spawnRadiusMax = 7000;

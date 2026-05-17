@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.dungeon.DungeonKeyDropManager;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,6 +19,8 @@ public class ProfessionLootManager {
 
     public static void rollReward(ServerPlayer player, ProfessionType profession) {
         if (player == null || profession == null) return;
+
+        DungeonKeyDropManager.rollKeyDrop(player, profession);
 
         ProfessionLootConfig.LootTable table = ProfessionLootConfig.TABLES.get(profession.name());
         if (table == null || table.items == null || table.items.isEmpty()) return;
