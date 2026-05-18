@@ -13,6 +13,8 @@ public final class DatabaseBootstrapSync {
             return;
         }
 
+        SeasonDatabaseRepository.syncCurrentSeason();
+
         for (PlayerDataManager.OfflinePlayerEntry entry : PlayerDataManager.getAllPlayers()) {
             if (entry == null || entry.data == null) {
                 continue;
@@ -27,6 +29,6 @@ public final class DatabaseBootstrapSync {
             ProfessionDatabaseRepository.sync(data);
         }
 
-        System.out.println("[ChampUtils] Queued local player/profession data for database sync.");
+        System.out.println("[ChampUtils] Queued local season/player/profession data for database sync.");
     }
 }

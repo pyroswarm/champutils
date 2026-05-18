@@ -20,111 +20,66 @@ public final class RankedStatsDatabaseRepository {
             return;
         }
 
-        String seasonId =
-                getCurrentSeasonId();
+        if (SeasonManager.isCompletingSeasonReset()) {
+            return;
+        }
 
-        String seasonName =
-                SeasonManager.CURRENT_NAME == null || SeasonManager.CURRENT_NAME.isBlank()
-                        ? "Season " + SeasonManager.CURRENT_SEASON
-                        : SeasonManager.CURRENT_NAME;
+        String seasonId = SeasonDatabaseRepository.currentSeasonId();
+        String seasonName = SeasonDatabaseRepository.currentSeasonName();
 
-        int rp =
-                Math.max(0, data.rp);
-
-        int wins =
-                Math.max(0, data.rankedWins);
-
-        int losses =
-                Math.max(0, data.rankedLosses);
+        int rp = Math.max(0, data.rp);
+        int wins = Math.max(0, data.rankedWins);
+        int losses = Math.max(0, data.rankedLosses);
 
         DatabaseManager.executeAsync(
                 "sync ranked stats " + uuid,
                 connection -> {
-
-                    try (
-                            PreparedStatement playerStatement =
-                                    connection.prepareStatement(
-                                            "insert into players (uuid, username, last_seen) " +
-                                                    "values (?, ?, now()) " +
-                                                    "on conflict (uuid) do update set " +
-                                                    "username = excluded.username, " +
-                                                    "last_seen = now()"
-                                    )
-                    ) {
-                        playerStatement.setString(
-                                1,
-                                uuid.toString()
-                        );
-
-                        playerStatement.setString(
-                                2,
-                                username
-                        );
-
+                    try (PreparedStatement playerStatement = connection.prepareStatement(
+                            "insert into players (uuid, username, last_seen) " +
+                                    "values (?, ?, now()) " +
+                                    "on conflict (uuid) do update set " +
+                                    "username = excluded.username, " +
+                                    "last_seen = now()"
+                    )) {
+                        playerStatement.setString(1, uuid.toString());
+                        playerStatement.setString(2, username);
                         playerStatement.executeUpdate();
                     }
 
-                    try (
-                            PreparedStatement seasonStatement =
-                                    connection.prepareStatement(
-                                            "insert into seasons (id, display_name, active) " +
-                                                    "values (?, ?, true) " +
-                                                    "on conflict (id) do update set " +
-                                                    "display_name = excluded.display_name, " +
-                                                    "active = true"
-                                    )
-                    ) {
-                        seasonStatement.setString(
-                                1,
-                                seasonId
-                        );
+                    try (PreparedStatement deactivateStatement = connection.prepareStatement(
+                            "update seasons set active = false where id <> ?"
+                    )) {
+                        deactivateStatement.setString(1, seasonId);
+                        deactivateStatement.executeUpdate();
+                    }
 
-                        seasonStatement.setString(
-                                2,
-                                seasonName
-                        );
-
+                    try (PreparedStatement seasonStatement = connection.prepareStatement(
+                            "insert into seasons (id, display_name, starts_at, active) " +
+                                    "values (?, ?, now(), true) " +
+                                    "on conflict (id) do update set " +
+                                    "display_name = excluded.display_name, " +
+                                    "active = true"
+                    )) {
+                        seasonStatement.setString(1, seasonId);
+                        seasonStatement.setString(2, seasonName);
                         seasonStatement.executeUpdate();
                     }
 
-                    try (
-                            PreparedStatement rankedStatement =
-                                    connection.prepareStatement(
-                                            "insert into ranked_stats " +
-                                                    "(uuid, season_id, rp, wins, losses, updated_at) " +
-                                                    "values (?, ?, ?, ?, ?, now()) " +
-                                                    "on conflict (uuid, season_id) do update set " +
-                                                    "rp = excluded.rp, " +
-                                                    "wins = excluded.wins, " +
-                                                    "losses = excluded.losses, " +
-                                                    "updated_at = now()"
-                                    )
-                    ) {
-                        rankedStatement.setString(
-                                1,
-                                uuid.toString()
-                        );
-
-                        rankedStatement.setString(
-                                2,
-                                seasonId
-                        );
-
-                        rankedStatement.setInt(
-                                3,
-                                rp
-                        );
-
-                        rankedStatement.setInt(
-                                4,
-                                wins
-                        );
-
-                        rankedStatement.setInt(
-                                5,
-                                losses
-                        );
-
+                    try (PreparedStatement rankedStatement = connection.prepareStatement(
+                            "insert into ranked_stats " +
+                                    "(uuid, season_id, rp, wins, losses, updated_at) " +
+                                    "values (?, ?, ?, ?, ?, now()) " +
+                                    "on conflict (uuid, season_id) do update set " +
+                                    "rp = excluded.rp, " +
+                                    "wins = excluded.wins, " +
+                                    "losses = excluded.losses, " +
+                                    "updated_at = now()"
+                    )) {
+                        rankedStatement.setString(1, uuid.toString());
+                        rankedStatement.setString(2, seasonId);
+                        rankedStatement.setInt(3, rp);
+                        rankedStatement.setInt(4, wins);
+                        rankedStatement.setInt(5, losses);
                         rankedStatement.executeUpdate();
                     }
                 }
@@ -135,26 +90,7 @@ public final class RankedStatsDatabaseRepository {
             UUID uuid,
             String username
     ) {
-        PlayerDataManager.PlayerData data =
-                PlayerDataManager.load(
-                        uuid,
-                        username
-                );
-
-        syncPlayer(
-                uuid,
-                username,
-                data
-        );
-    }
-
-    private static String getCurrentSeasonId() {
-        int season =
-                Math.max(
-                        1,
-                        SeasonManager.CURRENT_SEASON
-                );
-
-        return "season_" + season;
+        PlayerDataManager.PlayerData data = PlayerDataManager.load(uuid, username);
+        syncPlayer(uuid, username, data);
     }
 }
