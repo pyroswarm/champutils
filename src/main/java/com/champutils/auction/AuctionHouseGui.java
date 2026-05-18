@@ -2,6 +2,9 @@ package com.champutils.auction;
 
 import com.champutils.economy.EconomyManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.item.PokemonItem;
+import com.cobblemon.mod.common.pokemon.Species;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -14,11 +17,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class AuctionHouseGui {
@@ -84,7 +90,7 @@ public final class AuctionHouseGui {
             lore.add(Component.literal("§f/ah sellpokemon " + (i + 1) + " <price>"));
             lore.add(Component.literal("§8Example: /ah sellpokemon " + (i + 1) + " 50000"));
 
-            gui.setSlot(i, cleanButton(Items.EGG, "§d" + name)
+            gui.setSlot(i, pokemonButton(name, speciesIdFromPokemon(pokemon), pokemon.getShiny())
                     .setLore(lore)
                     .setCallback((index, clickType, actionType, g) -> {
                         player.closeContainer();
@@ -343,12 +349,77 @@ public final class AuctionHouseGui {
     }
 
     private static GuiElementBuilder iconFor(ServerPlayer player, AuctionHouseRepository.AuctionListingSummary listing) {
-        if ("POKEMON".equalsIgnoreCase(listing.kind)) return cleanButton(Items.EGG, "§d" + listing.title);
+        if ("POKEMON".equalsIgnoreCase(listing.kind)) {
+            String species = firstPresent(listing.payload, "species", "speciesId", "name", "displayName");
+            boolean shiny = booleanValue(firstPresent(listing.payload, "shiny"));
+            return pokemonButton(listing.title, species, shiny);
+        }
         try {
             ItemStack stack = AuctionItemSerializer.fromPayload(player, listing.payload);
-            if (stack != null && !stack.isEmpty()) return new GuiElementBuilder(stack.copy());
+            if (stack != null && !stack.isEmpty()) return new GuiElementBuilder(stack.copy()).setLore(new ArrayList<>());
         } catch (Exception ignored) {}
         return cleanButton(Items.CHEST, "§f" + listing.title);
+    }
+
+    private static GuiElementBuilder pokemonButton(String title, String speciesName, boolean shiny) {
+        ItemStack icon = createPokemonIcon(speciesName, shiny);
+        GuiElementBuilder builder;
+        if (icon != null && !icon.isEmpty() && icon.getItem() != Items.AIR) {
+            builder = new GuiElementBuilder(icon.copy());
+        } else {
+            builder = new GuiElementBuilder(Items.EGG);
+        }
+        return builder.setName(Component.literal("§d" + blankDash(title))).setLore(new ArrayList<>());
+    }
+
+    private static ItemStack createPokemonIcon(String speciesName, boolean shiny) {
+        Species species = findSpecies(speciesName);
+        if (species == null) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            Set<String> aspects = new HashSet<>();
+            if (shiny) aspects.add("shiny");
+            return PokemonItem.from(species, aspects, 1, null);
+        } catch (Throwable ignored) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static Species findSpecies(String speciesName) {
+        if (speciesName == null || speciesName.isBlank()) return null;
+        String cleaned = speciesName.trim().toLowerCase(Locale.ROOT);
+        try {
+            if (cleaned.contains(":")) {
+                Species namespaced = PokemonSpecies.getByIdentifier(ResourceLocation.parse(cleaned));
+                if (namespaced != null) return namespaced;
+                cleaned = cleaned.substring(cleaned.indexOf(':') + 1);
+            }
+        } catch (Throwable ignored) {}
+        cleaned = cleaned.replace("♀", "-f").replace("♂", "-m");
+        cleaned = cleaned.replace(" ", "-").replace("_", "-");
+        try {
+            Species byName = PokemonSpecies.getByName(cleaned);
+            if (byName != null) return byName;
+        } catch (Throwable ignored) {}
+        try {
+            return PokemonSpecies.getByIdentifier(ResourceLocation.parse("cobblemon:" + cleaned));
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String speciesIdFromPokemon(Pokemon pokemon) {
+        if (pokemon == null) return "";
+        try { return pokemon.getSpecies().getResourceIdentifier().toString(); }
+        catch (Throwable ignored) {}
+        try { return pokemon.getSpecies().getName(); }
+        catch (Throwable ignored) { return ""; }
+    }
+
+    private static boolean booleanValue(String value) {
+        if (value == null) return false;
+        return "true".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value) || "1".equals(value.trim());
     }
 
     private static GuiElementBuilder cleanButton(net.minecraft.world.item.Item item, String name) {

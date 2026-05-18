@@ -153,6 +153,33 @@ public final class DungeonNativeCrateRegistry {
         return CRATES.get(key(level.dimension().location(), pos));
     }
 
+
+    public static int unbindNearby(ServerLevel level, BlockPos center, int radius) {
+        if (level == null || center == null) return 0;
+        int removed = 0;
+        java.util.Iterator<Map.Entry<String, CrateBinding>> it = CRATES.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, CrateBinding> entry = it.next();
+            CrateBinding binding = entry.getValue();
+            if (!level.dimension().location().toString().equals(binding.world)) continue;
+            BlockPos pos = binding.pos();
+            if (pos.closerThan(center, radius)) {
+                removeHolograms(level, pos);
+                it.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) save();
+        return removed;
+    }
+
+    public static boolean cleanupStaleBinding(ServerLevel level, BlockPos pos) {
+        CrateBinding binding = getAt(level, pos);
+        if (binding == null) return false;
+        if (!level.getBlockState(pos).isAir()) return false;
+        return unbind(level, pos);
+    }
+
     public static Map<String, CrateBinding> getAll() {
         return new LinkedHashMap<>(CRATES);
     }

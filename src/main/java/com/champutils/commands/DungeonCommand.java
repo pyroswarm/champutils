@@ -119,7 +119,13 @@ public final class DungeonCommand {
                                 .then(Commands.literal("list")
                                         .executes(context -> listCrates(context.getSource())))
                                 .then(Commands.literal("reloadholograms")
-                                        .executes(context -> reloadCrateHolograms(context.getSource()))))
+                                        .executes(context -> reloadCrateHolograms(context.getSource())))
+                                .then(Commands.literal("unbindnear")
+                                        .then(Commands.argument("radius", IntegerArgumentType.integer(1, 50))
+                                                .executes(context -> unbindNearbyCrates(
+                                                        context.getSource(),
+                                                        IntegerArgumentType.getInteger(context, "radius")
+                                                )))))
                         .then(Commands.literal("givekey")
                                 .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("keyId", StringArgumentType.word())
@@ -248,6 +254,19 @@ public final class DungeonCommand {
         return 1;
     }
 
+
+
+    private static int unbindNearbyCrates(CommandSourceStack source, int radius) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (!(player.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            source.sendFailure(Component.literal("Must be used in a server world."));
+            return 0;
+        }
+        int removed = DungeonNativeCrateRegistry.unbindNearby(level, player.blockPosition(), radius);
+        source.sendSuccess(() -> Component.literal("Removed " + removed + " crate bindings within " + radius + " blocks.")
+                .withStyle(removed > 0 ? ChatFormatting.GREEN : ChatFormatting.YELLOW), false);
+        return removed;
+    }
 
     private static int listDungeons(CommandSourceStack source) {
         if (DungeonConfig.DUNGEONS.isEmpty()) {

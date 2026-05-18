@@ -48,12 +48,20 @@ public final class AuctionPokemonSerializer {
     }
 
     public static boolean hasOpenPartySlot(ServerPlayer player) {
-        if (player == null) return false;
-        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
-        for (int i = 0; i < 6; i++) {
-            if (party.get(i) == null) return true;
+        PartyStore party = getParty(player);
+        if (party == null) return false;
+
+        try {
+            for (int i = 0; i < party.size(); i++) {
+                if (party.get(i) == null) return true;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            return party.size() < 6;
+        } catch (Exception ignored) {
+            return false;
         }
-        return false;
     }
 
     public static boolean addToFirstOpenPartySlot(ServerPlayer player, Pokemon pokemon) {
@@ -74,9 +82,11 @@ public final class AuctionPokemonSerializer {
         payload.addProperty("level", pokemon.getLevel());
         payload.addProperty("shiny", pokemon.getShiny());
         payload.addProperty("gender", safe(String.valueOf(pokemon.getGender())));
-        payload.addProperty("nature", safe(String.valueOf(pokemon.getNature())));
-        payload.addProperty("ability", pokemon.getAbility() == null ? "none" : safe(pokemon.getAbility().getName()));
-        payload.addProperty("heldItem", heldItemName(pokemon));
+        payload.addProperty("nature", readableNature(pokemon));
+        payload.addProperty("ability", readableAbility(pokemon));
+        String heldItem = heldItemName(pokemon);
+        payload.addProperty("heldItem", heldItem);
+        payload.addProperty("held_item", heldItem);
         payload.add("moves", moves(pokemon));
         payload.add("ivs", statsObject(pokemon.getIvs()));
         payload.add("evs", statsObject(pokemon.getEvs()));
@@ -175,6 +185,168 @@ public final class AuctionPokemonSerializer {
         } catch (Exception e) { return "none"; }
     }
 
+    private static String readableNature(Pokemon pokemon) {
+        try {
+            Object nature = pokemon.getNature();
+            String cleaned = readableObjectName(nature, true);
+            return cleaned.isBlank() ? "None" : cleaned;
+        } catch (Exception e) {
+            return "None";
+        }
+    }
+
+    private static String readableAbility(Pokemon pokemon) {
+        try {
+            Object ability = pokemon.getAbility();
+            String cleaned = readableObjectName(ability, false);
+            return cleaned.isBlank() ? "None" : cleaned;
+        } catch (Exception e) {
+            return "None";
+        }
+    }
+
+    private static String readableObjectName(Object source, boolean natureMode) {
+        if (source == null) return "";
+
+        for (String methodName : new String[] { "getDisplayName", "getName", "getPath", "asString", "getId", "getIdentifier", "getResourceIdentifier" }) {
+            String cleaned = callStringMethod(source, methodName, natureMode);
+            if (!cleaned.isBlank()) return cleaned;
+        }
+
+        for (String nestedMethod : new String[] { "getTemplate", "getEffect", "getAbility", "getNature" }) {
+            try {
+                Object nested = source.getClass().getMethod(nestedMethod).invoke(source);
+                if (nested != null && nested != source) {
+                    for (String methodName : new String[] { "getDisplayName", "getName", "getPath", "asString", "getId", "getIdentifier", "getResourceIdentifier" }) {
+                        String cleaned = callStringMethod(nested, methodName, natureMode);
+                        if (!cleaned.isBlank()) return cleaned;
+                    }
+                    String cleanedNested = cleanDisplayValue(nested, natureMode);
+                    if (!cleanedNested.isBlank()) return cleanedNested;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return cleanDisplayValue(source, natureMode);
+    }
+
+    private static String callStringMethod(Object source, String methodName, boolean natureMode) {
+        try {
+            Object value = source.getClass().getMethod(methodName).invoke(source);
+            return cleanDisplayValue(value, natureMode);
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private static String cleanDisplayValue(Object value) {
+        return cleanDisplayValue(value, false);
+    }
+
+    private static String cleanDisplayValue(Object value, boolean natureMode) {
+        if (value == null) return "";
+        String text = String.valueOf(value);
+        if (text == null) return "";
+
+        text = text.trim();
+        if (text.isBlank() || text.equalsIgnoreCase("null")) return "";
+
+        text = text.replaceAll("§[0-9A-FK-ORa-fk-or]", "");
+        text = text.replaceAll("@[a-fA-F0-9]+$", "");
+
+        if (natureMode) {
+            String knownNature = knownNatureName(text);
+            if (!knownNature.isBlank()) return knownNature;
+        }
+
+        text = text
+                .replace("translation{key='", "")
+                .replace("translation{key=\"", "")
+                .replace("literal{", "")
+                .replace("}", "")
+                .replace("'", "")
+                .replace("\"", "")
+                .trim();
+
+        java.util.regex.Matcher kv = java.util.regex.Pattern
+                .compile("(?:name|path|id|identifier|ability|nature)\\s*[=:]\\s*([A-Za-z0-9_:-]+)", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (kv.find()) text = kv.group(1);
+
+        int colon = text.lastIndexOf(':');
+        if (colon >= 0 && colon + 1 < text.length()) text = text.substring(colon + 1);
+
+        java.util.regex.Matcher typed = java.util.regex.Pattern
+                .compile("(?:nature|ability)[.$:]([A-Za-z0-9_-]+)", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (typed.find()) text = typed.group(1);
+        else {
+            int dot = text.lastIndexOf('.');
+            if (dot >= 0 && dot + 1 < text.length()) text = text.substring(dot + 1);
+            int slash = text.lastIndexOf('/');
+            if (slash >= 0 && slash + 1 < text.length()) text = text.substring(slash + 1);
+        }
+
+        text = text
+                .replace("Nature", "")
+                .replace("Ability", "")
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .trim();
+
+        if (natureMode) {
+            String knownNature = knownNatureName(text);
+            if (!knownNature.isBlank()) return knownNature;
+        }
+
+        if (text.equalsIgnoreCase("runaway")) return "Run Away";
+        if (text.equalsIgnoreCase("quickfeet")) return "Quick Feet";
+        if (text.equalsIgnoreCase("lightningrod")) return "Lightning Rod";
+
+        if (text.isBlank()) return "";
+        return titleCase(text);
+    }
+
+    private static String knownNatureName(String raw) {
+        if (raw == null) return "";
+        String lower = raw.toLowerCase();
+        String[] natures = {
+                "hardy", "lonely", "brave", "adamant", "naughty",
+                "bold", "docile", "relaxed", "impish", "lax",
+                "timid", "hasty", "serious", "jolly", "naive",
+                "modest", "mild", "quiet", "bashful", "rash",
+                "calm", "gentle", "sassy", "careful", "quirky"
+        };
+        for (String nature : natures) {
+            if (lower.matches(".*(^|[^a-z])" + nature + "($|[^a-z]).*")) {
+                return titleCase(nature);
+            }
+        }
+        return "";
+    }
+
+    private static String titleCase(String text) {
+        if (text == null || text.isBlank()) return "";
+        String spaced = text
+                .replaceAll("([a-z])([A-Z])", "$1 $2")
+                .replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+                .trim();
+        StringBuilder builder = new StringBuilder();
+        boolean nextUpper = true;
+        for (char c : spaced.toCharArray()) {
+            if (Character.isWhitespace(c)) {
+                builder.append(c);
+                nextUpper = true;
+            } else if (nextUpper) {
+                builder.append(Character.toUpperCase(c));
+                nextUpper = false;
+            } else {
+                builder.append(Character.toLowerCase(c));
+            }
+        }
+        return builder.toString();
+    }
+
     private static JsonArray moves(Pokemon pokemon) {
         JsonArray array = new JsonArray();
         try {
@@ -222,9 +394,12 @@ public final class AuctionPokemonSerializer {
         return text.toLowerCase().replace(' ', '_');
     }
 
-    private static String cleanStatValue(Object value) {
-        if (value == null) return "0";
-        return String.valueOf(value).replaceAll("[^0-9]", "");
+    private static Number cleanStatValue(Object value) {
+        if (value == null) return 0;
+        String cleaned = String.valueOf(value).replaceAll("[^0-9-]", "");
+        if (cleaned.isBlank() || cleaned.equals("-")) return 0;
+        try { return Integer.parseInt(cleaned); }
+        catch (Exception e) { return 0; }
     }
 
     private static String safe(String value) {

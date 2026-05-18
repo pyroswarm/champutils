@@ -1,6 +1,7 @@
 package com.champutils.dungeon;
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -78,6 +79,24 @@ public final class DungeonNativeCrateInteractionListener {
     }
 
     public static void register() {
+
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+            if (world.isClientSide()) return true;
+            if (!(world instanceof ServerLevel level)) return true;
+
+            if (DungeonNativeCrateRegistry.getAt(level, pos) != null) {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.literal("Dungeon crates cannot be broken. Use /dungeon crate unbind first.").withStyle(ChatFormatting.RED));
+                }
+                return false;
+            }
+
+            // stale cleanup if somehow block vanished/desynced
+            DungeonNativeCrateRegistry.cleanupStaleBinding(level, pos);
+            return true;
+        });
+
+
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClientSide()) return InteractionResult.PASS;
             if (!(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
