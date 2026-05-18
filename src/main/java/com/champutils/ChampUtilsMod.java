@@ -9,6 +9,8 @@ import com.champutils.battle.*;
 import com.champutils.commands.*;
 import com.champutils.config.*;
 import com.champutils.database.DatabaseManager;
+import com.champutils.database.DatabaseBootstrapSync;
+import com.champutils.database.ServerStatusDatabaseRepository;
 import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
@@ -21,6 +23,9 @@ import com.champutils.rank.*;
 import com.champutils.worldevent.*;
 import com.champutils.trainer.*;
 import com.champutils.dungeon.*;
+import com.champutils.economy.EconomyManager;
+import com.champutils.notifications.NotificationManager;
+import com.champutils.auction.*;
 
 /*
  =========================
@@ -90,6 +95,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         DatabaseManager.init();
+        EconomyManager.load();
 
         /*
          =========================
@@ -158,6 +164,7 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonConfig.load();
         DungeonBindingRegistry.load();
         DungeonNativeCrateRegistry.load();
+        AuctionHouseNpcBindingRegistry.load();
         DungeonTrainerConfig.load();
         DungeonRewardConfig.load();
         DungeonKeyManager.registerKeys();
@@ -180,6 +187,9 @@ public class ChampUtilsMod implements ModInitializer {
 
                     LeaderboardManager.refresh(server);
                     DungeonNativeCrateRegistry.respawnAllHolograms(server);
+                    ServerStatusDatabaseRepository.sync(server);
+                    DatabaseBootstrapSync.syncExistingLocalData();
+                    EconomyManager.syncAllToDatabase();
 
                     System.out.println(
                             "[ChampUtils] Leaderboard loaded."
@@ -196,11 +206,14 @@ public class ChampUtilsMod implements ModInitializer {
                 server -> {
 
                     ProfessionManager.saveAll();
+                    EconomyManager.save();
                     ProfessionBlockTracker.save();
                     WorldEventBindingRegistry.save();
                     DungeonBindingRegistry.save();
                     DungeonNativeCrateRegistry.save();
+                    AuctionHouseNpcBindingRegistry.save();
                     DungeonManager.handleServerStopping(server);
+                    ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
 
                     System.out.println(
@@ -233,6 +246,10 @@ public class ChampUtilsMod implements ModInitializer {
                             playerName
                     );
 
+                    EconomyManager.ensurePlayer(
+                            player
+                    );
+
                     ProfessionDataManager.ensurePlayer(
                             player.getUUID(),
                             playerName
@@ -254,6 +271,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     DungeonManager.handleJoinCleanup(
+                            player
+                    );
+
+                    NotificationManager.handleJoin(
                             player
                     );
                 }
@@ -315,6 +336,7 @@ public class ChampUtilsMod implements ModInitializer {
          COMMANDS
          =========================
          */
+        ChampUtilsHelpCommand.register();
         MenuCommand.register();
         SeasonCommand.register();
         LeaderboardCommand.register();
@@ -325,6 +347,10 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionAdminCommand.register();
         ChampReloadCommand.register();
         DatabaseTestCommand.register();
+        LinkAccountCommand.register();
+        EconomyCommand.register();
+        AuctionHouseCommand.register();
+        NotificationsCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         DungeonCommand.register();
@@ -351,6 +377,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventBattleListener.register();
         DungeonBattleListener.register();
         DungeonBindInteractionListener.register();
+        AuctionHouseBindInteractionListener.register();
         DungeonNativeCrateInteractionListener.register();
         DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();
@@ -375,6 +402,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
+                    NotificationManager.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -396,6 +424,8 @@ public class ChampUtilsMod implements ModInitializer {
                                     server.getTickCount() % 1200 == 0
                     ) {
                         ProfessionManager.saveAll();
+                        PlaytimeManager.addOnlineMinute(server);
+                        ServerStatusDatabaseRepository.sync(server);
                     }
 
                     /*

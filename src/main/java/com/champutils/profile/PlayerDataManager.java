@@ -43,6 +43,12 @@ public class PlayerDataManager {
 
         public int highestRank = 0;
         public int seasonsPlayed = 0;
+
+        /**
+         * Total tracked server playtime in seconds.
+         * This is incremented once per minute while the player is online.
+         */
+        public long playtimeSeconds = 0L;
     }
 
 
@@ -418,6 +424,56 @@ public class PlayerDataManager {
         save(
                 uuid,
                 d
+        );
+    }
+
+
+
+    public static void addPlaytimeSeconds(
+            UUID uuid,
+            String name,
+            long seconds
+    ){
+
+        if(uuid==null || seconds<=0){
+            return;
+        }
+
+        PlayerData d=
+                load(
+                        uuid,
+                        name
+                );
+
+        d.playtimeSeconds=
+                Math.max(
+                        0L,
+                        d.playtimeSeconds
+                )+seconds;
+
+        save(
+                uuid,
+                d
+        );
+    }
+
+
+
+    public static long getPlaytimeSeconds(
+            UUID uuid,
+            String name
+    ){
+
+        if(uuid==null){
+            return 0L;
+        }
+
+        return Math.max(
+                0L,
+                load(
+                        uuid,
+                        name
+                ).playtimeSeconds
         );
     }
 

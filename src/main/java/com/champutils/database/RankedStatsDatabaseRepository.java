@@ -20,9 +20,6 @@ public final class RankedStatsDatabaseRepository {
             return;
         }
 
-        if (SeasonManager.isCompletingSeasonReset()) {
-            return;
-        }
 
         String seasonId = SeasonDatabaseRepository.currentSeasonId();
         String seasonName = SeasonDatabaseRepository.currentSeasonName();
