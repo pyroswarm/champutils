@@ -1,5 +1,7 @@
 package com.champutils.commands;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profession.ProfessionToolMetadata;
 
@@ -59,7 +61,7 @@ public final class ItemLockCommand {
                                                 stack
                                         );
 
-                                        player.playNotifySound(
+                                        ProfessionNotificationSettings.playSound(player, 
                                                 locked
                                                         ? SoundEvents.EXPERIENCE_ORB_PICKUP
                                                         : SoundEvents.UI_BUTTON_CLICK.value(),

@@ -1,5 +1,7 @@
 package com.champutils.profession.passives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionManager;
@@ -120,7 +122,7 @@ public class ForestryXpSurgePassive implements ProfessionPassive {
         );
 
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.35F,

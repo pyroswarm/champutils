@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -80,7 +82,7 @@ public class MinersFocusAbility implements ProfessionActiveAbility {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.8F,

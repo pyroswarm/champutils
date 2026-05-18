@@ -1,5 +1,7 @@
 package com.champutils.profession.passives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolUtil;
@@ -199,7 +201,7 @@ public final class DurabilitySavePassive {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.35F,

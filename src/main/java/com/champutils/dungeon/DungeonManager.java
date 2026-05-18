@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.battle.BattlePrepManager;
 import com.champutils.database.DungeonProgressDatabaseRepository;
@@ -121,12 +123,14 @@ public final class DungeonManager {
         ACTIVE_SESSIONS.put(player.getUUID(), session);
 
         systemTeleport(player, destination, data.x, data.y, data.z, data.yaw, data.pitch);
-        player.playNotifySound(SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 1.2F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 1.2F);
 
-        player.sendSystemMessage(Component.literal("Entered " + session.displayName + ".").withStyle(rarity.getColor(), ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Your party was healed and locked. Changing party members forfeits the dungeon.").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("Commands are locked inside dungeons. Use /dungeon forfeit to leave.").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("Wave 1 begins now. Defeat every trainer to clear the dungeon.").withStyle(ChatFormatting.YELLOW));
+        if (ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) {
+            player.sendSystemMessage(Component.literal("Entered " + session.displayName + ".").withStyle(rarity.getColor(), ChatFormatting.BOLD));
+            player.sendSystemMessage(Component.literal("Your party was healed and locked. Changing party members forfeits the dungeon.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("Commands are locked inside dungeons. Use /dungeon forfeit to leave.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("Wave 1 begins now. Defeat every trainer to clear the dungeon.").withStyle(ChatFormatting.YELLOW));
+        }
 
         server.execute(() -> startNextTrainer(player));
         return 1;
@@ -213,7 +217,9 @@ public final class DungeonManager {
             return;
         }
 
-        player.sendSystemMessage(Component.literal("Trainer defeated. Next wave: " + (session.currentTrainerIndex + 1) + "/" + max).withStyle(ChatFormatting.GREEN));
+        if (ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) {
+            player.sendSystemMessage(Component.literal("Trainer defeated. Next wave: " + (session.currentTrainerIndex + 1) + "/" + max).withStyle(ChatFormatting.GREEN));
+        }
         ServerPlayer p = player;
         player.getServer().execute(() -> startNextTrainer(p));
     }
@@ -235,8 +241,10 @@ public final class DungeonManager {
         ACTIVE_SESSIONS.remove(player.getUUID());
         DungeonTeamLockManager.clear(player);
         session.completed = true;
-        player.sendSystemMessage(Component.literal("Dungeon cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
-        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
+        if (ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) {
+            player.sendSystemMessage(Component.literal("Dungeon cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
+        }
+        ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
         DungeonLimitManager.recordDungeonClear(player, session.rarity);
         DungeonProgressDatabaseRepository.recordClear(
                 player.getUUID(),
@@ -408,7 +416,7 @@ public final class DungeonManager {
         ServerLevel level = server.getLevel(session.returnWorld);
         if (level == null) level = server.overworld();
         systemTeleport(player, level, session.returnX, session.returnY, session.returnZ, session.returnYaw, session.returnPitch);
-        player.playNotifySound(SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 1.0F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 1.0F);
     }
 
     public static void tickTeleportGuard(MinecraftServer server) {

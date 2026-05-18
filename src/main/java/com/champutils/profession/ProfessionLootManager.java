@@ -96,7 +96,7 @@ public class ProfessionLootManager {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,
                 1.0F,

@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -23,7 +25,7 @@ public abstract class TimedBuffAbility implements ProfessionActiveAbility {
         Component message = Component.literal(message(seconds));
         player.sendSystemMessage(message);
         player.displayClientMessage(message, true);
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.65F, 1.35F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.65F, 1.35F);
         return true;
     }
 

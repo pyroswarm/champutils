@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 
@@ -280,7 +282,7 @@ public final class DungeonCrateOpeningGui {
         if (player == null || soundId == null || soundId.isBlank()) return;
         SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
         if (sound == null) return;
-        player.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
+        ProfessionNotificationSettings.playSound(player, sound, SoundSource.PLAYERS, volume, pitch);
     }
 
     private static String nice(String value) {

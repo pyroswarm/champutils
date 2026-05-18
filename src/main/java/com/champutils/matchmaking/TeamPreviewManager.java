@@ -1,5 +1,7 @@
 package com.champutils.matchmaking;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.cobblemon.mod.common.CobblemonItems;
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -163,12 +165,15 @@ public class TeamPreviewManager {
             }
 
             if (time % 20 == 0) {
-                player.playNotifySound(
-                        SoundEvents.UI_BUTTON_CLICK.value(),
-                        SoundSource.PLAYERS,
-                        0.5f,
-                        1.2f
-                );
+                if (ProfessionNotificationSettings.areQueueNotificationsEnabled(player)) {
+                    ProfessionNotificationSettings.playSound(
+                            player,
+                            SoundEvents.UI_BUTTON_CLICK.value(),
+                            SoundSource.PLAYERS,
+                            0.5f,
+                            1.2f
+                    );
+                }
             }
 
             time--;

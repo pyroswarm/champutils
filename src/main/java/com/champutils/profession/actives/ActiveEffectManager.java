@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolMetadata;
 
 import net.minecraft.network.chat.Component;
@@ -743,7 +745,7 @@ public class ActiveEffectManager {
                     25,
                     5
             );
-            player.playNotifySound(
+            ProfessionNotificationSettings.playSound(player, 
                     SoundEvents.NOTE_BLOCK_PLING.value(),
                     SoundSource.PLAYERS,
                     0.4F,
@@ -771,7 +773,7 @@ public class ActiveEffectManager {
                         20,
                         5
                 );
-                player.playNotifySound(
+                ProfessionNotificationSettings.playSound(player, 
                         SoundEvents.NOTE_BLOCK_PLING.value(),
                         SoundSource.PLAYERS,
                         0.5F,
@@ -833,7 +835,7 @@ public class ActiveEffectManager {
                 )
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.5F,
@@ -858,7 +860,7 @@ public class ActiveEffectManager {
         player.sendSystemMessage(message);
         player.displayClientMessage(message, true);
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 enabled ? SoundEvents.EXPERIENCE_ORB_PICKUP : SoundEvents.NOTE_BLOCK_BASS.value(),
                 SoundSource.PLAYERS,
                 0.75F,

@@ -67,6 +67,7 @@ public final class DungeonKeyDropManager {
 
     private static void announce(ServerPlayer player, String keyId, int amount) {
         if (!DungeonKeyDropConfig.announceDrops) return;
+        if (!ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) return;
         if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) return;
 
         DungeonKeyConfig.KeyData data = DungeonKeyConfig.KEYS.get(keyId);
@@ -83,7 +84,8 @@ public final class DungeonKeyDropManager {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(
+                player,
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,
                 1.0F,

@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 
@@ -67,7 +69,7 @@ public final class DungeonNativeCrateInteractionListener {
         SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
         if (sound == null) return;
         if (player != null) {
-            player.playNotifySound(sound, SoundSource.BLOCKS, volume, pitch);
+            ProfessionNotificationSettings.playSound(player, sound, SoundSource.BLOCKS, volume, pitch);
         }
     }
 

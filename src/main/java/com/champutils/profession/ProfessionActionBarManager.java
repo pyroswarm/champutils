@@ -37,7 +37,7 @@ public class ProfessionActionBarManager {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.4f,
@@ -63,7 +63,7 @@ public class ProfessionActionBarManager {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
                 0.8f,
@@ -85,7 +85,7 @@ public class ProfessionActionBarManager {
                 true
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,
                 1.0f,

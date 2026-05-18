@@ -1,6 +1,8 @@
 package com.champutils.profession.actives;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -29,7 +31,7 @@ public class StonebreakerAbility implements ProfessionActiveAbility {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§7Stonebreaker active: 5x5 stone clearing for " + seconds + "s"), true);
         }
-        player.playNotifySound(SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 0.9F, 1.75F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 0.9F, 1.75F);
         return true;
     }
 

@@ -226,19 +226,22 @@ public final class ProfessionSpecialCelebration {
     ) {
 
         switch (sound) {
-            case SMALL -> player.playNotifySound(
+            case SMALL -> ProfessionNotificationSettings.playSound(
+                    player,
                     SoundEvents.EXPERIENCE_ORB_PICKUP,
                     SoundSource.PLAYERS,
                     volume,
                     pitch
             );
-            case MEDIUM -> player.playNotifySound(
+            case MEDIUM -> ProfessionNotificationSettings.playSound(
+                    player,
                     SoundEvents.PLAYER_LEVELUP,
                     SoundSource.PLAYERS,
                     volume,
                     pitch
             );
-            case PING -> player.playNotifySound(
+            case PING -> ProfessionNotificationSettings.playSound(
+                    player,
                     SoundEvents.EXPERIENCE_ORB_PICKUP,
                     SoundSource.PLAYERS,
                     volume,

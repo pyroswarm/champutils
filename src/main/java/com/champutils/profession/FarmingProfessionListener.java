@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -60,7 +62,7 @@ public class FarmingProfessionListener {
         if (!player.getInventory().add(reward)) player.drop(reward, false);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
-            player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
         }
     }
 

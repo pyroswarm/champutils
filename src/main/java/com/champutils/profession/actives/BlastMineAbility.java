@@ -1,6 +1,8 @@
 package com.champutils.profession.actives;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -29,7 +31,7 @@ public class BlastMineAbility implements ProfessionActiveAbility {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§cBlast Mine active: 5x5 mining for " + seconds + "s"), true);
         }
-        player.playNotifySound(SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.55F, 1.55F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.55F, 1.55F);
         return true;
     }
 

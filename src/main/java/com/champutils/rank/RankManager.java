@@ -1,5 +1,7 @@
 package com.champutils.rank;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.config.Config;
 import com.champutils.config.Rank;
 
@@ -209,7 +211,7 @@ public class RankManager {
         // =========================
         if (newRank.min_elo >= 1200) {
 
-            player.playNotifySound(
+            ProfessionNotificationSettings.playSound(player, 
                     SoundEvents.TOTEM_USE,
                     SoundSource.PLAYERS,
                     1.4f,
@@ -235,7 +237,7 @@ public class RankManager {
         // =========================
         // NORMAL RANKS
         // =========================
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
                 1.2f,
@@ -271,7 +273,7 @@ public class RankManager {
                 oldRank.name + " → " + newRank.name
         );
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.ANVIL_LAND,
                 SoundSource.PLAYERS,
                 1f,
@@ -468,7 +470,7 @@ public class RankManager {
                 server.getPlayerList()
                         .getPlayers()) {
 
-            p.playNotifySound(
+            ProfessionNotificationSettings.playSound(p, 
                     sound,
                     SoundSource.PLAYERS,
                     vol,

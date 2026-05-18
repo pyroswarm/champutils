@@ -1,5 +1,7 @@
 package com.champutils.matchmaking;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattlePrepManager;
 import com.champutils.battle.BattleStateManager;
@@ -724,47 +726,61 @@ public class MatchmakingManager {
             String type
     ) {
 
-        sendTitle(
-                p1,
-                "§aMatch Found!",
-                "§7Opponent: §f" + p2.getName().getString()
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p1)) {
+            sendTitle(
+                    p1,
+                    "§aMatch Found!",
+                    "§7Opponent: §f" + p2.getName().getString()
+            );
+        }
 
-        sendTitle(
-                p2,
-                "§aMatch Found!",
-                "§7Opponent: §f" + p1.getName().getString()
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p2)) {
+            sendTitle(
+                    p2,
+                    "§aMatch Found!",
+                    "§7Opponent: §f" + p1.getName().getString()
+            );
+        }
 
-        p1.playNotifySound(
-                SoundEvents.PLAYER_LEVELUP,
-                SoundSource.PLAYERS,
-                1.0f,
-                1.2f
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p1)) {
+            ProfessionNotificationSettings.playSound(
+                    p1,
+                    SoundEvents.PLAYER_LEVELUP,
+                    SoundSource.PLAYERS,
+                    1.0f,
+                    1.2f
+            );
+        }
 
-        p2.playNotifySound(
-                SoundEvents.PLAYER_LEVELUP,
-                SoundSource.PLAYERS,
-                1.0f,
-                1.2f
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p2)) {
+            ProfessionNotificationSettings.playSound(
+                    p2,
+                    SoundEvents.PLAYER_LEVELUP,
+                    SoundSource.PLAYERS,
+                    1.0f,
+                    1.2f
+            );
+        }
 
-        p1.sendSystemMessage(
-                Component.literal(
-                        "§aMatch found against §f" +
-                                p2.getName().getString() +
-                                "§a."
-                )
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p1)) {
+            p1.sendSystemMessage(
+                    Component.literal(
+                            "§aMatch found against §f" +
+                                    p2.getName().getString() +
+                                    "§a."
+                    )
+            );
+        }
 
-        p2.sendSystemMessage(
-                Component.literal(
-                        "§aMatch found against §f" +
-                                p1.getName().getString() +
-                                "§a."
-                )
-        );
+        if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p2)) {
+            p2.sendSystemMessage(
+                    Component.literal(
+                            "§aMatch found against §f" +
+                                    p1.getName().getString() +
+                                    "§a."
+                    )
+            );
+        }
     }
 
     private static void sendTitle(

@@ -1,5 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionToolConfig;
@@ -66,7 +68,7 @@ public class TreasureSenseAbility implements ProfessionActiveAbility {
             if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
                 player.displayClientMessage(Component.literal("§7No rare treasure veins detected nearby."), true);
             }
-            player.playNotifySound(SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.PLAYERS, 0.65F, 0.75F);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.PLAYERS, 0.65F, 0.75F);
             return true;
         }
 
@@ -92,7 +94,7 @@ public class TreasureSenseAbility implements ProfessionActiveAbility {
             player.displayClientMessage(Component.literal("§dNearest treasure: " + treasureName + " " + blocksAway + " blocks away"), true);
         }
 
-        player.playNotifySound(SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.9F, 1.85F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.9F, 1.85F);
         return true;
     }
 

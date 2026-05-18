@@ -147,18 +147,18 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         if ("LEGENDARY".equals(rarity)) {
-            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
             broadcast(player, rarity, profession, settings);
             return;
         }
 
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 1.4F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 1.4F);
     }
 
     private static void playGlobalSound(ServerPlayer source, net.minecraft.sounds.SoundEvent sound, float volume, float pitch) {
         if (source == null || source.getServer() == null) return;
         for (ServerPlayer target : source.getServer().getPlayerList().getPlayers()) {
-            target.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
+            ProfessionNotificationSettings.playSound(target, sound, SoundSource.PLAYERS, volume, pitch);
         }
     }
 
@@ -184,12 +184,12 @@ public final class ProfessionWeaponFragmentDropManager {
 
         ChatFormatting color = colorFor(rarity);
 
-        server.getPlayerList().broadcastSystemMessage(
+        ProfessionNotificationSettings.sendBroadcast(
+                server,
                 Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA)
                         .append(Component.literal(" found a ").withStyle(ChatFormatting.GRAY))
                         .append(Component.literal(formatWords(rarity) + " Weapon Fragment").withStyle(color))
-                        .append(Component.literal(" while training " + formatWords(profession.name()) + "!").withStyle(ChatFormatting.GRAY)),
-                false
+                        .append(Component.literal(" while training " + formatWords(profession.name()) + "!").withStyle(ChatFormatting.GRAY))
         );
     }
 

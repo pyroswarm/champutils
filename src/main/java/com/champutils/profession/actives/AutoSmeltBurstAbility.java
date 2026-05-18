@@ -2,6 +2,8 @@ package com.champutils.profession.actives;
 
 import com.champutils.profession.ProfessionNotificationSettings;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
@@ -57,7 +59,7 @@ public class AutoSmeltBurstAbility implements ProfessionActiveAbility {
             );
         }
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.FIRECHARGE_USE,
                 SoundSource.PLAYERS,
                 0.7F,

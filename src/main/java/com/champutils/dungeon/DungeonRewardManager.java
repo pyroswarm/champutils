@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
@@ -321,7 +323,7 @@ public final class DungeonRewardManager {
                         if (rarity == DungeonRarity.MYTHIC) {
                             playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
                         } else {
-                            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                            ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
                         }
                         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
                             broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC crate tool from " + displayName + "!")
@@ -368,7 +370,7 @@ public final class DungeonRewardManager {
                 @Override
                 public void grant(ServerPlayer player) {
                     runPokemonRewardCommands(player, reward, shiny);
-                    player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
+                    ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
                     if (reward.announce && DungeonRewardConfig.CONFIG.announceLegendaryPokemon) {
                         broadcast(player, Component.literal("✦ " + player.getName().getString() + " found " + label + " from a " + nice(rarity.name()) + " Pokemon crate!")
                                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
@@ -675,7 +677,7 @@ public final class DungeonRewardManager {
         if (rarity == DungeonRarity.MYTHIC) {
             playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
         } else {
-            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
         }
 
         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
@@ -760,14 +762,14 @@ public final class DungeonRewardManager {
             return;
         }
         for (ServerPlayer target : server.getPlayerList().getPlayers()) {
-            target.playNotifySound(sound, sourceType, volume, pitch);
+            ProfessionNotificationSettings.playSound(target, sound, sourceType, volume, pitch);
         }
     }
 
     private static void broadcast(ServerPlayer player, Component message) {
         MinecraftServer server = player.getServer();
         if (server != null) {
-            server.getPlayerList().broadcastSystemMessage(message, false);
+            ProfessionNotificationSettings.sendBroadcast(server, message);
         }
     }
 

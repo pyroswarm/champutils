@@ -1,5 +1,7 @@
 package com.champutils.profession.passives;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
@@ -95,7 +97,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
         );
 
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.45F,

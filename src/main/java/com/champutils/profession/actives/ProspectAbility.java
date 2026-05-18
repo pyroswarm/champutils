@@ -2,6 +2,8 @@ package com.champutils.profession.actives;
 
 import com.champutils.profession.ProfessionNotificationSettings;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profession.ProfessionBlockTracker;
 import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionToolUtil;
@@ -122,7 +124,7 @@ public class ProspectAbility implements ProfessionActiveAbility {
                     true
             );
 
-            player.playNotifySound(
+            ProfessionNotificationSettings.playSound(player, 
                     SoundEvents.NOTE_BLOCK_BASS.value(),
                     SoundSource.PLAYERS,
                     0.7F,
@@ -177,7 +179,7 @@ public class ProspectAbility implements ProfessionActiveAbility {
             );
         }
 
-        player.playNotifySound(
+        ProfessionNotificationSettings.playSound(player, 
                 SoundEvents.AMETHYST_BLOCK_CHIME,
                 SoundSource.PLAYERS,
                 0.9F,

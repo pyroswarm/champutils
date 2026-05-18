@@ -1,5 +1,7 @@
 package com.champutils.rank;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.profile.ProfileManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.PlayerDataManager.PlayerData;
@@ -216,7 +218,7 @@ public class SeasonManager {
                     )
             );
 
-            p.playNotifySound(
+            ProfessionNotificationSettings.playSound(p, 
                     SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                     SoundSource.MASTER,
                     1f,
@@ -326,7 +328,7 @@ public class SeasonManager {
                     )
             );
 
-            p.playNotifySound(
+            ProfessionNotificationSettings.playSound(p, 
                     SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                     SoundSource.MASTER,
                     1f,

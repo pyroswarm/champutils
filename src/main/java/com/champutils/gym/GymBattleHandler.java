@@ -1,5 +1,7 @@
 package com.champutils.gym;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeUnlockManager;
@@ -316,7 +318,7 @@ public class GymBattleHandler {
                     )
             );
 
-            winner.playNotifySound(
+            ProfessionNotificationSettings.playSound(winner, 
                     SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                     SoundSource.PLAYERS,
                     1f,

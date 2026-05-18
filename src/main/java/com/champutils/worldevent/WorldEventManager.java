@@ -1,5 +1,7 @@
 package com.champutils.worldevent;
 
+import com.champutils.profession.ProfessionNotificationSettings;
+
 import com.champutils.database.WorldEventStatsDatabaseRepository;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
@@ -429,7 +431,7 @@ public final class WorldEventManager {
         }
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.playNotifySound(SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.3F);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.3F);
         }
     }
 
