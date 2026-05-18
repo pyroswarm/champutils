@@ -121,7 +121,7 @@ public final class DungeonManager {
         ACTIVE_SESSIONS.put(player.getUUID(), session);
 
         systemTeleport(player, destination, data.x, data.y, data.z, data.yaw, data.pitch);
-        player.level().playSound(null, player.blockPosition(), SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 1.2F);
+        player.playNotifySound(SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8F, 1.2F);
 
         player.sendSystemMessage(Component.literal("Entered " + session.displayName + ".").withStyle(rarity.getColor(), ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Your party was healed and locked. Changing party members forfeits the dungeon.").withStyle(ChatFormatting.GRAY));
@@ -236,7 +236,7 @@ public final class DungeonManager {
         DungeonTeamLockManager.clear(player);
         session.completed = true;
         player.sendSystemMessage(Component.literal("Dungeon cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
-        player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
+        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
         DungeonLimitManager.recordDungeonClear(player, session.rarity);
         DungeonProgressDatabaseRepository.recordClear(
                 player.getUUID(),
@@ -408,7 +408,7 @@ public final class DungeonManager {
         ServerLevel level = server.getLevel(session.returnWorld);
         if (level == null) level = server.overworld();
         systemTeleport(player, level, session.returnX, session.returnY, session.returnZ, session.returnYaw, session.returnPitch);
-        player.level().playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 1.0F);
+        player.playNotifySound(SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8F, 1.0F);
     }
 
     public static void tickTeleportGuard(MinecraftServer server) {

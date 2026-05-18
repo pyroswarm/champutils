@@ -318,7 +318,11 @@ public final class DungeonRewardManager {
                     @Override
                     public void grant(ServerPlayer player) {
                         giveStack(player, rolledTool.copy());
-                        player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                        if (rarity == DungeonRarity.MYTHIC) {
+                            playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                        } else {
+                            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                        }
                         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
                             broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC crate tool from " + displayName + "!")
                                     .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
@@ -364,7 +368,7 @@ public final class DungeonRewardManager {
                 @Override
                 public void grant(ServerPlayer player) {
                     runPokemonRewardCommands(player, reward, shiny);
-                    player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
+                    player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
                     if (reward.announce && DungeonRewardConfig.CONFIG.announceLegendaryPokemon) {
                         broadcast(player, Component.literal("✦ " + player.getName().getString() + " found " + label + " from a " + nice(rarity.name()) + " Pokemon crate!")
                                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
@@ -668,7 +672,11 @@ public final class DungeonRewardManager {
         giveStack(player, tool);
         player.sendSystemMessage(Component.literal("★ Unidentified " + nice(rarity.name()) + " profession tool!")
                 .withStyle(rarity.getColor(), ChatFormatting.BOLD));
-        player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+        if (rarity == DungeonRarity.MYTHIC) {
+            playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+        } else {
+            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+        }
 
         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
             broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC dungeon tool!")
@@ -743,6 +751,16 @@ public final class DungeonRewardManager {
         boolean added = player.getInventory().add(stack);
         if (!added) {
             player.drop(stack, false);
+        }
+    }
+
+    private static void playGlobalSound(ServerPlayer source, net.minecraft.sounds.SoundEvent sound, SoundSource sourceType, float volume, float pitch) {
+        MinecraftServer server = source == null ? null : source.getServer();
+        if (server == null) {
+            return;
+        }
+        for (ServerPlayer target : server.getPlayerList().getPlayers()) {
+            target.playNotifySound(sound, sourceType, volume, pitch);
         }
     }
 

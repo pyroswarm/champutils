@@ -83,9 +83,7 @@ public final class DungeonKeyDropManager {
                 true
         );
 
-        player.level().playSound(
-                null,
-                player.blockPosition(),
+        player.playNotifySound(
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,
                 1.0F,

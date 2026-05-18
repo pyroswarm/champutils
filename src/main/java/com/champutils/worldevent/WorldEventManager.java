@@ -429,7 +429,7 @@ public final class WorldEventManager {
         }
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.level().playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.3F);
+            player.playNotifySound(SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.3F);
         }
     }
 

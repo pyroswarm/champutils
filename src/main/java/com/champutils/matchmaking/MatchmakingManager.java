@@ -736,18 +736,14 @@ public class MatchmakingManager {
                 "§7Opponent: §f" + p1.getName().getString()
         );
 
-        p1.level().playSound(
-                null,
-                p1.blockPosition(),
+        p1.playNotifySound(
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
                 1.0f,
                 1.2f
         );
 
-        p2.level().playSound(
-                null,
-                p2.blockPosition(),
+        p2.playNotifySound(
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
                 1.0f,

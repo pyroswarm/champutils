@@ -140,19 +140,26 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         if ("MYTHIC".equals(rarity)) {
-            player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0F, 0.6F);
-            player.level().playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.7F);
+            playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F, 0.6F);
+            playGlobalSound(player, SoundEvents.ENDER_DRAGON_GROWL, 0.45F, 1.7F);
             broadcast(player, rarity, profession, settings);
             return;
         }
 
         if ("LEGENDARY".equals(rarity)) {
-            player.level().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
             broadcast(player, rarity, profession, settings);
             return;
         }
 
-        player.level().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 1.4F);
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 1.4F);
+    }
+
+    private static void playGlobalSound(ServerPlayer source, net.minecraft.sounds.SoundEvent sound, float volume, float pitch) {
+        if (source == null || source.getServer() == null) return;
+        for (ServerPlayer target : source.getServer().getPlayerList().getPlayers()) {
+            target.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
+        }
     }
 
     private static void broadcast(

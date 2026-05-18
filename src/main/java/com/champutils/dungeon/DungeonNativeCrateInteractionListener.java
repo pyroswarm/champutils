@@ -66,16 +66,9 @@ public final class DungeonNativeCrateInteractionListener {
         if (level == null || pos == null || soundId == null || soundId.isBlank()) return;
         SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
         if (sound == null) return;
-        level.playSound(
-                player,
-                pos.getX() + 0.5D,
-                pos.getY() + 0.5D,
-                pos.getZ() + 0.5D,
-                sound,
-                SoundSource.BLOCKS,
-                volume,
-                pitch
-        );
+        if (player != null) {
+            player.playNotifySound(sound, SoundSource.BLOCKS, volume, pitch);
+        }
     }
 
     public static void register() {

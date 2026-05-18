@@ -199,9 +199,7 @@ public final class DurabilitySavePassive {
                 true
         );
 
-        player.serverLevel().playSound(
-                null,
-                player.blockPosition(),
+        player.playNotifySound(
                 SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS,
                 0.35F,

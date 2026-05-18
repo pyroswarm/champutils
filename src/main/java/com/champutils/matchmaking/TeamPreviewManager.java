@@ -163,9 +163,7 @@ public class TeamPreviewManager {
             }
 
             if (time % 20 == 0) {
-                player.level().playSound(
-                        null,
-                        player.blockPosition(),
+                player.playNotifySound(
                         SoundEvents.UI_BUTTON_CLICK.value(),
                         SoundSource.PLAYERS,
                         0.5f,
