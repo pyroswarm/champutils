@@ -1,5 +1,6 @@
 package com.champutils.worldevent;
 
+import com.champutils.database.WorldEventStatsDatabaseRepository;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
@@ -276,7 +277,18 @@ public final class WorldEventManager {
         ACTIVE_EVENTS.remove(active.eventId);
 
         for (ServerPlayer winner : winners) {
-            if (winner != null) rewardWinner(winner, active);
+            if (winner == null) {
+                continue;
+            }
+
+            int rareDrops = rewardWinner(winner, active);
+
+            WorldEventStatsDatabaseRepository.recordCompletion(
+                    winner.getUUID(),
+                    winner.getName().getString(),
+                    active.eventId,
+                    rareDrops
+            );
         }
 
         String winnerNames = winners.get(0).getName().getString();
@@ -286,21 +298,27 @@ public final class WorldEventManager {
         despawnActiveNpc(server, active);
     }
 
-    private static void rewardWinner(ServerPlayer player, ActiveEvent active) {
+    private static int rewardWinner(ServerPlayer player, ActiveEvent active) {
         WorldEventConfig.RewardTable rewards = active.definition == null ? null : active.definition.rewards;
-        if (rewards == null) return;
+        if (rewards == null) return 0;
 
         int min = Math.max(1, Math.min(rewards.minFragments, rewards.maxFragments));
         int max = Math.max(min, Math.max(rewards.minFragments, rewards.maxFragments));
         int rolls = min + RANDOM.nextInt((max - min) + 1);
 
         Map<String, Integer> awarded = new HashMap<>();
+        int rareDrops = 0;
+
         for (int i = 0; i < rolls; i++) {
             String rarity = rollFragmentRarity(rewards.fragmentWeights);
             if (rarity == null) continue;
             String normalized = ProfessionFragmentConfig.normalizeRarity(rarity);
             ProfessionManager.addFragments(player, normalized, 1);
             awarded.put(normalized, awarded.getOrDefault(normalized, 0) + 1);
+
+            if (isRareWorldEventDrop(normalized)) {
+                rareDrops++;
+            }
         }
 
         if (!awarded.isEmpty()) {
@@ -309,6 +327,18 @@ public final class WorldEventManager {
                 player.sendSystemMessage(Component.literal("§7- §6" + entry.getValue() + "x §f" + ProfessionFragmentManager.formatWords(entry.getKey()) + " Fragment"));
             }
         }
+
+        return rareDrops;
+    }
+
+    private static boolean isRareWorldEventDrop(String rarity) {
+        if (rarity == null) {
+            return false;
+        }
+
+        String normalized = rarity.trim().toUpperCase();
+
+        return normalized.equals("LEGENDARY") || normalized.equals("MYTHIC");
     }
 
     private static String rollFragmentRarity(Map<String, Integer> weights) {

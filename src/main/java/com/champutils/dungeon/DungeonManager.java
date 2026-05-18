@@ -2,6 +2,7 @@ package com.champutils.dungeon;
 
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.battle.BattlePrepManager;
+import com.champutils.database.DungeonProgressDatabaseRepository;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
@@ -237,6 +238,12 @@ public final class DungeonManager {
         player.sendSystemMessage(Component.literal("Dungeon cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
         DungeonLimitManager.recordDungeonClear(player, session.rarity);
+        DungeonProgressDatabaseRepository.recordClear(
+                player.getUUID(),
+                player.getName().getString(),
+                session.dungeonId,
+                session.rarity
+        );
         DungeonRewardManager.grantCompletionRewards(player, session);
         teleportBack(player, session);
     }

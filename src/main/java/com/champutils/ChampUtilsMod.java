@@ -324,6 +324,7 @@ public class ChampUtilsMod implements ModInitializer {
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
         ChampReloadCommand.register();
+        DatabaseTestCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         DungeonCommand.register();

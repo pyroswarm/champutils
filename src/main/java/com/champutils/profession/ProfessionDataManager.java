@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.database.ProfessionDatabaseRepository;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -63,6 +65,10 @@ public class ProfessionDataManager {
                 getFile(uuid);
 
         if (file.exists()) {
+            ProfessionDatabaseRepository.touchPlayer(
+                    uuid,
+                    name
+            );
             return;
         }
 
@@ -282,6 +288,10 @@ public class ProfessionDataManager {
             GSON.toJson(
                     data,
                     w
+            );
+
+            ProfessionDatabaseRepository.sync(
+                    data
             );
 
         } catch (Exception e) {

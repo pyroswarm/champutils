@@ -1,5 +1,7 @@
 package com.champutils.profile;
 
+import com.champutils.database.PlayerDatabaseRepository;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -100,6 +102,10 @@ public class PlayerDataManager {
                 getFile(uuid);
 
         if(file.exists()){
+            PlayerDatabaseRepository.touchPlayer(
+                    uuid,
+                    name
+            );
             return;
         }
 
@@ -193,6 +199,10 @@ public class PlayerDataManager {
             GSON.toJson(
                     data,
                     w
+            );
+
+            PlayerDatabaseRepository.sync(
+                    data
             );
 
         }catch(Exception e){

@@ -1,6 +1,7 @@
 package com.champutils.battle;
 
 import com.champutils.config.Config;
+import com.champutils.database.RankedStatsDatabaseRepository;
 import com.champutils.matchmaking.ArenaManager;
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.profile.PlayerDataManager;
@@ -121,6 +122,24 @@ public class BattleListener {
                 loser.getUUID(),
                 loser.getName().getString(),
                 newLoser
+        );
+
+        RankedStatsDatabaseRepository.syncPlayer(
+                winner.getUUID(),
+                winner.getName().getString(),
+                PlayerDataManager.load(
+                        winner.getUUID(),
+                        winner.getName().getString()
+                )
+        );
+
+        RankedStatsDatabaseRepository.syncPlayer(
+                loser.getUUID(),
+                loser.getName().getString(),
+                PlayerDataManager.load(
+                        loser.getUUID(),
+                        loser.getName().getString()
+                )
         );
 
         RankManager.updatePlayerRank(

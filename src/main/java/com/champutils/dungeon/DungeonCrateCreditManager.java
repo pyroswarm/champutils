@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.database.CrateCreditDatabaseRepository;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -32,6 +34,7 @@ public final class DungeonCrateCreditManager {
         add(credits.normal, rarity, normalCredits);
         add(credits.pokemon, rarity, pokemonCredits);
         save();
+        syncPlayer(playerId, credits);
     }
 
     public static boolean consumeNormalCredit(UUID playerId, DungeonRarity rarity) {
@@ -97,6 +100,7 @@ public final class DungeonCrateCreditManager {
 
         cleanup(playerId, credits);
         save();
+        syncPlayer(playerId, credits);
         return true;
     }
 
@@ -181,6 +185,27 @@ public final class DungeonCrateCreditManager {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+
+    private static void syncPlayer(UUID playerId, PlayerCredits credits) {
+        if (playerId == null || credits == null) {
+            return;
+        }
+
+        for (DungeonRarity rarity : DungeonRarity.values()) {
+            String rarityKey = rarity.name();
+            CrateCreditDatabaseRepository.setCredits(
+                    playerId,
+                    "dungeon_normal_" + rarityKey,
+                    Math.max(0, credits.normal.getOrDefault(rarityKey, 0))
+            );
+            CrateCreditDatabaseRepository.setCredits(
+                    playerId,
+                    "dungeon_pokemon_" + rarityKey,
+                    Math.max(0, credits.pokemon.getOrDefault(rarityKey, 0))
+            );
         }
     }
 
