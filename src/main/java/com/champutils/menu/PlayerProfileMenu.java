@@ -47,10 +47,9 @@ public class PlayerProfileMenu {
         }
 
         SimpleGui gui=
-                new SimpleGui(
+                MenuUtil.createGui(
                         MenuType.GENERIC_9x5,
-                        viewer,
-                        false
+                        viewer
                 );
 
         gui.setTitle(

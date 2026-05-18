@@ -21,11 +21,7 @@ public class BadgeMenu {
     ){
 
         SimpleGui gui =
-                new SimpleGui(
-                        MenuType.GENERIC_9x3,
-                        player,
-                        false
-                );
+                MenuUtil.createGui(MenuType.GENERIC_9x3, player);
 
         gui.setTitle(
                 Component.literal(

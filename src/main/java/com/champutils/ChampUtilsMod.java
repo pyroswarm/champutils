@@ -165,6 +165,7 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonBindingRegistry.load();
         DungeonNativeCrateRegistry.load();
         AuctionHouseNpcBindingRegistry.load();
+        MenuNpcBindingRegistry.load();
         DungeonTrainerConfig.load();
         DungeonRewardConfig.load();
         DungeonKeyManager.registerKeys();
@@ -212,6 +213,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonBindingRegistry.save();
                     DungeonNativeCrateRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
+                    MenuNpcBindingRegistry.save();
                     DungeonManager.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -351,6 +353,8 @@ public class ChampUtilsMod implements ModInitializer {
         EconomyCommand.register();
         AuctionHouseCommand.register();
         NotificationsCommand.register();
+        ProfessionPopupsCommand.register();
+        MenuNpcCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         DungeonCommand.register();
@@ -378,6 +382,7 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonBattleListener.register();
         DungeonBindInteractionListener.register();
         AuctionHouseBindInteractionListener.register();
+        MenuNpcInteractionListener.register();
         DungeonNativeCrateInteractionListener.register();
         DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();

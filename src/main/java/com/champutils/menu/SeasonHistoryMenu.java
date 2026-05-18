@@ -44,10 +44,9 @@ public class SeasonHistoryMenu {
 
 
         SimpleGui gui =
-                new SimpleGui(
+                MenuUtil.createGui(
                         MenuType.GENERIC_9x6,
-                        viewer,
-                        false
+                        viewer
                 );
 
         gui.setTitle(

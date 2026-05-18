@@ -24,11 +24,7 @@ public class SeasonTop100Menu {
                         );
 
         SimpleGui gui=
-                new SimpleGui(
-                        MenuType.GENERIC_9x6,
-                        player,
-                        false
-                );
+                MenuUtil.createGui(MenuType.GENERIC_9x6, player);
 
         gui.setTitle(
                 Component.literal(

@@ -167,6 +167,8 @@ public final class ChampUtilsHelpCommand {
         line(source, "/despawntrainer nearest|radius", "Admin: despawn ChampUtils trainer NPCs.");
         line(source, "/ah bind", "Admin: bind an NPC as the Auction NPC.");
         line(source, "/ah unbind", "Admin: remove the Auction NPC binding.");
+        line(source, "/menunpc bind <menu>", "Admin: bind an NPC to a feature menu.");
+        line(source, "/menunpc unbind <menu>", "Admin: remove a feature menu NPC binding.");
         line(source, "/dungeon bind <dungeonId>", "Admin: bind nearest NPC to a dungeon.");
         line(source, "/dungeon unbind <dungeonId>", "Admin: remove dungeon NPC binding.");
         line(source, "/dungeon givekey <keyId> [amount]", "Admin: give dungeon keys.");

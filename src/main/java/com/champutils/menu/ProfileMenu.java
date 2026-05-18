@@ -21,11 +21,7 @@ public class ProfileMenu {
     ){
 
         SimpleGui gui=
-                new SimpleGui(
-                        MenuType.GENERIC_9x5,
-                        player,
-                        false
-                );
+                MenuUtil.createGui(MenuType.GENERIC_9x5, player);
 
         gui.setTitle(
                 Component.literal(
@@ -275,29 +271,31 @@ public class ProfileMenu {
         gui.setSlot(
                 25,
                 new GuiElementBuilder(
-                        Items.NETHER_STAR
+                        Items.COMPASS
                 )
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Leaderboard"
+                                        "§aPlayer Lookup"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7View RP and profession rankings"
+                                        "§7Search another player's trainer card."
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§eClick to open"
+                                        "§eClick to type a name in chat"
                                 )
                         )
                         .setCallback(
-                                (i,c,t)->
-                                        LeaderboardMenu.open(
-                                                player
-                                        )
+                                (i,c,t)-> {
+                                    player.closeContainer();
+                                    ProfileLookupManager.beginLookup(
+                                            player
+                                    );
+                                }
                         )
         );
 

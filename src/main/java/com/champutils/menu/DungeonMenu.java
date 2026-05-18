@@ -22,9 +22,9 @@ public final class DungeonMenu {
     private DungeonMenu() {}
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x4, player, false);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x4, player);
         gui.setTitle(Component.literal("Dungeons"));
-        MenuUtil.fillBorders(gui, DUNGEON_SLOTS);
+        MenuUtil.fillBorders(gui, combine(DUNGEON_SLOTS, 27, 30));
 
         int index = 0;
         for (Map.Entry<String, DungeonConfig.DungeonData> entry : DungeonConfig.DUNGEONS.entrySet()) {
@@ -65,16 +65,16 @@ public final class DungeonMenu {
                         .addLoreLine(Component.literal(formatCreditsLine(player, DungeonRarity.MYTHIC)))
         );
 
-        gui.setSlot(
-                32,
-                new GuiElementBuilder(Items.CLOCK)
-                        .hideDefaultTooltip()
-                        .setName(Component.literal("§bCooldowns / Limits"))
-                        .addLoreLine(Component.literal("§7Click to print your dungeon limits in chat"))
-                        .setCallback((i, c, t) -> DungeonManager.sendLimitsFromMenu(player))
-        );
+        MenuUtil.addBackButton(gui, 27, () -> MainMenu.open(player));
 
         gui.open();
+    }
+
+    private static int[] combine(int[] base, int... extra) {
+        int[] combined = new int[base.length + extra.length];
+        System.arraycopy(base, 0, combined, 0, base.length);
+        System.arraycopy(extra, 0, combined, base.length, extra.length);
+        return combined;
     }
 
     private static String safeDisplayName(String dungeonId, DungeonConfig.DungeonData data) {
