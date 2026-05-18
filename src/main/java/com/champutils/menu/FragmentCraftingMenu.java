@@ -13,6 +13,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
+import java.util.function.Consumer;
+
 
 public final class FragmentCraftingMenu {
 
@@ -22,8 +24,19 @@ public final class FragmentCraftingMenu {
     public static void open(
             ServerPlayer player
     ) {
+        open(player, GearWorkshopMenu::open);
+    }
+
+    public static void open(
+            ServerPlayer player,
+            Consumer<ServerPlayer> backTarget
+    ) {
         SimpleGui gui =
-                MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+                new SimpleGui(
+                        MenuType.GENERIC_9x6,
+                        player,
+                        false
+                );
 
         gui.setTitle(
                 Component.literal(
@@ -70,7 +83,13 @@ public final class FragmentCraftingMenu {
         MenuUtil.addBackButton(
                 gui,
                 49,
-                () -> ItemsMenu.open(player)
+                () -> {
+                    if (backTarget != null) {
+                        backTarget.accept(player);
+                    } else {
+                        GearWorkshopMenu.open(player);
+                    }
+                }
         );
 
         gui.open();

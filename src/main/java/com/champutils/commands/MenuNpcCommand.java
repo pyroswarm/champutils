@@ -26,10 +26,9 @@ public final class MenuNpcCommand {
                         .then(Commands.literal("bind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
-                                            builder.suggest("items");
+                                            builder.suggest("gearworkshop");
+                                            builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
-                                            builder.suggest("professions");
-                                            builder.suggest("seasons");
                                             builder.suggest("auction");
                                             return builder.buildFuture();
                                         })
@@ -42,10 +41,9 @@ public final class MenuNpcCommand {
                         .then(Commands.literal("unbind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
-                                            builder.suggest("items");
+                                            builder.suggest("gearworkshop");
+                                            builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
-                                            builder.suggest("professions");
-                                            builder.suggest("seasons");
                                             builder.suggest("auction");
                                             return builder.buildFuture();
                                         })

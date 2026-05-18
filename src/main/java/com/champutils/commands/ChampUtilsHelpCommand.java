@@ -164,6 +164,7 @@ public final class ChampUtilsHelpCommand {
         line(source, "/worldevent unbind <eventId>", "Admin: remove a world event NPC binding.");
         line(source, "/worldevent reload", "Admin: reload world event config.");
         line(source, "/spawntrainer <id>", "Admin: spawn a configured trainer NPC.");
+        line(source, "/spawnblanknpc <name>", "Admin: spawn a blank NPC for menu binding. Use spaces freely.");
         line(source, "/despawntrainer nearest|radius", "Admin: despawn ChampUtils trainer NPCs.");
         line(source, "/ah bind", "Admin: bind an NPC as the Auction NPC.");
         line(source, "/ah unbind", "Admin: remove the Auction NPC binding.");

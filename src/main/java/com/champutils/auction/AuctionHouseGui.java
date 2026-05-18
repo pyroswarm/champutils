@@ -558,7 +558,7 @@ public final class AuctionHouseGui {
     }
 
     private static void fill(SimpleGui gui) {
-        GuiElementBuilder filler = new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).setName(Component.literal(" ")).setLore(new ArrayList<>());
-        for (int i = 0; i < gui.getSize(); i++) gui.setSlot(i, filler);
+        // Intentionally left blank.
+        // Auction menus should not use filler glass panes so the GUI stays clean and uncluttered.
     }
 }

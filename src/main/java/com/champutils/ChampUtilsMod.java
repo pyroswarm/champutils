@@ -357,6 +357,7 @@ public class ChampUtilsMod implements ModInitializer {
         MenuNpcCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
+        BlankNpcCommand.register();
         DungeonCommand.register();
 
         /*

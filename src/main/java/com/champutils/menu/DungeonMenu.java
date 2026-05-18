@@ -17,14 +17,15 @@ import java.util.Map;
 
 public final class DungeonMenu {
 
-    private static final int[] DUNGEON_SLOTS = new int[]{10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
+    // One-row NPC menu. Slot 8 is reserved for crate credits.
+    private static final int[] DUNGEON_SLOTS = new int[]{0, 1, 2, 3, 4, 5, 6, 7};
+    private static final int CREDITS_SLOT = 8;
 
     private DungeonMenu() {}
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x4, player);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x1, player);
         gui.setTitle(Component.literal("Dungeons"));
-        MenuUtil.fillBorders(gui, combine(DUNGEON_SLOTS, 27, 30));
 
         int index = 0;
         for (Map.Entry<String, DungeonConfig.DungeonData> entry : DungeonConfig.DUNGEONS.entrySet()) {
@@ -52,7 +53,7 @@ public final class DungeonMenu {
         }
 
         gui.setSlot(
-                30,
+                CREDITS_SLOT,
                 new GuiElementBuilder(Items.CHEST)
                         .hideDefaultTooltip()
                         .setName(Component.literal("§6Crate Credits"))
@@ -65,16 +66,7 @@ public final class DungeonMenu {
                         .addLoreLine(Component.literal(formatCreditsLine(player, DungeonRarity.MYTHIC)))
         );
 
-        MenuUtil.addBackButton(gui, 27, () -> MainMenu.open(player));
-
         gui.open();
-    }
-
-    private static int[] combine(int[] base, int... extra) {
-        int[] combined = new int[base.length + extra.length];
-        System.arraycopy(base, 0, combined, 0, base.length);
-        System.arraycopy(extra, 0, combined, base.length, extra.length);
-        return combined;
     }
 
     private static String safeDisplayName(String dungeonId, DungeonConfig.DungeonData data) {

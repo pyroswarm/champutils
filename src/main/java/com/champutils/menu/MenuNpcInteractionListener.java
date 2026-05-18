@@ -71,10 +71,9 @@ public final class MenuNpcInteractionListener {
 
     private static void openBoundMenu(ServerPlayer player, String menu) {
         switch (MenuNpcBindingRegistry.normalize(menu)) {
-            case "items" -> ItemsMenu.open(player);
+            case "gearworkshop" -> GearWorkshopMenu.open(player);
+            case "gearappraiser" -> GearAppraiserMenu.open(player);
             case "dungeons" -> DungeonMenu.open(player);
-            case "professions" -> ProfessionMenu.open(player);
-            case "seasons" -> SeasonMenu.open(player);
             case "auction" -> AuctionHouseGui.openMain(player);
             default -> player.sendSystemMessage(Component.literal("This NPC is bound to an unknown menu: " + menu).withStyle(ChatFormatting.RED));
         }
