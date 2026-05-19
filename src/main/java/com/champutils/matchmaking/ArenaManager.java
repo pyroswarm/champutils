@@ -1,8 +1,11 @@
 package com.champutils.matchmaking;
 
 import com.champutils.config.Config;
+import com.champutils.util.ServerLocation;
+import com.champutils.util.ServerLocationManager;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.network.chat.Component;
 
 import java.util.*;
@@ -17,6 +20,8 @@ public class ArenaManager {
         public double y;
         public double centerZ;
 
+        public String world = "multiworld:spawn1";
+
         public String theme;
         public String music;
         public String weather;
@@ -24,6 +29,7 @@ public class ArenaManager {
 
     private static class ReturnLocation {
 
+        String world;
         double x;
         double y;
         double z;
@@ -32,12 +38,14 @@ public class ArenaManager {
         float pitch;
 
         ReturnLocation(
+                String world,
                 double x,
                 double y,
                 double z,
                 float yaw,
                 float pitch
         ){
+            this.world=world;
             this.x=x;
             this.y=y;
             this.z=z;
@@ -187,6 +195,7 @@ public class ArenaManager {
                 player.getUUID(),
 
                 new ReturnLocation(
+                        player.serverLevel().dimension().location().toString(),
                         player.getX(),
                         player.getY(),
                         player.getZ(),
@@ -205,43 +214,72 @@ public class ArenaManager {
 
         double spacing=7.5;
 
+        ServerLocation override =
+                ArenaLocationConfig.getArena(
+                        arena.id
+                );
+
+        String world =
+                override != null
+                        ? override.world
+                        : (
+                                arena.world == null || arena.world.isBlank()
+                                        ? "multiworld:spawn1"
+                                        : arena.world
+                        );
+
+        double centerX =
+                override != null
+                        ? override.x
+                        : arena.centerX;
+
+        double centerY =
+                override != null
+                        ? override.y
+                        : arena.y;
+
+        double centerZ =
+                override != null
+                        ? override.z
+                        : arena.centerZ;
+
+        ServerLevel level =
+                ServerLocationManager.getLevel(
+                        p1.getServer(),
+                        world
+                );
+
+        if(level==null){
+            p1.sendSystemMessage(Component.literal("§cArena world is not loaded: " + world));
+            p2.sendSystemMessage(Component.literal("§cArena world is not loaded: " + world));
+            return;
+        }
+
         p1.teleportTo(
-                arena.centerX-spacing,
-                arena.y,
-                arena.centerZ
+                level,
+                centerX-spacing,
+                centerY,
+                centerZ,
+                -90f,
+                0f
         );
 
         p1.setYRot(-90f);
         p1.setYHeadRot(-90f);
         p1.setXRot(0f);
 
-        p1.connection.teleport(
-                p1.getX(),
-                p1.getY(),
-                p1.getZ(),
-                -90f,
-                0f
-        );
-
-
         p2.teleportTo(
-                arena.centerX+spacing,
-                arena.y,
-                arena.centerZ
+                level,
+                centerX+spacing,
+                centerY,
+                centerZ,
+                90f,
+                0f
         );
 
         p2.setYRot(90f);
         p2.setYHeadRot(90f);
         p2.setXRot(0f);
-
-        p2.connection.teleport(
-                p2.getX(),
-                p2.getY(),
-                p2.getZ(),
-                90f,
-                0f
-        );
-
 
         if(arena.theme!=null){
 
@@ -270,10 +308,27 @@ public class ArenaManager {
         if(loc==null)
             return;
 
+        ServerLevel level =
+                ServerLocationManager.getLevel(
+                        player.getServer(),
+                        loc.world
+                );
+
+        if(level==null){
+            level = player.getServer() == null ? null : player.getServer().overworld();
+        }
+
+        if(level==null){
+            return;
+        }
+
         player.teleportTo(
+                level,
                 loc.x,
                 loc.y,
-                loc.z
+                loc.z,
+                loc.yaw,
+                loc.pitch
         );
 
         player.setYRot(
@@ -285,14 +340,6 @@ public class ArenaManager {
         );
 
         player.setXRot(
-                loc.pitch
-        );
-
-        player.connection.teleport(
-                loc.x,
-                loc.y,
-                loc.z,
-                loc.yaw,
                 loc.pitch
         );
     }

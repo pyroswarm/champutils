@@ -71,6 +71,9 @@ public final class ChampUtilsHelpCommand {
     private static void playerCommands(CommandSourceStack source) {
         section(source, "General");
         line(source, "/menu", "Open the main Cobble Champs menu.");
+        line(source, "/spawn", "Teleport to server spawn.");
+        line(source, "/warp <name>", "Teleport to a saved server warp.");
+        line(source, "/rtp", "Randomly teleport in an allowed dimension.");
         line(source, "/profile", "Open your player profile menu.");
         line(source, "/leaderboards", "Open the leaderboard menu.");
         line(source, "/leaderboard", "Show the ranked leaderboard.");
@@ -79,6 +82,7 @@ public final class ChampUtilsHelpCommand {
         line(source, "/professionleaderboard", "Open profession leaderboard views.");
         line(source, "/showitem", "Show your held item in chat with hover details. Has cooldown.");
         line(source, "/itemlock", "Lock or unlock your held custom item.");
+        line(source, "/xplock <slot>", "Toggle XP gain for a party slot.");
 
         section(source, "Account + Economy");
         line(source, "/linkaccount <code>", "Link your Minecraft account to your website account.");

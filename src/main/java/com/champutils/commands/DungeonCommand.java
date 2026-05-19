@@ -100,6 +100,25 @@ public final class DungeonCommand {
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "dungeonId")
                                         ))))
+
+                        .then(Commands.literal("setteleport")
+                                .requires(source -> source.hasPermission(4))
+                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                        .suggests(DUNGEON_SUGGESTIONS)
+                                        .executes(context -> setDungeonTeleport(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "dungeonId")
+                                        ))))
+                        .then(Commands.literal("settrainer")
+                                .requires(source -> source.hasPermission(4))
+                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                        .suggests(DUNGEON_SUGGESTIONS)
+                                        .then(Commands.argument("wave", IntegerArgumentType.integer(1, 99))
+                                                .executes(context -> setDungeonTrainerSpawn(
+                                                        context.getSource(),
+                                                        StringArgumentType.getString(context, "dungeonId"),
+                                                        IntegerArgumentType.getInteger(context, "wave")
+                                                )))))
                         .then(Commands.literal("crate")
                                 .requires(source -> source.hasPermission(4))
                                 .then(Commands.literal("bind")
@@ -236,6 +255,72 @@ public final class DungeonCommand {
         ));
     }
 
+
+    private static int setDungeonTeleport(CommandSourceStack source, String dungeonId) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can set dungeon teleport locations."));
+            return 0;
+        }
+
+        DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(dungeonId);
+        if (data == null) {
+            source.sendFailure(Component.literal("Unknown dungeon: " + dungeonId));
+            return 0;
+        }
+
+        DungeonConfig.setTeleport(
+                dungeonId,
+                player.serverLevel().dimension().location().toString(),
+                player.getX(),
+                player.getY(),
+                player.getZ(),
+                player.getYRot(),
+                player.getXRot()
+        );
+
+        source.sendSuccess(
+                () -> Component.literal("Set dungeon teleport for " + dungeonId.toLowerCase() + " to your current location in " + player.serverLevel().dimension().location() + ".")
+                        .withStyle(ChatFormatting.GREEN),
+                true
+        );
+
+        return 1;
+    }
+
+    private static int setDungeonTrainerSpawn(CommandSourceStack source, String dungeonId, int wave) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can set dungeon trainer spawns."));
+            return 0;
+        }
+
+        DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(dungeonId);
+        if (data == null) {
+            source.sendFailure(Component.literal("Unknown dungeon: " + dungeonId));
+            return 0;
+        }
+
+        DungeonConfig.setTrainerSpawn(
+                dungeonId,
+                wave,
+                player.serverLevel().dimension().location().toString(),
+                player.getX(),
+                player.getY(),
+                player.getZ(),
+                player.getYRot(),
+                player.getXRot()
+        );
+
+        source.sendSuccess(
+                () -> Component.literal("Set trainer spawn for " + dungeonId.toLowerCase() + " wave " + wave + " to your current location in " + player.serverLevel().dimension().location() + ".")
+                        .withStyle(ChatFormatting.GREEN),
+                true
+        );
+
+        return 1;
+    }
+
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("/dungeon start <dungeonId>").withStyle(ChatFormatting.YELLOW), false);
         source.sendSuccess(() -> Component.literal("/dungeon status").withStyle(ChatFormatting.YELLOW), false);
@@ -245,6 +330,8 @@ public final class DungeonCommand {
         source.sendSuccess(() -> Component.literal("/dungeon forfeit").withStyle(ChatFormatting.RED), false);
         if (source.hasPermission(4)) {
             source.sendSuccess(() -> Component.literal("/dungeon bind <dungeonId>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/dungeon setteleport <dungeonId>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/dungeon settrainer <dungeonId> <wave>").withStyle(ChatFormatting.GRAY), false);
             source.sendSuccess(() -> Component.literal("/dungeon unbind <dungeonId>").withStyle(ChatFormatting.GRAY), false);
             source.sendSuccess(() -> Component.literal("/dungeon givekey <keyId> [amount]").withStyle(ChatFormatting.GRAY), false);
             source.sendSuccess(() -> Component.literal("/dungeon crate bind <rarity> <normal|pokemon>").withStyle(ChatFormatting.GRAY), false);

@@ -17,6 +17,7 @@ import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerPlayer;
 
 public class GymBattleStartHandler {
@@ -29,7 +30,7 @@ public class GymBattleStartHandler {
                     (BattleStartedEvent.Pre) event;
 
             ServerPlayer player = null;
-            NPCBattleActor gymNpc = null;
+NPCBattleActor gymNpc = null;
 
 
             for(
@@ -56,6 +57,33 @@ public class GymBattleStartHandler {
                             ||
                             gymNpc == null
             ){
+                return;
+            }
+
+
+            if (GymCooldownManager.isOnCooldown(player)) {
+
+                BattleStateManager.setInBattle(
+                        player,
+                        false
+                );
+
+                player.sendSystemMessage(
+                        Component.literal(
+                                "§cYou must wait "
+                                        + GymCooldownManager.formatRemaining(player)
+                                        + " before challenging another gym."
+                        )
+                );
+
+                ServerPlayer p = player;
+
+                p.server.execute(
+                        () -> p.closeContainer()
+                );
+
+                pre.cancel();
+
                 return;
             }
 
@@ -207,14 +235,14 @@ public class GymBattleStartHandler {
 
         return switch(badge){
 
-            case BOULDER -> null;
-            case CASCADE -> "gym1";
-            case THUNDER -> "gym2";
-            case RAINBOW -> "gym3";
-            case SOUL -> "gym4";
-            case MARSH -> "gym5";
-            case VOLCANO -> "gym6";
-            case EARTH -> "gym7";
+            case CASCADE -> null;
+            case MARSH -> "gym1";
+            case EARTH -> "gym2";
+            case BOULDER -> "gym3";
+            case THUNDER -> "gym4";
+            case RAINBOW -> "gym5";
+            case SOUL -> "gym6";
+            case VOLCANO -> "gym7";
             case LORELEI -> "gym8";
             case BRUNO -> "elite4-1";
             case AGATHA -> "elite4-2";
@@ -222,7 +250,6 @@ public class GymBattleStartHandler {
             case CHAMPION -> "elite4-4";
         };
     }
-
 
 
     private static boolean hasGroup(
@@ -274,14 +301,15 @@ public class GymBattleStartHandler {
 
         return switch(badge){
 
-            case CASCADE -> "§cDefeat Brock first.";
-            case THUNDER -> "§cDefeat Misty first.";
+            case CASCADE -> "§cThis is the first gym.";
+            case MARSH -> "§cDefeat Misty first.";
+            case EARTH -> "§cDefeat Sabrina first.";
+            case BOULDER -> "§cDefeat Giovanni first.";
+            case THUNDER -> "§cDefeat Brock first.";
             case RAINBOW -> "§cDefeat Lt. Surge first.";
             case SOUL -> "§cDefeat Erika first.";
-            case MARSH -> "§cDefeat Koga first.";
-            case VOLCANO -> "§cDefeat Sabrina first.";
-            case EARTH -> "§cDefeat Blaine first.";
-            case LORELEI -> "§cDefeat Giovanni first.";
+            case VOLCANO -> "§cDefeat Koga first.";
+            case LORELEI -> "§cDefeat Blaine first.";
             case BRUNO -> "§cDefeat Lorelei first.";
             case AGATHA -> "§cDefeat Bruno first.";
             case LANCE -> "§cDefeat Agatha first.";

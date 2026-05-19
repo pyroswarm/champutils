@@ -48,8 +48,8 @@ public class BadgeMenu {
         addBadge(
                 gui,
                 0,
-                BadgeType.BOULDER,
-                "Brock",
+                BadgeType.CASCADE,
+                "Misty",
                 "/pc unlocked",
                 earned
         );
@@ -57,8 +57,8 @@ public class BadgeMenu {
         addBadge(
                 gui,
                 1,
-                BadgeType.CASCADE,
-                "Misty",
+                BadgeType.MARSH,
+                "Sabrina",
                 "Progression Badge",
                 earned
         );
@@ -66,6 +66,24 @@ public class BadgeMenu {
         addBadge(
                 gui,
                 2,
+                BadgeType.EARTH,
+                "Giovanni",
+                "Progression Badge",
+                earned
+        );
+
+        addBadge(
+                gui,
+                3,
+                BadgeType.BOULDER,
+                "Brock",
+                "Progression Badge",
+                earned
+        );
+
+        addBadge(
+                gui,
+                4,
                 BadgeType.THUNDER,
                 "Lt. Surge",
                 "/pokeheal unlocked",
@@ -74,27 +92,9 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
-                3,
+                5,
                 BadgeType.RAINBOW,
                 "Erika",
-                "Progression Badge",
-                earned
-        );
-
-        addBadge(
-                gui,
-                4,
-                BadgeType.SOUL,
-                "Koga",
-                "Midgame Unlock",
-                earned
-        );
-
-        addBadge(
-                gui,
-                5,
-                BadgeType.MARSH,
-                "Sabrina",
                 "Midgame Unlock",
                 earned
         );
@@ -102,8 +102,8 @@ public class BadgeMenu {
         addBadge(
                 gui,
                 6,
-                BadgeType.VOLCANO,
-                "Blaine",
+                BadgeType.SOUL,
+                "Koga",
                 "Late Unlock",
                 earned
         );
@@ -111,8 +111,8 @@ public class BadgeMenu {
         addBadge(
                 gui,
                 7,
-                BadgeType.EARTH,
-                "Giovanni",
+                BadgeType.VOLCANO,
+                "Blaine",
                 "Elite Four Access",
                 earned
         );

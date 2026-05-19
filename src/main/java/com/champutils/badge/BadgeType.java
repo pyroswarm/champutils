@@ -2,14 +2,14 @@ package com.champutils.badge;
 
 public enum BadgeType {
 
-    BOULDER("Boulder","/pc"),
-    CASCADE("Cascade",""),
+    CASCADE("Cascade","/pc"),
+    MARSH("Marsh",""),
+    EARTH("Earth",""),
+    BOULDER("Boulder",""),
     THUNDER("Thunder","/pokeheal"),
     RAINBOW("Rainbow",""),
     SOUL("Soul",""),
-    MARSH("Marsh",""),
     VOLCANO("Volcano",""),
-    EARTH("Earth",""),
 
     LORELEI("Lorelei",""),
     BRUNO("Bruno",""),

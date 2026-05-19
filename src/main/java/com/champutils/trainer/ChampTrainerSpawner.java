@@ -317,14 +317,14 @@ public final class ChampTrainerSpawner {
         if (id == null) return null;
         String key = id.trim().toLowerCase(Locale.ROOT);
         return switch (key) {
-            case "gym1", "brock", "boulder" -> BadgeType.BOULDER;
-            case "gym2", "misty", "cascade" -> BadgeType.CASCADE;
-            case "gym3", "lt_surge", "ltsurge", "surge", "thunder" -> BadgeType.THUNDER;
-            case "gym4", "erika", "rainbow" -> BadgeType.RAINBOW;
-            case "gym5", "koga", "soul" -> BadgeType.SOUL;
-            case "gym6", "sabrina", "marsh" -> BadgeType.MARSH;
-            case "gym7", "blaine", "volcano" -> BadgeType.VOLCANO;
-            case "gym8", "giovanni", "earth" -> BadgeType.EARTH;
+            case "gym1", "misty", "cascade" -> BadgeType.CASCADE;
+            case "gym2", "sabrina", "marsh" -> BadgeType.MARSH;
+            case "gym3", "giovanni", "earth" -> BadgeType.EARTH;
+            case "gym4", "brock", "boulder" -> BadgeType.BOULDER;
+            case "gym5", "lt_surge", "ltsurge", "surge", "thunder" -> BadgeType.THUNDER;
+            case "gym6", "erika", "rainbow" -> BadgeType.RAINBOW;
+            case "gym7", "koga", "soul" -> BadgeType.SOUL;
+            case "gym8", "blaine", "volcano" -> BadgeType.VOLCANO;
             case "elite4-1", "elite4_1", "lorelei" -> BadgeType.LORELEI;
             case "elite4-2", "elite4_2", "bruno" -> BadgeType.BRUNO;
             case "elite4-3", "elite4_3", "agatha" -> BadgeType.AGATHA;

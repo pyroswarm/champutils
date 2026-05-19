@@ -31,7 +31,7 @@ public class MainMenu {
                 "§dProfile",
                 () -> ProfileMenu.open(player),
                 "§7Your trainer card, progress,",
-                "§7badges, professions, and lookup."
+                "§7badges, professions, and progression."
         );
 
         MenuUtil.addOpenButton(

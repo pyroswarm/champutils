@@ -12,8 +12,9 @@ import java.util.Map;
 public final class DungeonConfig {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File FILE = new File("config/champutils", "champ_dungeons.json");
 
-    public static final String DEFAULT_DUNGEON_WORLD = "multiworld:instances";
+    public static final String DEFAULT_DUNGEON_WORLD = "multiworld:spawn1";
 
     public static Map<String, DungeonData> DUNGEONS = new LinkedHashMap<>();
 
@@ -33,6 +34,16 @@ public final class DungeonConfig {
         public double z = 0.5D;
         public float yaw = 0.0F;
         public float pitch = 0.0F;
+        public Map<String, SpawnData> trainerSpawns = new LinkedHashMap<>();
+    }
+
+    public static class SpawnData {
+        public String world = DEFAULT_DUNGEON_WORLD;
+        public double x = 0.5D;
+        public double y = 80.0D;
+        public double z = 0.5D;
+        public float yaw = 0.0F;
+        public float pitch = 0.0F;
     }
 
     public static class ConfigRoot {
@@ -46,7 +57,7 @@ public final class DungeonConfig {
                 dir.mkdirs();
             }
 
-            File file = new File(dir, "champ_dungeons.json");
+            File file = FILE;
             if (!file.exists()) {
                 ConfigRoot root = createDefaultRoot();
                 try (FileWriter writer = new FileWriter(file)) {
@@ -74,13 +85,89 @@ public final class DungeonConfig {
         }
     }
 
+
+    public static void save() {
+        try {
+            File dir = new File("config/champutils");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            ConfigRoot root = new ConfigRoot();
+            root.dungeons.putAll(DUNGEONS);
+
+            try (FileWriter writer = new FileWriter(FILE)) {
+                GSON.toJson(root, writer);
+            }
+        } catch (Exception e) {
+            System.out.println("[ChampUtils] Failed to save champ_dungeons.json.");
+            e.printStackTrace();
+        }
+    }
+
+    public static void setTeleport(String dungeonId, String world, double x, double y, double z, float yaw, float pitch) {
+        DungeonData data = DUNGEONS.get(dungeonId);
+        if (data == null) {
+            return;
+        }
+
+        data.world = world;
+        data.x = x;
+        data.y = y;
+        data.z = z;
+        data.yaw = yaw;
+        data.pitch = pitch;
+        save();
+    }
+
+    public static void setTrainerSpawn(String dungeonId, int wave, String world, double x, double y, double z, float yaw, float pitch) {
+        DungeonData data = DUNGEONS.get(dungeonId);
+        if (data == null) {
+            return;
+        }
+
+        if (data.trainerSpawns == null) {
+            data.trainerSpawns = new LinkedHashMap<>();
+        }
+
+        SpawnData spawn = new SpawnData();
+        spawn.world = world;
+        spawn.x = x;
+        spawn.y = y;
+        spawn.z = z;
+        spawn.yaw = yaw;
+        spawn.pitch = pitch;
+
+        data.trainerSpawns.put(String.valueOf(Math.max(1, wave)), spawn);
+        save();
+    }
+
+    public static SpawnData getTrainerSpawn(String dungeonId, int wave) {
+        DungeonData data = DUNGEONS.get(dungeonId);
+        if (data == null || data.trainerSpawns == null) {
+            return null;
+        }
+
+        return data.trainerSpawns.get(String.valueOf(Math.max(1, wave)));
+    }
+
     private static void normalizeLoadedWorlds() {
         for (DungeonData data : DUNGEONS.values()) {
             if (data == null) {
                 continue;
             }
-            if (data.world == null || data.world.isBlank() || data.world.equalsIgnoreCase("minecraft:overworld")) {
+            if (data.world == null || data.world.isBlank() || data.world.equalsIgnoreCase("minecraft:overworld") || data.world.equalsIgnoreCase("multiworld:instances")) {
                 data.world = DEFAULT_DUNGEON_WORLD;
+            }
+
+            if (data.trainerSpawns == null) {
+                data.trainerSpawns = new LinkedHashMap<>();
+            }
+
+            for (SpawnData spawn : data.trainerSpawns.values()) {
+                if (spawn != null && (spawn.world == null || spawn.world.isBlank() || spawn.world.equalsIgnoreCase("multiworld:instances"))) {
+                    spawn.world = DEFAULT_DUNGEON_WORLD;
+                }
             }
         }
     }

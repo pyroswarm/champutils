@@ -17,6 +17,7 @@ import com.champutils.dungeon.DungeonTrainerConfig;
 import com.champutils.dungeon.DungeonRewardConfig;
 import com.champutils.dungeon.DungeonKeyDropConfig;
 import com.champutils.dungeon.DungeonNativeCrateRegistry;
+import com.champutils.teleport.TeleportConfig;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -79,6 +80,7 @@ public class ChampReloadCommand {
             DungeonRewardConfig.load();
             GymConfig.load();
             GymRegistry.load();
+            TeleportConfig.load();
 
             source.sendSuccess(
                     () -> Component.literal(
@@ -89,7 +91,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json"
                     ),
                     false
             );

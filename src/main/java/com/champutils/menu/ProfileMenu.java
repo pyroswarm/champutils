@@ -267,39 +267,7 @@ public class ProfileMenu {
                                                 )
                         )
         );
-
-        gui.setSlot(
-                25,
-                new GuiElementBuilder(
-                        Items.COMPASS
-                )
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "§aPlayer Lookup"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Search another player's trainer card."
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§eClick to type a name in chat"
-                                )
-                        )
-                        .setCallback(
-                                (i,c,t)-> {
-                                    player.closeContainer();
-                                    ProfileLookupManager.beginLookup(
-                                            player
-                                    );
-                                }
-                        )
-        );
-
-        MenuUtil.addBackButton(
+MenuUtil.addBackButton(
                 gui,
                 40,
                 ()->

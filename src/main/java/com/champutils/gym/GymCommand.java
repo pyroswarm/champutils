@@ -1,6 +1,10 @@
 package com.champutils.gym;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+
 import com.champutils.badge.BadgeType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -269,9 +273,45 @@ public class GymCommand {
 
                     );
 
+
+                    dispatcher.register(
+                            literal("gymcooldown")
+                                    .requires(source -> source.hasPermission(4))
+                                    .executes(ctx -> showCooldown(ctx.getSource()))
+                                    .then(
+                                            argument("seconds", IntegerArgumentType.integer(0))
+                                                    .executes(ctx -> setCooldown(
+                                                            ctx.getSource(),
+                                                            IntegerArgumentType.getInteger(ctx, "seconds")
+                                                    ))
+                                    )
+                    );
+
                 }
         );
 
+    }
+
+
+    private static int showCooldown(CommandSourceStack source) {
+        source.sendSuccess(
+                () -> Component.literal("Gym global cooldown: ")
+                        .withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(GymSettingsConfig.cooldownDisplay()).withStyle(ChatFormatting.YELLOW)),
+                false
+        );
+        return 1;
+    }
+
+    private static int setCooldown(CommandSourceStack source, int seconds) {
+        GymSettingsConfig.setGlobalCooldownSeconds(seconds);
+        source.sendSuccess(
+                () -> Component.literal("Set gym global cooldown to ")
+                        .withStyle(ChatFormatting.GREEN)
+                        .append(Component.literal(GymSettingsConfig.cooldownDisplay()).withStyle(ChatFormatting.YELLOW)),
+                true
+        );
+        return 1;
     }
 
 }

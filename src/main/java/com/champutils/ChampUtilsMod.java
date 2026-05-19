@@ -366,6 +366,7 @@ public class ChampUtilsMod implements ModInitializer {
         GiveChampItemCommand.register();
         ShowItemCommand.register();
         ItemLockCommand.register();
+        XpLockCommand.register();
 
         /*
          =========================
@@ -409,6 +410,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
                     NotificationManager.tick(server);
+                    com.champutils.teleport.ChunkPregenerationTeleportManager.tick();
 
                     /*
                      Leaderboard refresh
