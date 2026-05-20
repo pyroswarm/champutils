@@ -26,6 +26,7 @@ import com.champutils.dungeon.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
+import com.champutils.teleport.DefaultSpawnManager;
 import com.champutils.teleport.PortalManager;
 import com.champutils.teleport.PortalCommand;
 import com.champutils.teleport.ChunkPregenerationTeleportManager;
@@ -95,6 +96,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         Config.load(configFile);
         TeleportConfig.load();
+        DefaultSpawnManager.load();
 
         /*
          =========================
@@ -222,6 +224,7 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
                     TeleportConfig.save();
+                    DefaultSpawnManager.save();
                     DungeonManager.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -287,6 +290,8 @@ public class ChampUtilsMod implements ModInitializer {
                     NotificationManager.handleJoin(
                             player
                     );
+
+                    DefaultSpawnManager.handleJoin(player);
                 }
         );
 
@@ -399,6 +404,7 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonNativeCrateInteractionListener.register();
         DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();
+        DefaultSpawnManager.registerRespawnHandler();
 
         /*
          =========================
@@ -423,7 +429,6 @@ public class ChampUtilsMod implements ModInitializer {
                     NotificationManager.tick(server);
                     PortalManager.tick(server);
                     ChunkPregenerationTeleportManager.tick();
-                    RandomTeleportCommand.tick(server);
 
                     /*
                      Leaderboard refresh
