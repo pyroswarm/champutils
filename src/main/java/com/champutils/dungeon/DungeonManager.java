@@ -1,5 +1,7 @@
 package com.champutils.dungeon;
 
+import com.champutils.teleport.TeleportConfig;
+
 import com.champutils.profession.ProfessionNotificationSettings;
 
 import com.champutils.matchmaking.MatchmakingManager;
@@ -166,10 +168,18 @@ public final class DungeonManager {
         MinecraftServer server = player.getServer();
         if (server == null) return;
 
-        // Sessions are intentionally not persisted across restarts/disconnects.
-        // If a player logs back in inside a dungeon instance world without an active session,
-        // move them safely to spawn so they cannot continue or farm rewards.
-        if (isDungeonInstanceWorld(player)) {
+        // Dungeons now live in normal configured worlds like spawn1.
+        // Do NOT kick players from a world just because that world contains dungeons.
+        // Only clean up if the player somehow has an active stale session record.
+        DungeonSession session = ACTIVE_SESSIONS.remove(player.getUUID());
+        if (session == null) {
+            return;
+        }
+
+        DungeonTeamLockManager.clear(player);
+        cleanupTrainerEntity(server, session);
+
+        if (!TeleportConfig.teleport(player, TeleportConfig.getSpawn())) {
             ServerLevel overworld = server.overworld();
             systemTeleport(
                     player,
@@ -180,8 +190,9 @@ public final class DungeonManager {
                     0.0F,
                     0.0F
             );
-            player.sendSystemMessage(Component.literal("Your previous dungeon session was closed safely. You were returned to spawn.").withStyle(ChatFormatting.YELLOW));
         }
+
+        player.sendSystemMessage(Component.literal("Your previous dungeon session was closed safely. You were returned to spawn.").withStyle(ChatFormatting.YELLOW));
     }
 
     public static void handleServerStopping(MinecraftServer server) {
@@ -287,46 +298,8 @@ public final class DungeonManager {
 
         cleanupTrainerEntity(player.getServer(), session);
 
-        DungeonConfig.SpawnData configuredSpawn =
-                DungeonConfig.getTrainerSpawn(
-                        session.dungeonId,
-                        session.currentTrainerIndex + 1
-                );
-
-        if (configuredSpawn != null) {
-            ServerLevel configuredLevel =
-                    getLevel(
-                            player.getServer(),
-                            configuredSpawn.world
-                    );
-
-            if (configuredLevel != null) {
-                level = configuredLevel;
-            }
-        }
-
-        double trainerX =
-                configuredSpawn != null
-                        ? configuredSpawn.x
-                        : session.dungeonX + 2.0D;
-
-        double trainerY =
-                configuredSpawn != null
-                        ? configuredSpawn.y
-                        : session.dungeonY;
-
-        double trainerZ =
-                configuredSpawn != null
-                        ? configuredSpawn.z
-                        : session.dungeonZ + 2.0D;
-
-        float trainerYaw =
-                configuredSpawn != null
-                        ? configuredSpawn.yaw
-                        : 180.0F;
-
-        Vec3 pos = new Vec3(trainerX, trainerY, trainerZ);
-        NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, pos, trainerYaw, wave.trainerName, wave.spawnSkin);
+        Vec3 pos = new Vec3(session.dungeonX + 2.0D, session.dungeonY, session.dungeonZ + 2.0D);
+        NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, pos, 180.0F, wave.trainerName, wave.spawnSkin);
         if (npc == null) {
             player.sendSystemMessage(Component.literal("Failed to spawn dungeon trainer.").withStyle(ChatFormatting.RED));
             return false;
@@ -465,27 +438,28 @@ public final class DungeonManager {
                 continue;
             }
 
-            // Active dungeon players are only required to stay near their configured dungeon area.
-            // Dungeons now live in the shared spawn1 world instead of separate instance worlds.
-            if (!player.serverLevel().dimension().equals(session.dungeonWorld) || player.distanceToSqr(session.dungeonX, session.dungeonY, session.dungeonZ) > 2500.0D) {
+            // Radius protection was removed now that dungeons live in the dedicated instances world.
+            // Active dungeon players are only required to remain in their assigned dungeon dimension.
+            // Command locking prevents normal teleport commands, and /spawn intentionally forfeits.
+            if (!player.serverLevel().dimension().equals(session.dungeonWorld)) {
                 ACTIVE_SESSIONS.remove(player.getUUID());
                 DungeonTeamLockManager.clear(player);
                 cleanupTrainerEntity(server, session);
-                player.sendSystemMessage(Component.literal("You left the dungeon area, so the dungeon was forfeited.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("You left the dungeon instance, so the dungeon was forfeited.").withStyle(ChatFormatting.RED));
             }
         }
     }
 
     private static boolean isDungeonInstanceWorld(ServerPlayer player) {
         if (player == null) return false;
-        for (DungeonConfig.DungeonData data : DungeonConfig.DUNGEONS.values()) {
-            if (data == null || data.world == null || data.world.isBlank()) continue;
-            try {
-                ResourceKey<Level> key = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(normalizeWorldId(data.world)));
-                if (key.equals(player.serverLevel().dimension())) return true;
-            } catch (Exception ignored) {}
-        }
-        return false;
+
+        String dimension = player.serverLevel().dimension().location().toString().toLowerCase(java.util.Locale.ROOT);
+
+        // Legacy safety only. Normal dungeon worlds like spawn1 must not count here.
+        return dimension.equals("multiworld:instances")
+                || dimension.equals("minecraft:instances")
+                || dimension.endsWith(":instances")
+                || dimension.contains("dungeon_instance");
     }
 
     private static void systemTeleport(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch) {
@@ -496,7 +470,6 @@ public final class DungeonManager {
         if (id == null || id.isBlank()) return DungeonConfig.DEFAULT_DUNGEON_WORLD;
         String trimmed = id.trim();
         if (trimmed.equalsIgnoreCase("instances")) return DungeonConfig.DEFAULT_DUNGEON_WORLD;
-        if (trimmed.equalsIgnoreCase("spawn1")) return "multiworld:spawn1";
         if (trimmed.equalsIgnoreCase("overworld")) return "minecraft:overworld";
         if (!trimmed.contains(":")) return "minecraft:" + trimmed;
         return trimmed;

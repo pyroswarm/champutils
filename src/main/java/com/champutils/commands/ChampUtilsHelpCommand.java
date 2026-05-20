@@ -82,7 +82,6 @@ public final class ChampUtilsHelpCommand {
         line(source, "/professionleaderboard", "Open profession leaderboard views.");
         line(source, "/showitem", "Show your held item in chat with hover details. Has cooldown.");
         line(source, "/itemlock", "Lock or unlock your held custom item.");
-        line(source, "/xplock <slot>", "Toggle XP gain for a party slot.");
 
         section(source, "Account + Economy");
         line(source, "/linkaccount <code>", "Link your Minecraft account to your website account.");

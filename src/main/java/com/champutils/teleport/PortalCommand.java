@@ -1,7 +1,6 @@
 package com.champutils.teleport;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -38,8 +37,13 @@ public final class PortalCommand {
         ));
     }
 
-    private static int setPos1(CommandSourceStack source, String id) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int setPos1(CommandSourceStack source, String id) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can set portal positions."));
+            return 0;
+        }
+
         PortalRegion portal = TeleportConfig.getOrCreatePortal(id);
         portal.setPos1(player);
         TeleportConfig.save();
@@ -47,8 +51,13 @@ public final class PortalCommand {
         return 1;
     }
 
-    private static int setPos2(CommandSourceStack source, String id) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int setPos2(CommandSourceStack source, String id) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can set portal positions."));
+            return 0;
+        }
+
         PortalRegion portal = TeleportConfig.getOrCreatePortal(id);
         portal.setPos2(player);
         TeleportConfig.save();
@@ -80,8 +89,7 @@ public final class PortalCommand {
         boolean removed = TeleportConfig.deletePortal(id);
         if (removed) {
             source.sendSuccess(() -> Component.literal("Deleted portal: " + id.toLowerCase()).withStyle(ChatFormatting.GREEN), true);
-        }
-        else {
+        } else {
             source.sendFailure(Component.literal("Unknown portal: " + id.toLowerCase()).withStyle(ChatFormatting.RED));
         }
         return removed ? 1 : 0;
@@ -93,10 +101,11 @@ public final class PortalCommand {
             return 1;
         }
 
-        source.sendSuccess(() -> Component.literal("Portals:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        TeleportConfig.portals().forEach((id, portal) -> source.sendSuccess(() -> Component.literal("/portal " + id).withStyle(ChatFormatting.AQUA)
-                .append(Component.literal(" -> ").withStyle(ChatFormatting.DARK_GRAY))
-                .append(Component.literal(portal.command == null ? "no command" : "/" + portal.command).withStyle(ChatFormatting.GRAY)), false));
+        source.sendSuccess(() -> Component.literal("Portals:").withStyle(ChatFormatting.GOLD), false);
+        TeleportConfig.portals().forEach((id, portal) -> source.sendSuccess(
+                () -> Component.literal("- " + id + " -> /" + (portal.command == null ? "no command" : portal.command)).withStyle(ChatFormatting.GRAY),
+                false
+        ));
         return 1;
     }
 }

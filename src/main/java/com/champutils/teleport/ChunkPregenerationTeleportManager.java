@@ -55,9 +55,7 @@ public final class ChunkPregenerationTeleportManager {
 
         private boolean tick() {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
-            if (player == null) {
-                return true;
-            }
+            if (player == null) return true;
 
             if (index >= chunks.size()) {
                 player.sendSystemMessage(Component.literal("Pregeneration teleport pass complete. Loaded " + chunks.size() + " chunks.").withStyle(ChatFormatting.GREEN));
@@ -65,16 +63,13 @@ public final class ChunkPregenerationTeleportManager {
             }
 
             ticksUntilNext--;
-            if (ticksUntilNext > 0) {
-                return false;
-            }
+            if (ticksUntilNext > 0) return false;
             ticksUntilNext = delayTicks;
 
             ChunkPos chunk = chunks.get(index++);
             int x = chunk.getMiddleBlockX();
             int z = chunk.getMiddleBlockZ();
 
-            // Force the chunk to be requested before teleporting.
             level.getChunk(chunk.x, chunk.z);
 
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);

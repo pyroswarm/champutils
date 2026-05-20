@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,14 +15,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashSet;
 
 public final class TeleportConfig {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final File FILE = new File("config/champutils/locations.json");
+    private static final File FILE = new File("config/champutils/teleport_config.json");
 
     private static Data data = new Data();
 
@@ -36,9 +37,8 @@ public final class TeleportConfig {
             }
 
             if (!FILE.exists()) {
-                data = new Data();
-                data.rtpBlockedDimensions.add("spawn1");
-                data.rtpFallbackDimension = "minecraft:overworld";
+                data.rtpBlockedDimensions.add("multiworld:spawn1");
+                data.rtpBlockedDimensions.add("minecraft:spawn1");
                 save();
                 return;
             }
@@ -50,13 +50,21 @@ public final class TeleportConfig {
 
             if (data.warps == null) data.warps = new HashMap<>();
             if (data.rtpBlockedDimensions == null) data.rtpBlockedDimensions = new HashSet<>();
-            if (data.rtpFallbackDimension == null || data.rtpFallbackDimension.isBlank()) data.rtpFallbackDimension = "minecraft:overworld";
-            if (data.rtpCooldownSeconds < 0) data.rtpCooldownSeconds = 0;
             if (data.portals == null) data.portals = new HashMap<>();
-        }
-        catch (Exception exception) {
-            exception.printStackTrace();
+            if (data.rtpFallbackDimension == null || data.rtpFallbackDimension.isBlank()) {
+                data.rtpFallbackDimension = "minecraft:overworld";
+            }
+
+            data.rtpBlockedDimensions.add("multiworld:spawn1");
+            data.rtpBlockedDimensions.add("minecraft:spawn1");
+
+            save();
+        } catch (Exception e) {
+            e.printStackTrace();
             data = new Data();
+            data.rtpBlockedDimensions.add("multiworld:spawn1");
+            data.rtpBlockedDimensions.add("minecraft:spawn1");
+            save();
         }
     }
 
@@ -70,15 +78,14 @@ public final class TeleportConfig {
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(data, writer);
             }
-        }
-        catch (Exception exception) {
-            exception.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     public static TeleportLocation capture(ServerPlayer player) {
         return new TeleportLocation(
-                player.level().dimension().location().toString(),
+                player.serverLevel().dimension().location().toString(),
                 player.getX(),
                 player.getY(),
                 player.getZ(),
@@ -88,28 +95,20 @@ public final class TeleportConfig {
     }
 
     public static boolean teleport(ServerPlayer player, TeleportLocation location) {
+        if (player == null || location == null) {
+            return false;
+        }
+
         ServerLevel level = resolveLevel(player.server, location.dimension);
         if (level == null) {
             return false;
         }
 
         player.teleportTo(level, location.x, location.y, location.z, location.yaw, location.pitch);
+        player.setYRot(location.yaw);
+        player.setYHeadRot(location.yaw);
+        player.setXRot(location.pitch);
         return true;
-    }
-
-    public static ServerLevel resolveLevel(MinecraftServer server, String dimension) {
-        String fixed = normalizeDimension(dimension);
-        ResourceLocation id = ResourceLocation.parse(fixed);
-        ResourceKey<Level> key = ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id);
-        return server.getLevel(key);
-    }
-
-    public static String normalizeDimension(String dimension) {
-        if (dimension == null || dimension.isBlank()) {
-            return "minecraft:overworld";
-        }
-        String trimmed = dimension.trim();
-        return trimmed.contains(":") ? trimmed : trimmed;
     }
 
     public static TeleportLocation getSpawn() {
@@ -125,23 +124,29 @@ public final class TeleportConfig {
         return data.warps;
     }
 
+    public static Set<String> warpNames() {
+        return new LinkedHashSet<>(data.warps.keySet());
+    }
+
     public static TeleportLocation getWarp(String name) {
-        return data.warps.get(name.toLowerCase());
+        return data.warps.get(clean(name));
     }
 
     public static void setWarp(String name, TeleportLocation location) {
-        data.warps.put(name.toLowerCase(), location);
+        data.warps.put(clean(name), location);
         save();
     }
 
     public static boolean deleteWarp(String name) {
-        boolean removed = data.warps.remove(name.toLowerCase()) != null;
-        if (removed) save();
+        boolean removed = data.warps.remove(clean(name)) != null;
+        if (removed) {
+            save();
+        }
         return removed;
     }
 
     public static int getRtpCooldownSeconds() {
-        return data.rtpCooldownSeconds;
+        return Math.max(0, data.rtpCooldownSeconds);
     }
 
     public static void setRtpCooldownSeconds(int seconds) {
@@ -154,42 +159,28 @@ public final class TeleportConfig {
     }
 
     public static boolean isRtpBlocked(String dimension) {
-        for (String blocked : data.rtpBlockedDimensions) {
-            if (matchesDimension(dimension, blocked)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static boolean matchesDimension(String actual, String configured) {
-        if (actual == null || configured == null) return false;
-        String a = actual.trim();
-        String c = configured.trim();
-        if (a.equals(c)) return true;
-        if (!c.contains(":")) {
-            return a.endsWith(":" + c) || a.equals("minecraft:" + c);
-        }
-        return false;
+        return data.rtpBlockedDimensions.contains(normalizeDimension(dimension));
     }
 
     public static void blockRtpDimension(String dimension) {
-        data.rtpBlockedDimensions.add(dimension);
+        data.rtpBlockedDimensions.add(normalizeDimension(dimension));
         save();
     }
 
     public static boolean unblockRtpDimension(String dimension) {
-        boolean removed = data.rtpBlockedDimensions.remove(dimension);
-        if (removed) save();
+        boolean removed = data.rtpBlockedDimensions.remove(normalizeDimension(dimension));
+        if (removed) {
+            save();
+        }
         return removed;
     }
 
     public static String getRtpFallbackDimension() {
-        return data.rtpFallbackDimension;
+        return normalizeDimension(data.rtpFallbackDimension);
     }
 
     public static void setRtpFallbackDimension(String dimension) {
-        data.rtpFallbackDimension = dimension;
+        data.rtpFallbackDimension = normalizeDimension(dimension);
         save();
     }
 
@@ -198,30 +189,78 @@ public final class TeleportConfig {
     }
 
     public static PortalRegion getPortal(String id) {
-        return data.portals.get(id.toLowerCase());
+        return data.portals.get(clean(id));
     }
 
     public static PortalRegion getOrCreatePortal(String id) {
-        return data.portals.computeIfAbsent(id.toLowerCase(), key -> new PortalRegion());
+        return data.portals.computeIfAbsent(clean(id), key -> new PortalRegion());
     }
 
     public static boolean deletePortal(String id) {
-        boolean removed = data.portals.remove(id.toLowerCase()) != null;
-        if (removed) save();
+        boolean removed = data.portals.remove(clean(id)) != null;
+        if (removed) {
+            save();
+        }
         return removed;
     }
 
-    public static final class Data {
-        public TeleportLocation spawn;
-        public Map<String, TeleportLocation> warps = new HashMap<>();
-        public int rtpCooldownSeconds = 300;
-        public Set<String> rtpBlockedDimensions = new HashSet<>(java.util.List.of("multiworld:spawn1", "minecraft:spawn1"));
-        public String rtpFallbackDimension = "minecraft:overworld";
-        public Map<String, PortalRegion> portals = new HashMap<>();
+    public static ServerLevel resolveLevel(MinecraftServer server, String dimension) {
+        if (server == null) {
+            return null;
+        }
+
+        try {
+            ResourceKey<Level> key = ResourceKey.create(
+                    Registries.DIMENSION,
+                    ResourceLocation.parse(normalizeDimension(dimension))
+            );
+
+            return server.getLevel(key);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
-    public static Set<String> warpNames() {
-        return new LinkedHashSet<>(data.warps.keySet());
+    public static String normalizeDimension(String dimension) {
+        if (dimension == null || dimension.isBlank()) {
+            return "minecraft:overworld";
+        }
+
+        String trimmed = dimension.trim();
+
+        if (trimmed.equalsIgnoreCase("overworld")) {
+            return "minecraft:overworld";
+        }
+
+        if (trimmed.equalsIgnoreCase("nether")) {
+            return "minecraft:the_nether";
+        }
+
+        if (trimmed.equalsIgnoreCase("end")) {
+            return "minecraft:the_end";
+        }
+
+        if (trimmed.equalsIgnoreCase("spawn1")) {
+            return "multiworld:spawn1";
+        }
+
+        if (!trimmed.contains(":")) {
+            return "minecraft:" + trimmed;
+        }
+
+        return trimmed;
     }
 
+    private static String clean(String value) {
+        return value == null ? "" : value.trim().toLowerCase();
+    }
+
+    private static final class Data {
+        TeleportLocation spawn;
+        Map<String, TeleportLocation> warps = new HashMap<>();
+        int rtpCooldownSeconds = 300;
+        Set<String> rtpBlockedDimensions = new HashSet<>();
+        String rtpFallbackDimension = "minecraft:overworld";
+        Map<String, PortalRegion> portals = new HashMap<>();
+    }
 }

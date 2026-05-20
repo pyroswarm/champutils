@@ -2,21 +2,24 @@ package com.champutils.teleport;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.FluidState;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -29,9 +32,11 @@ public final class RandomTeleportCommand {
 
     private static final Random RANDOM = new Random();
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
-    private static final int MAX_ATTEMPTS = 512;
+    private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new HashMap<>();
+
+    private static final int ATTEMPTS_PER_TICK = 8;
+    private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int BORDER_PADDING = 32;
-    private static final int RTP_DEFAULT_RADIUS = 15000;
 
     private RandomTeleportCommand() {
     }
@@ -63,11 +68,23 @@ public final class RandomTeleportCommand {
         });
     }
 
-    private static int rtp(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int rtp(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /rtp."));
+            return 0;
+        }
+
+        UUID playerId = player.getUUID();
+
+        if (ACTIVE_SEARCHES.containsKey(playerId)) {
+            player.sendSystemMessage(Component.literal("RTP is already searching for a safe location...").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
         int cooldown = TeleportConfig.getRtpCooldownSeconds();
         long now = System.currentTimeMillis();
-        long last = LAST_USE_MS.getOrDefault(player.getUUID(), 0L);
+        long last = LAST_USE_MS.getOrDefault(playerId, 0L);
         long waitMs = (cooldown * 1000L) - (now - last);
 
         if (!player.hasPermissions(4) && waitMs > 0) {
@@ -78,6 +95,7 @@ public final class RandomTeleportCommand {
 
         ServerLevel targetLevel = player.serverLevel();
         String currentDimension = targetLevel.dimension().location().toString();
+
         if (TeleportConfig.isRtpBlocked(currentDimension) || isSpawnHubDimension(currentDimension)) {
             targetLevel = TeleportConfig.resolveLevel(player.server, TeleportConfig.getRtpFallbackDimension());
             if (targetLevel == null) {
@@ -86,66 +104,78 @@ public final class RandomTeleportCommand {
             }
         }
 
-        BlockPos target = findSafePosition(targetLevel);
-        if (target == null) {
-            player.sendSystemMessage(Component.literal("Could not find a safe RTP location. Try again later or reduce the world border.").withStyle(ChatFormatting.RED));
+        SearchBounds bounds = SearchBounds.from(targetLevel);
+        if (bounds == null) {
+            player.sendSystemMessage(Component.literal("RTP could not read a valid world border.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        player.teleportTo(targetLevel, target.getX() + 0.5, target.getY(), target.getZ() + 0.5, player.getYRot(), player.getXRot());
-        LAST_USE_MS.put(player.getUUID(), now);
-        player.sendSystemMessage(Component.literal("Teleported to a random safe location.").withStyle(ChatFormatting.GREEN));
+        // Cooldown starts as soon as the search starts, not after a successful teleport.
+        LAST_USE_MS.put(playerId, now);
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, player.getX(), player.getZ()));
+
+        player.sendSystemMessage(Component.literal("Searching for a random safe RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Range: X " + bounds.minX + " to " + bounds.maxX + ", Z " + bounds.minZ + " to " + bounds.maxZ + ".").withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
-    private static BlockPos findSafePosition(ServerLevel level) {
-        WorldBorder border = level.getWorldBorder();
-
-        // Use the full configured world border.
-        // If the border is still vanilla-huge/default, clamp RTP to +/-15,000 so players
-        // do not get sent millions of blocks away by accident.
-        int borderMinX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;
-        int borderMaxX = (int) Math.floor(border.getMaxX()) - BORDER_PADDING;
-        int borderMinZ = (int) Math.ceil(border.getMinZ()) + BORDER_PADDING;
-        int borderMaxZ = (int) Math.floor(border.getMaxZ()) - BORDER_PADDING;
-
-        int minX = Math.max(borderMinX, -RTP_DEFAULT_RADIUS);
-        int maxX = Math.min(borderMaxX, RTP_DEFAULT_RADIUS);
-        int minZ = Math.max(borderMinZ, -RTP_DEFAULT_RADIUS);
-        int maxZ = Math.min(borderMaxZ, RTP_DEFAULT_RADIUS);
-
-        if (minX >= maxX || minZ >= maxZ) {
-            return null;
+    public static void tick(MinecraftServer server) {
+        if (server == null || ACTIVE_SEARCHES.isEmpty()) {
+            return;
         }
 
-        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            int x = randomBetween(minX, maxX);
-            int z = randomBetween(minZ, maxZ);
+        Iterator<Map.Entry<UUID, SearchTask>> iterator = ACTIVE_SEARCHES.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, SearchTask> entry = iterator.next();
+            SearchTask task = entry.getValue();
+
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                iterator.remove();
+                continue;
+            }
+
+            if (task.tick(player)) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private static BlockPos findSafePosition(SearchTask task) {
+        ServerLevel level = task.level;
+        SearchBounds bounds = task.bounds;
+        WorldBorder border = level.getWorldBorder();
+
+        for (int attempt = 0; attempt < ATTEMPTS_PER_TICK; attempt++) {
+            task.attempts++;
+
+            int x = randomBetween(bounds.minX, bounds.maxX);
+            int z = randomBetween(bounds.minZ, bounds.maxZ);
+
+            if (!isFarEnoughFromStart(task, x, z)) {
+                continue;
+            }
+
+            // Force this candidate chunk to load/generate before checking height and blocks.
+            // Without this, RTP can endlessly reject unloaded terrain.
+            ChunkPos chunkPos = new ChunkPos(x >> 4, z >> 4);
+            try {
+                level.getChunk(chunkPos.x, chunkPos.z);
+            } catch (Exception ignored) {
+                continue;
+            }
+
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 
             BlockPos feet = new BlockPos(x, y, z);
             BlockPos ground = feet.below();
             BlockPos head = feet.above();
 
-            if (!border.isWithinBounds(feet)) {
-                continue;
-            }
-
-            if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) {
-                continue;
-            }
-
-            if (!hasRoomForPlayer(level, feet, head)) {
-                continue;
-            }
-
-            if (!hasSafeLanding(level, feet, ground)) {
-                continue;
-            }
-
-            if (hasLargeDropNearby(level, feet)) {
-                continue;
-            }
+            if (!border.isWithinBounds(feet)) continue;
+            if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) continue;
+            if (!hasRoomForPlayer(level, feet, head)) continue;
+            if (!hasSafeLanding(level, feet, ground)) continue;
 
             return feet;
         }
@@ -157,7 +187,7 @@ public final class RandomTeleportCommand {
         BlockState feetState = level.getBlockState(feet);
         BlockState headState = level.getBlockState(head);
 
-        // Air, water, snow layers, grass, flowers, etc. are fine as long as they do not block movement.
+        // Air, water, grass, flowers, snow layers, and other non-solid blocks are fine.
         return !feetState.blocksMotion() && !headState.blocksMotion();
     }
 
@@ -166,13 +196,11 @@ public final class RandomTeleportCommand {
         FluidState feetFluid = level.getFluidState(feet);
         FluidState groundFluid = level.getFluidState(ground);
 
-        // Water landing is allowed. This fixes ocean/river/coast RTP failures.
-        if (feetFluid.is(net.minecraft.tags.FluidTags.WATER) || groundFluid.is(net.minecraft.tags.FluidTags.WATER)) {
+        if (feetFluid.is(FluidTags.WATER) || groundFluid.is(FluidTags.WATER)) {
             return true;
         }
 
-        // Never place players on/in lava.
-        if (feetFluid.is(net.minecraft.tags.FluidTags.LAVA) || groundFluid.is(net.minecraft.tags.FluidTags.LAVA)) {
+        if (feetFluid.is(FluidTags.LAVA) || groundFluid.is(FluidTags.LAVA)) {
             return false;
         }
 
@@ -186,32 +214,16 @@ public final class RandomTeleportCommand {
             return false;
         }
 
-        // Snow, slabs, leaves, grass blocks, etc. are okay as long as the block can support the player.
-        return groundState.blocksMotion() || groundState.isFaceSturdy(level, ground, net.minecraft.core.Direction.UP);
+        // Normal solid blocks, leaves, snow-covered terrain, slabs, paths, etc.
+        // If it is not air/liquid/danger and has collision, it is good enough for RTP.
+        return !groundState.isAir();
     }
 
-    private static boolean hasLargeDropNearby(ServerLevel level, BlockPos feet) {
-        // Avoid putting players right on the edge of a ravine/cliff/large ditch.
-        // This still allows normal hills and shallow terrain changes.
-        final int maxDrop = 5;
 
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                if (dx == 0 && dz == 0) {
-                    continue;
-                }
-
-                int sampleX = feet.getX() + dx;
-                int sampleZ = feet.getZ() + dz;
-                int sampleY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sampleX, sampleZ);
-
-                if (feet.getY() - sampleY > maxDrop) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+    private static boolean isFarEnoughFromStart(SearchTask task, int x, int z) {
+        double dx = x - task.startX;
+        double dz = z - task.startZ;
+        return (dx * dx) + (dz * dz) >= (double) MIN_RTP_DISTANCE_BLOCKS * (double) MIN_RTP_DISTANCE_BLOCKS;
     }
 
     private static int randomBetween(int min, int max) {
@@ -253,8 +265,7 @@ public final class RandomTeleportCommand {
         boolean removed = TeleportConfig.unblockRtpDimension(normalized);
         if (removed) {
             source.sendSuccess(() -> Component.literal("Unblocked RTP in dimension: " + normalized).withStyle(ChatFormatting.GREEN), true);
-        }
-        else {
+        } else {
             source.sendFailure(Component.literal("That dimension was not blocked: " + normalized).withStyle(ChatFormatting.RED));
         }
         return removed ? 1 : 0;
@@ -268,9 +279,7 @@ public final class RandomTeleportCommand {
     }
 
     private static boolean isSpawnHubDimension(String dimension) {
-        if (dimension == null) {
-            return false;
-        }
+        if (dimension == null) return false;
 
         String normalized = dimension.trim().toLowerCase(java.util.Locale.ROOT);
         return normalized.equals("multiworld:spawn1")
@@ -278,4 +287,66 @@ public final class RandomTeleportCommand {
                 || normalized.endsWith(":spawn1");
     }
 
+    private static final class SearchTask {
+        private final UUID playerId;
+        private final ServerLevel level;
+        private final SearchBounds bounds;
+        private final double startX;
+        private final double startZ;
+        private int attempts = 0;
+        private int ticks = 0;
+
+        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ) {
+            this.playerId = playerId;
+            this.level = level;
+            this.bounds = bounds;
+            this.startX = startX;
+            this.startZ = startZ;
+        }
+
+        private boolean tick(ServerPlayer player) {
+            ticks++;
+
+            BlockPos target = findSafePosition(this);
+            if (target == null) {
+                if (ticks % 100 == 0) {
+                    player.sendSystemMessage(Component.literal("Still searching/generating RTP chunks... checked " + attempts + " spots.").withStyle(ChatFormatting.GRAY));
+                }
+                return false;
+            }
+
+            player.teleportTo(level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            player.sendSystemMessage(Component.literal("Teleported to a random safe location after checking " + attempts + " spots.").withStyle(ChatFormatting.GREEN));
+            return true;
+        }
+    }
+
+    private static final class SearchBounds {
+        private final int minX;
+        private final int maxX;
+        private final int minZ;
+        private final int maxZ;
+
+        private SearchBounds(int minX, int maxX, int minZ, int maxZ) {
+            this.minX = minX;
+            this.maxX = maxX;
+            this.minZ = minZ;
+            this.maxZ = maxZ;
+        }
+
+        private static SearchBounds from(ServerLevel level) {
+            WorldBorder border = level.getWorldBorder();
+
+            int minX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;
+            int maxX = (int) Math.floor(border.getMaxX()) - BORDER_PADDING;
+            int minZ = (int) Math.ceil(border.getMinZ()) + BORDER_PADDING;
+            int maxZ = (int) Math.floor(border.getMaxZ()) - BORDER_PADDING;
+
+            if (minX >= maxX || minZ >= maxZ) {
+                return null;
+            }
+
+            return new SearchBounds(minX, maxX, minZ, maxZ);
+        }
+    }
 }

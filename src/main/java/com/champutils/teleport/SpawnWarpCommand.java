@@ -2,7 +2,6 @@ package com.champutils.teleport;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -17,9 +16,8 @@ import static net.minecraft.commands.Commands.literal;
 
 public final class SpawnWarpCommand {
 
-    private static final SuggestionProvider<CommandSourceStack> WARP_SUGGESTIONS = (context, builder) ->
-            SharedSuggestionProvider.suggest(TeleportConfig.warpNames(), builder);
-
+    private static final SuggestionProvider<CommandSourceStack> WARP_SUGGESTIONS =
+            (context, builder) -> SharedSuggestionProvider.suggest(TeleportConfig.warpNames(), builder);
 
     private SpawnWarpCommand() {
     }
@@ -47,12 +45,18 @@ public final class SpawnWarpCommand {
             dispatcher.register(literal("delwarp")
                     .requires(source -> source.hasPermission(4))
                     .then(argument("name", StringArgumentType.word())
+                            .suggests(WARP_SUGGESTIONS)
                             .executes(ctx -> delWarp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
         });
     }
 
-    private static int spawn(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int spawn(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /spawn."));
+            return 0;
+        }
+
         TeleportLocation spawn = TeleportConfig.getSpawn();
         if (spawn == null) {
             player.sendSystemMessage(Component.literal("Spawn has not been set yet. Ask an admin to use /setspawn.").withStyle(ChatFormatting.RED));
@@ -68,8 +72,13 @@ public final class SpawnWarpCommand {
         return 1;
     }
 
-    private static int setSpawn(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int setSpawn(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /setspawn."));
+            return 0;
+        }
+
         TeleportConfig.setSpawn(TeleportConfig.capture(player));
         player.sendSystemMessage(Component.literal("Set server spawn to your current location.").withStyle(ChatFormatting.GREEN));
         return 1;
@@ -87,8 +96,13 @@ public final class SpawnWarpCommand {
         return 1;
     }
 
-    private static int warp(CommandSourceStack source, String name) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int warp(CommandSourceStack source, String name) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /warp."));
+            return 0;
+        }
+
         TeleportLocation warp = TeleportConfig.getWarp(name);
         if (warp == null) {
             player.sendSystemMessage(Component.literal("Unknown warp: " + name).withStyle(ChatFormatting.RED));
@@ -104,8 +118,13 @@ public final class SpawnWarpCommand {
         return 1;
     }
 
-    private static int setWarp(CommandSourceStack source, String name) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int setWarp(CommandSourceStack source, String name) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /setwarp."));
+            return 0;
+        }
+
         TeleportConfig.setWarp(name, TeleportConfig.capture(player));
         player.sendSystemMessage(Component.literal("Set warp: " + name.toLowerCase()).withStyle(ChatFormatting.GREEN));
         return 1;
@@ -114,10 +133,9 @@ public final class SpawnWarpCommand {
     private static int delWarp(CommandSourceStack source, String name) {
         boolean removed = TeleportConfig.deleteWarp(name);
         if (removed) {
-            source.sendSuccess(() -> Component.literal("Deleted warp: " + name.toLowerCase()).withStyle(ChatFormatting.GREEN), false);
-        }
-        else {
-            source.sendFailure(Component.literal("Unknown warp: " + name.toLowerCase()).withStyle(ChatFormatting.RED));
+            source.sendSuccess(() -> Component.literal("Deleted warp: " + name.toLowerCase()).withStyle(ChatFormatting.GREEN), true);
+        } else {
+            source.sendFailure(Component.literal("Unknown warp: " + name).withStyle(ChatFormatting.RED));
         }
         return removed ? 1 : 0;
     }

@@ -1,7 +1,8 @@
 package com.champutils.teleport;
 
 public class TeleportLocation {
-    public String dimension;
+
+    public String dimension = "minecraft:overworld";
     public double x;
     public double y;
     public double z;

@@ -26,6 +26,12 @@ import com.champutils.dungeon.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
+import com.champutils.teleport.PortalManager;
+import com.champutils.teleport.PortalCommand;
+import com.champutils.teleport.ChunkPregenerationTeleportManager;
+import com.champutils.teleport.ChunkPregenerationTeleportCommand;
+import com.champutils.teleport.RandomTeleportCommand;
+import com.champutils.teleport.TeleportConfig;
 
 /*
  =========================
@@ -88,6 +94,7 @@ public class ChampUtilsMod implements ModInitializer {
         }
 
         Config.load(configFile);
+        TeleportConfig.load();
 
         /*
          =========================
@@ -214,6 +221,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonNativeCrateRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
+                    TeleportConfig.save();
                     DungeonManager.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -357,6 +365,10 @@ public class ChampUtilsMod implements ModInitializer {
         MenuNpcCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
+        com.champutils.teleport.SpawnWarpCommand.register();
+        RandomTeleportCommand.register();
+        ChunkPregenerationTeleportCommand.register();
+        PortalCommand.register();
         BlankNpcCommand.register();
         DungeonCommand.register();
 
@@ -366,7 +378,6 @@ public class ChampUtilsMod implements ModInitializer {
         GiveChampItemCommand.register();
         ShowItemCommand.register();
         ItemLockCommand.register();
-        XpLockCommand.register();
 
         /*
          =========================
@@ -410,7 +421,9 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
                     NotificationManager.tick(server);
-                    com.champutils.teleport.ChunkPregenerationTeleportManager.tick();
+                    PortalManager.tick(server);
+                    ChunkPregenerationTeleportManager.tick();
+                    RandomTeleportCommand.tick(server);
 
                     /*
                      Leaderboard refresh

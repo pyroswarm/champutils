@@ -1,7 +1,5 @@
 package com.champutils.teleport;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -11,51 +9,56 @@ import java.util.UUID;
 
 public final class PortalManager {
 
-    private static final Map<UUID, Integer> COOLDOWNS = new HashMap<>();
-    private static final int COOLDOWN_TICKS = 60;
+    private static final Map<UUID, Long> LAST_TRIGGER_MS = new HashMap<>();
+    private static final long COOLDOWN_MS = 2500L;
 
     private PortalManager() {
     }
 
     public static void tick(MinecraftServer server) {
-        COOLDOWNS.entrySet().removeIf(entry -> {
-            int next = entry.getValue() - 1;
-            entry.setValue(next);
-            return next <= 0;
-        });
+        if (server == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (COOLDOWNS.containsKey(player.getUUID())) {
+            long last = LAST_TRIGGER_MS.getOrDefault(player.getUUID(), 0L);
+            if (now - last < COOLDOWN_MS) {
                 continue;
             }
 
             for (PortalRegion portal : TeleportConfig.portals().values()) {
-                if (!portal.contains(player)) {
-                    continue;
+                if (portal != null && portal.contains(player)) {
+                    LAST_TRIGGER_MS.put(player.getUUID(), now);
+                    runPortalCommand(player, portal.command);
+                    break;
                 }
-
-                runPortalCommand(player, portal.command);
-                COOLDOWNS.put(player.getUUID(), COOLDOWN_TICKS);
-                break;
             }
         }
     }
 
     public static boolean isAllowedPortalCommand(String command) {
-        String lower = command.trim().toLowerCase();
-        return lower.equals("rtp") || lower.equals("spawn") || lower.startsWith("warp ");
+        if (command == null) {
+            return false;
+        }
+
+        String cleaned = command.trim().toLowerCase();
+        return cleaned.equals("rtp")
+                || cleaned.equals("spawn")
+                || cleaned.startsWith("warp ");
     }
 
     private static void runPortalCommand(ServerPlayer player, String command) {
-        if (command == null || command.isBlank()) {
+        if (player == null || command == null || command.isBlank()) {
             return;
         }
 
-        if (!isAllowedPortalCommand(command)) {
-            player.sendSystemMessage(Component.literal("This portal has an unsafe command configured. Ask an admin to fix it.").withStyle(ChatFormatting.RED));
-            return;
+        String cleaned = command.trim();
+        if (!cleaned.startsWith("/")) {
+            cleaned = "/" + cleaned;
         }
 
-        player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withSuppressedOutput(), command.startsWith("/") ? command : "/" + command);
+        player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), cleaned);
     }
 }

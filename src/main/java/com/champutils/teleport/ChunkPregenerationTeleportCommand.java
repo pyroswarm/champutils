@@ -1,7 +1,6 @@
 package com.champutils.teleport;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -38,8 +37,13 @@ public final class ChunkPregenerationTeleportCommand {
         ));
     }
 
-    private static int start(CommandSourceStack source, int radiusChunks, int delayTicks) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int start(CommandSourceStack source, int radiusChunks, int delayTicks) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /pregentp."));
+            return 0;
+        }
+
         ServerLevel level = player.serverLevel();
         ChunkPos center = player.chunkPosition();
         List<ChunkPos> chunks = buildSquare(center, radiusChunks);
@@ -48,7 +52,6 @@ public final class ChunkPregenerationTeleportCommand {
 
         player.sendSystemMessage(Component.literal("Started pregeneration teleport pass in " + level.dimension().location() + ".").withStyle(ChatFormatting.GREEN));
         player.sendSystemMessage(Component.literal("Radius: " + radiusChunks + " chunks. Chunks queued: " + chunks.size() + ". Delay: " + delayTicks + " ticks.").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Use /pregentp stop to cancel. Keep this small; huge radii can lag the server.").withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
@@ -66,20 +69,26 @@ public final class ChunkPregenerationTeleportCommand {
         return chunks;
     }
 
-    private static int stop(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int stop(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /pregentp."));
+            return 0;
+        }
+
         boolean stopped = ChunkPregenerationTeleportManager.stop(player.getUUID());
-        if (stopped) {
-            player.sendSystemMessage(Component.literal("Stopped your pregeneration teleport pass.").withStyle(ChatFormatting.GREEN));
-        }
-        else {
-            player.sendSystemMessage(Component.literal("You do not have an active pregeneration teleport pass.").withStyle(ChatFormatting.YELLOW));
-        }
+        player.sendSystemMessage(Component.literal(stopped ? "Stopped your pregeneration teleport pass." : "You do not have an active pregeneration teleport pass.")
+                .withStyle(stopped ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         return stopped ? 1 : 0;
     }
 
-    private static int status(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private static int status(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /pregentp."));
+            return 0;
+        }
+
         ChunkPregenerationTeleportManager.Task task = ChunkPregenerationTeleportManager.get(player.getUUID());
         if (task == null) {
             player.sendSystemMessage(Component.literal("You do not have an active pregeneration teleport pass.").withStyle(ChatFormatting.YELLOW));
