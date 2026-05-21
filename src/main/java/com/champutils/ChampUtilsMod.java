@@ -383,6 +383,7 @@ public class ChampUtilsMod implements ModInitializer {
         GiveChampItemCommand.register();
         ShowItemCommand.register();
         ItemLockCommand.register();
+        TextCommand.register();
 
         /*
          =========================

@@ -35,8 +35,8 @@ public final class RandomTeleportCommand {
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new HashMap<>();
 
     private static final int ATTEMPTS_PER_TICK = 8;
-    private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int BORDER_PADDING = 32;
+    private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
 
     private RandomTeleportCommand() {
     }
@@ -93,15 +93,31 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        ServerLevel targetLevel = player.serverLevel();
-        String currentDimension = targetLevel.dimension().location().toString();
+        ServerLevel startLevel = player.serverLevel();
+        String currentDimension = startLevel.dimension().location().toString();
 
-        if (TeleportConfig.isRtpBlocked(currentDimension) || isSpawnHubDimension(currentDimension)) {
+        ServerLevel targetLevel;
+        double startXForDistance;
+        double startZForDistance;
+
+        if (isSpawnHubDimension(currentDimension)) {
+            // Spawn hub always sends players to the actual overworld.
+            targetLevel = player.server.overworld();
+            startXForDistance = 0.0D;
+            startZForDistance = 0.0D;
+        } else if (TeleportConfig.isRtpBlocked(currentDimension)) {
             targetLevel = TeleportConfig.resolveLevel(player.server, TeleportConfig.getRtpFallbackDimension());
-            if (targetLevel == null) {
-                player.sendSystemMessage(Component.literal("RTP fallback dimension is missing or not loaded.").withStyle(ChatFormatting.RED));
-                return 0;
-            }
+            startXForDistance = 0.0D;
+            startZForDistance = 0.0D;
+        } else {
+            targetLevel = startLevel;
+            startXForDistance = player.getX();
+            startZForDistance = player.getZ();
+        }
+
+        if (targetLevel == null) {
+            player.sendSystemMessage(Component.literal("Could not find a valid RTP target dimension.").withStyle(ChatFormatting.RED));
+            return 0;
         }
 
         SearchBounds bounds = SearchBounds.from(targetLevel);
@@ -110,12 +126,11 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        // Cooldown starts as soon as the search starts, not after a successful teleport.
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, player.getX(), player.getZ()));
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance));
 
         player.sendSystemMessage(Component.literal("Searching for a random safe RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Range: X " + bounds.minX + " to " + bounds.maxX + ", Z " + bounds.minZ + " to " + bounds.maxZ + ".").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Target dimension: " + targetLevel.dimension().location()).withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
@@ -157,8 +172,6 @@ public final class RandomTeleportCommand {
                 continue;
             }
 
-            // Force this candidate chunk to load/generate before checking height and blocks.
-            // Without this, RTP can endlessly reject unloaded terrain.
             ChunkPos chunkPos = new ChunkPos(x >> 4, z >> 4);
             try {
                 level.getChunk(chunkPos.x, chunkPos.z);
@@ -186,8 +199,6 @@ public final class RandomTeleportCommand {
     private static boolean hasRoomForPlayer(ServerLevel level, BlockPos feet, BlockPos head) {
         BlockState feetState = level.getBlockState(feet);
         BlockState headState = level.getBlockState(head);
-
-        // Air, water, grass, flowers, snow layers, and other non-solid blocks are fine.
         return !feetState.blocksMotion() && !headState.blocksMotion();
     }
 
@@ -214,11 +225,8 @@ public final class RandomTeleportCommand {
             return false;
         }
 
-        // Normal solid blocks, leaves, snow-covered terrain, slabs, paths, etc.
-        // If it is not air/liquid/danger and has collision, it is good enough for RTP.
         return !groundState.isAir();
     }
-
 
     private static boolean isFarEnoughFromStart(SearchTask task, int x, int z) {
         double dx = x - task.startX;
@@ -284,7 +292,9 @@ public final class RandomTeleportCommand {
         String normalized = dimension.trim().toLowerCase(java.util.Locale.ROOT);
         return normalized.equals("multiworld:spawn1")
                 || normalized.equals("minecraft:spawn1")
-                || normalized.endsWith(":spawn1");
+                || normalized.equals("spawn1")
+                || normalized.endsWith(":spawn1")
+                || normalized.contains("spawn1");
     }
 
     private static final class SearchTask {
