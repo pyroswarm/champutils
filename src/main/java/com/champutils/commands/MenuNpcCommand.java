@@ -30,6 +30,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
                                             builder.suggest("auction");
+                                            builder.suggest("shop");
+                                            builder.suggest("essentials");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> bind(
@@ -45,6 +47,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
                                             builder.suggest("auction");
+                                            builder.suggest("shop");
+                                            builder.suggest("essentials");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> unbind(

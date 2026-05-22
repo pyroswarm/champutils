@@ -13,10 +13,10 @@ import net.minecraft.world.item.ItemStack;
 
 public class ProfessionToolStatEffectListener {
 
-    private static final ResourceLocation MINING_SPEED_MODIFIER_ID =
+    private static final ResourceLocation TOOL_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(
                     "champutils",
-                    "profession_tool_mining_speed"
+                    "profession_tool_block_speed"
             );
 
     private static final ResourceLocation BLOCK_BREAK_SPEED_ID =
@@ -32,20 +32,20 @@ public class ProfessionToolStatEffectListener {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        updateMiningSpeedModifier(player);
+                        updateToolSpeedModifier(player);
                     }
                 }
         );
     }
 
-    private static void updateMiningSpeedModifier(ServerPlayer player) {
+    private static void updateToolSpeedModifier(ServerPlayer player) {
         AttributeInstance attribute = getAttribute(player, BLOCK_BREAK_SPEED_ID);
 
         if (attribute == null) {
             return;
         }
 
-        attribute.removeModifier(MINING_SPEED_MODIFIER_ID);
+        attribute.removeModifier(TOOL_SPEED_MODIFIER_ID);
 
         ItemStack stack = player.getMainHandItem();
 
@@ -53,24 +53,42 @@ public class ProfessionToolStatEffectListener {
             return;
         }
 
-        double miningSpeed = ProfessionToolUtil.getStat(stack, "miningSpeed");
+        double speedStat = getRelevantSpeedStat(stack);
 
-        if (miningSpeed <= 0.0D) {
+        if (speedStat <= 0.0D) {
             return;
         }
 
         double modifierAmount = Math.max(
                 0.0D,
-                ProfessionToolManager.getMiningSpeedMultiplier(miningSpeed) - 1.0D
+                ProfessionToolManager.getMiningSpeedMultiplier(speedStat) - 1.0D
         );
 
         AttributeModifier modifier = new AttributeModifier(
-                MINING_SPEED_MODIFIER_ID,
+                TOOL_SPEED_MODIFIER_ID,
                 modifierAmount,
                 AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
         );
 
         attribute.addTransientModifier(modifier);
+    }
+
+    private static double getRelevantSpeedStat(ItemStack stack) {
+        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
+
+        if (toolData == null || toolData.profession == null) {
+            return 0.0D;
+        }
+
+        if ("FORESTRY".equalsIgnoreCase(toolData.profession)) {
+            return ProfessionToolUtil.getStat(stack, "chopSpeed");
+        }
+
+        if ("MINING".equalsIgnoreCase(toolData.profession)) {
+            return ProfessionToolUtil.getStat(stack, "miningSpeed");
+        }
+
+        return 0.0D;
     }
 
     private static boolean isUsableProfessionTool(ServerPlayer player, ItemStack stack) {

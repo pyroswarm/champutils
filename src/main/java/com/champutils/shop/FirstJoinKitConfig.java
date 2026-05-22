@@ -1,0 +1,115 @@
+package com.champutils.shop;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class FirstJoinKitConfig {
+
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File DIR = new File("config/champutils");
+    private static final File FILE = new File(DIR, "first_join_kit.json");
+
+    public static KitRoot CONFIG = new KitRoot();
+
+    private FirstJoinKitConfig() {
+    }
+
+    public static final class KitRoot {
+        public boolean enabled = true;
+        public List<KitEntry> entries = new ArrayList<>();
+    }
+
+    public static final class KitEntry {
+        /** item, tool, crate_credit, or command */
+        public String type = "item";
+        public String id = "minecraft:stone";
+        public int amount = 1;
+        public String toolType = "pickaxe";
+        public String rarity = "COMMON";
+        public String crateRarity = "COMMON";
+        public boolean pokemonCrate = false;
+        public List<String> commands = new ArrayList<>();
+    }
+
+    public static void load() {
+        try {
+            if (!DIR.exists()) DIR.mkdirs();
+
+            if (!FILE.exists()) {
+                CONFIG = createDefault();
+                save();
+                return;
+            }
+
+            try (FileReader reader = new FileReader(FILE)) {
+                KitRoot loaded = GSON.fromJson(reader, KitRoot.class);
+                CONFIG = loaded == null ? createDefault() : loaded;
+            }
+
+            sanitize();
+            save();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            CONFIG = createDefault();
+        }
+    }
+
+    public static void save() {
+        try {
+            if (!DIR.exists()) DIR.mkdirs();
+            try (FileWriter writer = new FileWriter(FILE)) {
+                GSON.toJson(CONFIG, writer);
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+    }
+
+    private static void sanitize() {
+        if (CONFIG == null) CONFIG = createDefault();
+        if (CONFIG.entries == null) CONFIG.entries = new ArrayList<>();
+        for (KitEntry entry : CONFIG.entries) {
+            if (entry.type == null || entry.type.isBlank()) entry.type = "item";
+            if (entry.id == null) entry.id = "";
+            if (entry.amount <= 0) entry.amount = 1;
+            if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
+            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
+            if (entry.crateRarity == null || entry.crateRarity.isBlank()) entry.crateRarity = "COMMON";
+            if (entry.commands == null) entry.commands = new ArrayList<>();
+        }
+    }
+
+    private static KitRoot createDefault() {
+        KitRoot root = new KitRoot();
+        root.enabled = true;
+        root.entries.add(tool("pickaxe"));
+        root.entries.add(tool("axe"));
+        root.entries.add(tool("hoe"));
+        root.entries.add(item("cobblemon:poke_ball", 16));
+        root.entries.add(item("minecraft:cooked_beef", 16));
+        return root;
+    }
+
+    private static KitEntry item(String id, int amount) {
+        KitEntry entry = new KitEntry();
+        entry.type = "item";
+        entry.id = id;
+        entry.amount = amount;
+        return entry;
+    }
+
+    private static KitEntry tool(String toolType) {
+        KitEntry entry = new KitEntry();
+        entry.type = "tool";
+        entry.toolType = toolType;
+        entry.rarity = "COMMON";
+        entry.amount = 1;
+        return entry;
+    }
+}

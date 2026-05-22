@@ -379,11 +379,7 @@ public class ProfessionToolRequirementListener {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "You must identify " +
-                                getDisplayName(
-                                        toolData
-                                ) +
-                                " before you can use it."
+                        "You must identify this equipment before you can use it."
                 ).withStyle(
                         ChatFormatting.RED
                 )

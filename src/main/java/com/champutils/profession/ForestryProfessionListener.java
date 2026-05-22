@@ -108,10 +108,14 @@ public class ForestryProfessionListener {
 
     private static boolean roll(ServerPlayer player, ItemStack tool, String stat) {
         double chance = ProfessionToolUtil.getStat(tool, stat);
+
         if (ActiveEffectManager.hasTimedEffect(player, "lumberjack_focus", tool)) {
             chance *= 1.0D + (ProfessionToolUtil.getStat(tool, "lumberjackFocusBoost") / 100.0D);
         }
-        return chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance;
+
+        chance *= ActiveEffectManager.getForestryPassiveChanceMultiplier(player, tool);
+
+        return chance > 0.0D && RANDOM.nextDouble() * 100.0D < Math.min(100.0D, chance);
     }
 
     private static void breakConnectedLogs(ServerPlayer player, BlockPos start, BlockState original, int maxBlocks) {

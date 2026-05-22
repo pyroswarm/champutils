@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "gearworkshop", "gearappraiser", "dungeons", "auction" -> true;
+            case "gearworkshop", "gearappraiser", "dungeons", "auction", "shop", "essentials" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "gearworkshop, gearappraiser, dungeons, auction";
+        return "gearworkshop, gearappraiser, dungeons, auction, shop, essentials";
     }
 
     public static String normalize(String menu) {

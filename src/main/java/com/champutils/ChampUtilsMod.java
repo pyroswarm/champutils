@@ -23,11 +23,10 @@ import com.champutils.rank.*;
 import com.champutils.worldevent.*;
 import com.champutils.trainer.*;
 import com.champutils.dungeon.*;
-import com.champutils.dex.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
-import com.champutils.scoreboard.*;
+import com.champutils.shop.*;
 
 /*
  =========================
@@ -98,7 +97,8 @@ public class ChampUtilsMod implements ModInitializer {
          */
         DatabaseManager.init();
         EconomyManager.load();
-        ScoreboardPreferenceManager.load();
+        NpcShopConfig.load();
+        FirstJoinKitManager.load();
 
         /*
          =========================
@@ -169,24 +169,9 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonNativeCrateRegistry.load();
         AuctionHouseNpcBindingRegistry.load();
         MenuNpcBindingRegistry.load();
-
-        /*
-         Teleport config
-         */
-        com.champutils.teleport.TeleportConfig.load();
-        com.champutils.teleport.DefaultSpawnManager.load();
-
         DungeonTrainerConfig.load();
         DungeonRewardConfig.load();
         DungeonKeyManager.registerKeys();
-
-        /*
-         =========================
-         POKEDEX REWARD CONFIG
-         =========================
-         */
-        DexRewardConfig.load();
-        DexRewardClaimData.load();
 
         /*
          =========================
@@ -226,15 +211,13 @@ public class ChampUtilsMod implements ModInitializer {
 
                     ProfessionManager.saveAll();
                     EconomyManager.save();
-                    ScoreboardPreferenceManager.save();
                     ProfessionBlockTracker.save();
                     WorldEventBindingRegistry.save();
                     DungeonBindingRegistry.save();
                     DungeonNativeCrateRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
-                    com.champutils.teleport.TeleportConfig.save();
-                    com.champutils.teleport.DefaultSpawnManager.save();
+                    FirstJoinKitManager.save();
                     DungeonManager.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -301,11 +284,7 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
-                    if (ScoreboardPreferenceManager.isEnabled(player.getUUID())) {
-                        PlayerSidebarManager.update(player);
-                    }
-
-                    com.champutils.teleport.DefaultSpawnManager.handleJoin(
+                    FirstJoinKitManager.handleJoin(
                             player
                     );
                 }
@@ -330,8 +309,6 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonManager.handleDisconnect(
                             handler.player
                     );
-
-                    PlayerSidebarManager.clear(handler.player);
 
                     ProfessionManager.unloadPlayer(
                             handler.player
@@ -385,23 +362,13 @@ public class ChampUtilsMod implements ModInitializer {
         AuctionHouseCommand.register();
         NotificationsCommand.register();
         ProfessionPopupsCommand.register();
-        ScoreboardToggleCommand.register();
         MenuNpcCommand.register();
+        NpcShopCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
         DungeonCommand.register();
-        DexRewardCommand.register();
         ArenaCommand.register();
-
-        /*
-         Teleport commands
-         */
-        com.champutils.teleport.SpawnWarpCommand.register();
-        com.champutils.teleport.RandomTeleportCommand.register();
-        com.champutils.teleport.PortalCommand.register();
-        com.champutils.teleport.ChunkPregenerationTeleportCommand.register();
-        com.champutils.teleport.DefaultSpawnManager.registerRespawnHandler();
 
         /*
          New custom item test command
@@ -452,13 +419,6 @@ public class ChampUtilsMod implements ModInitializer {
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
                     NotificationManager.tick(server);
-
-                    if (server.getTickCount() % 40 == 0) {
-                        PlayerSidebarManager.tick(server);
-                    }
-                    com.champutils.teleport.RandomTeleportCommand.tick(server);
-                    com.champutils.teleport.PortalManager.tick(server);
-                    com.champutils.teleport.ChunkPregenerationTeleportManager.tick();
 
                     /*
                      Leaderboard refresh
