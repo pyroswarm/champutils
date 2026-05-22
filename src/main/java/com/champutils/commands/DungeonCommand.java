@@ -26,7 +26,6 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.Arrays;
 
@@ -508,18 +507,13 @@ public final class DungeonCommand {
     }
 
     private static int giveKeyToPlayer(CommandSourceStack source, ServerPlayer player, String keyId, int amount) {
-        ItemStack stack = DungeonKeyManager.createKeyStack(keyId, amount);
-        if (stack.isEmpty()) {
+        if (!DungeonKeyConfig.KEYS.containsKey(keyId)) {
             source.sendFailure(Component.literal("Unknown dungeon key: " + keyId));
             return 0;
         }
 
-        boolean added = player.getInventory().add(stack);
-        if (!added) {
-            player.drop(stack, false);
-        }
-
-        source.sendSuccess(() -> Component.literal("Gave " + amount + "x " + keyId + " to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        DungeonKeyManager.grantDigitalKey(player, keyId, amount);
+        source.sendSuccess(() -> Component.literal("Gave " + amount + "x digital " + keyId + " to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 

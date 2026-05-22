@@ -81,7 +81,7 @@ public final class DungeonManager {
         }
 
         if (!DungeonKeyManager.hasKey(player, data.keyId)) {
-            player.sendSystemMessage(Component.literal("You need a " + data.keyId + " to enter this dungeon.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You need a digital dungeon key: " + data.keyId + ". Check your keys in /menu > Dungeons.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -97,7 +97,7 @@ public final class DungeonManager {
         MatchmakingManager.leaveQueue(player);
 
         if (!DungeonKeyManager.consumeKey(player, data.keyId)) {
-            player.sendSystemMessage(Component.literal("Failed to consume dungeon key.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Failed to consume digital dungeon key.").withStyle(ChatFormatting.RED));
             return 0;
         }
 

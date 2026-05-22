@@ -31,12 +31,8 @@ public final class DungeonKeyManager {
 
     public static void registerKeys() {
         REGISTERED_KEYS.clear();
-
-        for (Map.Entry<String, DungeonKeyConfig.KeyData> entry : DungeonKeyConfig.KEYS.entrySet()) {
-            registerKey(entry.getKey(), entry.getValue());
-        }
-
-        System.out.println("[ChampUtils] Registered " + REGISTERED_KEYS.size() + " dungeon keys.");
+        DungeonDigitalKeyManager.load();
+        System.out.println("[ChampUtils] Loaded digital dungeon key balances. Physical dungeon keys are no longer registered or required.");
     }
 
     private static void registerKey(String keyId, DungeonKeyConfig.KeyData data) {
@@ -90,16 +86,7 @@ public final class DungeonKeyManager {
             return false;
         }
 
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (isKey(stack, keyId)) {
-                stack.shrink(1);
-                player.getInventory().setChanged();
-                return true;
-            }
-        }
-
-        return false;
+        return DungeonDigitalKeyManager.consumeKey(player.getUUID(), keyId);
     }
 
     public static boolean hasKey(ServerPlayer player, String keyId) {
@@ -107,13 +94,23 @@ public final class DungeonKeyManager {
             return false;
         }
 
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            if (isKey(player.getInventory().getItem(slot), keyId)) {
-                return true;
-            }
+        return DungeonDigitalKeyManager.hasKey(player.getUUID(), keyId);
+    }
+
+    public static int getKeyCount(ServerPlayer player, String keyId) {
+        if (player == null || keyId == null || keyId.isBlank()) {
+            return 0;
         }
 
-        return false;
+        return DungeonDigitalKeyManager.getKeyCount(player.getUUID(), keyId);
+    }
+
+    public static void grantDigitalKey(ServerPlayer player, String keyId, int amount) {
+        if (player == null || keyId == null || keyId.isBlank() || amount <= 0) {
+            return;
+        }
+
+        DungeonDigitalKeyManager.grantKeys(player.getUUID(), keyId, amount);
     }
 
     public static boolean isKey(ItemStack stack, String keyId) {

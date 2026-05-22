@@ -71,9 +71,6 @@ public final class ChampUtilsHelpCommand {
     private static void playerCommands(CommandSourceStack source) {
         section(source, "General");
         line(source, "/menu", "Open the main Cobble Champs menu.");
-        line(source, "/spawn", "Teleport to server spawn.");
-        line(source, "/warp <name>", "Teleport to a saved server warp.");
-        line(source, "/rtp", "Randomly teleport in an allowed dimension.");
         line(source, "/profile", "Open your player profile menu.");
         line(source, "/leaderboards", "Open the leaderboard menu.");
         line(source, "/leaderboard", "Show the ranked leaderboard.");
@@ -136,6 +133,7 @@ public final class ChampUtilsHelpCommand {
     private static void adminCommands(CommandSourceStack source) {
         section(source, "Admin + Config");
         line(source, "/champreload", "Reload ChampUtils configuration files.");
+        line(source, "/champutils doctor", "Admin: run beta readiness diagnostics.");
         line(source, "/dbtest", "Test Supabase/database connectivity.");
         line(source, "/eco balance <player>", "Admin: check a player's Credits balance.");
         line(source, "/eco give <player> <amount>", "Admin: give Credits.");

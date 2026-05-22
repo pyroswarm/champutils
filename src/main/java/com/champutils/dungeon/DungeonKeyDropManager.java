@@ -8,8 +8,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.Random;
 
 public final class DungeonKeyDropManager {
@@ -40,29 +38,11 @@ public final class DungeonKeyDropManager {
 
     public static boolean giveKey(ServerPlayer player, String keyId, int amount) {
         if (player == null || keyId == null || keyId.isBlank() || amount <= 0) return false;
+        if (!DungeonKeyConfig.KEYS.containsKey(keyId)) return false;
 
-        int remaining = amount;
-        boolean gaveAny = false;
-
-        while (remaining > 0) {
-            int stackAmount = Math.min(64, remaining);
-            ItemStack stack = DungeonKeyManager.createKeyStack(keyId, stackAmount);
-            if (stack.isEmpty()) return gaveAny;
-
-            boolean inserted = player.getInventory().add(stack);
-            if (!inserted && !stack.isEmpty()) {
-                player.drop(stack, false);
-            }
-
-            gaveAny = true;
-            remaining -= stackAmount;
-        }
-
-        if (gaveAny) {
-            announce(player, keyId, amount);
-        }
-
-        return gaveAny;
+        DungeonKeyManager.grantDigitalKey(player, keyId, amount);
+        announce(player, keyId, amount);
+        return true;
     }
 
     private static void announce(ServerPlayer player, String keyId, int amount) {

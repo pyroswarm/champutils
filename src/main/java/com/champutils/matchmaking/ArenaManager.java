@@ -1,12 +1,14 @@
 package com.champutils.matchmaking;
 
 import com.champutils.config.Config;
-import com.champutils.util.ServerLocation;
-import com.champutils.util.ServerLocationManager;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.Level;
 
 import java.util.*;
 
@@ -24,7 +26,6 @@ public class ArenaManager {
 
         public String theme;
         public String music;
-        public String weather;
     }
 
     private static class ReturnLocation {
@@ -214,42 +215,18 @@ public class ArenaManager {
 
         double spacing=7.5;
 
-        ServerLocation override =
-                ArenaLocationConfig.getArena(
-                        arena.id
-                );
-
         String world =
-                override != null
-                        ? override.world
-                        : (
-                                arena.world == null || arena.world.isBlank()
-                                        ? "multiworld:spawn1"
-                                        : arena.world
-                        );
-
-        double centerX =
-                override != null
-                        ? override.x
-                        : arena.centerX;
-
-        double centerY =
-                override != null
-                        ? override.y
-                        : arena.y;
-
-        double centerZ =
-                override != null
-                        ? override.z
-                        : arena.centerZ;
+                arena.world == null || arena.world.isBlank()
+                        ? "multiworld:spawn1"
+                        : arena.world;
 
         ServerLevel level =
-                ServerLocationManager.getLevel(
-                        p1.getServer(),
+                getLevel(
+                        p1,
                         world
                 );
 
-        if(level==null){
+        if(level == null){
             p1.sendSystemMessage(Component.literal("§cArena world is not loaded: " + world));
             p2.sendSystemMessage(Component.literal("§cArena world is not loaded: " + world));
             return;
@@ -257,9 +234,9 @@ public class ArenaManager {
 
         p1.teleportTo(
                 level,
-                centerX-spacing,
-                centerY,
-                centerZ,
+                arena.centerX-spacing,
+                arena.y,
+                arena.centerZ,
                 -90f,
                 0f
         );
@@ -270,9 +247,9 @@ public class ArenaManager {
 
         p2.teleportTo(
                 level,
-                centerX+spacing,
-                centerY,
-                centerZ,
+                arena.centerX+spacing,
+                arena.y,
+                arena.centerZ,
                 90f,
                 0f
         );
@@ -280,6 +257,7 @@ public class ArenaManager {
         p2.setYRot(90f);
         p2.setYHeadRot(90f);
         p2.setXRot(0f);
+
 
         if(arena.theme!=null){
 
@@ -292,6 +270,32 @@ public class ArenaManager {
 
             p1.sendSystemMessage(msg);
             p2.sendSystemMessage(msg);
+        }
+
+        playArenaMusic(p1, arena.music);
+        playArenaMusic(p2, arena.music);
+    }
+
+
+    private static void playArenaMusic(ServerPlayer player, String music){
+
+        if(player == null || music == null || music.isBlank()){
+            return;
+        }
+
+        String soundId = music.trim().toLowerCase(Locale.ROOT);
+        if(!soundId.contains(":")){
+            soundId = "champutils:" + soundId;
+        }
+
+        try{
+            String command = "playsound " + soundId + " music " + player.getGameProfile().getName() + " ~ ~ ~ 1 1";
+            player.getServer().getCommands().performPrefixedCommand(
+                    player.getServer().createCommandSourceStack().withSuppressedOutput(),
+                    command
+            );
+        }
+        catch(Exception ignored){
         }
     }
 
@@ -309,17 +313,13 @@ public class ArenaManager {
             return;
 
         ServerLevel level =
-                ServerLocationManager.getLevel(
-                        player.getServer(),
+                getLevel(
+                        player,
                         loc.world
                 );
 
-        if(level==null){
-            level = player.getServer() == null ? null : player.getServer().overworld();
-        }
-
-        if(level==null){
-            return;
+        if(level == null){
+            level = player.serverLevel();
         }
 
         player.teleportTo(
@@ -365,4 +365,71 @@ public class ArenaManager {
                 arenaId
         );
     }
+
+
+    private static ServerLevel getLevel(
+            ServerPlayer player,
+            String world
+    ){
+        if(player == null || player.getServer() == null){
+            return null;
+        }
+
+        String normalized =
+                normalizeWorld(
+                        world
+                );
+
+        try{
+            ResourceKey<Level> key =
+                    ResourceKey.create(
+                            Registries.DIMENSION,
+                            ResourceLocation.parse(
+                                    normalized
+                            )
+                    );
+
+            return player.getServer().getLevel(
+                    key
+            );
+        }
+        catch(Exception ignored){
+            return null;
+        }
+    }
+
+
+    private static String normalizeWorld(
+            String world
+    ){
+        if(world == null || world.isBlank()){
+            return "multiworld:spawn1";
+        }
+
+        String trimmed =
+                world.trim();
+
+        if(trimmed.equalsIgnoreCase("spawn1")){
+            return "multiworld:spawn1";
+        }
+
+        if(trimmed.equalsIgnoreCase("overworld")){
+            return "minecraft:overworld";
+        }
+
+        if(trimmed.equalsIgnoreCase("nether")){
+            return "minecraft:the_nether";
+        }
+
+        if(trimmed.equalsIgnoreCase("end")){
+            return "minecraft:the_end";
+        }
+
+        if(!trimmed.contains(":")){
+            return "minecraft:" + trimmed;
+        }
+
+        return trimmed;
+    }
+
 }

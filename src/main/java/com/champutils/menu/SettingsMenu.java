@@ -1,6 +1,8 @@
 package com.champutils.menu;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+import com.champutils.scoreboard.PlayerSidebarManager;
+import com.champutils.scoreboard.ScoreboardPreferenceManager;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
@@ -67,8 +69,30 @@ public class SettingsMenu {
                 player
         );
 
+        setToggle(
+                gui,
+                5,
+                "Scoreboard Display",
+                "Shows money, RP, dex progress, and skill levels in the sidebar.",
+                ScoreboardPreferenceManager.isEnabled(player.getUUID()),
+                () -> toggleScoreboard(player),
+                player
+        );
+
         MenuUtil.addBackButton(gui, 8, () -> MainMenu.open(player));
         gui.open();
+    }
+
+    private static void toggleScoreboard(ServerPlayer player) {
+        boolean enabled = ScoreboardPreferenceManager.toggle(player.getUUID());
+
+        if (enabled) {
+            PlayerSidebarManager.update(player);
+            player.sendSystemMessage(Component.literal("§aScoreboard display enabled."));
+        } else {
+            PlayerSidebarManager.clear(player);
+            player.sendSystemMessage(Component.literal("§eScoreboard display disabled."));
+        }
     }
 
     private static void setToggle(
