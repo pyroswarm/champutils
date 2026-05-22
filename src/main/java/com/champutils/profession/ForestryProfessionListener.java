@@ -43,6 +43,7 @@ public class ForestryProfessionListener {
 
             ItemStack tool = serverPlayer.getMainHandItem();
             ProfessionManager.addXp(serverPlayer, ProfessionType.FORESTRY, xp);
+            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FORESTRY, blockId);
             rollXpSurge(serverPlayer, tool, xp);
             ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
             ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FORESTRY);

@@ -34,6 +34,7 @@ public class FarmingProfessionListener {
             ItemStack tool = serverPlayer.getMainHandItem();
             int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10);
             ProfessionManager.addXp(serverPlayer, ProfessionType.FARMING, xp);
+            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FARMING, BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
             rollXpSurge(serverPlayer, tool, xp);
             ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FARMING);
             ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FARMING);

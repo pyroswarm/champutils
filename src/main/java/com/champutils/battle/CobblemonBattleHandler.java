@@ -142,6 +142,8 @@ public class CobblemonBattleHandler {
 
             try {
 
+                recordDefeatedTypeQuestProgress(e);
+
                 clearPlayersFromBattle(
                         e.getBattle()
                                 .getActors()
@@ -152,6 +154,74 @@ public class CobblemonBattleHandler {
         });
     }
 
+
+    private static void recordDefeatedTypeQuestProgress(BattleFaintedEvent event) {
+        try {
+            String type = findPokemonType(event);
+            if (type == null || type.isBlank()) {
+                return;
+            }
+
+            for (Object actor : event.getBattle().getActors()) {
+                if (actor instanceof PlayerBattleActor p) {
+                    ServerPlayer player = (ServerPlayer) p.getEntity();
+                    com.champutils.quest.QuestManager.recordDefeatedPokemonType(player, type);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String findPokemonType(BattleFaintedEvent event) {
+        try {
+            Object killed = event.getKilled();
+            if (killed == null) {
+                return null;
+            }
+
+            Object pokemon = invokeNoArg(killed, "getOriginalPokemon");
+            if (pokemon == null) pokemon = invokeNoArg(killed, "getPokemon");
+            if (pokemon == null) pokemon = killed;
+
+            Object form = invokeNoArg(pokemon, "getForm");
+            Object types = form == null ? null : invokeNoArg(form, "getTypes");
+            if (types == null) types = invokeNoArg(pokemon, "getTypes");
+
+            if (types instanceof Iterable<?> iterable) {
+                for (Object t : iterable) {
+                    String name = typeName(t);
+                    if (name != null && !name.isBlank()) return name;
+                }
+            }
+
+            String text = String.valueOf(types);
+            if (text != null && !"null".equals(text)) {
+                return text.toLowerCase(java.util.Locale.ROOT);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static Object invokeNoArg(Object target, String method) {
+        try {
+            java.lang.reflect.Method m = target.getClass().getMethod(method);
+            m.setAccessible(true);
+            return m.invoke(target);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String typeName(Object type) {
+        if (type == null) return null;
+        try {
+            Object name = invokeNoArg(type, "getName");
+            if (name != null) return String.valueOf(name).toLowerCase(java.util.Locale.ROOT);
+        } catch (Exception ignored) {
+        }
+        return String.valueOf(type).toLowerCase(java.util.Locale.ROOT);
+    }
 
 
     private static void clearPlayersFromBattle(

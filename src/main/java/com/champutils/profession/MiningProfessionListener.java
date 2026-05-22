@@ -186,6 +186,12 @@ public class MiningProfessionListener {
                             xp
                     );
 
+                    com.champutils.quest.QuestManager.recordBlock(
+                            serverPlayer,
+                            ProfessionType.MINING,
+                            blockId
+                    );
+
                     ProfessionLootManager.rollReward(
                             serverPlayer,
                             ProfessionType.MINING

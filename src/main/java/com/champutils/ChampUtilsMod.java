@@ -27,6 +27,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
 import com.champutils.shop.*;
+import com.champutils.quest.QuestManager;
 
 /*
  =========================
@@ -99,7 +100,7 @@ public class ChampUtilsMod implements ModInitializer {
         EconomyManager.load();
         NpcShopConfig.load();
         FirstJoinKitManager.load();
-        ChestShopRegistry.load();
+        QuestManager.load();
 
         /*
          =========================
@@ -219,7 +220,7 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
                     FirstJoinKitManager.save();
-                    ChestShopRegistry.save();
+                    QuestManager.saveAll();
                     DungeonManager.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -289,6 +290,10 @@ public class ChampUtilsMod implements ModInitializer {
                     FirstJoinKitManager.handleJoin(
                             player
                     );
+
+                    QuestManager.handleJoin(
+                            player
+                    );
                 }
         );
 
@@ -313,6 +318,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     ProfessionManager.unloadPlayer(
+                            handler.player
+                    );
+
+                    QuestManager.unloadPlayer(
                             handler.player
                     );
                 }
@@ -366,12 +375,12 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
-        ChestShopCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
         DungeonCommand.register();
         ArenaCommand.register();
+        QuestCommand.register();
 
         /*
          New custom item test command
@@ -398,7 +407,6 @@ public class ChampUtilsMod implements ModInitializer {
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
         DungeonNativeCrateInteractionListener.register();
-        ChestShopInteractionListener.register();
         DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();
 
@@ -422,6 +430,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
+                    QuestManager.tick(server);
                     NotificationManager.tick(server);
 
                     /*

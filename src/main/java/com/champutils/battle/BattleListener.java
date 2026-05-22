@@ -36,6 +36,11 @@ public class BattleListener {
                     BattleContextManager.BattleType.UNKNOWN;
         }
 
+        com.champutils.quest.QuestManager.recordBattleWin(
+                winner,
+                battleType
+        );
+
         awardBattleProfessionXp(
                 winner,
                 battleType
@@ -208,10 +213,6 @@ public class BattleListener {
                 xp = getBattleXp("wild");
 
                 WildBattleRewardManager.rollReward(
-                        winner
-                );
-
-                NpcBattleRewardManager.rollReward(
                         winner
                 );
                 break;
