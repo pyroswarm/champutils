@@ -6,6 +6,7 @@ import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Map;
 
@@ -104,6 +105,57 @@ public class ProfessionToolUtil {
         return ProfessionToolMetadata.isIdentified(
                 stack
         );
+    }
+
+
+    public static boolean isUsableProfessionTool(
+            ServerPlayer player,
+            ItemStack stack,
+            ProfessionType requiredProfession
+    ) {
+
+        if (
+                player == null ||
+                        stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(stack) ||
+                        !ProfessionToolMetadata.isIdentified(stack) ||
+                        ProfessionToolMetadata.isBroken(stack)
+        ) {
+            return false;
+        }
+
+        String toolId =
+                getToolId(stack);
+
+        if (toolId == null) {
+            return false;
+        }
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(toolId);
+
+        if (toolData == null || toolData.profession == null) {
+            return false;
+        }
+
+        ProfessionType toolProfession;
+
+        try {
+            toolProfession =
+                    ProfessionType.valueOf(
+                            toolData.profession.toUpperCase()
+                    );
+        }
+        catch (Exception ignored) {
+            return false;
+        }
+
+        if (requiredProfession != null && toolProfession != requiredProfession) {
+            return false;
+        }
+
+        return ProfessionManager.getLevel(player, toolProfession) >= toolData.requiredLevel;
     }
 
     public static ProfessionToolConfig.ToolData getToolData(

@@ -109,7 +109,10 @@ public class ForestryRewardFinderPassive implements ProfessionPassive {
 
         ItemStack reward =
                 ProfessionRewardPassiveConfig.rollReward(
-                        tableName
+                        tableName,
+                        player,
+                        com.champutils.profession.ProfessionType.FORESTRY,
+                        stack
                 );
 
         if (reward.isEmpty()) {

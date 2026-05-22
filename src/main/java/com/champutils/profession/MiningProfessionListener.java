@@ -21,13 +21,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
 public class MiningProfessionListener {
-
-    private static final Random RANDOM = new Random();
 
     private static final Set<UUID> BREAKING_EXTRA_BLOCKS =
             new HashSet<>();
@@ -173,6 +170,16 @@ public class MiningProfessionListener {
                         return true;
                     }
 
+                    if (
+                            !ProfessionToolUtil.isUsableProfessionTool(
+                                    serverPlayer,
+                                    serverPlayer.getMainHandItem(),
+                                    ProfessionType.MINING
+                            )
+                    ) {
+                        return true;
+                    }
+
                     ProfessionManager.addXp(
                             serverPlayer,
                             ProfessionType.MINING,
@@ -300,10 +307,7 @@ public class MiningProfessionListener {
                 player,
                 new ItemStack(
                         smeltDrop.item,
-                        getAutoSmeltAmount(
-                                player,
-                                smeltDrop.amount
-                        )
+                        smeltDrop.amount
                 )
         );
 
@@ -534,25 +538,6 @@ public class MiningProfessionListener {
                                 toolData.maxVeinBlocks
                         );
 
-        if (rollStat(tool, "veinChainChance")) {
-            maxBlocks = Math.min(
-                    96,
-                    Math.max(
-                            maxBlocks + 8,
-                            (int) Math.round(maxBlocks * 1.75D)
-                    )
-            );
-
-            if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal(
-                                "§5Vein Chain! §fYour vein miner reached deeper into the ore."
-                        ),
-                        true
-                );
-            }
-        }
-
         Set<BlockPos> visited =
                 new HashSet<>();
 
@@ -734,10 +719,7 @@ public class MiningProfessionListener {
                         player,
                         new ItemStack(
                                 smeltDrop.item,
-                                getAutoSmeltAmount(
-                                        player,
-                                        smeltDrop.amount
-                                )
+                                smeltDrop.amount
                         )
                 );
 
@@ -803,7 +785,7 @@ public class MiningProfessionListener {
         breakLargeMiningArea(
                 player,
                 center,
-                getRadiusStat(player.getMainHandItem(), "blastMineRadius", 2, 4),
+                2,
                 false
         );
     }
@@ -849,7 +831,7 @@ public class MiningProfessionListener {
         breakLargeMiningArea(
                 player,
                 center,
-                getRadiusStat(player.getMainHandItem(), "stonebreakerRadius", 2, 4),
+                2,
                 true
         );
     }
@@ -1014,13 +996,7 @@ public class MiningProfessionListener {
         try {
             breakExcavationArea(
                     player,
-                    center,
-                    getRadiusStat(
-                            player.getMainHandItem(),
-                            "excavationRadius",
-                            1,
-                            4
-                    )
+                    center
             );
         }
         finally {
@@ -1032,8 +1008,7 @@ public class MiningProfessionListener {
 
     private static void breakExcavationArea(
             ServerPlayer player,
-            BlockPos center,
-            int radius
+            BlockPos center
     ) {
 
         ServerLevel level =
@@ -1044,8 +1019,8 @@ public class MiningProfessionListener {
                         player
                 );
 
-        for (int a = -radius; a <= radius; a++) {
-            for (int b = -radius; b <= radius; b++) {
+        for (int a = -1; a <= 1; a++) {
+            for (int b = -1; b <= 1; b++) {
 
                 if (a == 0 && b == 0) {
                     continue;
@@ -1114,10 +1089,7 @@ public class MiningProfessionListener {
                                 player,
                                 new ItemStack(
                                         smeltDrop.item,
-                                        getAutoSmeltAmount(
-                                                player,
-                                                smeltDrop.amount
-                                        )
+                                        smeltDrop.amount
                                 )
                         );
 
@@ -1179,63 +1151,6 @@ public class MiningProfessionListener {
         };
     }
 
-
-
-    private static int getAutoSmeltAmount(
-            ServerPlayer player,
-            int baseAmount
-    ) {
-
-        double efficiency = ProfessionToolUtil.getStat(
-                player.getMainHandItem(),
-                "autoSmeltEfficiency"
-        );
-
-        if (efficiency <= 0.0D) {
-            return baseAmount;
-        }
-
-        int guaranteedBonus = (int) Math.floor(efficiency / 100.0D);
-        double remainderChance = efficiency - guaranteedBonus * 100.0D;
-        int bonus = guaranteedBonus;
-
-        if (RANDOM.nextDouble() * 100.0D < remainderChance) {
-            bonus++;
-        }
-
-        return Math.max(1, baseAmount + bonus);
-    }
-
-    private static int getRadiusStat(
-            ItemStack stack,
-            String stat,
-            int fallback,
-            int cap
-    ) {
-
-        double value = ProfessionToolUtil.getStat(stack, stat);
-
-        if (value <= 0.0D) {
-            return fallback;
-        }
-
-        return Math.max(
-                1,
-                Math.min(
-                        cap,
-                        (int) Math.round(value)
-                )
-        );
-    }
-
-    private static boolean rollStat(
-            ItemStack stack,
-            String stat
-    ) {
-
-        double chance = ProfessionToolUtil.getStat(stack, stat);
-        return chance > 0.0D && RANDOM.nextDouble() * 100.0D < Math.min(100.0D, chance);
-    }
 
     private static boolean consumeManuallyProcessedExtraBlock(
             ServerPlayer player,

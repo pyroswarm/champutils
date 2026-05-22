@@ -210,6 +210,10 @@ public class BattleListener {
                 WildBattleRewardManager.rollReward(
                         winner
                 );
+
+                NpcBattleRewardManager.rollReward(
+                        winner
+                );
                 break;
         }
 

@@ -91,7 +91,10 @@ public class GemFinderPassive implements ProfessionPassive {
         }
 
         ItemStack reward =
-                rollReward();
+                rollReward(
+                        player,
+                        stack
+                );
 
         if (reward.isEmpty()) {
             return;
@@ -134,10 +137,16 @@ public class GemFinderPassive implements ProfessionPassive {
         );
     }
 
-    private static ItemStack rollReward() {
+    private static ItemStack rollReward(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
 
         return ProfessionRewardPassiveConfig.rollReward(
-                "gemFinder"
+                "gemFinder",
+                player,
+                com.champutils.profession.ProfessionType.MINING,
+                stack
         );
     }
 

@@ -91,7 +91,10 @@ public class TreasurePingPassive implements ProfessionPassive {
 
         ItemStack reward =
                 ProfessionRewardPassiveConfig.rollReward(
-                        "treasurePing"
+                        "treasurePing",
+                        player,
+                        com.champutils.profession.ProfessionType.MINING,
+                        stack
                 );
 
         if (reward.isEmpty()) {

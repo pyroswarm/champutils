@@ -10,14 +10,25 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.HoeItem;
 
 public class ProfessionToolStatEffectListener {
 
-    private static final ResourceLocation TOOL_SPEED_MODIFIER_ID =
+    private static final ResourceLocation MINING_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(
                     "champutils",
-                    "profession_tool_block_speed"
+                    "profession_tool_mining_speed"
             );
+
+    private static final ResourceLocation VANILLA_TOOL_NERF_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(
+                    "champutils",
+                    "vanilla_tool_speed_nerf"
+            );
+
+    private static final double VANILLA_TOOL_SPEED_NERF = -0.65D;
 
     private static final ResourceLocation BLOCK_BREAK_SPEED_ID =
             ResourceLocation.fromNamespaceAndPath(
@@ -32,63 +43,55 @@ public class ProfessionToolStatEffectListener {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        updateToolSpeedModifier(player);
+                        updateMiningSpeedModifier(player);
                     }
                 }
         );
     }
 
-    private static void updateToolSpeedModifier(ServerPlayer player) {
+    private static void updateMiningSpeedModifier(ServerPlayer player) {
         AttributeInstance attribute = getAttribute(player, BLOCK_BREAK_SPEED_ID);
 
         if (attribute == null) {
             return;
         }
 
-        attribute.removeModifier(TOOL_SPEED_MODIFIER_ID);
+        attribute.removeModifier(MINING_SPEED_MODIFIER_ID);
+        attribute.removeModifier(VANILLA_TOOL_NERF_MODIFIER_ID);
 
         ItemStack stack = player.getMainHandItem();
 
         if (!isUsableProfessionTool(player, stack)) {
+            if (isVanillaProfessionTool(stack)) {
+                attribute.addTransientModifier(
+                        new AttributeModifier(
+                                VANILLA_TOOL_NERF_MODIFIER_ID,
+                                VANILLA_TOOL_SPEED_NERF,
+                                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
+                        )
+                );
+            }
             return;
         }
 
-        double speedStat = getRelevantSpeedStat(stack);
+        double miningSpeed = ProfessionToolUtil.getStat(stack, "miningSpeed");
 
-        if (speedStat <= 0.0D) {
+        if (miningSpeed <= 0.0D) {
             return;
         }
 
         double modifierAmount = Math.max(
                 0.0D,
-                ProfessionToolManager.getMiningSpeedMultiplier(speedStat) - 1.0D
+                ProfessionToolManager.getMiningSpeedMultiplier(miningSpeed) - 1.0D
         );
 
         AttributeModifier modifier = new AttributeModifier(
-                TOOL_SPEED_MODIFIER_ID,
+                MINING_SPEED_MODIFIER_ID,
                 modifierAmount,
                 AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
         );
 
         attribute.addTransientModifier(modifier);
-    }
-
-    private static double getRelevantSpeedStat(ItemStack stack) {
-        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
-
-        if (toolData == null || toolData.profession == null) {
-            return 0.0D;
-        }
-
-        if ("FORESTRY".equalsIgnoreCase(toolData.profession)) {
-            return ProfessionToolUtil.getStat(stack, "chopSpeed");
-        }
-
-        if ("MINING".equalsIgnoreCase(toolData.profession)) {
-            return ProfessionToolUtil.getStat(stack, "miningSpeed");
-        }
-
-        return 0.0D;
     }
 
     private static boolean isUsableProfessionTool(ServerPlayer player, ItemStack stack) {
@@ -124,6 +127,20 @@ public class ProfessionToolStatEffectListener {
         }
 
         return ProfessionManager.getLevel(player, professionType) >= toolData.requiredLevel;
+    }
+
+    private static boolean isVanillaProfessionTool(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+
+        if (ProfessionToolMetadata.isProfessionTool(stack)) {
+            return false;
+        }
+
+        return stack.getItem() instanceof PickaxeItem ||
+                stack.getItem() instanceof AxeItem ||
+                stack.getItem() instanceof HoeItem;
     }
 
     private static AttributeInstance getAttribute(ServerPlayer player, ResourceLocation attributeId) {

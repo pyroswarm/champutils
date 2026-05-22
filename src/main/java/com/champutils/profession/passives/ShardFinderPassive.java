@@ -93,7 +93,10 @@ public class ShardFinderPassive implements ProfessionPassive {
 
         ItemStack reward =
                 ProfessionRewardPassiveConfig.rollReward(
-                        "shardFinder"
+                        "shardFinder",
+                        player,
+                        com.champutils.profession.ProfessionType.MINING,
+                        stack
                 );
 
         if (reward.isEmpty()) {
