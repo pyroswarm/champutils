@@ -51,7 +51,21 @@ public class ForestryProfessionListener {
             rollRewardPassive(serverPlayer, tool, "seedFinderChance", "forestry_seed_finder");
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool)) {
-                breakConnectedLogs(serverPlayer, pos, state, getIntStat(tool, "maxTimberBlocks", 32));
+                int maxBlocks = getIntStat(tool, "maxTimberBlocks", 32);
+                if (roll(serverPlayer, tool, "megaTreeBurst")) {
+                    maxBlocks = Math.min(128, Math.max(maxBlocks + 16, (int) Math.round(maxBlocks * 1.75D)));
+                    if (ProfessionNotificationSettings.areProfessionPopupsEnabled(serverPlayer)) {
+                        serverPlayer.displayClientMessage(Component.literal("§2Mega Tree Burst! §fYour Timber Burst cuts deeper."), true);
+                    }
+                }
+                breakConnectedLogs(serverPlayer, pos, state, maxBlocks);
+            }
+
+            if (!ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool) && roll(serverPlayer, tool, "megaTreeChance")) {
+                breakConnectedLogs(serverPlayer, pos, state, getIntStat(tool, "megaTreeBlocks", 18));
+                if (ProfessionNotificationSettings.areProfessionPopupsEnabled(serverPlayer)) {
+                    serverPlayer.displayClientMessage(Component.literal("§2Mega Tree! §fBonus logs chopped."), true);
+                }
             }
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "leafstorm", tool)) {
@@ -68,7 +82,8 @@ public class ForestryProfessionListener {
 
     private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool) {
         int multiplier = 1;
-        if (roll(player, tool, "tripleChopChance")) multiplier = 3;
+        if (roll(player, tool, "quintupleChopChance")) multiplier = 5;
+        else if (roll(player, tool, "tripleChopChance")) multiplier = 3;
         else if (roll(player, tool, "doubleChopChance")) multiplier = 2;
         if (multiplier <= 1) return;
         Item item = state.getBlock().asItem();

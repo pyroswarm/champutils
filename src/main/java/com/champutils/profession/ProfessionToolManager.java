@@ -2,6 +2,8 @@ package com.champutils.profession;
 
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
+import com.champutils.profession.passives.DurabilitySavePassive;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -2354,6 +2356,19 @@ public class ProfessionToolManager {
         ) {
 
             if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
+                if (
+                        miningEntity instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurability(
+                                        serverPlayer,
+                                        stack,
+                                        serverPlayer.serverLevel(),
+                                        pos,
+                                        state
+                                )
+                ) {
+                    return true;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1
@@ -2416,6 +2431,38 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public boolean mineBlock(
+                ItemStack stack,
+                Level level,
+                BlockState state,
+                BlockPos pos,
+                LivingEntity miningEntity
+        ) {
+
+            if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
+                if (
+                        miningEntity instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurability(
+                                        serverPlayer,
+                                        stack,
+                                        serverPlayer.serverLevel(),
+                                        pos,
+                                        state
+                                )
+                ) {
+                    return true;
+                }
+
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean isEnchantable(
                 ItemStack stack
         ) {
@@ -2465,6 +2512,25 @@ public class ProfessionToolManager {
                             state
                     )
             );
+        }
+
+        @Override
+        public boolean mineBlock(
+                ItemStack stack,
+                Level level,
+                BlockState state,
+                BlockPos pos,
+                LivingEntity miningEntity
+        ) {
+
+            if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
         }
 
         @Override

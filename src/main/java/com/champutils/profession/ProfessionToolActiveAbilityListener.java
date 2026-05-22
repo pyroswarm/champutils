@@ -8,6 +8,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 
 import com.champutils.profession.actives.ActiveAbilityRegistry;
+import com.champutils.profession.actives.ActiveEffectManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -53,7 +54,7 @@ public class ProfessionToolActiveAbilityListener {
                     ) {
                         serverPlayer.sendSystemMessage(
                                 Component.literal(
-                                        "§cYou must identify this item before using its active ability."
+                                        "§cYou must identify this equipment before you can use it."
                                 )
                         );
 
@@ -100,6 +101,22 @@ public class ProfessionToolActiveAbilityListener {
                     String ability =
                             toolData.activeAbility
                                     .toLowerCase();
+
+                    if (!ActiveEffectManager.canActivateAbility(
+                            serverPlayer,
+                            ability,
+                            stack
+                    )) {
+                        String activeName = ActiveEffectManager.getCurrentActiveDisplayName(serverPlayer);
+                        serverPlayer.displayClientMessage(
+                                Component.literal(
+                                        "§cYou already have an active ability running" +
+                                                (activeName == null ? "." : ": " + activeName + ".")
+                                ),
+                                true
+                        );
+                        return InteractionResult.FAIL;
+                    }
 
                     if (
                             isOnCooldown(

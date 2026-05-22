@@ -35,6 +35,80 @@ public class ActiveEffectManager {
     private ActiveEffectManager() {
     }
 
+
+    public static boolean canActivateAbility(
+            ServerPlayer player,
+            String abilityId,
+            ItemStack stack
+    ) {
+
+        String current = getCurrentActiveDisplayName(player);
+
+        if (current == null) {
+            return true;
+        }
+
+        /*
+         * Allow the player to use the same held toggle again to turn it off.
+         * Starting any other active/toggle while one is running is blocked by
+         * ProfessionToolActiveAbilityListener.
+         */
+        String toggleEffectId = effectIdForAbility(abilityId);
+        return toggleEffectId != null && hasToggle(player, toggleEffectId, stack);
+    }
+
+    public static String getCurrentActiveDisplayName(
+            ServerPlayer player
+    ) {
+
+        UUID playerId = player.getUUID();
+        long now = System.currentTimeMillis();
+
+        Map<String, TimedEffect> timed = TIMED_EFFECTS.get(playerId);
+
+        if (timed != null) {
+            Iterator<Map.Entry<String, TimedEffect>> iterator = timed.entrySet().iterator();
+
+            while (iterator.hasNext()) {
+                TimedEffect effect = iterator.next().getValue();
+
+                if (now > effect.expiresAt) {
+                    iterator.remove();
+                    continue;
+                }
+
+                return effect.displayName;
+            }
+
+            if (timed.isEmpty()) {
+                TIMED_EFFECTS.remove(playerId);
+            }
+        }
+
+        Map<String, ToggleEffect> toggles = TOGGLED_EFFECTS.get(playerId);
+
+        if (toggles != null && !toggles.isEmpty()) {
+            return toggles.values().iterator().next().displayName;
+        }
+
+        return null;
+    }
+
+    private static String effectIdForAbility(
+            String abilityId
+    ) {
+
+        String normalized = normalize(abilityId);
+
+        return switch (normalized) {
+            case "auto_smelt_toggle" -> "auto_smelt";
+            case "ore_magnet_toggle" -> "ore_magnet";
+            case "tree_replant_toggle" -> "tree_replant";
+            case "auto_replant_toggle", "replant_toggle" -> "auto_replant";
+            default -> null;
+        };
+    }
+
     public static void activateTimed(
             ServerPlayer player,
             String effectId,
@@ -648,7 +722,17 @@ public class ActiveEffectManager {
             }
 
             double radius =
-                    8.0D;
+                    Math.max(
+                            4.0D,
+                            Math.min(
+                                    24.0D,
+                                    getHeldStat(
+                                            player,
+                                            "oreMagnetRadius",
+                                            8.0D
+                                    )
+                            )
+                    );
 
             AABB box =
                     player.getBoundingBox()
@@ -673,6 +757,21 @@ public class ActiveEffectManager {
                 );
             }
         }
+    }
+
+
+    private static double getHeldStat(
+            ServerPlayer player,
+            String stat,
+            double fallback
+    ) {
+
+        double value = com.champutils.profession.ProfessionToolUtil.getStat(
+                player.getMainHandItem(),
+                stat
+        );
+
+        return value <= 0.0D ? fallback : value;
     }
 
     private static TimedEffect getTimedEffect(

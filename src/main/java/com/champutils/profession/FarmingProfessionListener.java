@@ -42,18 +42,25 @@ public class FarmingProfessionListener {
             rollRewardPassive(serverPlayer, tool, "goldenHarvestChance", "farming_golden_harvest");
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
-                serverPlayer.serverLevel().setBlock(pos, crop.getStateForAge(0), 3);
+                serverPlayer.serverLevel().setBlock(
+                        pos,
+                        roll(serverPlayer, tool, "autoReplantEfficiency")
+                                ? crop.getStateForAge(crop.getMaxAge())
+                                : crop.getStateForAge(0),
+                        3
+                );
             }
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "harvest_wave", tool)) {
-                harvestNearbyCrops(serverPlayer, pos, getIntStat(tool, "harvestWaveRadius", 4));
+                harvestNearbyCrops(serverPlayer, pos, getIntStat(tool, "megaHarvestRadius", getIntStat(tool, "harvestWaveRadius", 4)));
             }
         });
     }
 
     private static void rollHarvestMultiplier(ServerPlayer player, Block cropBlock, ItemStack tool) {
         int multiplier = 1;
-        if (roll(player, tool, "tripleHarvestChance")) multiplier = 3;
+        if (roll(player, tool, "quintupleHarvestChance")) multiplier = 5;
+        else if (roll(player, tool, "tripleHarvestChance")) multiplier = 3;
         else if (roll(player, tool, "doubleHarvestChance")) multiplier = 2;
         if (multiplier <= 1) return;
         Item item = cropReward(cropBlock);
@@ -111,7 +118,14 @@ public class FarmingProfessionListener {
             if (!crop.isMaxAge(state)) continue;
             level.destroyBlock(pos.immutable(), true, player);
             if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
-                level.setBlock(pos.immutable(), crop.getStateForAge(0), 3);
+                ItemStack tool = player.getMainHandItem();
+                level.setBlock(
+                        pos.immutable(),
+                        roll(player, tool, "autoReplantEfficiency")
+                                ? crop.getStateForAge(crop.getMaxAge())
+                                : crop.getStateForAge(0),
+                        3
+                );
             }
             harvested++;
         }
