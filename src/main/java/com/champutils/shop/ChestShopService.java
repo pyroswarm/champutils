@@ -13,13 +13,19 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public final class ChestShopService {
 
     private static final Set<String> TRANSACTION_LOCKS = new HashSet<>();
+    private static final Map<UUID, PendingPurchaseConfirmation> PENDING_PURCHASE_CONFIRMATIONS = new HashMap<>();
+
+    private static final long PURCHASE_CONFIRM_THRESHOLD = 1_000L;
+    private static final long PURCHASE_CONFIRM_TIMEOUT_MS = 15_000L;
 
     private ChestShopService() {
     }
@@ -48,6 +54,13 @@ public final class ChestShopService {
 
         BlockPos storagePos = ChestShopRegistry.getShopStoragePos(level, pos);
         String lockKey = ChestShopRegistry.key(level, storagePos);
+
+        if (shop.mode() == ChestShopRegistry.ShopMode.SELL && shop.price > PURCHASE_CONFIRM_THRESHOLD) {
+            if (!confirmLargePurchase(player, level, storagePos, shop)) {
+                return InteractionResult.SUCCESS;
+            }
+        }
+
         synchronized (TRANSACTION_LOCKS) {
             if (TRANSACTION_LOCKS.contains(lockKey)) {
                 player.sendSystemMessage(Component.literal("This shop is already processing another transaction.").withStyle(ChatFormatting.RED));
@@ -69,6 +82,26 @@ public final class ChestShopService {
         }
 
         return InteractionResult.SUCCESS;
+    }
+
+
+    private static boolean confirmLargePurchase(ServerPlayer player, ServerLevel level, BlockPos storagePos, ChestShopRegistry.ChestShop shop) {
+        PendingPurchaseConfirmation pending = PendingPurchaseConfirmation.from(level, storagePos, shop);
+        long now = System.currentTimeMillis();
+
+        synchronized (PENDING_PURCHASE_CONFIRMATIONS) {
+            PendingPurchaseConfirmation existing = PENDING_PURCHASE_CONFIRMATIONS.get(player.getUUID());
+            if (existing != null && existing.matches(pending) && existing.expiresAtMs >= now) {
+                PENDING_PURCHASE_CONFIRMATIONS.remove(player.getUUID());
+                return true;
+            }
+
+            PENDING_PURCHASE_CONFIRMATIONS.put(player.getUUID(), pending.withExpiry(now + PURCHASE_CONFIRM_TIMEOUT_MS));
+        }
+
+        player.sendSystemMessage(Component.literal("This purchase costs " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Right-click this shop again within 15 seconds to confirm buying " + Math.max(1, shop.amount) + "x " + shop.itemName + ".").withStyle(ChatFormatting.GOLD));
+        return false;
     }
 
     public static void sendInfo(ServerPlayer player, ChestShopRegistry.ChestShop shop) {
@@ -295,4 +328,41 @@ public final class ChestShopService {
             owner.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GOLD));
         }
     }
+
+
+    private record PendingPurchaseConfirmation(
+            String shopKey,
+            ChestShopRegistry.ShopMode mode,
+            String itemId,
+            int amount,
+            long price,
+            long expiresAtMs
+    ) {
+        static PendingPurchaseConfirmation from(ServerLevel level, BlockPos storagePos, ChestShopRegistry.ChestShop shop) {
+            Item item = shop.item();
+            String itemId = item == null ? shop.itemId : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();
+            return new PendingPurchaseConfirmation(
+                    ChestShopRegistry.key(level, storagePos),
+                    shop.mode(),
+                    itemId,
+                    Math.max(1, shop.amount),
+                    shop.price,
+                    0L
+            );
+        }
+
+        PendingPurchaseConfirmation withExpiry(long expiresAtMs) {
+            return new PendingPurchaseConfirmation(shopKey, mode, itemId, amount, price, expiresAtMs);
+        }
+
+        boolean matches(PendingPurchaseConfirmation other) {
+            return other != null
+                    && shopKey.equals(other.shopKey)
+                    && mode == other.mode
+                    && itemId.equals(other.itemId)
+                    && amount == other.amount
+                    && price == other.price;
+        }
+    }
+
 }

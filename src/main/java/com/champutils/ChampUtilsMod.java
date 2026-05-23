@@ -118,6 +118,7 @@ public class ChampUtilsMod implements ModInitializer {
         TeleportConfig.load();
         PortalConfig.load();
         DefaultSpawnManager.load();
+        DefaultSpawnManager.registerRespawnHandler();
         DexRewardConfig.load();
         DexRewardClaimData.load();
         TrueCaughtDexManager.load();
@@ -319,6 +320,10 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
+                    DefaultSpawnManager.handleJoin(
+                            player
+                    );
+
                     QuestManager.handleJoin(
                             player
                     );
@@ -430,6 +435,7 @@ public class ChampUtilsMod implements ModInitializer {
         RoamingTrainerCommand.register();
         SpecialWildSpawnCommand.register();
         PokemonWikiCommand.register();
+        BattleExitCommand.register();
 
         /*
          New custom item test command
@@ -485,6 +491,7 @@ public class ChampUtilsMod implements ModInitializer {
                     RoamingTrainerManager.tick(server);
                     SpecialWildSpawnManager.tick(server);
                     ChestShopDisplayManager.tick(server);
+                    BattleStuckCleanupManager.tick(server);
 
                     /*
                      Leaderboard refresh
