@@ -11,6 +11,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 
 public final class SpecialWildSpawnManager {
@@ -32,7 +35,8 @@ public final class SpecialWildSpawnManager {
     private static final File STATE_FILE = new File("config/champutils/special_wild_spawn_state.json");
     private static final Random RANDOM = new Random();
     private static int ticksUntilCheck = 200;
-    private static final Set<UUID> tracked = new HashSet<>();
+    private static final Map<UUID, Long> tracked = new ConcurrentHashMap<>();
+    private static final long SPECIAL_DESPAWN_MILLIS = 15L * 60L * 1000L;
     private static State state = new State();
     private static boolean stateLoaded = false;
 
@@ -115,11 +119,24 @@ public final class SpecialWildSpawnManager {
     }
 
     public static void cleanupTracked(MinecraftServer server) {
-        tracked.removeIf(id -> {
+        long now = System.currentTimeMillis();
+
+        tracked.entrySet().removeIf(entry -> {
+            UUID id = entry.getKey();
+            long expiresAt = entry.getValue();
+
             for (ServerLevel level : server.getAllLevels()) {
                 Entity e = level.getEntity(id);
-                if (e != null && e.isAlive()) return false;
+
+                if (e != null && e.isAlive()) {
+                    if (now >= expiresAt) {
+                        e.discard();
+                        return true;
+                    }
+                    return false;
+                }
             }
+
             return true;
         });
     }
@@ -267,6 +284,11 @@ public final class SpecialWildSpawnManager {
 
     private static boolean spawnViaCobblemonCommand(MinecraftServer server, ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
         try {
+            Set<UUID> before = new java.util.HashSet<>();
+            for (Entity entity : level.getEntities(null, new net.minecraft.world.phys.AABB(pos).inflate(24.0D))) {
+                before.add(entity.getUUID());
+            }
+
             String clean = sanitize(species);
             CommandSourceStack source = server.createCommandSourceStack()
                     .withLevel(level)
@@ -274,9 +296,24 @@ public final class SpecialWildSpawnManager {
                     .withRotation(Vec2.ZERO)
                     .withPermission(4)
                     .withSuppressedOutput();
+
             String command = "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " " + clean + " lvl=" + pokemonLevel;
             server.getCommands().performPrefixedCommand(source, command);
-            return true;
+
+            long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
+
+            boolean foundNewSpawn = false;
+            for (Entity entity : level.getEntities(null, new net.minecraft.world.phys.AABB(pos).inflate(24.0D))) {
+                if (before.contains(entity.getUUID())) continue;
+
+                if (entity instanceof Mob mob) {
+                    mob.setPersistenceRequired();
+                }
+                tracked.put(entity.getUUID(), expiresAt);
+                foundNewSpawn = true;
+            }
+
+            return foundNewSpawn;
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to spawn special wild Pokémon: " + species);
             e.printStackTrace();
@@ -289,7 +326,7 @@ public final class SpecialWildSpawnManager {
         if (!broadcast) return;
         String name = pretty(species);
         String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
-        Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ")");
+        Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ") §e[X: " + pos.getX() + ", Y: " + pos.getY() + ", Z: " + pos.getZ() + "] §cDespawns in 15 minutes!");
         server.getPlayerList().broadcastSystemMessage(msg, false);
     }
 
@@ -304,7 +341,7 @@ public final class SpecialWildSpawnManager {
         for (SpawnResult result : results) {
             String name = pretty(result.species);
             String biome = result.level.registryAccess().registryOrThrow(Registries.BIOME).getKey(result.level.getBiome(result.pos).value()).toString();
-            server.getPlayerList().broadcastSystemMessage(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + "§7."), false);
+            server.getPlayerList().broadcastSystemMessage(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + " §e[X: " + result.pos.getX() + ", Y: " + result.pos.getY() + ", Z: " + result.pos.getZ() + "] §c(15 minute despawn)"), false);
         }
     }
 

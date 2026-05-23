@@ -101,6 +101,13 @@ public final class RoamingTrainerManager {
 
         data.currentChallengerUuid = playerUuid;
         data.challengeLockMillis = System.currentTimeMillis();
+
+        // IMPORTANT: scale the roaming trainer at challenge/battle start time, not spawn time.
+        // Players can change their party at a PC after the trainer spawns, so using the spawn-time
+        // party would let them bait a low-level trainer and then swap to stronger Pokemon.
+        data.targetLevel = playerPartyHighestLevelPlusFive(player);
+        RoamingTrainerPartyBuilder.apply(npc, data);
+
         applyRoamingProtections(npc, data);
         return true;
     }
