@@ -31,6 +31,9 @@ public class ProfessionToolConfig {
     public static double REROLL_COST_MULTIPLIER =
             2.0D;
 
+    public static double ASCENDED_UNIDENTIFIED_CHANCE_PERCENT =
+            1.0D;
+
     public static Map<String, Map<String, EnchantData>> ENCHANTING =
             new LinkedHashMap<>();
 
@@ -44,6 +47,13 @@ public class ProfessionToolConfig {
 
         public double rerollCostMultiplier =
                 2.0D;
+
+        /**
+         * Percent chance for newly-created legendary or mythic unidentified
+         * tools to become ascended. 1.0 = 1%. Set to 0 to disable.
+         */
+        public double ascendedUnidentifiedChancePercent =
+                1.0D;
 
         /**
          * Deprecated. Custom tool enchanting has been removed.
@@ -292,6 +302,15 @@ public class ProfessionToolConfig {
                                 ? 2.0D
                                 : config.rerollCostMultiplier;
 
+                ASCENDED_UNIDENTIFIED_CHANCE_PERCENT =
+                        Math.max(
+                                0.0D,
+                                Math.min(
+                                        100.0D,
+                                        config.ascendedUnidentifiedChancePercent
+                                )
+                        );
+
                 ENCHANTING =
                         new LinkedHashMap<>();
 
@@ -322,6 +341,9 @@ public class ProfessionToolConfig {
             REROLL_COST_MULTIPLIER =
                     2.0D;
 
+            ASCENDED_UNIDENTIFIED_CHANCE_PERCENT =
+                    1.0D;
+
             ENCHANTING =
                     new LinkedHashMap<>();
         }
@@ -340,6 +362,9 @@ public class ProfessionToolConfig {
 
             root.rerollCostMultiplier =
                     2.0D;
+
+            root.ascendedUnidentifiedChancePercent =
+                    1.0D;
 
             root.tools.put(
                     "miners_fang",

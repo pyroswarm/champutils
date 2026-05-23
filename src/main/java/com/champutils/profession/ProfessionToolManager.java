@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ProfessionToolManager {
 
@@ -425,6 +426,51 @@ public class ProfessionToolManager {
         return stack;
     }
 
+
+    private static boolean shouldRollAscendedUnidentified(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (toolData == null) {
+            return false;
+        }
+
+        if (!isLegendaryOrMythic(toolData.rarity)) {
+            return false;
+        }
+
+        double chancePercent =
+                ProfessionToolConfig.ASCENDED_UNIDENTIFIED_CHANCE_PERCENT;
+
+        if (chancePercent <= 0.0D) {
+            return false;
+        }
+
+        if (chancePercent >= 100.0D) {
+            return true;
+        }
+
+        return Math.random() * 100.0D < chancePercent;
+    }
+
+    private static boolean isLegendaryOrMythic(
+            String rarity
+    ) {
+
+        if (rarity == null) {
+            return false;
+        }
+
+        String normalized =
+                rarity.trim().toUpperCase();
+
+        return normalized.equals(
+                "LEGENDARY"
+        ) || normalized.equals(
+                "MYTHIC"
+        );
+    }
+
     public static ItemStack createTool(
             String toolId,
             boolean ascended
@@ -443,9 +489,18 @@ public class ProfessionToolManager {
             return ItemStack.EMPTY;
         }
 
+        boolean finalAscended =
+                ascended ||
+                        shouldRollAscendedUnidentified(
+                                toolData
+                        );
+
         if (
-                ascended &&
-                        !toolData.hasAscendedVariant
+                finalAscended &&
+                        !toolData.hasAscendedVariant &&
+                        !isLegendaryOrMythic(
+                                toolData.rarity
+                        )
         ) {
             System.out.println(
                     "[ChampUtils] Tool does not have an ascended variant enabled: " +
@@ -505,8 +560,15 @@ public class ProfessionToolManager {
         ProfessionToolMetadata.initializeUnidentifiedTool(
                 stack,
                 toolId,
-                ascended
+                finalAscended
         );
+
+        if (finalAscended) {
+            ProfessionToolMetadata.setDiscoveryAnnouncementEligible(
+                    stack,
+                    true
+            );
+        }
 
         initializeDurabilityIfNeeded(
                 stack,
