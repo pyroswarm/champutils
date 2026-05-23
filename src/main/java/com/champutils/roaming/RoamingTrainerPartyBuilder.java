@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
+import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -65,9 +66,11 @@ public final class RoamingTrainerPartyBuilder {
     private static Pokemon createPokemon(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int baseLevel, int slot) {
         try {
             String species = pickSpecies(rarity, settings, slot);
-            int offset = randomBetween(settings.levelOffsetMin, settings.levelOffsetMax);
-            int level = Math.max(1, Math.min(100, baseLevel + offset));
+            int level = Math.max(1, Math.min(100, baseLevel));
             Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + sanitize(species) + "\" level=" + level).create();
+
+            applyBestIVs(pokemon);
+            applyBestEVs(pokemon);
 
             if (RANDOM.nextDouble() < Math.max(0.0D, settings.shinyChance)) {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
@@ -94,6 +97,9 @@ public final class RoamingTrainerPartyBuilder {
             return custom == null || custom.isBlank() ? "eevee" : custom;
         }
 
+        String forced = forcedSpeciesForSlot(rarity, slot);
+        if (forced != null && !forced.isBlank()) return forced;
+
         int legendarySlots = Math.max(0, Math.min(6, settings.legendaryPokemonCount));
         if (slot < legendarySlots && RoamingTrainerConfig.DATA.legendarySpeciesPool != null && !RoamingTrainerConfig.DATA.legendarySpeciesPool.isEmpty()) {
             return pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
@@ -119,6 +125,36 @@ public final class RoamingTrainerPartyBuilder {
 
         String selected = pick(pool);
         return selected == null || selected.isBlank() ? "eevee" : selected;
+    }
+
+    private static String forcedSpeciesForSlot(RoamingTrainerRarity rarity, int slot) {
+        return switch (rarity) {
+            // Epic: exactly 1 legendary, then strong/elite regular Pokemon.
+            case EPIC -> slot == 0 ? pick(RoamingTrainerConfig.DATA.legendarySpeciesPool) : null;
+            // Legendary: exactly 1 legendary + 1 ultra beast/paradox, then strong regular Pokemon.
+            case LEGENDARY -> {
+                if (slot == 0) yield pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
+                if (slot == 1) yield pickSpecialNonLegendaryBossSlot(false);
+                yield null;
+            }
+            // Mythic rarity trainer: 3 legendary + 1 mythic/paradox, then strong regular Pokemon.
+            case MYTHIC -> {
+                if (slot >= 0 && slot <= 2) yield pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
+                if (slot == 3) yield pickSpecialNonLegendaryBossSlot(true);
+                yield null;
+            }
+            default -> null;
+        };
+    }
+
+    private static String pickSpecialNonLegendaryBossSlot(boolean preferMythic) {
+        List<String> pool = new ArrayList<>();
+        if (preferMythic && RoamingTrainerConfig.DATA.mythicSpeciesPool != null) pool.addAll(RoamingTrainerConfig.DATA.mythicSpeciesPool);
+        if (RoamingTrainerConfig.DATA.paradoxSpeciesPool != null) pool.addAll(RoamingTrainerConfig.DATA.paradoxSpeciesPool);
+        if (!preferMythic && RoamingTrainerConfig.DATA.ultraBeastSpeciesPool != null) pool.addAll(RoamingTrainerConfig.DATA.ultraBeastSpeciesPool);
+        if (preferMythic && pool.isEmpty() && RoamingTrainerConfig.DATA.ultraBeastSpeciesPool != null) pool.addAll(RoamingTrainerConfig.DATA.ultraBeastSpeciesPool);
+        String picked = pick(pool);
+        return picked == null || picked.isBlank() ? null : picked;
     }
 
     private static String pickAnyRegisteredSpecies() {
@@ -187,6 +223,34 @@ public final class RoamingTrainerPartyBuilder {
             if (clean.equals(sanitize(blocked))) return true;
         }
         return false;
+    }
+
+    private static void applyBestIVs(Pokemon pokemon) {
+        if (pokemon == null) return;
+        try {
+            var ivs = pokemon.getIvs();
+            ivs.set(Stats.HP, 31);
+            ivs.set(Stats.ATTACK, 31);
+            ivs.set(Stats.DEFENCE, 31);
+            ivs.set(Stats.SPECIAL_ATTACK, 31);
+            ivs.set(Stats.SPECIAL_DEFENCE, 31);
+            ivs.set(Stats.SPEED, 31);
+        } catch (Exception ignored) {}
+    }
+
+    private static void applyBestEVs(Pokemon pokemon) {
+        if (pokemon == null) return;
+        try {
+            var evs = pokemon.getEvs();
+            // 510 total EVs, spread evenly so every randomly selected Pokemon is battle-ready
+            // even when we do not know whether it is a physical, special, mixed, or bulky set.
+            evs.set(Stats.HP, 85);
+            evs.set(Stats.ATTACK, 85);
+            evs.set(Stats.DEFENCE, 85);
+            evs.set(Stats.SPECIAL_ATTACK, 85);
+            evs.set(Stats.SPECIAL_DEFENCE, 85);
+            evs.set(Stats.SPEED, 85);
+        } catch (Exception ignored) {}
     }
 
     private static void applyNature(Pokemon pokemon, String nature) {

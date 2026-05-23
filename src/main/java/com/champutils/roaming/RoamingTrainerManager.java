@@ -1,6 +1,7 @@
 package com.champutils.roaming;
 
 import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.BattleStateManager;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.lang.reflect.Method;
 
 public final class RoamingTrainerManager {
 
@@ -124,11 +126,12 @@ public final class RoamingTrainerManager {
         for (ServerLevel level : server.getAllLevels()) {
             for (RoamingTrainerData data : new ArrayList<>(TRAINERS.values())) {
                 NPCEntity npc = findNpc(level, data.npcUuid);
+                TRAINERS.remove(data.npcUuid);
                 if (npc != null) {
+                    cancelBattleForRemovedTrainer(server, data, "The roaming trainer disappeared, so the battle was canceled.");
                     removeNpc(npc);
                     count++;
                 }
-                TRAINERS.remove(data.npcUuid);
             }
         }
         return count;
@@ -139,7 +142,8 @@ public final class RoamingTrainerManager {
         int count = 0;
         for (NPCEntity npc : level.getEntitiesOfClass(NPCEntity.class, box(center, radius))) {
             if (!isRoamingTrainer(npc.getUUID())) continue;
-            TRAINERS.remove(npc.getUUID());
+            RoamingTrainerData data = TRAINERS.remove(npc.getUUID());
+            cancelBattleForRemovedTrainer(level.getServer(), data, "The roaming trainer disappeared, so the battle was canceled.");
             removeNpc(npc);
             count++;
         }
@@ -196,7 +200,7 @@ public final class RoamingTrainerManager {
         if (pos == null) return false;
 
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(rarity);
-        int targetLevel = playerPartyAverageLevel(player);
+        int targetLevel = playerPartyHighestLevelPlusFive(player);
         String displayName = chooseName(rarity, settings);
         String skin = chooseSkin();
         ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, player.getYRot() + 180.0F, displayName, skin);
@@ -257,6 +261,7 @@ public final class RoamingTrainerManager {
             NPCEntity npc = findNpc(server, npcUuid);
             if (npc == null || !npc.isAlive()) {
                 iterator.remove();
+                cancelBattleForRemovedTrainer(server, data, "The roaming trainer was removed, so the battle was canceled.");
                 continue;
             }
 
@@ -276,10 +281,71 @@ public final class RoamingTrainerManager {
 
             long elapsed = now - data.lastNearbyPlayerMillis;
             if (elapsed >= Math.max(30, RoamingTrainerConfig.DATA.despawnAfterNoPlayersSeconds) * 1000L) {
-                removeNpc(npc);
                 iterator.remove();
+                cancelBattleForRemovedTrainer(server, data, "The roaming trainer despawned, so the battle was canceled.");
+                removeNpc(npc);
             }
         }
+    }
+
+    private static void cancelBattleForRemovedTrainer(MinecraftServer server, RoamingTrainerData data, String message) {
+        if (server == null || data == null) return;
+
+        data.rewardsClaimed = true;
+        UUID playerUuid = data.currentChallengerUuid;
+        data.currentChallengerUuid = null;
+        data.challengeLockMillis = 0L;
+
+        if (playerUuid == null) return;
+
+        ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);
+        if (player == null) return;
+
+        Object battle = BattleStateManager.getBattle(player);
+        if (battle != null) {
+            tryStopBattle(battle, player);
+        }
+
+        BattleStateManager.clearAll(player);
+
+        if (message != null && !message.isBlank()) {
+            player.sendSystemMessage(Component.literal("§e" + message));
+        }
+    }
+
+    private static boolean tryStopBattle(Object battle, ServerPlayer player) {
+        if (battle == null) return false;
+
+        String[] methods = new String[]{
+                "forfeit",
+                "flee",
+                "stop",
+                "end",
+                "endBattle",
+                "close"
+        };
+
+        for (String methodName : methods) {
+            if (invokeBattleMethod(battle, methodName, player)) return true;
+            if (invokeBattleMethod(battle, methodName)) return true;
+        }
+
+        return false;
+    }
+
+    private static boolean invokeBattleMethod(Object target, String methodName, Object... args) {
+        try {
+            for (Method method : target.getClass().getMethods()) {
+                if (!method.getName().equals(methodName)) continue;
+                if (method.getParameterCount() != args.length) continue;
+                method.setAccessible(true);
+                method.invoke(target, args);
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        return false;
     }
 
     private static void cleanupStaleChallengeLock(NPCEntity npc, RoamingTrainerData data, long now) {
@@ -356,17 +422,20 @@ public final class RoamingTrainerManager {
         try { npc.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
     }
 
-    private static int playerPartyAverageLevel(ServerPlayer player) {
-        int total = 0;
-        int count = 0;
+    private static int playerPartyHighestLevelPlusFive(ServerPlayer player) {
+        int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {
                 if (pokemon == null) continue;
-                total += Math.max(1, pokemon.getLevel());
-                count++;
+                highest = Math.max(highest, Math.max(1, pokemon.getLevel()));
             }
         } catch (Exception ignored) {}
-        return count <= 0 ? 10 : Math.max(1, Math.min(100, Math.round((float) total / (float) count)));
+
+        // Roaming trainer scaling is intentionally simple and predictable:
+        // every trainer Pokemon is exactly five levels above the player's highest party Pokemon.
+        // If the player somehow has no readable party, use level 15 instead of failing the spawn.
+        if (highest <= 0) return 15;
+        return Math.max(1, Math.min(100, highest + 5));
     }
 
     private static RoamingTrainerRarity chooseRarity() {

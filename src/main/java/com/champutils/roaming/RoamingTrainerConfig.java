@@ -44,6 +44,9 @@ public final class RoamingTrainerConfig {
         public List<String> strongSpeciesPool = new ArrayList<>();
         public List<String> eliteSpeciesPool = new ArrayList<>();
         public List<String> legendarySpeciesPool = new ArrayList<>();
+        public List<String> ultraBeastSpeciesPool = new ArrayList<>();
+        public List<String> paradoxSpeciesPool = new ArrayList<>();
+        public List<String> mythicSpeciesPool = new ArrayList<>();
         public List<String> competitiveHeldItems = new ArrayList<>();
         public List<String> competitiveNatures = new ArrayList<>();
         public List<String> randomTrainerSkins = new ArrayList<>();
@@ -112,6 +115,9 @@ public final class RoamingTrainerConfig {
         if (DATA.strongSpeciesPool == null || DATA.strongSpeciesPool.isEmpty()) DATA.strongSpeciesPool = defaultStrongSpecies();
         if (DATA.eliteSpeciesPool == null || DATA.eliteSpeciesPool.isEmpty()) DATA.eliteSpeciesPool = defaultEliteSpecies();
         if (DATA.legendarySpeciesPool == null || DATA.legendarySpeciesPool.isEmpty()) DATA.legendarySpeciesPool = defaultLegendarySpecies();
+        if (DATA.ultraBeastSpeciesPool == null || DATA.ultraBeastSpeciesPool.isEmpty()) DATA.ultraBeastSpeciesPool = defaultUltraBeastSpecies();
+        if (DATA.paradoxSpeciesPool == null || DATA.paradoxSpeciesPool.isEmpty()) DATA.paradoxSpeciesPool = defaultParadoxSpecies();
+        if (DATA.mythicSpeciesPool == null || DATA.mythicSpeciesPool.isEmpty()) DATA.mythicSpeciesPool = defaultMythicSpecies();
         if (DATA.competitiveHeldItems == null) DATA.competitiveHeldItems = defaultHeldItems();
         if (DATA.competitiveNatures == null) DATA.competitiveNatures = defaultNatures();
         DATA.randomTrainerSkins = cleanTrainerSkins(DATA.randomTrainerSkins);
@@ -158,6 +164,9 @@ public final class RoamingTrainerConfig {
         root.strongSpeciesPool = defaultStrongSpecies();
         root.eliteSpeciesPool = defaultEliteSpecies();
         root.legendarySpeciesPool = defaultLegendarySpecies();
+        root.ultraBeastSpeciesPool = defaultUltraBeastSpecies();
+        root.paradoxSpeciesPool = defaultParadoxSpecies();
+        root.mythicSpeciesPool = defaultMythicSpecies();
         root.competitiveHeldItems = defaultHeldItems();
         root.competitiveNatures = defaultNatures();
         root.randomTrainerSkins = defaultTrainerSkins();
@@ -192,22 +201,23 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 750");
             }
             case EPIC -> {
-                s.weight = 2; s.pokemonCount = 4; s.levelOffsetMin = 3; s.levelOffsetMax = 8; s.aiSkill = 4;
-                s.allPokemonChance = 0.15D;
+                s.weight = 2; s.pokemonCount = 4; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 4;
+                s.allPokemonChance = 0.0D;
+                s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.55; s.heldItemChance = 0.45; s.competitiveNatureChance = 0.55;
                 s.fragmentMin = 3; s.fragmentMax = 5;
                 s.rewardCommands.add("eco give %player% 2000");
             }
             case LEGENDARY -> {
-                s.weight = 0.8; s.pokemonCount = 5; s.levelOffsetMin = 5; s.levelOffsetMax = 10; s.aiSkill = 5;
-                s.allPokemonChance = 0.05D;
+                s.weight = 0.8; s.pokemonCount = 5; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 5;
+                s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.75; s.heldItemChance = 0.65; s.competitiveNatureChance = 0.75;
                 s.fragmentMin = 4; s.fragmentMax = 7;
                 s.rewardCommands.add("eco give %player% 5000");
             }
             case MYTHIC -> {
-                s.weight = 0.2; s.pokemonCount = 6; s.levelOffsetMin = 8; s.levelOffsetMax = 15; s.aiSkill = 5;
+                s.weight = 0.2; s.pokemonCount = 6; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 5;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 3;
                 s.evolvedSpeciesChance = 0.95; s.heldItemChance = 0.90; s.competitiveNatureChance = 0.95; s.shinyChance = 0.01;
@@ -260,6 +270,30 @@ public final class RoamingTrainerConfig {
                 "arceus", "cobalion", "terrakion", "virizion", "tornadus", "thundurus", "landorus",
                 "reshiram", "zekrom", "kyurem", "xerneas", "yveltal", "zygarde", "solgaleo", "lunala",
                 "necrozma", "zacian", "zamazenta", "eternatus", "kubfu", "urshifu", "regieleki", "regidrago"
+        ));
+    }
+
+    private static List<String> defaultUltraBeastSpecies() {
+        return new ArrayList<>(Arrays.asList(
+                "nihilego", "buzzwole", "pheromosa", "xurkitree", "celesteela", "kartana",
+                "guzzlord", "poipole", "naganadel", "stakataka", "blacephalon"
+        ));
+    }
+
+    private static List<String> defaultParadoxSpecies() {
+        return new ArrayList<>(Arrays.asList(
+                "great_tusk", "scream_tail", "brute_bonnet", "flutter_mane", "slither_wing", "sandy_shocks",
+                "roaring_moon", "walking_wake", "gouging_fire", "raging_bolt", "iron_treads", "iron_bundle",
+                "iron_hands", "iron_jugulis", "iron_moth", "iron_thorns", "iron_valiant", "iron_leaves",
+                "iron_boulder", "iron_crown"
+        ));
+    }
+
+    private static List<String> defaultMythicSpecies() {
+        return new ArrayList<>(Arrays.asList(
+                "mew", "celebi", "jirachi", "deoxys", "phione", "manaphy", "darkrai", "shaymin",
+                "arceus", "victini", "keldeo", "meloetta", "genesect", "diancie", "hoopa", "volcanion",
+                "magearna", "marshadow", "zeraora", "meltan", "melmetal", "zarude", "pecharunt"
         ));
     }
 
