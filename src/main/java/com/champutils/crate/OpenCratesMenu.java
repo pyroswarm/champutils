@@ -4,6 +4,9 @@ import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.shop.NpcShopService;
+import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
+import com.cobblemon.mod.common.item.PokemonItem;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
@@ -122,6 +125,10 @@ public final class OpenCratesMenu {
     }
 
     public static void openPreview(ServerPlayer player, String id) {
+        openPreview(player, id, 0);
+    }
+
+    private static void openPreview(ServerPlayer player, String id, int page) {
         if (player == null) return;
         CrateConfig.CrateDefinition crate = CrateConfig.getCrate(id);
         if (crate == null || !crate.enabled) {
@@ -129,62 +136,118 @@ public final class OpenCratesMenu {
             return;
         }
 
+        List<PreviewEntry> entries = buildPreviewEntries(crate);
+        int pageSize = 36;
+        int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) pageSize));
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
-        gui.setTitle(Component.literal(crate.displayName + " Preview"));
+        gui.setTitle(Component.literal(crate.displayName + " Preview " + (safePage + 1) + "/" + totalPages));
         for (int i = 0; i < gui.getSize(); i++) gui.setSlot(i, filler());
+
+        double pokemonTotal = totalWeight(crate.pokemon);
+        double itemTotal = totalWeight(crate.items);
+        double toolTotal = totalWeight(crate.tools);
 
         gui.setSlot(4, new GuiElementBuilder(resolveItem(crate.iconItem))
                 .setName(Component.literal(crate.displayName).withStyle(colorFor(id)))
                 .addLoreLine(Component.literal("Guaranteed: " + crate.guaranteedShardMin + "-" + crate.guaranteedShardMax + " " + ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity) + " shards").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .addLoreLine(Component.literal("Shiny chance: " + crate.shinyChance + "%").withStyle(ChatFormatting.GRAY)));
+                .addLoreLine(Component.literal("Shiny chance: " + crate.shinyChance + "%").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("Reward chances below are within each reward section.").withStyle(ChatFormatting.DARK_GRAY)));
 
+        int startIndex = safePage * pageSize;
+        int endIndex = Math.min(entries.size(), startIndex + pageSize);
         int slot = 9;
-        slot = addPreviewSection(gui, slot, "Pokémon", crate.pokemon, Items.EGG);
-        slot = addPreviewSection(gui, slot, "Items", crate.items, Items.CHEST);
-        addPreviewSection(gui, slot, "Tools", crate.tools, Items.DIAMOND_PICKAXE);
+        String lastSection = "";
+        for (int i = startIndex; i < endIndex && slot < 45; i++) {
+            PreviewEntry entry = entries.get(i);
+            if (!entry.section.equals(lastSection) && slot < 45) {
+                gui.setSlot(slot++, new GuiElementBuilder(sectionIcon(entry.section))
+                        .setName(Component.literal(entry.section).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+                lastSection = entry.section;
+                if (slot >= 45) break;
+            }
+
+            double sectionTotal = switch (entry.section) {
+                case "Pokémon" -> pokemonTotal;
+                case "Items" -> itemTotal;
+                case "Tools" -> toolTotal;
+                default -> 1.0D;
+            };
+            gui.setSlot(slot++, previewElement(entry.reward, entry.fallbackIcon, sectionTotal));
+        }
+
+        if (safePage > 0) {
+            gui.setSlot(45, new GuiElementBuilder(Items.ARROW)
+                    .setName(Component.literal("Previous Page").withStyle(ChatFormatting.YELLOW))
+                    .setCallback((index, type, action) -> openPreview(player, id, safePage - 1)));
+        }
 
         gui.setSlot(49, new GuiElementBuilder(Items.ARROW)
                 .setName(Component.literal("Back to Crates").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, type, action) -> open(player)));
+
+        if (safePage + 1 < totalPages) {
+            gui.setSlot(53, new GuiElementBuilder(Items.ARROW)
+                    .setName(Component.literal("Next Page").withStyle(ChatFormatting.YELLOW))
+                    .setCallback((index, type, action) -> openPreview(player, id, safePage + 1)));
+        }
+
         gui.open();
     }
 
-    private static int addPreviewSection(SimpleGui gui, int slot, String title, List<?> entries, Item fallbackIcon) {
-        if (slot >= 45) return slot;
-        gui.setSlot(slot++, new GuiElementBuilder(Items.PAPER).setName(Component.literal(title).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
-        if (entries == null || entries.isEmpty()) {
-            if (slot < 45) gui.setSlot(slot++, new GuiElementBuilder(Items.BARRIER).setName(Component.literal("No " + title.toLowerCase(Locale.ROOT) + " configured").withStyle(ChatFormatting.RED)));
-            return slot;
-        }
-        for (Object entry : entries) {
-            if (slot >= 45) break;
-            gui.setSlot(slot++, previewElement(entry, fallbackIcon));
-        }
-        return slot;
+    private record PreviewEntry(String section, Object reward, Item fallbackIcon) {}
+
+    private static List<PreviewEntry> buildPreviewEntries(CrateConfig.CrateDefinition crate) {
+        List<PreviewEntry> entries = new ArrayList<>();
+        if (crate.pokemon != null) for (CrateConfig.WeightedPokemon p : crate.pokemon) entries.add(new PreviewEntry("Pokémon", p, Items.EGG));
+        if (crate.items != null) for (CrateConfig.WeightedItem i : crate.items) entries.add(new PreviewEntry("Items", i, Items.CHEST));
+        if (crate.tools != null) for (CrateConfig.WeightedTool t : crate.tools) entries.add(new PreviewEntry("Tools", t, Items.DIAMOND_PICKAXE));
+        return entries;
     }
 
-    private static GuiElementBuilder previewElement(Object entry, Item fallbackIcon) {
+    private static Item sectionIcon(String section) {
+        return switch (section) {
+            case "Pokémon" -> Items.EGG;
+            case "Items" -> Items.CHEST;
+            case "Tools" -> Items.DIAMOND_PICKAXE;
+            default -> Items.PAPER;
+        };
+    }
+
+    private static double totalWeight(List<?> entries) {
+        if (entries == null || entries.isEmpty()) return 1.0D;
+        double total = 0.0D;
+        for (Object entry : entries) total += Math.max(0, weightOf(entry));
+        return total <= 0.0D ? 1.0D : total;
+    }
+
+    private static GuiElementBuilder previewElement(Object entry, Item fallbackIcon, double totalWeight) {
         if (entry instanceof CrateConfig.WeightedPokemon p) {
             NpcShopService.PokemonCratePool pool = pool(p.pool, p.species);
-            Item icon = pool == NpcShopService.PokemonCratePool.REGULAR ? Items.EGG : Items.DRAGON_EGG;
+            ItemStack icon = createPokemonIcon(p.species, 70, false, pool);
+            double percent = (Math.max(0, p.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
-                    .setName(Component.literal(pretty(p.species)).withStyle(poolColor(pool)))
-                    .addLoreLine(Component.literal("Pool: " + poolLabel(pool)).withStyle(ChatFormatting.GRAY))
-                    .addLoreLine(Component.literal("Weight: " + p.weight).withStyle(ChatFormatting.DARK_GRAY));
+                    .setName(Component.literal(prettyName(p.species)).withStyle(poolColor(pool)))
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
+                    .addLoreLine(Component.literal("Pool: " + poolLabel(pool)).withStyle(ChatFormatting.GRAY));
         }
         if (entry instanceof CrateConfig.WeightedItem i) {
             Item icon = resolveItem(i.itemId);
             if (icon == Items.AIR) icon = fallbackIcon;
+            double percent = (Math.max(0, i.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
-                    .setName(Component.literal(i.itemId).withStyle(ChatFormatting.AQUA))
-                    .addLoreLine(Component.literal("Amount: " + i.amountMin + "-" + i.amountMax).withStyle(ChatFormatting.GRAY))
-                    .addLoreLine(Component.literal("Weight: " + i.weight).withStyle(ChatFormatting.DARK_GRAY));
+                    .setName(Component.literal(prettyItem(i.itemId)).withStyle(ChatFormatting.AQUA))
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
+                    .addLoreLine(Component.literal("Amount: " + i.amountMin + "-" + i.amountMax).withStyle(ChatFormatting.GRAY));
         }
         if (entry instanceof CrateConfig.WeightedTool t) {
-            return new GuiElementBuilder(fallbackIcon)
-                    .setName(Component.literal(t.toolId).withStyle(ChatFormatting.LIGHT_PURPLE))
-                    .addLoreLine(Component.literal("Full profession tool").withStyle(ChatFormatting.GRAY))
-                    .addLoreLine(Component.literal("Weight: " + t.weight).withStyle(ChatFormatting.DARK_GRAY));
+            ItemStack icon = unidentifiedToolIcon(t.toolId, fallbackIcon);
+            double percent = (Math.max(0, t.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            return new GuiElementBuilder(icon)
+                    .setName(Component.literal(prettyName(t.toolId)).withStyle(ChatFormatting.LIGHT_PURPLE))
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
+                    .addLoreLine(Component.literal("Unidentified profession tool").withStyle(ChatFormatting.GRAY));
         }
         return new GuiElementBuilder(fallbackIcon).setName(Component.literal("Unknown reward"));
     }
@@ -442,6 +505,52 @@ public final class OpenCratesMenu {
     private static void playCrateTickSound(ServerPlayer player, int tick) { float pitch = Math.min(1.85F, 0.85F + (tick / 70.0F)); playLocalSound(player, "minecraft:block.note_block.hat", 0.45F, pitch); }
     private static void playLocalSound(ServerPlayer player, String soundId, float volume, float pitch) { if (player == null || soundId == null || soundId.isBlank()) return; try { SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId)); if (sound != null) player.level().playSound(null, player.blockPosition(), sound, SoundSource.PLAYERS, volume, pitch); } catch (Throwable ignored) {} }
 
+    private static String formatPercent(double value) {
+        return String.format(Locale.US, "%.2f%%", value);
+    }
+
+    private static String prettyName(String value) {
+        String pretty = pretty(value);
+        if (pretty == null || pretty.isBlank()) return "Unknown";
+        String[] words = pretty.split(" ");
+        StringBuilder out = new StringBuilder();
+        for (String word : words) {
+            if (word.isBlank()) continue;
+            if (!out.isEmpty()) out.append(' ');
+            out.append(word.substring(0, 1).toUpperCase(Locale.ROOT)).append(word.substring(1));
+        }
+        return out.toString();
+    }
+
+    private static String prettyItem(String id) {
+        String value = id == null ? "item" : id;
+        int colon = value.indexOf(':');
+        if (colon >= 0 && colon + 1 < value.length()) value = value.substring(colon + 1);
+        return prettyName(value);
+    }
+
+    private static ItemStack unidentifiedToolIcon(String toolId, Item fallbackIcon) {
+        try {
+            ItemStack stack = ProfessionToolManager.createTool(toolId, false);
+            if (stack != null && !stack.isEmpty()) return stack;
+        } catch (Throwable ignored) {
+        }
+        return new ItemStack(fallbackIcon == null ? Items.DIAMOND_PICKAXE : fallbackIcon);
+    }
+
+    private static ItemStack createPokemonIcon(String species, int level, boolean shiny, NpcShopService.PokemonCratePool pool) {
+        try {
+            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"" + species + "\" level=" + level).create();
+            try {
+                Pokemon.class.getMethod("setShiny", boolean.class).invoke(pokemon, shiny);
+            } catch (Throwable ignored) {
+            }
+            return PokemonItem.from(pokemon, 1);
+        } catch (Throwable ignored) {
+            return new ItemStack(shiny ? Items.NETHER_STAR : pool == NpcShopService.PokemonCratePool.REGULAR ? Items.EGG : Items.DRAGON_EGG);
+        }
+    }
+
     private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic") && isHighValuePokemon(species)) return 1.0D; return Math.max(0D, crate.shinyChance); }
     private static <T> T weighted(List<T> list) { if (list == null || list.isEmpty()) return null; int total = 0; for (T t : list) total += Math.max(0, weightOf(t)); if (total <= 0) return list.get(RANDOM.nextInt(list.size())); int roll = RANDOM.nextInt(total); for (T t : list) { roll -= Math.max(0, weightOf(t)); if (roll < 0) return t; } return list.get(0); }
     private static int weightOf(Object o) { if (o instanceof CrateConfig.WeightedPokemon p) return p.weight; if (o instanceof CrateConfig.WeightedItem i) return i.weight; if (o instanceof CrateConfig.WeightedTool t) return t.weight; return 1; }
@@ -450,6 +559,35 @@ public final class OpenCratesMenu {
     private static ChatFormatting poolColor(NpcShopService.PokemonCratePool pool) { return switch (pool) { case LEGENDARY -> ChatFormatting.GOLD; case ULTRA_BEAST, PARADOX -> ChatFormatting.LIGHT_PURPLE; case MYTHICAL -> ChatFormatting.RED; default -> ChatFormatting.AQUA; }; }
     private static String poolLabel(NpcShopService.PokemonCratePool pool) { return switch (pool) { case LEGENDARY -> "Legendary"; case ULTRA_BEAST -> "Ultra Beast"; case PARADOX -> "Paradox"; case MYTHICAL -> "Mythical"; default -> "Regular"; }; }
     private static String pretty(String species) { if (species == null) return "Pokemon"; int c=species.indexOf(':'); if(c>=0) species=species.substring(c+1); return species.replace('_',' '); }
-    private static boolean isHighValuePokemon(String s) { String x=s==null?"":s.toLowerCase(Locale.ROOT); return x.contains("mewtwo")||x.contains("rayquaza")||x.contains("kyogre")||x.contains("groudon")||x.contains("zacian")||x.contains("koraidon")||x.contains("miraidon")||x.contains("iron_")||x.contains("roaring_")||x.contains("kartana")||x.contains("guzzlord"); }
-    private static NpcShopService.PokemonCratePool pool(String configured, String species) { String c=configured==null?"":configured.toUpperCase(Locale.ROOT); if (c.contains("LEGEND")) return NpcShopService.PokemonCratePool.LEGENDARY; if (c.contains("ULTRA")) return NpcShopService.PokemonCratePool.ULTRA_BEAST; if (c.contains("PARADOX")) return NpcShopService.PokemonCratePool.PARADOX; if (c.contains("MYTH")) return NpcShopService.PokemonCratePool.MYTHICAL; if (isHighValuePokemon(species)) return NpcShopService.PokemonCratePool.LEGENDARY; return NpcShopService.PokemonCratePool.REGULAR; }
+    private static boolean isHighValuePokemon(String s) {
+        NpcShopService.PokemonCratePool pool = pool(null, s);
+        return pool != NpcShopService.PokemonCratePool.REGULAR;
+    }
+
+    private static NpcShopService.PokemonCratePool pool(String configured, String species) {
+        String c=configured==null?"":configured.toUpperCase(Locale.ROOT);
+        if (c.contains("ULTRA")) return NpcShopService.PokemonCratePool.ULTRA_BEAST;
+        if (c.contains("PARADOX")) return NpcShopService.PokemonCratePool.PARADOX;
+        if (c.contains("MYTH")) return NpcShopService.PokemonCratePool.MYTHICAL;
+        if (c.contains("LEGEND")) return NpcShopService.PokemonCratePool.LEGENDARY;
+
+        String x = species == null ? "" : species.toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        int colon = x.lastIndexOf(':');
+        if (colon >= 0 && colon + 1 < x.length()) x = x.substring(colon + 1);
+        String compact = x.replace("_", "");
+
+        if (matchesAny(x, compact, "nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon")) return NpcShopService.PokemonCratePool.ULTRA_BEAST;
+        if (matchesAny(x, compact, "great_tusk","scream_tail","brute_bonnet","flutter_mane","slither_wing","sandy_shocks","roaring_moon","walking_wake","gouging_fire","raging_bolt","iron_treads","iron_bundle","iron_hands","iron_jugulis","iron_moth","iron_thorns","iron_valiant","iron_leaves","iron_boulder","iron_crown")) return NpcShopService.PokemonCratePool.PARADOX;
+        if (matchesAny(x, compact, "mew","celebi","jirachi","deoxys","phione","manaphy","darkrai","shaymin","arceus","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt")) return NpcShopService.PokemonCratePool.MYTHICAL;
+        if (matchesAny(x, compact, "articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","ho_oh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","type_null","silvally","tapu_koko","tapu_lele","tapu_bulu","tapu_fini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wo_chien","chien_pao","ting_lu","chi_yu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon")) return NpcShopService.PokemonCratePool.LEGENDARY;
+        return NpcShopService.PokemonCratePool.REGULAR;
+    }
+
+    private static boolean matchesAny(String species, String compact, String... values) {
+        for (String value : values) {
+            String normalized = value.toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+            if (species.equals(normalized) || compact.equals(normalized.replace("_", ""))) return true;
+        }
+        return false;
+    }
 }
