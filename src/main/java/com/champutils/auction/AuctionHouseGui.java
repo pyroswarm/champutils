@@ -239,8 +239,10 @@ public final class AuctionHouseGui {
                     .addLoreLine(Component.literal("§7Price: §6" + EconomyManager.format(listing.price)))
                     .addLoreLine(Component.literal("§7Your Balance: §e" + EconomyManager.format(EconomyManager.getBalance(player))))
                     .setCallback((index, clickType, actionType, g) -> {
+                        purgeAuctionGuiButtons(player);
                         player.closeContainer();
                         AuctionHouseService.buyListing(player, listing.id);
+                        purgeAuctionGuiButtons(player);
                     }));
         }
 
@@ -248,6 +250,30 @@ public final class AuctionHouseGui {
                 .setCallback((index, clickType, actionType, g) -> player.closeContainer()));
 
         gui.open();
+    }
+
+    private static void purgeAuctionGuiButtons(ServerPlayer player) {
+        for (ItemStack stack : player.getInventory().items) {
+            if (isAuctionGuiButton(stack)) {
+                stack.setCount(0);
+            }
+        }
+        for (ItemStack stack : player.getInventory().offhand) {
+            if (isAuctionGuiButton(stack)) {
+                stack.setCount(0);
+            }
+        }
+        player.getInventory().setChanged();
+    }
+
+    private static boolean isAuctionGuiButton(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        if (!stack.is(Items.LIME_CONCRETE)) {
+            return false;
+        }
+        return "Buy Now".equals(stack.getHoverName().getString());
     }
 
     private static void paintPokemonInspect(SimpleGui gui, JsonObject p) {

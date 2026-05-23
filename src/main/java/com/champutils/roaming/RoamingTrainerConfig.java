@@ -50,6 +50,8 @@ public final class RoamingTrainerConfig {
         public List<String> competitiveHeldItems = new ArrayList<>();
         public List<String> competitiveNatures = new ArrayList<>();
         public List<String> randomTrainerSkins = new ArrayList<>();
+        public List<String> maleTrainerSkins = new ArrayList<>();
+        public List<String> femaleTrainerSkins = new ArrayList<>();
     }
 
     public static class RaritySettings {
@@ -121,6 +123,8 @@ public final class RoamingTrainerConfig {
         if (DATA.competitiveHeldItems == null) DATA.competitiveHeldItems = defaultHeldItems();
         if (DATA.competitiveNatures == null) DATA.competitiveNatures = defaultNatures();
         DATA.randomTrainerSkins = cleanTrainerSkins(DATA.randomTrainerSkins);
+        DATA.maleTrainerSkins = cleanTrainerSkins(DATA.maleTrainerSkins, defaultMaleTrainerSkins());
+        DATA.femaleTrainerSkins = cleanTrainerSkins(DATA.femaleTrainerSkins, defaultFemaleTrainerSkins());
         if (DATA.scanIntervalSeconds < 5) DATA.scanIntervalSeconds = 5;
         if (DATA.spawnMinDistance < 8) DATA.spawnMinDistance = 8;
         if (DATA.spawnMaxDistance < DATA.spawnMinDistance) DATA.spawnMaxDistance = DATA.spawnMinDistance + 12;
@@ -170,6 +174,8 @@ public final class RoamingTrainerConfig {
         root.competitiveHeldItems = defaultHeldItems();
         root.competitiveNatures = defaultNatures();
         root.randomTrainerSkins = defaultTrainerSkins();
+        root.maleTrainerSkins = defaultMaleTrainerSkins();
+        root.femaleTrainerSkins = defaultFemaleTrainerSkins();
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             root.rarities.put(rarity.name(), defaultRarity(rarity));
         }
@@ -345,6 +351,10 @@ public final class RoamingTrainerConfig {
     }
 
     private static List<String> cleanTrainerSkins(List<String> skins) {
+        return cleanTrainerSkins(skins, defaultTrainerSkins());
+    }
+
+    private static List<String> cleanTrainerSkins(List<String> skins, List<String> fallbackSkins) {
         List<String> cleaned = new ArrayList<>();
         if (skins != null) {
             for (String skin : skins) {
@@ -355,51 +365,61 @@ public final class RoamingTrainerConfig {
         }
 
         // Keep the roaming pool varied even for older configs that only had a few names.
-        for (String fallback : defaultTrainerSkins()) {
-            if (cleaned.size() >= 36) break;
-            if (!cleaned.contains(fallback)) cleaned.add(fallback);
+        if (fallbackSkins != null) {
+            for (String fallback : fallbackSkins) {
+                if (fallback == null || fallback.isBlank() || isBlockedDefaultSkin(fallback)) continue;
+                if (!cleaned.contains(fallback)) cleaned.add(fallback);
+            }
         }
         return cleaned;
     }
 
     private static List<String> defaultTrainerSkins() {
+        List<String> skins = new ArrayList<>();
+        skins.addAll(defaultMaleTrainerSkins());
+        skins.addAll(defaultFemaleTrainerSkins());
+        return skins;
+    }
+
+    private static List<String> defaultMaleTrainerSkins() {
         return new ArrayList<>(Arrays.asList(
-                "champ_roamer_01.png",
-                "champ_roamer_02.png",
-                "champ_roamer_03.png",
-                "champ_roamer_04.png",
-                "champ_roamer_05.png",
-                "champ_roamer_06.png",
-                "champ_roamer_07.png",
-                "champ_roamer_08.png",
-                "champ_roamer_09.png",
-                "champ_roamer_10.png",
-                "champ_roamer_11.png",
-                "champ_roamer_12.png",
-                "champ_roamer_13.png",
-                "champ_roamer_14.png",
-                "champ_roamer_15.png",
-                "champ_roamer_16.png",
-                "champ_roamer_17.png",
-                "champ_roamer_18.png",
-                "champ_roamer_19.png",
-                "champ_roamer_20.png",
-                "champ_roamer_21.png",
-                "champ_roamer_22.png",
-                "champ_roamer_23.png",
-                "champ_roamer_24.png",
-                "champ_roamer_25.png",
-                "champ_roamer_26.png",
-                "champ_roamer_27.png",
-                "champ_roamer_28.png",
-                "champ_roamer_29.png",
-                "champ_roamer_30.png",
-                "champ_roamer_31.png",
-                "champ_roamer_32.png",
-                "champ_roamer_33.png",
-                "champ_roamer_34.png",
-                "champ_roamer_35.png",
-                "champ_roamer_36.png"
+                "champ_roamer_male_01.png",
+                "champ_roamer_male_02.png",
+                "champ_roamer_male_03.png",
+                "champ_roamer_male_04.png",
+                "champ_roamer_male_05.png",
+                "champ_roamer_male_06.png",
+                "champ_roamer_male_07.png",
+                "champ_roamer_male_08.png",
+                "champ_roamer_male_09.png",
+                "champ_roamer_male_10.png",
+                "champ_roamer_male_11.png",
+                "champ_roamer_male_12.png",
+                "champ_roamer_male_13.png",
+                "champ_roamer_male_14.png",
+                "champ_roamer_male_15.png",
+                "champ_roamer_male_16.png",
+                "champ_roamer_male_17.png"
+        ));
+    }
+
+    private static List<String> defaultFemaleTrainerSkins() {
+        return new ArrayList<>(Arrays.asList(
+                "champ_roamer_female_01.png",
+                "champ_roamer_female_02.png",
+                "champ_roamer_female_03.png",
+                "champ_roamer_female_04.png",
+                "champ_roamer_female_05.png",
+                "champ_roamer_female_06.png",
+                "champ_roamer_female_07.png",
+                "champ_roamer_female_08.png",
+                "champ_roamer_female_09.png",
+                "champ_roamer_female_10.png",
+                "champ_roamer_female_11.png",
+                "champ_roamer_female_12.png",
+                "champ_roamer_female_13.png",
+                "champ_roamer_female_14.png",
+                "champ_roamer_female_15.png"
         ));
     }
 

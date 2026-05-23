@@ -201,8 +201,9 @@ public final class RoamingTrainerManager {
 
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(rarity);
         int targetLevel = playerPartyHighestLevelPlusFive(player);
-        String displayName = chooseName(rarity, settings);
-        String skin = chooseSkin();
+        TrainerIdentity identity = chooseIdentity(rarity, settings);
+        String displayName = identity.displayName;
+        String skin = identity.skin;
         ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, player.getYRot() + 180.0F, displayName, skin);
         if (!result.success || result.npc == null) return false;
 
@@ -455,7 +456,38 @@ public final class RoamingTrainerManager {
         return RoamingTrainerRarity.COMMON;
     }
 
-    private static String chooseName(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings) {
+    private enum TrainerGender {
+        MALE,
+        FEMALE
+    }
+
+    private static final class TrainerIdentity {
+        private final String displayName;
+        private final String skin;
+
+        private TrainerIdentity(String displayName, String skin) {
+            this.displayName = displayName;
+            this.skin = skin;
+        }
+    }
+
+    private static TrainerIdentity chooseIdentity(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings) {
+        TrainerGender gender = chooseGender();
+        String skin = chooseSkin(gender);
+        String displayName = chooseName(rarity, settings, gender);
+        return new TrainerIdentity(displayName, skin);
+    }
+
+    private static TrainerGender chooseGender() {
+        boolean hasMale = hasUsableSkins(RoamingTrainerConfig.DATA.maleTrainerSkins);
+        boolean hasFemale = hasUsableSkins(RoamingTrainerConfig.DATA.femaleTrainerSkins);
+        if (hasMale && hasFemale) return RANDOM.nextBoolean() ? TrainerGender.MALE : TrainerGender.FEMALE;
+        if (hasMale) return TrainerGender.MALE;
+        if (hasFemale) return TrainerGender.FEMALE;
+        return RANDOM.nextBoolean() ? TrainerGender.MALE : TrainerGender.FEMALE;
+    }
+
+    private static String chooseName(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, TrainerGender gender) {
         String title = pretty(rarity.name()) + " Trainer";
         List<String> names = settings.trainerNames;
         if (names != null && !names.isEmpty()) {
@@ -463,13 +495,15 @@ public final class RoamingTrainerManager {
             if (!clean.isEmpty()) title = clean.get(RANDOM.nextInt(clean.size()));
         }
 
-        String[] firstNames = {
-                "Aiden", "Aria", "Blake", "Brock", "Callie", "Carter", "Dawn", "Drew",
-                "Elena", "Eli", "Felix", "Flint", "Grace", "Grant", "Harper", "Iris",
-                "Jade", "Kai", "Lana", "Leo", "Misty", "Nate", "Nora", "Orion",
-                "Paige", "Quinn", "Riley", "Rowan", "Serena", "Sky", "Talia", "Theo",
-                "Valerie", "Wade", "Wren", "Zane"
+        String[] maleFirstNames = {
+                "Aiden", "Brock", "Carter", "Drew", "Eli", "Felix", "Flint", "Grant",
+                "Kai", "Leo", "Nate", "Orion", "Rowan", "Theo", "Wade", "Zane"
         };
+        String[] femaleFirstNames = {
+                "Aria", "Callie", "Dawn", "Elena", "Grace", "Harper", "Iris", "Jade",
+                "Lana", "Misty", "Nora", "Paige", "Serena", "Talia", "Valerie", "Wren"
+        };
+        String[] firstNames = gender == TrainerGender.FEMALE ? femaleFirstNames : maleFirstNames;
         String first = firstNames[RANDOM.nextInt(firstNames.length)];
 
         // Pokemon trainer-style display: "Ace Trainer Kai", "Dragon Tamer Iris", etc.
@@ -477,9 +511,24 @@ public final class RoamingTrainerManager {
         return title + " " + first;
     }
 
+    private static String chooseSkin(TrainerGender gender) {
+        List<String> preferred = gender == TrainerGender.FEMALE
+                ? RoamingTrainerConfig.DATA.femaleTrainerSkins
+                : RoamingTrainerConfig.DATA.maleTrainerSkins;
+        String skin = chooseSkinFrom(preferred);
+        if (!skin.isBlank()) return skin;
 
-    private static String chooseSkin() {
-        List<String> skins = RoamingTrainerConfig.DATA.randomTrainerSkins;
+        // Legacy fallback for configs made before the gendered skin pools existed.
+        skin = chooseSkinFrom(RoamingTrainerConfig.DATA.randomTrainerSkins);
+        return skin == null ? "" : skin;
+    }
+
+    private static boolean hasUsableSkins(List<String> skins) {
+        return skins != null && skins.stream()
+                .anyMatch(s -> s != null && !s.isBlank() && !RoamingTrainerConfig.isBlockedDefaultSkin(s));
+    }
+
+    private static String chooseSkinFrom(List<String> skins) {
         if (skins == null || skins.isEmpty()) return "";
         List<String> clean = skins.stream()
                 .filter(s -> s != null && !s.isBlank())
