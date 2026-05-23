@@ -61,6 +61,21 @@ public class ProfessionBlockTracker {
         );
     }
 
+    public static boolean removeIfOwner(
+            ServerLevel level,
+            BlockPos pos,
+            UUID playerId
+    ) {
+        if (level == null || pos == null || playerId == null) {
+            return false;
+        }
+
+        return PLACED_BLOCKS.remove(
+                serialize(level, pos),
+                playerId
+        );
+    }
+
     public static UUID getOwner(
             ServerLevel level,
             BlockPos pos

@@ -84,6 +84,14 @@ public class ProfessionPlacementListener {
                     pending.expectedBlock =
                             blockItem.getBlock();
 
+                    if (isTrackedProfessionBlock(pending.expectedBlock)) {
+                        ProfessionBlockTracker.markPlaced(
+                                pending.level,
+                                pending.pos,
+                                pending.playerId
+                        );
+                    }
+
                     pending.ticksLeft =
                             2;
 
@@ -126,6 +134,12 @@ public class ProfessionPlacementListener {
                             markIfProfessionBlock(
                                     pending
                             );
+                        } else {
+                            ProfessionBlockTracker.removeIfOwner(
+                                    pending.level,
+                                    pending.pos,
+                                    pending.playerId
+                            );
                         }
 
                         iterator.remove();
@@ -138,8 +152,27 @@ public class ProfessionPlacementListener {
             PendingPlacement pending
     ) {
 
+        if (!isTrackedProfessionBlock(pending.expectedBlock)) {
+            return;
+        }
+
+        ProfessionBlockTracker.markPlaced(
+                pending.level,
+                pending.pos,
+                pending.playerId
+        );
+    }
+
+    private static boolean isTrackedProfessionBlock(
+            Block block
+    ) {
+
+        if (block == null) {
+            return false;
+        }
+
         String blockId =
-                pending.expectedBlock
+                block
                         .builtInRegistryHolder()
                         .key()
                         .location()
@@ -164,18 +197,7 @@ public class ProfessionPlacementListener {
                                 blockId
                         );
 
-        if (
-                !isMining &&
-                        !isForestry
-        ) {
-            return;
-        }
-
-        ProfessionBlockTracker.markPlaced(
-                pending.level,
-                pending.pos,
-                pending.playerId
-        );
+        return isMining || isForestry;
     }
 
     private static boolean isAscendedMiningTrackerBlock(
