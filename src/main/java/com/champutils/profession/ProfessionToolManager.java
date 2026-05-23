@@ -28,6 +28,10 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -209,6 +213,12 @@ public class ProfessionToolManager {
                                 getRarity(
                                         toolData.rarity
                                 )
+                        )
+                        .attributes(
+                                createToolCombatAttributes(
+                                        toolData,
+                                        base
+                                )
                         );
 
         Tier configuredTier =
@@ -252,6 +262,86 @@ public class ProfessionToolManager {
                 baseItem,
                 properties
         );
+    }
+
+
+    private static ItemAttributeModifiers createToolCombatAttributes(
+            ProfessionToolConfig.ToolData toolData,
+            String baseItemId
+    ) {
+
+        double damage =
+                getModestToolAttackDamage(
+                        toolData,
+                        baseItemId
+                );
+
+        return ItemAttributeModifiers.builder()
+                .add(
+                        Attributes.ATTACK_DAMAGE,
+                        new AttributeModifier(
+                                ResourceLocation.fromNamespaceAndPath(
+                                        "champutils",
+                                        "profession_tool_attack_damage"
+                                ),
+                                damage,
+                                AttributeModifier.Operation.ADD_VALUE
+                        ),
+                        EquipmentSlotGroup.MAINHAND
+                )
+                .add(
+                        Attributes.ATTACK_SPEED,
+                        new AttributeModifier(
+                                ResourceLocation.fromNamespaceAndPath(
+                                        "champutils",
+                                        "profession_tool_attack_speed"
+                                ),
+                                -2.8D,
+                                AttributeModifier.Operation.ADD_VALUE
+                        ),
+                        EquipmentSlotGroup.MAINHAND
+                )
+                .build();
+    }
+
+    private static double getModestToolAttackDamage(
+            ProfessionToolConfig.ToolData toolData,
+            String baseItemId
+    ) {
+
+        String base =
+                baseItemId == null
+                        ? ""
+                        : baseItemId.toLowerCase();
+
+        double damage;
+
+        if (base.contains("axe")) {
+            damage = 3.0D;
+        } else if (base.contains("pickaxe")) {
+            damage = 2.0D;
+        } else if (base.contains("hoe")) {
+            damage = 1.0D;
+        } else if (base.contains("sword")) {
+            damage = 3.0D;
+        } else {
+            damage = 1.0D;
+        }
+
+        String tier =
+                getConfiguredTierName(
+                        toolData
+                );
+
+        damage += switch (tier) {
+            case "STONE" -> 0.25D;
+            case "IRON" -> 0.5D;
+            case "DIAMOND" -> 0.75D;
+            case "NETHERITE" -> 1.0D;
+            default -> 0.0D;
+        };
+
+        return damage;
     }
 
     public static Tier getConfiguredTier(
@@ -2441,6 +2531,23 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public boolean hurtEnemy(
+                ItemStack stack,
+                LivingEntity target,
+                LivingEntity attacker
+        ) {
+
+            if (!attacker.level().isClientSide) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean isEnchantable(
                 ItemStack stack
         ) {
@@ -2525,6 +2632,23 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public boolean hurtEnemy(
+                ItemStack stack,
+                LivingEntity target,
+                LivingEntity attacker
+        ) {
+
+            if (!attacker.level().isClientSide) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean isEnchantable(
                 ItemStack stack
         ) {
@@ -2596,6 +2720,23 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public boolean hurtEnemy(
+                ItemStack stack,
+                LivingEntity target,
+                LivingEntity attacker
+        ) {
+
+            if (!attacker.level().isClientSide) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean isEnchantable(
                 ItemStack stack
         ) {
@@ -2630,6 +2771,23 @@ public class ProfessionToolManager {
 
             this.baseItem =
                     baseItem;
+        }
+
+        @Override
+        public boolean hurtEnemy(
+                ItemStack stack,
+                LivingEntity target,
+                LivingEntity attacker
+        ) {
+
+            if (!attacker.level().isClientSide) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
         }
 
         @Override

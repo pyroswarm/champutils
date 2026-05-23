@@ -1,6 +1,7 @@
 package com.champutils.battle;
 
 import com.champutils.config.Config;
+import com.champutils.config.Rank;
 import com.champutils.database.RankedStatsDatabaseRepository;
 import com.champutils.matchmaking.ArenaManager;
 import com.champutils.matchmaking.MatchmakingManager;
@@ -276,12 +277,60 @@ public class BattleListener {
             ServerPlayer winner,
             ServerPlayer loser
     ) {
+        int winnerRankIndex = getRankIndex(winner);
+        int loserRankIndex = getRankIndex(loser);
+
+        int rankGap = winnerRankIndex - loserRankIndex;
+
+        // Positive gap = the higher-ranked player won.
+        // In that case, the lower-ranked loser is protected,
+        // but still loses at least 10 RP so the ladder keeps moving.
+        if (rankGap > 0) {
+            return Math.max(
+                    10,
+                    20 - (rankGap * 4)
+            );
+        }
+
+        // Negative gap = an upset win. Reward the lower-ranked winner more,
+        // but cap it at 30 RP to avoid ladder inflation.
+        if (rankGap < 0) {
+            int upsetGap = Math.abs(rankGap);
+            return Math.min(
+                    30,
+                    20 + (upsetGap * 4)
+            );
+        }
+
         return 20;
     }
 
     private static int getRankIndex(
             ServerPlayer player
     ) {
-        return 0;
+        if (player == null || Config.ranks == null || Config.ranks.isEmpty()) {
+            return 0;
+        }
+
+        int rp = ProfileManager.getCurrentRp(player);
+        Rank currentRank = RankManager.getRank(rp);
+
+        if (currentRank == null) {
+            return 0;
+        }
+
+        int index = 0;
+
+        for (Rank rank : Config.ranks) {
+            if (rank == null) {
+                continue;
+            }
+
+            if (rank.min_elo < currentRank.min_elo) {
+                index++;
+            }
+        }
+
+        return index;
     }
 }
