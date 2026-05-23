@@ -5,6 +5,7 @@ import com.champutils.dex.PokemonOriginManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
+import com.champutils.crate.CrateCreditManager;
 import com.champutils.wondertrade.WonderTradePokemonUtil;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
@@ -136,6 +137,7 @@ public final class NpcShopService {
         boolean success = switch (normalize(entry.type)) {
             case "tool" -> giveTool(player, entry);
             case "pokemon_crate" -> givePokemonCrate(player, entry);
+            case "crate_credit", "crate_key" -> giveCrateCredit(player, entry);
             case "command" -> runCommands(player, entry);
             case "item" -> giveItem(player, entry);
             default -> false;
@@ -187,6 +189,24 @@ public final class NpcShopService {
 
     private static boolean givePokemonCrate(ServerPlayer player, NpcShopConfig.ShopEntry entry) {
         return ShopPokemonCrateOpeningGui.open(player, entry);
+    }
+
+    private static boolean giveCrateCredit(ServerPlayer player, NpcShopConfig.ShopEntry entry) {
+        String crateId = normalize(entry.id);
+        if (crateId.endsWith("_crate_credit")) {
+            crateId = crateId.substring(0, crateId.length() - "_crate_credit".length());
+        }
+        if (crateId.endsWith("_crate_key")) {
+            crateId = crateId.substring(0, crateId.length() - "_crate_key".length());
+        }
+        if (crateId.isBlank()) {
+            return false;
+        }
+
+        int amount = Math.max(1, entry.amount);
+        CrateCreditManager.addCredits(player, crateId, amount);
+        player.sendSystemMessage(Component.literal("Added " + amount + " " + niceSpeciesName(crateId) + " crate credit" + (amount == 1 ? "" : "s") + " to your account.").withStyle(ChatFormatting.GREEN));
+        return true;
     }
 
     public record PlannedPokemonCrateReward(
@@ -316,6 +336,10 @@ public final class NpcShopService {
     }
 
     public static boolean grantPlannedPokemonCrateReward(ServerPlayer player, PlannedPokemonCrateReward plan) {
+        return grantPlannedPokemonCrateReward(player, plan, "Store Pokémon Crate", true);
+    }
+
+    public static boolean grantPlannedPokemonCrateReward(ServerPlayer player, PlannedPokemonCrateReward plan, String sourceLabel, boolean broadcastSpecial) {
         if (player == null || plan == null || plan.species == null || plan.species.isBlank()) {
             return false;
         }
@@ -347,19 +371,28 @@ public final class NpcShopService {
             displayName = niceSpeciesName(plan.species);
         }
 
-        player.sendSystemMessage(Component.literal("Your Store Pokémon Crate opened into ").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(displayName).withStyle(plan.shiny ? ChatFormatting.GOLD : poolColor(plan.pool)))
-                .append(Component.literal(sentToPc ? "! It was sent to your PC." : "!").withStyle(ChatFormatting.GOLD)));
+        if (sourceLabel != null && !sourceLabel.isBlank()) {
+            player.sendSystemMessage(Component.literal("Your " + sourceLabel + " opened into ").withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal(displayName).withStyle(plan.shiny ? ChatFormatting.GOLD : poolColor(plan.pool)))
+                    .append(Component.literal(sentToPc ? "! It was sent to your PC." : "!").withStyle(ChatFormatting.GOLD)));
+        } else if (sentToPc) {
+            player.sendSystemMessage(Component.literal("Your party was full. ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(displayName).withStyle(plan.shiny ? ChatFormatting.GOLD : poolColor(plan.pool)))
+                    .append(Component.literal(" was sent to your PC.").withStyle(ChatFormatting.GRAY)));
+        }
 
         if (plan.special()) {
             playSpecialPokemonSound(player, plan.pool, plan.shiny);
             rememberLastRareRoll(player.getUUID(), plan);
 
-            String rarityText = plan.shiny ? "a shiny" : "a " + poolLabel(plan.pool);
-            player.server.getPlayerList().broadcastSystemMessage(
-                    Component.literal(player.getName().getString() + " opened " + rarityText + " Pokémon from the Store Pokémon Crate: " + displayName + "!").withStyle(ChatFormatting.GOLD),
-                    false
-            );
+            if (broadcastSpecial) {
+                String rarityText = plan.shiny ? "a shiny" : "a " + poolLabel(plan.pool);
+                String label = sourceLabel == null || sourceLabel.isBlank() ? "a crate" : sourceLabel;
+                player.server.getPlayerList().broadcastSystemMessage(
+                        Component.literal(player.getName().getString() + " opened " + rarityText + " Pokémon from " + label + ": " + displayName + "!").withStyle(ChatFormatting.GOLD),
+                        false
+                );
+            }
         }
         return true;
     }

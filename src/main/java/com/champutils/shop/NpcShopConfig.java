@@ -26,7 +26,7 @@ public final class NpcShopConfig {
     }
 
     public static final class ShopEntry {
-        /** item, tool, pokemon_crate, or command */
+        /** item, tool, crate_credit, pokemon_crate, or command */
         public String type = "item";
         public String id = "minecraft:stone";
         public String displayName = "Stone";
@@ -126,7 +126,15 @@ public final class NpcShopConfig {
 
         upsertDefaultEntry("genesisforms:mega_bracelet", item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
-        upsertTypedEntry("pokemon_crate", "store_pokemon_crate", pokemonCrate(22, "§6Store Pokémon Crate", "minecraft:chest", 25000L));
+
+        CONFIG.entries.removeIf(entry -> entry != null && "pokemon_crate".equalsIgnoreCase(entry.type == null ? "" : entry.type.trim()));
+
+        upsertDefaultEntry("common_crate_credit", crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
+                "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("uncommon_crate_credit", crateCredit(22, "§aUncommon Crate Credit", "minecraft:barrel", "uncommon", 1, 15000L,
+                "§7Adds 1 Uncommon Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("rare_crate_credit", crateCredit(24, "§bRare Crate Credit", "minecraft:ender_chest", "rare", 1, 40000L,
+                "§7Adds 1 Rare Crate credit.", "§7Open it from §f/opencrates§7."));
     }
 
     private static boolean isRemovedLegacyEntry(ShopEntry entry) {
@@ -136,6 +144,7 @@ public final class NpcShopConfig {
         String type = entry.type == null ? "" : entry.type.toLowerCase();
         if (id.equals("cobblemon:great_ball") || id.equals("cobblemon:ultra_ball")) return true;
         if (name.contains("great ball") || name.contains("ultra ball")) return true;
+        if (type.equals("pokemon_crate") || id.equals("store_pokemon_crate") || name.contains("store pokémon crate") || name.contains("store pokemon crate")) return true;
         return name.contains("legacy crate") || name.contains("removed crate");
     }
 
@@ -175,7 +184,12 @@ public final class NpcShopConfig {
         root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", 5000L));
         root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", 5000L));
 
-        root.entries.add(pokemonCrate(22, "§6Store Pokémon Crate", "minecraft:chest", 25000L));
+        root.entries.add(crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
+                "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(22, "§aUncommon Crate Credit", "minecraft:barrel", "uncommon", 1, 15000L,
+                "§7Adds 1 Uncommon Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(24, "§bRare Crate Credit", "minecraft:ender_chest", "rare", 1, 40000L,
+                "§7Adds 1 Rare Crate credit.", "§7Open it from §f/opencrates§7."));
 
         return root;
     }
@@ -205,6 +219,20 @@ public final class NpcShopConfig {
         entry.price = price;
         entry.lore.add("§7Random unidentified common " + toolType + ".");
         entry.lore.add("§8Starter-friendly progression gear.");
+        return entry;
+    }
+
+
+    private static ShopEntry crateCredit(int slot, String name, String icon, String crateId, int amount, long price, String... lore) {
+        ShopEntry entry = new ShopEntry();
+        entry.type = "crate_credit";
+        entry.id = crateId;
+        entry.slot = slot;
+        entry.displayName = name;
+        entry.icon = icon;
+        entry.amount = Math.max(1, amount);
+        entry.price = price;
+        entry.lore = new ArrayList<>(List.of(lore));
         return entry;
     }
 

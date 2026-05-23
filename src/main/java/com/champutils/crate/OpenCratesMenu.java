@@ -12,6 +12,7 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -149,25 +150,12 @@ public final class OpenCratesMenu {
         double itemTotal = totalWeight(crate.items);
         double toolTotal = totalWeight(crate.tools);
 
-        gui.setSlot(4, new GuiElementBuilder(resolveItem(crate.iconItem))
-                .setName(Component.literal(crate.displayName).withStyle(colorFor(id)))
-                .addLoreLine(Component.literal("Guaranteed: " + crate.guaranteedShardMin + "-" + crate.guaranteedShardMax + " " + ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity) + " shards").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .addLoreLine(Component.literal("Shiny chance: " + crate.shinyChance + "%").withStyle(ChatFormatting.GRAY))
-                .addLoreLine(Component.literal("Reward chances below are within each reward section.").withStyle(ChatFormatting.DARK_GRAY)));
 
         int startIndex = safePage * pageSize;
         int endIndex = Math.min(entries.size(), startIndex + pageSize);
         int slot = 9;
-        String lastSection = "";
         for (int i = startIndex; i < endIndex && slot < 45; i++) {
             PreviewEntry entry = entries.get(i);
-            if (!entry.section.equals(lastSection) && slot < 45) {
-                gui.setSlot(slot++, new GuiElementBuilder(sectionIcon(entry.section))
-                        .setName(Component.literal(entry.section).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
-                lastSection = entry.section;
-                if (slot >= 45) break;
-            }
-
             double sectionTotal = switch (entry.section) {
                 case "Pokémon" -> pokemonTotal;
                 case "Items" -> itemTotal;
@@ -197,21 +185,49 @@ public final class OpenCratesMenu {
     }
 
     private record PreviewEntry(String section, Object reward, Item fallbackIcon) {}
+    private record PreviewToolEntry(String toolId, String displayName, int weight) {}
 
     private static List<PreviewEntry> buildPreviewEntries(CrateConfig.CrateDefinition crate) {
         List<PreviewEntry> entries = new ArrayList<>();
-        if (crate.pokemon != null) for (CrateConfig.WeightedPokemon p : crate.pokemon) entries.add(new PreviewEntry("Pokémon", p, Items.EGG));
-        if (crate.items != null) for (CrateConfig.WeightedItem i : crate.items) entries.add(new PreviewEntry("Items", i, Items.CHEST));
-        if (crate.tools != null) for (CrateConfig.WeightedTool t : crate.tools) entries.add(new PreviewEntry("Tools", t, Items.DIAMOND_PICKAXE));
+        if (crate.pokemon != null) {
+            for (CrateConfig.WeightedPokemon p : crate.pokemon) {
+                entries.add(new PreviewEntry("Pokémon", p, Items.EGG));
+            }
+        }
+        if (crate.items != null) {
+            for (CrateConfig.WeightedItem i : crate.items) {
+                entries.add(new PreviewEntry("Items", i, Items.CHEST));
+            }
+        }
+
+        addCondensedToolPreview(entries, crate, "pickaxe");
+        addCondensedToolPreview(entries, crate, "axe");
+        addCondensedToolPreview(entries, crate, "hoe");
+
         return entries;
     }
 
-    private static Item sectionIcon(String section) {
-        return switch (section) {
-            case "Pokémon" -> Items.EGG;
-            case "Items" -> Items.CHEST;
-            case "Tools" -> Items.DIAMOND_PICKAXE;
-            default -> Items.PAPER;
+    private static void addCondensedToolPreview(List<PreviewEntry> entries, CrateConfig.CrateDefinition crate, String type) {
+        if (crate == null || crate.tools == null || crate.tools.isEmpty()) return;
+        int weight = 0;
+        String sampleToolId = null;
+        for (CrateConfig.WeightedTool tool : crate.tools) {
+            if (tool == null || tool.toolId == null) continue;
+            if (toolType(tool.toolId).equals(type)) {
+                weight += Math.max(0, tool.weight);
+                if (sampleToolId == null) sampleToolId = tool.toolId;
+            }
+        }
+        if (weight <= 0 || sampleToolId == null) return;
+        String rarity = ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
+        entries.add(new PreviewEntry("Tools", new PreviewToolEntry(sampleToolId, "Unidentified " + rarity + " " + type, weight), toolFallback(type)));
+    }
+
+    private static Item toolFallback(String type) {
+        return switch (type) {
+            case "axe" -> Items.DIAMOND_AXE;
+            case "hoe" -> Items.DIAMOND_HOE;
+            default -> Items.DIAMOND_PICKAXE;
         };
     }
 
@@ -229,8 +245,7 @@ public final class OpenCratesMenu {
             double percent = (Math.max(0, p.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
                     .setName(Component.literal(prettyName(p.species)).withStyle(poolColor(pool)))
-                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
-                    .addLoreLine(Component.literal("Pool: " + poolLabel(pool)).withStyle(ChatFormatting.GRAY));
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         if (entry instanceof CrateConfig.WeightedItem i) {
             Item icon = resolveItem(i.itemId);
@@ -238,16 +253,22 @@ public final class OpenCratesMenu {
             double percent = (Math.max(0, i.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
                     .setName(Component.literal(prettyItem(i.itemId)).withStyle(ChatFormatting.AQUA))
-                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
-                    .addLoreLine(Component.literal("Amount: " + i.amountMin + "-" + i.amountMax).withStyle(ChatFormatting.GRAY));
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
-        if (entry instanceof CrateConfig.WeightedTool t) {
-            ItemStack icon = unidentifiedToolIcon(t.toolId, fallbackIcon);
+        if (entry instanceof PreviewToolEntry t) {
+            ItemStack icon = cleanUnidentifiedToolPreview(t.toolId, t.displayName);
             double percent = (Math.max(0, t.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
-                    .setName(Component.literal(prettyName(t.toolId)).withStyle(ChatFormatting.LIGHT_PURPLE))
-                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD))
-                    .addLoreLine(Component.literal("Unidentified profession tool").withStyle(ChatFormatting.GRAY));
+                    .setName(Component.literal(t.displayName).withStyle(ChatFormatting.LIGHT_PURPLE))
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
+        }
+        if (entry instanceof CrateConfig.WeightedTool t) {
+            String type = toolType(t.toolId);
+            ItemStack icon = cleanUnidentifiedToolPreview(t.toolId, "Unidentified " + type);
+            double percent = (Math.max(0, t.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            return new GuiElementBuilder(icon)
+                    .setName(Component.literal("Unidentified " + type).withStyle(ChatFormatting.LIGHT_PURPLE))
+                    .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         return new GuiElementBuilder(fallbackIcon).setName(Component.literal("Unknown reward"));
     }
@@ -304,7 +325,7 @@ public final class OpenCratesMenu {
                 grantReward(player, opening.guaranteedShards);
                 grantReward(player, opening.mainReward);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
-                        .append(Component.literal(opening.mainReward.summary).withStyle(ChatFormatting.WHITE)));
+                        .append(Component.literal(cleanRewardSummary(opening.mainReward)).withStyle(ChatFormatting.WHITE)));
                 playLocalSound(player, isSpecial(opening.mainReward) ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.experience_orb.pickup", 0.8F, isSpecial(opening.mainReward) ? 1.0F : 1.25F);
                 open(player);
             }
@@ -365,7 +386,7 @@ public final class OpenCratesMenu {
         plan.type = RewardType.ITEM;
         plan.itemId = wi.itemId;
         plan.amount = amount;
-        plan.summary = amount + "x " + wi.itemId;
+        plan.summary = amount + "x " + prettyItem(wi.itemId);
         plan.icon = new ItemStack(item, amount);
         return plan;
     }
@@ -378,8 +399,8 @@ public final class OpenCratesMenu {
         RewardPlan plan = new RewardPlan();
         plan.type = RewardType.TOOL;
         plan.toolId = wt.toolId;
-        plan.summary = "full tool: " + wt.toolId;
-        plan.icon = stack.copy();
+        plan.summary = unidentifiedToolRewardName(crate, wt.toolId);
+        plan.icon = cleanUnidentifiedToolPreview(wt.toolId, plan.summary);
         return plan;
     }
 
@@ -402,7 +423,7 @@ public final class OpenCratesMenu {
             }
             case POKEMON -> {
                 NpcShopService.PlannedPokemonCrateReward reward = NpcShopService.restorePlannedPokemonCrateReward(plan.species, plan.level, plan.shiny, plan.pool);
-                if (reward != null) NpcShopService.grantPlannedPokemonCrateReward(player, reward);
+                if (reward != null) NpcShopService.grantPlannedPokemonCrateReward(player, reward, null, false);
             }
             case ITEM -> {
                 Item item = resolveItem(plan.itemId);
@@ -425,11 +446,15 @@ public final class OpenCratesMenu {
             int spinSlot = SPIN_SLOTS[i];
             boolean center = spinSlot == CENTER_SLOT;
             RewardPlan line = finalLock && center ? opening.mainReward : opening.reel.get((opening.offset + i) % opening.reel.size());
-            GuiElementBuilder rewardBuilder = rewardElement(line).hideDefaultTooltip();
+            GuiElementBuilder rewardBuilder = rewardElement(line);
             if (center && finalLock) {
-                rewardBuilder.setName(Component.literal("§e§lYOUR REWARD - " + line.summary)).addLoreLine(Component.literal("§aThis is what you won."));
+                rewardBuilder
+                        .setName(Component.literal("§e§lYour Reward: §f" + cleanRewardSummary(line)))
+                        .hideDefaultTooltip();
             } else {
-                rewardBuilder.setName(Component.literal(" "));
+                rewardBuilder
+                        .setName(Component.literal(" "))
+                        .hideDefaultTooltip();
             }
             opening.gui.setSlot(spinSlot, rewardBuilder);
             opening.gui.setSlot(spinSlot + 9, rarityGlassElement(line));
@@ -503,7 +528,44 @@ public final class OpenCratesMenu {
     private static int calculateFinalOffsetBeforeLock() { int advances = 0; for (int tick = 1; tick < SPIN_END_TICKS; tick++) { int speed = spinSpeed(tick); if (tick % speed == 0) advances++; } return advances; }
     private static int spinSpeed(int tick) { if (tick < 28) return 2; if (tick < 44) return 3; if (tick < 58) return 4; if (tick < 68) return 5; return 6; }
     private static void playCrateTickSound(ServerPlayer player, int tick) { float pitch = Math.min(1.85F, 0.85F + (tick / 70.0F)); playLocalSound(player, "minecraft:block.note_block.hat", 0.45F, pitch); }
-    private static void playLocalSound(ServerPlayer player, String soundId, float volume, float pitch) { if (player == null || soundId == null || soundId.isBlank()) return; try { SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId)); if (sound != null) player.level().playSound(null, player.blockPosition(), sound, SoundSource.PLAYERS, volume, pitch); } catch (Throwable ignored) {} }
+    private static void playLocalSound(ServerPlayer player, String soundId, float volume, float pitch) {
+        if (player == null || soundId == null || soundId.isBlank()) return;
+        try {
+            SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
+            if (sound != null) {
+                // Send roulette sounds directly to the opener so every spin movement has
+                // audible feedback without depending on any profession notification toggle.
+                player.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static String cleanRewardSummary(RewardPlan reward) {
+        if (reward == null) return "Unknown Reward";
+        if (reward.type == RewardType.ITEM && reward.itemId != null) {
+            return Math.max(1, reward.amount) + "x " + prettyItem(reward.itemId);
+        }
+        if (reward.type == RewardType.TOOL) {
+            return reward.summary == null || reward.summary.isBlank() ? "Unidentified Profession Tool" : reward.summary;
+        }
+        if (reward.type == RewardType.POKEMON && reward.species != null) {
+            return (reward.shiny ? "Shiny " : "") + prettyName(reward.species);
+        }
+        if (reward.type == RewardType.SHARDS) {
+            return Math.max(1, reward.shardAmount) + " " + ProfessionFragmentManager.formatWords(reward.shardRarity) + " Shards";
+        }
+        return reward.summary == null || reward.summary.isBlank() ? "Reward" : prettyName(reward.summary);
+    }
+
+    private static String unidentifiedToolRewardName(CrateConfig.CrateDefinition crate, String toolId) {
+        String rarity = crate == null ? "" : ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
+        String type = prettyName(toolType(toolId));
+        if (rarity == null || rarity.isBlank()) {
+            return "Unidentified " + type;
+        }
+        return "Unidentified " + rarity + " " + type;
+    }
 
     private static String formatPercent(double value) {
         return String.format(Locale.US, "%.2f%%", value);
@@ -530,12 +592,33 @@ public final class OpenCratesMenu {
     }
 
     private static ItemStack unidentifiedToolIcon(String toolId, Item fallbackIcon) {
+        return cleanUnidentifiedToolPreview(toolId, "Unidentified " + toolType(toolId));
+    }
+
+    private static ItemStack cleanUnidentifiedToolPreview(String toolId, String displayName) {
+        ItemStack stack;
         try {
-            ItemStack stack = ProfessionToolManager.createTool(toolId, false);
-            if (stack != null && !stack.isEmpty()) return stack;
+            stack = ProfessionToolManager.createTool(toolId, false);
+        } catch (Throwable ignored) {
+            stack = ItemStack.EMPTY;
+        }
+        if (stack == null || stack.isEmpty()) {
+            stack = new ItemStack(toolFallback(toolType(toolId)));
+        }
+
+        try {
+            stack.remove(DataComponents.LORE);
+            stack.set(DataComponents.CUSTOM_NAME, Component.literal(displayName).withStyle(ChatFormatting.LIGHT_PURPLE));
         } catch (Throwable ignored) {
         }
-        return new ItemStack(fallbackIcon == null ? Items.DIAMOND_PICKAXE : fallbackIcon);
+        return stack;
+    }
+
+    private static String toolType(String toolId) {
+        String lower = toolId == null ? "" : toolId.toLowerCase(Locale.ROOT);
+        if (lower.contains("axe") || lower.contains("cleaver") || lower.contains("worldtree") || lower.contains("wood")) return "axe";
+        if (lower.contains("hoe") || lower.contains("gaias") || lower.contains("gaia") || lower.contains("blessing")) return "hoe";
+        return "pickaxe";
     }
 
     private static ItemStack createPokemonIcon(String species, int level, boolean shiny, NpcShopService.PokemonCratePool pool) {
