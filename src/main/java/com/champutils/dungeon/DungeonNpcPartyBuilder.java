@@ -46,7 +46,7 @@ public final class DungeonNpcPartyBuilder {
             party.initialize();
             npc.setParty(party);
             try { npc.setSkill(wave.skill); } catch (Exception ignored) {}
-            try { npc.setCustomName(Component.literal(wave.trainerName == null || wave.trainerName.isBlank() ? "Dungeon Trainer" : wave.trainerName)); } catch (Exception ignored) {}
+            try { npc.setCustomName(Component.literal(wave.trainerName == null || wave.trainerName.isBlank() ? "Expedition Trainer" : wave.trainerName)); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
             try { npc.setPersistenceRequired(); } catch (Exception ignored) {}

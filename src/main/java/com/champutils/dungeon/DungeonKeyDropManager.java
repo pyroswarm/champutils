@@ -58,7 +58,7 @@ public final class DungeonKeyDropManager {
         DungeonRarity rarity = DungeonRarity.parse(data == null ? "COMMON" : data.rarity);
 
         player.displayClientMessage(
-                Component.literal("Dungeon Key Drop! ")
+                Component.literal("Expedition Key Drop! ")
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                         .append(Component.literal(displayName + " x" + amount).withStyle(rarity.getColor())),
                 true

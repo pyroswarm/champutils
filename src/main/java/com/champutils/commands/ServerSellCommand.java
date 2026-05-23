@@ -2,7 +2,7 @@ package com.champutils.commands;
 
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.SellPriceConfig;
-import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -22,11 +22,13 @@ public final class ServerSellCommand {
             dispatcher.register(
                     Commands.literal("sell")
                             .then(Commands.literal("hand")
-                                    .executes(context -> sellHand(context.getSource().getPlayerOrException(), false))
-                                    .then(Commands.argument("mode", StringArgumentType.word())
+                                    .executes(context -> sellHand(context.getSource().getPlayerOrException(), 1))
+                                    .then(Commands.literal("all")
+                                            .executes(context -> sellHand(context.getSource().getPlayerOrException(), -1)))
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(1, 64))
                                             .executes(context -> sellHand(
                                                     context.getSource().getPlayerOrException(),
-                                                    StringArgumentType.getString(context, "mode").equalsIgnoreCase("all")
+                                                    IntegerArgumentType.getInteger(context, "amount")
                                             ))))
                             .then(Commands.literal("all")
                                     .executes(context -> sellAll(context.getSource().getPlayerOrException())))
@@ -36,7 +38,12 @@ public final class ServerSellCommand {
 
             dispatcher.register(
                     Commands.literal("sellhand")
-                            .executes(context -> sellHand(context.getSource().getPlayerOrException(), false))
+                            .executes(context -> sellHand(context.getSource().getPlayerOrException(), 1))
+                            .then(Commands.argument("amount", IntegerArgumentType.integer(1, 64))
+                                    .executes(context -> sellHand(
+                                            context.getSource().getPlayerOrException(),
+                                            IntegerArgumentType.getInteger(context, "amount")
+                                    )))
             );
 
             dispatcher.register(
@@ -65,10 +72,13 @@ public final class ServerSellCommand {
         player.sendSystemMessage(Component.literal(
                 "§7This stack is worth: §6" + EconomyManager.format(unit * stack.getCount()) + "§7."
         ));
+        player.sendSystemMessage(Component.literal(
+                "§7Use §e/sell hand <amount> §7or §e/sell hand all§7 to sell from your held stack."
+        ));
         return 1;
     }
 
-    private static int sellHand(ServerPlayer player, boolean wholeMatchingStack) {
+    private static int sellHand(ServerPlayer player, int requestedAmount) {
         if (!SellPriceConfig.isEnabled()) {
             player.sendSystemMessage(Component.literal("§cServer selling is currently disabled."));
             return 0;
@@ -86,7 +96,12 @@ public final class ServerSellCommand {
             return 0;
         }
 
-        int amount = wholeMatchingStack ? stack.getCount() : 1;
+        int amount = requestedAmount <= 0 ? stack.getCount() : Math.min(requestedAmount, stack.getCount());
+        if (amount <= 0) {
+            player.sendSystemMessage(Component.literal("§cYou do not have enough of that item to sell."));
+            return 0;
+        }
+
         long total = unit * amount;
 
         EconomyManager.TransactionResult result = EconomyManager.deposit(player, total, "server_sell:" + SellPriceConfig.getItemId(stack));

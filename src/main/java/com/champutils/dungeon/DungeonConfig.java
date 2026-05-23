@@ -22,7 +22,7 @@ public final class DungeonConfig {
     }
 
     public static class DungeonData {
-        public String displayName = "Common Dungeon";
+        public String displayName = "Common Expedition";
         public String theme = "forest";
         public String rarity = "COMMON";
         public String keyId = "common_dungeon_key";
@@ -79,7 +79,7 @@ public final class DungeonConfig {
                 normalizeLoadedWorlds();
             }
 
-            System.out.println("[ChampUtils] Loaded " + DUNGEONS.size() + " dungeons. Default dungeon world: " + DEFAULT_DUNGEON_WORLD);
+            System.out.println("[ChampUtils] Loaded " + DUNGEONS.size() + " expeditions. Default expedition world: " + DEFAULT_DUNGEON_WORLD);
         } catch (Exception e) {
             e.printStackTrace();
         }

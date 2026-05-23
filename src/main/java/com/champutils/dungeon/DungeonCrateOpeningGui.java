@@ -72,7 +72,7 @@ public final class DungeonCrateOpeningGui {
         } else {
             int credits = DungeonCrateCreditManager.getNormalCredits(player.getUUID(), safeRarity);
             if (credits <= 0) {
-                player.sendSystemMessage(Component.literal("You have no " + nice(safeRarity.name()) + " Reward Crate credits.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("You have no " + nice(safeRarity.name()) + " Crate credits.").withStyle(ChatFormatting.RED));
                 return false;
             }
         }
@@ -86,7 +86,7 @@ public final class DungeonCrateOpeningGui {
         OPENINGS.remove(player.getUUID());
 
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
-        gui.setTitle(Component.literal(nice(safeRarity.name()) + (safeType == DungeonNativeCrateRegistry.CrateType.POKEMON ? " Pokemon Crate" : " Loot Crate")));
+        gui.setTitle(Component.literal(nice(safeRarity.name()) + (safeType == DungeonNativeCrateRegistry.CrateType.POKEMON ? " Pokemon Crate" : " Crate")));
 
         for (int i = 0; i < gui.getSize(); i++) {
             gui.setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).setName(Component.literal(" ")));
@@ -104,7 +104,7 @@ public final class DungeonCrateOpeningGui {
         Opening opening = new Opening(player, plan, gui);
         OPENINGS.put(player.getUUID(), opening);
         updateSpin(opening, false);
-        playLocalSound(player, "minecraft:ui.button.click", 0.6F, 1.2F);
+        playLocalSound(player, "minecraft:block.chest.open", 0.55F, 1.15F);
         return true;
     }
 
@@ -131,7 +131,7 @@ public final class DungeonCrateOpeningGui {
                 }
                 updateSpin(opening, finalLock);
                 if (opening.tick == SPIN_END_TICKS) {
-                    playLocalSound(player, "minecraft:entity.player.levelup", 0.7F, 1.4F);
+                    playLocalSound(player, "minecraft:block.note_block.pling", 0.65F, 1.55F);
                 } else if (!finalLock) {
                     playCrateTickSound(player, opening.tick);
                 }
@@ -141,10 +141,7 @@ public final class DungeonCrateOpeningGui {
                 iterator.remove();
                 player.closeContainer();
 
-                boolean opened = DungeonRewardManager.grantPlannedCrateReward(player, opening.plan);
-                if (opened) {
-                    playLocalSound(player, "minecraft:ui.toast.challenge_complete", 0.8F, 1.0F);
-                }
+                DungeonRewardManager.grantPlannedCrateRewardSilently(player, opening.plan);
             }
         }
     }
@@ -162,7 +159,7 @@ public final class DungeonCrateOpeningGui {
         gui.setSlot(4, new GuiElementBuilder(summary.pokemonCrate() ? Items.DRAGON_EGG : Items.CHEST)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Rewards Received").withStyle(ChatFormatting.BOLD))
-                .addLoreLine(Component.literal("§7" + nice(summary.rarity().name()) + (summary.pokemonCrate() ? " Pokemon Crate" : " Loot Crate"))));
+                .addLoreLine(Component.literal("§7" + nice(summary.rarity().name()) + (summary.pokemonCrate() ? " Pokemon Crate" : " Crate"))));
 
         int[] rewardSlots = new int[]{10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
         List<DungeonCrateRewardSummary.RewardLine> rewards = summary.rewards();
@@ -274,8 +271,8 @@ public final class DungeonCrateOpeningGui {
 
     private static void playCrateTickSound(ServerPlayer player, int tick) {
         // CS2-style tick each time the reel advances past an item.
-        float pitch = Math.min(1.85F, 0.85F + (tick / 70.0F));
-        playLocalSound(player, "minecraft:block.note_block.hat", 0.45F, pitch);
+        float pitch = Math.min(1.7F, 0.75F + (tick / 90.0F));
+        playLocalSound(player, "minecraft:block.note_block.hat", 0.28F, pitch);
     }
 
     private static void playLocalSound(ServerPlayer player, String soundId, float volume, float pitch) {

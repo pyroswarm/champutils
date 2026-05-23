@@ -39,26 +39,26 @@ public final class DungeonMenu {
 
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x1, player);
-        gui.setTitle(Component.literal("Dungeons"));
+        gui.setTitle(Component.literal("Expeditions"));
 
         gui.setSlot(
                 DUNGEONS_BUTTON_SLOT,
                 new GuiElementBuilder(Items.MAP)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§aDungeons").withStyle(ChatFormatting.BOLD))
-                        .addLoreLine(Component.literal("§7View available dungeons."))
-                        .addLoreLine(Component.literal("§7Dungeon entry now uses digital keys."))
+                        .setName(Component.literal("§aExpeditions").withStyle(ChatFormatting.BOLD))
+                        .addLoreLine(Component.literal("§7View available expeditions."))
+                        .addLoreLine(Component.literal("§7Expedition entry requires expedition keys."))
                         .addLoreLine(Component.literal("§eClick to open"))
-                        .setCallback((i, c, t) -> openDungeons(player))
+                        .setCallback((i, c, t) -> openExpeditions(player))
         );
 
         gui.setSlot(
                 KEYS_INFO_SLOT,
                 new GuiElementBuilder(Items.TRIPWIRE_HOOK)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§6Your Dungeon Keys").withStyle(ChatFormatting.BOLD))
-                        .addLoreLine(Component.literal("§7Digital keys cannot be dropped,"))
-                        .addLoreLine(Component.literal("§7traded, or duped as items."))
+                        .setName(Component.literal("§6Your Expedition Keys").withStyle(ChatFormatting.BOLD))
+                        .addLoreLine(Component.literal("§7Expedition keys cannot be dropped,"))
+                        .addLoreLine(Component.literal("§7traded, or duplicated."))
                         .addLoreLine(Component.literal("§8Total: §f" + DungeonDigitalKeyManager.getTotalKeys(player.getUUID())))
                         .addLoreLine(Component.literal(" "))
                         .addLoreLine(Component.literal(formatKeyLine(player, "common_dungeon_key")))
@@ -73,9 +73,9 @@ public final class DungeonMenu {
                 CHESTS_BUTTON_SLOT,
                 new GuiElementBuilder(gildedChest("cobblemon:gilded_chest"))
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§bDungeon Chests").withStyle(ChatFormatting.BOLD))
-                        .addLoreLine(Component.literal("§7Open earned dungeon chest credits."))
-                        .addLoreLine(Component.literal("§7Credits are digital and bound to you."))
+                        .setName(Component.literal("§bCrates").withStyle(ChatFormatting.BOLD))
+                        .addLoreLine(Component.literal("§7Open earned crate rewards."))
+                        .addLoreLine(Component.literal("§7Crates can be earned from many activities."))
                         .addLoreLine(Component.literal("§eClick to open"))
                         .setCallback((i, c, t) -> openChests(player))
         );
@@ -83,7 +83,7 @@ public final class DungeonMenu {
         gui.open();
     }
 
-    public static void openDungeons(ServerPlayer player) {
+    public static void openExpeditions(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Dungeon List"));
 
@@ -120,7 +120,7 @@ public final class DungeonMenu {
 
     public static void openChests(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x4, player);
-        gui.setTitle(Component.literal("Dungeon Chests"));
+        gui.setTitle(Component.literal("Crates"));
 
         gui.setSlot(
                 4,

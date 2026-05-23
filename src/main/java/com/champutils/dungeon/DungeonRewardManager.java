@@ -27,6 +27,8 @@ import java.util.Random;
 
 public final class DungeonRewardManager {
 
+    private static final ThreadLocal<Boolean> SUPPRESS_CRATE_REWARD_SOUNDS = ThreadLocal.withInitial(() -> false);
+
     private static final Random RANDOM = new Random();
 
     private DungeonRewardManager() {
@@ -139,17 +141,17 @@ public final class DungeonRewardManager {
 
         DungeonCrateCreditManager.grantCredits(player.getUUID(), session.rarity, normalChestCount, pokemonChestCount);
 
-        player.sendSystemMessage(Component.literal("Dungeon crate credits earned!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("+ " + normalChestCount + "x " + nice(session.rarity.name()) + " Reward Crate credit(s)").withStyle(session.rarity.getColor()));
+        player.sendSystemMessage(Component.literal("Crate credits earned!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("+ " + normalChestCount + "x " + nice(session.rarity.name()) + " Crate credit(s)").withStyle(session.rarity.getColor()));
         player.sendSystemMessage(Component.literal("+ " + pokemonChestCount + "x " + nice(session.rarity.name()) + " Pokemon Crate credit(s)").withStyle(ChatFormatting.LIGHT_PURPLE));
-        player.sendSystemMessage(Component.literal("Go to spawn and open the matching crate. Credits are bound to you and cannot be traded.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Go to spawn and open the matching crate. Credits are saved to your account.").withStyle(ChatFormatting.GRAY));
     }
 
     public static PlannedCrateReward planCrateReward(DungeonRarity requestedRarity, DungeonNativeCrateRegistry.CrateType requestedType) {
         DungeonRarity rarity = requestedRarity == null ? DungeonRarity.COMMON : requestedRarity;
         DungeonNativeCrateRegistry.CrateType type = requestedType == null ? DungeonNativeCrateRegistry.CrateType.NORMAL : requestedType;
         DungeonRewardConfig.RewardTable table = DungeonRewardConfig.getTable(rarity);
-        String displayName = nice(rarity.name()) + (type == DungeonNativeCrateRegistry.CrateType.POKEMON ? " Pokemon Crate" : " Reward Crate");
+        String displayName = nice(rarity.name()) + (type == DungeonNativeCrateRegistry.CrateType.POKEMON ? " Pokemon Crate" : " Crate");
 
         if (type == DungeonNativeCrateRegistry.CrateType.POKEMON) {
             return planPokemonChest(rarity, displayName, table);
@@ -173,10 +175,10 @@ public final class DungeonRewardManager {
             player.sendSystemMessage(Component.literal("Pokemon Crate opened!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         } else {
             if (!DungeonCrateCreditManager.consumeNormalCredit(player.getUUID(), rarity)) {
-                player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Reward Crate credits.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Crate credits.").withStyle(ChatFormatting.RED));
                 return false;
             }
-            player.sendSystemMessage(Component.literal("Loot Crate opened!").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+            player.sendSystemMessage(Component.literal("Crate opened!").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         }
 
         plan.grantAll(player);
@@ -184,6 +186,19 @@ public final class DungeonRewardManager {
         sendCreditRemaining(player, rarity);
         DungeonCrateOpeningGui.openRewardSummary(player, plan.summary());
         return true;
+    }
+
+    public static boolean grantPlannedCrateRewardSilently(ServerPlayer player, PlannedCrateReward plan) {
+        SUPPRESS_CRATE_REWARD_SOUNDS.set(true);
+        try {
+            return grantPlannedCrateReward(player, plan);
+        } finally {
+            SUPPRESS_CRATE_REWARD_SOUNDS.remove();
+        }
+    }
+
+    private static boolean shouldSuppressCrateRewardSounds() {
+        return Boolean.TRUE.equals(SUPPRESS_CRATE_REWARD_SOUNDS.get());
     }
 
     private interface BonusCandidate {
@@ -320,10 +335,12 @@ public final class DungeonRewardManager {
                     @Override
                     public void grant(ServerPlayer player) {
                         giveStack(player, rolledTool.copy());
-                        if (rarity == DungeonRarity.MYTHIC) {
-                            playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
-                        } else {
-                            ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                        if (!shouldSuppressCrateRewardSounds()) {
+                            if (rarity == DungeonRarity.MYTHIC) {
+                                playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                            } else {
+                                ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                            }
                         }
                         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
                             broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC crate tool from " + displayName + "!")
@@ -370,7 +387,9 @@ public final class DungeonRewardManager {
                 @Override
                 public void grant(ServerPlayer player) {
                     runPokemonRewardCommands(player, reward, shiny);
-                    ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
+                    if (!shouldSuppressCrateRewardSounds()) {
+                        ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.1F);
+                    }
                     if (reward.announce && DungeonRewardConfig.CONFIG.announceLegendaryPokemon) {
                         broadcast(player, Component.literal("✦ " + player.getName().getString() + " found " + label + " from a " + nice(rarity.name()) + " Pokemon crate!")
                                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
@@ -503,7 +522,7 @@ public final class DungeonRewardManager {
         DungeonRarity rarity = requestedRarity == null ? DungeonRarity.COMMON : requestedRarity;
         int before = DungeonCrateCreditManager.getNormalCredits(player.getUUID(), rarity);
         if (before <= 0) {
-            player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Reward Crate credits.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You have no " + nice(rarity.name()) + " Crate credits.").withStyle(ChatFormatting.RED));
             return false;
         }
 
@@ -545,9 +564,9 @@ public final class DungeonRewardManager {
         int normal = DungeonCrateCreditManager.getNormalCredits(player.getUUID(), rarity);
         int pokemon = DungeonCrateCreditManager.getPokemonCredits(player.getUUID(), rarity);
         if (normal > 0 || pokemon > 0) {
-            player.sendSystemMessage(Component.literal("Spawn crate credits remaining for " + nice(rarity.name()) + ": " + normal + " normal, " + pokemon + " Pokemon.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("Crate credits remaining for " + nice(rarity.name()) + ": " + normal + " normal, " + pokemon + " Pokemon.").withStyle(ChatFormatting.GRAY));
         } else {
-            player.sendSystemMessage(Component.literal("All " + nice(rarity.name()) + " spawn crate credits claimed.").withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.literal("All " + nice(rarity.name()) + " crate credits claimed.").withStyle(ChatFormatting.GREEN));
         }
     }
 
@@ -681,7 +700,7 @@ public final class DungeonRewardManager {
         }
 
         if (DungeonRewardConfig.CONFIG.announceMythicTools && rarity == DungeonRarity.MYTHIC) {
-            broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC dungeon tool!")
+            broadcast(player, Component.literal("✦ " + player.getName().getString() + " found a FULL MYTHIC expedition tool!")
                     .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
         }
     }
@@ -699,7 +718,7 @@ public final class DungeonRewardManager {
         }
 
         if (item == null || item == Items.AIR) {
-            player.sendSystemMessage(Component.literal("Invalid dungeon reward item: " + itemId).withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Invalid expedition reward item: " + itemId).withStyle(ChatFormatting.RED));
             return;
         }
 

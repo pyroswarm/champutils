@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 import com.champutils.rank.RankManager;
+import com.champutils.scoreboard.PlayerSidebarManager;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 
@@ -186,5 +187,7 @@ public class RpAdminCommand {
                 old,
                 value
         );
+
+        PlayerSidebarManager.update(p);
     }
 }

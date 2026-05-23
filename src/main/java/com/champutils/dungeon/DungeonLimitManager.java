@@ -49,7 +49,7 @@ public final class DungeonLimitManager {
         if (playerData != null) {
             Long nextAllowed = playerData.nextAllowedAtByRarity.get(rarity.name());
             if (nextAllowed != null && nextAllowed > now) {
-                player.sendSystemMessage(Component.literal("You are on " + rarity.name() + " dungeon cooldown for " + formatDuration(nextAllowed - now) + ".").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("You are on " + rarity.name() + " expedition cooldown for " + formatDuration(nextAllowed - now) + ".").withStyle(ChatFormatting.RED));
                 return false;
             }
         }
@@ -58,12 +58,12 @@ public final class DungeonLimitManager {
         String week = weekKey();
 
         if (config.dailyLimit >= 0 && getCount(playerData, rarity, today, true) >= config.dailyLimit) {
-            player.sendSystemMessage(Component.literal("You have reached your daily " + rarity.name() + " dungeon clear limit.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You have reached your daily " + rarity.name() + " expedition clear limit.").withStyle(ChatFormatting.RED));
             return false;
         }
 
         if (config.weeklyLimit >= 0 && getCount(playerData, rarity, week, false) >= config.weeklyLimit) {
-            player.sendSystemMessage(Component.literal("You have reached your weekly " + rarity.name() + " dungeon clear limit.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You have reached your weekly " + rarity.name() + " expedition clear limit.").withStyle(ChatFormatting.RED));
             return false;
         }
 
@@ -113,9 +113,9 @@ public final class DungeonLimitManager {
         String week = weekKey();
         long now = Instant.now().toEpochMilli();
 
-        player.sendSystemMessage(Component.literal("Dungeon limits:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("Expedition limits:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         if (hasBypass(player)) {
-            player.sendSystemMessage(Component.literal("You bypass dungeon cooldowns/limits as an admin.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("You bypass expedition cooldowns/limits as an admin.").withStyle(ChatFormatting.GRAY));
             return;
         }
 

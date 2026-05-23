@@ -5,6 +5,8 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.rank.RankManager;
+import com.champutils.config.Rank;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -158,6 +160,7 @@ public final class PlayerSidebarManager {
 
         lines.add("§8§m----------------");
         lines.add("§6Money §f" + EconomyManager.format(balance));
+        lines.add("§bRank §f" + rankName(rp));
         lines.add("§bRP §f" + rp);
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
@@ -168,6 +171,18 @@ public final class PlayerSidebarManager {
         lines.add(professionLine("§aFarming", player, ProfessionType.FARMING));
 
         return makeUniqueAndSafe(lines);
+    }
+
+    private static String rankName(int rp) {
+        try {
+            Rank rank = RankManager.getRank(rp);
+            if (rank != null && rank.name != null && !rank.name.isBlank()) {
+                return rank.name;
+            }
+        } catch (Exception ignored) {
+        }
+
+        return "Youngster";
     }
 
     private static String professionLine(String label, ServerPlayer player, ProfessionType type) {

@@ -24,10 +24,15 @@ import com.champutils.worldevent.*;
 import com.champutils.trainer.*;
 import com.champutils.dungeon.*;
 import com.champutils.economy.EconomyManager;
+import com.champutils.economy.SellPriceConfig;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
 import com.champutils.shop.*;
-import com.champutils.quest.QuestManager;
+import com.champutils.teleport.*;
+import com.champutils.hunt.*;
+import com.champutils.quest.*;
+import com.champutils.dex.*;
+import com.champutils.wondertrade.*;
 
 /*
  =========================
@@ -98,9 +103,19 @@ public class ChampUtilsMod implements ModInitializer {
          */
         DatabaseManager.init();
         EconomyManager.load();
+        com.champutils.scoreboard.ScoreboardPreferenceManager.load();
+        SellPriceConfig.load();
         NpcShopConfig.load();
+        ChestShopRegistry.load();
         FirstJoinKitManager.load();
+        PokemonHuntConfig.load();
+        PokemonHuntManager.load();
         QuestManager.load();
+        TeleportConfig.load();
+        PortalConfig.load();
+        DefaultSpawnManager.load();
+        DexRewardConfig.load();
+        DexRewardClaimData.load();
 
         /*
          =========================
@@ -196,6 +211,17 @@ public class ChampUtilsMod implements ModInitializer {
                     ServerStatusDatabaseRepository.sync(server);
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
+                    PokemonHuntManager.ensureStarted(server);
+
+                    if (DatabaseManager.isEnabled()) {
+                        try {
+                            WonderTradeRepository.ensureSchema();
+                        }
+                        catch (Exception e) {
+                            System.err.println("[ChampUtils] Failed to prepare Wondertrade database schema.");
+                            e.printStackTrace();
+                        }
+                    }
 
                     System.out.println(
                             "[ChampUtils] Leaderboard loaded."
@@ -220,8 +246,14 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
                     FirstJoinKitManager.save();
+                    ChestShopRegistry.save();
+                    TeleportConfig.save();
+                    PortalConfig.save();
+                    PokemonHuntManager.save();
                     QuestManager.saveAll();
+                    DexRewardClaimData.save();
                     DungeonManager.handleServerStopping(server);
+                    ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
 
@@ -294,6 +326,14 @@ public class ChampUtilsMod implements ModInitializer {
                     QuestManager.handleJoin(
                             player
                     );
+
+                    WonderTradeSeeder.handleJoin(
+                            player
+                    );
+
+                    ShopPokemonCrateOpeningGui.handleJoin(
+                            player
+                    );
                 }
         );
 
@@ -314,6 +354,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     DungeonManager.handleDisconnect(
+                            handler.player
+                    );
+
+                    ShopPokemonCrateOpeningGui.handleDisconnect(
                             handler.player
                     );
 
@@ -372,6 +416,7 @@ public class ChampUtilsMod implements ModInitializer {
         EconomyCommand.register();
         AuctionHouseCommand.register();
         NotificationsCommand.register();
+        ScoreboardToggleCommand.register();
         ProfessionPopupsCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
@@ -380,7 +425,16 @@ public class ChampUtilsMod implements ModInitializer {
         BlankNpcCommand.register();
         DungeonCommand.register();
         ArenaCommand.register();
+        PokemonHuntCommand.register();
         QuestCommand.register();
+        ChestShopCommand.register();
+        ServerSellCommand.register();
+        DexRewardCommand.register();
+        TextCommand.register();
+        WonderTradeCommand.register();
+        RandomTeleportCommand.register();
+        com.champutils.teleport.SpawnWarpCommand.register();
+        PortalCommand.register();
 
         /*
          New custom item test command
@@ -409,6 +463,8 @@ public class ChampUtilsMod implements ModInitializer {
         DungeonNativeCrateInteractionListener.register();
         DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();
+        PokemonHuntCatchListener.register();
+        ChestShopInteractionListener.register();
 
         /*
          =========================
@@ -430,8 +486,12 @@ public class ChampUtilsMod implements ModInitializer {
 
                     DungeonManager.tickTeleportGuard(server);
                     DungeonCrateOpeningGui.tick(server);
-                    QuestManager.tick(server);
+                    ShopPokemonCrateOpeningGui.tick(server);
                     NotificationManager.tick(server);
+                    PokemonHuntManager.tick(server);
+                    QuestManager.tick(server);
+                    RandomTeleportCommand.tick(server);
+                    PortalManager.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -453,16 +513,19 @@ public class ChampUtilsMod implements ModInitializer {
                                     server.getTickCount() % 1200 == 0
                     ) {
                         ProfessionManager.saveAll();
+                        QuestManager.saveAll();
                         PlaytimeManager.addOnlineMinute(server);
                         ServerStatusDatabaseRepository.sync(server);
                     }
 
                     /*
-                     Ranked action bar
+                     Scoreboard sidebar + ranked action bar
                      */
                     if (
                             server.getTickCount() % 20 == 0
                     ) {
+                        com.champutils.scoreboard.PlayerSidebarManager.tick(server);
+
                         for (
                                 ServerPlayer player :
                                 server.getPlayerList()

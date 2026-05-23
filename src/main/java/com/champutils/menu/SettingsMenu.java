@@ -62,8 +62,8 @@ public class SettingsMenu {
         setToggle(
                 gui,
                 4,
-                "Dungeon Notifications",
-                "Controls dungeon progress notices and alerts.",
+                "Expedition Notifications",
+                "Controls expedition progress notices and alerts.",
                 ProfessionNotificationSettings.areDungeonNotificationsEnabled(player),
                 () -> ProfessionNotificationSettings.toggleDungeonNotifications(player),
                 player

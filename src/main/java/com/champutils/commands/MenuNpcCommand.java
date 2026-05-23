@@ -29,6 +29,12 @@ public final class MenuNpcCommand {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
+                                            builder.suggest("expeditions");
+                                            builder.suggest("pvp");
+                                            builder.suggest("expeditions");
+                                            builder.suggest("pvp");
+                                            builder.suggest("expeditions");
+                                            builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
@@ -36,7 +42,7 @@ public final class MenuNpcCommand {
                                         })
                                         .executes(context -> bind(
                                                 context.getSource(),
-                                                StringArgumentType.getString(context, "menu")
+                                                normalizeMenu(StringArgumentType.getString(context, "menu"))
                                         ))))
                         .then(Commands.literal("bindcancel")
                                 .executes(context -> bindCancel(context.getSource())))
@@ -46,6 +52,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
                                             builder.suggest("dungeons");
+                                            builder.suggest("expeditions");
+                                            builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
@@ -53,15 +61,24 @@ public final class MenuNpcCommand {
                                         })
                                         .executes(context -> unbind(
                                                 context.getSource(),
-                                                StringArgumentType.getString(context, "menu")
+                                                normalizeMenu(StringArgumentType.getString(context, "menu"))
                                         ))))
                         .then(Commands.literal("list")
                                 .executes(context -> list(context.getSource())))
         ));
     }
 
+
+    private static String normalizeMenu(String menu) {
+        return switch (menu.toLowerCase()) {
+            case "expedition", "expeditions" -> "dungeons";
+            case "pvp", "battle", "battles" -> "battles";
+            default -> menu.toLowerCase();
+        };
+    }
+
     private static int help(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("§6Menu NPC commands"), false);
+        source.sendSuccess(() -> Component.literal("§6Menu NPC Commands"), false);
         source.sendSuccess(() -> Component.literal("§7/menunpc bind <menu> §8- §fRight-click an NPC to bind it."), false);
         source.sendSuccess(() -> Component.literal("§7/menunpc unbind <menu> §8- §fRemove a menu NPC binding."), false);
         source.sendSuccess(() -> Component.literal("§7/menunpc list §8- §fShow current bindings."), false);

@@ -25,6 +25,7 @@ public final class EconomyManager {
     public static final String CURRENCY_NAME_SINGULAR = "Credit";
 
     private static final long MAX_BALANCE = 9_000_000_000_000_000L;
+    private static final long STARTING_BALANCE = 5_000L;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final NumberFormat FORMAT = NumberFormat.getInstance(Locale.US);
@@ -381,8 +382,8 @@ public final class EconomyManager {
 
     private static final class Account {
         private String username = "";
-        private long balance = 0L;
-        private long lifetimeEarned = 0L;
+        private long balance = STARTING_BALANCE;
+        private long lifetimeEarned = STARTING_BALANCE;
         private long lifetimeSpent = 0L;
         private String createdAt = Instant.now().toString();
         private String updatedAt = Instant.now().toString();

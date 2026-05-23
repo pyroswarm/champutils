@@ -25,8 +25,8 @@ public final class DungeonBindInteractionListener {
     public static void beginBind(ServerPlayer player, String dungeonId) {
         if (player == null || dungeonId == null || dungeonId.isBlank()) return;
         PENDING_BINDS.put(player.getUUID(), dungeonId);
-        player.sendSystemMessage(Component.literal("Right-click the Cobblemon NPC you want to bind to dungeon: " + dungeonId).withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Use /dungeon bindcancel to cancel.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Right-click the Cobblemon NPC you want to bind to expedition: " + dungeonId).withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Use /expedition bindcancel to cancel.").withStyle(ChatFormatting.GRAY));
     }
 
     public static boolean cancelBind(ServerPlayer player) {

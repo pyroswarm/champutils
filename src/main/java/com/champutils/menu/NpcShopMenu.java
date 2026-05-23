@@ -32,7 +32,7 @@ public final class NpcShopMenu {
                 new GuiElementBuilder(Items.EMERALD)
                         .hideDefaultTooltip()
                         .setName(Component.literal("§aYour Balance"))
-                        .addLoreLine(Component.literal("§7" + EconomyManager.format(EconomyManager.getBalance(player)) + " Credits"))
+                        .addLoreLine(Component.literal("§7" + EconomyManager.format(EconomyManager.getBalance(player))))
                         .addLoreLine(Component.literal("§8This shop is intentionally small."))
                         .addLoreLine(Component.literal("§8Most trading should stay player-driven."))
         );
@@ -67,12 +67,19 @@ public final class NpcShopMenu {
             }
 
             builder.addLoreLine(Component.literal(""));
-            builder.addLoreLine(Component.literal("§6Price: §f" + EconomyManager.format(Math.max(0L, entry.price)) + " Credits"));
+            builder.addLoreLine(Component.literal("§6Price: §f" + EconomyManager.format(Math.max(0L, entry.price))));
             builder.addLoreLine(Component.literal("§eClick to buy"));
 
             builder.setCallback((index, clickType, actionType) -> {
+                boolean isPokemonCrate = entry.type != null && "pokemon_crate".equalsIgnoreCase(entry.type.trim());
                 NpcShopService.buy(player, entry);
-                open(player);
+
+                // Normal shop purchases reopen the shop so the balance refreshes.
+                // Pokemon crates open their own CS2-style roulette GUI, so reopening the shop here
+                // would instantly replace/kill the roulette UI.
+                if (!isPokemonCrate) {
+                    open(player);
+                }
             });
 
             gui.setSlot(slot, builder);

@@ -20,12 +20,12 @@ public final class DungeonKeyConfig {
 
     public static class KeyData {
         public String itemId = "common_dungeon_key";
-        public String displayName = "Common Dungeon Key";
+        public String displayName = "Common Expedition Key";
         public String rarity = "COMMON";
         public String baseItem = "minecraft:tripwire_hook";
         public int customModelData = 8101;
         public String color = "WHITE";
-        public String lore = "Opens a solo Common dungeon.";
+        public String lore = "Opens a solo Common expedition.";
     }
 
     public static class ConfigRoot {
@@ -59,7 +59,7 @@ public final class DungeonKeyConfig {
                 KEYS.putAll(createDefaultRoot().keys);
             }
 
-            System.out.println("[ChampUtils] Loaded " + KEYS.size() + " dungeon keys.");
+            System.out.println("[ChampUtils] Loaded " + KEYS.size() + " expedition keys.");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -67,12 +67,12 @@ public final class DungeonKeyConfig {
 
     private static ConfigRoot createDefaultRoot() {
         ConfigRoot root = new ConfigRoot();
-        add(root, "common_dungeon_key", "Common Dungeon Key", "COMMON", 8101, "WHITE");
-        add(root, "uncommon_dungeon_key", "Uncommon Dungeon Key", "UNCOMMON", 8102, "GREEN");
-        add(root, "rare_dungeon_key", "Rare Dungeon Key", "RARE", 8103, "BLUE");
-        add(root, "epic_dungeon_key", "Epic Dungeon Key", "EPIC", 8104, "DARK_PURPLE");
-        add(root, "legendary_dungeon_key", "Legendary Dungeon Key", "LEGENDARY", 8105, "GOLD");
-        add(root, "mythic_dungeon_key", "Mythic Dungeon Key", "MYTHIC", 8106, "LIGHT_PURPLE");
+        add(root, "common_dungeon_key", "Common Expedition Key", "COMMON", 8101, "WHITE");
+        add(root, "uncommon_dungeon_key", "Uncommon Expedition Key", "UNCOMMON", 8102, "GREEN");
+        add(root, "rare_dungeon_key", "Rare Expedition Key", "RARE", 8103, "BLUE");
+        add(root, "epic_dungeon_key", "Epic Expedition Key", "EPIC", 8104, "DARK_PURPLE");
+        add(root, "legendary_dungeon_key", "Legendary Expedition Key", "LEGENDARY", 8105, "GOLD");
+        add(root, "mythic_dungeon_key", "Mythic Expedition Key", "MYTHIC", 8106, "LIGHT_PURPLE");
         return root;
     }
 
@@ -83,7 +83,7 @@ public final class DungeonKeyConfig {
         data.rarity = rarity;
         data.customModelData = cmd;
         data.color = color;
-        data.lore = "Opens a solo " + rarity.toLowerCase() + " dungeon.";
+        data.lore = "Opens a solo " + rarity.toLowerCase() + " expedition.";
         root.keys.put(id, data);
     }
 }

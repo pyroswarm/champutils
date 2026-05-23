@@ -243,7 +243,7 @@ public final class DungeonNativeCrateRegistry {
 
     private static String defaultName(DungeonRarity rarity, CrateType type) {
         String base = nice(rarity == null ? "COMMON" : rarity.name());
-        return type == CrateType.POKEMON ? base + " Pokemon Crate" : base + " Loot Crate";
+        return type == CrateType.POKEMON ? base + " Pokemon Crate" : base + " Crate";
     }
 
     private static ChatFormatting colorFor(DungeonRarity rarity) {

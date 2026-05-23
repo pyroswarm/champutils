@@ -54,13 +54,13 @@ public final class DungeonManager {
         if (player == null) return 0;
 
         if (isInDungeon(player)) {
-            player.sendSystemMessage(Component.literal("You are already inside a dungeon. Use /dungeon forfeit to leave.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You are already inside an expedition. Use /expedition forfeit to leave.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
         DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(dungeonId);
         if (data == null) {
-            player.sendSystemMessage(Component.literal("Unknown dungeon: " + dungeonId).withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Unknown expedition: " + dungeonId).withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -68,7 +68,7 @@ public final class DungeonManager {
             for (ServerPlayer other : player.getServer().getPlayerList().getPlayers()) {
                 DungeonSession session = ACTIVE_SESSIONS.get(other.getUUID());
                 if (session != null && dungeonId.equals(session.dungeonId) && !other.getUUID().equals(player.getUUID())) {
-                    player.sendSystemMessage(Component.literal("That dungeon is currently occupied. Dungeons are solo only.").withStyle(ChatFormatting.RED));
+                    player.sendSystemMessage(Component.literal("That expedition is currently occupied. Expeditions are solo only.").withStyle(ChatFormatting.RED));
                     return 0;
                 }
             }
@@ -81,7 +81,7 @@ public final class DungeonManager {
         }
 
         if (!DungeonKeyManager.hasKey(player, data.keyId)) {
-            player.sendSystemMessage(Component.literal("You need a digital dungeon key: " + data.keyId + ". Check your keys in /menu > Dungeons.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You need an expedition key: " + data.keyId + ". Check your keys in /menu > Expeditions.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -90,14 +90,14 @@ public final class DungeonManager {
 
         ServerLevel destination = getLevel(server, data.world);
         if (destination == null) {
-            player.sendSystemMessage(Component.literal("Dungeon world not found: " + normalizeWorldId(data.world) + ". Make sure the multiworld is loaded/created.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Expedition world not found: " + normalizeWorldId(data.world) + ". Make sure the multiworld is loaded/created.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
         MatchmakingManager.leaveQueue(player);
 
         if (!DungeonKeyManager.consumeKey(player, data.keyId)) {
-            player.sendSystemMessage(Component.literal("Failed to consume digital dungeon key.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Failed to consume expedition key.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -129,9 +129,9 @@ public final class DungeonManager {
 
         if (ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) {
             player.sendSystemMessage(Component.literal("Entered " + session.displayName + ".").withStyle(rarity.getColor(), ChatFormatting.BOLD));
-            player.sendSystemMessage(Component.literal("Your party was healed and locked. Changing party members forfeits the dungeon.").withStyle(ChatFormatting.GRAY));
-            player.sendSystemMessage(Component.literal("Commands are locked inside dungeons. Use /dungeon forfeit to leave.").withStyle(ChatFormatting.GRAY));
-            player.sendSystemMessage(Component.literal("Wave 1 begins now. Defeat every trainer to clear the dungeon.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Your party was healed and locked. Changing party members forfeits the expedition.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("Commands are locked inside expeditions. Use /expedition forfeit to leave.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("Wave 1 begins now. Defeat every trainer to clear the expedition.").withStyle(ChatFormatting.YELLOW));
         }
 
         server.execute(() -> startNextTrainer(player));
@@ -143,7 +143,7 @@ public final class DungeonManager {
 
         DungeonSession session = ACTIVE_SESSIONS.remove(player.getUUID());
         if (session == null) {
-            player.sendSystemMessage(Component.literal("You are not inside a dungeon.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You are not inside an expedition.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -192,7 +192,7 @@ public final class DungeonManager {
             );
         }
 
-        player.sendSystemMessage(Component.literal("Your previous dungeon session was closed safely. You were returned to spawn.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Your previous expedition session was closed safely. You were returned to spawn.").withStyle(ChatFormatting.YELLOW));
     }
 
     public static void handleServerStopping(MinecraftServer server) {
@@ -204,7 +204,7 @@ public final class DungeonManager {
             DungeonTeamLockManager.clear(player);
             cleanupTrainerEntity(server, session);
             teleportBack(player, session);
-            player.sendSystemMessage(Component.literal("Your dungeon was closed because the server is stopping. Your key was not refunded.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Your expedition was closed because the server is stopping. Your key was not refunded.").withStyle(ChatFormatting.YELLOW));
         }
 
         ACTIVE_SESSIONS.clear();
@@ -253,7 +253,7 @@ public final class DungeonManager {
         DungeonTeamLockManager.clear(player);
         session.completed = true;
         if (ProfessionNotificationSettings.areDungeonNotificationsEnabled(player)) {
-            player.sendSystemMessage(Component.literal("Dungeon cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
+            player.sendSystemMessage(Component.literal("Expedition cleared: " + session.displayName + "!").withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
         }
         ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.0F);
         DungeonLimitManager.recordDungeonClear(player, session.rarity);
@@ -280,7 +280,7 @@ public final class DungeonManager {
         DungeonTrainerConfig.DungeonTrainerData trainerData = DungeonTrainerConfig.TRAINERS.get(session.dungeonId);
 
         if (dungeon == null) {
-            player.sendSystemMessage(Component.literal("Dungeon config disappeared. Forfeiting safely.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Expedition config disappeared. Forfeiting safely.").withStyle(ChatFormatting.RED));
             forfeitDungeon(player);
             return false;
         }
@@ -301,14 +301,14 @@ public final class DungeonManager {
         Vec3 pos = new Vec3(session.dungeonX + 2.0D, session.dungeonY, session.dungeonZ + 2.0D);
         NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, pos, 180.0F, wave.trainerName, wave.spawnSkin);
         if (npc == null) {
-            player.sendSystemMessage(Component.literal("Failed to spawn dungeon trainer.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Failed to spawn expedition trainer.").withStyle(ChatFormatting.RED));
             return false;
         }
 
         boolean teamOk = DungeonNpcPartyBuilder.applyDungeonTeam(npc, wave, session.rarity.getPokemonLevel());
         if (!teamOk) {
             try { npc.discard(); } catch (Exception ignored) {}
-            player.sendSystemMessage(Component.literal("Failed to build dungeon trainer team.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Failed to build expedition trainer team.").withStyle(ChatFormatting.RED));
             return false;
         }
 
@@ -327,7 +327,7 @@ public final class DungeonManager {
         DungeonTeamLockManager.clear(player);
         cleanupTrainerEntity(player.getServer(), session);
         teleportBack(player, session);
-        player.sendSystemMessage(Component.literal("Your dungeon party changed, so the dungeon was forfeited.").withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Your expedition party changed, so the expedition was forfeited.").withStyle(ChatFormatting.RED));
     }
 
     public static void cleanupTrainerEntity(MinecraftServer server, DungeonSession session) {
@@ -366,7 +366,7 @@ public final class DungeonManager {
             player.sendSystemMessage(Component.literal("Could not find Cobblemon BattleBuilder.pvn method. Right-click the trainer to begin.").withStyle(ChatFormatting.RED));
         } catch (Exception e) {
             e.printStackTrace();
-            player.sendSystemMessage(Component.literal("Failed to auto-start dungeon battle. Right-click the trainer to begin.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Failed to auto-start expedition battle. Right-click the trainer to begin.").withStyle(ChatFormatting.RED));
         }
     }
 
@@ -386,7 +386,9 @@ public final class DungeonManager {
     public static boolean isAllowedDungeonCommand(ServerPlayer player, String command) {
         if (!isInDungeon(player)) return true;
         String normalized = normalizeCommand(command);
-        return normalized.equals("dungeon forfeit")
+        return normalized.equals("expedition forfeit")
+                || normalized.equals("expedition status")
+                || normalized.equals("dungeon forfeit")
                 || normalized.equals("dungeon status")
                 || normalized.equals("spawn");
     }
@@ -409,15 +411,15 @@ public final class DungeonManager {
     public static void sendStatus(ServerPlayer player) {
         DungeonSession session = getSession(player);
         if (session == null) {
-            player.sendSystemMessage(Component.literal("You are not inside a dungeon.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("You are not inside an expedition.").withStyle(ChatFormatting.GRAY));
             return;
         }
         DungeonConfig.DungeonData dungeon = DungeonConfig.DUNGEONS.get(session.dungeonId);
         int max = dungeon == null ? 0 : Math.max(1, dungeon.trainerCount);
-        player.sendSystemMessage(Component.literal("Dungeon: " + session.displayName).withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("Expedition: " + session.displayName).withStyle(session.rarity.getColor(), ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Tier: " + session.rarity.name() + " | Pokemon Level: " + session.rarity.getPokemonLevel()).withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("Battle: " + (session.currentTrainerIndex + 1) + "/" + max).withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("Use /dungeon forfeit to leave.").withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Use /expedition forfeit to leave.").withStyle(ChatFormatting.RED));
     }
 
     private static void teleportBack(ServerPlayer player, DungeonSession session) {
@@ -445,7 +447,7 @@ public final class DungeonManager {
                 ACTIVE_SESSIONS.remove(player.getUUID());
                 DungeonTeamLockManager.clear(player);
                 cleanupTrainerEntity(server, session);
-                player.sendSystemMessage(Component.literal("You left the dungeon instance, so the dungeon was forfeited.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("You left the expedition instance, so the expedition was forfeited.").withStyle(ChatFormatting.RED));
             }
         }
     }

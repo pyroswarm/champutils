@@ -60,9 +60,9 @@ public class HelpMenu {
                 gui,
                 4,
                 Items.DEEPSLATE_BRICKS,
-                "§5Dungeons & Events",
+                "§5Expeditions & Events",
                 () -> openDungeons(player),
-                "§7Keys, dungeons, world events,",
+                "§7Keys, expeditions, world events,",
                 "§7and reward flow."
         );
 
@@ -98,7 +98,7 @@ public class HelpMenu {
                         "§71. Pick your starter and explore spawn.",
                         "§72. Battle gyms to unlock useful features.",
                         "§73. Try professions to earn XP and gear.",
-                        "§74. Run dungeons and events for stronger rewards.",
+                        "§74. Run expeditions and events for stronger rewards.",
                         "§75. Queue casual or ranked PvP when ready.",
                         "",
                         "§eCore loop:",
@@ -181,14 +181,14 @@ public class HelpMenu {
     private static void openDungeons(ServerPlayer player) {
         openInfoPage(
                 player,
-                "Dungeons & Events",
+                "Expeditions & Events",
                 Items.DEEPSLATE_BRICKS,
-                "§5Dungeons & Events",
+                "§5Expeditions & Events",
                 new String[] {
-                        "§7Dungeons are repeatable challenge content.",
+                        "§7Expeditions are repeatable challenge content.",
                         "§7They can reward shards, items, gear, and more.",
                         "§7World events are timed server activities.",
-                        "§7Event NPCs and dungeon NPCs are found at spawn.",
+                        "§7Event NPCs and expedition NPCs are found at spawn.",
                         "",
                         "§eTips:",
                         "§7Bring a ready team before entering hard content.",

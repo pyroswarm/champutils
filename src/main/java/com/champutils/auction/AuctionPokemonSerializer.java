@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.lang.reflect.Method;
+import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -41,9 +42,31 @@ public final class AuctionPokemonSerializer {
         Pokemon pokemon = party.get(slotIndex);
         if (pokemon == null) return;
 
+        // Cobblemon 1.7.x party removal can be sensitive when the object is mutated/serialized
+        // during the same command tick. Prefer clearing the exact slot via PartyStore#set(index, null)
+        // so the client receives a clean slot update instead of a shifted-party remove.
+        if (trySetPartySlot(party, slotIndex, null)) {
+            return;
+        }
+
+        UUID expectedUuid = pokemon.getUuid();
         boolean removed = party.remove(pokemon);
         if (!removed) {
             throw new IllegalStateException("Cobblemon refused to remove Pokémon from party slot " + (slotIndex + 1) + ".");
+        }
+
+        Pokemon nowInSlot = slotIndex < party.size() ? party.get(slotIndex) : null;
+        if (nowInSlot != null && expectedUuid.equals(nowInSlot.getUuid())) {
+            throw new IllegalStateException("Cobblemon party slot did not clear correctly.");
+        }
+    }
+
+    private static boolean trySetPartySlot(PartyStore party, int slotIndex, Pokemon pokemon) {
+        try {
+            party.set(slotIndex, pokemon);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 

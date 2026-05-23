@@ -72,7 +72,7 @@ public final class DungeonKeyDropConfig {
                 professionDrops.putAll(createDefaultRoot().professionDrops);
             }
 
-            System.out.println("[ChampUtils] Loaded dungeon key drops for " + professionDrops.size() + " professions.");
+            System.out.println("[ChampUtils] Loaded expedition key drops for " + professionDrops.size() + " professions.");
         } catch (Exception e) {
             e.printStackTrace();
         }

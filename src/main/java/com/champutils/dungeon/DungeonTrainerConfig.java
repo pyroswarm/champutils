@@ -25,7 +25,7 @@ public final class DungeonTrainerConfig {
     }
 
     public static class TrainerWave {
-        public String trainerName = "Dungeon Trainer";
+        public String trainerName = "Expedition Trainer";
         public String spawnSkin = "";
         public int skill = 4;
         public List<PokemonSet> pokemonPool = new ArrayList<>();
@@ -95,7 +95,7 @@ public final class DungeonTrainerConfig {
                 TRAINERS.putAll(createDefaultRoot().trainers);
             }
 
-            System.out.println("[ChampUtils] Loaded dungeon trainer config for " + TRAINERS.size() + " dungeon(s).");
+            System.out.println("[ChampUtils] Loaded expedition trainer config for " + TRAINERS.size() + " expedition(s).");
         } catch (Exception e) {
             e.printStackTrace();
         }

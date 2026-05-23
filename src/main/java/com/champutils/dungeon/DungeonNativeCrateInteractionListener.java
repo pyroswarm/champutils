@@ -45,16 +45,16 @@ public final class DungeonNativeCrateInteractionListener {
         if (player == null) return;
         PENDING_UNBINDS.remove(player.getUUID());
         PENDING_BINDS.put(player.getUUID(), new PendingBind(rarity, type));
-        player.sendSystemMessage(Component.literal("Right-click the block to bind as a " + rarity.name() + " " + type.display() + " dungeon crate.").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Use /dungeon crate cancel to cancel.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Right-click the block to bind as a " + rarity.name() + " " + type.display() + " crate.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Use /crate cancel to cancel.").withStyle(ChatFormatting.GRAY));
     }
 
     public static void beginUnbind(ServerPlayer player) {
         if (player == null) return;
         PENDING_BINDS.remove(player.getUUID());
         PENDING_UNBINDS.put(player.getUUID(), true);
-        player.sendSystemMessage(Component.literal("Right-click the dungeon crate block to unbind it.").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Use /dungeon crate cancel to cancel.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Right-click the crate block to unbind it.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Use /crate cancel to cancel.").withStyle(ChatFormatting.GRAY));
     }
 
     public static boolean cancel(ServerPlayer player) {
@@ -81,7 +81,7 @@ public final class DungeonNativeCrateInteractionListener {
 
             if (DungeonNativeCrateRegistry.getAt(level, pos) != null) {
                 if (player instanceof ServerPlayer sp) {
-                    sp.sendSystemMessage(Component.literal("Dungeon crates cannot be broken. Use /dungeon crate unbind first.").withStyle(ChatFormatting.RED));
+                    sp.sendSystemMessage(Component.literal("Crates cannot be broken. Use /crate unbind first.").withStyle(ChatFormatting.RED));
                 }
                 return false;
             }
@@ -105,7 +105,7 @@ public final class DungeonNativeCrateInteractionListener {
             if (pending != null) {
                 DungeonNativeCrateRegistry.CrateBinding binding = DungeonNativeCrateRegistry.bind(pending.rarity, pending.type, level, pos);
                 if (binding == null) {
-                    serverPlayer.sendSystemMessage(Component.literal("Could not bind dungeon crate here.").withStyle(ChatFormatting.RED));
+                    serverPlayer.sendSystemMessage(Component.literal("Could not bind crate here.").withStyle(ChatFormatting.RED));
                     return InteractionResult.SUCCESS;
                 }
                 serverPlayer.sendSystemMessage(Component.literal("Bound " + binding.name + " at " + pos.toShortString() + ".").withStyle(ChatFormatting.GREEN));
@@ -116,10 +116,10 @@ public final class DungeonNativeCrateInteractionListener {
             if (PENDING_UNBINDS.remove(uuid) != null) {
                 boolean removed = DungeonNativeCrateRegistry.unbind(level, pos);
                 if (removed) {
-                    serverPlayer.sendSystemMessage(Component.literal("Unbound dungeon crate at " + pos.toShortString() + ".").withStyle(ChatFormatting.GREEN));
+                    serverPlayer.sendSystemMessage(Component.literal("Unbound crate at " + pos.toShortString() + ".").withStyle(ChatFormatting.GREEN));
                     playLocalSound(level, serverPlayer, pos, "minecraft:block.anvil.break", 0.5F, 1.4F);
                 } else {
-                    serverPlayer.sendSystemMessage(Component.literal("That block is not a bound dungeon crate.").withStyle(ChatFormatting.RED));
+                    serverPlayer.sendSystemMessage(Component.literal("That block is not a bound crate.").withStyle(ChatFormatting.RED));
                 }
                 return InteractionResult.SUCCESS;
             }

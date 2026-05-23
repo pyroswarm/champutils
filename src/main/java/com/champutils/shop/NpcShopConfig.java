@@ -26,7 +26,7 @@ public final class NpcShopConfig {
     }
 
     public static final class ShopEntry {
-        /** item, tool, crate_credit, or command */
+        /** item, tool, pokemon_crate, crate_credit, or command */
         public String type = "item";
         public String id = "minecraft:stone";
         public String displayName = "Stone";
@@ -42,6 +42,14 @@ public final class NpcShopConfig {
         /** Used by type=crate_credit. COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC. */
         public String crateRarity = "COMMON";
         public boolean pokemonCrate = false;
+
+        /** Used by type=pokemon_crate. Chances are percentages, so 1.0 = 1%. */
+        public double shinyChance = 1.0D;
+        public double legendaryChance = 0.1D;
+        public double ultraBeastChance = 0.5D;
+        public double paradoxChance = 0.5D;
+        public int minLevel = 5;
+        public int maxLevel = 50;
 
         /** Used by type=command. Use %player% placeholder. */
         public List<String> commands = new ArrayList<>();
@@ -98,6 +106,8 @@ public final class NpcShopConfig {
         if (CONFIG.entries == null) {
             CONFIG.entries = new ArrayList<>();
         }
+        CONFIG.entries.removeIf(NpcShopConfig::isRemovedLegacyEntry);
+
         for (ShopEntry entry : CONFIG.entries) {
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
             if (entry.id == null) entry.id = "";
@@ -108,9 +118,54 @@ public final class NpcShopConfig {
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
             if (entry.crateRarity == null || entry.crateRarity.isBlank()) entry.crateRarity = "COMMON";
+            if (entry.shinyChance < 0.0D) entry.shinyChance = 0.0D;
+            if (entry.legendaryChance < 0.0D) entry.legendaryChance = 0.0D;
+            if (entry.ultraBeastChance < 0.0D) entry.ultraBeastChance = 0.0D;
+            if (entry.paradoxChance < 0.0D) entry.paradoxChance = 0.0D;
+            if (entry.minLevel <= 0) entry.minLevel = 5;
+            if (entry.maxLevel < entry.minLevel) entry.maxLevel = entry.minLevel;
             if (entry.commands == null) entry.commands = new ArrayList<>();
             if (entry.lore == null) entry.lore = new ArrayList<>();
+            entry.lore.removeIf(line -> line != null && line.toLowerCase().contains("money sink"));
         }
+
+        upsertDefaultEntry("genesisforms:mega_bracelet", item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
+                "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
+        upsertTypedEntry("pokemon_crate", "store_pokemon_crate", pokemonCrate(22, "§6Store Pokémon Crate", "minecraft:chest", 25000L));
+    }
+
+    private static boolean isRemovedLegacyEntry(ShopEntry entry) {
+        if (entry == null) return true;
+        String id = entry.id == null ? "" : entry.id.toLowerCase();
+        String name = entry.displayName == null ? "" : entry.displayName.toLowerCase();
+        String type = entry.type == null ? "" : entry.type.toLowerCase();
+        if (id.equals("cobblemon:great_ball") || id.equals("cobblemon:ultra_ball")) return true;
+        if (name.contains("great ball") || name.contains("ultra ball")) return true;
+        if (type.equals("crate_credit")) return true;
+        return name.contains("dungeon crate");
+    }
+
+    private static void upsertDefaultEntry(String id, ShopEntry replacement) {
+        for (int i = 0; i < CONFIG.entries.size(); i++) {
+            ShopEntry existing = CONFIG.entries.get(i);
+            if (existing != null && existing.id != null && existing.id.equalsIgnoreCase(id)) {
+                CONFIG.entries.set(i, replacement);
+                return;
+            }
+        }
+        CONFIG.entries.add(replacement);
+    }
+
+    private static void upsertTypedEntry(String type, String id, ShopEntry replacement) {
+        replacement.id = id;
+        for (int i = 0; i < CONFIG.entries.size(); i++) {
+            ShopEntry existing = CONFIG.entries.get(i);
+            if (existing != null && type.equalsIgnoreCase(existing.type)) {
+                CONFIG.entries.set(i, replacement);
+                return;
+            }
+        }
+        CONFIG.entries.add(replacement);
     }
 
     private static ShopRoot createDefault() {
@@ -118,17 +173,15 @@ public final class NpcShopConfig {
         root.title = "Essentials Shop";
 
         root.entries.add(item(10, "§fPoké Ball x16", "cobblemon:poke_ball", "cobblemon:poke_ball", 16, 800L,
-                "§7Basic catching supplies.", "§8This keeps the server market player-driven."));
-        root.entries.add(item(11, "§bGreat Ball x8", "cobblemon:great_ball", "cobblemon:great_ball", 8, 1200L,
-                "§7A small upgrade from Poké Balls."));
-        root.entries.add(item(12, "§dUltra Ball x4", "cobblemon:ultra_ball", "cobblemon:ultra_ball", 4, 1800L,
-                "§7Useful, but not cheap."));
+                "§7Basic catching supplies.", "§8Most trading should stay player-driven."));
+        root.entries.add(item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
+                "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
 
         root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", 5000L));
         root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", 5000L));
         root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", 5000L));
 
-        root.entries.add(crate(22, "§6Common Dungeon Crate Credit", "cobblemon:gilded_chest", "COMMON", false, 25000L));
+        root.entries.add(pokemonCrate(22, "§6Store Pokémon Crate", "minecraft:chest", 25000L));
 
         return root;
     }
@@ -157,7 +210,31 @@ public final class NpcShopConfig {
         entry.amount = 1;
         entry.price = price;
         entry.lore.add("§7Random unidentified common " + toolType + ".");
-        entry.lore.add("§8Designed as a starter-friendly money sink.");
+        entry.lore.add("§8Starter-friendly progression gear.");
+        return entry;
+    }
+
+    private static ShopEntry pokemonCrate(int slot, String name, String icon, long price) {
+        ShopEntry entry = new ShopEntry();
+        entry.type = "pokemon_crate";
+        entry.id = "store_pokemon_crate";
+        entry.slot = slot;
+        entry.displayName = name;
+        entry.icon = icon;
+        entry.amount = 1;
+        entry.price = price;
+        entry.shinyChance = 1.0D;
+        entry.legendaryChance = 0.1D;
+        entry.ultraBeastChance = 0.5D;
+        entry.paradoxChance = 0.5D;
+        entry.minLevel = 5;
+        entry.maxLevel = 50;
+        entry.lore.add("§7Opens immediately and gives 1 random Pokémon.");
+        entry.lore.add("§7Mostly regular Pokémon.");
+        entry.lore.add("§e1% shiny chance on regular Pokémon only");
+        entry.lore.add("§60.1% legendary chance - never shiny");
+        entry.lore.add("§d0.5% Ultra Beast chance - never shiny");
+        entry.lore.add("§b0.5% Paradox chance - never shiny");
         return entry;
     }
 
@@ -171,9 +248,8 @@ public final class NpcShopConfig {
         entry.pokemonCrate = pokemon;
         entry.amount = 1;
         entry.price = price;
-        entry.lore.add("§7Adds 1 bound dungeon crate credit.");
+        entry.lore.add("§7Adds 1 bound crate credit.");
         entry.lore.add("§7This cannot be traded or duped.");
-        entry.lore.add("§8Strong money sink for beta.");
         return entry;
     }
 }

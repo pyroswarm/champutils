@@ -32,7 +32,7 @@ public final class DungeonKeyManager {
     public static void registerKeys() {
         REGISTERED_KEYS.clear();
         DungeonDigitalKeyManager.load();
-        System.out.println("[ChampUtils] Loaded digital dungeon key balances. Physical dungeon keys are no longer registered or required.");
+        System.out.println("[ChampUtils] Loaded expedition key balances. Physical expedition keys are no longer registered or required.");
     }
 
     private static void registerKey(String keyId, DungeonKeyConfig.KeyData data) {
@@ -138,11 +138,11 @@ public final class DungeonKeyManager {
         );
 
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal(data.rarity == null ? "Dungeon Key" : data.rarity + " Dungeon Key").withStyle(ChatFormatting.GRAY));
+        lore.add(Component.literal(data.rarity == null ? "Expedition Key" : data.rarity + " Expedition Key").withStyle(ChatFormatting.GRAY));
         if (data.lore != null && !data.lore.isBlank()) {
             lore.add(Component.literal(data.lore).withStyle(ChatFormatting.DARK_GRAY));
         }
-        lore.add(Component.literal("Consumed when entering a dungeon.").withStyle(ChatFormatting.RED));
+        lore.add(Component.literal("Consumed when entering a expedition.").withStyle(ChatFormatting.RED));
         stack.set(DataComponents.LORE, new ItemLore(lore));
 
         stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(data.customModelData));

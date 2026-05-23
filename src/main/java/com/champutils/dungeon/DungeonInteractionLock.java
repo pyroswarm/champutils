@@ -26,7 +26,7 @@ public final class DungeonInteractionLock {
             if (!isBlockedDungeonBlock(state)) return InteractionResult.PASS;
 
             serverPlayer.sendSystemMessage(
-                    Component.literal("You cannot use healers or PCs inside a dungeon. Your party was locked on entry.")
+                    Component.literal("You cannot use healers or PCs inside a expedition. Your party was locked on entry.")
                             .withStyle(ChatFormatting.RED)
             );
             return InteractionResult.FAIL;

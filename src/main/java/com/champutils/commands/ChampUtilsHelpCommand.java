@@ -75,7 +75,7 @@ public final class ChampUtilsHelpCommand {
         line(source, "/leaderboards", "Open the leaderboard menu.");
         line(source, "/leaderboard", "Show the ranked leaderboard.");
         line(source, "/items", "Open the custom item menu.");
-        line(source, "/dungeons", "Open the dungeon menu.");
+        line(source, "/dungeons", "Open the expedition menu.");
         line(source, "/professionleaderboard", "Open profession leaderboard views.");
         line(source, "/showitem", "Show your held item in chat with hover details. Has cooldown.");
         line(source, "/itemlock", "Lock or unlock your held custom item.");
@@ -107,13 +107,13 @@ public final class ChampUtilsHelpCommand {
     }
 
     private static void dungeonWorldCommands(CommandSourceStack source) {
-        section(source, "Dungeons");
-        line(source, "/dungeon start <dungeonId>", "Start a dungeon run.");
-        line(source, "/dungeon status", "Show your active dungeon status.");
-        line(source, "/dungeon credits", "Show your dungeon crate credits.");
-        line(source, "/dungeon limits", "Show dungeon cooldowns and limits.");
-        line(source, "/dungeon list", "List loaded dungeons.");
-        line(source, "/dungeon forfeit", "Forfeit your active dungeon run.");
+        section(source, "Expeditions");
+        line(source, "/expedition start <expeditionId>", "Start a expedition run.");
+        line(source, "/expedition status", "Show your active expedition status.");
+        line(source, "/expedition credits", "Show your crate credits.");
+        line(source, "/expedition limits", "Show expedition cooldowns and limits.");
+        line(source, "/expedition list", "List loaded expeditions.");
+        line(source, "/expedition forfeit", "Forfeit your active expedition run.");
 
         section(source, "World Events");
         line(source, "/worldevent teleport <eventId>", "Teleport to an active world event.");
@@ -171,10 +171,10 @@ public final class ChampUtilsHelpCommand {
         line(source, "/ah unbind", "Admin: remove the Auction NPC binding.");
         line(source, "/menunpc bind <menu>", "Admin: bind an NPC to a feature menu.");
         line(source, "/menunpc unbind <menu>", "Admin: remove a feature menu NPC binding.");
-        line(source, "/dungeon bind <dungeonId>", "Admin: bind nearest NPC to a dungeon.");
-        line(source, "/dungeon unbind <dungeonId>", "Admin: remove dungeon NPC binding.");
-        line(source, "/dungeon givekey <keyId> [amount]", "Admin: give dungeon keys.");
-        line(source, "/dungeon crate bind <rarity> <normal|pokemon>", "Admin: bind a native dungeon crate block.");
-        line(source, "/dungeon reward <type> ...", "Admin: test/grant dungeon rewards.");
+        line(source, "/expedition bind <expeditionId>", "Admin: bind nearest NPC to a expedition.");
+        line(source, "/expedition unbind <expeditionId>", "Admin: remove expedition NPC binding.");
+        line(source, "/expedition givekey <keyId> [amount]", "Admin: give expedition keys.");
+        line(source, "/crate bind <rarity> <normal|pokemon>", "Admin: bind a native crate block.");
+        line(source, "/expedition reward <type> ...", "Admin: test/grant expedition rewards.");
     }
 }

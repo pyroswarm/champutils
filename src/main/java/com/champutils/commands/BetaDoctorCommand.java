@@ -276,28 +276,28 @@ public final class BetaDoctorCommand {
     }
 
     private static void checkDungeonConfigs(List<CheckResult> results) {
-        requireConfig(results, "champ_dungeons.json", "Dungeons");
-        requireConfig(results, "dungeon_rewards.json", "Dungeon rewards");
-        requireConfig(results, "dungeon_keys.json", "Dungeon keys");
-        requireConfig(results, "dungeon_trainers.json", "Dungeon trainers");
+        requireConfig(results, "champ_dungeons.json", "Expeditions");
+        requireConfig(results, "dungeon_rewards.json", "Expedition rewards");
+        requireConfig(results, "dungeon_keys.json", "Expedition keys");
+        requireConfig(results, "dungeon_trainers.json", "Expedition trainers");
 
         File crates = new File(CONFIG_DIR, "dungeon_native_crates.json");
         if (!crates.exists()) {
-            results.add(CheckResult.warn("Dungeon crates", "No native crate bindings file found yet."));
+            results.add(CheckResult.warn("Crates", "No native crate bindings file found yet."));
             return;
         }
 
         JsonObject root = readObject(crates);
         if (root == null) {
-            results.add(CheckResult.fail("Dungeon crates", "dungeon_native_crates.json is invalid."));
+            results.add(CheckResult.fail("Crates", "dungeon_native_crates.json is invalid."));
             return;
         }
 
         int total = root.entrySet().size();
         if (total <= 0) {
-            results.add(CheckResult.warn("Dungeon crates", "No native dungeon crates are bound."));
+            results.add(CheckResult.warn("Crates", "No native crates are bound."));
         } else {
-            results.add(CheckResult.ok("Dungeon crates", total + " crate binding section(s) found."));
+            results.add(CheckResult.ok("Crates", total + " crate binding section(s) found."));
         }
     }
 
@@ -326,7 +326,7 @@ public final class BetaDoctorCommand {
     private static void checkNpcBindings(List<CheckResult> results) {
         checkBindingFile(results, "auction_npc_binding.json", "Auction NPC");
         checkBindingFile(results, "menu_npc_bindings.json", "Menu NPCs");
-        checkBindingFile(results, "dungeon_bindings.json", "Dungeon NPCs");
+        checkBindingFile(results, "dungeon_bindings.json", "Expedition NPCs");
     }
 
     private static void checkExternalHooks(List<CheckResult> results) {

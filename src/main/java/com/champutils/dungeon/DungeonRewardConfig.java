@@ -98,7 +98,7 @@ public final class DungeonRewardConfig {
                 CONFIG = createDefaultRoot();
             }
 
-            System.out.println("[ChampUtils] Loaded dungeon reward tables for " + CONFIG.rewardsByRarity.size() + " rarities.");
+            System.out.println("[ChampUtils] Loaded expedition reward tables for " + CONFIG.rewardsByRarity.size() + " rarities.");
         } catch (Exception e) {
             e.printStackTrace();
             CONFIG = createDefaultRoot();

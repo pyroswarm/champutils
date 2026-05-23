@@ -96,6 +96,24 @@ public class MenuCommand {
 
 
 
+
+
+
+                    dispatcher.register(
+
+                            literal("expeditions")
+
+                                    .executes(ctx->{
+
+                                        DungeonMenu.open(
+                                                ctx.getSource()
+                                                        .getPlayerOrException()
+                                        );
+
+                                        return 1;
+                                    })
+
+                    );
                     dispatcher.register(
 
                             literal("leaderboards")

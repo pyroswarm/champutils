@@ -200,7 +200,17 @@ public class ProfileManager {
         var obj = sb.getObjective("elo");
 
         if (obj == null) {
-            return 0;
+            int storedRp = PlayerDataManager.getRp(
+                    player.getUUID(),
+                    player.getName().getString()
+            );
+
+            setElo(
+                    player,
+                    storedRp
+            );
+
+            return storedRp;
         }
 
         return sb.getOrCreatePlayerScore(

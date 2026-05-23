@@ -65,7 +65,7 @@ public final class DungeonLimitConfig {
 
             loaded = true;
             save();
-            System.out.println("[ChampUtils] Loaded dungeon limits for " + CONFIG.limitsByRarity.size() + " rarities.");
+            System.out.println("[ChampUtils] Loaded expedition limits for " + CONFIG.limitsByRarity.size() + " rarities.");
         } catch (Exception e) {
             e.printStackTrace();
             CONFIG = createDefaultRoot();

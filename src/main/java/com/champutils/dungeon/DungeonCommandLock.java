@@ -33,7 +33,7 @@ public final class DungeonCommandLock {
             }
 
             player.sendSystemMessage(
-                    Component.literal("You cannot use commands inside a dungeon. Use /dungeon forfeit or /spawn to leave.")
+                    Component.literal("You cannot use commands inside a expedition. Use /expedition forfeit or /spawn to leave.")
                             .withStyle(ChatFormatting.RED)
             );
             return false;

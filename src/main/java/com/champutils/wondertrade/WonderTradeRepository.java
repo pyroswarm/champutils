@@ -15,6 +15,9 @@ import java.util.UUID;
 public final class WonderTradeRepository {
 
     private static final Gson GSON = new Gson();
+    private static volatile boolean schemaReady = false;
+    private static volatile Boolean legacyPokemonDataColumn = null;
+    private static volatile Boolean legacyLevelColumn = null;
 
     private WonderTradeRepository() {}
 
@@ -23,6 +26,13 @@ public final class WonderTradeRepository {
     }
 
     public static void ensureSchema(Connection connection) throws Exception {
+        if (schemaReady) {
+            return;
+        }
+        synchronized (WonderTradeRepository.class) {
+            if (schemaReady) {
+                return;
+            }
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_pool (" +
                         "id uuid primary key default gen_random_uuid()," +
@@ -147,6 +157,11 @@ public final class WonderTradeRepository {
         addColumnIfMissing(connection, "wondertrade_pending_claims", "display_name", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "created_at", "timestamptz not null default now()");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "updated_at", "timestamptz not null default now()");
+
+            legacyPokemonDataColumn = columnExists(connection, "wondertrade_pool", "pokemon_data");
+            legacyLevelColumn = columnExists(connection, "wondertrade_pool", "level");
+            schemaReady = true;
+        }
     }
 
     private static void addColumnIfMissing(Connection connection, String table, String column, String definition) throws Exception {
@@ -295,14 +310,41 @@ public final class WonderTradeRepository {
         try {
             connection.setAutoCommit(false);
 
-            WonderTradeEntry received = null;
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "select id, owner_uuid, owner_username, species, display_name, pokemon_level, shiny, legendary, payload::text as payload " +
-                            "from wondertrade_pool order by random() limit 1 for update skip locked"
-            )) {
+            int poolCount = 0;
+            try (PreparedStatement statement = connection.prepareStatement("select count(*) from wondertrade_pool")) {
                 try (ResultSet rs = statement.executeQuery()) {
                     if (rs.next()) {
-                        received = read(rs);
+                        poolCount = rs.getInt(1);
+                    }
+                }
+            }
+
+            WonderTradeEntry received = null;
+            if (poolCount > 0) {
+                int offset = java.util.concurrent.ThreadLocalRandom.current().nextInt(poolCount);
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "select id, owner_uuid, owner_username, species, display_name, pokemon_level, shiny, legendary, payload::text as payload " +
+                                "from wondertrade_pool order by created_at offset ? limit 1 for update skip locked"
+                )) {
+                    statement.setInt(1, offset);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (rs.next()) {
+                            received = read(rs);
+                        }
+                    }
+                }
+
+                // If the random row was locked by another trade, fall back to the first available row.
+                if (received == null) {
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "select id, owner_uuid, owner_username, species, display_name, pokemon_level, shiny, legendary, payload::text as payload " +
+                                    "from wondertrade_pool order by created_at limit 1 for update skip locked"
+                    )) {
+                        try (ResultSet rs = statement.executeQuery()) {
+                            if (rs.next()) {
+                                received = read(rs);
+                            }
+                        }
                     }
                 }
             }
@@ -372,8 +414,8 @@ public final class WonderTradeRepository {
     }
 
     private static void insertIntoPool(Connection connection, UUID ownerUuid, String ownerUsername, String source, JsonObject payload, String species, String displayName, int level, boolean shiny, boolean legendary) throws Exception {
-        boolean hasLegacyPokemonData = columnExists(connection, "wondertrade_pool", "pokemon_data");
-        boolean hasLegacyLevel = columnExists(connection, "wondertrade_pool", "level");
+        boolean hasLegacyPokemonData = legacyPokemonDataColumn != null ? legacyPokemonDataColumn : columnExists(connection, "wondertrade_pool", "pokemon_data");
+        boolean hasLegacyLevel = legacyLevelColumn != null ? legacyLevelColumn : columnExists(connection, "wondertrade_pool", "level");
 
         String payloadText = GSON.toJson(payload == null ? new JsonObject() : payload);
 

@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.shop.ChestShopClaimCompat;
 import com.champutils.shop.ChestShopRegistry;
 import com.champutils.shop.ChestShopService;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -86,6 +87,12 @@ public final class ChestShopCommand {
             return 0;
         }
 
+        ChestShopClaimCompat.ClaimCheckResult claimResult = ChestShopClaimCompat.canCreateShop(player, target.level, target.pos);
+        if (claimResult != ChestShopClaimCompat.ClaimCheckResult.ALLOWED) {
+            player.sendSystemMessage(claimFailureMessage(claimResult));
+            return 0;
+        }
+
         ChestShopRegistry.ChestShop existing = ChestShopRegistry.getAt(target.level, target.pos);
         if (existing != null && !existing.isOwner(player.getUUID()) && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal("That chest is already someone else's shop.").withStyle(ChatFormatting.RED));
@@ -128,6 +135,18 @@ public final class ChestShopCommand {
         player.sendSystemMessage(Component.literal("Created " + modeText + " for " + amount + "x " + shop.itemName + " at " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
         player.sendSystemMessage(Component.literal("Others can right-click this chest to trade. Sneak-right-click to manage the chest.").withStyle(ChatFormatting.GRAY));
         return 1;
+    }
+
+
+    private static Component claimFailureMessage(ChestShopClaimCompat.ClaimCheckResult result) {
+        String message = switch (result) {
+            case NO_CLAIM_MOD -> "Chest shops require Flan claims to be installed/enabled.";
+            case UNCLAIMED -> "Chest shops can only be created inside claimed land.";
+            case NOT_TRUSTED -> "You can only create chest shops in claims where you are trusted to build.";
+            case CHECK_FAILED -> "Could not verify this claim. Ask an admin to check Flan/ChampUtils compatibility.";
+            default -> "You cannot create a chest shop here.";
+        };
+        return Component.literal(message).withStyle(ChatFormatting.RED);
     }
 
     private static int info(ServerPlayer player) {

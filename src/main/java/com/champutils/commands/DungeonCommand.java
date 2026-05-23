@@ -47,15 +47,16 @@ public final class DungeonCommand {
     }
 
     public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            var dungeonCommand = dispatcher.register(
                 Commands.literal("dungeon")
                         .executes(context -> help(context.getSource()))
                         .then(Commands.literal("start")
-                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                .then(Commands.argument("expeditionId", StringArgumentType.word())
                                         .suggests(DUNGEON_SUGGESTIONS)
                                         .executes(context -> {
                                             ServerPlayer player = context.getSource().getPlayerOrException();
-                                            return DungeonManager.startDungeon(player, StringArgumentType.getString(context, "dungeonId"));
+                                            return DungeonManager.startDungeon(player, StringArgumentType.getString(context, "expeditionId"));
                                         })))
                         .then(Commands.literal("forfeit")
                                 .executes(context -> {
@@ -82,40 +83,40 @@ public final class DungeonCommand {
                                 .executes(context -> listDungeons(context.getSource())))
                         .then(Commands.literal("bind")
                                 .requires(source -> source.hasPermission(4))
-                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                .then(Commands.argument("expeditionId", StringArgumentType.word())
                                         .suggests(DUNGEON_SUGGESTIONS)
                                         .executes(context -> beginBind(
                                                 context.getSource(),
-                                                StringArgumentType.getString(context, "dungeonId")
+                                                StringArgumentType.getString(context, "expeditionId")
                                         ))))
                         .then(Commands.literal("bindcancel")
                                 .requires(source -> source.hasPermission(4))
                                 .executes(context -> cancelBind(context.getSource())))
                         .then(Commands.literal("unbind")
                                 .requires(source -> source.hasPermission(4))
-                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                .then(Commands.argument("expeditionId", StringArgumentType.word())
                                         .suggests(DUNGEON_SUGGESTIONS)
                                         .executes(context -> unbindDungeon(
                                                 context.getSource(),
-                                                StringArgumentType.getString(context, "dungeonId")
+                                                StringArgumentType.getString(context, "expeditionId")
                                         ))))
 
                         .then(Commands.literal("setteleport")
                                 .requires(source -> source.hasPermission(4))
-                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                .then(Commands.argument("expeditionId", StringArgumentType.word())
                                         .suggests(DUNGEON_SUGGESTIONS)
                                         .executes(context -> setDungeonTeleport(
                                                 context.getSource(),
-                                                StringArgumentType.getString(context, "dungeonId")
+                                                StringArgumentType.getString(context, "expeditionId")
                                         ))))
                         .then(Commands.literal("settrainer")
                                 .requires(source -> source.hasPermission(4))
-                                .then(Commands.argument("dungeonId", StringArgumentType.word())
+                                .then(Commands.argument("expeditionId", StringArgumentType.word())
                                         .suggests(DUNGEON_SUGGESTIONS)
                                         .then(Commands.argument("wave", IntegerArgumentType.integer(1, 99))
                                                 .executes(context -> setDungeonTrainerSpawn(
                                                         context.getSource(),
-                                                        StringArgumentType.getString(context, "dungeonId"),
+                                                        StringArgumentType.getString(context, "expeditionId"),
                                                         IntegerArgumentType.getInteger(context, "wave")
                                                 )))))
                         .then(Commands.literal("crate")
@@ -251,20 +252,23 @@ public final class DungeonCommand {
                                                                                 IntegerArgumentType.getInteger(context, "min"),
                                                                                 IntegerArgumentType.getInteger(context, "max")
                                                                         ))))))))
-        ));
+        );
+            dispatcher.register(Commands.literal("expedition").redirect(dungeonCommand));
+            dispatcher.register(Commands.literal("expeditions").redirect(dungeonCommand));
+        });
     }
 
 
     private static int setDungeonTeleport(CommandSourceStack source, String dungeonId) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
-            source.sendFailure(Component.literal("Only players can set dungeon teleport locations."));
+            source.sendFailure(Component.literal("Only players can set expedition teleport locations."));
             return 0;
         }
 
         DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(dungeonId);
         if (data == null) {
-            source.sendFailure(Component.literal("Unknown dungeon: " + dungeonId));
+            source.sendFailure(Component.literal("Unknown expedition: " + dungeonId));
             return 0;
         }
 
@@ -279,7 +283,7 @@ public final class DungeonCommand {
         );
 
         source.sendSuccess(
-                () -> Component.literal("Set dungeon teleport for " + dungeonId.toLowerCase() + " to your current location in " + player.serverLevel().dimension().location() + ".")
+                () -> Component.literal("Set expedition teleport for " + dungeonId.toLowerCase() + " to your current location in " + player.serverLevel().dimension().location() + ".")
                         .withStyle(ChatFormatting.GREEN),
                 true
         );
@@ -290,13 +294,13 @@ public final class DungeonCommand {
     private static int setDungeonTrainerSpawn(CommandSourceStack source, String dungeonId, int wave) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
-            source.sendFailure(Component.literal("Only players can set dungeon trainer spawns."));
+            source.sendFailure(Component.literal("Only players can set expedition trainer spawns."));
             return 0;
         }
 
         DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(dungeonId);
         if (data == null) {
-            source.sendFailure(Component.literal("Unknown dungeon: " + dungeonId));
+            source.sendFailure(Component.literal("Unknown expedition: " + dungeonId));
             return 0;
         }
 
@@ -321,21 +325,21 @@ public final class DungeonCommand {
     }
 
     private static int help(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("/dungeon start <dungeonId>").withStyle(ChatFormatting.YELLOW), false);
-        source.sendSuccess(() -> Component.literal("/dungeon status").withStyle(ChatFormatting.YELLOW), false);
-        source.sendSuccess(() -> Component.literal("/dungeon credits").withStyle(ChatFormatting.YELLOW), false);
-        source.sendSuccess(() -> Component.literal("/dungeon limits").withStyle(ChatFormatting.YELLOW), false);
-        source.sendSuccess(() -> Component.literal("/dungeon list").withStyle(ChatFormatting.YELLOW), false);
-        source.sendSuccess(() -> Component.literal("/dungeon forfeit").withStyle(ChatFormatting.RED), false);
+        source.sendSuccess(() -> Component.literal("/expedition start <expeditionId>").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("/expedition status").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("/expedition credits").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("/expedition limits").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("/expedition list").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("/expedition forfeit").withStyle(ChatFormatting.RED), false);
         if (source.hasPermission(4)) {
-            source.sendSuccess(() -> Component.literal("/dungeon bind <dungeonId>").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon setteleport <dungeonId>").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon settrainer <dungeonId> <wave>").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon unbind <dungeonId>").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon givekey <keyId> [amount]").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon crate bind <rarity> <normal|pokemon>").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon crate unbind | list | reloadholograms").withStyle(ChatFormatting.GRAY), false);
-            source.sendSuccess(() -> Component.literal("/dungeon reward <key|chest|pokemoncrate|grantcrate|fragments|randomtool|item> ...").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition bind <expeditionId>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition setteleport <expeditionId>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition settrainer <expeditionId> <wave>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition unbind <expeditionId>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition givekey <keyId> [amount]").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/crate bind <rarity> <normal|pokemon>").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/crate unbind | list | reloadholograms").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("/expedition reward <key|chest|pokemoncrate|grantcrate|fragments|randomtool|item> ...").withStyle(ChatFormatting.GRAY), false);
         }
         return 1;
     }
@@ -356,11 +360,11 @@ public final class DungeonCommand {
 
     private static int listDungeons(CommandSourceStack source) {
         if (DungeonConfig.DUNGEONS.isEmpty()) {
-            source.sendFailure(Component.literal("No dungeons are loaded."));
+            source.sendFailure(Component.literal("No expeditions are loaded."));
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("Loaded dungeons:").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal("Loaded expeditions:").withStyle(ChatFormatting.GOLD), false);
         for (String id : DungeonConfig.DUNGEONS.keySet()) {
             DungeonConfig.DungeonData data = DungeonConfig.DUNGEONS.get(id);
             String name = data == null || data.displayName == null || data.displayName.isBlank() ? id : data.displayName;
@@ -373,7 +377,7 @@ public final class DungeonCommand {
 
     private static int beginBind(CommandSourceStack source, String dungeonId) {
         if (!DungeonConfig.DUNGEONS.containsKey(dungeonId)) {
-            source.sendFailure(Component.literal("Unknown dungeon: " + dungeonId));
+            source.sendFailure(Component.literal("Unknown expedition: " + dungeonId));
             return 0;
         }
 
@@ -382,7 +386,7 @@ public final class DungeonCommand {
             DungeonBindInteractionListener.beginBind(player, dungeonId);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can use /dungeon bind because you must right-click an NPC."));
+            source.sendFailure(Component.literal("Only players can use /expedition bind because you must right-click an NPC."));
             return 0;
         }
     }
@@ -392,13 +396,13 @@ public final class DungeonCommand {
             ServerPlayer player = source.getPlayerOrException();
             boolean cancelled = DungeonBindInteractionListener.cancelBind(player);
             if (cancelled) {
-                source.sendSuccess(() -> Component.literal("Cancelled pending dungeon bind.").withStyle(ChatFormatting.YELLOW), false);
+                source.sendSuccess(() -> Component.literal("Cancelled pending expedition bind.").withStyle(ChatFormatting.YELLOW), false);
             } else {
-                source.sendFailure(Component.literal("You do not have a pending dungeon bind."));
+                source.sendFailure(Component.literal("You do not have a pending expedition bind."));
             }
             return cancelled ? 1 : 0;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can use /dungeon bindcancel."));
+            source.sendFailure(Component.literal("Only players can use /expedition bindcancel."));
             return 0;
         }
     }
@@ -406,15 +410,15 @@ public final class DungeonCommand {
     private static int unbindDungeon(CommandSourceStack source, String dungeonId) {
         boolean removed = DungeonBindingRegistry.unbind(dungeonId);
         if (!removed) {
-            source.sendFailure(Component.literal("No NPC binding exists for dungeon: " + dungeonId));
+            source.sendFailure(Component.literal("No NPC binding exists for expedition: " + dungeonId));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Unbound dungeon NPC for " + dungeonId + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Unbound expedition NPC for " + dungeonId + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
     private static int showCredits(CommandSourceStack source, ServerPlayer player) {
-        source.sendSuccess(() -> Component.literal("Spawn crate credits for " + player.getName().getString() + ":").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal("Crate credits for " + player.getName().getString() + ":").withStyle(ChatFormatting.GOLD), false);
         boolean any = false;
         for (DungeonRarity rarity : DungeonRarity.values()) {
             int normal = DungeonCrateCreditManager.getNormalCredits(player.getUUID(), rarity);
@@ -426,7 +430,7 @@ public final class DungeonCommand {
             }
         }
         if (!any) {
-            source.sendSuccess(() -> Component.literal("You do not have any spawn crate credits yet.").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("You do not have any crate credits yet.").withStyle(ChatFormatting.GRAY), false);
         }
         return 1;
     }
@@ -444,7 +448,7 @@ public final class DungeonCommand {
             DungeonNativeCrateInteractionListener.beginBind(player, rarity, type);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can bind dungeon crates because you must right-click a block."));
+            source.sendFailure(Component.literal("Only players can bind crates because you must right-click a block."));
             return 0;
         }
     }
@@ -455,7 +459,7 @@ public final class DungeonCommand {
             DungeonNativeCrateInteractionListener.beginUnbind(player);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can unbind dungeon crates because you must right-click a block."));
+            source.sendFailure(Component.literal("Only players can unbind crates because you must right-click a block."));
             return 0;
         }
     }
@@ -465,24 +469,24 @@ public final class DungeonCommand {
             ServerPlayer player = source.getPlayerOrException();
             boolean cancelled = DungeonNativeCrateInteractionListener.cancel(player);
             if (cancelled) {
-                source.sendSuccess(() -> Component.literal("Cancelled pending dungeon crate action.").withStyle(ChatFormatting.YELLOW), false);
+                source.sendSuccess(() -> Component.literal("Cancelled pending crate action.").withStyle(ChatFormatting.YELLOW), false);
             } else {
-                source.sendFailure(Component.literal("You do not have a pending dungeon crate action."));
+                source.sendFailure(Component.literal("You do not have a pending crate action."));
             }
             return cancelled ? 1 : 0;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can cancel dungeon crate actions."));
+            source.sendFailure(Component.literal("Only players can cancel crate actions."));
             return 0;
         }
     }
 
     private static int listCrates(CommandSourceStack source) {
         if (DungeonNativeCrateRegistry.getAll().isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No native dungeon crates are bound yet.").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.literal("No native crates are bound yet.").withStyle(ChatFormatting.GRAY), false);
             return 1;
         }
 
-        source.sendSuccess(() -> Component.literal("Native dungeon crates:").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal("Native crates:").withStyle(ChatFormatting.GOLD), false);
         for (DungeonNativeCrateRegistry.CrateBinding crate : DungeonNativeCrateRegistry.getAll().values()) {
             source.sendSuccess(() -> Component.literal("- " + crate.name + " | " + crate.world + " " + crate.x + " " + crate.y + " " + crate.z)
                     .withStyle(crate.type() == DungeonNativeCrateRegistry.CrateType.POKEMON ? ChatFormatting.LIGHT_PURPLE : crate.rarity().getColor()), false);
@@ -492,7 +496,7 @@ public final class DungeonCommand {
 
     private static int reloadCrateHolograms(CommandSourceStack source) {
         int count = DungeonNativeCrateRegistry.respawnAllHolograms(source.getServer());
-        source.sendSuccess(() -> Component.literal("Respawned " + count + " dungeon crate nametag(s).").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Respawned " + count + " crate nametag(s).").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -501,19 +505,19 @@ public final class DungeonCommand {
             ServerPlayer player = source.getPlayerOrException();
             return giveKeyToPlayer(source, player, keyId, amount);
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can receive dungeon keys with this command. Use /dungeon reward key <player> <keyId> <amount> from console."));
+            source.sendFailure(Component.literal("Only players can receive expedition keys with this command. Use /expedition reward key <player> <keyId> <amount> from console."));
             return 0;
         }
     }
 
     private static int giveKeyToPlayer(CommandSourceStack source, ServerPlayer player, String keyId, int amount) {
         if (!DungeonKeyConfig.KEYS.containsKey(keyId)) {
-            source.sendFailure(Component.literal("Unknown dungeon key: " + keyId));
+            source.sendFailure(Component.literal("Unknown expedition key: " + keyId));
             return 0;
         }
 
         DungeonKeyManager.grantDigitalKey(player, keyId, amount);
-        source.sendSuccess(() -> Component.literal("Gave " + amount + "x digital " + keyId + " to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Gave " + amount + "x expedition key " + keyId + " to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -521,11 +525,11 @@ public final class DungeonCommand {
         DungeonRarity rarity = DungeonRarity.parse(rarityText);
         boolean opened = DungeonRewardManager.openPendingDungeonChest(player, rarity);
         if (!opened) {
-            source.sendFailure(Component.literal("No valid completed dungeon crate reward is waiting for " + player.getName().getString() + "."));
+            source.sendFailure(Component.literal("No valid completed crate reward is waiting for " + player.getName().getString() + "."));
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("Opened one " + rarity.name() + " spawn reward crate credit for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Opened one " + rarity.name() + " crate credit for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -533,11 +537,11 @@ public final class DungeonCommand {
         DungeonRarity rarity = DungeonRarity.parse(rarityText);
         boolean opened = DungeonRewardManager.openPendingPokemonChest(player, rarity);
         if (!opened) {
-            source.sendFailure(Component.literal("No valid completed dungeon Pokemon crate reward is waiting for " + player.getName().getString() + "."));
+            source.sendFailure(Component.literal("No valid Pokemon crate reward is waiting for " + player.getName().getString() + "."));
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("Opened one " + rarity.name() + " spawn Pokemon crate credit for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Opened one " + rarity.name() + " Pokemon crate credit for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -545,7 +549,7 @@ public final class DungeonCommand {
     private static int grantCrateCredits(CommandSourceStack source, ServerPlayer player, String rarityText, int normal, int pokemon) {
         DungeonRarity rarity = DungeonRarity.parse(rarityText);
         DungeonCrateCreditManager.grantCredits(player.getUUID(), rarity, normal, pokemon);
-        source.sendSuccess(() -> Component.literal("Granted " + normal + " normal and " + pokemon + " Pokemon " + rarity.name() + " spawn crate credit(s) to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Granted " + normal + " normal and " + pokemon + " Pokemon " + rarity.name() + " crate credit(s) to " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -559,7 +563,7 @@ public final class DungeonCommand {
     private static int rewardRandomTool(CommandSourceStack source, ServerPlayer player, String rarityText, double ascendedChance) {
         DungeonRarity rarity = DungeonRarity.parse(rarityText);
         DungeonRewardManager.grantRandomTool(player, rarity, ascendedChance);
-        source.sendSuccess(() -> Component.literal("Rolled a " + rarity.name() + " dungeon tool for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
+        source.sendSuccess(() -> Component.literal("Rolled a " + rarity.name() + " expedition tool for " + player.getName().getString() + ".").withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 

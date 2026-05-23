@@ -20,6 +20,10 @@ import com.champutils.dungeon.DungeonKeyDropConfig;
 import com.champutils.dungeon.DungeonNativeCrateRegistry;
 import com.champutils.dex.DexRewardConfig;
 import com.champutils.teleport.TeleportConfig;
+import com.champutils.teleport.PortalConfig;
+import com.champutils.teleport.DefaultSpawnManager;
+import com.champutils.economy.SellPriceConfig;
+import com.champutils.shop.ChestShopRegistry;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -84,6 +88,10 @@ public class ChampReloadCommand {
             GymConfig.load();
             GymRegistry.load();
             TeleportConfig.load();
+            PortalConfig.load();
+            DefaultSpawnManager.load();
+            SellPriceConfig.load();
+            ChestShopRegistry.load();
             DexRewardConfig.load();
 
             source.sendSuccess(
@@ -95,7 +103,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, dex_rewards.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json"
                     ),
                     false
             );

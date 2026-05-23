@@ -50,7 +50,7 @@ public final class DungeonBattleListener {
 
         UUID npcUuid = npcActor.getEntity().getUUID();
         if (session.activeTrainerUuid == null || !session.activeTrainerUuid.equals(npcUuid)) {
-            player.sendSystemMessage(Component.literal("You cannot start outside battles while inside a dungeon.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You cannot start outside battles while inside a expedition.").withStyle(ChatFormatting.RED));
             pre.cancel();
             return;
         }
@@ -59,7 +59,7 @@ public final class DungeonBattleListener {
         for (Pokemon mon : PlayerExtensionsKt.party(player)) {
             if (mon == null) continue;
             if (mon.getLevel() > cap) {
-                player.sendSystemMessage(Component.literal("This dungeon has a level cap of " + cap + ".").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("This expedition has a level cap of " + cap + ".").withStyle(ChatFormatting.RED));
                 pre.cancel();
                 return;
             }

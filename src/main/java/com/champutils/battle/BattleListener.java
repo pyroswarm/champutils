@@ -10,6 +10,7 @@ import com.champutils.profile.ProfileManager;
 import com.champutils.profession.*;
 
 import com.champutils.rank.RankManager;
+import com.champutils.scoreboard.PlayerSidebarManager;
 import com.champutils.validation.TeamSnapshotManager;
 
 import net.minecraft.network.chat.Component;
@@ -170,6 +171,9 @@ public class BattleListener {
                         "§c-" + change + " RP"
                 )
         );
+
+        PlayerSidebarManager.update(winner);
+        PlayerSidebarManager.update(loser);
 
         cleanup(winner, loser);
     }
