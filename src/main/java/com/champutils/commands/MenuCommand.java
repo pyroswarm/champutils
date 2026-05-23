@@ -5,7 +5,6 @@ import com.champutils.menu.ProfileMenu;
 import com.champutils.menu.PlayerProfileMenu;
 import com.champutils.menu.ItemsMenu;
 import com.champutils.menu.LeaderboardMenu;
-import com.champutils.menu.DungeonMenu;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -60,52 +59,11 @@ public class MenuCommand {
 
                     dispatcher.register(
 
-                            literal("dungeons")
-
-                                    .executes(ctx->{
-
-                                        DungeonMenu.open(
-                                                ctx.getSource()
-                                                        .getPlayerOrException()
-                                        );
-
-                                        return 1;
-                                    })
-
-                    );
-
-
-
-                    dispatcher.register(
-
                             literal("professionleaderboard")
 
                                     .executes(ctx->{
 
                                         LeaderboardMenu.openProfessionOverall(
-                                                ctx.getSource()
-                                                        .getPlayerOrException()
-                                        );
-
-                                        return 1;
-                                    })
-
-                    );
-
-
-
-
-
-
-
-
-                    dispatcher.register(
-
-                            literal("expeditions")
-
-                                    .executes(ctx->{
-
-                                        DungeonMenu.open(
                                                 ctx.getSource()
                                                         .getPlayerOrException()
                                         );

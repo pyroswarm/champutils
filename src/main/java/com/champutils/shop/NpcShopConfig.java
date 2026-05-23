@@ -26,7 +26,7 @@ public final class NpcShopConfig {
     }
 
     public static final class ShopEntry {
-        /** item, tool, pokemon_crate, crate_credit, or command */
+        /** item, tool, pokemon_crate, or command */
         public String type = "item";
         public String id = "minecraft:stone";
         public String displayName = "Stone";
@@ -38,10 +38,6 @@ public final class NpcShopConfig {
         /** Used by type=tool. pickaxe, axe, hoe, or sword. */
         public String toolType = "pickaxe";
         public String rarity = "COMMON";
-
-        /** Used by type=crate_credit. COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC. */
-        public String crateRarity = "COMMON";
-        public boolean pokemonCrate = false;
 
         /** Used by type=pokemon_crate. Chances are percentages, so 1.0 = 1%. */
         public double shinyChance = 1.0D;
@@ -117,7 +113,6 @@ public final class NpcShopConfig {
             if (entry.price < 0L) entry.price = 0L;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
-            if (entry.crateRarity == null || entry.crateRarity.isBlank()) entry.crateRarity = "COMMON";
             if (entry.shinyChance < 0.0D) entry.shinyChance = 0.0D;
             if (entry.legendaryChance < 0.0D) entry.legendaryChance = 0.0D;
             if (entry.ultraBeastChance < 0.0D) entry.ultraBeastChance = 0.0D;
@@ -141,8 +136,7 @@ public final class NpcShopConfig {
         String type = entry.type == null ? "" : entry.type.toLowerCase();
         if (id.equals("cobblemon:great_ball") || id.equals("cobblemon:ultra_ball")) return true;
         if (name.contains("great ball") || name.contains("ultra ball")) return true;
-        if (type.equals("crate_credit")) return true;
-        return name.contains("dungeon crate");
+        return name.contains("legacy crate") || name.contains("removed crate");
     }
 
     private static void upsertDefaultEntry(String id, ShopEntry replacement) {
@@ -235,21 +229,6 @@ public final class NpcShopConfig {
         entry.lore.add("§60.1% legendary chance - never shiny");
         entry.lore.add("§d0.5% Ultra Beast chance - never shiny");
         entry.lore.add("§b0.5% Paradox chance - never shiny");
-        return entry;
-    }
-
-    private static ShopEntry crate(int slot, String name, String icon, String rarity, boolean pokemon, long price) {
-        ShopEntry entry = new ShopEntry();
-        entry.type = "crate_credit";
-        entry.slot = slot;
-        entry.displayName = name;
-        entry.icon = icon;
-        entry.crateRarity = rarity;
-        entry.pokemonCrate = pokemon;
-        entry.amount = 1;
-        entry.price = price;
-        entry.lore.add("§7Adds 1 bound crate credit.");
-        entry.lore.add("§7This cannot be traded or duped.");
         return entry;
     }
 }

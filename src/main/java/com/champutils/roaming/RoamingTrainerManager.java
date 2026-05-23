@@ -123,7 +123,7 @@ public final class RoamingTrainerManager {
         }
 
         runCommands(winner, settings.rewardCommands, data);
-        winner.sendSystemMessage(Component.literal("You defeated a " + pretty(data.rarity.name()) + " roaming trainer!").withStyle(data.rarity.color));
+        winner.sendSystemMessage(Component.literal("You defeated a " + pretty(data.rarity.name()) + " trainer!").withStyle(data.rarity.color));
 
         NPCEntity npc = findNpc(winner.getServer(), losingNpcUuid);
         if (npc != null) {
@@ -152,7 +152,8 @@ public final class RoamingTrainerManager {
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(rarity);
         int targetLevel = playerPartyAverageLevel(player);
         String displayName = chooseName(rarity, settings);
-        ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, player.getYRot() + 180.0F, displayName);
+        String skin = chooseSkin();
+        ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, player.getYRot() + 180.0F, displayName, skin);
         if (!result.success || result.npc == null) return false;
 
         RoamingTrainerData data = new RoamingTrainerData();
@@ -303,13 +304,27 @@ public final class RoamingTrainerManager {
             List<String> clean = names.stream().filter(s -> s != null && !s.isBlank()).toList();
             if (!clean.isEmpty()) return clean.get(RANDOM.nextInt(clean.size()));
         }
-        return pretty(rarity.name()) + " Roaming Trainer";
+        return pretty(rarity.name()) + " Trainer";
+    }
+
+
+    private static String chooseSkin() {
+        List<String> skins = RoamingTrainerConfig.DATA.randomTrainerSkins;
+        if (skins == null || skins.isEmpty()) return "";
+        List<String> clean = skins.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(String::trim)
+                .filter(s -> !RoamingTrainerConfig.isBlockedDefaultSkin(s))
+                .distinct()
+                .toList();
+        if (clean.isEmpty()) return "";
+        return clean.get(RANDOM.nextInt(clean.size()));
     }
 
     private static void alertNearbyPlayers(ServerLevel level, Vec3 pos, RoamingTrainerRarity rarity, String displayName) {
         double radius = Math.max(32.0D, RoamingTrainerConfig.DATA.activePlayerRadius);
         for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, box(pos, radius), p -> !p.isSpectator())) {
-            player.sendSystemMessage(Component.literal("A " + pretty(rarity.name()) + " roaming trainer appeared nearby: " + displayName + "!").withStyle(rarity.color));
+            player.sendSystemMessage(Component.literal("A " + pretty(rarity.name()) + " trainer appeared nearby: " + displayName + "!").withStyle(rarity.color));
             try { player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F); } catch (Exception ignored) {}
         }
     }

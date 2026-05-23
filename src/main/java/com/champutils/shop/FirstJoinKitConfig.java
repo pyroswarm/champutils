@@ -26,14 +26,12 @@ public final class FirstJoinKitConfig {
     }
 
     public static final class KitEntry {
-        /** item, tool, crate_credit, or command */
+        /** item, tool, or command */
         public String type = "item";
         public String id = "minecraft:stone";
         public int amount = 1;
         public String toolType = "pickaxe";
         public String rarity = "COMMON";
-        public String crateRarity = "COMMON";
-        public boolean pokemonCrate = false;
         public List<String> commands = new ArrayList<>();
     }
 
@@ -80,7 +78,6 @@ public final class FirstJoinKitConfig {
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
-            if (entry.crateRarity == null || entry.crateRarity.isBlank()) entry.crateRarity = "COMMON";
             if (entry.commands == null) entry.commands = new ArrayList<>();
         }
     }

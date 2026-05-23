@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class RoamingTrainerConfig {
 
@@ -45,6 +46,7 @@ public final class RoamingTrainerConfig {
         public List<String> legendarySpeciesPool = new ArrayList<>();
         public List<String> competitiveHeldItems = new ArrayList<>();
         public List<String> competitiveNatures = new ArrayList<>();
+        public List<String> randomTrainerSkins = new ArrayList<>();
     }
 
     public static class RaritySettings {
@@ -112,6 +114,7 @@ public final class RoamingTrainerConfig {
         if (DATA.legendarySpeciesPool == null || DATA.legendarySpeciesPool.isEmpty()) DATA.legendarySpeciesPool = defaultLegendarySpecies();
         if (DATA.competitiveHeldItems == null) DATA.competitiveHeldItems = defaultHeldItems();
         if (DATA.competitiveNatures == null) DATA.competitiveNatures = defaultNatures();
+        DATA.randomTrainerSkins = cleanTrainerSkins(DATA.randomTrainerSkins);
         if (DATA.scanIntervalSeconds < 5) DATA.scanIntervalSeconds = 5;
         if (DATA.spawnMinDistance < 8) DATA.spawnMinDistance = 8;
         if (DATA.spawnMaxDistance < DATA.spawnMinDistance) DATA.spawnMaxDistance = DATA.spawnMinDistance + 12;
@@ -120,7 +123,12 @@ public final class RoamingTrainerConfig {
         if (DATA.maxSpawnAttemptsPerPlayer < 1) DATA.maxSpawnAttemptsPerPlayer = 1;
 
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
-            DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
+            RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
+            if (settings.trainerNames == null || settings.trainerNames.isEmpty()) {
+                settings.trainerNames = defaultTrainerNames(rarity);
+            } else {
+                settings.trainerNames = cleanTrainerNames(settings.trainerNames, rarity);
+            }
         }
     }
 
@@ -152,6 +160,7 @@ public final class RoamingTrainerConfig {
         root.legendarySpeciesPool = defaultLegendarySpecies();
         root.competitiveHeldItems = defaultHeldItems();
         root.competitiveNatures = defaultNatures();
+        root.randomTrainerSkins = defaultTrainerSkins();
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             root.rarities.put(rarity.name(), defaultRarity(rarity));
         }
@@ -160,7 +169,7 @@ public final class RoamingTrainerConfig {
 
     private static RaritySettings defaultRarity(RoamingTrainerRarity rarity) {
         RaritySettings s = new RaritySettings();
-        s.trainerNames.add(formatName(rarity) + " Roaming Trainer");
+        s.trainerNames.addAll(defaultTrainerNames(rarity));
         switch (rarity) {
             case COMMON -> {
                 s.weight = 70; s.pokemonCount = 1; s.levelOffsetMin = -3; s.levelOffsetMax = 1; s.aiSkill = 1;
@@ -272,6 +281,103 @@ public final class RoamingTrainerConfig {
 
     private static List<String> defaultNatures() {
         return new ArrayList<>(Arrays.asList("adamant", "modest", "jolly", "timid", "bold", "calm", "impish", "careful"));
+    }
+
+    private static List<String> cleanTrainerNames(List<String> names, RoamingTrainerRarity rarity) {
+        List<String> cleaned = new ArrayList<>();
+        if (names != null) {
+            for (String name : names) {
+                if (name == null || name.isBlank()) continue;
+                String value = name.replace("Roaming Trainer", "Trainer").replace("roaming trainer", "trainer").trim();
+                if (!value.isBlank() && !cleaned.contains(value)) cleaned.add(value);
+            }
+        }
+        return cleaned.isEmpty() ? defaultTrainerNames(rarity) : cleaned;
+    }
+
+    private static final Set<String> BLOCKED_DEFAULT_SKINS = Set.of(
+            "steve", "alex", "mhf_steve", "mhf_alex", "player", "default", "char", "minecraft:steve", "minecraft:alex"
+    );
+
+    public static boolean isBlockedDefaultSkin(String skin) {
+        if (skin == null) return true;
+        String normalized = skin.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) return true;
+        if (BLOCKED_DEFAULT_SKINS.contains(normalized)) return true;
+        return normalized.endsWith("/steve.png")
+                || normalized.endsWith("/alex.png")
+                || normalized.endsWith("\\steve.png")
+                || normalized.endsWith("\\alex.png");
+    }
+
+    private static List<String> cleanTrainerSkins(List<String> skins) {
+        List<String> cleaned = new ArrayList<>();
+        if (skins != null) {
+            for (String skin : skins) {
+                if (isBlockedDefaultSkin(skin)) continue;
+                String value = skin.trim();
+                if (!cleaned.contains(value)) cleaned.add(value);
+            }
+        }
+
+        // Keep the roaming pool varied even for older configs that only had a few names.
+        for (String fallback : defaultTrainerSkins()) {
+            if (cleaned.size() >= 36) break;
+            if (!cleaned.contains(fallback)) cleaned.add(fallback);
+        }
+        return cleaned;
+    }
+
+    private static List<String> defaultTrainerSkins() {
+        return new ArrayList<>(Arrays.asList(
+                "champ_roamer_01.png",
+                "champ_roamer_02.png",
+                "champ_roamer_03.png",
+                "champ_roamer_04.png",
+                "champ_roamer_05.png",
+                "champ_roamer_06.png",
+                "champ_roamer_07.png",
+                "champ_roamer_08.png",
+                "champ_roamer_09.png",
+                "champ_roamer_10.png",
+                "champ_roamer_11.png",
+                "champ_roamer_12.png",
+                "champ_roamer_13.png",
+                "champ_roamer_14.png",
+                "champ_roamer_15.png",
+                "champ_roamer_16.png",
+                "champ_roamer_17.png",
+                "champ_roamer_18.png",
+                "champ_roamer_19.png",
+                "champ_roamer_20.png",
+                "champ_roamer_21.png",
+                "champ_roamer_22.png",
+                "champ_roamer_23.png",
+                "champ_roamer_24.png",
+                "champ_roamer_25.png",
+                "champ_roamer_26.png",
+                "champ_roamer_27.png",
+                "champ_roamer_28.png",
+                "champ_roamer_29.png",
+                "champ_roamer_30.png",
+                "champ_roamer_31.png",
+                "champ_roamer_32.png",
+                "champ_roamer_33.png",
+                "champ_roamer_34.png",
+                "champ_roamer_35.png",
+                "champ_roamer_36.png"
+        ));
+    }
+
+    private static List<String> defaultTrainerNames(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> new ArrayList<>(Arrays.asList("Rookie Trainer", "Youngster", "Camper", "Picnicker", "Bug Catcher"));
+            case UNCOMMON -> new ArrayList<>(Arrays.asList("Ace Recruit", "Backpacker", "Hiker", "Rancher", "Pokefan"));
+            case RARE -> new ArrayList<>(Arrays.asList("Ace Trainer", "Veteran", "Black Belt", "Hex Maniac", "Ranger"));
+            case EPIC -> new ArrayList<>(Arrays.asList("Elite Trainer", "Battle Expert", "Frontier Challenger", "Dragon Tamer"));
+            case LEGENDARY -> new ArrayList<>(Arrays.asList("Legend Seeker", "Master Trainer", "Champion's Rival", "Myth Hunter"));
+            case MYTHIC -> new ArrayList<>(Arrays.asList("Mythic Challenger", "Apex Trainer", "World Champion", "Grandmaster"));
+        };
     }
 
     private static String formatName(RoamingTrainerRarity rarity) {

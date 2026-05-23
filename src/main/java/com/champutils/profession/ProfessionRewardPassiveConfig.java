@@ -1,7 +1,5 @@
 package com.champutils.profession;
 
-import com.champutils.dungeon.DungeonKeyConfig;
-import com.champutils.dungeon.DungeonKeyManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -292,10 +290,6 @@ public class ProfessionRewardPassiveConfig {
         int max = Math.max(min, entry.max);
         int amount = min + RANDOM.nextInt(max - min + 1);
 
-        if ("digital_dungeon_key".equals(type) || "dungeon_key".equals(type)) {
-            return createDigitalDungeonKeyReward(entry, player, amount);
-        }
-
         if ("profession_fragment".equals(type)) {
             String rarity = entry.fragmentRarity == null || entry.fragmentRarity.isBlank()
                     ? "COMMON"
@@ -315,43 +309,6 @@ public class ProfessionRewardPassiveConfig {
         }
 
         return createItemStack(entry, amount);
-    }
-
-    private static ItemStack createDigitalDungeonKeyReward(
-            RewardEntry entry,
-            ServerPlayer player,
-            int amount
-    ) {
-        if (player == null || entry.keyId == null || entry.keyId.isBlank() || amount <= 0) {
-            return ItemStack.EMPTY;
-        }
-
-        String keyId = entry.keyId.trim();
-        if (!DungeonKeyConfig.KEYS.containsKey(keyId)) {
-            return ItemStack.EMPTY;
-        }
-
-        DungeonKeyManager.grantDigitalKey(player, keyId, amount);
-
-        DungeonKeyConfig.KeyData data = DungeonKeyConfig.KEYS.get(keyId);
-        String displayName = data == null || data.displayName == null || data.displayName.isBlank()
-                ? keyId
-                : data.displayName;
-
-        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(
-                    Component.literal("§bFound §f" + amount + "x " + displayName + " §7(Digital)"),
-                    true
-            );
-        }
-
-        ProfessionSpecialCelebration.celebrateSpecialActive(
-                player,
-                "§bDungeon Key Found!",
-                "§f" + amount + "x " + displayName + " §7(Digital)"
-        );
-
-        return ItemStack.EMPTY;
     }
 
     private static ItemStack createItemStack(RewardEntry entry, int amount) {
@@ -440,8 +397,7 @@ public class ProfessionRewardPassiveConfig {
                 entry("minecraft:emerald", 1, 2, 2),
                 entry("cobblemon:hard_stone", 1, 1, 2),
                 entry("cobblemon:soft_sand", 1, 1, 2),
-                entry("cobblemon:ancient_relic_copper", 1, 1, 1),
-                keyEntry("common_dungeon_key", 1, 1, 1, 0.025D, 0.001D)
+                entry("cobblemon:ancient_relic_copper", 1, 1, 1)
         ));
 
         root.tables.put("shardFinder", list(
@@ -455,8 +411,7 @@ public class ProfessionRewardPassiveConfig {
                 entry("cobblemon:dawn_stone", 1, 1, 5),
                 entry("cobblemon:dusk_stone", 1, 1, 5),
                 entry("cobblemon:shiny_stone", 1, 1, 4),
-                fragmentGambleEntry(1, 1, 1, 0.05D, 0.003D),
-                keyEntry("common_dungeon_key", 1, 1, 1, 0.02D, 0.001D)
+                fragmentGambleEntry(1, 1, 1, 0.05D, 0.003D)
         ));
 
         root.tables.put("gemFinder", list(
@@ -475,8 +430,7 @@ public class ProfessionRewardPassiveConfig {
                 entry("cobblemon:absorb_bulb", 1, 1, 4),
                 entry("cobblemon:silver_powder", 1, 1, 4),
                 entry("cobblemon:grassy_seed", 1, 1, 2),
-                fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D),
-                keyEntry("common_dungeon_key", 1, 1, 1, 0.02D, 0.001D)
+                fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));
 
         root.tables.put("forestry_seed_finder", list(
@@ -501,8 +455,7 @@ public class ProfessionRewardPassiveConfig {
                 entry("cobblemon:pecha_berry", 1, 2, 8),
                 entry("cobblemon:cheri_berry", 1, 2, 8),
                 entry("cobblemon:revival_herb", 1, 1, 2),
-                fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D),
-                keyEntry("common_dungeon_key", 1, 1, 1, 0.02D, 0.001D)
+                fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));
 
         root.tables.put("farming_golden_harvest", list(
@@ -534,18 +487,6 @@ public class ProfessionRewardPassiveConfig {
         entry.min = min;
         entry.max = max;
         entry.weight = weight;
-        return entry;
-    }
-
-    private static RewardEntry keyEntry(String keyId, int min, int max, int weight, double chance, double chancePerLevel) {
-        RewardEntry entry = new RewardEntry();
-        entry.type = "digital_dungeon_key";
-        entry.keyId = keyId;
-        entry.min = min;
-        entry.max = max;
-        entry.weight = weight;
-        entry.chancePercent = chance;
-        entry.chancePerProfessionLevel = chancePerLevel;
         return entry;
     }
 

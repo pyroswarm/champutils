@@ -39,7 +39,6 @@ public final class BetaDoctorCommand {
         checkJsonConfigs(results);
         checkProgressionConfigs(results);
         checkBattleAndArenaConfigs(results);
-        checkDungeonConfigs(results);
         checkWorldEventConfigs(results);
         checkNpcBindings(results);
         checkExternalHooks(results);
@@ -183,11 +182,6 @@ public final class BetaDoctorCommand {
                 "gymleaders.json",
                 "gym_settings.json",
                 "arena_locations.json",
-                "champ_dungeons.json",
-                "dungeon_keys.json",
-                "dungeon_key_drops.json",
-                "dungeon_rewards.json",
-                "dungeon_trainers.json",
                 "world_events.json",
                 "profession_tools.json",
                 "profession_fragments.json",
@@ -275,32 +269,6 @@ public final class BetaDoctorCommand {
         }
     }
 
-    private static void checkDungeonConfigs(List<CheckResult> results) {
-        requireConfig(results, "champ_dungeons.json", "Expeditions");
-        requireConfig(results, "dungeon_rewards.json", "Expedition rewards");
-        requireConfig(results, "dungeon_keys.json", "Expedition keys");
-        requireConfig(results, "dungeon_trainers.json", "Expedition trainers");
-
-        File crates = new File(CONFIG_DIR, "dungeon_native_crates.json");
-        if (!crates.exists()) {
-            results.add(CheckResult.warn("Crates", "No native crate bindings file found yet."));
-            return;
-        }
-
-        JsonObject root = readObject(crates);
-        if (root == null) {
-            results.add(CheckResult.fail("Crates", "dungeon_native_crates.json is invalid."));
-            return;
-        }
-
-        int total = root.entrySet().size();
-        if (total <= 0) {
-            results.add(CheckResult.warn("Crates", "No native crates are bound."));
-        } else {
-            results.add(CheckResult.ok("Crates", total + " crate binding section(s) found."));
-        }
-    }
-
     private static void checkWorldEventConfigs(List<CheckResult> results) {
         requireConfig(results, "world_events.json", "World events");
 
@@ -326,7 +294,6 @@ public final class BetaDoctorCommand {
     private static void checkNpcBindings(List<CheckResult> results) {
         checkBindingFile(results, "auction_npc_binding.json", "Auction NPC");
         checkBindingFile(results, "menu_npc_bindings.json", "Menu NPCs");
-        checkBindingFile(results, "dungeon_bindings.json", "Expedition NPCs");
     }
 
     private static void checkExternalHooks(List<CheckResult> results) {

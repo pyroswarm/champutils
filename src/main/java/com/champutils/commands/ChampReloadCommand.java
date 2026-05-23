@@ -11,12 +11,6 @@ import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.BattleProfessionLootConfig;
 import com.champutils.worldevent.WorldEventConfig;
 import com.champutils.worldevent.WorldEventBindingRegistry;
-import com.champutils.dungeon.DungeonConfig;
-import com.champutils.dungeon.DungeonKeyConfig;
-import com.champutils.dungeon.DungeonTrainerConfig;
-import com.champutils.dungeon.DungeonRewardConfig;
-import com.champutils.dungeon.DungeonKeyDropConfig;
-import com.champutils.dungeon.DungeonNativeCrateRegistry;
 import com.champutils.dex.DexRewardConfig;
 import com.champutils.teleport.TeleportConfig;
 import com.champutils.teleport.PortalConfig;
@@ -78,12 +72,6 @@ public class ChampReloadCommand {
             BattleProfessionLootConfig.load();
             WorldEventConfig.load();
             WorldEventBindingRegistry.load();
-            DungeonKeyConfig.load();
-            DungeonKeyDropConfig.load();
-            DungeonConfig.load();
-            DungeonNativeCrateRegistry.load();
-            DungeonTrainerConfig.load();
-            DungeonRewardConfig.load();
             GymConfig.load();
             GymRegistry.load();
             TeleportConfig.load();
@@ -103,7 +91,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json"
                     ),
                     false
             );

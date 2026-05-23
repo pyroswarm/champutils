@@ -23,7 +23,6 @@ import com.champutils.profile.*;
 import com.champutils.rank.*;
 import com.champutils.worldevent.*;
 import com.champutils.trainer.*;
-import com.champutils.dungeon.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.SellPriceConfig;
 import com.champutils.notifications.NotificationManager;
@@ -36,6 +35,8 @@ import com.champutils.dex.*;
 import com.champutils.wondertrade.*;
 import com.champutils.emblem.*;
 import com.champutils.roaming.*;
+import com.champutils.specialspawn.*;
+import com.champutils.wiki.*;
 
 /*
  =========================
@@ -121,6 +122,7 @@ public class ChampUtilsMod implements ModInitializer {
         DexRewardClaimData.load();
         EmblemConfig.load();
         RoamingTrainerConfig.load();
+        SpecialWildSpawnConfig.load();
 
         /*
          =========================
@@ -181,21 +183,8 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventConfig.load();
         WorldEventBindingRegistry.load();
 
-        /*
-         =========================
-         DUNGEON CONFIG
-         =========================
-         */
-        DungeonKeyConfig.load();
-        DungeonKeyDropConfig.load();
-        DungeonConfig.load();
-        DungeonBindingRegistry.load();
-        DungeonNativeCrateRegistry.load();
         AuctionHouseNpcBindingRegistry.load();
         MenuNpcBindingRegistry.load();
-        DungeonTrainerConfig.load();
-        DungeonRewardConfig.load();
-        DungeonKeyManager.registerKeys();
 
         /*
          =========================
@@ -214,12 +203,12 @@ public class ChampUtilsMod implements ModInitializer {
                     ServerLifecycleBridge.setServer(server);
 
                     LeaderboardManager.refresh(server);
-                    DungeonNativeCrateRegistry.respawnAllHolograms(server);
                     ServerStatusDatabaseRepository.sync(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
                     PokemonHuntManager.ensureStarted(server);
+                    PokemonWikiIndex.reload(server);
 
                     if (DatabaseManager.isEnabled()) {
                         try {
@@ -249,8 +238,6 @@ public class ChampUtilsMod implements ModInitializer {
                     EconomyManager.save();
                     ProfessionBlockTracker.save();
                     WorldEventBindingRegistry.save();
-                    DungeonBindingRegistry.save();
-                    DungeonNativeCrateRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
                     FirstJoinKitManager.save();
@@ -260,7 +247,6 @@ public class ChampUtilsMod implements ModInitializer {
                     PokemonHuntManager.save();
                     QuestManager.saveAll();
                     DexRewardClaimData.save();
-                    DungeonManager.handleServerStopping(server);
                     RoamingTrainerManager.despawnAll(server);
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
@@ -320,10 +306,6 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
-                    DungeonManager.handleJoinCleanup(
-                            player
-                    );
-
                     NotificationManager.handleJoin(
                             player
                     );
@@ -359,10 +341,6 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     DisconnectForfeitManager.handleDisconnect(
-                            handler.player
-                    );
-
-                    DungeonManager.handleDisconnect(
                             handler.player
                     );
 
@@ -432,7 +410,6 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
-        DungeonCommand.register();
         ArenaCommand.register();
         PokemonHuntCommand.register();
         QuestCommand.register();
@@ -446,6 +423,8 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.teleport.SpawnWarpCommand.register();
         PortalCommand.register();
         RoamingTrainerCommand.register();
+        SpecialWildSpawnCommand.register();
+        PokemonWikiCommand.register();
 
         /*
          New custom item test command
@@ -463,17 +442,12 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleHandler.register();
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
-        DungeonCommandLock.register();
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();
         WorldEventBattleListener.register();
-        DungeonBattleListener.register();
-        DungeonBindInteractionListener.register();
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
-        DungeonNativeCrateInteractionListener.register();
-        DungeonInteractionLock.register();
         ChampTrainerInteractionListener.register();
         PokemonHuntCatchListener.register();
         ChestShopInteractionListener.register();
@@ -496,8 +470,6 @@ public class ChampUtilsMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-                    DungeonManager.tickTeleportGuard(server);
-                    DungeonCrateOpeningGui.tick(server);
                     ShopPokemonCrateOpeningGui.tick(server);
                     NotificationManager.tick(server);
                     PokemonHuntManager.tick(server);
@@ -505,6 +477,7 @@ public class ChampUtilsMod implements ModInitializer {
                     RandomTeleportCommand.tick(server);
                     PortalManager.tick(server);
                     RoamingTrainerManager.tick(server);
+                    SpecialWildSpawnManager.tick(server);
 
                     /*
                      Leaderboard refresh

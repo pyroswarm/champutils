@@ -60,9 +60,9 @@ public class HelpMenu {
                 gui,
                 4,
                 Items.DEEPSLATE_BRICKS,
-                "§5Expeditions & Events",
-                () -> openDungeons(player),
-                "§7Keys, expeditions, world events,",
+                "§5World Events",
+                () -> openEvents(player),
+                "§7World events, hunts,",
                 "§7and reward flow."
         );
 
@@ -98,7 +98,7 @@ public class HelpMenu {
                         "§71. Pick your starter and explore spawn.",
                         "§72. Battle gyms to unlock useful features.",
                         "§73. Try professions to earn XP and gear.",
-                        "§74. Run expeditions and events for stronger rewards.",
+                        "§74. Join world events and hunts for stronger rewards.",
                         "§75. Queue casual or ranked PvP when ready.",
                         "",
                         "§eCore loop:",
@@ -178,17 +178,17 @@ public class HelpMenu {
         );
     }
 
-    private static void openDungeons(ServerPlayer player) {
+    private static void openEvents(ServerPlayer player) {
         openInfoPage(
                 player,
-                "Expeditions & Events",
+                "World Events",
                 Items.DEEPSLATE_BRICKS,
-                "§5Expeditions & Events",
+                "§5World Events",
                 new String[] {
-                        "§7Expeditions are repeatable challenge content.",
+                        "§7World events are server-wide challenge content.",
                         "§7They can reward shards, items, gear, and more.",
                         "§7World events are timed server activities.",
-                        "§7Event NPCs and expedition NPCs are found at spawn.",
+                        "§7Event NPCs are found at spawn.",
                         "",
                         "§eTips:",
                         "§7Bring a ready team before entering hard content.",

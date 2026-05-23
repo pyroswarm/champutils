@@ -1,7 +1,5 @@
 package com.champutils.shop;
 
-import com.champutils.dungeon.DungeonCrateCreditManager;
-import com.champutils.dungeon.DungeonRarity;
 import com.champutils.profession.ProfessionToolManager;
 
 import com.google.gson.Gson;
@@ -16,15 +14,16 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Locale;
 
 public final class FirstJoinKitManager {
 
@@ -102,7 +101,6 @@ public final class FirstJoinKitManager {
 
         switch (normalize(entry.type)) {
             case "tool" -> giveTool(player, entry);
-            case "crate_credit" -> giveCrateCredit(player, entry);
             case "command" -> runCommands(player, entry.commands);
             case "item" -> giveItem(player, entry.id, entry.amount);
             default -> {
@@ -141,19 +139,6 @@ public final class FirstJoinKitManager {
         ItemStack stack = ProfessionToolManager.createTool(selected, false);
         if (!stack.isEmpty()) {
             NpcShopService.giveOrDrop(player, stack);
-        }
-    }
-
-    private static void giveCrateCredit(ServerPlayer player, FirstJoinKitConfig.KitEntry entry) {
-        try {
-            DungeonRarity rarity = DungeonRarity.valueOf(entry.crateRarity.trim().toUpperCase(Locale.ROOT));
-            int amount = Math.max(1, entry.amount);
-            if (entry.pokemonCrate) {
-                DungeonCrateCreditManager.grantCredits(player.getUUID(), rarity, 0, amount);
-            } else {
-                DungeonCrateCreditManager.grantCredits(player.getUUID(), rarity, amount, 0);
-            }
-        } catch (Exception ignored) {
         }
     }
 

@@ -1,7 +1,5 @@
 package com.champutils.profession;
 
-import com.champutils.dungeon.DungeonKeyDropManager;
-
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -40,7 +38,6 @@ public class WildBattleRewardManager {
         }
 
         playedSuperRareSound = rollFragmentJackpot(player, battlingLevel, playedSuperRareSound);
-        rollDungeonKeys(player, battlingLevel);
     }
 
     private static BattleProfessionLootConfig.LootEntry getWeightedReward(int battlingLevel) {
@@ -173,41 +170,6 @@ public class WildBattleRewardManager {
         }
 
         return null;
-    }
-
-    private static void rollDungeonKeys(ServerPlayer player, int battlingLevel) {
-        BattleProfessionLootConfig.DungeonKeySettings settings = BattleProfessionLootConfig.dungeonKeys;
-
-        if (settings == null || !settings.enabled || settings.drops == null || settings.drops.isEmpty()) {
-            return;
-        }
-
-        for (BattleProfessionLootConfig.KeyDropEntry entry : settings.drops) {
-            if (entry == null || !entry.enabled || entry.keyId == null || entry.keyId.isBlank()) {
-                continue;
-            }
-
-            if (battlingLevel < Math.max(1, entry.minBattlingLevel)) {
-                continue;
-            }
-
-            double chance = entry.baseChance +
-                    (settings.chancePerBattleLevelMultiplier * Math.max(0, battlingLevel - entry.minBattlingLevel));
-
-            if (entry.maxChance > 0.0D) {
-                chance = Math.min(chance, entry.maxChance);
-            }
-
-            if (RANDOM.nextDouble() >= Math.max(0.0D, chance)) {
-                continue;
-            }
-
-            int min = Math.max(1, entry.minAmount);
-            int max = Math.max(min, entry.maxAmount);
-            int amount = min + RANDOM.nextInt(max - min + 1);
-
-            DungeonKeyDropManager.giveKey(player, entry.keyId, amount);
-        }
     }
 
     private static boolean giveItemReward(ServerPlayer player, String itemId, int amount, boolean soundAlreadyPlayed) {

@@ -62,16 +62,6 @@ public class SettingsMenu {
         setToggle(
                 gui,
                 4,
-                "Expedition Notifications",
-                "Controls expedition progress notices and alerts.",
-                ProfessionNotificationSettings.areDungeonNotificationsEnabled(player),
-                () -> ProfessionNotificationSettings.toggleDungeonNotifications(player),
-                player
-        );
-
-        setToggle(
-                gui,
-                5,
                 "Scoreboard Display",
                 "Shows money, RP, dex progress, and skill levels in the sidebar.",
                 ScoreboardPreferenceManager.isEnabled(player.getUUID()),

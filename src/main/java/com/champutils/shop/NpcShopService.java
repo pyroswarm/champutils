@@ -1,8 +1,6 @@
 package com.champutils.shop;
 
 import com.champutils.auction.AuctionPokemonSerializer;
-import com.champutils.dungeon.DungeonCrateCreditManager;
-import com.champutils.dungeon.DungeonRarity;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
@@ -137,7 +135,6 @@ public final class NpcShopService {
         boolean success = switch (normalize(entry.type)) {
             case "tool" -> giveTool(player, entry);
             case "pokemon_crate" -> givePokemonCrate(player, entry);
-            case "crate_credit" -> giveCrateCredit(player, entry);
             case "command" -> runCommands(player, entry);
             case "item" -> giveItem(player, entry);
             default -> false;
@@ -699,23 +696,6 @@ public final class NpcShopService {
                 "cobblemon:iron_hands", "cobblemon:iron_jugulis", "cobblemon:iron_moth", "cobblemon:iron_thorns",
                 "cobblemon:iron_valiant", "cobblemon:iron_leaves", "cobblemon:iron_boulder", "cobblemon:iron_crown"
         );
-    }
-
-    private static boolean giveCrateCredit(ServerPlayer player, NpcShopConfig.ShopEntry entry) {
-        DungeonRarity rarity;
-        try {
-            rarity = DungeonRarity.valueOf(entry.crateRarity.trim().toUpperCase(Locale.ROOT));
-        } catch (Exception exception) {
-            return false;
-        }
-
-        int amount = Math.max(1, entry.amount);
-        if (entry.pokemonCrate) {
-            DungeonCrateCreditManager.grantCredits(player.getUUID(), rarity, 0, amount);
-        } else {
-            DungeonCrateCreditManager.grantCredits(player.getUUID(), rarity, amount, 0);
-        }
-        return true;
     }
 
     private static boolean runCommands(ServerPlayer player, NpcShopConfig.ShopEntry entry) {

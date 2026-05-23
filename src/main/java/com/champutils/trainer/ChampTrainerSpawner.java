@@ -72,10 +72,14 @@ public final class ChampTrainerSpawner {
 
 
     public static SpawnResult spawnRoaming(ServerLevel level, Vec3 pos, float yaw, String displayName) {
-        String name = displayName == null || displayName.isBlank() ? "Roaming Trainer" : displayName;
-        NPCEntity npc = createProtectedNpc(level, pos, yaw, name, "");
+        return spawnRoaming(level, pos, yaw, displayName, "");
+    }
+
+    public static SpawnResult spawnRoaming(ServerLevel level, Vec3 pos, float yaw, String displayName, String skin) {
+        String name = displayName == null || displayName.isBlank() ? "Trainer" : displayName;
+        NPCEntity npc = createProtectedNpc(level, pos, yaw, name, skin == null ? "" : skin);
         if (npc == null) return SpawnResult.fail("Could not create roaming trainer NPC.");
-        return SpawnResult.ok("Spawned roaming trainer " + name, npc, TrainerKind.WORLD_EVENT);
+        return SpawnResult.ok("Spawned trainer " + name, npc, TrainerKind.WORLD_EVENT);
     }
 
     private static SpawnResult spawnGym(ServerLevel level, Vec3 pos, float yaw, String trainerId, BadgeType badge) {
@@ -210,6 +214,7 @@ public final class ChampTrainerSpawner {
         if (npc == null || skin == null || skin.isBlank()) return;
 
         String trimmed = skin.trim();
+        if (isBlockedDefaultSkinName(trimmed)) return;
 
         // 1) Local skin files for offline/custom skins.
         // Supported config values:
@@ -248,6 +253,23 @@ public final class ChampTrainerSpawner {
             System.out.println("[ChampUtils] Failed to request trainer skin profile: " + trimmed);
             e.printStackTrace();
         }
+    }
+
+    private static boolean isBlockedDefaultSkinName(String skin) {
+        if (skin == null) return true;
+        String normalized = skin.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) return true;
+        return normalized.equals("steve")
+                || normalized.equals("alex")
+                || normalized.equals("mhf_steve")
+                || normalized.equals("mhf_alex")
+                || normalized.equals("player")
+                || normalized.equals("default")
+                || normalized.equals("char")
+                || normalized.endsWith("/steve.png")
+                || normalized.endsWith("/alex.png")
+                || normalized.endsWith("\\steve.png")
+                || normalized.endsWith("\\alex.png");
     }
 
     private static File resolveSkinFile(String skin) {

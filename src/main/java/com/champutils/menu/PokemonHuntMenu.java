@@ -1,6 +1,6 @@
 package com.champutils.menu;
 
-import com.champutils.dungeon.PokemonIconUtil;
+import com.champutils.matchmaking.PokemonIconUtil;
 import com.champutils.hunt.PokemonHuntManager;
 import com.champutils.hunt.PokemonHuntState;
 

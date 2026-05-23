@@ -1,0 +1,17 @@
+-proc:none
+commands/MenuCommand.java
+commands/ChampUtilsHelpCommand.java
+commands/ChampReloadCommand.java
+commands/BetaDoctorCommand.java
+menu/MenuNpcInteractionListener.java
+menu/MenuNpcBindingRegistry.java
+menu/SettingsMenu.java
+profession/BattleProfessionLootConfig.java
+profession/ProfessionRewardPassiveConfig.java
+profession/NpcBattleRewardManager.java
+profession/WildBattleRewardManager.java
+profession/ProfessionLootManager.java
+shop/FirstJoinKitManager.java
+shop/FirstJoinKitConfig.java
+shop/NpcShopConfig.java
+shop/NpcShopService.java

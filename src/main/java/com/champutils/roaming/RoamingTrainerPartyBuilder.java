@@ -48,7 +48,9 @@ public final class RoamingTrainerPartyBuilder {
 
             party.initialize();
             npc.setParty(party);
-            try { npc.setSkill(Math.max(0, Math.min(5, settings.aiSkill))); } catch (Exception ignored) {}
+            // Roaming trainers use team quality for difficulty. Capping AI skill prevents the high-skill AI
+            // from getting stuck in repeated defensive switch loops.
+            try { npc.setSkill(Math.max(0, Math.min(2, settings.aiSkill))); } catch (Exception ignored) {}
             try { npc.setCustomName(Component.literal(data.displayName).withStyle(data.rarity.color)); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}

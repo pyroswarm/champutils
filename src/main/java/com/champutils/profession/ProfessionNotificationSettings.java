@@ -131,18 +131,6 @@ public final class ProfessionNotificationSettings {
         return settings.queueNotifications;
     }
 
-    public static boolean areDungeonNotificationsEnabled(ServerPlayer player) {
-        return getSettings(player).dungeonNotifications;
-    }
-
-    public static boolean toggleDungeonNotifications(ServerPlayer player) {
-        PlayerSettings settings = getOrCreateSettings(player);
-        if (settings == null) return true;
-        settings.dungeonNotifications = !settings.dungeonNotifications;
-        save();
-        return settings.dungeonNotifications;
-    }
-
     public static void playSound(
             ServerPlayer player,
             SoundEvent sound,
@@ -239,14 +227,12 @@ public final class ProfessionNotificationSettings {
         Boolean soundEffects = true;
         Boolean broadcastMessages = true;
         Boolean queueNotifications = true;
-        Boolean dungeonNotifications = true;
 
         void normalizeDefaults() {
             if (professionPopups == null) professionPopups = true;
             if (soundEffects == null) soundEffects = true;
             if (broadcastMessages == null) broadcastMessages = true;
             if (queueNotifications == null) queueNotifications = true;
-            if (dungeonNotifications == null) dungeonNotifications = true;
         }
     }
 }

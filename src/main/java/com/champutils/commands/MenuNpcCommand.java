@@ -28,12 +28,8 @@ public final class MenuNpcCommand {
                                         .suggests((context, builder) -> {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
-                                            builder.suggest("dungeons");
-                                            builder.suggest("expeditions");
                                             builder.suggest("pvp");
-                                            builder.suggest("expeditions");
                                             builder.suggest("pvp");
-                                            builder.suggest("expeditions");
                                             builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
@@ -51,8 +47,6 @@ public final class MenuNpcCommand {
                                         .suggests((context, builder) -> {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
-                                            builder.suggest("dungeons");
-                                            builder.suggest("expeditions");
                                             builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
@@ -71,7 +65,6 @@ public final class MenuNpcCommand {
 
     private static String normalizeMenu(String menu) {
         return switch (menu.toLowerCase()) {
-            case "expedition", "expeditions" -> "dungeons";
             case "pvp", "battle", "battles" -> "battles";
             default -> menu.toLowerCase();
         };

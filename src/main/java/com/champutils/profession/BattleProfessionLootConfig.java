@@ -29,10 +29,65 @@ public final class BattleProfessionLootConfig {
     public static Set<String> superRareItemIds = new LinkedHashSet<>();
 
     public static FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
-    public static DungeonKeySettings dungeonKeys = new DungeonKeySettings();
     public static List<LootEntry> rewards = new ArrayList<>();
 
     private BattleProfessionLootConfig() {
+    }
+
+    public static void load() {
+        try {
+            File dir = new File("config/champutils");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            File file = new File(dir, "battle_profession_loot.json");
+            if (!file.exists()) {
+                createDefault(file);
+            }
+
+            ConfigRoot loaded;
+            try (FileReader reader = new FileReader(file)) {
+                loaded = GSON.fromJson(reader, ConfigRoot.class);
+            }
+
+            if (loaded == null) {
+                loaded = defaultRoot();
+                try (FileWriter writer = new FileWriter(file)) {
+                    GSON.toJson(loaded, writer);
+                }
+            }
+
+            enabled = loaded.enabled;
+            baseRollChance = loaded.baseRollChance;
+            rollChancePerBattlingLevel = loaded.rollChancePerBattlingLevel;
+            maxRollChance = loaded.maxRollChance;
+            baseRolls = loaded.baseRolls;
+            bonusRollEveryLevels = loaded.bonusRollEveryLevels;
+            maxRolls = loaded.maxRolls;
+            announceRewards = loaded.announceRewards;
+            wildBattleRewardChance = loaded.wildBattleRewardChance;
+            superRareItemIds = normalizeItemIds(loaded.superRareItemIds);
+            if (superRareItemIds.isEmpty()) {
+                superRareItemIds = defaultSuperRareItemIds();
+            }
+
+            fragmentJackpots = loaded.fragmentJackpots != null
+                    ? loaded.fragmentJackpots
+                    : new FragmentJackpotSettings();
+
+            rewards = loaded.rewards != null
+                    ? loaded.rewards
+                    : new ArrayList<>();
+
+            if (rewards.isEmpty()) {
+                rewards = defaultRoot().rewards;
+            }
+
+            System.out.println("[ChampUtils] Loaded battle profession loot: " + rewards.size() + " entries.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public static class ConfigRoot {
@@ -47,7 +102,6 @@ public final class BattleProfessionLootConfig {
         public double wildBattleRewardChance = 0.20D;
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
-        public DungeonKeySettings dungeonKeys = new DungeonKeySettings();
         public List<LootEntry> rewards = new ArrayList<>();
     }
 
@@ -79,97 +133,6 @@ public final class BattleProfessionLootConfig {
         }
     }
 
-    public static class DungeonKeySettings {
-        public boolean enabled = true;
-        public double chancePerBattleLevelMultiplier = 0.000012D;
-        public List<KeyDropEntry> drops = new ArrayList<>();
-    }
-
-    public static class KeyDropEntry {
-        public String keyId = "common_dungeon_key";
-        public int minBattlingLevel = 1;
-        public double baseChance = 0.0007D;
-        public double maxChance = 0.004D;
-        public int minAmount = 1;
-        public int maxAmount = 1;
-        public boolean enabled = true;
-    }
-
-    public static void load() {
-        try {
-            File dir = new File("config/champutils");
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            File file = new File(dir, "battle_profession_loot.json");
-            if (!file.exists()) {
-                createDefault(file);
-            }
-
-            try (FileReader reader = new FileReader(file)) {
-                ConfigRoot root = GSON.fromJson(reader, ConfigRoot.class);
-                if (root == null) {
-                    root = defaultRoot();
-                }
-
-                enabled = root.enabled;
-                baseRollChance = root.baseRollChance;
-                rollChancePerBattlingLevel = root.rollChancePerBattlingLevel;
-                maxRollChance = root.maxRollChance;
-                baseRolls = root.baseRolls;
-                bonusRollEveryLevels = root.bonusRollEveryLevels;
-                maxRolls = root.maxRolls;
-                announceRewards = root.announceRewards;
-                wildBattleRewardChance = root.wildBattleRewardChance;
-                superRareItemIds = root.superRareItemIds == null || root.superRareItemIds.isEmpty()
-                        ? defaultSuperRareItemIds()
-                        : normalizeItemIds(root.superRareItemIds);
-                fragmentJackpots = root.fragmentJackpots == null ? new FragmentJackpotSettings() : root.fragmentJackpots;
-                dungeonKeys = root.dungeonKeys == null ? new DungeonKeySettings() : root.dungeonKeys;
-                rewards = root.rewards == null ? new ArrayList<>() : root.rewards;
-            }
-
-            if (rewards == null || rewards.isEmpty()) {
-                rewards = defaultRoot().rewards;
-            }
-
-            if (wildBattleRewardChance < 0.0D) {
-                wildBattleRewardChance = 0.0D;
-            }
-
-            if (superRareItemIds == null || superRareItemIds.isEmpty()) {
-                superRareItemIds = defaultSuperRareItemIds();
-            }
-
-            if (fragmentJackpots.rarityWeights == null || fragmentJackpots.rarityWeights.isEmpty()) {
-                fragmentJackpots.rarityWeights = new FragmentJackpotSettings().rarityWeights;
-            }
-
-            if (dungeonKeys.drops == null || dungeonKeys.drops.isEmpty()) {
-                dungeonKeys.drops = defaultRoot().dungeonKeys.drops;
-            }
-
-            System.out.println("[ChampUtils] Loaded battle profession loot: " + rewards.size() + " entries.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            ConfigRoot defaults = defaultRoot();
-            enabled = defaults.enabled;
-            baseRollChance = defaults.baseRollChance;
-            rollChancePerBattlingLevel = defaults.rollChancePerBattlingLevel;
-            maxRollChance = defaults.maxRollChance;
-            baseRolls = defaults.baseRolls;
-            bonusRollEveryLevels = defaults.bonusRollEveryLevels;
-            maxRolls = defaults.maxRolls;
-            announceRewards = defaults.announceRewards;
-            wildBattleRewardChance = defaults.wildBattleRewardChance;
-            superRareItemIds = defaults.superRareItemIds;
-            fragmentJackpots = defaults.fragmentJackpots;
-            dungeonKeys = defaults.dungeonKeys;
-            rewards = defaults.rewards;
-        }
-    }
-
     private static void createDefault(File file) {
         try (FileWriter writer = new FileWriter(file)) {
             GSON.toJson(defaultRoot(), writer);
@@ -180,13 +143,6 @@ public final class BattleProfessionLootConfig {
 
     private static ConfigRoot defaultRoot() {
         ConfigRoot root = new ConfigRoot();
-
-        root.dungeonKeys.drops.add(key("common_dungeon_key", 1, 0.00075D, 0.0040D));
-        root.dungeonKeys.drops.add(key("uncommon_dungeon_key", 20, 0.00035D, 0.0022D));
-        root.dungeonKeys.drops.add(key("rare_dungeon_key", 40, 0.00016D, 0.0010D));
-        root.dungeonKeys.drops.add(key("epic_dungeon_key", 60, 0.00007D, 0.00045D));
-        root.dungeonKeys.drops.add(key("legendary_dungeon_key", 80, 0.000025D, 0.00018D));
-        root.dungeonKeys.drops.add(key("mythic_dungeon_key", 100, 0.000008D, 0.00005D));
 
         root.superRareItemIds = defaultSuperRareItemIds();
 
@@ -235,17 +191,6 @@ public final class BattleProfessionLootConfig {
         ids.add("cobblemon:beast_ball");
         ids.add("cobblemon:cherish_ball");
         return ids;
-    }
-
-    private static KeyDropEntry key(String id, int level, double baseChance, double maxChance) {
-        KeyDropEntry entry = new KeyDropEntry();
-        entry.keyId = id;
-        entry.minBattlingLevel = level;
-        entry.baseChance = baseChance;
-        entry.maxChance = maxChance;
-        entry.minAmount = 1;
-        entry.maxAmount = 1;
-        return entry;
     }
 
     private static void addPokeBalls(ConfigRoot root) {
