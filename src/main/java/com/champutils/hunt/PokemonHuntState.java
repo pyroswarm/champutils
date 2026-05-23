@@ -7,6 +7,7 @@ public class PokemonHuntState {
     public long cycleStartedAtMillis = 0L;
     public long nextRefreshAtMillis = 0L;
     public List<HuntEntry> hunts = new ArrayList<>();
+    public List<HuntEntry> pendingRewards = new ArrayList<>();
 
     public static class HuntEntry {
         public String id;
@@ -16,6 +17,7 @@ public class PokemonHuntState {
         public String ability;
         public String difficulty;
         public boolean claimed = false;
+        public boolean rewardClaimed = false;
         public String winnerUuid = "";
         public String winnerName = "";
         public long completedAtMillis = 0L;

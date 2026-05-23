@@ -22,6 +22,12 @@ public final class PokemonHuntCommand {
                         PokemonHuntMenu.open(ctx.getSource().getPlayerOrException());
                         return 1;
                     })
+                    .then(literal("claim")
+                            .executes(ctx -> {
+                                PokemonHuntManager.claimRewards(ctx.getSource().getPlayerOrException());
+                                return 1;
+                            })
+                    )
                     .then(literal("refresh")
                             .requires(source -> source.hasPermission(2))
                             .executes(ctx -> {

@@ -46,6 +46,11 @@ public final class PokemonHuntMenu {
 
             if (done) {
                 builder.addLoreLine(Component.literal("§aCompleted by §f" + hunt.winnerName));
+                if (player.getUUID().toString().equals(hunt.winnerUuid) && !hunt.rewardClaimed) {
+                    builder.addLoreLine(Component.literal("§eReward ready: §f/hunts claim"));
+                } else if (hunt.rewardClaimed) {
+                    builder.addLoreLine(Component.literal("§7Reward claimed."));
+                }
             } else {
                 builder.addLoreLine(Component.literal("§eStatus: §fAvailable"));
                 builder.addLoreLine(Component.literal("§8Trades, evolutions, and Wondertrade do not count."));

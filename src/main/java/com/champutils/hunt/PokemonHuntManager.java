@@ -52,6 +52,7 @@ public final class PokemonHuntManager {
                 STATE = loaded == null ? new PokemonHuntState() : loaded;
             }
             if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
+            if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
         } catch (Exception e) {
             e.printStackTrace();
             STATE = new PokemonHuntState();
@@ -218,18 +219,84 @@ public final class PokemonHuntManager {
         hunt.winnerUuid = player.getUUID().toString();
         hunt.winnerName = player.getName().getString();
         hunt.completedAtMillis = System.currentTimeMillis();
+        hunt.rewardClaimed = false;
+        addPendingReward(hunt);
         save();
 
-        grantRewards(player, hunt);
-
         String target = displayTarget(hunt);
-        player.sendSystemMessage(Component.literal("Completed hunt: " + target).withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("§a[Hunts] You completed the hunt for §e" + target + "§a! Use §f/hunts claim§a to claim your reward."));
         if (PokemonHuntConfig.DATA.settings.announceWinners && player.server != null) {
             player.server.getPlayerList().broadcastSystemMessage(
-                    Component.literal("§b[Hunts] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f!"),
+                    Component.literal("§b[Hunts] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward."),
                     false
             );
         }
+    }
+
+    public static synchronized boolean claimRewards(ServerPlayer player) {
+        if (player == null) return false;
+        if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+
+        int claimedCount = 0;
+        String playerUuid = player.getUUID().toString();
+        List<PokemonHuntState.HuntEntry> remaining = new ArrayList<>();
+        for (PokemonHuntState.HuntEntry hunt : STATE.pendingRewards) {
+            if (hunt == null || hunt.rewardClaimed || !playerUuid.equals(hunt.winnerUuid)) {
+                if (hunt != null && !hunt.rewardClaimed) remaining.add(hunt);
+                continue;
+            }
+
+            grantRewards(player, hunt);
+            hunt.rewardClaimed = true;
+            markActiveHuntRewardClaimed(hunt.id);
+            claimedCount++;
+        }
+        STATE.pendingRewards = remaining;
+
+        if (claimedCount > 0) {
+            save();
+            player.sendSystemMessage(Component.literal("§a[Hunts] Claimed reward" + (claimedCount == 1 ? "" : "s") + " for §f" + claimedCount + "§a completed hunt" + (claimedCount == 1 ? "" : "s") + "."));
+            return true;
+        }
+
+        player.sendSystemMessage(Component.literal("§c[Hunts] You do not have any unclaimed hunt rewards."));
+        return false;
+    }
+
+    private static void addPendingReward(PokemonHuntState.HuntEntry hunt) {
+        if (hunt == null || hunt.id == null || hunt.id.isBlank()) return;
+        if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+        for (PokemonHuntState.HuntEntry existing : STATE.pendingRewards) {
+            if (existing != null && hunt.id.equals(existing.id)) return;
+        }
+        STATE.pendingRewards.add(copyHunt(hunt));
+    }
+
+    private static void markActiveHuntRewardClaimed(String huntId) {
+        if (huntId == null || STATE.hunts == null) return;
+        for (PokemonHuntState.HuntEntry hunt : STATE.hunts) {
+            if (hunt != null && huntId.equals(hunt.id)) {
+                hunt.rewardClaimed = true;
+                return;
+            }
+        }
+    }
+
+    private static PokemonHuntState.HuntEntry copyHunt(PokemonHuntState.HuntEntry source) {
+        PokemonHuntState.HuntEntry copy = new PokemonHuntState.HuntEntry();
+        copy.id = source.id;
+        copy.species = source.species;
+        copy.nature = source.nature;
+        copy.gender = source.gender;
+        copy.ability = source.ability;
+        copy.difficulty = source.difficulty;
+        copy.claimed = source.claimed;
+        copy.rewardClaimed = source.rewardClaimed;
+        copy.winnerUuid = source.winnerUuid;
+        copy.winnerName = source.winnerName;
+        copy.completedAtMillis = source.completedAtMillis;
+        copy.rewards = source.rewards;
+        return copy;
     }
 
     private static void grantRewards(ServerPlayer player, PokemonHuntState.HuntEntry hunt) {

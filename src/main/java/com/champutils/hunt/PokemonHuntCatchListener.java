@@ -7,6 +7,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class PokemonHuntCatchListener {
 
@@ -20,41 +23,47 @@ public final class PokemonHuntCatchListener {
 
         try {
             Class<?> eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents");
-            Object observable = getCaptureObservable(eventsClass);
-            if (observable == null) {
-                System.out.println("[ChampUtils] Could not find Cobblemon capture event for Pokémon hunts. Hunts will not complete from trades/evolutions.");
+            List<Object> observables = getCaptureObservables(eventsClass);
+            if (observables.isEmpty()) {
+                System.out.println("[ChampUtils] Could not find Cobblemon capture event for Pokémon hunts.");
                 return;
             }
 
-            Method subscribe = null;
-            for (Method method : observable.getClass().getMethods()) {
-                if (!method.getName().equals("subscribe")) continue;
-                if (method.getParameterCount() == 1) {
-                    subscribe = method;
-                    break;
+            int subscriptions = 0;
+            for (Object observable : observables) {
+                Method subscribe = null;
+                for (Method method : observable.getClass().getMethods()) {
+                    if (!method.getName().equals("subscribe")) continue;
+                    if (method.getParameterCount() == 1) {
+                        subscribe = method;
+                        break;
+                    }
                 }
+
+                if (subscribe == null) continue;
+
+                subscribe.invoke(observable, new Function1<Object, Unit>() {
+                    @Override
+                    public Unit invoke(Object event) {
+                        try {
+                            ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
+                            Object pokemon = PokemonHuntReflection.extractPokemon(event);
+                            if (player != null && pokemon != null) {
+                                PokemonHuntManager.handleCatch(player, pokemon);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        return Unit.INSTANCE;
+                    }
+                });
+                subscriptions++;
             }
 
-            if (subscribe == null) {
+            if (subscriptions <= 0) {
                 System.out.println("[ChampUtils] Could not subscribe to Cobblemon capture event for Pokémon hunts.");
                 return;
             }
-
-            subscribe.invoke(observable, new Function1<Object, Unit>() {
-                @Override
-                public Unit invoke(Object event) {
-                    try {
-                        ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
-                        Object pokemon = PokemonHuntReflection.extractPokemon(event);
-                        if (player != null && pokemon != null) {
-                            PokemonHuntManager.handleCatch(player, pokemon);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    return Unit.INSTANCE;
-                }
-            });
 
             System.out.println("[ChampUtils] Pokémon hunt capture-only listener registered.");
         } catch (Exception e) {
@@ -63,33 +72,35 @@ public final class PokemonHuntCatchListener {
         }
     }
 
-    private static Object getCaptureObservable(Class<?> eventsClass) {
+    private static List<Object> getCaptureObservables(Class<?> eventsClass) {
+        List<Object> observables = new ArrayList<>();
         String[] preferredNames = new String[] {
                 "POKEMON_CAPTURED",
                 "POKEMON_CAPTURED_EVENT",
                 "POKEMON_CAPTURED_POST",
                 "POKEMON_CAUGHT",
-                "POKEMON_CATCH_SUCCEEDED"
+                "POKEMON_CATCH_SUCCEEDED",
+                "POKEMON_CAPTURED_EVENT_POST"
         };
 
         for (String name : preferredNames) {
             try {
                 Field field = eventsClass.getField(name);
                 Object value = field.get(null);
-                if (value != null) return value;
+                if (value != null && !observables.contains(value)) observables.add(value);
             } catch (Exception ignored) {}
         }
 
         for (Field field : eventsClass.getFields()) {
-            String lower = field.getName().toLowerCase();
+            String lower = field.getName().toLowerCase(Locale.ROOT);
             if (!lower.contains("capture") && !lower.contains("caught") && !lower.contains("catch")) continue;
             if (lower.contains("pre") || lower.contains("attempt") || lower.contains("fail")) continue;
             try {
                 Object value = field.get(null);
-                if (value != null) return value;
+                if (value != null && !observables.contains(value)) observables.add(value);
             } catch (Exception ignored) {}
         }
 
-        return null;
+        return observables;
     }
 }
