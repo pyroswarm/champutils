@@ -37,6 +37,7 @@ import com.champutils.emblem.*;
 import com.champutils.roaming.*;
 import com.champutils.specialspawn.*;
 import com.champutils.wiki.*;
+import com.champutils.exploration.*;
 
 /*
  =========================
@@ -126,6 +127,7 @@ public class ChampUtilsMod implements ModInitializer {
         EmblemConfig.load();
         RoamingTrainerConfig.load();
         SpecialWildSpawnConfig.load();
+        ItemBindRegistry.load();
 
         /*
          =========================
@@ -244,6 +246,7 @@ public class ChampUtilsMod implements ModInitializer {
                     WorldEventBindingRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
+                    ItemBindRegistry.save();
                     FirstJoinKitManager.save();
                     ChestShopRegistry.save();
                     TeleportConfig.save();
@@ -440,6 +443,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialWildSpawnCommand.register();
         PokemonWikiCommand.register();
         BattleExitCommand.register();
+        ItemBindCommand.register();
 
         /*
          New custom item test command
@@ -463,6 +467,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventBattleListener.register();
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
+        ItemBindInteractionListener.register();
         ChampTrainerInteractionListener.register();
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
