@@ -43,6 +43,16 @@ public final class ItemsMenu {
                         .setCallback((i, c, t) -> GearAppraiserMenu.open(player))
         );
 
+        gui.setSlot(
+                7,
+                new GuiElementBuilder(Items.NETHER_STAR)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("§bEmblem Crafting"))
+                        .addLoreLine(Component.literal("§7Craft shiny and megastone emblems."))
+                        .addLoreLine(Component.literal("§eClick to open"))
+                        .setCallback((i, c, t) -> EmblemMenu.open(player))
+        );
+
         gui.open();
     }
 }

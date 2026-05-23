@@ -46,6 +46,7 @@ public final class ShopPokemonCrateOpeningGui {
     private static final int[] SPIN_SLOTS = new int[]{9, 10, 11, 12, 13, 14, 15, 16, 17};
     private static final int CENTER_SLOT = 13;
     private static final int CENTER_INDEX_IN_REEL = 4;
+    private static final int CENTER_MARKER_SLOT = 4;
     private static final int SPIN_END_TICKS = 78;
     private static final int TOTAL_TICKS = 108;
 
@@ -113,11 +114,7 @@ public final class ShopPokemonCrateOpeningGui {
             gui.setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).setName(Component.literal(" ")));
         }
 
-        gui.setSlot(4, new GuiElementBuilder(Items.DRAGON_EGG)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§6Opening Store Pokémon Crate...").withStyle(ChatFormatting.BOLD))
-                .addLoreLine(Component.literal("§7Pokémon sprites will roll across the screen."))
-                .addLoreLine(Component.literal("§8Glass colors show reward rarity.")));
+        gui.setSlot(CENTER_MARKER_SLOT, centerMarkerElement());
 
         gui.open();
 
@@ -290,8 +287,6 @@ public final class ShopPokemonCrateOpeningGui {
                 line = opening.spinRewards.get((opening.offset + i) % opening.spinRewards.size());
             }
 
-            opening.gui.setSlot(spinSlot - 9, rarityGlassElement(line, center, true));
-
             GuiElementBuilder rewardBuilder = rewardElement(line).hideDefaultTooltip();
             if (center && finalLock) {
                 rewardBuilder
@@ -305,15 +300,21 @@ public final class ShopPokemonCrateOpeningGui {
             }
             opening.gui.setSlot(spinSlot, rewardBuilder);
 
-            opening.gui.setSlot(spinSlot + 9, rarityGlassElement(line, center, false));
+            int bottomSlot = spinSlot + 9;
+            opening.gui.setSlot(bottomSlot, rarityGlassElement(line));
         }
     }
 
-    private static GuiElementBuilder rarityGlassElement(NpcShopService.PlannedPokemonCrateReward reward, boolean center, boolean top) {
-        String prefix = center ? "§f§l▼ " : top ? "§7↓ " : "§7↑ ";
+    private static GuiElementBuilder centerMarkerElement() {
+        return new GuiElementBuilder(Items.GRAY_STAINED_GLASS_PANE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§7§l▲ Winning Slot"));
+    }
+
+    private static GuiElementBuilder rarityGlassElement(NpcShopService.PlannedPokemonCrateReward reward) {
         return new GuiElementBuilder(glassForReward(reward))
                 .hideDefaultTooltip()
-                .setName(Component.literal(prefix + rarityLabel(reward)));
+                .setName(Component.literal("§7↑ " + rarityLabel(reward)));
     }
 
     private static String rarityLabel(NpcShopService.PlannedPokemonCrateReward reward) {
@@ -355,7 +356,9 @@ public final class ShopPokemonCrateOpeningGui {
         // Build a fresh randomized reel every time.
         // The real reward is inserted only at the calculated landing slot, so it visibly
         // rolls into the center instead of popping into place at the end.
-        while (expanded.size() < 64) {
+        // Keep the reel long enough to avoid obvious repeats, but not so long that
+        // opening a crate creates dozens of expensive Pokémon item stacks at once.
+        while (expanded.size() < 36) {
             expanded.add(NpcShopService.randomDisplayPokemonCrateReward(finalReward));
         }
 
@@ -440,10 +443,13 @@ public final class ShopPokemonCrateOpeningGui {
     }
 
     private static int spinSpeed(int tick) {
-        if (tick < 24) return 1;
-        if (tick < 40) return 2;
-        if (tick < 54) return 3;
-        if (tick < 66) return 4;
+        // The original first 24 ticks updated every server tick, which meant 20 GUI
+        // packet bursts per second. This keeps the roll smooth while cutting the
+        // hottest part of the animation roughly in half.
+        if (tick < 28) return 2;
+        if (tick < 44) return 3;
+        if (tick < 58) return 4;
+        if (tick < 68) return 5;
         return 6;
     }
 

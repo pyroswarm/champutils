@@ -70,6 +70,14 @@ public final class ChampTrainerSpawner {
         return SpawnResult.fail("Unknown trainer id: " + trainerId + " (not found in gyms.json or world_events.json)");
     }
 
+
+    public static SpawnResult spawnRoaming(ServerLevel level, Vec3 pos, float yaw, String displayName) {
+        String name = displayName == null || displayName.isBlank() ? "Roaming Trainer" : displayName;
+        NPCEntity npc = createProtectedNpc(level, pos, yaw, name, "");
+        if (npc == null) return SpawnResult.fail("Could not create roaming trainer NPC.");
+        return SpawnResult.ok("Spawned roaming trainer " + name, npc, TrainerKind.WORLD_EVENT);
+    }
+
     private static SpawnResult spawnGym(ServerLevel level, Vec3 pos, float yaw, String trainerId, BadgeType badge) {
         GymConfig.GymDefinition gym = GymConfig.getGym(badge);
         String name = firstNonBlank(gym.spawnName, gym.leaderName, badge.getDisplayName());

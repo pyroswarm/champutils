@@ -6,6 +6,8 @@ import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleFaintedEvent;
 
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
+import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
+import java.util.UUID;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -67,6 +69,7 @@ public class CobblemonBattleHandler {
 
             ServerPlayer winner = null;
             ServerPlayer loser = null;
+            UUID losingNpcUuid = null;
 
             /*
              Find player winner
@@ -101,8 +104,12 @@ public class CobblemonBattleHandler {
 
                     loser =
                             (ServerPlayer) p.getEntity();
+                }
 
-                    break;
+                if (
+                        actor instanceof NPCBattleActor n
+                ) {
+                    losingNpcUuid = n.getEntity().getUUID();
                 }
             }
 
@@ -125,6 +132,13 @@ public class CobblemonBattleHandler {
                         winner,
                         loser
                 );
+
+                if (losingNpcUuid != null) {
+                    com.champutils.roaming.RoamingTrainerManager.handleVictory(
+                            winner,
+                            losingNpcUuid
+                    );
+                }
             }
         });
 

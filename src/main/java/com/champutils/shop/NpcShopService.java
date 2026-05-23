@@ -300,6 +300,23 @@ public final class NpcShopService {
         return new PlannedPokemonCrateReward(species, Math.max(1, level), shiny, pool, title, detail, icon);
     }
 
+    public static boolean grantDexPokemonReward(ServerPlayer player, PokemonCratePool pool, boolean shiny, int level) {
+        if (player == null) return false;
+        if (pool == null) pool = PokemonCratePool.REGULAR;
+
+        String species = pickRandomSpecies(pool);
+        if (species == null || species.isBlank()) {
+            return false;
+        }
+
+        PlannedPokemonCrateReward reward = restorePlannedPokemonCrateReward(species, Math.max(1, level), shiny, pool);
+        if (reward == null) {
+            return false;
+        }
+
+        return grantPlannedPokemonCrateReward(player, reward);
+    }
+
     public static boolean grantPlannedPokemonCrateReward(ServerPlayer player, PlannedPokemonCrateReward plan) {
         if (player == null || plan == null || plan.species == null || plan.species.isBlank()) {
             return false;

@@ -33,6 +33,8 @@ import com.champutils.hunt.*;
 import com.champutils.quest.*;
 import com.champutils.dex.*;
 import com.champutils.wondertrade.*;
+import com.champutils.emblem.*;
+import com.champutils.roaming.*;
 
 /*
  =========================
@@ -116,6 +118,8 @@ public class ChampUtilsMod implements ModInitializer {
         DefaultSpawnManager.load();
         DexRewardConfig.load();
         DexRewardClaimData.load();
+        EmblemConfig.load();
+        RoamingTrainerConfig.load();
 
         /*
          =========================
@@ -132,7 +136,9 @@ public class ChampUtilsMod implements ModInitializer {
         ActiveAbilityRegistry.registerDefaults();
         PassiveRegistry.registerDefaults();
         ProfessionFragmentManager.registerFragments();
+        EmblemManager.registerEmblems();
         ProfessionFragmentUseListener.register();
+        EmblemUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
@@ -253,6 +259,7 @@ public class ChampUtilsMod implements ModInitializer {
                     QuestManager.saveAll();
                     DexRewardClaimData.save();
                     DungeonManager.handleServerStopping(server);
+                    RoamingTrainerManager.despawnAll(server);
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.shutdown();
@@ -432,9 +439,11 @@ public class ChampUtilsMod implements ModInitializer {
         DexRewardCommand.register();
         TextCommand.register();
         WonderTradeCommand.register();
+        EmblemCommand.register();
         RandomTeleportCommand.register();
         com.champutils.teleport.SpawnWarpCommand.register();
         PortalCommand.register();
+        RoamingTrainerCommand.register();
 
         /*
          New custom item test command
@@ -492,6 +501,7 @@ public class ChampUtilsMod implements ModInitializer {
                     QuestManager.tick(server);
                     RandomTeleportCommand.tick(server);
                     PortalManager.tick(server);
+                    RoamingTrainerManager.tick(server);
 
                     /*
                      Leaderboard refresh

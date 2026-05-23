@@ -4,6 +4,8 @@ import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymNpcPartyBuilder;
 import com.champutils.gym.GymRegistry;
 import com.champutils.worldevent.WorldEventManager;
+import com.champutils.roaming.RoamingTrainerManager;
+import com.champutils.battle.BattleContextManager;
 
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -36,7 +38,9 @@ public final class ChampTrainerInteractionListener {
                 WorldEventManager.ActiveEvent active = WorldEventManager.getByNpc(npc.getUUID());
                 BadgeType badge = GymRegistry.getBadgeForNpc(npc.getUUID());
 
-                if (active == null && badge == null) {
+                boolean roaming = RoamingTrainerManager.isRoamingTrainer(npc.getUUID());
+
+                if (active == null && badge == null && !roaming) {
                     return InteractionResult.PASS;
                 }
 
@@ -53,6 +57,12 @@ public final class ChampTrainerInteractionListener {
                     return InteractionResult.SUCCESS;
                 }
                 LAST_TRAINER_CLICK.put(key, now);
+
+                if (roaming) {
+                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.NPC);
+                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    return InteractionResult.SUCCESS;
+                }
 
                 if (active != null) {
                     BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
