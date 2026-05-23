@@ -42,7 +42,7 @@ public final class ChestShopCommand {
                                                     LongArgumentType.getLong(context, "price"),
                                                     1
                                             ))
-                                            .then(argument("amount", IntegerArgumentType.integer(1, 64))
+                                            .then(argument("amount", IntegerArgumentType.integer(1, 3456))
                                                     .executes(context -> create(
                                                             context.getSource().getPlayerOrException(),
                                                             ChestShopRegistry.ShopMode.SELL,
@@ -57,7 +57,7 @@ public final class ChestShopCommand {
                                                     LongArgumentType.getLong(context, "price"),
                                                     1
                                             ))
-                                            .then(argument("amount", IntegerArgumentType.integer(1, 64))
+                                            .then(argument("amount", IntegerArgumentType.integer(1, 3456))
                                                     .executes(context -> create(
                                                             context.getSource().getPlayerOrException(),
                                                             ChestShopRegistry.ShopMode.BUY,
@@ -110,8 +110,8 @@ public final class ChestShopCommand {
             return 0;
         }
 
-        if (amount > held.getMaxStackSize()) {
-            player.sendSystemMessage(Component.literal("Amount cannot be higher than that item's stack size.").withStyle(ChatFormatting.RED));
+        if (amount > 3456) {
+            player.sendSystemMessage(Component.literal("Amount cannot be higher than 3456 items.").withStyle(ChatFormatting.RED));
             return 0;
         }
 

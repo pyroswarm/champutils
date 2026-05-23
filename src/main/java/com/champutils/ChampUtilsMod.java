@@ -120,6 +120,8 @@ public class ChampUtilsMod implements ModInitializer {
         DefaultSpawnManager.load();
         DexRewardConfig.load();
         DexRewardClaimData.load();
+        TrueCaughtDexManager.load();
+        PokemonOriginManager.load();
         EmblemConfig.load();
         RoamingTrainerConfig.load();
         SpecialWildSpawnConfig.load();
@@ -209,6 +211,7 @@ public class ChampUtilsMod implements ModInitializer {
                     EconomyManager.syncAllToDatabase();
                     PokemonHuntManager.ensureStarted(server);
                     PokemonWikiIndex.reload(server);
+                    ChestShopDisplayManager.syncAll(server);
 
                     if (DatabaseManager.isEnabled()) {
                         try {
@@ -247,6 +250,8 @@ public class ChampUtilsMod implements ModInitializer {
                     PokemonHuntManager.save();
                     QuestManager.saveAll();
                     DexRewardClaimData.save();
+                    TrueCaughtDexManager.save();
+                    PokemonOriginManager.save();
                     RoamingTrainerManager.despawnAll(server);
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
@@ -450,6 +455,7 @@ public class ChampUtilsMod implements ModInitializer {
         MenuNpcInteractionListener.register();
         ChampTrainerInteractionListener.register();
         PokemonHuntCatchListener.register();
+        TrueCaughtDexListener.register();
         ChestShopInteractionListener.register();
 
         /*
@@ -478,6 +484,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PortalManager.tick(server);
                     RoamingTrainerManager.tick(server);
                     SpecialWildSpawnManager.tick(server);
+                    ChestShopDisplayManager.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -500,6 +507,8 @@ public class ChampUtilsMod implements ModInitializer {
                     ) {
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();
+                        TrueCaughtDexManager.save();
+                        PokemonOriginManager.save();
                         PlaytimeManager.addOnlineMinute(server);
                         ServerStatusDatabaseRepository.sync(server);
                     }

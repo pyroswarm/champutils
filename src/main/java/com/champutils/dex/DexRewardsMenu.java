@@ -10,6 +10,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Items;
 
 public final class DexRewardsMenu {
 
@@ -24,7 +25,7 @@ public final class DexRewardsMenu {
 
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
-        gui.setTitle(Component.literal("Pokédex Rewards"));
+        gui.setTitle(Component.literal("True Caught Dex Rewards"));
 
         int caught = DexProgressManager.getCaughtCount(player);
         int total = DexProgressManager.getTotalPokemon();
@@ -60,6 +61,13 @@ public final class DexRewardsMenu {
 
             gui.setSlot(slot, button);
         }
+
+        gui.setSlot(26, new GuiElementBuilder(Items.BOOK)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§bOpen True Caught Dex"))
+                .addLoreLine(Component.literal("§7See exactly what counts for these rewards."))
+                .addLoreLine(Component.literal("§7Only real wild catches count."))
+                .setCallback((i, c, t) -> TrueDexMenu.open(player)));
 
         gui.open();
     }

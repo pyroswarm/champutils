@@ -5,6 +5,7 @@ import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.menu.FragmentCraftingMenu;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -185,6 +186,51 @@ public class ProfessionSalvageCommand {
                                                     )
                                     )
                                     .then(
+                                            Commands.literal("withdraw")
+                                                    .then(
+                                                            Commands.argument(
+                                                                            "rarity",
+                                                                            StringArgumentType.word()
+                                                                    )
+                                                                    .suggests((context, builder) -> {
+                                                                        for (String rarity : ProfessionFragmentConfig.FRAGMENTS.keySet()) {
+                                                                            builder.suggest(rarity.toLowerCase());
+                                                                        }
+
+                                                                        return builder.buildFuture();
+                                                                    })
+                                                                    .then(
+                                                                            Commands.argument(
+                                                                                            "amount",
+                                                                                            IntegerArgumentType.integer(1, 2304)
+                                                                                    )
+                                                                                    .executes(context -> {
+                                                                                        ServerPlayer player =
+                                                                                                context.getSource()
+                                                                                                        .getPlayerOrException();
+
+                                                                                        String rarity =
+                                                                                                StringArgumentType.getString(
+                                                                                                        context,
+                                                                                                        "rarity"
+                                                                                                );
+
+                                                                                        int amount =
+                                                                                                IntegerArgumentType.getInteger(
+                                                                                                        context,
+                                                                                                        "amount"
+                                                                                                );
+
+                                                                                        return withdraw(
+                                                                                                player,
+                                                                                                rarity,
+                                                                                                amount
+                                                                                        );
+                                                                                    })
+                                                                    )
+                                                    )
+                                    )
+                                    .then(
                                             Commands.literal("menu")
                                                     .executes(context -> {
                                                         ServerPlayer player =
@@ -345,6 +391,42 @@ public class ProfessionSalvageCommand {
 
         return 1;
     }
+
+    private static int withdraw(
+            ServerPlayer player,
+            String rarity,
+            int amount
+    ) {
+        ProfessionFragmentManager.WithdrawResult result =
+                ProfessionFragmentManager.withdrawFragments(
+                        player,
+                        rarity,
+                        amount
+                );
+
+        if (!result.success()) {
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§c" + result.error()
+                    )
+            );
+
+            return 0;
+        }
+
+        player.sendSystemMessage(
+                Component.literal(
+                        "§aWithdrew §6" +
+                                result.amount() +
+                                "x " +
+                                ProfessionFragmentManager.formatWords(result.fragmentKey()) +
+                                " Fragment§a."
+                )
+        );
+
+        return 1;
+    }
+
 
     private static int listFragments(
             ServerPlayer player

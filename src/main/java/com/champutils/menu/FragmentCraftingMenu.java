@@ -79,6 +79,7 @@ public final class FragmentCraftingMenu {
 
         addUpgradeColumn(gui, player);
         addToolCraftingGrid(gui, player);
+        addWithdrawRow(gui, player);
 
         MenuUtil.addBackButton(
                 gui,
@@ -325,6 +326,87 @@ public final class FragmentCraftingMenu {
                                             .performPrefixedCommand(
                                                     player.createCommandSourceStack(),
                                                     "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType
+                                            );
+                                }
+                        )
+        );
+    }
+
+    private static void addWithdrawRow(
+            SimpleGui gui,
+            ServerPlayer player
+    ) {
+        addWithdrawButton(gui, player, 39, "COMMON", Items.PAPER);
+        addWithdrawButton(gui, player, 40, "UNCOMMON", Items.PAPER);
+        addWithdrawButton(gui, player, 41, "RARE", Items.PAPER);
+        addWithdrawButton(gui, player, 42, "EPIC", Items.PAPER);
+        addWithdrawButton(gui, player, 43, "LEGENDARY", Items.PAPER);
+        addWithdrawButton(gui, player, 44, "MYTHIC", Items.PAPER);
+    }
+
+    private static void addWithdrawButton(
+            SimpleGui gui,
+            ServerPlayer player,
+            int slot,
+            String rarity,
+            Item icon
+    ) {
+        String normalizedRarity =
+                ProfessionFragmentConfig.normalizeRarity(rarity);
+
+        if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(normalizedRarity)) {
+            gui.setSlot(
+                    slot,
+                    new GuiElementBuilder(Items.BARRIER)
+                            .hideDefaultTooltip()
+                            .setName(Component.literal("§cMissing Fragment"))
+                            .addLoreLine(Component.literal("§7Missing fragment config for: §f" + normalizedRarity))
+            );
+            return;
+        }
+
+        int available =
+                ProfessionFragmentManager.countFragments(player, normalizedRarity);
+
+        int amount =
+                Math.min(16, Math.max(1, available));
+
+        gui.setSlot(
+                slot,
+                new GuiElementBuilder(icon)
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "Withdraw " + ProfessionFragmentManager.formatWords(normalizedRarity) + " Fragments"
+                                ).withStyle(getRarityColor(normalizedRarity))
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7You have stored: §e" + available
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        available > 0 ? "§eClick to withdraw " + amount : "§cNo stored fragments"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§8Use /fragments withdraw <rarity> <amount> for exact amounts."
+                                )
+                        )
+                        .setCallback(
+                                (i, c, t) -> {
+                                    if (available <= 0) {
+                                        return;
+                                    }
+
+                                    player.closeContainer();
+                                    player.getServer()
+                                            .getCommands()
+                                            .performPrefixedCommand(
+                                                    player.createCommandSourceStack(),
+                                                    "fragments withdraw " + normalizedRarity.toLowerCase() + " " + amount
                                             );
                                 }
                         )

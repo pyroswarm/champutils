@@ -1,6 +1,7 @@
 package com.champutils.shop;
 
 import com.champutils.auction.AuctionPokemonSerializer;
+import com.champutils.dex.PokemonOriginManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
@@ -328,6 +329,7 @@ public final class NpcShopService {
 
         setBooleanProperty(pokemon, "setShiny", plan.shiny);
         setIntProperty(pokemon, "setLevel", plan.level);
+        PokemonOriginManager.markOrigin(pokemon, PokemonOriginManager.ORIGIN_CRATE);
 
         boolean sentToPc = false;
         if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, pokemon)) {

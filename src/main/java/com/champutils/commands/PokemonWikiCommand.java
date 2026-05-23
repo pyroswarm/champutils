@@ -2,10 +2,13 @@ package com.champutils.commands;
 
 import com.champutils.wiki.PokemonWikiIndex;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Locale;
 import java.util.Set;
 
 import static net.minecraft.commands.Commands.argument;
@@ -14,14 +17,32 @@ import static net.minecraft.commands.Commands.literal;
 public final class PokemonWikiCommand {
     private PokemonWikiCommand() {}
 
+    private static final SuggestionProvider<CommandSourceStack> POKEMON_SUGGESTIONS = (ctx, builder) -> {
+        String remaining = builder.getRemainingLowerCase();
+        for (String species : PokemonWikiIndex.speciesSuggestions()) {
+            if (species.startsWith(remaining)) builder.suggest(species);
+        }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> TOPIC_SUGGESTIONS = (ctx, builder) -> {
+        String remaining = builder.getRemainingLowerCase();
+        for (String topic : PokemonWikiIndex.topicSuggestions()) {
+            if (topic.startsWith(remaining)) builder.suggest(topic);
+        }
+        return builder.buildFuture();
+    };
+
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(literal("wiki")
                 .then(argument("pokemon", StringArgumentType.word())
+                        .suggests(POKEMON_SUGGESTIONS)
                         .executes(ctx -> {
                             sendSummary(ctx.getSource().getPlayerOrException(), StringArgumentType.getString(ctx, "pokemon"));
                             return 1;
                         })
                         .then(argument("topic", StringArgumentType.word())
+                                .suggests(TOPIC_SUGGESTIONS)
                                 .executes(ctx -> {
                                     sendTopic(ctx.getSource().getPlayerOrException(), StringArgumentType.getString(ctx, "pokemon"), StringArgumentType.getString(ctx, "topic"));
                                     return 1;
@@ -39,26 +60,30 @@ public final class PokemonWikiCommand {
     }
 
     private static void sendSummary(ServerPlayer player, String pokemon) {
-        player.sendSystemMessage(Component.literal("§6/wiki " + pokemon + " topics: §ebiome, time, ability, type, level, rarity, blocks, structures"));
+        player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " Wiki"));
+        player.sendSystemMessage(Component.literal("§7Use: §e/wiki " + pokemon.toLowerCase(Locale.ROOT) + " <biome|time|ability|type|level|rarity|weather>"));
         sendTopic(player, pokemon, "biome");
     }
 
     private static void sendTopic(ServerPlayer player, String pokemon, String topic) {
         PokemonWikiIndex.Info info = PokemonWikiIndex.get(pokemon);
-        String t = topic.toLowerCase();
+        String t = topic.toLowerCase(Locale.ROOT);
+        String label;
         String value;
         switch (t) {
-            case "biome", "biomes", "spawn", "spawns" -> value = join(info == null ? null : info.biomes, "No biome spawn data found. This Pokémon may not spawn naturally or may be special-config only.");
-            case "time", "times" -> value = join(info == null ? null : info.times, "Any time / no time restriction found.");
-            case "level", "levels" -> value = join(info == null ? null : info.levels, "No level range found.");
-            case "rarity", "bucket" -> value = join(info == null ? null : info.rarity, "No rarity bucket found.");
-            case "block", "blocks" -> value = join(info == null ? null : info.blocks, "No nearby block requirement found.");
-            case "structure", "structures" -> value = join(info == null ? null : info.structures, "No structure requirement found.");
-            case "ability", "abilities" -> value = PokemonWikiIndex.abilities(pokemon);
-            case "type", "types" -> value = PokemonWikiIndex.types(pokemon);
-            default -> value = "Unknown topic. Try biome, time, ability, type, level, rarity, blocks, or structures.";
+            case "biome", "biomes", "spawn", "spawns" -> { label = "Spawn biomes"; value = join(info == null ? null : info.biomes, "No natural spawn biome data found. This Pokémon may come from events, fossils, evolution, special configs, or another system."); }
+            case "time", "times" -> { label = "Time"; value = join(info == null ? null : info.times, "Any time, or no time restriction was found."); }
+            case "level", "levels" -> { label = "Wild level"; value = join(info == null ? null : info.levels, "No wild level range found."); }
+            case "rarity", "bucket" -> { label = "Rarity"; value = join(info == null ? null : info.rarity, "No rarity bucket found."); }
+            case "block", "blocks" -> { label = "Nearby blocks"; value = join(info == null ? null : info.blocks, "No nearby block requirement found."); }
+            case "structure", "structures" -> { label = "Structures"; value = join(info == null ? null : info.structures, "No structure requirement found."); }
+            case "weather" -> { label = "Weather"; value = join(info == null ? null : info.weather, "No weather restriction found."); }
+            case "extra", "requirements" -> { label = "Extra requirements"; value = join(info == null ? null : info.extra, "No extra requirements found."); }
+            case "ability", "abilities" -> { label = "Abilities"; value = PokemonWikiIndex.abilities(pokemon); }
+            case "type", "types" -> { label = "Type"; value = PokemonWikiIndex.types(pokemon); }
+            default -> { label = "Unknown topic"; value = "Try biome, time, ability, type, level, rarity, block, structure, or weather."; }
         }
-        player.sendSystemMessage(Component.literal("§6" + pretty(pokemon) + " §e" + topic + ": §f" + value));
+        player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " §e" + label + ": §f" + value));
     }
 
     private static String join(Set<String> values, String fallback) {
@@ -66,13 +91,13 @@ public final class PokemonWikiCommand {
         return String.join("§7, §f", values);
     }
 
-    private static String pretty(String raw) {
+    private static String prettyPokemon(String raw) {
         String value = raw == null ? "" : raw.replace('_', ' ').replace('-', ' ');
         StringBuilder out = new StringBuilder();
         for (String p : value.split(" ")) {
             if (p.isBlank()) continue;
             if (out.length() > 0) out.append(' ');
-            out.append(Character.toUpperCase(p.charAt(0))).append(p.length() > 1 ? p.substring(1).toLowerCase() : "");
+            out.append(Character.toUpperCase(p.charAt(0))).append(p.length() > 1 ? p.substring(1).toLowerCase(Locale.ROOT) : "");
         }
         return out.toString();
     }

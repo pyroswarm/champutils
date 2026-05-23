@@ -1,13 +1,6 @@
 package com.champutils.dex;
 
-import com.cobblemon.mod.common.Cobblemon;
-import com.cobblemon.mod.common.api.pokedex.PokedexEntryProgress;
-import com.cobblemon.mod.common.api.pokedex.PokedexManager;
-import com.cobblemon.mod.common.api.pokedex.SpeciesDexRecord;
-
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.Map;
 
 public final class DexProgressManager {
 
@@ -15,27 +8,7 @@ public final class DexProgressManager {
     }
 
     public static int getCaughtCount(ServerPlayer player) {
-        if (player == null) {
-            return 0;
-        }
-
-        try {
-            PokedexManager pokedex = Cobblemon.playerDataManager.getPokedexData(player);
-            if (pokedex == null || pokedex.getSpeciesRecords() == null) {
-                return 0;
-            }
-
-            int count = 0;
-            for (Object value : ((Map<?, ?>) pokedex.getSpeciesRecords()).values()) {
-                if (value instanceof SpeciesDexRecord record && record.hasAtLeast(PokedexEntryProgress.CAUGHT)) {
-                    count++;
-                }
-            }
-            return count;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return 0;
-        }
+        return TrueCaughtDexManager.getCaughtCount(player);
     }
 
     public static int getTotalPokemon() {

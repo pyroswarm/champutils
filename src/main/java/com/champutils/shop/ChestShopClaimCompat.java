@@ -69,8 +69,40 @@ public final class ChestShopClaimCompat {
             return null;
         }
 
-        Method getForPermissionCheck = storage.getClass().getMethod("getForPermissionCheck", BlockPos.class);
-        return getForPermissionCheck.invoke(storage, pos);
+        /*
+         * Important: Flan's getForPermissionCheck(pos) does NOT mean the block is claimed.
+         * On unclaimed land it returns the world's/global permission container, so using it as
+         * a null check accidentally allowed shops outside claims when global place/break was true.
+         *
+         * ClaimStorage exposes getClaimAt(pos), which returns null outside real claims. Use that
+         * first, then keep a reflective fallback for older/internal builds that might expose a
+         * similar method name.
+         */
+        Object directClaim = invokeOptional(storage, "getClaimAt", pos);
+        if (directClaim != null) {
+            return directClaim;
+        }
+
+        Object claimAt = invokeOptional(storage, "getClaim", pos);
+        if (claimAt != null) {
+            return claimAt;
+        }
+
+        Object at = invokeOptional(storage, "getAt", pos);
+        if (at != null) {
+            return at;
+        }
+
+        return null;
+    }
+
+    private static Object invokeOptional(Object target, String methodName, BlockPos pos) throws Exception {
+        try {
+            Method method = target.getClass().getMethod(methodName, BlockPos.class);
+            return method.invoke(target, pos);
+        } catch (NoSuchMethodException ignored) {
+            return null;
+        }
     }
 
     private static boolean canInteract(ServerPlayer player, ServerLevel level, BlockPos pos, String fieldName, String fallbackPath) {

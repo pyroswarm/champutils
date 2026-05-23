@@ -7,11 +7,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 
 import java.io.File;
 import java.io.FileReader;
@@ -23,6 +20,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class ChestShopRegistry {
 
@@ -98,7 +97,35 @@ public final class ChestShopRegistry {
         if (level == null || pos == null) {
             return null;
         }
-        return DATA.shops.get(key(level, pos));
+
+        ChestShop direct = DATA.shops.get(key(level, pos));
+        if (direct != null) {
+            return direct;
+        }
+
+        BlockPos connected = ChestShopContainers.connectedContainerPos(level, pos);
+        if (connected != null) {
+            return DATA.shops.get(key(level, connected));
+        }
+
+        return null;
+    }
+
+    public static synchronized BlockPos getShopStoragePos(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) {
+            return pos;
+        }
+
+        if (DATA.shops.containsKey(key(level, pos))) {
+            return pos;
+        }
+
+        BlockPos connected = ChestShopContainers.connectedContainerPos(level, pos);
+        if (connected != null && DATA.shops.containsKey(key(level, connected))) {
+            return connected;
+        }
+
+        return pos;
     }
 
     public static synchronized ChestShop createOrUpdate(
@@ -135,8 +162,19 @@ public final class ChestShopRegistry {
         shop.createdAt = Instant.now().toString();
         shop.updatedAt = shop.createdAt;
 
-        DATA.shops.put(key(level, pos), shop);
+        BlockPos storagePos = getShopStoragePos(level, pos);
+        shop.x = storagePos.getX();
+        shop.y = storagePos.getY();
+        shop.z = storagePos.getZ();
+
+        ChestShop previous = DATA.shops.get(key(level, storagePos));
+        if (previous != null) {
+            shop.displayEntityId = previous.displayEntityId;
+        }
+
+        DATA.shops.put(key(level, storagePos), shop);
         save();
+        ChestShopDisplayManager.updateShop(level, shop);
         return shop;
     }
 
@@ -145,7 +183,8 @@ public final class ChestShopRegistry {
             return false;
         }
 
-        String key = key(level, pos);
+        BlockPos storagePos = getShopStoragePos(level, pos);
+        String key = key(level, storagePos);
         ChestShop shop = DATA.shops.get(key);
         if (shop == null) {
             return false;
@@ -155,6 +194,7 @@ public final class ChestShopRegistry {
             return false;
         }
 
+        ChestShopDisplayManager.removeDisplay(level.getServer(), shop);
         DATA.shops.remove(key);
         save();
         return true;
@@ -162,6 +202,18 @@ public final class ChestShopRegistry {
 
     public static synchronized boolean isShopBlock(ServerLevel level, BlockPos pos) {
         return getAt(level, pos) != null;
+    }
+
+    public static synchronized List<ChestShop> getAll() {
+        return new ArrayList<>(DATA.shops.values());
+    }
+
+    public static synchronized void updateDisplayId(ChestShop shop, UUID displayEntityId) {
+        if (shop == null) {
+            return;
+        }
+        shop.displayEntityId = displayEntityId == null ? null : displayEntityId.toString();
+        save();
     }
 
     public static synchronized void cleanupStaleShop(ServerLevel level, BlockPos pos) {
@@ -174,8 +226,10 @@ public final class ChestShopRegistry {
             return;
         }
 
-        if (!isValidShopContainer(level, pos)) {
-            DATA.shops.remove(key(level, pos));
+        BlockPos storagePos = getShopStoragePos(level, pos);
+        if (!isValidShopContainer(level, storagePos)) {
+            ChestShopDisplayManager.removeDisplay(level.getServer(), shop);
+            DATA.shops.remove(key(level, storagePos));
             save();
         }
     }
@@ -185,19 +239,7 @@ public final class ChestShopRegistry {
             return false;
         }
 
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        if (!(blockEntity instanceof Container)) {
-            return false;
-        }
-
-        BlockState state = level.getBlockState(pos);
-        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        if (blockId == null) {
-            return false;
-        }
-
-        String id = blockId.toString().toLowerCase();
-        return (id.contains("chest") || id.contains("barrel")) && !id.contains("ender_chest");
+        return ChestShopContainers.isValidShopContainer(level, pos);
     }
 
     public static String key(ServerLevel level, BlockPos pos) {
@@ -241,6 +283,7 @@ public final class ChestShopRegistry {
         public long price = 1L;
         public String createdAt;
         public String updatedAt;
+        public String displayEntityId;
 
         public ShopMode mode() {
             try {
@@ -266,6 +309,14 @@ public final class ChestShopRegistry {
         public Item item() {
             try {
                 return BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+
+        public UUID displayUuid() {
+            try {
+                return displayEntityId == null || displayEntityId.isBlank() ? null : UUID.fromString(displayEntityId);
             } catch (Exception ignored) {
                 return null;
             }

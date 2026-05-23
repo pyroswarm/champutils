@@ -2,6 +2,7 @@ package com.champutils.commands;
 
 import com.champutils.dex.DexProgressManager;
 import com.champutils.dex.DexRewardsMenu;
+import com.champutils.dex.TrueDexMenu;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -26,8 +27,8 @@ public final class DexRewardCommand {
                                 double percent = DexProgressManager.getCompletionPercent(player);
                                 int unlocked = DexProgressManager.getUnlockedPercent(player);
 
-                                player.sendSystemMessage(Component.literal("Pokédex Progress").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-                                player.sendSystemMessage(Component.literal("Caught: ").withStyle(ChatFormatting.GRAY)
+                                player.sendSystemMessage(Component.literal("True Caught Dex Progress").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                                player.sendSystemMessage(Component.literal("True Caught: ").withStyle(ChatFormatting.GRAY)
                                         .append(Component.literal(String.valueOf(caught)).withStyle(ChatFormatting.WHITE))
                                         .append(Component.literal(" / ").withStyle(ChatFormatting.GRAY))
                                         .append(Component.literal(String.valueOf(total)).withStyle(ChatFormatting.WHITE)));
@@ -43,6 +44,14 @@ public final class DexRewardCommand {
                     Commands.literal("dexrewards")
                             .executes(context -> {
                                 DexRewardsMenu.open(context.getSource().getPlayerOrException());
+                                return 1;
+                            })
+                            );
+
+            dispatcher.register(
+                    Commands.literal("dex")
+                            .executes(context -> {
+                                TrueDexMenu.open(context.getSource().getPlayerOrException());
                                 return 1;
                             })
             );

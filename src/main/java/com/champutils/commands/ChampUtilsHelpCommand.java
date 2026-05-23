@@ -85,6 +85,7 @@ public final class ChampUtilsHelpCommand {
         line(source, "/itemroll reroll", "Reroll the custom profession tool in your hand.");
         line(source, "/salvage", "Salvage the custom profession tool in your hand.");
         line(source, "/fragments menu", "Open the fragment crafting menu.");
+        line(source, "/fragments withdraw <rarity> <amount>", "Turn stored digital fragments back into physical items.");
         section(source, "Battles + Training");
         line(source, "/evtrain <stat>", "Open EV training for the selected stat.");
         line(source, "/elite4 <type>", "Challenge Elite Four content when configured.");

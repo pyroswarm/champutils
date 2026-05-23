@@ -8,18 +8,24 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.Resource;
 
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public final class PokemonWikiIndex {
     private static final Gson GSON = new Gson();
     private static final Map<String, Info> INFO = new HashMap<>();
+    private static final Set<String> SPECIES = new TreeSet<>();
 
     private PokemonWikiIndex() {}
 
     public static void reload(MinecraftServer server) {
         INFO.clear();
+        SPECIES.clear();
+        loadSpeciesNames();
         try {
             Map<ResourceLocation, Resource> resources = server.getResourceManager().listResources("spawn_pool_world", id -> id.getPath().endsWith(".json"));
             for (Map.Entry<ResourceLocation, Resource> entry : resources.entrySet()) {
@@ -31,18 +37,23 @@ public final class PokemonWikiIndex {
                         JsonObject spawn = element.getAsJsonObject();
                         String pokemon = string(spawn, "pokemon");
                         if (pokemon.isBlank()) continue;
-                        Info info = info(pokemon);
-                        if (spawn.has("bucket")) info.rarity.add(string(spawn, "bucket"));
-                        if (spawn.has("level")) info.levels.add(string(spawn, "level"));
+                        String speciesKey = normal(pokemon);
+                        SPECIES.add(speciesKey);
+                        Info info = info(speciesKey);
+                        info.sources.add(entry.getKey().toString());
+                        if (spawn.has("bucket")) info.rarity.add(prettyBucket(string(spawn, "bucket")));
+                        if (spawn.has("level")) info.levels.add(cleanLevel(string(spawn, "level")));
                         JsonObject condition = spawn.has("condition") && spawn.get("condition").isJsonObject() ? spawn.getAsJsonObject("condition") : null;
                         if (condition != null) {
-                            addArray(info.biomes, condition, "biomes");
-                            addArray(info.blocks, condition, "neededNearbyBlocks");
-                            addArray(info.structures, condition, "structures");
+                            addArray(info.biomes, condition, "biomes", PokemonWikiIndex::prettyBiome);
+                            addArray(info.blocks, condition, "neededNearbyBlocks", PokemonWikiIndex::prettyId);
+                            addArray(info.blocks, condition, "neededBaseBlocks", PokemonWikiIndex::prettyId);
+                            addArray(info.structures, condition, "structures", PokemonWikiIndex::prettyId);
                             addTime(info.times, condition);
-                            if (condition.has("canSeeSky")) info.extra.add("Can see sky: " + condition.get("canSeeSky"));
-                            if (condition.has("isRaining")) info.extra.add("Raining: " + condition.get("isRaining"));
-                            if (condition.has("isThundering")) info.extra.add("Thundering: " + condition.get("isThundering"));
+                            addWeather(info.weather, condition);
+                            if (condition.has("canSeeSky")) info.extra.add(bool(condition.get("canSeeSky")) ? "must be outside under open sky" : "does not need open sky");
+                            if (condition.has("isRaining")) info.weather.add(bool(condition.get("isRaining")) ? "rain" : "not raining");
+                            if (condition.has("isThundering")) info.weather.add(bool(condition.get("isThundering")) ? "thunderstorm" : "not thundering");
                         }
                     }
                 } catch (Exception ignored) {}
@@ -53,42 +64,38 @@ public final class PokemonWikiIndex {
         }
     }
 
-    public static Info get(String species) {
-        return INFO.get(normal(species));
-    }
+    public static Info get(String species) { return INFO.get(normal(species)); }
+    public static Set<String> speciesSuggestions() { return Collections.unmodifiableSet(SPECIES); }
+    public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather"); }
 
     public static String abilities(String speciesName) {
-        try {
-            Species species = findSpecies(speciesName);
-            if (species == null) return "Unknown Pokémon.";
-            for (String methodName : List.of("getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "getStandardAbilities")) {
-                try {
-                    Method m = species.getClass().getMethod(methodName);
-                    Object result = m.invoke(species);
-                    String formatted = formatObjectList(result);
-                    if (!formatted.isBlank()) return formatted;
-                } catch (Exception ignored) {}
-            }
-            return "No ability data found for this Pokémon.";
-        } catch (Exception e) {
-            return "No ability data found for this Pokémon.";
+        Species species = findSpecies(speciesName);
+        if (species == null) return "I do not know that Pokémon.";
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String methodName : List.of("getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "getStandardAbilities", "getHiddenAbilities")) {
+            try {
+                Method m = species.getClass().getMethod(methodName);
+                collectAbilityNames(m.invoke(species), names, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+            } catch (Throwable ignored) {}
         }
+        names.removeIf(s -> s.isBlank() || s.equalsIgnoreCase("abilities") || s.equalsIgnoreCase("abilitypool"));
+        if (names.isEmpty()) return "No ability data found for this Pokémon yet.";
+        return String.join("§7, §f", names);
     }
 
     public static String types(String speciesName) {
-        try {
-            Species species = findSpecies(speciesName);
-            if (species == null) return "Unknown Pokémon.";
-            for (String methodName : List.of("getTypes", "getPrimaryType", "getSecondaryType")) {
-                try {
-                    Method m = species.getClass().getMethod(methodName);
-                    Object result = m.invoke(species);
-                    String formatted = formatObjectList(result);
-                    if (!formatted.isBlank()) return formatted;
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-        return "No type data found for this Pokémon.";
+        Species species = findSpecies(speciesName);
+        if (species == null) return "I do not know that Pokémon.";
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String methodName : List.of("getTypes", "getPrimaryType", "getSecondaryType")) {
+            try {
+                Method m = species.getClass().getMethod(methodName);
+                collectPrettyNames(m.invoke(species), names, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+            } catch (Throwable ignored) {}
+        }
+        names.removeIf(s -> s.isBlank() || s.length() > 24 || s.contains("@"));
+        if (names.isEmpty()) return "No type data found for this Pokémon.";
+        return String.join("§7, §f", names);
     }
 
     public static Species findSpecies(String speciesName) {
@@ -101,11 +108,28 @@ public final class PokemonWikiIndex {
                 cleaned = cleaned.substring(cleaned.indexOf(':') + 1);
             }
         } catch (Throwable ignored) {}
-        try {
-            Species byName = PokemonSpecies.INSTANCE.getByName(cleaned);
-            if (byName != null) return byName;
-        } catch (Throwable ignored) {}
+        try { Species byName = PokemonSpecies.INSTANCE.getByName(cleaned); if (byName != null) return byName; } catch (Throwable ignored) {}
         try { return PokemonSpecies.INSTANCE.getByIdentifier(ResourceLocation.fromNamespaceAndPath("cobblemon", cleaned)); } catch (Throwable ignored) { return null; }
+    }
+
+    private static void loadSpeciesNames() {
+        Object registry = PokemonSpecies.INSTANCE;
+        for (String methodName : List.of("getSpecies", "getSpeciesList", "all", "allSpecies")) {
+            try {
+                Method m = registry.getClass().getMethod(methodName);
+                Object result = m.invoke(registry);
+                collectSpecies(result);
+                if (!SPECIES.isEmpty()) return;
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private static void collectSpecies(Object result) {
+        if (result == null) return;
+        if (result instanceof Map<?, ?> map) { for (Object v : map.values()) collectSpecies(v); return; }
+        if (result instanceof Iterable<?> iterable) { for (Object v : iterable) collectSpecies(v); return; }
+        if (result.getClass().isArray()) { for (int i = 0; i < Array.getLength(result); i++) collectSpecies(Array.get(result, i)); return; }
+        if (result instanceof Species species) SPECIES.add(normal(species.getName()));
     }
 
     private static Info info(String species) { return INFO.computeIfAbsent(normal(species), k -> new Info()); }
@@ -116,26 +140,93 @@ public final class PokemonWikiIndex {
     }
 
     private static String string(JsonObject obj, String key) { return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsString() : ""; }
-    private static void addArray(Set<String> out, JsonObject obj, String key) {
+    private static boolean bool(JsonElement e) { try { return e.getAsBoolean(); } catch (Exception ex) { return false; } }
+
+    private interface Formatter { String apply(String value); }
+    private static void addArray(Set<String> out, JsonObject obj, String key, Formatter formatter) {
         if (!obj.has(key) || !obj.get(key).isJsonArray()) return;
-        for (JsonElement e : obj.getAsJsonArray(key)) if (!e.isJsonNull()) out.add(e.getAsString());
+        for (JsonElement e : obj.getAsJsonArray(key)) if (!e.isJsonNull()) out.add(formatter.apply(e.getAsString()));
     }
+
     private static void addTime(Set<String> out, JsonObject condition) {
         for (String key : List.of("timeRange", "timeRanges", "times", "time")) {
             if (!condition.has(key)) continue;
             JsonElement e = condition.get(key);
-            if (e.isJsonArray()) for (JsonElement item : e.getAsJsonArray()) out.add(item.toString().replace('"', ' ').trim());
-            else out.add(e.toString().replace('"', ' ').trim());
+            if (e.isJsonArray()) for (JsonElement item : e.getAsJsonArray()) out.add(prettyTime(item.toString()));
+            else out.add(prettyTime(e.toString()));
         }
     }
 
-    private static String formatObjectList(Object result) {
-        if (result == null) return "";
-        String raw = result.toString();
-        raw = raw.replace("cobblemon:", "").replace("[", "").replace("]", "").replace("Optional.empty", "");
-        raw = raw.replaceAll("[{}]", "").replaceAll("=", ": ");
-        raw = raw.replace('_', ' ').replace('-', ' ');
-        return raw.trim();
+    private static void addWeather(Set<String> out, JsonObject condition) {
+        for (String key : List.of("moonPhase", "moonPhases")) {
+            if (!condition.has(key)) continue;
+            JsonElement e = condition.get(key);
+            if (e.isJsonArray()) for (JsonElement item : e.getAsJsonArray()) out.add("moon phase " + item.toString().replace("\"", ""));
+            else out.add("moon phase " + e.toString().replace("\"", ""));
+        }
+    }
+
+    private static String cleanLevel(String raw) { return raw.replace("-", " to ").replace("..", " to ").trim(); }
+    private static String prettyBucket(String raw) { return switch (raw.toLowerCase(Locale.ROOT)) { case "common" -> "common"; case "uncommon" -> "uncommon"; case "rare" -> "rare"; case "ultra-rare", "ultrarare" -> "ultra rare"; default -> prettyId(raw); }; }
+    private static String prettyBiome(String raw) {
+        String v = raw.replace("#", "");
+        if (v.startsWith("cobblemon:is_")) v = v.substring("cobblemon:is_".length());
+        return prettyId(v);
+    }
+    private static String prettyId(String raw) {
+        if (raw == null) return "";
+        String v = raw.replace("#", "");
+        int colon = v.indexOf(':'); if (colon >= 0) v = v.substring(colon + 1);
+        v = v.replace("is_", "").replace('_', ' ').replace('-', ' ').trim();
+        return v.isBlank() ? raw : v;
+    }
+    private static String prettyTime(String raw) {
+        String v = raw.replace("\"", "").replace("[", "").replace("]", "").trim().toLowerCase(Locale.ROOT);
+        return switch (v) { case "day" -> "daytime"; case "night" -> "nighttime"; case "dawn" -> "dawn"; case "dusk" -> "dusk"; default -> v.replace('_', ' ').replace('-', ' '); };
+    }
+
+    private static void collectAbilityNames(Object obj, Set<String> out, Set<Object> seen, int depth) {
+        if (obj == null || depth > 5 || seen.contains(obj)) return;
+        seen.add(obj);
+        if (obj instanceof Map<?, ?> map) { for (Object v : map.values()) collectAbilityNames(v, out, seen, depth + 1); return; }
+        if (obj instanceof Iterable<?> iterable) { for (Object v : iterable) collectAbilityNames(v, out, seen, depth + 1); return; }
+        if (obj.getClass().isArray()) { for (int i = 0; i < Array.getLength(obj); i++) collectAbilityNames(Array.get(obj, i), out, seen, depth + 1); return; }
+        for (String methodName : List.of("getName", "name", "getDisplayName")) {
+            try {
+                Method m = obj.getClass().getMethod(methodName);
+                if (m.getParameterCount() == 0) addPrettyName(m.invoke(obj), out);
+            } catch (Throwable ignored) {}
+        }
+        for (Field f : obj.getClass().getDeclaredFields()) {
+            try {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                f.setAccessible(true);
+                Object v = f.get(obj);
+                if (f.getName().toLowerCase(Locale.ROOT).contains("ability")) collectAbilityNames(v, out, seen, depth + 1);
+                else if (v instanceof String || v instanceof ResourceLocation) addPrettyName(v, out);
+                else if (depth < 3) collectAbilityNames(v, out, seen, depth + 1);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private static void collectPrettyNames(Object obj, Set<String> out, Set<Object> seen, int depth) {
+        if (obj == null || depth > 3 || seen.contains(obj)) return;
+        seen.add(obj);
+        if (obj instanceof Map<?, ?> map) { for (Object v : map.values()) collectPrettyNames(v, out, seen, depth + 1); return; }
+        if (obj instanceof Iterable<?> iterable) { for (Object v : iterable) collectPrettyNames(v, out, seen, depth + 1); return; }
+        if (obj.getClass().isArray()) { for (int i = 0; i < Array.getLength(obj); i++) collectPrettyNames(Array.get(obj, i), out, seen, depth + 1); return; }
+        for (String methodName : List.of("getName", "name")) {
+            try { Method m = obj.getClass().getMethod(methodName); if (m.getParameterCount() == 0) addPrettyName(m.invoke(obj), out); } catch (Throwable ignored) {}
+        }
+        addPrettyName(obj, out);
+    }
+
+    private static void addPrettyName(Object value, Set<String> out) {
+        if (value == null) return;
+        String raw = value.toString();
+        if (raw.contains("@") || raw.startsWith("com.") || raw.startsWith("net.")) return;
+        String cleaned = prettyId(raw);
+        if (!cleaned.isBlank() && cleaned.length() <= 32) out.add(cleaned);
     }
 
     public static final class Info {
@@ -145,6 +236,8 @@ public final class PokemonWikiIndex {
         public final Set<String> levels = new TreeSet<>();
         public final Set<String> blocks = new TreeSet<>();
         public final Set<String> structures = new TreeSet<>();
+        public final Set<String> weather = new TreeSet<>();
         public final Set<String> extra = new TreeSet<>();
+        public final Set<String> sources = new TreeSet<>();
     }
 }

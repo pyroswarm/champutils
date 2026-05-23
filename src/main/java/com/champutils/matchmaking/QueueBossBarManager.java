@@ -46,8 +46,8 @@ public class QueueBossBarManager {
                         id,
                         Component.literal(
                                 type.equalsIgnoreCase("casual")
-                                        ? "§bCasual Queue §7: §aSearching..."
-                                        : "§6Ranked Queue §7: §aClose Search"
+                                        ? "§bCasual Queue §7: §aIn Queue"
+                                        : "§6Ranked Queue §7: §aIn Queue"
                         )
                 );
 
@@ -147,48 +147,31 @@ public class QueueBossBarManager {
                     );
 
 
-            // =========================
-            // TRUE PAUSE
-            // no timer movement while paused
-            // =========================
+            // Keep the boss bar simple for players.
+            // Matchmaking can still pause internally while a player is in battle,
+            // but the player-facing text only says they are queued.
 
-            if(
-                    BattleStateManager.isInBattle(
-                            player
-                    )
-            ){
-
-                bar.setColor(
-                        BossEvent.BossBarColor.RED
-                );
-
-                bar.setName(
-                        Component.literal(
-                                "§cQueue Paused §7( In Battle )"
-                        )
-                );
-
-                continue;
-            }
-
-
-            // resume active searching
             bar.setColor(
                     BossEvent.BossBarColor.YELLOW
             );
 
-            ticks++;
+            if (
+                    !BattleStateManager.isInBattle(
+                            player
+                    )
+            ) {
+                ticks++;
 
-            TIMES.put(
-                    id,
-                    ticks
-            );
-
+                TIMES.put(
+                        id,
+                        ticks
+                );
+            }
 
             float progress=
                     Math.min(
                             1f,
-                            ticks/2400f
+                            ticks/1200f
                     );
 
             bar.setProgress(
@@ -203,68 +186,15 @@ public class QueueBossBarManager {
                     );
 
 
-            if(
-                    type.equalsIgnoreCase(
-                            "casual"
-                    )
-            ){
-
-                bar.setName(
-                        Component.literal(
-                                "§bCasual Queue §7: §aSearching..."
-                        )
-                );
-
-                continue;
-            }
-
-
-            int stage=
-                    getStage(
-                            ticks
-                    );
-
-            STAGES.put(
-                    id,
-                    stage
-            );
-
-
-            String stageText=
-                    switch(stage){
-
-                        case 0 ->
-                                "§aClose Search";
-
-                        case 1 ->
-                                "§eExpanded Search";
-
-                        default ->
-                                "§cWide Search";
-                    };
-
-
             bar.setName(
                     Component.literal(
-                            "§6Ranked Queue §7: "
-                                    + stageText
+                            type.equalsIgnoreCase(
+                                    "casual"
+                            )
+                                    ? "§bCasual Queue §7: §aIn Queue"
+                                    : "§6Ranked Queue §7: §aIn Queue"
                     )
             );
         }
-    }
-
-
-
-    private static int getStage(
-            int ticks
-    ){
-
-        if(ticks<1200)
-            return 0;
-
-        if(ticks<2400)
-            return 1;
-
-        return 2;
     }
 }

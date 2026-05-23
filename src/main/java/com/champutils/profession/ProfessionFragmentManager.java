@@ -23,6 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ProfessionFragmentManager {
 
@@ -31,6 +34,16 @@ public final class ProfessionFragmentManager {
 
     private static final Random RANDOM =
             new Random();
+
+    private static final Set<UUID> WITHDRAW_LOCKS =
+            ConcurrentHashMap.newKeySet();
+
+    private static final Map<UUID, Long> WITHDRAW_COOLDOWNS =
+            new ConcurrentHashMap<>();
+
+    private static final int WITHDRAW_COOLDOWN_TICKS = 5;
+
+    private static final int MAX_WITHDRAW_AMOUNT = 2304;
 
     private ProfessionFragmentManager() {
     }
@@ -386,6 +399,218 @@ public final class ProfessionFragmentManager {
         );
     }
 
+
+    public static WithdrawResult withdrawFragments(
+            ServerPlayer player,
+            String fragmentKey,
+            int amount
+    ) {
+        if (player == null) {
+            return WithdrawResult.fail("Player missing.");
+        }
+
+        String normalized =
+                ProfessionFragmentConfig.normalizeRarity(fragmentKey);
+
+        if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(normalized)) {
+            return WithdrawResult.fail("Unknown fragment rarity: " + normalized);
+        }
+
+        if (amount <= 0) {
+            return WithdrawResult.fail("Amount must be at least 1.");
+        }
+
+        int safeAmount =
+                Math.min(amount, MAX_WITHDRAW_AMOUNT);
+
+        UUID uuid =
+                player.getUUID();
+
+        if (!WITHDRAW_LOCKS.add(uuid)) {
+            return WithdrawResult.fail("Your previous fragment withdrawal is still processing.");
+        }
+
+        try {
+            long now =
+                    player.level().getGameTime();
+
+            long nextAllowed =
+                    WITHDRAW_COOLDOWNS.getOrDefault(uuid, 0L);
+
+            if (now < nextAllowed) {
+                return WithdrawResult.fail("Please wait a moment before withdrawing fragments again.");
+            }
+
+            WITHDRAW_COOLDOWNS.put(
+                    uuid,
+                    now + WITHDRAW_COOLDOWN_TICKS
+            );
+
+            int available =
+                    countFragments(
+                            player,
+                            normalized
+                    );
+
+            if (available < safeAmount) {
+                return WithdrawResult.fail(
+                        "You need " + safeAmount + " " + formatWords(normalized) + " fragments. You have " + available + "."
+                );
+            }
+
+            if (!canFitFragmentStacks(player, normalized, safeAmount)) {
+                return WithdrawResult.fail("You do not have enough inventory space for that many fragment items.");
+            }
+
+            if (!removeFragments(player, normalized, safeAmount)) {
+                return WithdrawResult.fail("Could not remove stored fragments.");
+            }
+
+            boolean inserted =
+                    insertFragmentStacksExact(
+                            player,
+                            normalized,
+                            safeAmount
+                    );
+
+            if (!inserted) {
+                ProfessionManager.addFragments(
+                        player,
+                        normalized,
+                        safeAmount
+                );
+
+                ProfessionManager.savePlayer(player);
+
+                return WithdrawResult.fail("Could not place fragments in your inventory. Your stored fragments were restored.");
+            }
+
+            ProfessionManager.savePlayer(player);
+
+            return WithdrawResult.success(
+                    normalized,
+                    safeAmount
+            );
+        } finally {
+            WITHDRAW_LOCKS.remove(uuid);
+        }
+    }
+
+    private static boolean canFitFragmentStacks(
+            ServerPlayer player,
+            String fragmentKey,
+            int amount
+    ) {
+        if (player == null || amount <= 0) {
+            return false;
+        }
+
+        ItemStack sample =
+                createFragmentStack(
+                        fragmentKey,
+                        1
+                );
+
+        if (sample.isEmpty()) {
+            return false;
+        }
+
+        int remaining =
+                amount;
+
+        for (ItemStack existing : player.getInventory().items) {
+            if (remaining <= 0) {
+                return true;
+            }
+
+            if (existing.isEmpty()) {
+                remaining -= Math.min(64, remaining);
+                continue;
+            }
+
+            if (ItemStack.isSameItemSameComponents(existing, sample)) {
+                int room =
+                        Math.max(
+                                0,
+                                Math.min(existing.getMaxStackSize(), 64) - existing.getCount()
+                        );
+
+                remaining -= room;
+            }
+        }
+
+        return remaining <= 0;
+    }
+
+    private static boolean insertFragmentStacksExact(
+            ServerPlayer player,
+            String fragmentKey,
+            int amount
+    ) {
+        if (!canFitFragmentStacks(player, fragmentKey, amount)) {
+            return false;
+        }
+
+        ItemStack sample =
+                createFragmentStack(
+                        fragmentKey,
+                        1
+                );
+
+        if (sample.isEmpty()) {
+            return false;
+        }
+
+        int remaining =
+                amount;
+
+        for (ItemStack existing : player.getInventory().items) {
+            if (remaining <= 0) {
+                break;
+            }
+
+            if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, sample)) {
+                int room =
+                        Math.max(
+                                0,
+                                Math.min(existing.getMaxStackSize(), 64) - existing.getCount()
+                        );
+
+                if (room > 0) {
+                    int toMove =
+                            Math.min(room, remaining);
+
+                    existing.grow(toMove);
+                    remaining -= toMove;
+                }
+            }
+        }
+
+        for (int slot = 0; slot < player.getInventory().items.size() && remaining > 0; slot++) {
+            ItemStack existing =
+                    player.getInventory().items.get(slot);
+
+            if (existing.isEmpty()) {
+                int toMove =
+                        Math.min(64, remaining);
+
+                player.getInventory().items.set(
+                        slot,
+                        createFragmentStack(
+                                fragmentKey,
+                                toMove
+                        )
+                );
+
+                remaining -= toMove;
+            }
+        }
+
+        player.getInventory().setChanged();
+
+        return remaining <= 0;
+    }
+
     public static UpgradeResult upgrade(
             ServerPlayer player,
             String upgradeId
@@ -717,6 +942,24 @@ public final class ProfessionFragmentManager {
         }
 
         return builder.toString();
+    }
+
+    public record WithdrawResult(
+            boolean success,
+            String error,
+            String fragmentKey,
+            int amount
+    ) {
+        public static WithdrawResult fail(String error) {
+            return new WithdrawResult(false, error, null, 0);
+        }
+
+        public static WithdrawResult success(
+                String fragmentKey,
+                int amount
+        ) {
+            return new WithdrawResult(true, null, fragmentKey, amount);
+        }
     }
 
     public record SalvageResult(

@@ -2,6 +2,7 @@ package com.champutils.wondertrade;
 
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
+import com.champutils.dex.PokemonOriginManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
 import net.minecraft.ChatFormatting;
@@ -196,6 +197,7 @@ public final class WonderTradeService {
 
             try {
                 Pokemon received = AuctionPokemonSerializer.fromPayload(onlinePlayer, receivedEntry.payload);
+                PokemonOriginManager.markOrigin(received, PokemonOriginManager.ORIGIN_WONDERTRADE);
                 boolean added = AuctionPokemonSerializer.addToFirstOpenPartySlot(onlinePlayer, received);
                 if (!added) {
                     onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but your party was full. Use /wondertrade claim after freeing a slot.").withStyle(ChatFormatting.YELLOW));
@@ -255,6 +257,9 @@ public final class WonderTradeService {
 
             try {
                 Pokemon pokemon = AuctionPokemonSerializer.fromPayload(onlinePlayer, claim.payload());
+                if (!"OFFERED".equalsIgnoreCase(claim.claimType())) {
+                    PokemonOriginManager.markOrigin(pokemon, PokemonOriginManager.ORIGIN_WONDERTRADE);
+                }
                 if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(onlinePlayer, pokemon)) {
                     onlinePlayer.sendSystemMessage(Component.literal("Your party is full. Free a slot and run /wondertrade claim again.").withStyle(ChatFormatting.RED));
                     return;

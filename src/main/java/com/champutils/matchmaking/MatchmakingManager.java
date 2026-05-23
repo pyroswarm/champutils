@@ -6,6 +6,7 @@ import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattlePrepManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.config.Config;
+import com.champutils.config.Rank;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.validation.TeamValidator;
@@ -423,33 +424,33 @@ public class MatchmakingManager {
             return false;
         }
 
-        int diff =
+        int rankDiff =
                 Math.abs(
-                        getRp(p1) - getRp(p2)
+                        getRankIndex(p1) - getRankIndex(p2)
                 );
 
-        return diff <= getAllowedRange(p1, p2);
+        return rankDiff <= getAllowedRankSpread(p1, p2);
     }
 
-    private static int getAllowedRange(
+    private static int getAllowedRankSpread(
             ServerPlayer p1,
             ServerPlayer p2
     ) {
 
-        int initialRange =
+        int initialSpread =
                 Config.matchmaking == null
-                        ? 100
+                        ? 0
                         : Math.max(
                                 0,
-                                Config.matchmaking.initial_range
+                                Config.matchmaking.initial_rank_spread
                         );
 
-        int expandRange =
+        int expandSpread =
                 Config.matchmaking == null
-                        ? 100
+                        ? 1
                         : Math.max(
                                 0,
-                                Config.matchmaking.expand_range
+                                Config.matchmaking.expand_rank_spread
                         );
 
         int expandSeconds =
@@ -475,8 +476,36 @@ public class MatchmakingManager {
         int expansions =
                 waitedTicks / (expandSeconds * 20);
 
-        return initialRange +
-                (expandRange * expansions);
+        return initialSpread +
+                (expandSpread * expansions);
+    }
+
+    private static int getRankIndex(
+            ServerPlayer player
+    ) {
+
+        int rp = getRp(player);
+        int bestIndex = 0;
+        int bestMin = Integer.MIN_VALUE;
+
+        if (Config.ranks == null || Config.ranks.isEmpty()) {
+            return 0;
+        }
+
+        for (int i = 0; i < Config.ranks.size(); i++) {
+            Rank rank = Config.ranks.get(i);
+
+            if (rank == null) {
+                continue;
+            }
+
+            if (rp >= rank.min_elo && rank.min_elo >= bestMin) {
+                bestMin = rank.min_elo;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
     }
 
     private static boolean recentlyMatched(

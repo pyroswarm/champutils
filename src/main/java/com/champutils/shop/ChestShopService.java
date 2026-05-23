@@ -12,7 +12,6 @@ import net.minecraft.world.Container;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -47,7 +46,8 @@ public final class ChestShopService {
             return InteractionResult.SUCCESS;
         }
 
-        String lockKey = ChestShopRegistry.key(level, pos);
+        BlockPos storagePos = ChestShopRegistry.getShopStoragePos(level, pos);
+        String lockKey = ChestShopRegistry.key(level, storagePos);
         synchronized (TRANSACTION_LOCKS) {
             if (TRANSACTION_LOCKS.contains(lockKey)) {
                 player.sendSystemMessage(Component.literal("This shop is already processing another transaction.").withStyle(ChatFormatting.RED));
@@ -184,8 +184,7 @@ public final class ChestShopService {
     }
 
     private static Container getContainer(ServerLevel level, BlockPos pos) {
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        return blockEntity instanceof Container container ? container : null;
+        return ChestShopContainers.containerFor(level, ChestShopRegistry.getShopStoragePos(level, pos));
     }
 
     private static int countItem(Container container, Item item) {
