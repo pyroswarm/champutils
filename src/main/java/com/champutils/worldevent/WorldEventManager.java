@@ -1,6 +1,7 @@
 package com.champutils.worldevent;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+import com.champutils.crate.CrateCreditManager;
 
 import com.champutils.database.WorldEventStatsDatabaseRepository;
 import com.champutils.profession.ProfessionFragmentConfig;
@@ -31,12 +32,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 
 /**
  * Random overworld world events backed by ChampUtils native trainer NPCs.
  * Events choose a safe ground-level position, spawn a protected trainer NPC,
- * announce a teleport button, and despawn after the configured duration.
+ * announce a teleport button, stay available for multiple players, and despawn after the configured duration.
  */
 public final class WorldEventManager {
 
@@ -58,6 +61,7 @@ public final class WorldEventManager {
         public long expireTick;
         public WorldEventConfig.EventDefinition definition;
         public WorldEventConfig.TeamDefinition team;
+        public final Set<UUID> rewardedPlayers = new HashSet<>();
     }
 
     public static void tick(MinecraftServer server) {
@@ -276,28 +280,41 @@ public final class WorldEventManager {
 
     public static void handleBossDefeated(MinecraftServer server, ActiveEvent active, List<ServerPlayer> winners) {
         if (server == null || active == null || winners == null || winners.isEmpty()) return;
-        ACTIVE_EVENTS.remove(active.eventId);
+
+        List<ServerPlayer> newlyRewarded = new ArrayList<>();
 
         for (ServerPlayer winner : winners) {
             if (winner == null) {
                 continue;
             }
 
+            UUID playerId = winner.getUUID();
+            if (active.rewardedPlayers.contains(playerId)) {
+                winner.sendSystemMessage(Component.literal("§7You already completed §6" + active.displayName + "§7 during this event spawn."));
+                continue;
+            }
+
+            active.rewardedPlayers.add(playerId);
+            newlyRewarded.add(winner);
+
             int rareDrops = rewardWinner(winner, active);
 
             WorldEventStatsDatabaseRepository.recordCompletion(
-                    winner.getUUID(),
+                    playerId,
                     winner.getName().getString(),
                     active.eventId,
                     rareDrops
             );
         }
 
-        String winnerNames = winners.get(0).getName().getString();
-        if (winners.size() > 1) winnerNames += " and allies";
+        if (newlyRewarded.isEmpty()) {
+            return;
+        }
 
-        broadcast(server, Component.literal("§6" + winnerNames + " §ahas defeated §c" + active.bossName + " §ain §e" + active.displayName + "§a!"));
-        despawnActiveNpc(server, active);
+        String winnerNames = newlyRewarded.get(0).getName().getString();
+        if (newlyRewarded.size() > 1) winnerNames += " and allies";
+
+        broadcast(server, Component.literal("§6" + winnerNames + " §ahas cleared §c" + active.bossName + " §ain §e" + active.displayName + "§a! The event remains active for other players."));
     }
 
     private static int rewardWinner(ServerPlayer player, ActiveEvent active) {
@@ -322,6 +339,9 @@ public final class WorldEventManager {
                 rareDrops++;
             }
         }
+
+        String crateId = rewards.crateCreditId == null || rewards.crateCreditId.isBlank() ? "world_boss" : rewards.crateCreditId;
+        CrateCreditManager.addCredits(player, crateId, Math.max(1, rewards.crateCredits));
 
         if (!awarded.isEmpty()) {
             player.sendSystemMessage(Component.literal("§dWorld Event Rewards:"));

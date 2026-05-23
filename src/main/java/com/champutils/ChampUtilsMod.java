@@ -38,6 +38,7 @@ import com.champutils.roaming.*;
 import com.champutils.specialspawn.*;
 import com.champutils.wiki.*;
 import com.champutils.exploration.*;
+import com.champutils.crate.*;
 
 /*
  =========================
@@ -111,6 +112,8 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
         NpcShopConfig.load();
+        CrateConfig.load();
+        CrateCreditManager.load();
         ChestShopRegistry.load();
         FirstJoinKitManager.load();
         PokemonHuntConfig.load();
@@ -424,6 +427,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
+        OpenCratesCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();

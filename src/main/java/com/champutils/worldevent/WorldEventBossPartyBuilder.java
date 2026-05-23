@@ -27,7 +27,9 @@ public final class WorldEventBossPartyBuilder {
             NPCPartyStore party = new NPCPartyStore(npc);
             int slot = 0;
 
-            for (WorldEventConfig.PokemonSet set : team.party) {
+            java.util.List<WorldEventConfig.PokemonSet> pool = new java.util.ArrayList<>(team.party);
+            java.util.Collections.shuffle(pool);
+            for (WorldEventConfig.PokemonSet set : pool) {
                 if (slot >= Math.max(1, Math.min(6, team.partySize))) break;
                 Pokemon pokemon = createPokemon(set);
                 if (pokemon != null) {

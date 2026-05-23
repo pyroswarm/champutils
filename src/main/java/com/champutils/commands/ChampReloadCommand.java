@@ -10,6 +10,7 @@ import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.BattleProfessionLootConfig;
 import com.champutils.worldevent.WorldEventConfig;
+import com.champutils.crate.CrateConfig;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.dex.DexRewardConfig;
 import com.champutils.teleport.TeleportConfig;
@@ -71,6 +72,7 @@ public class ChampReloadCommand {
             ProfessionLootConfig.load();
             BattleProfessionLootConfig.load();
             WorldEventConfig.load();
+            CrateConfig.load();
             WorldEventBindingRegistry.load();
             GymConfig.load();
             GymRegistry.load();
