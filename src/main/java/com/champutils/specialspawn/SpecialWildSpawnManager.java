@@ -1,49 +1,117 @@
 package com.champutils.specialspawn;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
 
 public final class SpecialWildSpawnManager {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File STATE_FILE = new File("config/champutils/special_wild_spawn_state.json");
     private static final Random RANDOM = new Random();
     private static int ticksUntilCheck = 200;
     private static final Set<UUID> tracked = new HashSet<>();
+    private static State state = new State();
+    private static boolean stateLoaded = false;
 
     private SpecialWildSpawnManager() {}
 
     public static void tick(MinecraftServer server) {
         if (!SpecialWildSpawnConfig.DATA.enabled) return;
+        ensureStateLoaded();
+
         ticksUntilCheck--;
         if (ticksUntilCheck > 0) return;
-        ticksUntilCheck = Math.max(20, SpecialWildSpawnConfig.DATA.checkIntervalTicks);
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.checkIntervalTicks);
+        ticksUntilCheck = intervalTicks;
+
         cleanupTracked(server);
         if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
         players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()));
         if (players.isEmpty()) return;
-        Collections.shuffle(players, RANDOM);
 
-        for (ServerPlayer player : players) {
-            if (tryRollFor(player, "legendary", SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary)) return;
-            if (tryRollFor(player, "paradox", SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox)) return;
-            if (tryRollFor(player, "ultra beast", SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast)) return;
+        double chance = currentGlobalChancePerCheck(intervalTicks);
+        if (RANDOM.nextDouble() >= chance) return;
+
+        Collections.shuffle(players, RANDOM);
+        boolean rareTripleEvent = SpecialWildSpawnConfig.DATA.rareTripleSpawnEventEnabled
+                && RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventChance));
+
+        if (rareTripleEvent) {
+            runRareTripleSpawnEvent(server, players);
+            return;
         }
+
+        ServerPlayer player = players.get(0);
+        SpawnBucket bucket = pickBucket();
+        if (bucket == null) return;
+
+        SpawnResult result = trySpawnFor(player, bucket);
+        if (result == null) {
+            for (ServerPlayer fallback : players) {
+                if (fallback == player) continue;
+                result = trySpawnFor(fallback, bucket);
+                if (result != null) break;
+            }
+        }
+        if (result != null) {
+            markSpawned(result.type, result.species, false);
+            announce(server, result.type, result.species, result.level, result.pos);
+        }
+    }
+
+
+    private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players) {
+        int availableSlots = Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon - tracked.size());
+        int wanted = Math.max(1, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventSpawnCount);
+        int targetCount = Math.min(wanted, Math.min(players.size(), availableSlots));
+        if (targetCount <= 0) return;
+
+        List<SpawnResult> results = new ArrayList<>();
+        Set<UUID> usedPlayers = new HashSet<>();
+        for (ServerPlayer player : players) {
+            if (results.size() >= targetCount) break;
+            if (usedPlayers.contains(player.getUUID())) continue;
+
+            SpawnBucket bucket = pickBucket();
+            if (bucket == null) continue;
+
+            SpawnResult result = trySpawnFor(player, bucket);
+            if (result != null) {
+                results.add(result);
+                usedPlayers.add(player.getUUID());
+            }
+        }
+
+        if (results.isEmpty()) return;
+
+        SpawnResult last = results.get(results.size() - 1);
+        markSpawned(last.type, last.species, true);
+        announceRareTripleEvent(server, results);
     }
 
     public static void cleanupTracked(MinecraftServer server) {
@@ -56,26 +124,90 @@ public final class SpecialWildSpawnManager {
         });
     }
 
-    private static boolean tryRollFor(ServerPlayer player, String type, double chance, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {
-        if (entries == null || entries.isEmpty()) return false;
-        if (RANDOM.nextDouble() >= Math.max(0.0D, Math.min(1.0D, chance))) return false;
+    public static long getLastSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.lastSpawnEpochMillis);
+    }
 
+    public static String formatLastSpawnAgo() {
+        long last = getLastSpawnEpochMillis();
+        if (last <= 0L) return "Never";
+        long elapsedMillis = Math.max(0L, System.currentTimeMillis() - last);
+        long totalMinutes = elapsedMillis / 60000L;
+        long hours = totalMinutes / 60L;
+        long minutes = totalMinutes % 60L;
+        return hours + "h " + minutes + "m ago";
+    }
+
+    private static double currentGlobalChancePerCheck(int intervalTicks) {
+        double targetMinutes = Math.max(1.0D, SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
+        double targetTicks = targetMinutes * 60.0D * 20.0D;
+        double base = Math.max(0.000001D, Math.min(1.0D, intervalTicks / targetTicks));
+
+        long last = state.lastSpawnEpochMillis;
+        double elapsedTargetWindows;
+        if (last <= 0L) {
+            elapsedTargetWindows = 0.0D;
+        } else {
+            double elapsedMillis = Math.max(0L, System.currentTimeMillis() - last);
+            elapsedTargetWindows = elapsedMillis / (targetMinutes * 60_000.0D);
+        }
+
+        double multiplier = SpecialWildSpawnConfig.DATA.baseChanceMultiplier
+                + (elapsedTargetWindows * SpecialWildSpawnConfig.DATA.pityChanceIncreasePerTargetWindow);
+        multiplier = Math.max(0.01D, Math.min(Math.max(0.01D, SpecialWildSpawnConfig.DATA.maxPityMultiplier), multiplier));
+        return Math.max(0.0D, Math.min(1.0D, base * multiplier));
+    }
+
+    private static SpawnBucket pickBucket() {
+        List<SpawnBucket> buckets = new ArrayList<>();
+        addBucket(buckets, "legendary", SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
+        addBucket(buckets, "paradox", SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox);
+        addBucket(buckets, "ultra beast", SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
+        if (buckets.isEmpty()) return null;
+
+        double total = 0.0D;
+        for (SpawnBucket bucket : buckets) total += bucket.weight;
+        double roll = RANDOM.nextDouble() * total;
+        for (SpawnBucket bucket : buckets) {
+            roll -= bucket.weight;
+            if (roll <= 0.0D) return bucket;
+        }
+        return buckets.get(0);
+    }
+
+    private static void addBucket(List<SpawnBucket> buckets, String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {
+        if (entries == null || entries.isEmpty()) return;
+        buckets.add(new SpawnBucket(type, Math.max(0.01D, weight), entries, levelRange));
+    }
+
+    private static SpawnResult trySpawnFor(ServerPlayer player, SpawnBucket bucket) {
         ServerLevel level = player.serverLevel();
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) continue;
-            List<SpecialWildSpawnConfig.SpawnEntry> valid = matchingEntries(level, pos, entries);
+
+            List<SpecialWildSpawnConfig.SpawnEntry> valid = matchingEntries(level, bucket.entries);
             if (valid.isEmpty()) continue;
+
             SpecialWildSpawnConfig.SpawnEntry picked = pickWeighted(valid);
             if (picked == null) continue;
-            int pokemonLevel = pickLevel(levelRange);
+
+            int pokemonLevel = pickLevel(bucket.levelRange);
             boolean spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, picked.species, pokemonLevel);
             if (spawned) {
-                announce(player.getServer(), type, picked.species, level, pos);
-                return true;
+                return new SpawnResult(bucket.type, picked.species, level, pos);
             }
         }
-        return false;
+        return null;
+    }
+
+    private static void markSpawned(String type, String species, boolean rareEvent) {
+        state.lastSpawnEpochMillis = System.currentTimeMillis();
+        state.lastSpawnType = type == null ? "" : type;
+        state.lastSpawnSpecies = species == null ? "" : species;
+        state.lastSpawnWasRareTripleEvent = rareEvent;
+        saveState();
     }
 
     private static BlockPos randomSpawnPos(ServerLevel level, BlockPos origin) {
@@ -93,37 +225,15 @@ public final class SpecialWildSpawnManager {
         return top;
     }
 
-    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntries(ServerLevel level, BlockPos pos, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntries(ServerLevel level, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
         List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
         String time = timeName(level);
         for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
             if (entry == null || entry.species == null || entry.species.isBlank()) continue;
             if (entry.times != null && !entry.times.isEmpty() && entry.times.stream().noneMatch(t -> t != null && t.equalsIgnoreCase(time))) continue;
-            if (entry.biomes != null && !entry.biomes.isEmpty() && !matchesAnyBiome(level, pos, entry.biomes)) continue;
             valid.add(entry);
         }
         return valid;
-    }
-
-    private static boolean matchesAnyBiome(ServerLevel level, BlockPos pos, List<String> biomes) {
-        var holder = level.getBiome(pos);
-        ResourceLocation biomeId = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(holder.value());
-        String current = biomeId == null ? "" : biomeId.toString();
-        for (String raw : biomes) {
-            if (raw == null || raw.isBlank()) continue;
-            String b = raw.trim();
-            try {
-                if (b.startsWith("#")) {
-                    ResourceLocation tagId = ResourceLocation.parse(b.substring(1));
-                    TagKey<Biome> tag = TagKey.create(Registries.BIOME, tagId);
-                    if (holder.is(tag)) return true;
-                } else {
-                    if (!b.contains(":")) b = "minecraft:" + b;
-                    if (current.equalsIgnoreCase(b)) return true;
-                }
-            } catch (Exception ignored) {}
-        }
-        return false;
     }
 
     private static String timeName(ServerLevel level) {
@@ -183,10 +293,56 @@ public final class SpecialWildSpawnManager {
         server.getPlayerList().broadcastSystemMessage(msg, false);
     }
 
+    private static void announceRareTripleEvent(MinecraftServer server, List<SpawnResult> results) {
+        String message = SpecialWildSpawnConfig.DATA.rareTripleSpawnEventMessage;
+        if (message == null || message.isBlank()) {
+            message = "§5§lA COSMIC RIFT HAS OPENED! §dThree special Pokémon have appeared across the world!";
+        }
+        server.getPlayerList().broadcastSystemMessage(Component.literal(message), false);
+        server.getPlayerList().broadcastSystemMessage(Component.literal("§d§l★ §fThis is a §51% super rare event§f! Hunt them down before someone else does! §d§l★"), false);
+
+        for (SpawnResult result : results) {
+            String name = pretty(result.species);
+            String biome = result.level.registryAccess().registryOrThrow(Registries.BIOME).getKey(result.level.getBiome(result.pos).value()).toString();
+            server.getPlayerList().broadcastSystemMessage(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + "§7."), false);
+        }
+    }
+
     private static boolean isDisabledDimension(ServerLevel level) {
         String id = level.dimension().location().toString();
         for (String d : SpecialWildSpawnConfig.DATA.disabledDimensions) if (id.equalsIgnoreCase(d)) return true;
         return false;
+    }
+
+    private static void ensureStateLoaded() {
+        if (stateLoaded) return;
+        stateLoaded = true;
+        try {
+            if (!STATE_FILE.getParentFile().exists()) STATE_FILE.getParentFile().mkdirs();
+            if (!STATE_FILE.exists()) {
+                state = new State();
+                saveState();
+                return;
+            }
+            try (FileReader reader = new FileReader(STATE_FILE)) {
+                State loaded = GSON.fromJson(reader, State.class);
+                state = loaded == null ? new State() : loaded;
+            }
+        } catch (Exception e) {
+            state = new State();
+            e.printStackTrace();
+        }
+    }
+
+    private static void saveState() {
+        try {
+            if (!STATE_FILE.getParentFile().exists()) STATE_FILE.getParentFile().mkdirs();
+            try (FileWriter writer = new FileWriter(STATE_FILE)) {
+                GSON.toJson(state, writer);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static String sanitize(String raw) {
@@ -205,5 +361,15 @@ public final class SpecialWildSpawnManager {
             sb.append(Character.toUpperCase(p.charAt(0))).append(p.length() > 1 ? p.substring(1) : "");
         }
         return sb.toString();
+    }
+
+    private record SpawnBucket(String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {}
+    private record SpawnResult(String type, String species, ServerLevel level, BlockPos pos) {}
+
+    private static final class State {
+        long lastSpawnEpochMillis = 0L;
+        String lastSpawnType = "";
+        String lastSpawnSpecies = "";
+        boolean lastSpawnWasRareTripleEvent = false;
     }
 }

@@ -43,6 +43,17 @@ public final class SpecialWildSpawnConfig {
         if (DATA.minDistanceFromPlayer < 8) DATA.minDistanceFromPlayer = d.minDistanceFromPlayer;
         if (DATA.maxDistanceFromPlayer < DATA.minDistanceFromPlayer) DATA.maxDistanceFromPlayer = d.maxDistanceFromPlayer;
         if (DATA.maxAliveSpecialWildPokemon <= 0) DATA.maxAliveSpecialWildPokemon = d.maxAliveSpecialWildPokemon;
+        if (DATA.targetAverageSpawnMinutes <= 0.0D) DATA.targetAverageSpawnMinutes = d.targetAverageSpawnMinutes;
+        if (DATA.baseChanceMultiplier <= 0.0D) DATA.baseChanceMultiplier = d.baseChanceMultiplier;
+        if (DATA.pityChanceIncreasePerTargetWindow < 0.0D) DATA.pityChanceIncreasePerTargetWindow = d.pityChanceIncreasePerTargetWindow;
+        if (DATA.maxPityMultiplier <= 0.0D) DATA.maxPityMultiplier = d.maxPityMultiplier;
+        if (DATA.rareTripleSpawnEventChance <= 0.0D) DATA.rareTripleSpawnEventChance = d.rareTripleSpawnEventChance;
+        if (DATA.rareTripleSpawnEventSpawnCount <= 0) DATA.rareTripleSpawnEventSpawnCount = d.rareTripleSpawnEventSpawnCount;
+        if (DATA.rareTripleSpawnEventMessage == null || DATA.rareTripleSpawnEventMessage.isBlank()) DATA.rareTripleSpawnEventMessage = d.rareTripleSpawnEventMessage;
+        if (DATA.rareTripleSpawnEventEnabled && DATA.maxAliveSpecialWildPokemon < DATA.rareTripleSpawnEventSpawnCount) {
+            DATA.maxAliveSpecialWildPokemon = DATA.rareTripleSpawnEventSpawnCount;
+        }
+        if (DATA.removeBiomeRequirements) clearBiomeRequirements(DATA.legendarySpawns, DATA.paradoxSpawns, DATA.ultraBeastSpawns);
     }
 
     private static Data defaults() {
@@ -52,12 +63,21 @@ public final class SpecialWildSpawnConfig {
         root.broadcastLegendarySpawns = true;
         root.broadcastParadoxAndUltraBeastSpawns = false;
         root.checkIntervalTicks = 12000; // 10 minutes
-        root.legendaryChancePerCheck = 0.0025; // about 0.25% per check/player candidate
-        root.paradoxChancePerCheck = 0.0080;
-        root.ultraBeastChancePerCheck = 0.0080;
+        root.targetAverageSpawnMinutes = 120.0; // global average target across all special spawns
+        root.baseChanceMultiplier = 1.0;
+        root.pityChanceIncreasePerTargetWindow = 1.0;
+        root.maxPityMultiplier = 6.0;
+        root.removeBiomeRequirements = true;
+        root.rareTripleSpawnEventEnabled = true;
+        root.rareTripleSpawnEventChance = 0.01;
+        root.rareTripleSpawnEventSpawnCount = 3;
+        root.rareTripleSpawnEventMessage = "§5§lA COSMIC RIFT HAS OPENED! §dThree special Pokémon have appeared across the world!";
+        root.legendaryChancePerCheck = 0.0025; // now used as the legendary bucket weight
+        root.paradoxChancePerCheck = 0.0080; // now used as the paradox bucket weight
+        root.ultraBeastChancePerCheck = 0.0080; // now used as the ultra beast bucket weight
         root.minDistanceFromPlayer = 48;
         root.maxDistanceFromPlayer = 96;
-        root.maxAliveSpecialWildPokemon = 2;
+        root.maxAliveSpecialWildPokemon = 3;
         root.levelRangeLegendary = "60-80";
         root.levelRangeParadox = "45-65";
         root.levelRangeUltraBeast = "50-70";
@@ -127,7 +147,18 @@ public final class SpecialWildSpawnConfig {
                 entry("stakataka", tags("#cobblemon:is_mountain", "#cobblemon:is_cave"), times("night")),
                 entry("blacephalon", tags("#cobblemon:is_dark_forest", "#cobblemon:is_nether"), times("night"))
         ));
+        if (root.removeBiomeRequirements) clearBiomeRequirements(root.legendarySpawns, root.paradoxSpawns, root.ultraBeastSpawns);
         return root;
+    }
+
+    @SafeVarargs
+    private static void clearBiomeRequirements(List<SpawnEntry>... lists) {
+        for (List<SpawnEntry> list : lists) {
+            if (list == null) continue;
+            for (SpawnEntry entry : list) {
+                if (entry != null) entry.biomes = new ArrayList<>();
+            }
+        }
     }
 
     private static List<String> tags(String... values) { return new ArrayList<>(List.of(values)); }
@@ -142,6 +173,15 @@ public final class SpecialWildSpawnConfig {
         public boolean broadcastLegendarySpawns;
         public boolean broadcastParadoxAndUltraBeastSpawns;
         public int checkIntervalTicks;
+        public double targetAverageSpawnMinutes;
+        public double baseChanceMultiplier;
+        public double pityChanceIncreasePerTargetWindow;
+        public double maxPityMultiplier;
+        public boolean removeBiomeRequirements;
+        public boolean rareTripleSpawnEventEnabled;
+        public double rareTripleSpawnEventChance;
+        public int rareTripleSpawnEventSpawnCount;
+        public String rareTripleSpawnEventMessage;
         public double legendaryChancePerCheck;
         public double paradoxChancePerCheck;
         public double ultraBeastChancePerCheck;
