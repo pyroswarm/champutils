@@ -112,8 +112,6 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
         NpcShopConfig.load();
-        CrateConfig.load();
-        CrateCreditManager.load();
         ChestShopRegistry.load();
         FirstJoinKitManager.load();
         PokemonHuntConfig.load();
@@ -131,6 +129,8 @@ public class ChampUtilsMod implements ModInitializer {
         RoamingTrainerConfig.load();
         SpecialWildSpawnConfig.load();
         ItemBindRegistry.load();
+        CrateConfig.load();
+        CrateCreditManager.load();
 
         /*
          =========================
@@ -427,7 +427,6 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
-        OpenCratesCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
@@ -448,6 +447,7 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonWikiCommand.register();
         BattleExitCommand.register();
         ItemBindCommand.register();
+        OpenCratesCommand.register();
 
         /*
          New custom item test command
@@ -469,6 +469,7 @@ public class ChampUtilsMod implements ModInitializer {
         GymBattleHandler.register();
         GymBattleStartHandler.register();
         WorldEventBattleListener.register();
+        WorldEventAreaProtectionListener.register();
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
         ItemBindInteractionListener.register();
@@ -496,6 +497,7 @@ public class ChampUtilsMod implements ModInitializer {
                 server -> {
 
                     ShopPokemonCrateOpeningGui.tick(server);
+                    OpenCratesMenu.tick(server);
                     NotificationManager.tick(server);
                     PokemonHuntManager.tick(server);
                     QuestManager.tick(server);

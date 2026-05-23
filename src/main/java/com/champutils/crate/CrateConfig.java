@@ -53,6 +53,8 @@ public final class CrateConfig {
                     }
                     CRATES = root.crates;
                 }
+                // Event crate was removed. World events now award regular crate credits by event tier.
+                CRATES.remove("event");
             }
             System.out.println("[ChampUtils] Loaded " + CRATES.size() + " crate definitions.");
         } catch (Exception e) {
@@ -87,9 +89,6 @@ public final class CrateConfig {
         add(root,"guild","Guild Crate","minecraft:bell","EPIC",4,8,40,65,0.5D,
                 listP("riolu:4","larvitar:4","bagon:4","beldum:4","gible:4","rotom:3","dragonite:2","metagross:2"),
                 listI("cobblemon:ultra_ball:5:12:24","cobblemon:rare_candy:2:5:18","cobblemon:ability_patch:1:1:8","cobblemon:master_ball:1:1:1"), listT("deep_prospector:3","cavern_breaker:2"));
-        add(root,"event","Event Crate","minecraft:trial_key","LEGENDARY",5,10,60,80,0.9D,
-                listP("mewtwo:1","rayquaza:1","kyogre:1","groudon:1","xerneas:1","zacian:1","iron_valiant:1","roaring_moon:1","kartana:1","guzzlord:1","larvitar:2","bagon:2","beldum:2"),
-                listI("cobblemon:master_ball:1:1:5","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18","minecraft:netherite_ingot:1:2:6"), listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2"));
         add(root,"world_boss","World Boss Crate","minecraft:beacon","LEGENDARY",5,10,60,80,0.9D,
                 listP("mewtwo:1","rayquaza:1","kyogre:1","groudon:1","xerneas:1","zacian:1","iron_valiant:1","roaring_moon:1","kartana:1","guzzlord:1","larvitar:2","bagon:2","beldum:2"),
                 listI("cobblemon:master_ball:1:1:5","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18"), listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2"));

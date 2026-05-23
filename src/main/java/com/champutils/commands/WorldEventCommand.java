@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.worldevent.WorldEventConfig;
 import com.champutils.worldevent.WorldEventManager;
+import com.champutils.trainer.ChampTrainerSpawner;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -92,6 +93,35 @@ public final class WorldEventCommand {
                                         )))
                                 .then(Commands.literal("all")
                                         .executes(ctx -> stopAll(ctx.getSource()))))
+
+                        .then(Commands.literal("skin")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("eventId", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
+                                            return builder.buildFuture();
+                                        })
+                                        .then(Commands.argument("playerName", StringArgumentType.word())
+                                                .suggests((context, builder) -> {
+                                                    for (String name : context.getSource().getServer().getPlayerNames()) builder.suggest(name);
+                                                    return builder.buildFuture();
+                                                })
+                                                .executes(ctx -> setSkin(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "eventId"),
+                                                        StringArgumentType.getString(ctx, "playerName")
+                                                )))))
+                        .then(Commands.literal("clearskin")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("eventId", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(ctx -> clearSkin(
+                                                ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "eventId")
+                                        ))))
                         .then(Commands.literal("reload")
                                 .requires(source -> source.hasPermission(2))
                                 .executes(ctx -> reload(ctx.getSource())))
@@ -128,7 +158,8 @@ public final class WorldEventCommand {
 
         source.sendSuccess(() -> Component.literal("§6World Event NPC Bindings:"), false);
         for (WorldEventBindingRegistry.Binding binding : bindings.values()) {
-            source.sendSuccess(() -> Component.literal("§7- §e" + binding.eventId + " §8-> §f" + binding.npcUuid + " §8(" + binding.world + ")"), false);
+            String skin = binding.skinPlayer == null || binding.skinPlayer.isBlank() ? "" : " §8| skin: §b" + binding.skinPlayer;
+            source.sendSuccess(() -> Component.literal("§7- §e" + binding.eventId + " §8-> §f" + binding.npcUuid + " §8(" + binding.world + ")" + skin), false);
         }
         return 1;
     }
@@ -211,6 +242,46 @@ public final class WorldEventCommand {
     private static int stopAll(CommandSourceStack source) {
         WorldEventManager.stopAll(source.getServer());
         source.sendSuccess(() -> Component.literal("§aStopped all world events."), true);
+        return 1;
+    }
+
+
+    private static int setSkin(CommandSourceStack source, String eventId, String playerName) {
+        if (!WorldEventConfig.EVENTS.containsKey(eventId)) {
+            source.sendFailure(Component.literal("§cUnknown world event: " + eventId));
+            return 0;
+        }
+        if (playerName == null || playerName.isBlank()) {
+            source.sendFailure(Component.literal("§cMinecraft player name cannot be blank."));
+            return 0;
+        }
+
+        WorldEventBindingRegistry.setSkinPlayer(eventId, playerName);
+
+        Entity npc = WorldEventBindingRegistry.findBoundNpc(source.getServer(), eventId);
+        if (npc instanceof NPCEntity cobblemonNpc) {
+            ChampTrainerSpawner.applyTrainerSkin(cobblemonNpc, playerName);
+            source.sendSuccess(() -> Component.literal("§aSet world event §e" + eventId + " §aNPC skin to Minecraft player §f" + playerName + "§a and applied it to the bound NPC."), true);
+            return 1;
+        }
+
+        source.sendSuccess(() -> Component.literal("§aSet world event §e" + eventId + " §aNPC skin to Minecraft player §f" + playerName + "§a. It will apply the next time this event NPC spawns."), true);
+        return 1;
+    }
+
+    private static int clearSkin(CommandSourceStack source, String eventId) {
+        if (!WorldEventConfig.EVENTS.containsKey(eventId)) {
+            source.sendFailure(Component.literal("§cUnknown world event: " + eventId));
+            return 0;
+        }
+        WorldEventBindingRegistry.setSkinPlayer(eventId, "");
+
+        Entity npc = WorldEventBindingRegistry.findBoundNpc(source.getServer(), eventId);
+        if (npc instanceof NPCEntity cobblemonNpc) {
+            try { cobblemonNpc.unloadTexture(); } catch (Exception ignored) {}
+        }
+
+        source.sendSuccess(() -> Component.literal("§aCleared custom skin for world event: §e" + eventId), true);
         return 1;
     }
 

@@ -10,6 +10,8 @@ import com.champutils.profession.ProfessionManager;
 import com.champutils.trainer.ChampTrainerProtectionManager;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
+import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -171,6 +173,7 @@ public final class WorldEventManager {
         active.definition = event;
         active.team = team;
         ACTIVE_EVENTS.put(eventId, active);
+        lastRandomEventId = eventId;
 
         announceStart(server, active);
         return true;
@@ -245,6 +248,70 @@ public final class WorldEventManager {
 
     public static List<ActiveEvent> getActiveEvents() {
         return new ArrayList<>(ACTIVE_EVENTS.values());
+    }
+
+
+    public static ActiveEvent getActiveEventProtecting(ServerLevel level, BlockPos blockPos) {
+        if (level == null || blockPos == null || !WorldEventConfig.ENABLED) return null;
+
+        int radius = Math.max(0, WorldEventConfig.BLOCK_PROTECTION_RADIUS);
+        if (radius <= 0) return null;
+
+        ResourceLocation worldId = level.dimension().location();
+        long radiusSquared = (long) radius * (long) radius;
+
+        for (ActiveEvent active : ACTIVE_EVENTS.values()) {
+            if (active == null || active.world == null || !active.world.equals(worldId)) {
+                continue;
+            }
+
+            BlockPos center = active.pos;
+            Entity npc = level.getEntity(active.npcUuid);
+            if (npc != null) {
+                center = npc.blockPosition();
+                active.pos = center;
+            }
+
+            if (center != null && center.distSqr(blockPos) <= radiusSquared) {
+                return active;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Rebuilds the event boss team immediately before the PvN battle is created.
+     * This mirrors roaming trainers: players cannot spawn/check the event with a low party,
+     * swap teams at a PC, and then fight an under-leveled boss. Each battle receives the
+     * NPC party snapshot that exists at its own start time.
+     */
+    public static boolean prepareBattle(ServerPlayer player, NPCEntity npc) {
+        if (player == null || npc == null) return false;
+        ActiveEvent active = getByNpc(npc.getUUID());
+        if (active == null) return false;
+        int targetLevel = playerPartyHighestLevelPlusTen(player);
+        boolean applied = WorldEventBossPartyBuilder.applyTeam(npc, active.team, targetLevel);
+        if (!applied) {
+            player.sendSystemMessage(Component.literal("§cThis world event boss could not prepare its battle team. Tell staff to check console."));
+            return false;
+        }
+        try { npc.setSkill(5); } catch (Exception ignored) {}
+        try { npc.setCustomName(Component.literal(active.bossName == null || active.bossName.isBlank() ? active.displayName : active.bossName).withStyle(ChatFormatting.RED)); } catch (Exception ignored) {}
+        try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        return true;
+    }
+
+    private static int playerPartyHighestLevelPlusTen(ServerPlayer player) {
+        int highest = 0;
+        try {
+            for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {
+                if (pokemon == null) continue;
+                highest = Math.max(highest, Math.max(1, pokemon.getLevel()));
+            }
+        } catch (Exception ignored) {}
+        if (highest <= 0) return 20;
+        return Math.max(1, Math.min(100, highest + 10));
     }
 
     public static boolean teleport(ServerPlayer player, String eventId) {
@@ -437,7 +504,12 @@ public final class WorldEventManager {
     }
 
     private static void announceStart(MinecraftServer server, ActiveEvent active) {
-        broadcast(server, Component.literal("§6⚠ World Event Started: §c" + active.displayName));
+        String tier = active.definition == null || active.definition.tier == null || active.definition.tier.isBlank()
+                ? "Rare"
+                : formatTierName(active.definition.tier);
+        String tierColor = tierColor(active.definition == null ? null : active.definition.tier);
+
+        broadcast(server, Component.literal(tierColor + tier + " World Event Started: §c" + active.displayName));
         broadcast(server, Component.literal("§7Boss: §f" + active.bossName + " §8| §7Location: §e" + active.pos.getX() + ", " + active.pos.getY() + ", " + active.pos.getZ()));
 
         if (WorldEventConfig.ANNOUNCE_TELEPORT_BUTTON) {
@@ -453,6 +525,25 @@ public final class WorldEventManager {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             ProfessionNotificationSettings.playSound(player, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.45F, 1.3F);
         }
+    }
+
+    private static String formatTierName(String tier) {
+        if (tier == null || tier.isBlank()) return "Rare";
+        String lower = tier.trim().toLowerCase(java.util.Locale.ROOT);
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+    }
+
+    private static String tierColor(String tier) {
+        if (tier == null) return "§9";
+        return switch (tier.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "COMMON" -> "§f";
+            case "UNCOMMON" -> "§a";
+            case "RARE" -> "§9";
+            case "EPIC" -> "§5";
+            case "LEGENDARY" -> "§6";
+            case "MYTHIC" -> "§d";
+            default -> "§9";
+        };
     }
 
     private static void broadcast(MinecraftServer server, Component message) {

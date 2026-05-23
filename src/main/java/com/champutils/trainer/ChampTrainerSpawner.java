@@ -103,7 +103,14 @@ public final class ChampTrainerSpawner {
         String name = firstNonBlank(event.spawnName, event.bossName, event.displayName, eventId);
         // Skin is optional and must be explicit. Do NOT fall back to bossName/displayName,
         // because that can create an unwanted player texture layered over the base NPC model.
-        String skin = firstNonBlank(event.spawnSkin, event.skin, event.playerSkin, event.skinPlayer, event.texture);
+        String skin = firstNonBlank(
+                WorldEventBindingRegistry.getSkinPlayer(eventId),
+                event.spawnSkin,
+                event.skin,
+                event.playerSkin,
+                event.skinPlayer,
+                event.texture
+        );
 
         NPCEntity npc = createProtectedNpc(level, pos, yaw, name, skin);
         if (npc == null) return SpawnResult.fail("Could not create NPC for " + eventId + ".");
@@ -210,7 +217,7 @@ public final class ChampTrainerSpawner {
         }
     }
 
-    private static void applyTrainerSkin(NPCEntity npc, String skin) {
+    public static void applyTrainerSkin(NPCEntity npc, String skin) {
         if (npc == null || skin == null || skin.isBlank()) return;
 
         String trimmed = skin.trim();

@@ -20,10 +20,16 @@ public final class WorldEventBossPartyBuilder {
     private WorldEventBossPartyBuilder() {}
 
     public static boolean applyTeam(NPCEntity npc, WorldEventConfig.TeamDefinition team) {
+        int level = team == null ? 1 : team.levelCap;
+        return applyTeam(npc, team, level);
+    }
+
+    public static boolean applyTeam(NPCEntity npc, WorldEventConfig.TeamDefinition team, int forcedLevel) {
         if (npc == null || team == null || team.party == null || team.party.isEmpty()) return false;
 
         try {
-            npc.initialize(Math.max(1, team.levelCap));
+            int battleLevel = Math.max(1, Math.min(100, forcedLevel));
+            npc.initialize(battleLevel);
             NPCPartyStore party = new NPCPartyStore(npc);
             int slot = 0;
 
@@ -31,7 +37,7 @@ public final class WorldEventBossPartyBuilder {
             java.util.Collections.shuffle(pool);
             for (WorldEventConfig.PokemonSet set : pool) {
                 if (slot >= Math.max(1, Math.min(6, team.partySize))) break;
-                Pokemon pokemon = createPokemon(set);
+                Pokemon pokemon = createPokemon(set, battleLevel);
                 if (pokemon != null) {
                     try { pokemon.heal(); } catch (Exception ignored) {}
                     party.set(slot++, pokemon);
@@ -49,11 +55,11 @@ public final class WorldEventBossPartyBuilder {
         }
     }
 
-    private static Pokemon createPokemon(WorldEventConfig.PokemonSet set) {
+    private static Pokemon createPokemon(WorldEventConfig.PokemonSet set, int forcedLevel) {
         try {
             String species = normalizeSpecies(set.species);
             Pokemon pokemon = PokemonProperties.Companion
-                    .parse("species=\"" + species + "\" level=" + Math.max(1, set.level))
+                    .parse("species=\"" + species + "\" level=" + Math.max(1, Math.min(100, forcedLevel)))
                     .create();
 
             try {

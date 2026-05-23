@@ -73,6 +73,9 @@ public final class ChampTrainerInteractionListener {
                 }
 
                 if (active != null) {
+                    if (!WorldEventManager.prepareBattle(serverPlayer, npc)) {
+                        return InteractionResult.SUCCESS;
+                    }
                     BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
                     return InteractionResult.SUCCESS;
                 }

@@ -33,6 +33,8 @@ public final class WorldEventBindingRegistry {
         public String eventId;
         public String npcUuid;
         public String world;
+        /** Optional Minecraft username used as the visual skin for this world event NPC. */
+        public String skinPlayer;
 
         public Binding() {}
 
@@ -40,6 +42,7 @@ public final class WorldEventBindingRegistry {
             this.eventId = eventId;
             this.npcUuid = npcUuid == null ? "" : npcUuid.toString();
             this.world = world == null ? "minecraft:overworld" : world.toString();
+            this.skinPlayer = "";
         }
 
         public UUID uuid() {
@@ -95,11 +98,29 @@ public final class WorldEventBindingRegistry {
 
     public static void bind(String eventId, Entity npc) {
         if (eventId == null || eventId.isBlank() || npc == null) return;
-        BINDINGS.put(
-                eventId,
-                new Binding(eventId, npc.getUUID(), npc.level().dimension().location())
-        );
+        Binding previous = BINDINGS.get(eventId);
+        Binding updated = new Binding(eventId, npc.getUUID(), npc.level().dimension().location());
+        if (previous != null && previous.skinPlayer != null && !previous.skinPlayer.isBlank()) {
+            updated.skinPlayer = previous.skinPlayer;
+        }
+        BINDINGS.put(eventId, updated);
         save();
+    }
+
+    public static void setSkinPlayer(String eventId, String skinPlayer) {
+        if (eventId == null || eventId.isBlank()) return;
+        Binding binding = BINDINGS.get(eventId);
+        if (binding == null) {
+            binding = new Binding(eventId, null, ResourceLocation.parse("minecraft:overworld"));
+            BINDINGS.put(eventId, binding);
+        }
+        binding.skinPlayer = skinPlayer == null ? "" : skinPlayer.trim();
+        save();
+    }
+
+    public static String getSkinPlayer(String eventId) {
+        Binding binding = get(eventId);
+        return binding == null || binding.skinPlayer == null ? "" : binding.skinPlayer;
     }
 
     public static boolean unbind(String eventId) {
