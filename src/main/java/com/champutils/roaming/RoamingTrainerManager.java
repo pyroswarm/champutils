@@ -49,6 +49,12 @@ public final class RoamingTrainerManager {
         public long lastNearbyPlayerMillis;
         public boolean rewardsClaimed;
         public String displayName;
+        public UUID currentChallengerUuid;
+        public long challengeLockMillis;
+        public double spawnX;
+        public double spawnY;
+        public double spawnZ;
+        public float spawnYaw;
     }
 
     public static void tick(MinecraftServer server) {
@@ -71,6 +77,46 @@ public final class RoamingTrainerManager {
 
     public static RoamingTrainerData get(UUID npcUuid) {
         return npcUuid == null ? null : TRAINERS.get(npcUuid);
+    }
+
+
+    public static boolean tryStartChallenge(ServerPlayer player, NPCEntity npc) {
+        if (player == null || npc == null) return false;
+        RoamingTrainerData data = TRAINERS.get(npc.getUUID());
+        if (data == null) return true;
+
+        UUID playerUuid = player.getUUID();
+        UUID challenger = data.currentChallengerUuid;
+        if (challenger != null && !challenger.equals(playerUuid)) {
+            player.sendSystemMessage(Component.literal("§cThat trainer is already battling another player."));
+            return false;
+        }
+
+        if (isNpcInBattle(npc) && (challenger == null || !challenger.equals(playerUuid))) {
+            player.sendSystemMessage(Component.literal("§cThat trainer is already in battle."));
+            return false;
+        }
+
+        data.currentChallengerUuid = playerUuid;
+        data.challengeLockMillis = System.currentTimeMillis();
+        applyRoamingProtections(npc, data);
+        return true;
+    }
+
+    public static void releaseChallenge(UUID npcUuid, UUID playerUuid) {
+        RoamingTrainerData data = TRAINERS.get(npcUuid);
+        if (data == null) return;
+        if (playerUuid == null || playerUuid.equals(data.currentChallengerUuid)) {
+            data.currentChallengerUuid = null;
+            data.challengeLockMillis = 0L;
+        }
+    }
+
+    public static void handleBattleEnded(UUID npcUuid) {
+        RoamingTrainerData data = TRAINERS.get(npcUuid);
+        if (data == null) return;
+        data.currentChallengerUuid = null;
+        data.challengeLockMillis = 0L;
     }
 
     public static int despawnAll(MinecraftServer server) {
@@ -163,7 +209,13 @@ public final class RoamingTrainerManager {
         data.targetLevel = targetLevel;
         data.lastNearbyPlayerMillis = System.currentTimeMillis();
         data.displayName = displayName;
+        data.spawnX = pos.x;
+        data.spawnY = pos.y;
+        data.spawnZ = pos.z;
+        data.spawnYaw = player.getYRot() + 180.0F;
         TRAINERS.put(data.npcUuid, data);
+
+        applyRoamingProtections(result.npc, data);
 
         RoamingTrainerPartyBuilder.apply(result.npc, data);
 
@@ -208,6 +260,9 @@ public final class RoamingTrainerManager {
                 continue;
             }
 
+            applyRoamingProtections(npc, data);
+            cleanupStaleChallengeLock(npc, data, now);
+
             boolean playerNearby = hasPlayerNearby((ServerLevel) npc.level(), npc.position(), RoamingTrainerConfig.DATA.activePlayerRadius);
             if (playerNearby) {
                 data.lastNearbyPlayerMillis = now;
@@ -224,6 +279,39 @@ public final class RoamingTrainerManager {
                 removeNpc(npc);
                 iterator.remove();
             }
+        }
+    }
+
+    private static void cleanupStaleChallengeLock(NPCEntity npc, RoamingTrainerData data, long now) {
+        if (npc == null || data == null || data.currentChallengerUuid == null) return;
+        if (isNpcInBattle(npc)) return;
+        if (now - data.challengeLockMillis >= 15000L) {
+            data.currentChallengerUuid = null;
+            data.challengeLockMillis = 0L;
+        }
+    }
+
+    private static void applyRoamingProtections(NPCEntity npc, RoamingTrainerData data) {
+        if (npc == null) return;
+        try { npc.setInvulnerable(true); } catch (Exception ignored) {}
+        try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
+        try { npc.setNoAi(true); } catch (Exception ignored) {}
+        try { npc.setMovable(false); } catch (Exception ignored) {}
+        try { npc.setLeashable(false); } catch (Exception ignored) {}
+        try { npc.setAllowProjectileHits(false); } catch (Exception ignored) {}
+        try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
+        try { npc.setDeltaMovement(Vec3.ZERO); } catch (Exception ignored) {}
+
+        if (data != null) {
+            try {
+                Vec3 spawn = new Vec3(data.spawnX, data.spawnY, data.spawnZ);
+                if (npc.position().distanceToSqr(spawn) > 0.04D) {
+                    npc.teleportTo(data.spawnX, data.spawnY, data.spawnZ);
+                    npc.moveTo(data.spawnX, data.spawnY, data.spawnZ, data.spawnYaw, 0.0F);
+                }
+                npc.setYHeadRot(data.spawnYaw);
+                npc.setYBodyRot(data.spawnYaw);
+            } catch (Exception ignored) {}
         }
     }
 
@@ -299,12 +387,25 @@ public final class RoamingTrainerManager {
     }
 
     private static String chooseName(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings) {
+        String title = pretty(rarity.name()) + " Trainer";
         List<String> names = settings.trainerNames;
         if (names != null && !names.isEmpty()) {
             List<String> clean = names.stream().filter(s -> s != null && !s.isBlank()).toList();
-            if (!clean.isEmpty()) return clean.get(RANDOM.nextInt(clean.size()));
+            if (!clean.isEmpty()) title = clean.get(RANDOM.nextInt(clean.size()));
         }
-        return pretty(rarity.name()) + " Trainer";
+
+        String[] firstNames = {
+                "Aiden", "Aria", "Blake", "Brock", "Callie", "Carter", "Dawn", "Drew",
+                "Elena", "Eli", "Felix", "Flint", "Grace", "Grant", "Harper", "Iris",
+                "Jade", "Kai", "Lana", "Leo", "Misty", "Nate", "Nora", "Orion",
+                "Paige", "Quinn", "Riley", "Rowan", "Serena", "Sky", "Talia", "Theo",
+                "Valerie", "Wade", "Wren", "Zane"
+        };
+        String first = firstNames[RANDOM.nextInt(firstNames.length)];
+
+        // Pokemon trainer-style display: "Ace Trainer Kai", "Dragon Tamer Iris", etc.
+        if (title.toLowerCase(Locale.ROOT).contains(first.toLowerCase(Locale.ROOT))) return title;
+        return title + " " + first;
     }
 
 

@@ -59,8 +59,16 @@ public final class ChampTrainerInteractionListener {
                 LAST_TRAINER_CLICK.put(key, now);
 
                 if (roaming) {
-                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.NPC);
-                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    if (!RoamingTrainerManager.tryStartChallenge(serverPlayer, npc)) {
+                        return InteractionResult.SUCCESS;
+                    }
+                    try {
+                        BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.NPC);
+                        BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    } catch (Exception battleStartError) {
+                        RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());
+                        throw battleStartError;
+                    }
                     return InteractionResult.SUCCESS;
                 }
 

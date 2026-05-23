@@ -70,6 +70,7 @@ public class CobblemonBattleHandler {
             ServerPlayer winner = null;
             ServerPlayer loser = null;
             UUID losingNpcUuid = null;
+            UUID anyRoamingNpcUuid = null;
 
             /*
              Find player winner
@@ -110,7 +111,23 @@ public class CobblemonBattleHandler {
                         actor instanceof NPCBattleActor n
                 ) {
                     losingNpcUuid = n.getEntity().getUUID();
+                    anyRoamingNpcUuid = losingNpcUuid;
                 }
+            }
+
+            for (
+                    var actor :
+                    e.getWinners()
+            ) {
+                if (
+                        actor instanceof NPCBattleActor n
+                ) {
+                    anyRoamingNpcUuid = n.getEntity().getUUID();
+                }
+            }
+
+            if (anyRoamingNpcUuid != null) {
+                com.champutils.roaming.RoamingTrainerManager.handleBattleEnded(anyRoamingNpcUuid);
             }
 
             /*
