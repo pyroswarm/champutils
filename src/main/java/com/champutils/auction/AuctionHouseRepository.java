@@ -261,6 +261,19 @@ public final class AuctionHouseRepository {
         return 0;
     }
 
+    public static int countPendingPokemonPurchases(UUID buyerUuid) throws Exception {
+        ensureSchema(DatabaseManager.getConnection());
+        try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
+                "select count(*) as total from auction_purchases where buyer_uuid = ? and delivery_status = 'PENDING' and upper(listing_kind) = 'POKEMON'"
+        )) {
+            statement.setString(1, buyerUuid.toString());
+            try (ResultSet rs = statement.executeQuery()) {
+                if (rs.next()) return rs.getInt("total");
+            }
+        }
+        return 0;
+    }
+
     public static boolean markPurchaseClaimed(UUID purchaseId) throws Exception {
         ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(

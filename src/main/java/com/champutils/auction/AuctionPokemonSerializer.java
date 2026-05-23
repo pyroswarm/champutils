@@ -93,6 +93,66 @@ public final class AuctionPokemonSerializer {
         return party.add(pokemon);
     }
 
+    public static boolean addToPc(ServerPlayer player, Pokemon pokemon) {
+        if (player == null || pokemon == null) return false;
+        try {
+            Object storage = Cobblemon.INSTANCE.getStorage();
+            Object pc = null;
+
+            for (String methodName : new String[] { "getPC", "getPc", "getPCStore", "getPcStore" }) {
+                for (Method method : storage.getClass().getMethods()) {
+                    if (!method.getName().equals(methodName)) continue;
+                    if (method.getParameterCount() != 1) continue;
+
+                    try {
+                        Class<?> param = method.getParameterTypes()[0];
+                        Object arg;
+                        if (param.isAssignableFrom(ServerPlayer.class)) {
+                            arg = player;
+                        } else if (param.isAssignableFrom(UUID.class)) {
+                            arg = player.getUUID();
+                        } else {
+                            continue;
+                        }
+
+                        pc = method.invoke(storage, arg);
+                        if (pc != null) break;
+                    } catch (Throwable ignored) {}
+                }
+                if (pc != null) break;
+            }
+
+            if (pc == null) return false;
+
+            for (Method method : pc.getClass().getMethods()) {
+                if (!method.getName().equals("add")) continue;
+                if (method.getParameterCount() != 1) continue;
+                if (!method.getParameterTypes()[0].isAssignableFrom(Pokemon.class)) continue;
+
+                Object result = method.invoke(pc, pokemon);
+                return !(result instanceof Boolean) || (Boolean) result;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    public static DeliveryResult deliverToPartyOrPc(ServerPlayer player, Pokemon pokemon) {
+        if (addToFirstOpenPartySlot(player, pokemon)) {
+            return DeliveryResult.PARTY;
+        }
+        if (addToPc(player, pokemon)) {
+            return DeliveryResult.PC;
+        }
+        return DeliveryResult.FAILED;
+    }
+
+    public enum DeliveryResult {
+        PARTY,
+        PC,
+        FAILED
+    }
+
     public static JsonObject toPayload(ServerPlayer player, Pokemon pokemon) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
         if (pokemon == null) throw new IllegalArgumentException("Pokémon cannot be null.");

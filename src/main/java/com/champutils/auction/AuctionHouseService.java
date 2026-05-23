@@ -204,8 +204,11 @@ public final class AuctionHouseService {
             if (error != null) {
                 try {
                     Pokemon restored = AuctionPokemonSerializer.fromPayload(player, payload);
-                    if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, restored)) {
-                        player.sendSystemMessage(Component.literal("Listing failed and your party is full. Contact an admin before relogging.").withStyle(ChatFormatting.RED));
+                    AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, restored);
+                    if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                        player.sendSystemMessage(Component.literal("Listing failed and your Pokémon could not be returned to your party or PC. Contact an admin before relogging.").withStyle(ChatFormatting.RED));
+                    } else if (delivery == AuctionPokemonSerializer.DeliveryResult.PC) {
+                        player.sendSystemMessage(Component.literal("Listing failed. Your party was full, so your Pokémon was returned to your PC.").withStyle(ChatFormatting.RED));
                     } else {
                         player.sendSystemMessage(Component.literal("Listing failed. Your Pokémon was returned to your party.").withStyle(ChatFormatting.RED));
                     }
@@ -297,15 +300,12 @@ public final class AuctionHouseService {
             e.printStackTrace();
             return;
         }
-        if (!AuctionPokemonSerializer.hasOpenPartySlot(player)) {
-            BUYING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Your party is full. Clear one party slot, then buy again.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
         finishPurchase(player, listing, () -> {
-            if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, pokemon)) {
-                player.sendSystemMessage(Component.literal("Purchase completed, but your party filled before delivery. Contact an admin immediately.").withStyle(ChatFormatting.RED));
+            AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, pokemon);
+            if (delivery == AuctionPokemonSerializer.DeliveryResult.PC) {
+                player.sendSystemMessage(Component.literal("Your party was full, so the purchased Pokémon was sent to your PC.").withStyle(ChatFormatting.AQUA));
+            } else if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                player.sendSystemMessage(Component.literal("Purchase completed, but your Pokémon could not be delivered to your party or PC. Contact an admin immediately.").withStyle(ChatFormatting.RED));
             }
         }, "Purchased auction Pokémon: " + listing.title + ".");
     }
@@ -435,11 +435,12 @@ public final class AuctionHouseService {
                 if (error != null) error.printStackTrace();
                 return;
             }
-            if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, pokemon)) {
-                player.sendSystemMessage(Component.literal("Listing canceled, but your party filled before return. Contact an admin immediately.").withStyle(ChatFormatting.RED));
+            AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, pokemon);
+            if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                player.sendSystemMessage(Component.literal("Listing canceled, but your Pokémon could not be returned to your party or PC. Contact an admin immediately.").withStyle(ChatFormatting.RED));
                 return;
             }
-            player.sendSystemMessage(Component.literal("Canceled auction and returned Pokémon: " + listing.title).withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.literal("Canceled auction and returned Pokémon: " + listing.title + (delivery == AuctionPokemonSerializer.DeliveryResult.PC ? " (sent to PC)" : "")).withStyle(ChatFormatting.GREEN));
         }));
     }
 
@@ -507,12 +508,13 @@ public final class AuctionHouseService {
             e.printStackTrace();
             return;
         }
-        if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, pokemon)) {
+        AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, pokemon);
+        if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
             CLAIMING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Your party is full. Clear one party slot, then run /ah claim again.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Could not deliver that Pokémon to your party or PC. Please contact staff.").withStyle(ChatFormatting.RED));
             return;
         }
-        markClaimed(player, purchase.id, "Claimed auction Pokémon: " + purchase.title + ".");
+        markClaimed(player, purchase.id, "Claimed auction Pokémon: " + purchase.title + (delivery == AuctionPokemonSerializer.DeliveryResult.PC ? ". Your party was full, so it was sent to your PC." : "."));
     }
 
     private static void markClaimed(ServerPlayer player, UUID purchaseId, String successMessage) {
@@ -527,6 +529,25 @@ public final class AuctionHouseService {
                 return;
             }
             player.sendSystemMessage(Component.literal(successMessage).withStyle(ChatFormatting.GREEN));
+        }));
+    }
+
+    public static void handleJoin(ServerPlayer player) {
+        if (player == null || player.server == null) return;
+
+        CompletableFuture.supplyAsync(() -> {
+            try { return AuctionHouseRepository.countPendingPokemonPurchases(player.getUUID()); }
+            catch (Exception e) { throw new RuntimeException(e); }
+        }).whenComplete((count, error) -> player.server.execute(() -> {
+            if (error != null) {
+                error.printStackTrace();
+                return;
+            }
+            int pending = count == null ? 0 : count;
+            if (pending <= 0) return;
+
+            String plural = pending == 1 ? "Pokémon" : "Pokémon";
+            player.sendSystemMessage(Component.literal("You have " + pending + " auction " + plural + " waiting from the website. Use /ah claim to claim " + (pending == 1 ? "it" : "them") + ".").withStyle(ChatFormatting.GOLD));
         }));
     }
 

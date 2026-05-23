@@ -335,6 +335,10 @@ public class ChampUtilsMod implements ModInitializer {
                     ShopPokemonCrateOpeningGui.handleJoin(
                             player
                     );
+
+                    AuctionHouseService.handleJoin(
+                            player
+                    );
                 }
         );
 

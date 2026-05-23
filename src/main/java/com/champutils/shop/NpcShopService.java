@@ -333,7 +333,7 @@ public final class NpcShopService {
 
         boolean sentToPc = false;
         if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, pokemon)) {
-            if (!addPokemonToPc(player, pokemon)) {
+            if (!AuctionPokemonSerializer.addToPc(player, pokemon)) {
                 player.sendSystemMessage(Component.literal("Could not access your party or PC. Please contact staff.").withStyle(ChatFormatting.RED));
                 return false;
             }
