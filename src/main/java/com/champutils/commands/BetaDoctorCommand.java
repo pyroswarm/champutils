@@ -192,7 +192,7 @@ public final class BetaDoctorCommand {
                 "profession_tools.json",
                 "profession_fragments.json",
                 "profession_reward_passives.json",
-                "wild_battle_loot.json",
+                "battle_profession_loot.json",
                 "auction_npc_binding.json",
                 "menu_npc_bindings.json",
                 "dex_rewards.json"
@@ -231,7 +231,7 @@ public final class BetaDoctorCommand {
     private static void checkProgressionConfigs(List<CheckResult> results) {
         checkJsonHasArrayOrObject(results, "profession_tools.json", "Profession tools", "tools");
         checkJsonHasArrayOrObject(results, "profession_fragments.json", "Profession fragments", "fragments");
-        checkJsonHasArrayOrObject(results, "wild_battle_loot.json", "Wild battle loot", "rewards");
+        checkJsonHasArrayOrObject(results, "battle_profession_loot.json", "Battle profession loot", "rewards");
         checkDexRewards(results);
     }
 

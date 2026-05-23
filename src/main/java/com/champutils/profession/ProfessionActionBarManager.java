@@ -72,6 +72,27 @@ public class ProfessionActionBarManager {
     }
 
     public static void sendRareDropMessage(ServerPlayer player, String itemId, int amount) {
+        sendRareDropMessage(player, itemId, amount, true);
+    }
+
+    public static void sendBattleLootMessage(ServerPlayer player, String itemId, int amount) {
+        sendRareDropMessage(player, itemId, amount, false);
+    }
+
+    public static void playBattleSuperRareSound(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+
+        ProfessionNotificationSettings.playSound(player,
+                SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
+                SoundSource.PLAYERS,
+                1.0f,
+                1.2f
+        );
+    }
+
+    public static void sendRareDropMessage(ServerPlayer player, String itemId, int amount, boolean playSound) {
         if (player == null || itemId == null || itemId.isBlank() || amount <= 0) {
             return;
         }
@@ -85,12 +106,9 @@ public class ProfessionActionBarManager {
                 true
         );
 
-        ProfessionNotificationSettings.playSound(player, 
-                SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
-                SoundSource.PLAYERS,
-                1.0f,
-                1.2f
-        );
+        if (playSound) {
+            playBattleSuperRareSound(player);
+        }
     }
 
     private static boolean isXpOnCooldown(ServerPlayer player) {

@@ -8,7 +8,6 @@ import com.champutils.profession.ProfessionLootConfig;
 import com.champutils.profession.ProfessionRewardPassiveConfig;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionFragmentConfig;
-import com.champutils.profession.WildBattleLootConfig;
 import com.champutils.profession.BattleProfessionLootConfig;
 import com.champutils.worldevent.WorldEventConfig;
 import com.champutils.worldevent.WorldEventBindingRegistry;
@@ -76,7 +75,6 @@ public class ChampReloadCommand {
             ProfessionFragmentConfig.load();
             ProfessionRewardPassiveConfig.load();
             ProfessionLootConfig.load();
-            WildBattleLootConfig.load();
             BattleProfessionLootConfig.load();
             WorldEventConfig.load();
             WorldEventBindingRegistry.load();
@@ -105,7 +103,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, wild_battle_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, dungeon_keys.json, dungeon_key_drops.json, champ_dungeons.json, dungeon_trainers.json, dungeon_rewards.json, dungeon_native_crates.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json"
                     ),
                     false
             );

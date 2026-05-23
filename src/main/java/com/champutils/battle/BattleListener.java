@@ -216,7 +216,7 @@ public class BattleListener {
             default:
                 xp = getBattleXp("wild");
 
-                WildBattleRewardManager.rollReward(
+                NpcBattleRewardManager.rollReward(
                         winner
                 );
                 break;

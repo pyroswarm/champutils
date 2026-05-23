@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 public final class BattleProfessionLootConfig {
 
@@ -23,6 +25,8 @@ public final class BattleProfessionLootConfig {
     public static int bonusRollEveryLevels = 25;
     public static int maxRolls = 5;
     public static boolean announceRewards = true;
+    public static double wildBattleRewardChance = 0.20D;
+    public static Set<String> superRareItemIds = new LinkedHashSet<>();
 
     public static FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
     public static DungeonKeySettings dungeonKeys = new DungeonKeySettings();
@@ -40,6 +44,8 @@ public final class BattleProfessionLootConfig {
         public int bonusRollEveryLevels = 25;
         public int maxRolls = 5;
         public boolean announceRewards = true;
+        public double wildBattleRewardChance = 0.20D;
+        public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
         public DungeonKeySettings dungeonKeys = new DungeonKeySettings();
         public List<LootEntry> rewards = new ArrayList<>();
@@ -115,6 +121,10 @@ public final class BattleProfessionLootConfig {
                 bonusRollEveryLevels = root.bonusRollEveryLevels;
                 maxRolls = root.maxRolls;
                 announceRewards = root.announceRewards;
+                wildBattleRewardChance = root.wildBattleRewardChance;
+                superRareItemIds = root.superRareItemIds == null || root.superRareItemIds.isEmpty()
+                        ? defaultSuperRareItemIds()
+                        : normalizeItemIds(root.superRareItemIds);
                 fragmentJackpots = root.fragmentJackpots == null ? new FragmentJackpotSettings() : root.fragmentJackpots;
                 dungeonKeys = root.dungeonKeys == null ? new DungeonKeySettings() : root.dungeonKeys;
                 rewards = root.rewards == null ? new ArrayList<>() : root.rewards;
@@ -122,6 +132,14 @@ public final class BattleProfessionLootConfig {
 
             if (rewards == null || rewards.isEmpty()) {
                 rewards = defaultRoot().rewards;
+            }
+
+            if (wildBattleRewardChance < 0.0D) {
+                wildBattleRewardChance = 0.0D;
+            }
+
+            if (superRareItemIds == null || superRareItemIds.isEmpty()) {
+                superRareItemIds = defaultSuperRareItemIds();
             }
 
             if (fragmentJackpots.rarityWeights == null || fragmentJackpots.rarityWeights.isEmpty()) {
@@ -144,6 +162,8 @@ public final class BattleProfessionLootConfig {
             bonusRollEveryLevels = defaults.bonusRollEveryLevels;
             maxRolls = defaults.maxRolls;
             announceRewards = defaults.announceRewards;
+            wildBattleRewardChance = defaults.wildBattleRewardChance;
+            superRareItemIds = defaults.superRareItemIds;
             fragmentJackpots = defaults.fragmentJackpots;
             dungeonKeys = defaults.dungeonKeys;
             rewards = defaults.rewards;
@@ -168,11 +188,53 @@ public final class BattleProfessionLootConfig {
         root.dungeonKeys.drops.add(key("legendary_dungeon_key", 80, 0.000025D, 0.00018D));
         root.dungeonKeys.drops.add(key("mythic_dungeon_key", 100, 0.000008D, 0.00005D));
 
+        root.superRareItemIds = defaultSuperRareItemIds();
+
         addPokeBalls(root);
         addBattleItems(root);
         addHeldItems(root);
 
         return root;
+    }
+
+    public static boolean isSuperRareItem(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return false;
+        }
+
+        if (superRareItemIds == null || superRareItemIds.isEmpty()) {
+            superRareItemIds = defaultSuperRareItemIds();
+        }
+
+        return superRareItemIds.contains(itemId.trim().toLowerCase());
+    }
+
+    private static Set<String> normalizeItemIds(Set<String> itemIds) {
+        Set<String> normalized = new LinkedHashSet<>();
+
+        if (itemIds == null) {
+            return normalized;
+        }
+
+        for (String itemId : itemIds) {
+            if (itemId == null || itemId.isBlank()) {
+                continue;
+            }
+
+            normalized.add(itemId.trim().toLowerCase());
+        }
+
+        return normalized;
+    }
+
+    private static Set<String> defaultSuperRareItemIds() {
+        Set<String> ids = new LinkedHashSet<>();
+        ids.add("cobblemon:master_ball");
+        ids.add("cobblemon:ancient_origin_ball");
+        ids.add("cobblemon:dream_ball");
+        ids.add("cobblemon:beast_ball");
+        ids.add("cobblemon:cherish_ball");
+        return ids;
     }
 
     private static KeyDropEntry key(String id, int level, double baseChance, double maxChance) {

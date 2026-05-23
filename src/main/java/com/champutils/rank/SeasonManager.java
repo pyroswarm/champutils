@@ -6,6 +6,7 @@ import com.champutils.profile.ProfileManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.PlayerDataManager.PlayerData;
 import com.champutils.database.SeasonDatabaseRepository;
+import com.champutils.database.RankedFormatDatabaseRepository;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -304,6 +305,7 @@ public class SeasonManager {
                 CURRENT_SEASON,
                 CURRENT_NAME
         );
+        RankedFormatDatabaseRepository.syncCurrentFormats();
         LeaderboardManager.refresh(server);
 
         for (

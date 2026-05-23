@@ -11,6 +11,7 @@ import com.champutils.config.*;
 import com.champutils.database.DatabaseManager;
 import com.champutils.database.DatabaseBootstrapSync;
 import com.champutils.database.ServerStatusDatabaseRepository;
+import com.champutils.database.RankedFormatDatabaseRepository;
 import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
@@ -155,9 +156,9 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionRewardPassiveConfig.load();
 
         /*
-         Wild battle loot config
+         Battle profession loot config
          */
-        WildBattleLootConfig.load();
+        BattleProfessionLootConfig.load();
 
         /*
          Anti exploit block tracking
@@ -215,6 +216,7 @@ public class ChampUtilsMod implements ModInitializer {
                     LeaderboardManager.refresh(server);
                     DungeonNativeCrateRegistry.respawnAllHolograms(server);
                     ServerStatusDatabaseRepository.sync(server);
+                    RankedFormatDatabaseRepository.syncCurrentFormats();
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
                     PokemonHuntManager.ensureStarted(server);
@@ -451,6 +453,7 @@ public class ChampUtilsMod implements ModInitializer {
         GiveChampItemCommand.register();
         ShowItemCommand.register();
         ItemLockCommand.register();
+        XpLockCommand.register();
 
         /*
          =========================

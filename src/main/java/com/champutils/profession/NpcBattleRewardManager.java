@@ -6,8 +6,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,14 +24,15 @@ public class NpcBattleRewardManager {
         int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         int rolls = getRollCount(battlingLevel);
         double chance = getRollChance(battlingLevel);
+        boolean playedSuperRareSound = false;
 
         for (int i = 0; i < rolls; i++) {
             if (RANDOM.nextDouble() < chance) {
-                rollItemReward(player, battlingLevel);
+                playedSuperRareSound = rollItemReward(player, battlingLevel, playedSuperRareSound);
             }
         }
 
-        rollFragmentJackpot(player, battlingLevel);
+        playedSuperRareSound = rollFragmentJackpot(player, battlingLevel, playedSuperRareSound);
         rollDungeonKeys(player, battlingLevel);
     }
 
@@ -58,18 +57,18 @@ public class NpcBattleRewardManager {
         return Math.max(0.0D, chance);
     }
 
-    private static void rollItemReward(ServerPlayer player, int battlingLevel) {
+    private static boolean rollItemReward(ServerPlayer player, int battlingLevel, boolean soundAlreadyPlayed) {
         BattleProfessionLootConfig.LootEntry reward = getWeightedReward(battlingLevel);
 
         if (reward == null) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         int min = Math.max(1, reward.minAmount);
         int max = Math.max(min, reward.maxAmount);
         int amount = min + RANDOM.nextInt(max - min + 1);
 
-        giveItemReward(player, reward.itemId, amount);
+        return giveItemReward(player, reward.itemId, amount, soundAlreadyPlayed);
     }
 
     private static BattleProfessionLootConfig.LootEntry getWeightedReward(int battlingLevel) {
@@ -116,11 +115,11 @@ public class NpcBattleRewardManager {
         return null;
     }
 
-    private static void rollFragmentJackpot(ServerPlayer player, int battlingLevel) {
+    private static boolean rollFragmentJackpot(ServerPlayer player, int battlingLevel, boolean soundAlreadyPlayed) {
         BattleProfessionLootConfig.FragmentJackpotSettings settings = BattleProfessionLootConfig.fragmentJackpots;
 
         if (settings == null || !settings.enabled || battlingLevel < Math.max(1, settings.minBattlingLevel)) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         double chance = settings.baseChance + (settings.chancePerBattlingLevel * Math.max(0, battlingLevel - 1));
@@ -130,24 +129,31 @@ public class NpcBattleRewardManager {
         }
 
         if (RANDOM.nextDouble() >= Math.max(0.0D, chance)) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         String rarity = rollFragmentRarity(settings);
 
         if (rarity == null || rarity.isBlank()) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         if (!settings.allowMythic && "MYTHIC".equalsIgnoreCase(rarity)) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         if (!ProfessionWeaponFragmentManager.giveFragments(player, rarity, 1)) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         sendFragmentMessage(player, rarity);
+
+        if (!soundAlreadyPlayed && isSuperRareFragment(rarity)) {
+            ProfessionActionBarManager.playBattleSuperRareSound(player);
+            return true;
+        }
+
+        return soundAlreadyPlayed;
     }
 
     private static String rollFragmentRarity(BattleProfessionLootConfig.FragmentJackpotSettings settings) {
@@ -232,11 +238,11 @@ public class NpcBattleRewardManager {
         }
     }
 
-    private static void giveItemReward(ServerPlayer player, String itemId, int amount) {
+    private static boolean giveItemReward(ServerPlayer player, String itemId, int amount, boolean soundAlreadyPlayed) {
         MinecraftServer server = player.getServer();
 
         if (server == null || itemId == null || itemId.isBlank() || amount <= 0) {
-            return;
+            return soundAlreadyPlayed;
         }
 
         String command = "give " + player.getName().getString() + " " + itemId + " " + amount;
@@ -244,8 +250,19 @@ public class NpcBattleRewardManager {
         server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command);
 
         if (BattleProfessionLootConfig.announceRewards && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            ProfessionActionBarManager.sendRareDropMessage(player, itemId, amount);
+            if (BattleProfessionLootConfig.isSuperRareItem(itemId)) {
+                ProfessionActionBarManager.sendRareDropMessage(player, itemId, amount, false);
+
+                if (!soundAlreadyPlayed) {
+                    ProfessionActionBarManager.playBattleSuperRareSound(player);
+                    return true;
+                }
+            } else {
+                ProfessionActionBarManager.sendBattleLootMessage(player, itemId, amount);
+            }
         }
+
+        return soundAlreadyPlayed;
     }
 
     private static void sendFragmentMessage(ServerPlayer player, String rarity) {
@@ -258,6 +275,7 @@ public class NpcBattleRewardManager {
             case "RARE" -> ChatFormatting.BLUE;
             case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
             case "LEGENDARY" -> ChatFormatting.GOLD;
+            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
 
@@ -267,16 +285,11 @@ public class NpcBattleRewardManager {
                         .append(Component.literal(formatWords(rarity) + " Weapon Fragment x1").withStyle(color)),
                 true
         );
+    }
 
-        ProfessionNotificationSettings.playSound(
-                player,
-                "LEGENDARY".equals(ProfessionWeaponFragmentConfig.normalizeRarity(rarity))
-                        ? SoundEvents.UI_TOAST_CHALLENGE_COMPLETE
-                        : SoundEvents.EXPERIENCE_ORB_PICKUP,
-                SoundSource.PLAYERS,
-                0.9F,
-                1.15F
-        );
+    private static boolean isSuperRareFragment(String rarity) {
+        String normalized = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
+        return "LEGENDARY".equals(normalized) || "MYTHIC".equals(normalized);
     }
 
     private static String formatWords(String input) {
