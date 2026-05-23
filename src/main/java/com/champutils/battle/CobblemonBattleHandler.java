@@ -279,6 +279,10 @@ public class CobblemonBattleHandler {
                 BattleStateManager.clearBattle(
                         player
                 );
+
+                BattleItemLockManager.unlock(
+                        player
+                );
             }
         }
     }

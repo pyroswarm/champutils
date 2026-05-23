@@ -661,12 +661,20 @@ public class MatchmakingManager {
                         ? BattleContextManager.BattleType.RANKED
                         : BattleContextManager.BattleType.CASUAL
         );
+        BattleContextManager.setFormatId(
+                p1.getUUID(),
+                type
+        );
 
         BattleContextManager.setContext(
                 p2.getUUID(),
                 rankedType(type)
                         ? BattleContextManager.BattleType.RANKED
                         : BattleContextManager.BattleType.CASUAL
+        );
+        BattleContextManager.setFormatId(
+                p2.getUUID(),
+                type
         );
 
         BattlePrepManager.healParty(p1);

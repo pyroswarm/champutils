@@ -21,6 +21,9 @@ public class BattleContextManager {
     private static final Map<UUID, BattleType> PLAYER_CONTEXT =
             new HashMap<>();
 
+    private static final Map<UUID, String> PLAYER_FORMAT =
+            new HashMap<>();
+
     public static void setContext(
             UUID playerId,
             BattleType type
@@ -29,6 +32,40 @@ public class BattleContextManager {
                 playerId,
                 type
         );
+    }
+
+    public static void setFormatId(
+            UUID playerId,
+            String formatId
+    ) {
+        if (formatId == null || formatId.isBlank()) {
+            PLAYER_FORMAT.remove(playerId);
+            return;
+        }
+
+        PLAYER_FORMAT.put(
+                playerId,
+                formatId.toLowerCase()
+        );
+    }
+
+    public static String getFormatId(
+            UUID playerId
+    ) {
+        String explicit = PLAYER_FORMAT.get(playerId);
+        if (explicit != null && !explicit.isBlank()) {
+            return explicit;
+        }
+
+        BattleType type = getContext(playerId);
+        if (type == BattleType.RANKED) {
+            return "ranked";
+        }
+        if (type == BattleType.CASUAL) {
+            return "casual";
+        }
+
+        return null;
     }
 
     public static BattleType getContext(
@@ -51,5 +88,6 @@ public class BattleContextManager {
             UUID playerId
     ) {
         PLAYER_CONTEXT.remove(playerId);
+        PLAYER_FORMAT.remove(playerId);
     }
 }

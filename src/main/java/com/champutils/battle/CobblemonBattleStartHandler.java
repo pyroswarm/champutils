@@ -87,32 +87,32 @@ public class CobblemonBattleStartHandler {
             ServerPlayer p2 =
                     players.get(1);
 
+            String formatId =
+                    BattleContextManager.getFormatId(
+                            p1.getUUID()
+                    );
 
-
-            // =========================
-            // ONLY RANKED ENFORCEMENT
-            // =========================
-
-            if(
-                    !MatchmakingManager
-                            .isRankedMatch(
-                                    p1
-                            )
-            ){
-                return;
+            if (
+                    formatId == null
+                            ||
+                            formatId.isBlank()
+            ) {
+                formatId = MatchmakingManager.isRankedMatch(p1)
+                        ? "ranked"
+                        : "casual";
             }
 
 
 
             // =========================
-            // LOCK BATTLE ITEMS
+            // LOCK BATTLE ITEMS BY FORMAT CONFIG
             // =========================
 
             if(
                     BattleItemRules
                             .battleItemsBlocked(
                                     p1,
-                                    "ranked"
+                                    formatId
                             )
             ){
 
@@ -123,6 +123,22 @@ public class CobblemonBattleStartHandler {
                 BattleItemLockManager.lock(
                         p2
                 );
+            }
+
+
+
+            // =========================
+            // ONLY RUN RANKED RP / SNAPSHOT ENFORCEMENT
+            // AFTER FORMAT ITEM RULES ARE APPLIED
+            // =========================
+
+            if(
+                    !MatchmakingManager
+                            .isRankedMatch(
+                                    p1
+                            )
+            ){
+                return;
             }
 
 
@@ -145,13 +161,13 @@ public class CobblemonBattleStartHandler {
             String err1=
                     TeamValidator.validate(
                             p1,
-                            "ranked"
+                            formatId
                     );
 
             String err2=
                     TeamValidator.validate(
                             p2,
-                            "ranked"
+                            formatId
                     );
 
 

@@ -5,10 +5,23 @@ import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.ItemStack;
 
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 
 public class BattleItemUseListener {
+
+    private static final TagKey<Item> COBBLEMON_BATTLE_ITEMS =
+            TagKey.create(
+                    Registries.ITEM,
+                    ResourceLocation.fromNamespaceAndPath(
+                            "cobblemon",
+                            "battle_items"
+                    )
+            );
 
     public static void register() {
 
@@ -57,6 +70,8 @@ public class BattleItemUseListener {
 
                     if (
                             stack.isEmpty()
+                                    ||
+                            !stack.is(COBBLEMON_BATTLE_ITEMS)
                     ) {
 
                         return InteractionResultHolder.pass(
@@ -67,7 +82,7 @@ public class BattleItemUseListener {
 
                     serverPlayer.sendSystemMessage(
                             Component.literal(
-                                    "§cBattle items are disabled in ranked battles."
+                                    "§cBattle items are disabled in this battle format."
                             )
                     );
 

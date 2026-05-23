@@ -117,6 +117,7 @@ public class BattleStateManager {
         IN_BATTLE.remove(playerId);
         ACTIVE_BATTLES.remove(playerId);
         BATTLE_STARTED_AT_TICK.remove(playerId);
+        BattleItemLockManager.unlock(player);
     }
 
     public static boolean hasTrackedState(
