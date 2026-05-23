@@ -2,7 +2,6 @@ package com.champutils.matchmaking;
 
 import com.champutils.profession.ProfessionNotificationSettings;
 
-import com.cobblemon.mod.common.CobblemonItems;
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
@@ -74,13 +73,15 @@ public class TeamPreviewManager {
                             pokemon.getDisplayName(true)
                                     .getString();
 
+                    boolean isSelected = selected != null && selected == i;
+
                     GuiElementBuilder button =
                             new GuiElementBuilder(
-                                    CobblemonItems.pokeBalls.getFirst()
+                                    PokemonIconUtil.getIcon(pokemon, slot, isSelected)
                             )
                                     .setName(
                                             Component.literal(
-                                                    (selected != null && selected == i
+                                                    (isSelected
                                                             ? "§a▶ "
                                                             : "§f")
                                                             + "Pokémon #"
@@ -89,7 +90,8 @@ public class TeamPreviewManager {
                                     )
                                     .setLore(
                                             Arrays.asList(
-                                                    Component.literal(name)
+                                                    Component.literal("§f" + name),
+                                                    Component.literal("§7Click to choose this Pokémon as your lead.")
                                             )
                                     )
                                     .setCallback(

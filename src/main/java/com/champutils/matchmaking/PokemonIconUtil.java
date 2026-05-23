@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.HashSet;
 import java.util.Locale;
@@ -20,12 +21,24 @@ import java.util.Set;
 public class PokemonIconUtil {
 
     public static ItemStack getIcon(Pokemon p, int slot, boolean selected) {
+        ItemStack item = ItemStack.EMPTY;
 
-        Item pokeBall = BuiltInRegistries.ITEM.get(
-                ResourceLocation.fromNamespaceAndPath("cobblemon", "poke_ball")
-        );
+        try {
+            item = PokemonItem.from(p, 1);
+        } catch (Throwable ignored) {
+        }
 
-        ItemStack item = new ItemStack(pokeBall);
+        if (item == null || item.isEmpty() || item.getItem() == Items.AIR) {
+            try {
+                item = createPokemonIcon(p.getSpecies().getResourceIdentifier().toString(), p.getShiny());
+            } catch (Throwable ignored) {
+                item = ItemStack.EMPTY;
+            }
+        }
+
+        if (item == null || item.isEmpty() || item.getItem() == Items.AIR) {
+            item = new ItemStack(CobblemonItems.POKE_BALL);
+        }
 
         String name = p.getDisplayName(true).getString();
 
@@ -82,7 +95,7 @@ public class PokemonIconUtil {
 
         try {
             if (cleaned.contains(":")) {
-                Species namespaced = PokemonSpecies.INSTANCE.getByIdentifier(ResourceLocation.parse(cleaned));
+                Species namespaced = PokemonSpecies.getByIdentifier(ResourceLocation.parse(cleaned));
                 if (namespaced != null) {
                     return namespaced;
                 }
@@ -95,7 +108,7 @@ public class PokemonIconUtil {
         cleaned = cleaned.replace(" ", "-").replace("_", "-");
 
         try {
-            Species byName = PokemonSpecies.INSTANCE.getByName(cleaned);
+            Species byName = PokemonSpecies.getByName(cleaned);
             if (byName != null) {
                 return byName;
             }
@@ -103,7 +116,7 @@ public class PokemonIconUtil {
         }
 
         try {
-            return PokemonSpecies.INSTANCE.getByIdentifier(ResourceLocation.fromNamespaceAndPath("cobblemon", cleaned));
+            return PokemonSpecies.getByIdentifier(ResourceLocation.fromNamespaceAndPath("cobblemon", cleaned));
         } catch (Throwable ignored) {
             return null;
         }
