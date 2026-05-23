@@ -6,6 +6,8 @@ import com.champutils.profession.ProfessionManager;
 
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
+import com.cobblemon.mod.common.Cobblemon;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -25,9 +27,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 public final class EmblemManager {
 
@@ -119,6 +123,7 @@ public final class EmblemManager {
         if (data == null) return UseResult.fail("This emblem is no longer configured.");
         Object pokemon = extractPokemon(pokemonOrEntity);
         if (pokemon == null) return UseResult.fail("Use this on a Pokémon.");
+        if (!isOwnedByPlayer(player, pokemon)) return UseResult.fail("You can only use emblems on Pokémon you own.");
         String species = speciesId(pokemon);
         if (species.isBlank()) return UseResult.fail("Could not read that Pokémon species.");
         if (isShiny(pokemon) && !"MEGASTONE".equalsIgnoreCase(data.type)) return UseResult.fail("That Pokémon is already shiny.");
@@ -169,6 +174,101 @@ public final class EmblemManager {
         if (id == null || id.isBlank()) id = (EmblemConfig.CONFIG.megaStoneItemPattern == null ? "genesisforms:%species%ite" : EmblemConfig.CONFIG.megaStoneItemPattern).replace("%species%", normalized);
         Item item = resolveItem(id);
         return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item, 1);
+    }
+
+
+    private static boolean isOwnedByPlayer(ServerPlayer player, Object pokemon) {
+        if (player == null || pokemon == null) return false;
+
+        UUID pokemonUuid = pokemonUuid(pokemon);
+        if (pokemonUuid == null) return false;
+
+        try {
+            Object party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (storeContainsPokemonUuid(party, pokemonUuid)) return true;
+        } catch (Throwable ignored) {}
+
+        try {
+            Object storage = Cobblemon.INSTANCE.getStorage();
+            Object pc = null;
+            for (String methodName : new String[] { "getPC", "getPc", "getPCStore", "getPcStore" }) {
+                for (Method method : storage.getClass().getMethods()) {
+                    if (!method.getName().equals(methodName) || method.getParameterCount() != 1) continue;
+                    Class<?> parameter = method.getParameterTypes()[0];
+                    Object argument;
+                    if (parameter.isAssignableFrom(ServerPlayer.class)) {
+                        argument = player;
+                    } else if (parameter.isAssignableFrom(UUID.class)) {
+                        argument = player.getUUID();
+                    } else {
+                        continue;
+                    }
+                    pc = method.invoke(storage, argument);
+                    if (pc != null) break;
+                }
+                if (pc != null) break;
+            }
+            return storeContainsPokemonUuid(pc, pokemonUuid);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static UUID pokemonUuid(Object pokemon) {
+        Object value = firstValue(pokemon, "uuid", "getUuid", "getUUID");
+        if (value instanceof UUID uuid) return uuid;
+        if (value != null) {
+            try { return UUID.fromString(String.valueOf(value)); } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private static boolean storeContainsPokemonUuid(Object store, UUID pokemonUuid) {
+        if (store == null || pokemonUuid == null) return false;
+
+        try {
+            Object sizeValue = firstValue(store, "size", "getSize");
+            int size = sizeValue instanceof Number number ? number.intValue() : Integer.parseInt(String.valueOf(sizeValue));
+            for (int i = 0; i < size; i++) {
+                Object pokemon = getStorePokemonAt(store, i);
+                if (pokemonUuid.equals(pokemonUuid(pokemon))) return true;
+            }
+        } catch (Throwable ignored) {}
+
+        if (store instanceof Iterable<?> iterable) {
+            for (Object pokemon : iterable) {
+                if (pokemonUuid.equals(pokemonUuid(pokemon))) return true;
+            }
+        }
+
+        try {
+            for (Method method : store.getClass().getMethods()) {
+                if (!method.getName().equals("iterator") || method.getParameterCount() != 0) continue;
+                Object iteratorObject = method.invoke(store);
+                if (!(iteratorObject instanceof Iterator<?> iterator)) continue;
+                while (iterator.hasNext()) {
+                    Object pokemon = iterator.next();
+                    if (pokemonUuid.equals(pokemonUuid(pokemon))) return true;
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return false;
+    }
+
+    private static Object getStorePokemonAt(Object store, int index) {
+        if (store == null) return null;
+        for (String methodName : new String[] { "get", "getPokemon" }) {
+            try {
+                Method method = store.getClass().getMethod(methodName, int.class);
+                return method.invoke(store, index);
+            } catch (Throwable ignored) {}
+            try {
+                Method method = store.getClass().getMethod(methodName, Integer.class);
+                return method.invoke(store, index);
+            } catch (Throwable ignored) {}
+        }
+        return null;
     }
 
     private static Object extractPokemon(Object source) {
