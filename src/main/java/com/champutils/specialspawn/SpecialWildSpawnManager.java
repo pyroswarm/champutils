@@ -29,6 +29,8 @@ import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 public final class SpecialWildSpawnManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -211,7 +213,16 @@ public final class SpecialWildSpawnManager {
             if (picked == null) continue;
 
             int pokemonLevel = pickLevel(bucket.levelRange);
-            boolean spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, picked.species, pokemonLevel);
+
+            // Use a direct Cobblemon entity spawn first instead of going through the normal spawn action/pool.
+            // This keeps special spawns independent from the player's nearby Cobblemon spawn cap.
+            boolean spawned = spawnDirectlyIgnoringNearbyLimit(level, pos, picked.species, pokemonLevel);
+            if (!spawned) {
+                // Fallback for API changes: command spawning is still forced, but some Cobblemon versions/addons
+                // can route command spawns through extra checks. Direct spawn above is the preferred path.
+                spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, picked.species, pokemonLevel);
+            }
+
             if (spawned) {
                 return new SpawnResult(bucket.type, picked.species, level, pos);
             }
@@ -280,6 +291,84 @@ public final class SpecialWildSpawnManager {
             if (max < min) { int tmp = min; min = max; max = tmp; }
             return Math.max(1, Math.min(100, min + RANDOM.nextInt(max - min + 1)));
         } catch (Exception ignored) { return 60; }
+    }
+
+    private static boolean spawnDirectlyIgnoringNearbyLimit(ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
+        try {
+            String clean = sanitize(species);
+            String properties = "species=\"cobblemon:" + clean + "\" level=" + pokemonLevel;
+
+            Class<?> propertiesClass = Class.forName("com.cobblemon.mod.common.api.pokemon.PokemonProperties");
+            Object companion = propertiesClass.getField("Companion").get(null);
+            Object parsed = companion.getClass().getMethod("parse", String.class).invoke(companion, properties);
+            Object pokemon = parsed.getClass().getMethod("create").invoke(parsed);
+
+            Vec3 spawnVec = new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+            Object spawnedEntity = invokePokemonSendOut(pokemon, level, spawnVec);
+
+            if (spawnedEntity instanceof Entity entity) {
+                long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
+                if (entity instanceof Mob mob) {
+                    mob.setPersistenceRequired();
+                }
+                tracked.put(entity.getUUID(), expiresAt);
+                return true;
+            }
+
+            return false;
+        } catch (Exception ignored) {
+            // Keep this silent because command fallback below is expected to cover minor Cobblemon API differences.
+            return false;
+        }
+    }
+
+    private static Object invokePokemonSendOut(Object pokemon, ServerLevel level, Vec3 spawnVec) throws Exception {
+        for (Method method : pokemon.getClass().getMethods()) {
+            if (!method.getName().equals("sendOut")) continue;
+
+            Class<?>[] params = method.getParameterTypes();
+            if (params.length < 2) continue;
+            if (!params[0].isAssignableFrom(level.getClass())) continue;
+            if (!params[1].isAssignableFrom(spawnVec.getClass())) continue;
+
+            Object[] args = new Object[params.length];
+            args[0] = level;
+            args[1] = spawnVec;
+
+            for (int i = 2; i < params.length; i++) {
+                args[i] = defaultSendOutArgument(params[i]);
+            }
+
+            return method.invoke(pokemon, args);
+        }
+
+        return null;
+    }
+
+    private static Object defaultSendOutArgument(Class<?> paramType) {
+        if (paramType == boolean.class) return false;
+        if (paramType == int.class) return 0;
+        if (paramType == long.class) return 0L;
+        if (paramType == float.class) return 0F;
+        if (paramType == double.class) return 0D;
+
+        if (paramType.isInterface()) {
+            return Proxy.newProxyInstance(
+                    paramType.getClassLoader(),
+                    new Class<?>[]{paramType},
+                    (proxy, method, args) -> {
+                        if ("toString".equals(method.getName())) return "ChampUtilsSpecialSpawnCallback";
+                        try {
+                            Class<?> unit = Class.forName("kotlin.Unit");
+                            return unit.getField("INSTANCE").get(null);
+                        } catch (Exception ignored) {
+                            return null;
+                        }
+                    }
+            );
+        }
+
+        return null;
     }
 
     private static boolean spawnViaCobblemonCommand(MinecraftServer server, ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
