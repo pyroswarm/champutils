@@ -101,7 +101,7 @@ public final class OpenCratesMenu {
             CrateConfig.CrateDefinition crate = CrateConfig.getCrate(id);
             if (crate == null || !crate.enabled) continue;
             int credits = CrateCreditManager.getCredits(player, id);
-            Item icon = resolveItem(crate.iconItem);
+            Item icon = crateIconItem(id, crate);
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Credits: " + credits).withStyle(credits > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
             lore.add(Component.literal("Guaranteed: " + crate.guaranteedShardMin + "-" + crate.guaranteedShardMax + " " + ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity) + " shards").withStyle(ChatFormatting.GRAY));
@@ -323,9 +323,9 @@ public final class OpenCratesMenu {
                 iterator.remove();
                 player.closeContainer();
                 grantReward(player, opening.guaranteedShards);
-                grantReward(player, opening.mainReward);
+                String actualMainReward = grantReward(player, opening.mainReward);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
-                        .append(Component.literal(cleanRewardSummary(opening.mainReward)).withStyle(ChatFormatting.WHITE)));
+                        .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
                 playLocalSound(player, isSpecial(opening.mainReward) ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.experience_orb.pickup", 0.8F, isSpecial(opening.mainReward) ? 1.0F : 1.25F);
                 open(player);
             }
@@ -414,31 +414,40 @@ public final class OpenCratesMenu {
         return plan;
     }
 
-    private static void grantReward(ServerPlayer player, RewardPlan plan) {
-        if (player == null || plan == null) return;
+    private static String grantReward(ServerPlayer player, RewardPlan plan) {
+        if (player == null || plan == null) return null;
         switch (plan.type) {
             case SHARDS -> {
                 ProfessionManager.addFragments(player, plan.shardRarity, Math.max(1, plan.shardAmount));
-                player.sendSystemMessage(Component.literal("+" + Math.max(1, plan.shardAmount) + " " + ProfessionFragmentManager.formatWords(plan.shardRarity) + " shards").withStyle(ChatFormatting.LIGHT_PURPLE));
+                String name = Math.max(1, plan.shardAmount) + " " + ProfessionFragmentManager.formatWords(plan.shardRarity) + " Shards";
+                player.sendSystemMessage(Component.literal("+" + name).withStyle(ChatFormatting.LIGHT_PURPLE));
+                return name;
             }
             case POKEMON -> {
                 NpcShopService.PlannedPokemonCrateReward reward = NpcShopService.restorePlannedPokemonCrateReward(plan.species, plan.level, plan.shiny, plan.pool);
-                if (reward != null) NpcShopService.grantPlannedPokemonCrateReward(player, reward, null, false);
+                if (reward != null) {
+                    NpcShopService.grantPlannedPokemonCrateReward(player, reward, null, false);
+                    return reward.title() == null ? cleanRewardSummary(plan) : reward.title().getString();
+                }
+                return cleanRewardSummary(plan);
             }
             case ITEM -> {
                 Item item = resolveItem(plan.itemId);
-                if (item == Items.AIR) return;
+                if (item == Items.AIR) return cleanRewardSummary(plan);
                 ItemStack stack = new ItemStack(item, Math.max(1, plan.amount));
                 if (!player.getInventory().add(stack)) player.drop(stack, false);
                 if (plan.itemId != null && plan.itemId.toLowerCase(Locale.ROOT).contains("master_ball")) player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.6F);
+                return Math.max(1, plan.amount) + "x " + prettyItem(plan.itemId);
             }
             case TOOL -> {
                 ItemStack stack = ProfessionToolManager.createLootTool(plan.toolId, false);
-                if (stack.isEmpty()) return;
+                if (stack.isEmpty()) return cleanRewardSummary(plan);
                 if (!player.getInventory().add(stack)) player.drop(stack, false);
                 player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.35F);
+                return stack.getHoverName().getString();
             }
         }
+        return cleanRewardSummary(plan);
     }
 
     private static void updateSpin(Opening opening, boolean finalLock) {
@@ -637,6 +646,25 @@ public final class OpenCratesMenu {
     private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic") && isHighValuePokemon(species)) return 1.0D; return Math.max(0D, crate.shinyChance); }
     private static <T> T weighted(List<T> list) { if (list == null || list.isEmpty()) return null; int total = 0; for (T t : list) total += Math.max(0, weightOf(t)); if (total <= 0) return list.get(RANDOM.nextInt(list.size())); int roll = RANDOM.nextInt(total); for (T t : list) { roll -= Math.max(0, weightOf(t)); if (roll < 0) return t; } return list.get(0); }
     private static int weightOf(Object o) { if (o instanceof CrateConfig.WeightedPokemon p) return p.weight; if (o instanceof CrateConfig.WeightedItem i) return i.weight; if (o instanceof CrateConfig.WeightedTool t) return t.weight; return 1; }
+    private static Item crateIconItem(String crateId, CrateConfig.CrateDefinition crate) {
+        Item gilded = resolveItem(gildedChestIconId(crateId));
+        if (gilded != Items.AIR) return gilded;
+        return crate == null ? Items.CHEST : resolveItem(crate.iconItem);
+    }
+
+    private static String gildedChestIconId(String crateId) {
+        return switch (CrateCreditManager.normalize(crateId)) {
+            case "common" -> "cobblemon:gilded_chest";
+            case "uncommon" -> "cobblemon:yellow_gilded_chest";
+            case "rare" -> "cobblemon:green_gilded_chest";
+            case "epic" -> "cobblemon:blue_gilded_chest";
+            case "legendary" -> "cobblemon:pink_gilded_chest";
+            case "mythic" -> "cobblemon:black_gilded_chest";
+            case "guild", "world_boss" -> "cobblemon:white_gilded_chest";
+            default -> "cobblemon:gilded_chest";
+        };
+    }
+
     private static Item resolveItem(String id) { try { Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id)); return item == null ? Items.AIR : item; } catch (Exception e) { return Items.AIR; } }
     private static ChatFormatting colorFor(String id) { return switch (id) { case "common" -> ChatFormatting.WHITE; case "uncommon" -> ChatFormatting.GREEN; case "rare" -> ChatFormatting.AQUA; case "epic", "guild" -> ChatFormatting.DARK_PURPLE; case "legendary", "event", "world_boss" -> ChatFormatting.GOLD; case "mythic" -> ChatFormatting.LIGHT_PURPLE; default -> ChatFormatting.GRAY; }; }
     private static ChatFormatting poolColor(NpcShopService.PokemonCratePool pool) { return switch (pool) { case LEGENDARY -> ChatFormatting.GOLD; case ULTRA_BEAST, PARADOX -> ChatFormatting.LIGHT_PURPLE; case MYTHICAL -> ChatFormatting.RED; default -> ChatFormatting.AQUA; }; }

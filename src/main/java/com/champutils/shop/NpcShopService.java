@@ -302,20 +302,28 @@ public final class NpcShopService {
         if (species == null || species.isBlank()) return null;
         if (pool == null) pool = PokemonCratePool.REGULAR;
 
-        String niceSpecies = niceSpeciesName(species);
+        String resolvedSpecies = resolveRealSpeciesId(species);
+        if (resolvedSpecies == null || resolvedSpecies.isBlank()) {
+            return null;
+        }
+
+        String niceSpecies = niceSpeciesName(resolvedSpecies);
         ChatFormatting color = shiny ? ChatFormatting.GOLD : poolColor(pool);
         Component title = Component.literal((shiny ? "Shiny " : "") + niceSpecies).withStyle(color);
         Component detail = Component.literal("Level " + Math.max(1, level) + " • " + poolLabel(pool)).withStyle(ChatFormatting.GRAY);
         ItemStack icon;
         try {
-            Pokemon iconPokemon = PokemonProperties.Companion.parse("species=\"" + species + "\" level=" + Math.max(1, level)).create();
+            Pokemon iconPokemon = PokemonProperties.Companion.parse("species=\"" + resolvedSpecies + "\" level=" + Math.max(1, level)).create();
+            if (!speciesKey(iconPokemon.getSpecies().getResourceIdentifier().toString()).equals(speciesKey(resolvedSpecies))) {
+                return null;
+            }
             setBooleanProperty(iconPokemon, "setShiny", shiny);
             icon = PokemonItem.from(iconPokemon, 1);
         } catch (Throwable ignored) {
             icon = new ItemStack(shiny ? Items.NETHER_STAR : pool == PokemonCratePool.REGULAR ? Items.EGG : Items.DRAGON_EGG);
         }
 
-        return new PlannedPokemonCrateReward(species, Math.max(1, level), shiny, pool, title, detail, icon);
+        return new PlannedPokemonCrateReward(resolvedSpecies, Math.max(1, level), shiny, pool, title, detail, icon);
     }
 
     public static boolean grantDexPokemonReward(ServerPlayer player, PokemonCratePool pool, boolean shiny, int level) {
@@ -344,9 +352,17 @@ public final class NpcShopService {
             return false;
         }
 
+        String resolvedSpecies = resolveRealSpeciesId(plan.species);
+        if (resolvedSpecies == null || resolvedSpecies.isBlank()) {
+            return false;
+        }
+
         Pokemon pokemon;
         try {
-            pokemon = PokemonProperties.Companion.parse("species=\"" + plan.species + "\" level=" + plan.level).create();
+            pokemon = PokemonProperties.Companion.parse("species=\"" + resolvedSpecies + "\" level=" + plan.level).create();
+            if (!speciesKey(pokemon.getSpecies().getResourceIdentifier().toString()).equals(speciesKey(resolvedSpecies))) {
+                return false;
+            }
         } catch (Throwable throwable) {
             return false;
         }
@@ -522,6 +538,71 @@ public final class NpcShopService {
         if (LEGENDARY_SPECIES.contains(species) || LEGENDARY_SPECIES.contains(compact) || WonderTradePokemonUtil.isLegendarySpecies(species)) return PokemonCratePool.LEGENDARY;
         if (PARADOX_SPECIES.contains(species) || PARADOX_SPECIES.contains(compact)) return PokemonCratePool.PARADOX;
         return PokemonCratePool.REGULAR;
+    }
+
+
+    private static String resolveRealSpeciesId(String rawSpecies) {
+        Species species = findSpeciesByAnyName(rawSpecies);
+        if (species == null) return null;
+        try {
+            return species.getResourceIdentifier().toString();
+        } catch (Throwable ignored) {
+        }
+        try {
+            String name = species.getName();
+            if (name != null && !name.isBlank()) return "cobblemon:" + speciesKey(name);
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static Species findSpeciesByAnyName(String rawSpecies) {
+        if (rawSpecies == null || rawSpecies.isBlank()) return null;
+
+        String cleaned = rawSpecies.trim().toLowerCase(Locale.ROOT);
+        String noNamespace = cleaned;
+        int colon = noNamespace.lastIndexOf(':');
+        if (colon >= 0 && colon + 1 < noNamespace.length()) noNamespace = noNamespace.substring(colon + 1);
+
+        List<String> candidates = new ArrayList<>();
+        candidates.add(cleaned);
+        candidates.add(noNamespace);
+        candidates.add(noNamespace.replace('_', '-'));
+        candidates.add(noNamespace.replace('-', '_'));
+        candidates.add(compactSpeciesKey(noNamespace));
+
+        for (String candidate : candidates) {
+            if (candidate == null || candidate.isBlank()) continue;
+            try {
+                String idPath = candidate.contains(":") ? candidate : "cobblemon:" + candidate;
+                Species byId = PokemonSpecies.getByIdentifier(ResourceLocation.parse(idPath));
+                if (byId != null) return byId;
+            } catch (Throwable ignored) {
+            }
+            try {
+                Species byName = PokemonSpecies.getByName(candidate);
+                if (byName != null) return byName;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        String targetKey = speciesKey(noNamespace);
+        String targetCompact = compactSpeciesKey(noNamespace);
+        for (Species candidate : reflectAllSpecies()) {
+            if (candidate == null) continue;
+            try {
+                String id = candidate.getResourceIdentifier().toString();
+                if (speciesKey(id).equals(targetKey) || compactSpeciesKey(id).equals(targetCompact)) return candidate;
+            } catch (Throwable ignored) {
+            }
+            try {
+                String name = candidate.getName();
+                if (speciesKey(name).equals(targetKey) || compactSpeciesKey(name).equals(targetCompact)) return candidate;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        return null;
     }
 
     private static Set<String> normalizedSpeciesSet(String... values) {
