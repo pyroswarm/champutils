@@ -342,6 +342,10 @@ public final class TerritoryRepository {
     }
 
     public static void ensureGuildTerritory(MinecraftServer server, UUID guildId, String guildName, String biomePreference, Callback callback) {
+        ensureGuildTerritory(server, null, guildId, guildName, biomePreference, callback);
+    }
+
+    public static void ensureGuildTerritory(MinecraftServer server, ServerPlayer initiator, UUID guildId, String guildName, String biomePreference, Callback callback) {
         if (guildId == null) { callback.done(false, "Invalid guild territory."); return; }
         String ownerId = guildId.toString();
         if (cachedForOwner(OwnerType.GUILD, ownerId) != null) { callback.done(true, "Guild territory already exists."); return; }
@@ -350,7 +354,7 @@ public final class TerritoryRepository {
             if (!allowed) { callback.done(false, remainingMessage); return; }
             Territory territory = allocate(OwnerType.GUILD, ownerId, guildName == null ? "Guild" : guildName, null, biomePreference);
             save(territory, (success, message) -> {
-                if (success) TerritoryWorldGenerationManager.requestGeneration(server, territory);
+                if (success) TerritoryWorldGenerationManager.requestGeneration(server, initiator, territory);
                 callback.done(success, success ? "Guild territory created. " + generationMessage(territory) : message);
             });
         });

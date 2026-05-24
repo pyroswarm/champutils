@@ -71,6 +71,14 @@ public final class ExplorationWorldConfig {
                 "mw create {world_id} NORMAL -g=NORMAL",
                 "mw load {world_id}"
         ));
+        public List<String> netherCreateCommands = new ArrayList<>(List.of(
+                "mw create {world_id} NETHER -g=NETHER",
+                "mw load {world_id}"
+        ));
+        public List<String> endCreateCommands = new ArrayList<>(List.of(
+                "mw create {world_id} THE_END -g=THE_END",
+                "mw load {world_id}"
+        ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>(List.of(
                 "chunky world {world}",
                 "chunky center 0 0",
@@ -106,6 +114,24 @@ public final class ExplorationWorldConfig {
             deleteCommands.replaceAll(command -> command == null ? "" : command
                     .replace("mw unload {world}", "mw unload {world_id}")
                     .replace("mw delete {world}", "mw delete {world_id}"));
+            if (netherCreateCommands == null || netherCreateCommands.isEmpty()) {
+                netherCreateCommands = new ArrayList<>(List.of(
+                        "mw create {world_id} NETHER -g=NETHER",
+                        "mw load {world_id}"
+                ));
+            }
+            if (endCreateCommands == null || endCreateCommands.isEmpty()) {
+                endCreateCommands = new ArrayList<>(List.of(
+                        "mw create {world_id} THE_END -g=THE_END",
+                        "mw load {world_id}"
+                ));
+            }
+            netherCreateCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("mw create {world}", "mw create {world_id} NETHER -g=NETHER")
+                    .replace("mw load {world}", "mw load {world_id}"));
+            endCreateCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("mw create {world}", "mw create {world_id} THE_END -g=THE_END")
+                    .replace("mw load {world}", "mw load {world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
             return this;
         }

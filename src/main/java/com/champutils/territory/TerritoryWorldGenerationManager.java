@@ -8,12 +8,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.levelgen.Heightmap;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,9 +25,6 @@ import java.util.UUID;
 public final class TerritoryWorldGenerationManager {
     private static final Set<String> WORLD_REQUESTED_THIS_RUNTIME = new HashSet<>();
     private static final Set<UUID> TERRITORY_REQUESTED_THIS_RUNTIME = new HashSet<>();
-    private static final Map<String, Integer> LAST_WORLD_COMMAND_TICK = new HashMap<>();
-    private static final Map<String, Integer> WORLD_COMMAND_ATTEMPTS = new HashMap<>();
-    private static final int WORLD_COMMAND_RETRY_TICKS = 200;
 
     private TerritoryWorldGenerationManager() {}
 
@@ -38,19 +32,10 @@ public final class TerritoryWorldGenerationManager {
         if (server == null || !TerritoryConfig.get().enabled || !TerritoryConfig.get().runGenerationCommands) return;
         if (server.getTickCount() % 200 != 0) return;
 
+        ServerPlayer fallbackPlayer = firstOnlinePlayer(server);
         for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
-            if (territory == null || territory.id == null) continue;
-
-            // A previous build could mark the territory READY before Multiworld had actually created/loaded
-            // the dimension. If the packed territory world is still missing, put it back into PENDING and let
-            // this manager keep trying until Multiworld reports the dimension as loaded.
-            if (territory.isReady() && isManagedPackedWorld(territory) && !isWorldLoaded(server, territory.worldName)) {
-                territory.generationState = "PENDING";
-                TerritoryRepository.save(territory, (success, message) -> {});
-                System.out.println("[ChampUtils] Territory " + territory.id + " was READY, but " + territory.worldName + " is not loaded. Re-requesting Multiworld creation.");
-            }
-
-            if (!territory.isReady()) requestGeneration(server, null, territory);
+            if (territory == null || territory.id == null || territory.isReady()) continue;
+            requestGeneration(server, fallbackPlayer, territory);
         }
     }
 
@@ -65,6 +50,7 @@ public final class TerritoryWorldGenerationManager {
             server = initiator.server;
         }
         if (server == null) {
+            // No server reference means we cannot call Multiworld commands. Leave it pending for the periodic tick.
             territory.generationState = "PENDING";
             TerritoryRepository.save(territory, (success, message) -> {});
             return;
@@ -76,77 +62,56 @@ public final class TerritoryWorldGenerationManager {
             return;
         }
 
+        if (!TERRITORY_REQUESTED_THIS_RUNTIME.add(territory.id) && territory.isReady()) return;
+
+        boolean worldLoaded = isWorldLoaded(finalServer, territory.worldName);
+        boolean commandsOk = true;
+
+        if (!worldLoaded && TerritoryConfig.get().runGenerationCommands) {
+            ServerPlayer commandPlayer = commandPlayer(finalServer, initiator);
+            if (commandPlayer == null) {
+                territory.generationState = "PENDING";
+                TerritoryRepository.save(territory, (success, message) -> {});
+                System.out.println("[ChampUtils] Territory " + territory.id + " is waiting for an online player so Multiworld 1.13.1 can create/load " + territory.worldName + ".");
+                return;
+            }
+
+            String worldKey = normalizedWorldKey(territory);
+            System.out.println("[ChampUtils] Requesting Multiworld territory world " + territory.worldName + " as " + commandPlayer.getGameProfile().getName() + ".");
+            // Only one create/load command batch should be sent per packed territory world per runtime. If another
+            // player gets a free slot in an existing world, we do not re-create the world.
+            if (WORLD_REQUESTED_THIS_RUNTIME.add(worldKey)) {
+                for (String command : TerritoryConfig.get().worldCreateCommands) {
+                    commandsOk &= run(finalServer, commandPlayer, apply(command, territory));
+                }
+            } else {
+                for (String command : TerritoryConfig.get().worldCreateCommands) {
+                    if (command != null && command.toLowerCase(Locale.ROOT).contains(" load ")) {
+                        commandsOk &= run(finalServer, commandPlayer, apply(command, territory));
+                    }
+                }
+            }
+        }
+
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
             alignCenterToBiome(loadedLevel, territory);
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + ".");
-            return;
-        }
-
-        territory.generationState = "PENDING";
-        TerritoryRepository.save(territory, (success, message) -> {});
-
-        if (!TerritoryConfig.get().runGenerationCommands) {
-            System.err.println("[ChampUtils] Territory " + territory.id + " is PENDING because " + territory.worldName + " is not loaded and territory generation commands are disabled.");
-            return;
-        }
-
-        String worldKey = normalizedWorldKey(territory);
-        int currentTick = finalServer.getTickCount();
-        int lastAttempt = LAST_WORLD_COMMAND_TICK.getOrDefault(worldKey, -WORLD_COMMAND_RETRY_TICKS);
-        if (currentTick - lastAttempt < WORLD_COMMAND_RETRY_TICKS) {
-            return;
-        }
-        LAST_WORLD_COMMAND_TICK.put(worldKey, currentTick);
-        int attempt = WORLD_COMMAND_ATTEMPTS.getOrDefault(worldKey, 0) + 1;
-        WORLD_COMMAND_ATTEMPTS.put(worldKey, attempt);
-
-        boolean firstAttemptThisRuntime = WORLD_REQUESTED_THIS_RUNTIME.add(worldKey);
-        TERRITORY_REQUESTED_THIS_RUNTIME.add(territory.id);
-
-        System.out.println("[ChampUtils] Requesting Multiworld territory world " + territory.worldName + " (attempt " + attempt + ").");
-
-        boolean commandsOk = true;
-        for (String command : TerritoryConfig.get().worldCreateCommands) {
-            if (command == null || command.isBlank()) continue;
-
-            // Multiworld 1.13.1 does not need a separate load command for newly-created runtime worlds.
-            // Some older ChampUtils configs still contain /mw load, which may not exist on this Multiworld build.
-            // Skip it on the first create attempt, but allow custom configs to keep using it on later retries.
-            String lower = command.toLowerCase(Locale.ROOT);
-            if (firstAttemptThisRuntime && lower.contains(" load ")) continue;
-
-            commandsOk &= run(finalServer, initiator, apply(command, territory));
-        }
-
-        loadedLevel = getLoadedLevel(finalServer, territory.worldName);
-        if (loadedLevel != null) {
-            alignCenterToBiome(loadedLevel, territory);
-            territory.generationState = "READY";
-            TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " after Multiworld command request.");
-        } else if (!commandsOk) {
-            System.err.println("[ChampUtils] Failed to request Multiworld territory world " + territory.worldName + ". Territory remains PENDING and will retry automatically.");
+            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + ". Chunky was not used.");
         } else {
-            System.out.println("[ChampUtils] Multiworld command was sent for " + territory.worldName + ", but the dimension is not loaded yet. Territory remains PENDING and will retry automatically.");
+            territory.generationState = "PENDING";
+            TerritoryRepository.save(territory, (success, message) -> {});
+            if (commandsOk) {
+                System.out.println("[ChampUtils] Multiworld command was sent for " + territory.worldName + ", but the dimension is not loaded yet. Territory remains PENDING and will retry automatically.");
+            } else {
+                System.err.println("[ChampUtils] Failed to request/load Multiworld territory world " + territory.worldName + " for territory " + territory.id + ". Territory remains PENDING.");
+            }
         }
     }
 
     private static boolean isWorldLoaded(MinecraftServer server, String worldName) {
         return getLoadedLevel(server, worldName) != null;
-    }
-
-
-    private static boolean isManagedPackedWorld(TerritoryRepository.Territory territory) {
-        if (territory == null || territory.worldName == null || territory.worldName.isBlank()) return false;
-        TerritoryConfig.Data cfg = TerritoryConfig.get();
-        String world = territory.worldName.toLowerCase(Locale.ROOT);
-        String personal = cfg.personalWorldPrefix == null ? "" : cfg.personalWorldPrefix.toLowerCase(Locale.ROOT);
-        String guild = cfg.guildWorldPrefix == null ? "" : cfg.guildWorldPrefix.toLowerCase(Locale.ROOT);
-        return (!personal.isBlank() && world.startsWith(personal + "_"))
-                || (!guild.isBlank() && world.startsWith(guild + "_"));
     }
 
     private static ServerLevel getLoadedLevel(MinecraftServer server, String worldName) {
@@ -171,7 +136,7 @@ public final class TerritoryWorldGenerationManager {
             return;
         }
 
-        int y = Math.max(level.getMinBuildHeight() + 2, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, match.getX(), match.getZ()) + 1);
+        double y = TerritoryTeleportUtil.safeY(level, match.getX() + 0.5D, 80.0D, match.getZ() + 0.5D);
         territory.centerX = match.getX();
         territory.centerZ = match.getZ();
         territory.minX = territory.centerX - territory.radius;
@@ -266,15 +231,38 @@ public final class TerritoryWorldGenerationManager {
                 .replace("{owner_name}", territory.ownerName == null ? "" : territory.ownerName);
     }
 
+    private static ServerPlayer firstOnlinePlayer(MinecraftServer server) {
+        if (server == null || server.getPlayerList() == null || server.getPlayerList().getPlayers().isEmpty()) return null;
+        return server.getPlayerList().getPlayers().get(0);
+    }
+
+    private static ServerPlayer commandPlayer(MinecraftServer server, ServerPlayer initiator) {
+        if (initiator != null && initiator.server == server && !initiator.hasDisconnected()) return initiator;
+        return firstOnlinePlayer(server);
+    }
+
+    private static String sanitizeMultiworldCommand(String clean) {
+        if (clean == null) return "";
+        // Multiworld commands take the plain world id. Minecraft stores/loads it as multiworld:<id> later.
+        return clean
+                .replace("mw create multiworld:", "mw create ")
+                .replace("multiworld:territories_", "territories_")
+                .replace("multiworld:guild_territories_", "guild_territories_")
+                .replace("mw load multiworld:", "mw load ");
+    }
+
     private static boolean run(MinecraftServer server, ServerPlayer initiator, String command) {
         if (server == null || command == null || command.isBlank()) return true;
         String clean = command.startsWith("/") ? command.substring(1) : command;
+        clean = sanitizeMultiworldCommand(clean);
+        if (initiator == null || initiator.server != server || initiator.hasDisconnected()) {
+            System.err.println("[ChampUtils] Cannot run territory world command without an online player source for Multiworld 1.13.1: /" + clean);
+            return false;
+        }
         try {
-            CommandSourceStack source = initiator != null && initiator.server == server
-                    ? initiator.createCommandSourceStack().withPermission(4).withSuppressedOutput()
-                    : server.createCommandSourceStack().withPermission(4).withSuppressedOutput();
+            CommandSourceStack source = initiator.createCommandSourceStack().withPermission(4).withSuppressedOutput();
             server.getCommands().performPrefixedCommand(source, clean);
-            System.out.println("[ChampUtils] Ran territory world command: " + clean);
+            System.out.println("[ChampUtils] Ran territory world command as " + initiator.getGameProfile().getName() + ": " + clean);
             return true;
         } catch (Exception e) {
             System.err.println("[ChampUtils] Territory world command failed: /" + clean);

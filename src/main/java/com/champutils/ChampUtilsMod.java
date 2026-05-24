@@ -231,6 +231,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PokemonHuntManager.ensureStarted(server);
                     PokemonWikiIndex.reload(server);
                     ChestShopDisplayManager.syncAll(server);
+                    ExplorationWorldManager.ensureStartupWorlds(server);
 
                     if (DatabaseManager.isEnabled()) {
                         try {
@@ -534,6 +535,8 @@ public class ChampUtilsMod implements ModInitializer {
                     ChestShopDisplayManager.tick(server);
                     BattleStuckCleanupManager.tick(server);
                     TerritoryBorderManager.tick(server);
+                    TerritoryPhysicalBorderManager.tick(server);
+                    TerritoryBorderDisplayManager.tick(server);
                     TerritoryWorldGenerationManager.tick(server);
                     ExplorationWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);

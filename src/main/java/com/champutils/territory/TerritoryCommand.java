@@ -33,6 +33,10 @@ public final class TerritoryCommand {
                                     .suggests(BIOME_SUGGESTIONS)
                                     .executes(context -> createPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "biome")))))
                     .then(Commands.literal("home").executes(context -> homePersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("border")
+                            .executes(context -> borderPersonal(context.getSource().getPlayerOrException(), null))
+                            .then(Commands.literal("show").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), true)))
+                            .then(Commands.literal("hide").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), false))))
                     .then(Commands.literal("sethome").executes(context -> setHomePersonal(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("settings").executes(context -> settings(context.getSource().getPlayerOrException(), ownPersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("set")
@@ -98,6 +102,10 @@ public final class TerritoryCommand {
                     .executes(context -> infoGuild(context.getSource().getPlayerOrException()))
                     .then(Commands.literal("info").executes(context -> infoGuild(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("home").executes(context -> homeGuild(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("border")
+                            .executes(context -> borderGuild(context.getSource().getPlayerOrException(), null))
+                            .then(Commands.literal("show").executes(context -> borderGuild(context.getSource().getPlayerOrException(), true)))
+                            .then(Commands.literal("hide").executes(context -> borderGuild(context.getSource().getPlayerOrException(), false))))
                     .then(Commands.literal("create")
                             .executes(context -> ensureGuild(context.getSource().getPlayerOrException(), null))
                             .then(Commands.argument("biome", StringArgumentType.greedyString())
@@ -182,7 +190,7 @@ public final class TerritoryCommand {
                 player.sendSystemMessage(Component.literal("Territory not found.").withStyle(ChatFormatting.RED));
                 return 0;
             }
-            TerritoryWorldGenerationManager.requestGeneration(player.server, territory);
+            TerritoryWorldGenerationManager.requestGeneration(player.server, player, territory);
             player.sendSystemMessage(Component.literal("Requested generation for " + territory.worldName + " slot " + territory.slotIndex + ".").withStyle(ChatFormatting.GREEN));
             return 1;
         } catch (Exception e) {
@@ -215,7 +223,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can create or configure the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        TerritoryRepository.ensureGuildTerritory(player.server, guild.id, guild.name, biome, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        TerritoryRepository.ensureGuildTerritory(player.server, player, guild.id, guild.name, biome, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
         return 1;
     }
 
@@ -254,6 +262,33 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("That territory world is not loaded. Check Multiworld world name: " + territory.worldName).withStyle(ChatFormatting.RED));
             return 0;
         }
+        return 1;
+    }
+
+    private static int borderPersonal(ServerPlayer player, Boolean show) {
+        TerritoryRepository.Territory territory = borderTarget(player, TerritoryRepository.cachedPersonal(player));
+        return borderDisplay(player, territory, show);
+    }
+
+    private static int borderGuild(ServerPlayer player, Boolean show) {
+        TerritoryRepository.Territory territory = borderTarget(player, TerritoryRepository.cachedGuildForPlayer(player));
+        return borderDisplay(player, territory, show);
+    }
+
+    private static TerritoryRepository.Territory borderTarget(ServerPlayer player, TerritoryRepository.Territory fallback) {
+        TerritoryRepository.Territory current = TerritoryRepository.findAt(player.serverLevel(), player.blockPosition());
+        if (current != null && TerritoryRepository.canEnter(player, current)) return current;
+        return fallback;
+    }
+
+    private static int borderDisplay(ServerPlayer player, TerritoryRepository.Territory territory, Boolean show) {
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("No territory found to display.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (show == null) TerritoryBorderDisplayManager.toggle(player, territory);
+        else if (show) TerritoryBorderDisplayManager.show(player, territory);
+        else TerritoryBorderDisplayManager.hide(player);
         return 1;
     }
 
@@ -441,6 +476,7 @@ public final class TerritoryCommand {
         player.sendSystemMessage(Component.literal("/territory set visitorentities true|false - Visitors may interact with entities").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set visitorredstone true|false - Visitors may use redstone/buttons/levers").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set border true|false - Lock players inside the territory border").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("/territory border show|hide - Display or hide a particle outline of the border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory trust|untrust|ban|unban|kick <player> - Manage player access").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory delete - Delete your personal territory and free the packed slot").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/gterritory ban|unban|kick <player> - Guild territory access control").withStyle(ChatFormatting.GRAY));

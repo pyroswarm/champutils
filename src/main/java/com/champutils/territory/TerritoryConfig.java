@@ -80,6 +80,12 @@ public final class TerritoryConfig {
         public int defaultSpawnY = 80;
         public int borderWarningCooldownSeconds = 5;
 
+        /** Physically places invisible minecraft:barrier blocks around locked territories. */
+        public boolean physicalBarrierBorders = true;
+
+        /** How many vertical border columns ChampUtils may build per tick. Lower this if border generation causes lag. */
+        public int barrierColumnsPerTick = 12;
+
         /** Minutes a player/guild must wait after deleting a territory before creating another. */
         public int recreateCooldownMinutes = 30;
 
@@ -89,13 +95,14 @@ public final class TerritoryConfig {
          */
         public boolean requirePregenerationBeforeEntry = false;
 
-        /** Commands are run from console only when the packed territory world is missing/unloaded. */
+        /** Commands are run as an online player command source because Multiworld 1.13.1 requires a player source. */
         public boolean runGenerationCommands = true;
 
         /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world_id} NORMAL"
+                "mw create {world_id} NORMAL -g=NORMAL",
+                "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>();
 
@@ -116,30 +123,28 @@ public final class TerritoryConfig {
             if (gridWidth < 1) gridWidth = slotGridWidth;
             if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
                 worldCreateCommands = new ArrayList<>(List.of(
-                        "mw create {world_id} NORMAL"
+                        "mw create {world_id} NORMAL -g=NORMAL",
+                        "mw load {world_id}"
                 ));
             }
             // Migrate older generated configs to the correct Multiworld 1.13.1 syntax. Multiworld creates by
-            // plain world id (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
-            // A normal overworld does not need -g=NORMAL, and /mw load is not required for newly created worlds.
+            // plain world name (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
             worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                    .replace("mw create {world_key} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
-                    .replace("mw create {world} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
-                    .replace("mw create {world_id} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
-                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL")
-                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=NORMAL")
                     .replace("mw load {world_key}", "mw load {world_id}")
-                    .replace("mw load {world}", "mw load {world_id}"));
-            worldCreateCommands.removeIf(command -> command == null || command.isBlank() || command.toLowerCase().contains(" load "));
-            if (worldCreateCommands.isEmpty()) {
-                worldCreateCommands = new ArrayList<>(List.of("mw create {world_id} NORMAL"));
-            }
+                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw load {world}", "mw load {world_id}")
+                    .replace("multiworld:{world_id}", "{world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
             // Important: Chunky is intentionally not used for territories. Existing configs may still contain
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
             if (borderWarningCooldownSeconds < 1) borderWarningCooldownSeconds = 5;
+            if (barrierColumnsPerTick < 1) barrierColumnsPerTick = 12;
+            if (barrierColumnsPerTick > 128) barrierColumnsPerTick = 128;
             if (recreateCooldownMinutes < 0) recreateCooldownMinutes = 30;
             if (allowedBiomePreferences == null || allowedBiomePreferences.isEmpty()) {
                 allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());

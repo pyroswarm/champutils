@@ -20,10 +20,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class ExplorationWorldManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/exploration_worlds_state.json");
+    private static final Set<String> WORLD_CREATE_REQUESTED_THIS_RUNTIME = new HashSet<>();
     private static State state = new State();
 
     private ExplorationWorldManager() {}
@@ -54,9 +57,14 @@ public final class ExplorationWorldManager {
 
     public static List<Entry> entries() { bootstrapState(); return state.worlds; }
 
+    public static void ensureStartupWorlds(MinecraftServer server) {
+        ensureWorlds(server, true);
+    }
+
     public static void tick(MinecraftServer server) {
         if (server == null || !ExplorationWorldConfig.get().enabled) return;
         if (server.getTickCount() % 10 == 0) enforceBorders(server);
+        if (server.getTickCount() % 200 == 0) ensureWorlds(server, false);
         if (server.getTickCount() % 1200 != 0) return;
         bootstrapState();
         long now = System.currentTimeMillis();
@@ -189,6 +197,56 @@ public final class ExplorationWorldManager {
         return false;
     }
 
+
+    private static void ensureWorlds(MinecraftServer server, boolean forceCheck) {
+        if (server == null || !ExplorationWorldConfig.get().enabled) return;
+        bootstrapState();
+        if (!server.isSameThread()) {
+            server.execute(() -> ensureWorlds(server, forceCheck));
+            return;
+        }
+
+        boolean changed = false;
+        for (Entry entry : state.worlds) {
+            if (entry == null || entry.worldName == null || entry.worldName.isBlank()) continue;
+
+            ServerLevel level = getLevel(server, entry.worldName);
+            if (level != null) {
+                if (entry.status == null || entry.status.isBlank() || "PENDING".equalsIgnoreCase(entry.status)) {
+                    entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
+                    changed = true;
+                }
+                continue;
+            }
+
+            if (!forceCheck && !"PENDING".equalsIgnoreCase(entry.status)) continue;
+            if (!ExplorationWorldConfig.get().runWorldCommands) continue;
+
+            String requestKey = entry.worldName.toLowerCase(Locale.ROOT);
+            if (!WORLD_CREATE_REQUESTED_THIS_RUNTIME.add(requestKey) && !forceCheck) continue;
+
+            System.out.println("[ChampUtils] Exploration world is missing/unloaded. Requesting Multiworld create/load for " + entry.worldName + " (" + entry.worldType + ").");
+            boolean commandsOk = true;
+            for (String command : createCommandsFor(entry)) commandsOk &= run(server, apply(command, entry));
+            if (commandsOk) {
+                entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
+                for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) run(server, apply(command, entry));
+            } else {
+                entry.status = "PENDING";
+            }
+            changed = true;
+        }
+        if (changed) save();
+    }
+
+    private static List<String> createCommandsFor(Entry entry) {
+        String type = normalizeType(entry == null ? null : entry.worldType);
+        ExplorationWorldConfig.Data cfg = ExplorationWorldConfig.get();
+        if ("nether".equals(type)) return cfg.netherCreateCommands;
+        if ("end".equals(type)) return cfg.endCreateCommands;
+        return cfg.createCommands;
+    }
+
     public static void startWipe(MinecraftServer server, Entry entry, boolean forced) {
         if (server == null || entry == null) return;
         if (state.wipeInProgressWorld != null && !state.wipeInProgressWorld.isBlank() && !forced) return;
@@ -209,7 +267,7 @@ public final class ExplorationWorldManager {
         boolean commandsOk = true;
         if (ExplorationWorldConfig.get().runWorldCommands) {
             for (String command : ExplorationWorldConfig.get().deleteCommands) commandsOk &= run(server, apply(command, entry));
-            for (String command : ExplorationWorldConfig.get().createCommands) commandsOk &= run(server, apply(command, entry));
+            for (String command : createCommandsFor(entry)) commandsOk &= run(server, apply(command, entry));
             for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) commandsOk &= run(server, apply(command, entry));
         }
 
@@ -314,9 +372,19 @@ public final class ExplorationWorldManager {
                 .replace("{local_index}", Integer.toString(entry.localIndex));
     }
 
+    private static String sanitizeMultiworldCommand(String clean) {
+        if (clean == null) return "";
+        return clean
+                .replace("mw create multiworld:", "mw create ")
+                .replace("mw load multiworld:", "mw load ")
+                .replace("mw unload multiworld:", "mw unload ")
+                .replace("mw delete multiworld:", "mw delete ");
+    }
+
     private static boolean run(MinecraftServer server, String command) {
         if (server == null || command == null || command.isBlank()) return true;
         String clean = command.startsWith("/") ? command.substring(1) : command;
+        clean = sanitizeMultiworldCommand(clean);
         try {
             server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4).withSuppressedOutput(), clean);
             System.out.println("[ChampUtils] Ran exploration world command: /" + clean);
