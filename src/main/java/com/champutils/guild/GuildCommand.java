@@ -8,7 +8,14 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public final class GuildCommand {
+
+    private static final long CONFIRM_MS = 60_000L;
+    private static final Map<UUID, PendingGuildAction> PENDING_ACTIONS = new ConcurrentHashMap<>();
 
     private GuildCommand() {
     }
@@ -64,6 +71,22 @@ public final class GuildCommand {
                                             context.getSource().getPlayerOrException(),
                                             EntityArgument.getPlayer(context, "player")
                                     ))))
+                    .then(Commands.literal("transfer")
+                            .then(Commands.literal("confirm")
+                                    .executes(context -> confirmTransfer(context.getSource().getPlayerOrException())))
+                            .then(Commands.literal("cancel")
+                                    .executes(context -> cancelPending(context.getSource().getPlayerOrException())))
+                            .then(Commands.argument("player", EntityArgument.player())
+                                    .executes(context -> requestTransfer(
+                                            context.getSource().getPlayerOrException(),
+                                            EntityArgument.getPlayer(context, "player")
+                                    ))))
+                    .then(Commands.literal("disband")
+                            .executes(context -> requestDisband(context.getSource().getPlayerOrException()))
+                            .then(Commands.literal("confirm")
+                                    .executes(context -> confirmDisband(context.getSource().getPlayerOrException())))
+                            .then(Commands.literal("cancel")
+                                    .executes(context -> cancelPending(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("chat")
                             .then(Commands.argument("message", StringArgumentType.greedyString())
                                     .executes(context -> guildChat(
@@ -207,6 +230,128 @@ public final class GuildCommand {
         return 1;
     }
 
+    private static int requestTransfer(ServerPlayer actor, ServerPlayer target) {
+        if (!databaseReady(actor)) {
+            return 0;
+        }
+
+        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(actor.getUUID());
+        if (guild == null) {
+            actor.sendSystemMessage(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (guild.role != GuildRepository.Role.LEADER) {
+            actor.sendSystemMessage(Component.literal("Only guild owners can transfer guild ownership.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (actor.getUUID().equals(target.getUUID())) {
+            actor.sendSystemMessage(Component.literal("You already own this guild.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        GuildRepository.GuildSnapshot targetGuild = GuildRepository.cachedGuild(target.getUUID());
+        if (targetGuild == null || !guild.id.equals(targetGuild.id)) {
+            actor.sendSystemMessage(Component.literal(target.getGameProfile().getName() + " is not in your guild.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (targetGuild.role == GuildRepository.Role.LEADER) {
+            actor.sendSystemMessage(Component.literal(target.getGameProfile().getName() + " is already the guild owner.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
+        PendingGuildAction pending = PendingGuildAction.transfer(guild.id, target.getUUID(), target.getGameProfile().getName());
+        PENDING_ACTIONS.put(actor.getUUID(), pending);
+        actor.sendSystemMessage(Component.literal("You are about to transfer ownership of " + guild.name + " to " + pending.targetName + ".").withStyle(ChatFormatting.GOLD));
+        actor.sendSystemMessage(Component.literal("This will make you an OFFICER and make " + pending.targetName + " the guild owner.").withStyle(ChatFormatting.YELLOW));
+        actor.sendSystemMessage(Component.literal("Run /guild transfer confirm within 60 seconds to confirm, or /guild transfer cancel to cancel.").withStyle(ChatFormatting.RED));
+        return 1;
+    }
+
+    private static int confirmTransfer(ServerPlayer actor) {
+        if (!databaseReady(actor)) {
+            return 0;
+        }
+        PendingGuildAction pending = pending(actor, PendingType.TRANSFER);
+        if (pending == null) {
+            actor.sendSystemMessage(Component.literal("You do not have a guild transfer waiting for confirmation.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
+        GuildRepository.transferOwnership(actor.getUUID(), pending.guildId, pending.targetUuid, pending.targetName, (success, message) ->
+                actor.server.execute(() -> {
+                    actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    if (success) {
+                        ServerPlayer target = actor.server.getPlayerList().getPlayer(pending.targetUuid);
+                        if (target != null) {
+                            target.sendSystemMessage(Component.literal("You are now the owner of your guild.").withStyle(ChatFormatting.GOLD));
+                        }
+                    }
+                })
+        );
+        return 1;
+    }
+
+    private static int requestDisband(ServerPlayer actor) {
+        if (!databaseReady(actor)) {
+            return 0;
+        }
+
+        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(actor.getUUID());
+        if (guild == null) {
+            actor.sendSystemMessage(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (guild.role != GuildRepository.Role.LEADER) {
+            actor.sendSystemMessage(Component.literal("Only guild owners can disband a guild.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        PENDING_ACTIONS.put(actor.getUUID(), PendingGuildAction.disband(guild.id, guild.name));
+        actor.sendSystemMessage(Component.literal("You are about to permanently disband " + guild.name + ".").withStyle(ChatFormatting.RED));
+        actor.sendSystemMessage(Component.literal("This removes the guild, members, invites, and its guild territory slot.").withStyle(ChatFormatting.YELLOW));
+        actor.sendSystemMessage(Component.literal("Run /guild disband confirm within 60 seconds to confirm, or /guild disband cancel to cancel.").withStyle(ChatFormatting.RED));
+        return 1;
+    }
+
+    private static int confirmDisband(ServerPlayer actor) {
+        if (!databaseReady(actor)) {
+            return 0;
+        }
+        PendingGuildAction pending = pending(actor, PendingType.DISBAND);
+        if (pending == null) {
+            actor.sendSystemMessage(Component.literal("You do not have a guild disband waiting for confirmation.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
+        GuildRepository.disbandGuild(actor.getUUID(), pending.guildId, pending.guildName, (success, message) ->
+                actor.server.execute(() -> actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED)))
+        );
+        return 1;
+    }
+
+    private static int cancelPending(ServerPlayer actor) {
+        PendingGuildAction removed = PENDING_ACTIONS.remove(actor.getUUID());
+        if (removed == null) {
+            actor.sendSystemMessage(Component.literal("You do not have a guild action waiting for confirmation.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        actor.sendSystemMessage(Component.literal("Canceled pending guild action.").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+    private static PendingGuildAction pending(ServerPlayer actor, PendingType type) {
+        PendingGuildAction pending = PENDING_ACTIONS.get(actor.getUUID());
+        if (pending == null || pending.type != type) {
+            return null;
+        }
+        if (pending.expiresAtMillis < System.currentTimeMillis()) {
+            PENDING_ACTIONS.remove(actor.getUUID());
+            actor.sendSystemMessage(Component.literal("That guild confirmation expired. Run the command again if you still want to do it.").withStyle(ChatFormatting.YELLOW));
+            return null;
+        }
+        PENDING_ACTIONS.remove(actor.getUUID());
+        return pending;
+    }
+
     private static int guildChat(ServerPlayer player, String message) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
         if (guild == null) {
@@ -294,5 +439,37 @@ public final class GuildCommand {
             return false;
         }
         return true;
+    }
+
+
+    private enum PendingType {
+        TRANSFER,
+        DISBAND
+    }
+
+    private static final class PendingGuildAction {
+        private final PendingType type;
+        private final UUID guildId;
+        private final UUID targetUuid;
+        private final String targetName;
+        private final String guildName;
+        private final long expiresAtMillis;
+
+        private PendingGuildAction(PendingType type, UUID guildId, UUID targetUuid, String targetName, String guildName) {
+            this.type = type;
+            this.guildId = guildId;
+            this.targetUuid = targetUuid;
+            this.targetName = targetName;
+            this.guildName = guildName;
+            this.expiresAtMillis = System.currentTimeMillis() + CONFIRM_MS;
+        }
+
+        private static PendingGuildAction transfer(UUID guildId, UUID targetUuid, String targetName) {
+            return new PendingGuildAction(PendingType.TRANSFER, guildId, targetUuid, targetName, null);
+        }
+
+        private static PendingGuildAction disband(UUID guildId, String guildName) {
+            return new PendingGuildAction(PendingType.DISBAND, guildId, null, null, guildName);
+        }
     }
 }

@@ -104,11 +104,7 @@ public final class TeleportConfig {
             return false;
         }
 
-        player.teleportTo(level, location.x, location.y, location.z, location.yaw, location.pitch);
-        player.setYRot(location.yaw);
-        player.setYHeadRot(location.yaw);
-        player.setXRot(location.pitch);
-        return true;
+        return SafeTeleportManager.teleport(player, level, location.x, location.y, location.z, location.yaw, location.pitch);
     }
 
     public static TeleportLocation getSpawn() {

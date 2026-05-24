@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.badge.BadgeUnlockManager;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -65,7 +66,8 @@ public class EliteFourCommand {
  TELEPORT
 ========================= */
 
-                                        player.teleportTo(
+                                        SafeTeleportManager.teleport(
+                                                player,
                                                 player.serverLevel(),
                                                 ELITE_WARP.getX()+0.5,
                                                 ELITE_WARP.getY(),

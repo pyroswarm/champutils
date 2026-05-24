@@ -1,5 +1,7 @@
 package com.champutils.specialspawn;
 
+import com.champutils.exploration.ExplorationWorldManager;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.commands.CommandSourceStack;
@@ -57,7 +59,7 @@ public final class SpecialWildSpawnManager {
         if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
-        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()));
+        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()) || !ExplorationWorldManager.isOverworldGameplayLevel(p.serverLevel()));
         if (players.isEmpty()) return;
 
         double chance = currentGlobalChancePerCheck(intervalTicks);

@@ -80,38 +80,29 @@ public final class TerritoryConfig {
         public int defaultSpawnY = 80;
         public int borderWarningCooldownSeconds = 5;
 
-        /**
-         * If true, players cannot teleport into a newly allocated territory until an op marks it ready.
-         * This prevents players entering terrain before Chunky finishes.
-         */
-        public boolean requirePregenerationBeforeEntry = true;
+        /** Minutes a player/guild must wait after deleting a territory before creating another. */
+        public int recreateCooldownMinutes = 30;
 
-        /** Commands are run from console after a new territory is allocated. */
+        /**
+         * Territories no longer wait on Chunky pregeneration. New territories are marked READY once the
+         * packed territory world has been requested/loaded through Multiworld.
+         */
+        public boolean requirePregenerationBeforeEntry = false;
+
+        /** Commands are run from console only when the packed territory world is missing/unloaded. */
         public boolean runGenerationCommands = true;
 
-        /**
-         * When true, territory creation no longer requires an OP to run /territory admin ready.
-         * Chunky/Multiworld commands are still requested, but the territory becomes enterable immediately.
-         */
+        /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world}",
-                "mw load {world}"
+                "mw create {world_id} NORMAL"
         ));
-        public List<String> chunkyPregenerationCommands = new ArrayList<>(List.of(
-                "chunky world {world}",
-                "chunky center {center_x} {center_z}",
-                "chunky radius {radius}",
-                "chunky start"
-        ));
+        public List<String> chunkyPregenerationCommands = new ArrayList<>();
 
         /** If true, /territory create uses the player's current dimension instead of packed territory worlds. */
         public boolean createPersonalInCurrentWorld = false;
 
-        public List<String> allowedBiomePreferences = new ArrayList<>(List.of(
-                "plains", "forest", "taiga", "snowy", "desert", "jungle", "savanna",
-                "cherry_grove", "badlands", "swamp", "mountains"
-        ));
+        public List<String> allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());
 
         private Data withDefaults() {
             if (personalWorldPrefix == null || personalWorldPrefix.isBlank()) personalWorldPrefix = "multiworld:territories";
@@ -123,14 +114,62 @@ public final class TerritoryConfig {
             if (defaultRadius < 64) defaultRadius = 500;
             if (centerSpacing < (defaultRadius * 2 + 1000)) centerSpacing = defaultRadius * 2 + 4000;
             if (gridWidth < 1) gridWidth = slotGridWidth;
-            if (worldCreateCommands == null) worldCreateCommands = new ArrayList<>();
+            if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
+                worldCreateCommands = new ArrayList<>(List.of(
+                        "mw create {world_id} NORMAL"
+                ));
+            }
+            // Migrate older generated configs to the correct Multiworld 1.13.1 syntax. Multiworld creates by
+            // plain world id (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
+            // A normal overworld does not need -g=NORMAL, and /mw load is not required for newly created worlds.
+            worldCreateCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("mw create {world_key} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw create {world} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw create {world_id} NORMAL -g=NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL")
+                    .replace("mw load {world_key}", "mw load {world_id}")
+                    .replace("mw load {world}", "mw load {world_id}"));
+            worldCreateCommands.removeIf(command -> command == null || command.isBlank() || command.toLowerCase().contains(" load "));
+            if (worldCreateCommands.isEmpty()) {
+                worldCreateCommands = new ArrayList<>(List.of("mw create {world_id} NORMAL"));
+            }
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
+            // Important: Chunky is intentionally not used for territories. Existing configs may still contain
+            // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
+            chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
             if (borderWarningCooldownSeconds < 1) borderWarningCooldownSeconds = 5;
+            if (recreateCooldownMinutes < 0) recreateCooldownMinutes = 30;
             if (allowedBiomePreferences == null || allowedBiomePreferences.isEmpty()) {
-                allowedBiomePreferences = new ArrayList<>(List.of("plains", "forest", "taiga", "snowy", "desert", "jungle", "savanna", "cherry_grove", "badlands", "swamp", "mountains"));
+                allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());
+            } else {
+                allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());
             }
             return this;
         }
     }
+
+    public static void setRecreateCooldownMinutes(int minutes) {
+        data.withDefaults().recreateCooldownMinutes = Math.max(0, minutes);
+        save();
+    }
+
+    public static List<String> defaultOverworldBiomes() {
+        return List.of(
+                "badlands", "bamboo_jungle", "beach", "birch_forest", "cherry_grove",
+                "cold_ocean", "dark_forest", "deep_cold_ocean", "deep_dark", "deep_frozen_ocean",
+                "deep_lukewarm_ocean", "deep_ocean", "desert", "dripstone_caves", "eroded_badlands",
+                "flower_forest", "forest", "frozen_ocean", "frozen_peaks", "frozen_river",
+                "grove", "ice_spikes", "jagged_peaks", "jungle", "lukewarm_ocean",
+                "lush_caves", "mangrove_swamp", "meadow", "mushroom_fields", "ocean",
+                "old_growth_birch_forest", "old_growth_pine_taiga", "old_growth_spruce_taiga",
+                "plains", "river", "savanna", "savanna_plateau", "snowy_beach",
+                "snowy_plains", "snowy_slopes", "snowy_taiga", "sparse_jungle", "stony_peaks",
+                "stony_shore", "sunflower_plains", "swamp", "taiga", "warm_ocean",
+                "windswept_forest", "windswept_gravelly_hills", "windswept_hills",
+                "windswept_savanna", "wooded_badlands"
+        );
+    }
 }
+

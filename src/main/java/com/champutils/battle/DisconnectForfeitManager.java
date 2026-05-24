@@ -1,5 +1,6 @@
 package com.champutils.battle;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.matchmaking.MatchmakingManager;
 
 import net.minecraft.core.BlockPos;
@@ -235,7 +236,8 @@ Return to original location
                     targetLevel!=null
             ){
 
-                player.teleportTo(
+                SafeTeleportManager.teleportUncheckedNoBack(
+                        player,
                         targetLevel,
                         saved.pos.getX()+0.5,
                         saved.pos.getY(),
@@ -258,7 +260,8 @@ spawn if original location unavailable
             BlockPos spawn=
                     overworld.getSharedSpawnPos();
 
-            player.teleportTo(
+            SafeTeleportManager.teleportUncheckedNoBack(
+                    player,
                     overworld,
                     spawn.getX()+0.5,
                     spawn.getY(),

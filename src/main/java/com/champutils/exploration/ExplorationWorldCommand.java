@@ -26,14 +26,8 @@ public final class ExplorationWorldCommand {
                         .then(Commands.literal("go")
                                 .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> go(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "world")))))
-                        .then(Commands.literal("nether")
-                                .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
-                                        .executes(context -> goType(context.getSource().getPlayerOrException(), "nether", IntegerArgumentType.getInteger(context, "world")))))
-                        .then(Commands.literal("end")
-                                .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
-                                        .executes(context -> goType(context.getSource().getPlayerOrException(), "end", IntegerArgumentType.getInteger(context, "world")))))
                         .then(Commands.literal("ready")
-                                .then(Commands.argument("world", StringArgumentType.word())
+                                .then(Commands.argument("world", StringArgumentType.greedyString())
                                         .executes(context -> ready(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "world")))))
                         .then(Commands.literal("wipe")
                                 .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
@@ -45,8 +39,7 @@ public final class ExplorationWorldCommand {
         for (ExplorationWorldManager.Entry entry : ExplorationWorldManager.entries()) {
             player.sendSystemMessage(Component.literal("#" + entry.index + " [" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status + " - next wipe: " + TIME.format(Instant.ofEpochMilli(entry.nextWipeAtMillis))).withStyle("READY".equalsIgnoreCase(entry.status) ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         }
-        player.sendSystemMessage(Component.literal("Player travel: /rtp exploration, /rtp nether, or /rtp end.").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("Admin travel/status controls are under /exploration admin.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Player travel: /rtp exploration, /rtp nether, /rtp end. Admin: /exploration admin ready <world>, /exploration admin wipe <number>.").withStyle(ChatFormatting.GRAY));
         return 1;
     }
 

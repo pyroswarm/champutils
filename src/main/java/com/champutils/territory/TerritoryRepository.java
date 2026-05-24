@@ -3,12 +3,14 @@ package com.champutils.territory;
 import com.champutils.database.DatabaseManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Types;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -159,6 +161,15 @@ public final class TerritoryRepository {
     public static Territory cachedForOwner(OwnerType ownerType, String ownerId) {
         UUID territoryId = OWNER_INDEX.get(ownerKey(ownerType, ownerId));
         return territoryId == null ? null : TERRITORIES.get(territoryId);
+    }
+
+    public static void removeCachedForOwner(OwnerType ownerType, String ownerId) {
+        UUID territoryId = OWNER_INDEX.remove(ownerKey(ownerType, ownerId));
+        if (territoryId == null) {
+            return;
+        }
+        TERRITORIES.remove(territoryId);
+        TRUST.keySet().removeIf(key -> key.startsWith(territoryId.toString() + ":"));
     }
 
     public static Territory cachedPersonal(ServerPlayer player) {
@@ -312,24 +323,36 @@ public final class TerritoryRepository {
         UUID ownerUuid = player.getUUID();
         String ownerId = ownerUuid.toString();
         if (cachedForOwner(OwnerType.PLAYER, ownerId) != null) { callback.done(false, "You already have a territory."); return; }
+        if (biomePreference != null && !biomePreference.isBlank() && cleanBiomePreference(biomePreference) == null) { callback.done(false, "Invalid biome. Press TAB after /territory create to choose an overworld biome."); return; }
 
-        TerritoryConfig.Data cfg = TerritoryConfig.get();
-        String worldName = cfg.createPersonalInCurrentWorld ? player.serverLevel().dimension().location().toString() : null;
-        Territory territory = allocate(OwnerType.PLAYER, ownerId, player.getGameProfile().getName(), worldName, biomePreference);
-        save(territory, (success, message) -> {
-            if (success) TerritoryWorldGenerationManager.requestGeneration(player.server, territory);
-            callback.done(success, success ? "Territory created. " + generationMessage(territory) : message);
+        checkRecreateCooldown(OwnerType.PLAYER, ownerId, (allowed, remainingMessage) -> {
+            if (!allowed) { callback.done(false, remainingMessage); return; }
+            TerritoryConfig.Data cfg = TerritoryConfig.get();
+            String worldName = cfg.createPersonalInCurrentWorld ? player.serverLevel().dimension().location().toString() : null;
+            Territory territory = allocate(OwnerType.PLAYER, ownerId, player.getGameProfile().getName(), worldName, biomePreference);
+            save(territory, (success, message) -> {
+                if (success) TerritoryWorldGenerationManager.requestGeneration(player.server, player, territory);
+                callback.done(success, success ? "Territory created. " + generationMessage(territory) : message);
+            });
         });
     }
 
     public static void ensureGuildTerritory(UUID guildId, String guildName, String biomePreference, Callback callback) {
+        ensureGuildTerritory(null, guildId, guildName, biomePreference, callback);
+    }
+
+    public static void ensureGuildTerritory(MinecraftServer server, UUID guildId, String guildName, String biomePreference, Callback callback) {
         if (guildId == null) { callback.done(false, "Invalid guild territory."); return; }
         String ownerId = guildId.toString();
         if (cachedForOwner(OwnerType.GUILD, ownerId) != null) { callback.done(true, "Guild territory already exists."); return; }
-        Territory territory = allocate(OwnerType.GUILD, ownerId, guildName == null ? "Guild" : guildName, null, biomePreference);
-        save(territory, (success, message) -> {
-            if (success) TerritoryWorldGenerationManager.requestGeneration(null, territory);
-            callback.done(success, success ? "Guild territory created. " + generationMessage(territory) : message);
+        if (biomePreference != null && !biomePreference.isBlank() && cleanBiomePreference(biomePreference) == null) { callback.done(false, "Invalid biome. Press TAB after /gterritory create to choose an overworld biome."); return; }
+        checkRecreateCooldown(OwnerType.GUILD, ownerId, (allowed, remainingMessage) -> {
+            if (!allowed) { callback.done(false, remainingMessage); return; }
+            Territory territory = allocate(OwnerType.GUILD, ownerId, guildName == null ? "Guild" : guildName, null, biomePreference);
+            save(territory, (success, message) -> {
+                if (success) TerritoryWorldGenerationManager.requestGeneration(server, territory);
+                callback.done(success, success ? "Guild territory created. " + generationMessage(territory) : message);
+            });
         });
     }
 
@@ -369,7 +392,7 @@ public final class TerritoryRepository {
         String clean = cleanBiomePreference(biomePreference);
         if (clean == null) { callback.done(false, "Invalid biome preference."); return; }
         territory.biomePreference = clean;
-        save(territory, (success, message) -> callback.done(success, success ? "Biome preference set to " + clean + ". New generation will use this when the territory is assigned/generated." : message));
+        save(territory, (success, message) -> callback.done(success, success ? "Biome preference set to " + prettyBiome(clean) + ". New generation will use this when the territory is assigned/generated." : message));
     }
 
     private static Territory allocate(OwnerType ownerType, String ownerId, String ownerName, String forcedWorldName, String biomePreference) {
@@ -396,7 +419,7 @@ public final class TerritoryRepository {
         territory.worldName = worldName;
         territory.worldKey = worldName;
         territory.slotIndex = slotInWorld;
-        territory.generationState = cfg.requirePregenerationBeforeEntry ? "PENDING" : "READY";
+        territory.generationState = cfg.runGenerationCommands ? "PENDING" : "READY";
         territory.centerX = centerX;
         territory.centerZ = centerZ;
         territory.radius = radius;
@@ -443,7 +466,7 @@ public final class TerritoryRepository {
 
     private static String generationMessage(Territory territory) {
         if (territory.isReady()) return "It is ready to enter.";
-        return "Chunky pregeneration was requested. An op must use /territory admin ready " + territory.id + " after Chunky finishes before players can enter.";
+        return "The packed Multiworld territory world is being created/loaded. Try /territory home shortly. No Chunky pregeneration is required.";
     }
 
     public static void markReady(UUID territoryId, Callback callback) {
@@ -456,6 +479,13 @@ public final class TerritoryRepository {
     public static void deleteTerritory(Territory territory, Callback callback) {
         if (territory == null) { callback.done(false, "No territory found."); return; }
         DatabaseManager.executeAsync("delete territory " + territory.id, connection -> {
+            try (PreparedStatement cooldown = connection.prepareStatement(
+                    "insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now()) " +
+                            "on conflict (owner_type, owner_id) do update set deleted_at = now()")) {
+                cooldown.setString(1, territory.ownerType.name());
+                cooldown.setString(2, territory.ownerId);
+                cooldown.executeUpdate();
+            }
             try (PreparedStatement statement = connection.prepareStatement("delete from territories where id = ?")) {
                 statement.setObject(1, territory.id);
                 statement.executeUpdate();
@@ -463,7 +493,8 @@ public final class TerritoryRepository {
             TERRITORIES.remove(territory.id);
             OWNER_INDEX.remove(ownerKey(territory.ownerType, territory.ownerId));
             TRUST.keySet().removeIf(key -> key.startsWith(territory.id.toString() + ":"));
-            callback.done(true, "Territory deleted. Its packed slot is now open for the next new territory.");
+            int minutes = TerritoryConfig.get().recreateCooldownMinutes;
+            callback.done(true, "Territory deleted. Its packed slot is now open. You must wait " + minutes + " minute" + (minutes == 1 ? "" : "s") + " before creating another.");
         });
     }
 
@@ -592,11 +623,53 @@ public final class TerritoryRepository {
 
     public static String cleanBiomePreference(String raw) {
         if (raw == null || raw.isBlank()) return null;
-        String clean = raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        String clean = raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_').replace("minecraft:", "");
         for (String allowed : TerritoryConfig.get().allowedBiomePreferences) {
             if (allowed.equalsIgnoreCase(clean)) return allowed.toLowerCase(Locale.ROOT);
         }
-        return clean;
+        return null;
+    }
+
+    public static List<String> biomeSuggestions() {
+        List<String> suggestions = new ArrayList<>();
+        for (String biome : TerritoryConfig.get().allowedBiomePreferences) {
+            suggestions.add(prettyBiome(biome));
+        }
+        suggestions.sort(String.CASE_INSENSITIVE_ORDER);
+        return suggestions;
+    }
+
+    public static String prettyBiome(String raw) {
+        if (raw == null || raw.isBlank()) return "Any";
+        String clean = raw.trim().replace("minecraft:", "").replace('_', ' ');
+        StringBuilder out = new StringBuilder();
+        for (String part : clean.split(" ")) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return out.toString();
+    }
+
+    private static void checkRecreateCooldown(OwnerType ownerType, String ownerId, CooldownCallback callback) {
+        int minutes = TerritoryConfig.get().recreateCooldownMinutes;
+        if (minutes <= 0 || !DatabaseManager.isEnabled()) { callback.done(true, ""); return; }
+        DatabaseManager.executeAsync("check territory recreate cooldown", connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "select extract(epoch from (now() - deleted_at))::bigint as elapsed_seconds from territory_delete_cooldowns where owner_type = ? and owner_id = ?")) {
+                statement.setString(1, ownerType.name());
+                statement.setString(2, ownerId);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (!rs.next()) { callback.done(true, ""); return; }
+                    long elapsedSeconds = Math.max(0L, rs.getLong("elapsed_seconds"));
+                    long cooldownSeconds = Duration.ofMinutes(minutes).getSeconds();
+                    if (elapsedSeconds >= cooldownSeconds) { callback.done(true, ""); return; }
+                    long remaining = cooldownSeconds - elapsedSeconds;
+                    long remMinutes = Math.max(1L, (remaining + 59L) / 60L);
+                    callback.done(false, "You must wait " + remMinutes + " more minute" + (remMinutes == 1 ? "" : "s") + " before creating another " + (ownerType == OwnerType.GUILD ? "guild territory" : "territory") + ".");
+                }
+            }
+        });
     }
 
     private static String ownerKey(OwnerType ownerType, String ownerId) { return ownerType.name() + ":" + ownerId; }
@@ -604,4 +677,7 @@ public final class TerritoryRepository {
 
     @FunctionalInterface
     public interface Callback { void done(boolean success, String message); }
+
+    @FunctionalInterface
+    private interface CooldownCallback { void done(boolean allowed, String message); }
 }

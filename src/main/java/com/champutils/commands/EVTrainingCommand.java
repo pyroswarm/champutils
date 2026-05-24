@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.badge.BadgeUnlockManager;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -65,10 +66,14 @@ public class EVTrainingCommand {
  WARP PLAYER
 ========================= */
 
-                                        player.teleportTo(
+                                        SafeTeleportManager.teleport(
+                                                player,
+                                                player.serverLevel(),
                                                 EV_WARP.getX() + 0.5,
                                                 EV_WARP.getY(),
-                                                EV_WARP.getZ() + 0.5
+                                                EV_WARP.getZ() + 0.5,
+                                                player.getYRot(),
+                                                player.getXRot()
                                         );
 
 

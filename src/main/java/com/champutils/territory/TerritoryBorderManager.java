@@ -1,5 +1,6 @@
 package com.champutils.territory;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -65,7 +66,7 @@ public final class TerritoryBorderManager {
     private static void teleportToOwnTerritory(ServerPlayer player) {
         TerritoryRepository.Territory own = preferredHomeTerritory(player);
         if (own != null && TerritoryTeleportUtil.teleportHome(player, own)) return;
-        player.teleportTo(player.server.overworld(), player.server.overworld().getSharedSpawnPos().getX() + 0.5D, player.server.overworld().getSharedSpawnPos().getY(), player.server.overworld().getSharedSpawnPos().getZ() + 0.5D, player.getYRot(), player.getXRot());
+        SafeTeleportManager.teleportUncheckedNoBack(player, player.server.overworld(), player.server.overworld().getSharedSpawnPos().getX() + 0.5D, player.server.overworld().getSharedSpawnPos().getY(), player.server.overworld().getSharedSpawnPos().getZ() + 0.5D, player.getYRot(), player.getXRot());
     }
 
     private static void sendWarn(ServerPlayer player, String message) {

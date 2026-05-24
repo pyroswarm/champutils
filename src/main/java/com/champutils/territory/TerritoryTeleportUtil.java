@@ -1,5 +1,6 @@
 package com.champutils.territory;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -16,8 +17,7 @@ public final class TerritoryTeleportUtil {
         ServerLevel level = resolveLevel(player.server, territory.worldName);
         if (level == null) return false;
         double y = safeY(level, territory.spawnX, territory.spawnY, territory.spawnZ);
-        player.teleportTo(level, territory.spawnX, y, territory.spawnZ, territory.spawnYaw, territory.spawnPitch);
-        return true;
+        return SafeTeleportManager.teleport(player, level, territory.spawnX, y, territory.spawnZ, territory.spawnYaw, territory.spawnPitch);
     }
 
     public static boolean teleportInside(ServerPlayer player, TerritoryRepository.Territory territory) {
@@ -27,8 +27,7 @@ public final class TerritoryTeleportUtil {
         double x = Math.max(territory.minX + 2.5D, Math.min(territory.maxX - 2.5D, player.getX()));
         double z = Math.max(territory.minZ + 2.5D, Math.min(territory.maxZ - 2.5D, player.getZ()));
         double y = safeY(level, x, player.getY(), z);
-        player.teleportTo(level, x, y, z, player.getYRot(), player.getXRot());
-        return true;
+        return SafeTeleportManager.teleportNoBack(player, level, x, y, z, player.getYRot(), player.getXRot());
     }
 
     public static ServerLevel resolveLevel(MinecraftServer server, String worldName) {

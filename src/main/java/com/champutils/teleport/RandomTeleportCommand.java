@@ -1,5 +1,6 @@
 package com.champutils.teleport;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.exploration.ExplorationWorldConfig;
 import com.champutils.exploration.ExplorationWorldManager;
 
@@ -50,9 +51,6 @@ public final class RandomTeleportCommand {
                     .executes(ctx -> rtpUsage(ctx.getSource()))
                     .then(literal("exploration")
                             .executes(ctx -> rtp(ctx.getSource(), "overworld")))
-                    .then(literal("overworld")
-                            .requires(source -> source.hasPermission(4))
-                            .executes(ctx -> rtp(ctx.getSource(), "overworld")))
                     .then(literal("nether")
                             .executes(ctx -> rtp(ctx.getSource(), "nether")))
                     .then(literal("end")
@@ -81,11 +79,11 @@ public final class RandomTeleportCommand {
     }
 
     private static int rtpUsage(CommandSourceStack source) {
-        source.sendFailure(Component.literal("Usage: /rtp exploration, /rtp nether, or /rtp end"));
+        source.sendFailure(Component.literal("Usage: /rtp exploration, /rtp nether, or /rtp end."));
         return 0;
     }
 
-    private static int rtp(CommandSourceStack source, String requestedType) {
+    private static int rtp(CommandSourceStack source, String explorationType) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
@@ -113,11 +111,11 @@ public final class RandomTeleportCommand {
         ServerLevel startLevel = player.serverLevel();
         String currentDimension = startLevel.dimension().location().toString();
 
-        String targetType = ExplorationWorldManager.normalizeType(requestedType);
-        ExplorationWorldManager.RtpTarget explorationTarget = ExplorationWorldManager.pickRtpTarget(player.server, targetType);
+        String normalizedType = ExplorationWorldManager.normalizeType(explorationType);
+        ExplorationWorldManager.RtpTarget explorationTarget = ExplorationWorldManager.pickRtpTarget(player.server, normalizedType);
         if (explorationTarget == null || explorationTarget.level == null || explorationTarget.entry == null) {
-            player.sendSystemMessage(Component.literal("No " + displayType(targetType) + " exploration world is currently safe for RTP. Try again after pregeneration finishes or after the next wipe completes.").withStyle(ChatFormatting.RED));
-            player.sendSystemMessage(Component.literal("RTP only uses READY exploration worlds of that type that are loaded and not close to wiping.").withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("No " + normalizedType + " exploration world is currently safe for RTP. Try again after pregeneration finishes or after the next wipe completes.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("RTP only uses READY exploration worlds that are loaded and not close to wiping.").withStyle(ChatFormatting.GRAY));
             return 0;
         }
 
@@ -139,9 +137,9 @@ public final class RandomTeleportCommand {
         }
 
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, targetType));
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType));
 
-        player.sendSystemMessage(Component.literal("Searching for a random safe " + displayType(targetType) + " exploration location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " exploration RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
         player.sendSystemMessage(Component.literal("Target exploration world: " + explorationTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
@@ -191,14 +189,17 @@ public final class RandomTeleportCommand {
                 continue;
             }
 
-            BlockPos safe = "nether".equalsIgnoreCase(task.targetType)
-                    ? findNetherSafePosition(level, border, x, z)
+            BlockPos feet = "nether".equalsIgnoreCase(task.explorationType)
+                    ? findNetherSafePosition(level, x, z)
                     : findSurfaceSafePosition(level, border, x, z);
-            if (safe != null) return safe;
+
+            if (feet == null) continue;
+            return feet;
         }
 
         return null;
     }
+
 
     private static BlockPos findSurfaceSafePosition(ServerLevel level, WorldBorder border, int x, int z) {
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
@@ -213,25 +214,21 @@ public final class RandomTeleportCommand {
         return feet;
     }
 
-    private static BlockPos findNetherSafePosition(ServerLevel level, WorldBorder border, int x, int z) {
-        int minY = Math.max(level.getMinBuildHeight() + 8, 8);
-        int maxY = Math.min(level.getMaxBuildHeight() - 8, 120);
-        if (minY >= maxY) return null;
+    private static BlockPos findNetherSafePosition(ServerLevel level, int x, int z) {
+        int minY = Math.max(level.getMinBuildHeight() + 2, 8);
+        int maxY = Math.min(level.getMaxBuildHeight() - 3, 120);
 
-        for (int verticalAttempt = 0; verticalAttempt < 24; verticalAttempt++) {
-            int startY = randomBetween(minY, maxY);
-            for (int y = startY; y >= minY; y--) {
-                BlockPos feet = new BlockPos(x, y, z);
-                BlockPos ground = feet.below();
-                BlockPos head = feet.above();
+        for (int y = maxY; y >= minY; y--) {
+            BlockPos feet = new BlockPos(x, y, z);
+            BlockPos head = feet.above();
+            BlockPos ground = feet.below();
 
-                if (!border.isWithinBounds(feet)) continue;
-                if (!hasRoomForPlayer(level, feet, head)) continue;
-                if (!hasSafeLanding(level, feet, ground)) continue;
-                if (level.getBlockState(ground).is(Blocks.BEDROCK)) continue;
-                return feet;
-            }
+            if (!hasRoomForPlayer(level, feet, head)) continue;
+            if (!hasSafeLanding(level, feet, ground)) continue;
+            if (level.getFluidState(feet).is(FluidTags.LAVA) || level.getFluidState(head).is(FluidTags.LAVA)) continue;
+            return feet;
         }
+
         return null;
     }
 
@@ -325,13 +322,6 @@ public final class RandomTeleportCommand {
         return 1;
     }
 
-    private static String displayType(String targetType) {
-        if ("overworld".equalsIgnoreCase(targetType)) return "overworld";
-        if ("nether".equalsIgnoreCase(targetType)) return "nether";
-        if ("end".equalsIgnoreCase(targetType)) return "end";
-        return targetType == null ? "exploration" : targetType;
-    }
-
     private static boolean isSpawnHubDimension(String dimension) {
         if (dimension == null) return false;
 
@@ -349,17 +339,17 @@ public final class RandomTeleportCommand {
         private final SearchBounds bounds;
         private final double startX;
         private final double startZ;
-        private final String targetType;
+        private final String explorationType;
         private int attempts = 0;
         private int ticks = 0;
 
-        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String targetType) {
+        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String explorationType) {
             this.playerId = playerId;
             this.level = level;
             this.bounds = bounds;
             this.startX = startX;
             this.startZ = startZ;
-            this.targetType = targetType;
+            this.explorationType = explorationType;
         }
 
         private boolean tick(ServerPlayer player) {
@@ -373,7 +363,7 @@ public final class RandomTeleportCommand {
                 return false;
             }
 
-            player.teleportTo(level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleport(player, level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
             player.sendSystemMessage(Component.literal("Teleported to a random safe location after checking " + attempts + " spots.").withStyle(ChatFormatting.GREEN));
             return true;
         }

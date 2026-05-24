@@ -1,6 +1,7 @@
 package com.champutils.matchmaking;
 
 import com.champutils.config.Config;
+import com.champutils.teleport.SafeTeleportManager;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
@@ -232,7 +233,8 @@ public class ArenaManager {
             return;
         }
 
-        p1.teleportTo(
+        SafeTeleportManager.teleportUncheckedNoBack(
+                p1,
                 level,
                 arena.centerX-spacing,
                 arena.y,
@@ -245,7 +247,8 @@ public class ArenaManager {
         p1.setYHeadRot(-90f);
         p1.setXRot(0f);
 
-        p2.teleportTo(
+        SafeTeleportManager.teleportUncheckedNoBack(
+                p2,
                 level,
                 arena.centerX+spacing,
                 arena.y,
@@ -322,7 +325,8 @@ public class ArenaManager {
             level = player.serverLevel();
         }
 
-        player.teleportTo(
+        SafeTeleportManager.teleportUncheckedNoBack(
+                player,
                 level,
                 loc.x,
                 loc.y,
@@ -364,6 +368,29 @@ public class ArenaManager {
         IN_USE.remove(
                 arenaId
         );
+    }
+
+
+    public static boolean isArenaLocation(ServerLevel level, double x, double z){
+        if(level == null || Config.arenas == null){
+            return false;
+        }
+        String world = level.dimension().location().toString();
+        for(Arena arena : Config.arenas){
+            if(arena == null){
+                continue;
+            }
+            String arenaWorld = arena.world == null || arena.world.isBlank() ? "multiworld:spawn1" : arena.world;
+            if(!normalizeWorld(arenaWorld).equalsIgnoreCase(normalizeWorld(world))){
+                continue;
+            }
+            double dx = x - arena.centerX;
+            double dz = z - arena.centerZ;
+            if((dx * dx) + (dz * dz) <= 64.0D * 64.0D){
+                return true;
+            }
+        }
+        return false;
     }
 
 

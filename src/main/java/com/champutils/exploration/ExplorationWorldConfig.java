@@ -68,8 +68,8 @@ public final class ExplorationWorldConfig {
                 "mw delete {world}"
         ));
         public List<String> createCommands = new ArrayList<>(List.of(
-                "mw create {world}",
-                "mw load {world}"
+                "mw create {world_id} NORMAL -g=NORMAL",
+                "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>(List.of(
                 "chunky world {world}",
@@ -92,6 +92,20 @@ public final class ExplorationWorldConfig {
             if (rtpAvoidWipeMinutes < 0) rtpAvoidWipeMinutes = 60;
             if (deleteCommands == null) deleteCommands = new ArrayList<>();
             if (createCommands == null) createCommands = new ArrayList<>();
+            if (createCommands.isEmpty()) {
+                createCommands = new ArrayList<>(List.of(
+                        "mw create {world_id} NORMAL -g=NORMAL",
+                        "mw load {world_id}"
+                ));
+            }
+            // Multiworld command arguments use the plain world id, not the namespaced dimension id.
+            // Keep old config files working by rewriting the previous placeholders/syntax on load.
+            createCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw load {world}", "mw load {world_id}"));
+            deleteCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("mw unload {world}", "mw unload {world_id}")
+                    .replace("mw delete {world}", "mw delete {world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
             return this;
         }

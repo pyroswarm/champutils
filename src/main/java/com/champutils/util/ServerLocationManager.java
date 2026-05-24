@@ -1,5 +1,6 @@
 package com.champutils.util;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -309,7 +310,8 @@ public final class ServerLocationManager {
             return false;
         }
 
-        player.teleportTo(
+        return SafeTeleportManager.teleport(
+                player,
                 level,
                 location.x,
                 location.y,
@@ -317,8 +319,6 @@ public final class ServerLocationManager {
                 location.yaw,
                 location.pitch
         );
-
-        return true;
     }
 
     public static ServerLevel getLevel(

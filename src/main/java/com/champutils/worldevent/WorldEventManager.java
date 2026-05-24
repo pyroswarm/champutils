@@ -1,5 +1,7 @@
 package com.champutils.worldevent;
 
+import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.guild.GuildXpManager;
@@ -331,7 +333,7 @@ public final class WorldEventManager {
 
         int yOffset = active.definition == null ? 1 : active.definition.teleportYOffset;
         try {
-            player.teleportTo(level, active.pos.getX() + 0.5D, active.pos.getY() + yOffset, active.pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleport(player, level, active.pos.getX() + 0.5D, active.pos.getY() + yOffset, active.pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
         } catch (Exception e) {
             return false;
         }
@@ -496,9 +498,17 @@ public final class WorldEventManager {
 
     private static ServerLevel getEventLevel(MinecraftServer server, WorldEventConfig.EventDefinition event) {
         if (server == null) return null;
-        if (WorldEventConfig.OVERWORLD_ONLY) return server.overworld();
+        if (WorldEventConfig.OVERWORLD_ONLY) {
+            return ExplorationWorldManager.pickOverworldGameplayLevel(server);
+        }
         ResourceLocation id = ResourceLocation.parse(event.world == null || event.world.isBlank() ? "minecraft:overworld" : event.world);
-        return getLevel(server, id);
+        ServerLevel level = getLevel(server, id);
+        if (level == null) return null;
+
+        // Even when overworldOnly is disabled for a specific configured event world, keep the
+        // old overworld-only gameplay systems out of nether/end exploration worlds unless the
+        // system explicitly opts in. Roaming trainers are intentionally handled separately.
+        return ExplorationWorldManager.isOverworldGameplayLevel(level) ? level : null;
     }
 
     private static ServerLevel getLevel(MinecraftServer server, ResourceLocation worldId) {

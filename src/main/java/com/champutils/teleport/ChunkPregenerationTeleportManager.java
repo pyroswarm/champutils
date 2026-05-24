@@ -1,5 +1,6 @@
 package com.champutils.teleport;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -75,7 +76,7 @@ public final class ChunkPregenerationTeleportManager {
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
             BlockPos pos = new BlockPos(x, y + 1, z);
 
-            player.teleportTo(level, pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleport(player, level, pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
 
             if (index == 1 || index % 100 == 0 || index >= chunks.size()) {
                 player.sendSystemMessage(Component.literal("Pregeneration progress: " + index + "/" + chunks.size() + " chunks.").withStyle(ChatFormatting.YELLOW));

@@ -36,7 +36,7 @@ public final class TerritoryMenus {
                     .setLore(lore)
                     .setCallback((index, clickType, actionType) -> {
                         if (!territory.isReady() && !player.hasPermissions(4)) {
-                            player.sendSystemMessage(Component.literal("That territory is still pregenerating.").withStyle(ChatFormatting.YELLOW));
+                            player.sendSystemMessage(Component.literal("That territory world is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
                             return;
                         }
                         if (!TerritoryRepository.canEnter(player, territory)) {

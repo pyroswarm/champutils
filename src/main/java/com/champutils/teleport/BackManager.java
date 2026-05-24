@@ -31,9 +31,11 @@ public final class BackManager {
         if (loc == null) return false;
         ServerLevel level = getLevel(player.server, loc.dimension);
         if (level == null) return false;
-        remember(player);
-        player.teleportTo(level, loc.x, loc.y, loc.z, loc.yaw, loc.pitch);
-        return true;
+        if (!SafeTeleportManager.canTeleportTo(player, level, loc.x, loc.y, loc.z)) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("That /back location is no longer safe or allowed.").withStyle(net.minecraft.ChatFormatting.RED));
+            return false;
+        }
+        return SafeTeleportManager.teleport(player, level, loc.x, loc.y, loc.z, loc.yaw, loc.pitch);
     }
 
     public static ServerLevel getLevel(MinecraftServer server, String dimension) {

@@ -1,6 +1,6 @@
 package com.champutils.commands;
 
-import com.champutils.teleport.BackManager;
+import com.champutils.teleport.SafeTeleportManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
@@ -56,8 +56,7 @@ public final class TpaCommand {
             target.sendSystemMessage(Component.literal("That player is no longer online.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        BackManager.remember(requester);
-        requester.teleportTo(target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+        if (!SafeTeleportManager.teleport(requester, target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot())) return 0;
         requester.sendSystemMessage(Component.literal("Teleported to " + target.getGameProfile().getName() + ".").withStyle(ChatFormatting.GREEN));
         target.sendSystemMessage(Component.literal("Accepted TPA request from " + requester.getGameProfile().getName() + ".").withStyle(ChatFormatting.GREEN));
         return 1;

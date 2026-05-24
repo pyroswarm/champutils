@@ -2,6 +2,7 @@ package com.champutils.guild;
 
 import com.champutils.database.DatabaseManager;
 import com.champutils.network.NetworkServerConfig;
+import com.champutils.territory.TerritoryRepository;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -400,6 +401,157 @@ public final class GuildRepository {
 
     public static void demote(UUID actorUuid, UUID targetUuid, String targetName, Callback callback) {
         updateRole(actorUuid, targetUuid, targetName, false, callback);
+    }
+
+    public static void transferOwnership(UUID actorUuid, UUID expectedGuildId, UUID targetUuid, String targetName, Callback callback) {
+        GuildSnapshot actorGuild = cachedGuild(actorUuid);
+        if (actorGuild == null) {
+            callback.done(false, "You are not in a guild.");
+            return;
+        }
+        if (actorGuild.role != Role.LEADER) {
+            callback.done(false, "Only guild owners can transfer guild ownership.");
+            return;
+        }
+        if (expectedGuildId == null || !actorGuild.id.equals(expectedGuildId)) {
+            callback.done(false, "That guild transfer is no longer valid.");
+            return;
+        }
+        if (targetUuid == null || actorUuid.equals(targetUuid)) {
+            callback.done(false, "Invalid guild transfer target.");
+            return;
+        }
+
+        DatabaseManager.executeAsync("guild transfer " + targetUuid, connection -> {
+            try {
+                connection.setAutoCommit(false);
+
+                Role targetRole = findMemberRole(connection, actorGuild.id, targetUuid);
+                if (targetRole == null) {
+                    connection.rollback();
+                    callback.done(false, targetName + " is not in your guild.");
+                    return;
+                }
+                if (targetRole == Role.LEADER) {
+                    connection.rollback();
+                    callback.done(false, targetName + " is already the guild owner.");
+                    return;
+                }
+
+                try (PreparedStatement guildUpdate = connection.prepareStatement(
+                        "update guilds set owner_uuid = ?, updated_at = now() where id = ? and owner_uuid = ?"
+                )) {
+                    guildUpdate.setObject(1, targetUuid);
+                    guildUpdate.setObject(2, actorGuild.id);
+                    guildUpdate.setObject(3, actorUuid);
+                    if (guildUpdate.executeUpdate() <= 0) {
+                        connection.rollback();
+                        callback.done(false, "Guild ownership changed before this transfer could complete.");
+                        return;
+                    }
+                }
+
+                try (PreparedStatement oldOwner = connection.prepareStatement(
+                        "update guild_members set role = 'OFFICER' where guild_id = ? and player_uuid = ?"
+                )) {
+                    oldOwner.setObject(1, actorGuild.id);
+                    oldOwner.setObject(2, actorUuid);
+                    oldOwner.executeUpdate();
+                }
+
+                try (PreparedStatement newOwner = connection.prepareStatement(
+                        "update guild_members set role = 'LEADER' where guild_id = ? and player_uuid = ?"
+                )) {
+                    newOwner.setObject(1, actorGuild.id);
+                    newOwner.setObject(2, targetUuid);
+                    newOwner.executeUpdate();
+                }
+
+                connection.commit();
+                refreshCachedGuildMembers(connection, actorGuild.id);
+                callback.done(true, "Transferred guild ownership to " + targetName + ".");
+            }
+            catch (Exception e) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                callback.done(false, "Failed to transfer guild ownership.");
+                throw e;
+            }
+            finally {
+                try { connection.setAutoCommit(true); } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    public static void disbandGuild(UUID actorUuid, UUID expectedGuildId, String guildName, Callback callback) {
+        GuildSnapshot actorGuild = cachedGuild(actorUuid);
+        if (actorGuild == null) {
+            callback.done(false, "You are not in a guild.");
+            return;
+        }
+        if (actorGuild.role != Role.LEADER) {
+            callback.done(false, "Only guild owners can disband a guild.");
+            return;
+        }
+        if (expectedGuildId == null || !actorGuild.id.equals(expectedGuildId)) {
+            callback.done(false, "That guild disband confirmation is no longer valid.");
+            return;
+        }
+
+        DatabaseManager.executeAsync("guild disband " + actorGuild.id, connection -> {
+            List<UUID> memberIds = new ArrayList<>();
+            try {
+                connection.setAutoCommit(false);
+
+                try (PreparedStatement members = connection.prepareStatement(
+                        "select player_uuid from guild_members where guild_id = ?"
+                )) {
+                    members.setObject(1, actorGuild.id);
+                    try (ResultSet rs = members.executeQuery()) {
+                        while (rs.next()) {
+                            memberIds.add((UUID) rs.getObject("player_uuid"));
+                        }
+                    }
+                }
+
+                try (PreparedStatement territory = connection.prepareStatement(
+                        "delete from territories where owner_type = 'GUILD' and owner_id = ?"
+                )) {
+                    territory.setString(1, actorGuild.id.toString());
+                    territory.executeUpdate();
+                }
+
+                try (PreparedStatement deleteGuild = connection.prepareStatement(
+                        "delete from guilds where id = ? and owner_uuid = ?"
+                )) {
+                    deleteGuild.setObject(1, actorGuild.id);
+                    deleteGuild.setObject(2, actorUuid);
+                    if (deleteGuild.executeUpdate() <= 0) {
+                        connection.rollback();
+                        callback.done(false, "Guild ownership changed before this disband could complete.");
+                        return;
+                    }
+                }
+
+                connection.commit();
+                for (UUID memberId : memberIds) {
+                    PLAYER_CACHE.remove(memberId);
+                }
+                try {
+                    TerritoryRepository.removeCachedForOwner(TerritoryRepository.OwnerType.GUILD, actorGuild.id.toString());
+                }
+                catch (Exception ignored) {
+                }
+                callback.done(true, "Disbanded " + (guildName == null || guildName.isBlank() ? actorGuild.name : guildName) + ".");
+            }
+            catch (Exception e) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                callback.done(false, "Failed to disband guild.");
+                throw e;
+            }
+            finally {
+                try { connection.setAutoCommit(true); } catch (Exception ignored) {}
+            }
+        });
     }
 
     private static void updateRole(UUID actorUuid, UUID targetUuid, String targetName, boolean promote, Callback callback) {

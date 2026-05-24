@@ -170,6 +170,29 @@ public final class NetworkReadySchemaManager {
                 );
 
                 statement.executeUpdate(
+                        "create table if not exists territory_delete_cooldowns (" +
+                                "owner_type text not null, " +
+                                "owner_id text not null, " +
+                                "deleted_at timestamptz not null default now(), " +
+                                "primary key (owner_type, owner_id)" +
+                                ")"
+                );
+                // Existing servers may already have this table from an older build without deleted_at.
+                // CREATE TABLE IF NOT EXISTS will not repair that, so keep these as explicit migrations.
+                statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists deleted_at timestamptz not null default now()");
+                statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_type text");
+                statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_id text");
+                statement.executeUpdate("delete from territory_delete_cooldowns where owner_type is null or owner_id is null");
+                statement.executeUpdate(
+                        "delete from territory_delete_cooldowns a using territory_delete_cooldowns b " +
+                                "where a.ctid < b.ctid and a.owner_type = b.owner_type and a.owner_id = b.owner_id"
+                );
+                statement.executeUpdate("alter table territory_delete_cooldowns alter column owner_type set not null");
+                statement.executeUpdate("alter table territory_delete_cooldowns alter column owner_id set not null");
+                statement.executeUpdate("create unique index if not exists territory_delete_cooldowns_owner_unique on territory_delete_cooldowns (owner_type, owner_id)");
+                statement.executeUpdate("create unique index if not exists territories_owner_unique on territories (owner_type, owner_id)");
+
+                statement.executeUpdate(
                         "create table if not exists player_homes (" +
                                 "player_uuid uuid primary key, " +
                                 "server_id text not null, " +

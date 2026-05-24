@@ -23,7 +23,7 @@ public final class VanillaPortalBlocker {
             if (player == null || player.hasPermissions(4)) continue;
             BlockPos pos = player.blockPosition();
             if (isPortal(player.serverLevel().getBlockState(pos)) || isPortal(player.serverLevel().getBlockState(pos.above()))) {
-                player.teleportTo(player.serverLevel(), pos.getX() + 0.5D, pos.getY(), pos.getZ() + 1.5D, player.getYRot(), player.getXRot());
+                SafeTeleportManager.teleportUncheckedNoBack(player, player.serverLevel(), pos.getX() + 0.5D, pos.getY(), pos.getZ() + 1.5D, player.getYRot(), player.getXRot());
                 long now = System.currentTimeMillis();
                 long last = LAST_MESSAGE.getOrDefault(player.getUUID(), 0L);
                 if (now - last > 3000L) {

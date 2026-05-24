@@ -1,5 +1,6 @@
 package com.champutils.exploration;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.ChatFormatting;
@@ -82,14 +83,15 @@ public final class ExplorationWorldManager {
         return pickRtpTarget(server, "overworld");
     }
 
-    public static RtpTarget pickRtpTarget(MinecraftServer server, String requestedType) {
+    public static RtpTarget pickRtpTarget(MinecraftServer server, String type) {
         if (server == null || !ExplorationWorldConfig.get().enabled) return null;
         bootstrapState();
 
-        String normalizedType = normalizeType(requestedType);
+        String wantedType = normalizeType(type);
         List<Entry> candidates = new ArrayList<>();
         for (Entry entry : state.worlds) {
-            if (normalizedType.equals(normalizeType(entry.worldType)) && isSafeForRtp(server, entry)) {
+            String entryType = normalizeType(entry.worldType);
+            if (wantedType.equals(entryType) && isSafeForRtp(server, entry)) {
                 candidates.add(entry);
             }
         }
@@ -127,6 +129,38 @@ public final class ExplorationWorldManager {
         return entry.nextWipeAtMillis <= 0L || entry.nextWipeAtMillis - now > avoidMs;
     }
 
+    public static boolean isOverworldGameplayLevel(ServerLevel level) {
+        if (level == null) return false;
+        String dimensionId = level.dimension().location().toString();
+        if ("minecraft:overworld".equalsIgnoreCase(dimensionId)) return true;
+
+        Entry entry = find(level);
+        return entry != null && "overworld".equalsIgnoreCase(normalizeType(entry.worldType));
+    }
+
+    public static boolean isExplorationLevel(ServerLevel level) {
+        return find(level) != null;
+    }
+
+    public static ServerLevel pickOverworldGameplayLevel(MinecraftServer server) {
+        if (server == null) return null;
+        bootstrapState();
+
+        List<ServerLevel> candidates = new ArrayList<>();
+        if (server.overworld() != null) candidates.add(server.overworld());
+
+        for (Entry entry : state.worlds) {
+            if (!"overworld".equalsIgnoreCase(normalizeType(entry.worldType))) continue;
+            if (!isSafeForRtp(server, entry)) continue;
+            ServerLevel level = getLevel(server, entry.worldName);
+            if (level != null) candidates.add(level);
+        }
+
+        if (candidates.isEmpty()) return server.overworld();
+        Collections.shuffle(candidates);
+        return candidates.get(0);
+    }
+
     public static boolean teleport(ServerPlayer player, int index) {
         bootstrapState();
         if (index < 1 || index > state.worlds.size()) return false;
@@ -140,7 +174,7 @@ public final class ExplorationWorldManager {
             player.sendSystemMessage(Component.literal("That exploration world is not loaded yet: " + entry.worldName).withStyle(ChatFormatting.RED));
             return false;
         }
-        player.teleportTo(level, 0.5D, ExplorationWorldConfig.get().spawnY, 0.5D, player.getYRot(), player.getXRot());
+        SafeTeleportManager.teleport(player, level, 0.5D, ExplorationWorldConfig.get().spawnY, 0.5D, player.getYRot(), player.getXRot());
         return true;
     }
 
@@ -166,19 +200,20 @@ public final class ExplorationWorldManager {
         if (oldLevel != null) {
             for (ServerPlayer player : new ArrayList<>(server.getPlayerList().getPlayers())) {
                 if (player.serverLevel() == oldLevel) {
-                    player.teleportTo(server.overworld(), server.overworld().getSharedSpawnPos().getX() + 0.5D, server.overworld().getSharedSpawnPos().getY(), server.overworld().getSharedSpawnPos().getZ() + 0.5D, player.getYRot(), player.getXRot());
+                    SafeTeleportManager.teleportNoBack(player, server.overworld(), server.overworld().getSharedSpawnPos().getX() + 0.5D, server.overworld().getSharedSpawnPos().getY(), server.overworld().getSharedSpawnPos().getZ() + 0.5D, player.getYRot(), player.getXRot());
                     player.sendSystemMessage(Component.literal("Exploration world is wiping. You were moved to spawn.").withStyle(ChatFormatting.YELLOW));
                 }
             }
         }
 
+        boolean commandsOk = true;
         if (ExplorationWorldConfig.get().runWorldCommands) {
-            for (String command : ExplorationWorldConfig.get().deleteCommands) run(server, apply(command, entry));
-            for (String command : ExplorationWorldConfig.get().createCommands) run(server, apply(command, entry));
-            for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) run(server, apply(command, entry));
+            for (String command : ExplorationWorldConfig.get().deleteCommands) commandsOk &= run(server, apply(command, entry));
+            for (String command : ExplorationWorldConfig.get().createCommands) commandsOk &= run(server, apply(command, entry));
+            for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) commandsOk &= run(server, apply(command, entry));
         }
 
-        entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
+        entry.status = commandsOk ? (ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY") : "PENDING";
         entry.lastWipeAtMillis = System.currentTimeMillis();
         entry.nextWipeAtMillis = entry.lastWipeAtMillis + ExplorationWorldConfig.get().wipeIntervalHours * 60L * 60L * 1000L;
         state.wipeInProgressWorld = "";
@@ -206,7 +241,7 @@ public final class ExplorationWorldManager {
             if (Math.abs(pos.getX()) <= radius && Math.abs(pos.getZ()) <= radius) continue;
             int x = Math.max(-radius + 2, Math.min(radius - 2, pos.getX()));
             int z = Math.max(-radius + 2, Math.min(radius - 2, pos.getZ()));
-            player.teleportTo(player.serverLevel(), x + 0.5D, player.getY(), z + 0.5D, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleportNoBack(player, player.serverLevel(), x + 0.5D, player.getY(), z + 0.5D, player.getYRot(), player.getXRot());
             player.sendSystemMessage(Component.literal("You cannot leave the 5000-block exploration border.").withStyle(ChatFormatting.RED));
         }
     }
@@ -267,8 +302,11 @@ public final class ExplorationWorldManager {
 
     private static String apply(String command, Entry entry) {
         if (command == null) return "";
+        String world = entry.worldName == null ? "" : entry.worldName;
+        String worldId = world.contains(":") ? world.substring(world.indexOf(':') + 1) : world;
         return command
-                .replace("{world}", entry.worldName)
+                .replace("{world}", world)
+                .replace("{world_id}", worldId)
                 .replace("{index}", Integer.toString(entry.index))
                 .replace("{border_radius}", Integer.toString(ExplorationWorldConfig.get().borderRadius))
                 .replace("{status}", entry.status == null ? "" : entry.status.toLowerCase(Locale.ROOT))
@@ -276,10 +314,18 @@ public final class ExplorationWorldManager {
                 .replace("{local_index}", Integer.toString(entry.localIndex));
     }
 
-    private static void run(MinecraftServer server, String command) {
-        if (command == null || command.isBlank()) return;
+    private static boolean run(MinecraftServer server, String command) {
+        if (server == null || command == null || command.isBlank()) return true;
         String clean = command.startsWith("/") ? command.substring(1) : command;
-        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4), clean);
+        try {
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4).withSuppressedOutput(), clean);
+            System.out.println("[ChampUtils] Ran exploration world command: /" + clean);
+            return true;
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Exploration world command failed: /" + clean);
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public static final class RtpTarget {
