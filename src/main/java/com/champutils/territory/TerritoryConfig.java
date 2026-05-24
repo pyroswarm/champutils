@@ -80,8 +80,30 @@ public final class TerritoryConfig {
         public int defaultSpawnY = 80;
         public int borderWarningCooldownSeconds = 5;
 
-        /** If true, territory/guild territory worlds are treated as void skyblock-style worlds. */
+        /**
+         * If true, territories behave like skyblock slots, but the Multiworld dimension is still created
+         * with NORMAL generation so biome data stays real for Cobblemon spawns, colors, weather, and biome checks.
+         */
         public boolean skyblockTerritoryWorlds = true;
+
+        /** Clears the territory starter area before the starter island is built. */
+        public boolean clearSkyblockStarterArea = true;
+
+        /**
+         * Radius cleared around the territory center before the island is built.
+         * Keep this smaller than the full territory radius to avoid huge one-time lag spikes.
+         * Players still remain locked inside their territory border.
+         */
+        public int skyblockInitialClearRadius = 128;
+
+        /** Minimum Y to clear for new skyblock territory starter areas. */
+        public int skyblockClearMinY = -16;
+
+        /** Maximum Y to clear for new skyblock territory starter areas. */
+        public int skyblockClearMaxY = 200;
+
+        /** How many block positions the skyblock preparation queue may inspect per tick. */
+        public int skyblockPrepareBlocksPerTick = 8192;
 
         /** Creates/rebuilds the starter island at each territory slot center when the slot becomes READY. */
         public boolean createSkyblockStarterIsland = true;
@@ -113,7 +135,7 @@ public final class TerritoryConfig {
         /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world_id} NORMAL -g=VOID",
+                "mw create {world_id} NORMAL -g=NORMAL",
                 "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>();
@@ -135,7 +157,7 @@ public final class TerritoryConfig {
             if (gridWidth < 1) gridWidth = slotGridWidth;
             if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
                 worldCreateCommands = new ArrayList<>(List.of(
-                        "mw create {world_id} NORMAL -g=VOID",
+                        "mw create {world_id} NORMAL -g=NORMAL",
                         "mw load {world_id}"
                 ));
             }
@@ -154,11 +176,17 @@ public final class TerritoryConfig {
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
-            if (skyblockTerritoryWorlds) {
-                worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                        .replace("-g=NORMAL", "-g=VOID")
-                        .replace("-g=FLAT", "-g=VOID"));
-            }
+            // Older configs created skyblock territory worlds with -g=VOID. That breaks biome data and makes
+            // every slot report minecraft:the_void, so migrate territory worlds back to NORMAL generation.
+            worldCreateCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("-g=VOID", "-g=NORMAL")
+                    .replace("-g=FLAT", "-g=NORMAL"));
+            if (skyblockInitialClearRadius < skyblockIslandRadius + 8) skyblockInitialClearRadius = skyblockIslandRadius + 8;
+            if (skyblockInitialClearRadius > defaultRadius) skyblockInitialClearRadius = defaultRadius;
+            if (skyblockClearMinY < -64) skyblockClearMinY = -16;
+            if (skyblockClearMaxY <= skyblockClearMinY) skyblockClearMaxY = Math.max(skyblockClearMinY + 32, defaultSpawnY + 32);
+            if (skyblockPrepareBlocksPerTick < 1024) skyblockPrepareBlocksPerTick = 8192;
+            if (skyblockPrepareBlocksPerTick > 65536) skyblockPrepareBlocksPerTick = 65536;
             if (skyblockIslandRadius < 3) skyblockIslandRadius = 9;
             if (skyblockIslandRadius > 32) skyblockIslandRadius = 32;
             if (borderWarningCooldownSeconds < 1) borderWarningCooldownSeconds = 5;
