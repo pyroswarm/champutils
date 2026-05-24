@@ -12,6 +12,7 @@ import com.champutils.database.DatabaseManager;
 import com.champutils.database.DatabaseBootstrapSync;
 import com.champutils.database.ServerStatusDatabaseRepository;
 import com.champutils.database.RankedFormatDatabaseRepository;
+import com.champutils.database.NetworkReadySchemaManager;
 import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
@@ -39,6 +40,9 @@ import com.champutils.specialspawn.*;
 import com.champutils.wiki.*;
 import com.champutils.exploration.*;
 import com.champutils.crate.*;
+import com.champutils.network.*;
+import com.champutils.guild.*;
+import com.champutils.territory.*;
 
 /*
  =========================
@@ -101,6 +105,10 @@ public class ChampUtilsMod implements ModInitializer {
         }
 
         Config.load(configFile);
+        NetworkServerConfig.load();
+        GuildConfig.load();
+        GuildBuffConfig.load();
+        TerritoryConfig.load();
 
         /*
          =========================
@@ -108,6 +116,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         DatabaseManager.init();
+        NetworkReadySchemaManager.ensureAsync();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
@@ -213,6 +222,8 @@ public class ChampUtilsMod implements ModInitializer {
                     LeaderboardManager.refresh(server);
                     ServerStatusDatabaseRepository.sync(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
+                    NetworkReadySchemaManager.ensureAsync();
+                    TerritoryRepository.refreshAll();
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
                     PokemonHuntManager.ensureStarted(server);
@@ -345,6 +356,11 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseService.handleJoin(
                             player
                     );
+
+                    GuildRepository.loadForPlayer(
+                            player.getUUID(),
+                            playerName
+                    );
                 }
         );
 
@@ -419,6 +435,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionAdminCommand.register();
         ChampReloadCommand.register();
         DatabaseTestCommand.register();
+        NetworkDatabaseCommand.register();
         LinkAccountCommand.register();
         EconomyCommand.register();
         AuctionHouseCommand.register();
@@ -448,6 +465,8 @@ public class ChampUtilsMod implements ModInitializer {
         BattleExitCommand.register();
         ItemBindCommand.register();
         OpenCratesCommand.register();
+        GuildCommand.register();
+        TerritoryCommand.register();
 
         /*
          New custom item test command
@@ -477,6 +496,7 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
         ChestShopInteractionListener.register();
+        TerritoryProtectionListener.register();
 
         /*
          =========================
@@ -507,6 +527,7 @@ public class ChampUtilsMod implements ModInitializer {
                     SpecialWildSpawnManager.tick(server);
                     ChestShopDisplayManager.tick(server);
                     BattleStuckCleanupManager.tick(server);
+                    TerritoryBorderManager.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -533,6 +554,7 @@ public class ChampUtilsMod implements ModInitializer {
                         PokemonOriginManager.save();
                         PlaytimeManager.addOnlineMinute(server);
                         ServerStatusDatabaseRepository.sync(server);
+                        TerritoryRepository.refreshAll();
                     }
 
                     /*

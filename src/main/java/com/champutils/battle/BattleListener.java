@@ -7,6 +7,7 @@ import com.champutils.matchmaking.ArenaManager;
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
+import com.champutils.guild.GuildXpManager;
 
 import com.champutils.profession.*;
 
@@ -56,6 +57,11 @@ public class BattleListener {
         boolean ranked =
                 battleType ==
                         BattleContextManager.BattleType.RANKED;
+
+        if (battleType == BattleContextManager.BattleType.RANKED ||
+                battleType == BattleContextManager.BattleType.CASUAL) {
+            GuildXpManager.awardBattleWin(winner, ranked);
+        }
 
         boolean upsetWin =
                 getRankIndex(loser) >

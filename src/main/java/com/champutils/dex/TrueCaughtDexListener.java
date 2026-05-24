@@ -1,6 +1,8 @@
 package com.champutils.dex;
 
 import com.champutils.hunt.PokemonHuntReflection;
+import com.champutils.buff.BuffContext;
+import com.champutils.buff.BuffManager;
 
 import kotlin.Unit;
 import kotlin.jvm.functions.Function1;
@@ -53,6 +55,7 @@ public final class TrueCaughtDexListener {
                             TrueCaughtDexManager.markTrueCaught(player, pokemon);
                             if (pokemon instanceof com.cobblemon.mod.common.pokemon.Pokemon p) {
                                 PokemonOriginManager.markOrigin(p, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
+                                BuffManager.applyCatchBuffs(BuffContext.trueWildCatch(player, p));
                             }
                         }
                     } catch (Throwable throwable) {

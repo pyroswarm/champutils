@@ -2,6 +2,8 @@ package com.champutils.database;
 
 import com.champutils.profile.PlayerDataManager;
 
+import com.champutils.network.NetworkServerConfig;
+
 import java.sql.PreparedStatement;
 import java.util.UUID;
 
@@ -27,6 +29,12 @@ public final class PlayerDatabaseRepository {
             statement.executeUpdate();
         }
 
+        try (PreparedStatement statement = connection.prepareStatement(
+                "alter table players add column if not exists last_server_id text"
+        )) {
+            statement.executeUpdate();
+        }
+
         schemaEnsured = true;
     }
 
@@ -39,12 +47,13 @@ public final class PlayerDatabaseRepository {
             ensureSchema(connection);
 
             try (PreparedStatement playerStatement = connection.prepareStatement(
-                    "insert into players (uuid, username, playtime_seconds, last_seen) values (?, ?, ?, now()) " +
-                            "on conflict (uuid) do update set username = excluded.username, playtime_seconds = excluded.playtime_seconds, last_seen = now()"
+                    "insert into players (uuid, username, playtime_seconds, last_seen, last_server_id) values (?, ?, ?, now(), ?) " +
+                            "on conflict (uuid) do update set username = excluded.username, playtime_seconds = excluded.playtime_seconds, last_seen = now(), last_server_id = excluded.last_server_id"
             )) {
                 playerStatement.setString(1, data.uuid);
                 playerStatement.setString(2, safeName(data));
                 playerStatement.setLong(3, Math.max(0L, data.playtimeSeconds));
+                playerStatement.setString(4, NetworkServerConfig.serverId());
                 playerStatement.executeUpdate();
             }
 
@@ -85,11 +94,12 @@ public final class PlayerDatabaseRepository {
             ensureSchema(connection);
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "insert into players (uuid, username, last_seen) values (?, ?, now()) " +
-                            "on conflict (uuid) do update set username = excluded.username, last_seen = now()"
+                    "insert into players (uuid, username, last_seen, last_server_id) values (?, ?, now(), ?) " +
+                            "on conflict (uuid) do update set username = excluded.username, last_seen = now(), last_server_id = excluded.last_server_id"
             )) {
                 statement.setString(1, uuid.toString());
                 statement.setString(2, name == null || name.isBlank() ? uuid.toString() : name);
+                statement.setString(3, NetworkServerConfig.serverId());
                 statement.executeUpdate();
             }
         });

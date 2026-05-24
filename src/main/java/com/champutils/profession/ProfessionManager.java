@@ -41,9 +41,15 @@ public class ProfessionManager {
             ProfessionType profession,
             int amount
     ) {
-        if (amount <= 0) {
+        if (player == null || profession == null || amount <= 0) {
             return;
         }
+
+        amount = ProfessionXpBoostManager.applyBoosts(
+                player,
+                profession,
+                amount
+        );
 
         ProfessionDataManager.ProfessionData data =
                 getData(player);
@@ -274,5 +280,7 @@ public class ProfessionManager {
         CACHE.remove(
                 player.getUUID()
         );
+
+        ProfessionXpBoostManager.clearFractionBank(player);
     }
 }

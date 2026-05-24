@@ -2,6 +2,7 @@ package com.champutils.worldevent;
 
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.guild.GuildXpManager;
 
 import com.champutils.database.WorldEventStatsDatabaseRepository;
 import com.champutils.profession.ProfessionFragmentConfig;
@@ -377,6 +378,9 @@ public final class WorldEventManager {
         if (newlyRewarded.isEmpty()) {
             return;
         }
+
+        String tier = active.definition == null ? "RARE" : active.definition.tier;
+        GuildXpManager.awardWorldEvent(newlyRewarded, tier, active.eventId);
 
         String winnerNames = newlyRewarded.get(0).getName().getString();
         if (newlyRewarded.size() > 1) winnerNames += " and allies";
