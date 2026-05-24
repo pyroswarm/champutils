@@ -138,6 +138,8 @@ public class ChampUtilsMod implements ModInitializer {
         RoamingTrainerConfig.load();
         SpecialWildSpawnConfig.load();
         ItemBindRegistry.load();
+        ExplorationWorldConfig.load();
+        ExplorationWorldManager.load();
         CrateConfig.load();
         CrateCreditManager.load();
 
@@ -261,6 +263,7 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
                     ItemBindRegistry.save();
+                    ExplorationWorldManager.save();
                     FirstJoinKitManager.save();
                     ChestShopRegistry.save();
                     TeleportConfig.save();
@@ -465,6 +468,7 @@ public class ChampUtilsMod implements ModInitializer {
         BattleExitCommand.register();
         ItemBindCommand.register();
         OpenCratesCommand.register();
+        ExplorationWorldCommand.register();
         GuildCommand.register();
         TerritoryCommand.register();
 
@@ -528,6 +532,8 @@ public class ChampUtilsMod implements ModInitializer {
                     ChestShopDisplayManager.tick(server);
                     BattleStuckCleanupManager.tick(server);
                     TerritoryBorderManager.tick(server);
+                    TerritoryWorldGenerationManager.tick(server);
+                    ExplorationWorldManager.tick(server);
 
                     /*
                      Leaderboard refresh

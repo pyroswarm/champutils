@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Locale;
+import java.util.UUID;
 
 public final class TerritoryCommand {
 
@@ -51,6 +52,16 @@ public final class TerritoryCommand {
                     .then(Commands.literal("kick")
                             .then(Commands.argument("player", EntityArgument.player())
                                     .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownPersonal(context.getSource().getPlayerOrException())))))
+                    .then(Commands.literal("delete")
+                            .executes(context -> deletePersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("admin")
+                            .requires(source -> source.hasPermission(4))
+                            .then(Commands.literal("ready")
+                                    .then(Commands.argument("territoryId", StringArgumentType.word())
+                                            .executes(context -> markReady(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "territoryId")))))
+                            .then(Commands.literal("generate")
+                                    .then(Commands.argument("territoryId", StringArgumentType.word())
+                                            .executes(context -> requestGeneration(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "territoryId"))))))
                     .then(Commands.literal("reloadcache")
                             .requires(source -> source.hasPermission(4))
                             .executes(context -> {
@@ -97,7 +108,9 @@ public final class TerritoryCommand {
                                     .executes(context -> unbanGuild(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
                     .then(Commands.literal("kick")
                             .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownGuild(context.getSource().getPlayerOrException()))))));
+                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownGuild(context.getSource().getPlayerOrException())))))
+                    .then(Commands.literal("delete")
+                            .executes(context -> deleteGuild(context.getSource().getPlayerOrException()))));
         });
     }
 
@@ -107,6 +120,62 @@ public final class TerritoryCommand {
 
     private static TerritoryRepository.Territory ownGuild(ServerPlayer player) {
         return TerritoryRepository.cachedGuildForPlayer(player);
+    }
+
+    private static int deletePersonal(ServerPlayer player) {
+        TerritoryRepository.Territory territory = ownPersonal(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("You do not have a personal territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot delete this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        TerritoryRepository.deleteTerritory(territory, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        return 1;
+    }
+
+    private static int deleteGuild(ServerPlayer player) {
+        TerritoryRepository.Territory territory = ownGuild(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("Your guild does not have a territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!player.hasPermissions(4) && !TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        TerritoryRepository.deleteTerritory(territory, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        return 1;
+    }
+
+    private static int markReady(ServerPlayer player, String rawId) {
+        try {
+            UUID id = UUID.fromString(rawId);
+            TerritoryRepository.markReady(id, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+            return 1;
+        } catch (Exception e) {
+            player.sendSystemMessage(Component.literal("Invalid territory UUID.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+    }
+
+    private static int requestGeneration(ServerPlayer player, String rawId) {
+        try {
+            UUID id = UUID.fromString(rawId);
+            TerritoryRepository.Territory territory = TerritoryRepository.allCached().stream().filter(t -> id.equals(t.id)).findFirst().orElse(null);
+            if (territory == null) {
+                player.sendSystemMessage(Component.literal("Territory not found.").withStyle(ChatFormatting.RED));
+                return 0;
+            }
+            TerritoryWorldGenerationManager.requestGeneration(player.server, territory);
+            player.sendSystemMessage(Component.literal("Requested generation for " + territory.worldName + " slot " + territory.slotIndex + ".").withStyle(ChatFormatting.GREEN));
+            return 1;
+        } catch (Exception e) {
+            player.sendSystemMessage(Component.literal("Invalid territory UUID.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
     }
 
     private static int createPersonal(ServerPlayer player, String biome) {
@@ -137,6 +206,10 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("You do not have a personal territory yet. Use /territory create [biome].").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
+        if (!territory.isReady() && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal("That territory is still pregenerating. Try again after staff marks it ready.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
         if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
             player.sendSystemMessage(Component.literal("That territory world is not loaded. Check Multiworld world name: " + territory.worldName).withStyle(ChatFormatting.RED));
             return 0;
@@ -148,6 +221,10 @@ public final class TerritoryCommand {
         TerritoryRepository.Territory territory = ownGuild(player);
         if (territory == null) {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory yet. Owners/officers can use /gterritory create [biome].").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        if (!territory.isReady() && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal("That guild territory is still pregenerating. Try again after staff marks it ready.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
         if (!TerritoryRepository.canEnter(player, territory)) {
@@ -324,7 +401,8 @@ public final class TerritoryCommand {
             return 0;
         }
         player.sendSystemMessage(Component.literal(title + " - " + territory.ownerName).withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("World: " + territory.worldName + " | Center: " + territory.centerX + ", " + territory.centerZ + " | Radius: " + territory.radius).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("World: " + territory.worldName + " | Slot: " + territory.slotIndex + " | Center: " + territory.centerX + ", " + territory.centerZ + " | Radius: " + territory.radius).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("World key: " + (territory.worldKey == null ? territory.worldName : territory.worldKey) + " | Generation: " + (territory.generationState == null ? "READY" : territory.generationState) + " | ID: " + territory.id).withStyle(ChatFormatting.DARK_GRAY));
         player.sendSystemMessage(Component.literal("Biome preference: " + (territory.biomePreference == null ? "none" : territory.biomePreference)).withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("Public: " + territory.isPublic + " | Visitors: " + territory.allowVisitors + " | Border lock: " + territory.lockBorder).withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("Visitor permissions: build=" + territory.visitorsCanBuild + ", containers=" + territory.visitorsCanOpenContainers + ", entities=" + territory.visitorsCanInteractEntities + ", redstone=" + territory.visitorsCanUseRedstone).withStyle(ChatFormatting.GRAY));
@@ -345,6 +423,7 @@ public final class TerritoryCommand {
         player.sendSystemMessage(Component.literal("/territory set visitorredstone true|false - Visitors may use redstone/buttons/levers").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set border true|false - Lock players inside the territory border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory trust|untrust|ban|unban|kick <player> - Manage player access").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("/territory delete - Delete your personal territory and free the packed slot").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/gterritory ban|unban|kick <player> - Guild territory access control").withStyle(ChatFormatting.GRAY));
         return 1;
     }

@@ -137,6 +137,10 @@ public final class NetworkReadySchemaManager {
                                 ")"
                 );
 
+                statement.executeUpdate("alter table territories add column if not exists world_key text");
+                statement.executeUpdate("alter table territories add column if not exists slot_index integer not null default 0");
+                statement.executeUpdate("alter table territories add column if not exists generation_state text not null default 'READY'");
+                statement.executeUpdate("alter table territories add column if not exists deleted_at timestamptz");
                 statement.executeUpdate("alter table territories add column if not exists center_x integer");
                 statement.executeUpdate("alter table territories add column if not exists center_z integer");
                 statement.executeUpdate("alter table territories add column if not exists radius integer");
@@ -148,6 +152,8 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_interact_entities boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_use_redstone boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists lock_border boolean not null default true");
+                statement.executeUpdate("update territories set world_key = world_name where world_key is null or trim(world_key) = ''");
+                statement.executeUpdate("update territories set generation_state = 'READY' where generation_state is null or trim(generation_state) = ''");
                 statement.executeUpdate("update territories set center_x = ((min_x + max_x) / 2) where center_x is null");
                 statement.executeUpdate("update territories set center_z = ((min_z + max_z) / 2) where center_z is null");
                 statement.executeUpdate("update territories set radius = greatest(((max_x - min_x) / 2), ((max_z - min_z) / 2)) where radius is null");

@@ -25,6 +25,8 @@ public final class TerritoryMenus {
             if (slot >= 45) break;
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Owner: " + territory.ownerName).withStyle(ChatFormatting.GRAY));
+            lore.add(Component.literal("World: " + territory.worldName + " | Slot: " + territory.slotIndex).withStyle(ChatFormatting.GRAY));
+            lore.add(Component.literal("Status: " + (territory.generationState == null ? "READY" : territory.generationState)).withStyle(territory.isReady() ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
             lore.add(Component.literal("Biome: " + (territory.biomePreference == null ? "Any" : territory.biomePreference)).withStyle(ChatFormatting.GRAY));
             lore.add(Component.literal("Visitors: " + (territory.allowVisitors ? "Allowed" : "Listed Only")).withStyle(territory.allowVisitors ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
             lore.add(Component.literal("Click to visit.").withStyle(ChatFormatting.AQUA));
@@ -33,6 +35,10 @@ public final class TerritoryMenus {
                     .setName(Component.literal(territory.ownerName).withStyle(ChatFormatting.GOLD))
                     .setLore(lore)
                     .setCallback((index, clickType, actionType) -> {
+                        if (!territory.isReady() && !player.hasPermissions(4)) {
+                            player.sendSystemMessage(Component.literal("That territory is still pregenerating.").withStyle(ChatFormatting.YELLOW));
+                            return;
+                        }
                         if (!TerritoryRepository.canEnter(player, territory)) {
                             player.sendSystemMessage(Component.literal("You cannot visit that territory.").withStyle(ChatFormatting.RED));
                             return;

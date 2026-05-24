@@ -1,0 +1,89 @@
+package com.champutils.exploration;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class ExplorationWorldConfig {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File FILE = new File("config/champutils/exploration_worlds.json");
+    private static Data data = new Data();
+
+    private ExplorationWorldConfig() {}
+
+    public static void load() {
+        try {
+            File parent = FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            if (!FILE.exists()) { save(); return; }
+            try (FileReader reader = new FileReader(FILE)) {
+                Data loaded = GSON.fromJson(reader, Data.class);
+                data = loaded == null ? new Data() : loaded.withDefaults();
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load exploration_worlds.json. Using defaults.");
+            e.printStackTrace();
+            data = new Data();
+        }
+    }
+
+    public static void save() {
+        try {
+            File parent = FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            try (FileWriter writer = new FileWriter(FILE)) {
+                GSON.toJson(data.withDefaults(), writer);
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to save exploration_worlds.json.");
+            e.printStackTrace();
+        }
+    }
+
+    public static Data get() { return data.withDefaults(); }
+
+    public static final class Data {
+        public boolean enabled = true;
+        public int worldCount = 6;
+        public String worldPrefix = "multiworld:exploration";
+        public int borderRadius = 5000;
+        public int spawnY = 100;
+        public long wipeIntervalHours = 168;
+        public long staggerHours = 28; // 168 / 6, so only one wipes at a time by default.
+        public boolean requirePregenerationBeforeEntry = true;
+        public boolean runWorldCommands = true;
+
+        public List<String> deleteCommands = new ArrayList<>(List.of(
+                "mw unload {world}",
+                "mw delete {world}"
+        ));
+        public List<String> createCommands = new ArrayList<>(List.of(
+                "mw create {world}",
+                "mw load {world}"
+        ));
+        public List<String> chunkyPregenerationCommands = new ArrayList<>(List.of(
+                "chunky world {world}",
+                "chunky center 0 0",
+                "chunky radius {border_radius}",
+                "chunky start"
+        ));
+
+        private Data withDefaults() {
+            if (worldCount < 1) worldCount = 6;
+            if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "multiworld:exploration";
+            if (borderRadius < 500) borderRadius = 5000;
+            if (spawnY < -64) spawnY = 100;
+            if (wipeIntervalHours < 1) wipeIntervalHours = 168;
+            if (staggerHours < 1) staggerHours = Math.max(1, wipeIntervalHours / Math.max(1, worldCount));
+            if (deleteCommands == null) deleteCommands = new ArrayList<>();
+            if (createCommands == null) createCommands = new ArrayList<>();
+            if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
+            return this;
+        }
+    }
+}
