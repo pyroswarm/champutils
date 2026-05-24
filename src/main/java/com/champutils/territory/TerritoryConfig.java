@@ -88,6 +88,12 @@ public final class TerritoryConfig {
 
         /** Commands are run from console after a new territory is allocated. */
         public boolean runGenerationCommands = true;
+
+        /**
+         * When true, territory creation no longer requires an OP to run /territory admin ready.
+         * Chunky/Multiworld commands are still requested, but the territory becomes enterable immediately.
+         */
+        public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
                 "mw create {world}",
                 "mw load {world}"

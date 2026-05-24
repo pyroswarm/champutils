@@ -50,13 +50,18 @@ public final class ExplorationWorldConfig {
     public static final class Data {
         public boolean enabled = true;
         public int worldCount = 6;
+        public int netherWorldCount = 2;
+        public int endWorldCount = 2;
         public String worldPrefix = "multiworld:exploration";
+        public String netherWorldPrefix = "multiworld:nether_exploration";
+        public String endWorldPrefix = "multiworld:end_exploration";
         public int borderRadius = 5000;
         public int spawnY = 100;
         public long wipeIntervalHours = 168;
         public long staggerHours = 28; // 168 / 6, so only one wipes at a time by default.
         public boolean requirePregenerationBeforeEntry = true;
         public boolean runWorldCommands = true;
+        public long rtpAvoidWipeMinutes = 60;
 
         public List<String> deleteCommands = new ArrayList<>(List.of(
                 "mw unload {world}",
@@ -75,11 +80,16 @@ public final class ExplorationWorldConfig {
 
         private Data withDefaults() {
             if (worldCount < 1) worldCount = 6;
+            if (netherWorldCount < 0) netherWorldCount = 2;
+            if (endWorldCount < 0) endWorldCount = 2;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "multiworld:exploration";
+            if (netherWorldPrefix == null || netherWorldPrefix.isBlank()) netherWorldPrefix = "multiworld:nether_exploration";
+            if (endWorldPrefix == null || endWorldPrefix.isBlank()) endWorldPrefix = "multiworld:end_exploration";
             if (borderRadius < 500) borderRadius = 5000;
             if (spawnY < -64) spawnY = 100;
             if (wipeIntervalHours < 1) wipeIntervalHours = 168;
             if (staggerHours < 1) staggerHours = Math.max(1, wipeIntervalHours / Math.max(1, worldCount));
+            if (rtpAvoidWipeMinutes < 0) rtpAvoidWipeMinutes = 60;
             if (deleteCommands == null) deleteCommands = new ArrayList<>();
             if (createCommands == null) createCommands = new ArrayList<>();
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();

@@ -469,6 +469,8 @@ public class ChampUtilsMod implements ModInitializer {
         ItemBindCommand.register();
         OpenCratesCommand.register();
         ExplorationWorldCommand.register();
+        TpaCommand.register();
+        BackCommand.register();
         GuildCommand.register();
         TerritoryCommand.register();
 
@@ -534,6 +536,7 @@ public class ChampUtilsMod implements ModInitializer {
                     TerritoryBorderManager.tick(server);
                     TerritoryWorldGenerationManager.tick(server);
                     ExplorationWorldManager.tick(server);
+                    VanillaPortalBlocker.tick(server);
 
                     /*
                      Leaderboard refresh

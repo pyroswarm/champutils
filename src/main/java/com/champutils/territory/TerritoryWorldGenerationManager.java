@@ -41,9 +41,15 @@ public final class TerritoryWorldGenerationManager {
             run(server, apply(command, territory));
         }
 
-        territory.generationState = "GENERATING";
-        TerritoryRepository.save(territory, (success, message) -> {});
-        System.out.println("[ChampUtils] Requested Chunky pregeneration for territory " + territory.id + " in " + territory.worldName + ". Mark ready with /territory admin ready " + territory.id + " after Chunky finishes.");
+        if (TerritoryConfig.get().autoMarkReadyAfterGenerationRequest) {
+            territory.generationState = "READY";
+            TerritoryRepository.save(territory, (success, message) -> {});
+            System.out.println("[ChampUtils] Requested Chunky pregeneration for territory " + territory.id + " in " + territory.worldName + ". Territory was auto-marked READY so no OP approval is required.");
+        } else {
+            territory.generationState = "GENERATING";
+            TerritoryRepository.save(territory, (success, message) -> {});
+            System.out.println("[ChampUtils] Requested Chunky pregeneration for territory " + territory.id + " in " + territory.worldName + ". Mark ready with /territory admin ready " + territory.id + " after Chunky finishes.");
+        }
     }
 
     private static String apply(String command, TerritoryRepository.Territory territory) {

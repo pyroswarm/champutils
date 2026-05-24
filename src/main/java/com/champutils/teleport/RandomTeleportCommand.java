@@ -1,5 +1,8 @@
 package com.champutils.teleport;
 
+import com.champutils.exploration.ExplorationWorldConfig;
+import com.champutils.exploration.ExplorationWorldManager;
+
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -44,7 +47,16 @@ public final class RandomTeleportCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("rtp")
-                    .executes(ctx -> rtp(ctx.getSource())));
+                    .executes(ctx -> rtpUsage(ctx.getSource()))
+                    .then(literal("exploration")
+                            .executes(ctx -> rtp(ctx.getSource(), "overworld")))
+                    .then(literal("overworld")
+                            .requires(source -> source.hasPermission(4))
+                            .executes(ctx -> rtp(ctx.getSource(), "overworld")))
+                    .then(literal("nether")
+                            .executes(ctx -> rtp(ctx.getSource(), "nether")))
+                    .then(literal("end")
+                            .executes(ctx -> rtp(ctx.getSource(), "end"))));
 
             dispatcher.register(literal("rtpcooldown")
                     .requires(source -> source.hasPermission(4))
@@ -68,7 +80,12 @@ public final class RandomTeleportCommand {
         });
     }
 
-    private static int rtp(CommandSourceStack source) {
+    private static int rtpUsage(CommandSourceStack source) {
+        source.sendFailure(Component.literal("Usage: /rtp exploration, /rtp nether, or /rtp end"));
+        return 0;
+    }
+
+    private static int rtp(CommandSourceStack source, String requestedType) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
@@ -96,28 +113,23 @@ public final class RandomTeleportCommand {
         ServerLevel startLevel = player.serverLevel();
         String currentDimension = startLevel.dimension().location().toString();
 
-        ServerLevel targetLevel;
-        double startXForDistance;
-        double startZForDistance;
-
-        if (isSpawnHubDimension(currentDimension)) {
-            // Spawn hub always sends players to the actual overworld.
-            targetLevel = player.server.overworld();
-            startXForDistance = 0.0D;
-            startZForDistance = 0.0D;
-        } else if (TeleportConfig.isRtpBlocked(currentDimension)) {
-            targetLevel = TeleportConfig.resolveLevel(player.server, TeleportConfig.getRtpFallbackDimension());
-            startXForDistance = 0.0D;
-            startZForDistance = 0.0D;
-        } else {
-            targetLevel = startLevel;
-            startXForDistance = player.getX();
-            startZForDistance = player.getZ();
+        String targetType = ExplorationWorldManager.normalizeType(requestedType);
+        ExplorationWorldManager.RtpTarget explorationTarget = ExplorationWorldManager.pickRtpTarget(player.server, targetType);
+        if (explorationTarget == null || explorationTarget.level == null || explorationTarget.entry == null) {
+            player.sendSystemMessage(Component.literal("No " + displayType(targetType) + " exploration world is currently safe for RTP. Try again after pregeneration finishes or after the next wipe completes.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("RTP only uses READY exploration worlds of that type that are loaded and not close to wiping.").withStyle(ChatFormatting.GRAY));
+            return 0;
         }
 
-        if (targetLevel == null) {
-            player.sendSystemMessage(Component.literal("Could not find a valid RTP target dimension.").withStyle(ChatFormatting.RED));
-            return 0;
+        ServerLevel targetLevel = explorationTarget.level;
+        double startXForDistance = 0.0D;
+        double startZForDistance = 0.0D;
+
+        if (targetLevel == startLevel
+                && !isSpawnHubDimension(currentDimension)
+                && !TeleportConfig.isRtpBlocked(currentDimension)) {
+            startXForDistance = player.getX();
+            startZForDistance = player.getZ();
         }
 
         SearchBounds bounds = SearchBounds.from(targetLevel);
@@ -127,10 +139,10 @@ public final class RandomTeleportCommand {
         }
 
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance));
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, targetType));
 
-        player.sendSystemMessage(Component.literal("Searching for a random safe RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Target dimension: " + targetLevel.dimension().location()).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Searching for a random safe " + displayType(targetType) + " exploration location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Target exploration world: " + explorationTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
@@ -179,20 +191,47 @@ public final class RandomTeleportCommand {
                 continue;
             }
 
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-
-            BlockPos feet = new BlockPos(x, y, z);
-            BlockPos ground = feet.below();
-            BlockPos head = feet.above();
-
-            if (!border.isWithinBounds(feet)) continue;
-            if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) continue;
-            if (!hasRoomForPlayer(level, feet, head)) continue;
-            if (!hasSafeLanding(level, feet, ground)) continue;
-
-            return feet;
+            BlockPos safe = "nether".equalsIgnoreCase(task.targetType)
+                    ? findNetherSafePosition(level, border, x, z)
+                    : findSurfaceSafePosition(level, border, x, z);
+            if (safe != null) return safe;
         }
 
+        return null;
+    }
+
+    private static BlockPos findSurfaceSafePosition(ServerLevel level, WorldBorder border, int x, int z) {
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        BlockPos feet = new BlockPos(x, y, z);
+        BlockPos ground = feet.below();
+        BlockPos head = feet.above();
+
+        if (!border.isWithinBounds(feet)) return null;
+        if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) return null;
+        if (!hasRoomForPlayer(level, feet, head)) return null;
+        if (!hasSafeLanding(level, feet, ground)) return null;
+        return feet;
+    }
+
+    private static BlockPos findNetherSafePosition(ServerLevel level, WorldBorder border, int x, int z) {
+        int minY = Math.max(level.getMinBuildHeight() + 8, 8);
+        int maxY = Math.min(level.getMaxBuildHeight() - 8, 120);
+        if (minY >= maxY) return null;
+
+        for (int verticalAttempt = 0; verticalAttempt < 24; verticalAttempt++) {
+            int startY = randomBetween(minY, maxY);
+            for (int y = startY; y >= minY; y--) {
+                BlockPos feet = new BlockPos(x, y, z);
+                BlockPos ground = feet.below();
+                BlockPos head = feet.above();
+
+                if (!border.isWithinBounds(feet)) continue;
+                if (!hasRoomForPlayer(level, feet, head)) continue;
+                if (!hasSafeLanding(level, feet, ground)) continue;
+                if (level.getBlockState(ground).is(Blocks.BEDROCK)) continue;
+                return feet;
+            }
+        }
         return null;
     }
 
@@ -286,6 +325,13 @@ public final class RandomTeleportCommand {
         return 1;
     }
 
+    private static String displayType(String targetType) {
+        if ("overworld".equalsIgnoreCase(targetType)) return "overworld";
+        if ("nether".equalsIgnoreCase(targetType)) return "nether";
+        if ("end".equalsIgnoreCase(targetType)) return "end";
+        return targetType == null ? "exploration" : targetType;
+    }
+
     private static boolean isSpawnHubDimension(String dimension) {
         if (dimension == null) return false;
 
@@ -303,15 +349,17 @@ public final class RandomTeleportCommand {
         private final SearchBounds bounds;
         private final double startX;
         private final double startZ;
+        private final String targetType;
         private int attempts = 0;
         private int ticks = 0;
 
-        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ) {
+        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String targetType) {
             this.playerId = playerId;
             this.level = level;
             this.bounds = bounds;
             this.startX = startX;
             this.startZ = startZ;
+            this.targetType = targetType;
         }
 
         private boolean tick(ServerPlayer player) {
@@ -345,6 +393,16 @@ public final class RandomTeleportCommand {
         }
 
         private static SearchBounds from(ServerLevel level) {
+            if (ExplorationWorldManager.find(level) != null) {
+                int radius = Math.max(BORDER_PADDING + 16, ExplorationWorldConfig.get().borderRadius);
+                int min = -radius + BORDER_PADDING;
+                int max = radius - BORDER_PADDING;
+                if (min >= max) {
+                    return null;
+                }
+                return new SearchBounds(min, max, min, max);
+            }
+
             WorldBorder border = level.getWorldBorder();
 
             int minX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;

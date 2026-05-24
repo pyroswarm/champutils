@@ -18,6 +18,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Collections;
 
 public final class ExplorationWorldManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -76,12 +77,62 @@ public final class ExplorationWorldManager {
         }
     }
 
+
+    public static RtpTarget pickRtpTarget(MinecraftServer server) {
+        return pickRtpTarget(server, "overworld");
+    }
+
+    public static RtpTarget pickRtpTarget(MinecraftServer server, String requestedType) {
+        if (server == null || !ExplorationWorldConfig.get().enabled) return null;
+        bootstrapState();
+
+        String normalizedType = normalizeType(requestedType);
+        List<Entry> candidates = new ArrayList<>();
+        for (Entry entry : state.worlds) {
+            if (normalizedType.equals(normalizeType(entry.worldType)) && isSafeForRtp(server, entry)) {
+                candidates.add(entry);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        Collections.shuffle(candidates);
+        Entry picked = candidates.get(0);
+        ServerLevel level = getLevel(server, picked.worldName);
+        if (level == null) {
+            return null;
+        }
+        return new RtpTarget(picked, level);
+    }
+
+    public static String normalizeType(String type) {
+        if (type == null || type.isBlank()) return "overworld";
+        String clean = type.trim().toLowerCase(Locale.ROOT);
+        if (clean.equals("exploration") || clean.equals("overworld") || clean.equals("world")) return "overworld";
+        if (clean.equals("nether")) return "nether";
+        if (clean.equals("end") || clean.equals("the_end")) return "end";
+        return clean;
+    }
+
+    public static boolean isSafeForRtp(MinecraftServer server, Entry entry) {
+        if (server == null || entry == null) return false;
+        if (!"READY".equalsIgnoreCase(entry.status)) return false;
+        if (state.wipeInProgressWorld != null && state.wipeInProgressWorld.equalsIgnoreCase(entry.worldName)) return false;
+        if (getLevel(server, entry.worldName) == null) return false;
+
+        long avoidMs = Math.max(0L, ExplorationWorldConfig.get().rtpAvoidWipeMinutes) * 60L * 1000L;
+        long now = System.currentTimeMillis();
+        return entry.nextWipeAtMillis <= 0L || entry.nextWipeAtMillis - now > avoidMs;
+    }
+
     public static boolean teleport(ServerPlayer player, int index) {
         bootstrapState();
         if (index < 1 || index > state.worlds.size()) return false;
         Entry entry = state.worlds.get(index - 1);
-        if (!"READY".equalsIgnoreCase(entry.status) && !player.hasPermissions(4)) {
-            player.sendSystemMessage(Component.literal("That exploration world is currently " + entry.status + ". Try another one.").withStyle(ChatFormatting.YELLOW));
+        if (!player.hasPermissions(4) && !isSafeForRtp(player.server, entry)) {
+            player.sendSystemMessage(Component.literal("That exploration world is not safe to enter right now. Status: " + entry.status + ". It may be generating, wiping, unloaded, or too close to its next wipe.").withStyle(ChatFormatting.YELLOW));
             return false;
         }
         ServerLevel level = getLevel(player.server, entry.worldName);
@@ -91,6 +142,17 @@ public final class ExplorationWorldManager {
         }
         player.teleportTo(level, 0.5D, ExplorationWorldConfig.get().spawnY, 0.5D, player.getYRot(), player.getXRot());
         return true;
+    }
+
+    public static boolean teleport(ServerPlayer player, String type, int localIndex) {
+        bootstrapState();
+        if (type == null) return false;
+        for (Entry entry : state.worlds) {
+            if (entry.localIndex == localIndex && type.equalsIgnoreCase(entry.worldType)) {
+                return teleport(player, entry.index);
+            }
+        }
+        return false;
     }
 
     public static void startWipe(MinecraftServer server, Entry entry, boolean forced) {
@@ -160,17 +222,40 @@ public final class ExplorationWorldManager {
         ExplorationWorldConfig.Data cfg = ExplorationWorldConfig.get();
         if (state.worlds == null) state.worlds = new ArrayList<>();
         long now = System.currentTimeMillis();
-        while (state.worlds.size() < cfg.worldCount) {
-            int number = state.worlds.size() + 1;
-            Entry entry = new Entry();
-            entry.index = number;
-            entry.worldName = cfg.worldPrefix + "_" + number;
-            entry.status = cfg.requirePregenerationBeforeEntry ? "PENDING" : "READY";
-            entry.lastWipeAtMillis = 0L;
-            entry.nextWipeAtMillis = now + ((long) (number - 1) * cfg.staggerHours * 60L * 60L * 1000L);
-            state.worlds.add(entry);
+        List<Entry> rebuilt = new ArrayList<>();
+        int globalIndex = 1;
+        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.worldCount, cfg.worldPrefix, "overworld", now, cfg);
+        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.netherWorldCount, cfg.netherWorldPrefix, "nether", now, cfg);
+        ensureGroup(rebuilt, globalIndex, cfg.endWorldCount, cfg.endWorldPrefix, "end", now, cfg);
+        state.worlds = rebuilt;
+    }
+
+    private static int ensureGroup(List<Entry> rebuilt, int globalIndex, int count, String prefix, String type, long now, ExplorationWorldConfig.Data cfg) {
+        for (int local = 1; local <= count; local++) {
+            String worldName = prefix + "_" + local;
+            Entry entry = findExisting(worldName);
+            if (entry == null) {
+                entry = new Entry();
+                entry.worldName = worldName;
+                entry.status = cfg.requirePregenerationBeforeEntry ? "PENDING" : "READY";
+                entry.lastWipeAtMillis = 0L;
+                entry.nextWipeAtMillis = now + ((long) (globalIndex - 1) * cfg.staggerHours * 60L * 60L * 1000L);
+            }
+            entry.index = globalIndex;
+            entry.localIndex = local;
+            entry.worldType = type;
+            rebuilt.add(entry);
+            globalIndex++;
         }
-        if (state.worlds.size() > cfg.worldCount) state.worlds = new ArrayList<>(state.worlds.subList(0, cfg.worldCount));
+        return globalIndex;
+    }
+
+    private static Entry findExisting(String worldName) {
+        if (worldName == null || state.worlds == null) return null;
+        for (Entry entry : state.worlds) {
+            if (entry != null && worldName.equalsIgnoreCase(entry.worldName)) return entry;
+        }
+        return null;
     }
 
     private static ServerLevel getLevel(MinecraftServer server, String worldName) {
@@ -186,13 +271,25 @@ public final class ExplorationWorldManager {
                 .replace("{world}", entry.worldName)
                 .replace("{index}", Integer.toString(entry.index))
                 .replace("{border_radius}", Integer.toString(ExplorationWorldConfig.get().borderRadius))
-                .replace("{status}", entry.status == null ? "" : entry.status.toLowerCase(Locale.ROOT));
+                .replace("{status}", entry.status == null ? "" : entry.status.toLowerCase(Locale.ROOT))
+                .replace("{type}", entry.worldType == null ? "overworld" : entry.worldType.toLowerCase(Locale.ROOT))
+                .replace("{local_index}", Integer.toString(entry.localIndex));
     }
 
     private static void run(MinecraftServer server, String command) {
         if (command == null || command.isBlank()) return;
         String clean = command.startsWith("/") ? command.substring(1) : command;
         server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4), clean);
+    }
+
+    public static final class RtpTarget {
+        public final Entry entry;
+        public final ServerLevel level;
+
+        private RtpTarget(Entry entry, ServerLevel level) {
+            this.entry = entry;
+            this.level = level;
+        }
     }
 
     public static final class State {
@@ -206,5 +303,7 @@ public final class ExplorationWorldManager {
         public String status;
         public long lastWipeAtMillis;
         public long nextWipeAtMillis;
+        public String worldType = "overworld";
+        public int localIndex;
     }
 }
