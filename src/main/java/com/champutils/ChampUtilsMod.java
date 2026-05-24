@@ -538,6 +538,7 @@ public class ChampUtilsMod implements ModInitializer {
                     TerritoryPhysicalBorderManager.tick(server);
                     TerritoryBorderDisplayManager.tick(server);
                     TerritoryWorldGenerationManager.tick(server);
+                    TerritoryRegionWipeManager.tick(server);
                     ExplorationWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);
 

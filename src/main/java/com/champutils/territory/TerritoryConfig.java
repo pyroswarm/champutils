@@ -89,6 +89,9 @@ public final class TerritoryConfig {
         /** Minutes a player/guild must wait after deleting a territory before creating another. */
         public int recreateCooldownMinutes = 30;
 
+        /** How many blocks a territory deletion wipe may clear per tick. Raise carefully; big values can lag. */
+        public int territoryWipeBlocksPerTick = 4096;
+
         /**
          * Territories no longer wait on Chunky pregeneration. New territories are marked READY once the
          * packed territory world has been requested/loaded through Multiworld.
@@ -146,6 +149,8 @@ public final class TerritoryConfig {
             if (barrierColumnsPerTick < 1) barrierColumnsPerTick = 12;
             if (barrierColumnsPerTick > 128) barrierColumnsPerTick = 128;
             if (recreateCooldownMinutes < 0) recreateCooldownMinutes = 30;
+            if (territoryWipeBlocksPerTick < 256) territoryWipeBlocksPerTick = 4096;
+            if (territoryWipeBlocksPerTick > 65536) territoryWipeBlocksPerTick = 65536;
             if (allowedBiomePreferences == null || allowedBiomePreferences.isEmpty()) {
                 allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());
             } else {

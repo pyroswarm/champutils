@@ -227,10 +227,12 @@ public final class ExplorationWorldManager {
 
             System.out.println("[ChampUtils] Exploration world is missing/unloaded. Requesting Multiworld create/load for " + entry.worldName + " (" + entry.worldType + ").");
             boolean commandsOk = true;
-            for (String command : createCommandsFor(entry)) commandsOk &= run(server, apply(command, entry));
+            List<String> createCommands = createCommandsFor(entry);
+            for (String command : createCommands) commandsOk &= run(server, apply(command, entry));
             if (commandsOk) {
                 entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
-                for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) run(server, apply(command, entry));
+                List<String> chunkyCommands = new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands);
+                for (String command : chunkyCommands) run(server, apply(command, entry));
             } else {
                 entry.status = "PENDING";
             }
@@ -242,9 +244,9 @@ public final class ExplorationWorldManager {
     private static List<String> createCommandsFor(Entry entry) {
         String type = normalizeType(entry == null ? null : entry.worldType);
         ExplorationWorldConfig.Data cfg = ExplorationWorldConfig.get();
-        if ("nether".equals(type)) return cfg.netherCreateCommands;
-        if ("end".equals(type)) return cfg.endCreateCommands;
-        return cfg.createCommands;
+        if ("nether".equals(type)) return new ArrayList<>(cfg.netherCreateCommands);
+        if ("end".equals(type)) return new ArrayList<>(cfg.endCreateCommands);
+        return new ArrayList<>(cfg.createCommands);
     }
 
     public static void startWipe(MinecraftServer server, Entry entry, boolean forced) {
@@ -266,9 +268,12 @@ public final class ExplorationWorldManager {
 
         boolean commandsOk = true;
         if (ExplorationWorldConfig.get().runWorldCommands) {
-            for (String command : ExplorationWorldConfig.get().deleteCommands) commandsOk &= run(server, apply(command, entry));
-            for (String command : createCommandsFor(entry)) commandsOk &= run(server, apply(command, entry));
-            for (String command : ExplorationWorldConfig.get().chunkyPregenerationCommands) commandsOk &= run(server, apply(command, entry));
+            List<String> deleteCommands = new ArrayList<>(ExplorationWorldConfig.get().deleteCommands);
+            List<String> createCommands = createCommandsFor(entry);
+            List<String> chunkyCommands = new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands);
+            for (String command : deleteCommands) commandsOk &= run(server, apply(command, entry));
+            for (String command : createCommands) commandsOk &= run(server, apply(command, entry));
+            for (String command : chunkyCommands) commandsOk &= run(server, apply(command, entry));
         }
 
         entry.status = commandsOk ? (ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY") : "PENDING";

@@ -65,7 +65,9 @@ public final class TerritoryCommand {
                             .then(Commands.argument("player", EntityArgument.player())
                                     .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownPersonal(context.getSource().getPlayerOrException())))))
                     .then(Commands.literal("delete")
-                            .executes(context -> deletePersonal(context.getSource().getPlayerOrException())))
+                            .executes(context -> deletePersonalPrompt(context.getSource().getPlayerOrException()))
+                            .then(Commands.literal("confirm")
+                                    .executes(context -> deletePersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("admin")
                             .requires(source -> source.hasPermission(4))
                             .then(Commands.literal("ready")
@@ -131,7 +133,9 @@ public final class TerritoryCommand {
                             .then(Commands.argument("player", EntityArgument.player())
                                     .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownGuild(context.getSource().getPlayerOrException())))))
                     .then(Commands.literal("delete")
-                            .executes(context -> deleteGuild(context.getSource().getPlayerOrException()))));
+                            .executes(context -> deleteGuildPrompt(context.getSource().getPlayerOrException()))
+                            .then(Commands.literal("confirm")
+                                    .executes(context -> deleteGuild(context.getSource().getPlayerOrException())))));
         });
     }
 
@@ -141,6 +145,21 @@ public final class TerritoryCommand {
 
     private static TerritoryRepository.Territory ownGuild(ServerPlayer player) {
         return TerritoryRepository.cachedGuildForPlayer(player);
+    }
+
+    private static int deletePersonalPrompt(ServerPlayer player) {
+        TerritoryRepository.Territory territory = ownPersonal(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("You do not have a personal territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot delete this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("WARNING: This will permanently delete your territory and wipe all builds/items inside its border.").withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Run /territory delete confirm to continue.").withStyle(ChatFormatting.YELLOW));
+        return 1;
     }
 
     private static int deletePersonal(ServerPlayer player) {
@@ -153,7 +172,22 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("You cannot delete this territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        TerritoryRepository.deleteTerritory(territory, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        TerritoryRegionWipeManager.enqueueDelete(player, territory);
+        return 1;
+    }
+
+    private static int deleteGuildPrompt(ServerPlayer player) {
+        TerritoryRepository.Territory territory = ownGuild(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("Your guild does not have a territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!player.hasPermissions(4) && !TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("WARNING: This will permanently delete your guild territory and wipe all builds/items inside its border.").withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Run /gterritory delete confirm to continue.").withStyle(ChatFormatting.YELLOW));
         return 1;
     }
 
@@ -167,7 +201,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        TerritoryRepository.deleteTerritory(territory, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        TerritoryRegionWipeManager.enqueueDelete(player, territory);
         return 1;
     }
 
@@ -478,7 +512,7 @@ public final class TerritoryCommand {
         player.sendSystemMessage(Component.literal("/territory set border true|false - Lock players inside the territory border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory border show|hide - Display or hide a particle outline of the border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory trust|untrust|ban|unban|kick <player> - Manage player access").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("/territory delete - Delete your personal territory and free the packed slot").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("/territory delete confirm - Permanently delete and wipe your personal territory").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/gterritory ban|unban|kick <player> - Guild territory access control").withStyle(ChatFormatting.GRAY));
         return 1;
     }
