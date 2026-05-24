@@ -56,6 +56,9 @@ public final class ExplorationWorldConfig {
         public String netherWorldPrefix = "multiworld:nether_exploration";
         public String endWorldPrefix = "multiworld:end_exploration";
         public int borderRadius = 5000;
+        public int pregenerationRadius = 1500;
+        public int chunkySpeed = 20;
+        public long autoReadyAfterPregenerationMinutes = 30;
         public int spawnY = 100;
         public long wipeIntervalHours = 168;
         public long staggerHours = 28; // 168 / 6, so only one wipes at a time by default.
@@ -80,9 +83,11 @@ public final class ExplorationWorldConfig {
                 "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>(List.of(
+                "chunky pause",
                 "chunky world {world}",
                 "chunky center 0 0",
-                "chunky radius {border_radius}",
+                "chunky radius {pregeneration_radius}",
+                "chunky speed {chunky_speed}",
                 "chunky start"
         ));
 
@@ -94,6 +99,10 @@ public final class ExplorationWorldConfig {
             if (netherWorldPrefix == null || netherWorldPrefix.isBlank()) netherWorldPrefix = "multiworld:nether_exploration";
             if (endWorldPrefix == null || endWorldPrefix.isBlank()) endWorldPrefix = "multiworld:end_exploration";
             if (borderRadius < 500) borderRadius = 5000;
+            if (pregenerationRadius < 250) pregenerationRadius = 1500;
+            if (pregenerationRadius > borderRadius) pregenerationRadius = borderRadius;
+            if (chunkySpeed < 1) chunkySpeed = 20;
+            if (autoReadyAfterPregenerationMinutes < 0) autoReadyAfterPregenerationMinutes = 30;
             if (spawnY < -64) spawnY = 100;
             if (wipeIntervalHours < 1) wipeIntervalHours = 168;
             if (staggerHours < 1) staggerHours = Math.max(1, wipeIntervalHours / Math.max(1, worldCount));
@@ -133,6 +142,8 @@ public final class ExplorationWorldConfig {
                     .replace("mw create {world}", "mw create {world_id} THE_END -g=THE_END")
                     .replace("mw load {world}", "mw load {world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
+            chunkyPregenerationCommands.replaceAll(command -> command == null ? "" : command
+                    .replace("chunky radius {border_radius}", "chunky radius {pregeneration_radius}"));
             return this;
         }
     }

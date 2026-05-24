@@ -39,6 +39,7 @@ import com.champutils.roaming.*;
 import com.champutils.specialspawn.*;
 import com.champutils.wiki.*;
 import com.champutils.exploration.*;
+import com.champutils.survival.*;
 import com.champutils.crate.*;
 import com.champutils.network.*;
 import com.champutils.guild.*;
@@ -140,6 +141,9 @@ public class ChampUtilsMod implements ModInitializer {
         ItemBindRegistry.load();
         ExplorationWorldConfig.load();
         ExplorationWorldManager.load();
+        SurvivalWorldConfig.load();
+        SurvivalWorldManager.load();
+        HomeCommand.load();
         CrateConfig.load();
         CrateCreditManager.load();
 
@@ -232,6 +236,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PokemonWikiIndex.reload(server);
                     ChestShopDisplayManager.syncAll(server);
                     ExplorationWorldManager.ensureStartupWorlds(server);
+                    SurvivalWorldManager.ensureStartupWorlds(server);
 
                     if (DatabaseManager.isEnabled()) {
                         try {
@@ -265,6 +270,8 @@ public class ChampUtilsMod implements ModInitializer {
                     MenuNpcBindingRegistry.save();
                     ItemBindRegistry.save();
                     ExplorationWorldManager.save();
+                    SurvivalWorldManager.save();
+                    HomeCommand.save();
                     FirstJoinKitManager.save();
                     ChestShopRegistry.save();
                     TeleportConfig.save();
@@ -360,6 +367,11 @@ public class ChampUtilsMod implements ModInitializer {
                     AuctionHouseService.handleJoin(
                             player
                     );
+
+                    // Multiworld needs an online player command source. On first join after startup,
+                    // create/load every missing configured exploration and survival world at once.
+                    ExplorationWorldManager.ensureStartupWorlds(server);
+                    SurvivalWorldManager.ensureStartupWorlds(server);
 
                     GuildRepository.loadForPlayer(
                             player.getUUID(),
@@ -461,6 +473,7 @@ public class ChampUtilsMod implements ModInitializer {
         WonderTradeCommand.register();
         EmblemCommand.register();
         RandomTeleportCommand.register();
+        HomeCommand.register();
         com.champutils.teleport.SpawnWarpCommand.register();
         PortalCommand.register();
         RoamingTrainerCommand.register();
@@ -540,6 +553,7 @@ public class ChampUtilsMod implements ModInitializer {
                     TerritoryWorldGenerationManager.tick(server);
                     TerritoryRegionWipeManager.tick(server);
                     ExplorationWorldManager.tick(server);
+                    SurvivalWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);
 
                     /*

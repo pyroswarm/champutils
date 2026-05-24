@@ -12,6 +12,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.border.WorldBorder;
 
 import java.io.File;
 import java.io.FileReader;
@@ -68,6 +69,7 @@ public final class ExplorationWorldManager {
         if (server.getTickCount() % 1200 != 0) return;
         bootstrapState();
         long now = System.currentTimeMillis();
+        if (markFinishedGeneratingWorldsReady(now)) save();
         if (state.wipeInProgressWorld != null && !state.wipeInProgressWorld.isBlank()) return;
         for (Entry entry : state.worlds) {
             if ("GENERATING".equalsIgnoreCase(entry.status) || "WIPING".equalsIgnoreCase(entry.status)) return;
@@ -206,39 +208,92 @@ public final class ExplorationWorldManager {
             return;
         }
 
-        boolean changed = false;
+        boolean changed = markFinishedGeneratingWorldsReady(System.currentTimeMillis());
+
         for (Entry entry : state.worlds) {
             if (entry == null || entry.worldName == null || entry.worldName.isBlank()) continue;
 
             ServerLevel level = getLevel(server, entry.worldName);
             if (level != null) {
-                if (entry.status == null || entry.status.isBlank() || "PENDING".equalsIgnoreCase(entry.status)) {
-                    entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
+                if (!"READY".equalsIgnoreCase(entry.status)) {
+                    entry.status = "READY";
+                    entry.generationStartedAtMillis = 0L;
+                    entry.pregenerationRequested = false;
                     changed = true;
                 }
+                applyBorder(level);
                 continue;
             }
 
-            if (!forceCheck && !"PENDING".equalsIgnoreCase(entry.status)) continue;
+            if (!forceCheck && !"PENDING".equalsIgnoreCase(entry.status)) {
+                continue;
+            }
             if (!ExplorationWorldConfig.get().runWorldCommands) continue;
 
-            String requestKey = entry.worldName.toLowerCase(Locale.ROOT);
-            if (!WORLD_CREATE_REQUESTED_THIS_RUNTIME.add(requestKey) && !forceCheck) continue;
-
-            System.out.println("[ChampUtils] Exploration world is missing/unloaded. Requesting Multiworld create/load for " + entry.worldName + " (" + entry.worldType + ").");
-            boolean commandsOk = true;
-            List<String> createCommands = createCommandsFor(entry);
-            for (String command : createCommands) commandsOk &= run(server, apply(command, entry));
-            if (commandsOk) {
-                entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
-                List<String> chunkyCommands = new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands);
-                for (String command : chunkyCommands) run(server, apply(command, entry));
-            } else {
-                entry.status = "PENDING";
+            if (prepareWorld(server, entry, true, false)) {
+                changed = true;
             }
-            changed = true;
         }
         if (changed) save();
+    }
+
+    private static boolean hasActivePreparation() {
+        if (state.wipeInProgressWorld != null && !state.wipeInProgressWorld.isBlank()) return true;
+        for (Entry entry : state.worlds) {
+            if (entry == null) continue;
+            if ("GENERATING".equalsIgnoreCase(entry.status) || "WIPING".equalsIgnoreCase(entry.status)) return true;
+        }
+        return false;
+    }
+
+    private static boolean markFinishedGeneratingWorldsReady(long now) {
+        long autoReadyMs = ExplorationWorldConfig.get().autoReadyAfterPregenerationMinutes * 60L * 1000L;
+        if (autoReadyMs <= 0L) return false;
+        boolean changed = false;
+        for (Entry entry : state.worlds) {
+            if (entry == null || !"GENERATING".equalsIgnoreCase(entry.status)) continue;
+            if (entry.generationStartedAtMillis <= 0L) continue;
+            if (now - entry.generationStartedAtMillis < autoReadyMs) continue;
+            entry.status = "READY";
+            entry.generationStartedAtMillis = 0L;
+            entry.pregenerationRequested = false;
+            changed = true;
+            System.out.println("[ChampUtils] Exploration world marked READY after background pregeneration window: " + entry.worldName);
+        }
+        return changed;
+    }
+
+    private static boolean prepareWorld(MinecraftServer server, Entry entry, boolean createMissingWorld, boolean runChunkyPregeneration) {
+        String requestKey = entry.worldName.toLowerCase(Locale.ROOT);
+        if (!WORLD_CREATE_REQUESTED_THIS_RUNTIME.add(requestKey) && !"PENDING".equalsIgnoreCase(entry.status)) return false;
+
+        System.out.println("[ChampUtils] Preparing exploration world: " + entry.worldName + " (" + entry.worldType + "). Chunky pregeneration requested: " + runChunkyPregeneration + ".");
+        boolean commandsOk = true;
+        if (createMissingWorld) {
+            List<String> createCommands = createCommandsFor(entry);
+            for (String command : createCommands) commandsOk &= run(server, apply(command, entry));
+        }
+        ServerLevel loaded = getLevel(server, entry.worldName);
+        if (commandsOk && loaded != null) {
+            applyBorder(loaded);
+        } else {
+            commandsOk = false;
+        }
+        if (commandsOk && runChunkyPregeneration) {
+            List<String> chunkyCommands = new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands);
+            for (String command : chunkyCommands) commandsOk &= run(server, apply(command, entry));
+        }
+        if (commandsOk) {
+            entry.status = runChunkyPregeneration && ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY";
+            entry.generationStartedAtMillis = runChunkyPregeneration ? System.currentTimeMillis() : 0L;
+            entry.pregenerationRequested = runChunkyPregeneration;
+        } else {
+            WORLD_CREATE_REQUESTED_THIS_RUNTIME.remove(requestKey);
+            entry.status = "PENDING";
+            entry.generationStartedAtMillis = 0L;
+            entry.pregenerationRequested = false;
+        }
+        return true;
     }
 
     private static List<String> createCommandsFor(Entry entry) {
@@ -270,13 +325,21 @@ public final class ExplorationWorldManager {
         if (ExplorationWorldConfig.get().runWorldCommands) {
             List<String> deleteCommands = new ArrayList<>(ExplorationWorldConfig.get().deleteCommands);
             List<String> createCommands = createCommandsFor(entry);
-            List<String> chunkyCommands = new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands);
+            boolean runChunkyPregeneration = !forced;
+            List<String> chunkyCommands = runChunkyPregeneration
+                    ? new ArrayList<>(ExplorationWorldConfig.get().chunkyPregenerationCommands)
+                    : new ArrayList<>();
             for (String command : deleteCommands) commandsOk &= run(server, apply(command, entry));
             for (String command : createCommands) commandsOk &= run(server, apply(command, entry));
-            for (String command : chunkyCommands) commandsOk &= run(server, apply(command, entry));
+            if (commandsOk && runChunkyPregeneration) {
+                for (String command : chunkyCommands) commandsOk &= run(server, apply(command, entry));
+            }
         }
 
-        entry.status = commandsOk ? (ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY") : "PENDING";
+        boolean ranChunkyPregeneration = commandsOk && !forced;
+        entry.status = commandsOk ? (ranChunkyPregeneration && ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "GENERATING" : "READY") : "PENDING";
+        entry.generationStartedAtMillis = ranChunkyPregeneration ? System.currentTimeMillis() : 0L;
+        entry.pregenerationRequested = ranChunkyPregeneration;
         entry.lastWipeAtMillis = System.currentTimeMillis();
         entry.nextWipeAtMillis = entry.lastWipeAtMillis + ExplorationWorldConfig.get().wipeIntervalHours * 60L * 60L * 1000L;
         state.wipeInProgressWorld = "";
@@ -288,11 +351,21 @@ public final class ExplorationWorldManager {
         for (Entry entry : state.worlds) {
             if (entry.worldName.equalsIgnoreCase(worldName)) {
                 entry.status = "READY";
+                entry.generationStartedAtMillis = 0L;
+                entry.pregenerationRequested = false;
                 save();
                 return true;
             }
         }
         return false;
+    }
+
+    private static void applyBorder(ServerLevel level) {
+        if (level == null) return;
+        int radius = ExplorationWorldConfig.get().borderRadius;
+        WorldBorder border = level.getWorldBorder();
+        border.setCenter(0.0D, 0.0D);
+        border.setSize(radius * 2.0D);
     }
 
     private static void enforceBorders(MinecraftServer server) {
@@ -305,7 +378,7 @@ public final class ExplorationWorldManager {
             int x = Math.max(-radius + 2, Math.min(radius - 2, pos.getX()));
             int z = Math.max(-radius + 2, Math.min(radius - 2, pos.getZ()));
             SafeTeleportManager.teleportNoBack(player, player.serverLevel(), x + 0.5D, player.getY(), z + 0.5D, player.getYRot(), player.getXRot());
-            player.sendSystemMessage(Component.literal("You cannot leave the 5000-block exploration border.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You cannot leave the " + radius + "-block exploration border.").withStyle(ChatFormatting.RED));
         }
     }
 
@@ -372,6 +445,8 @@ public final class ExplorationWorldManager {
                 .replace("{world_id}", worldId)
                 .replace("{index}", Integer.toString(entry.index))
                 .replace("{border_radius}", Integer.toString(ExplorationWorldConfig.get().borderRadius))
+                .replace("{pregeneration_radius}", Integer.toString(ExplorationWorldConfig.get().pregenerationRadius))
+                .replace("{chunky_speed}", Integer.toString(ExplorationWorldConfig.get().chunkySpeed))
                 .replace("{status}", entry.status == null ? "" : entry.status.toLowerCase(Locale.ROOT))
                 .replace("{type}", entry.worldType == null ? "overworld" : entry.worldType.toLowerCase(Locale.ROOT))
                 .replace("{local_index}", Integer.toString(entry.localIndex));
@@ -386,12 +461,29 @@ public final class ExplorationWorldManager {
                 .replace("mw delete multiworld:", "mw delete ");
     }
 
+    private static boolean needsPlayerCommandSource(String clean) {
+        if (clean == null) return false;
+        String lower = clean.trim().toLowerCase(Locale.ROOT);
+        return lower.startsWith("mw ") || lower.startsWith("multiworld ");
+    }
+
     private static boolean run(MinecraftServer server, String command) {
         if (server == null || command == null || command.isBlank()) return true;
         String clean = command.startsWith("/") ? command.substring(1) : command;
         clean = sanitizeMultiworldCommand(clean);
         try {
-            server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4).withSuppressedOutput(), clean);
+            if (needsPlayerCommandSource(clean)) {
+                List<ServerPlayer> players = server.getPlayerList().getPlayers();
+                if (players.isEmpty()) {
+                    System.out.println("[ChampUtils] Exploration world command needs an online player source, so it will retry shortly: /" + clean);
+                    return false;
+                }
+                ServerPlayer player = players.get(0);
+                server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4).withSuppressedOutput(), clean);
+            } else {
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withPermission(4).withSuppressedOutput(), clean);
+            }
+
             System.out.println("[ChampUtils] Ran exploration world command: /" + clean);
             return true;
         } catch (Exception e) {
@@ -424,5 +516,7 @@ public final class ExplorationWorldManager {
         public long nextWipeAtMillis;
         public String worldType = "overworld";
         public int localIndex;
+        public long generationStartedAtMillis;
+        public boolean pregenerationRequested;
     }
 }

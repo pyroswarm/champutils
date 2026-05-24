@@ -80,8 +80,17 @@ public final class TerritoryConfig {
         public int defaultSpawnY = 80;
         public int borderWarningCooldownSeconds = 5;
 
+        /** If true, territory/guild territory worlds are treated as void skyblock-style worlds. */
+        public boolean skyblockTerritoryWorlds = true;
+
+        /** Creates/rebuilds the starter island at each territory slot center when the slot becomes READY. */
+        public boolean createSkyblockStarterIsland = true;
+
+        /** Radius of the starter island around the territory home point. */
+        public int skyblockIslandRadius = 9;
+
         /** Physically places invisible minecraft:barrier blocks around locked territories. */
-        public boolean physicalBarrierBorders = true;
+        public boolean physicalBarrierBorders = false;
 
         /** How many vertical border columns ChampUtils may build per tick. Lower this if border generation causes lag. */
         public int barrierColumnsPerTick = 12;
@@ -104,7 +113,7 @@ public final class TerritoryConfig {
         /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world_id} NORMAL -g=NORMAL",
+                "mw create {world_id} NORMAL -g=VOID",
                 "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>();
@@ -126,7 +135,7 @@ public final class TerritoryConfig {
             if (gridWidth < 1) gridWidth = slotGridWidth;
             if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
                 worldCreateCommands = new ArrayList<>(List.of(
-                        "mw create {world_id} NORMAL -g=NORMAL",
+                        "mw create {world_id} NORMAL -g=VOID",
                         "mw load {world_id}"
                 ));
             }
@@ -145,6 +154,13 @@ public final class TerritoryConfig {
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
+            if (skyblockTerritoryWorlds) {
+                worldCreateCommands.replaceAll(command -> command == null ? "" : command
+                        .replace("-g=NORMAL", "-g=VOID")
+                        .replace("-g=FLAT", "-g=VOID"));
+            }
+            if (skyblockIslandRadius < 3) skyblockIslandRadius = 9;
+            if (skyblockIslandRadius > 32) skyblockIslandRadius = 32;
             if (borderWarningCooldownSeconds < 1) borderWarningCooldownSeconds = 5;
             if (barrierColumnsPerTick < 1) barrierColumnsPerTick = 12;
             if (barrierColumnsPerTick > 128) barrierColumnsPerTick = 128;

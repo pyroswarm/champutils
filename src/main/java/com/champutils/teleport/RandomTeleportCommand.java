@@ -3,6 +3,7 @@ package com.champutils.teleport;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.exploration.ExplorationWorldConfig;
 import com.champutils.exploration.ExplorationWorldManager;
+import com.champutils.survival.SurvivalWorldManager;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -41,6 +42,7 @@ public final class RandomTeleportCommand {
     private static final int ATTEMPTS_PER_TICK = 8;
     private static final int BORDER_PADDING = 32;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
+    private static final int PREGENERATED_AREA_ATTEMPTS = 120;
 
     private RandomTeleportCommand() {
     }
@@ -50,11 +52,21 @@ public final class RandomTeleportCommand {
             dispatcher.register(literal("rtp")
                     .executes(ctx -> rtpUsage(ctx.getSource()))
                     .then(literal("exploration")
-                            .executes(ctx -> rtp(ctx.getSource(), "overworld")))
-                    .then(literal("nether")
-                            .executes(ctx -> rtp(ctx.getSource(), "nether")))
-                    .then(literal("end")
-                            .executes(ctx -> rtp(ctx.getSource(), "end"))));
+                            .executes(ctx -> rtp(ctx.getSource(), "overworld"))
+                            .then(literal("overworld")
+                                    .executes(ctx -> rtp(ctx.getSource(), "overworld")))
+                            .then(literal("nether")
+                                    .executes(ctx -> rtp(ctx.getSource(), "nether")))
+                            .then(literal("end")
+                                    .executes(ctx -> rtp(ctx.getSource(), "end"))))
+                    .then(literal("survival")
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld"))
+                            .then(literal("overworld")
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld")))
+                            .then(literal("nether")
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "nether")))
+                            .then(literal("end")
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "end")))));
 
             dispatcher.register(literal("rtpcooldown")
                     .requires(source -> source.hasPermission(4))
@@ -79,7 +91,7 @@ public final class RandomTeleportCommand {
     }
 
     private static int rtpUsage(CommandSourceStack source) {
-        source.sendFailure(Component.literal("Usage: /rtp exploration, /rtp nether, or /rtp end."));
+        source.sendFailure(Component.literal("Usage: /rtp survival overworld|nether|end OR /rtp exploration overworld|nether|end."));
         return 0;
     }
 
@@ -144,6 +156,67 @@ public final class RandomTeleportCommand {
         return 1;
     }
 
+    private static int rtpSurvival(CommandSourceStack source, String survivalType) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /rtp."));
+            return 0;
+        }
+
+        UUID playerId = player.getUUID();
+
+        if (ACTIVE_SEARCHES.containsKey(playerId)) {
+            player.sendSystemMessage(Component.literal("RTP is already searching for a safe location...").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
+        int cooldown = TeleportConfig.getRtpCooldownSeconds();
+        long now = System.currentTimeMillis();
+        long last = LAST_USE_MS.getOrDefault(playerId, 0L);
+        long waitMs = (cooldown * 1000L) - (now - last);
+
+        if (!player.hasPermissions(4) && waitMs > 0) {
+            long waitSeconds = Math.max(1L, (waitMs + 999L) / 1000L);
+            player.sendSystemMessage(Component.literal("You can use /rtp again in " + waitSeconds + "s.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        ServerLevel startLevel = player.serverLevel();
+        String currentDimension = startLevel.dimension().location().toString();
+
+        String normalizedType = SurvivalWorldManager.normalizeType(survivalType);
+        SurvivalWorldManager.RtpTarget survivalTarget = SurvivalWorldManager.pickRtpTarget(player.server, normalizedType);
+        if (survivalTarget == null || survivalTarget.level == null || survivalTarget.entry == null) {
+            player.sendSystemMessage(Component.literal("No " + normalizedType + " survival world is currently loaded for RTP.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("ChampUtils will create/load the permanent survival worlds automatically when Multiworld is available.").withStyle(ChatFormatting.GRAY));
+            return 0;
+        }
+
+        ServerLevel targetLevel = survivalTarget.level;
+        double startXForDistance = 0.0D;
+        double startZForDistance = 0.0D;
+
+        if (targetLevel == startLevel
+                && !isSpawnHubDimension(currentDimension)
+                && !TeleportConfig.isRtpBlocked(currentDimension)) {
+            startXForDistance = player.getX();
+            startZForDistance = player.getZ();
+        }
+
+        SearchBounds bounds = SearchBounds.from(targetLevel);
+        if (bounds == null) {
+            player.sendSystemMessage(Component.literal("RTP could not read a valid world border.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        LAST_USE_MS.put(playerId, now);
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType));
+
+        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " survival RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Target survival world: " + survivalTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
+        return 1;
+    }
+
     public static void tick(MinecraftServer server) {
         if (server == null || ACTIVE_SEARCHES.isEmpty()) {
             return;
@@ -175,8 +248,8 @@ public final class RandomTeleportCommand {
         for (int attempt = 0; attempt < ATTEMPTS_PER_TICK; attempt++) {
             task.attempts++;
 
-            int x = randomBetween(bounds.minX, bounds.maxX);
-            int z = randomBetween(bounds.minZ, bounds.maxZ);
+            int x = randomBetween(bounds.minX(task.attempts), bounds.maxX(task.attempts));
+            int z = randomBetween(bounds.minZ(task.attempts), bounds.maxZ(task.attempts));
 
             if (!isFarEnoughFromStart(task, x, z)) {
                 continue;
@@ -374,23 +447,44 @@ public final class RandomTeleportCommand {
         private final int maxX;
         private final int minZ;
         private final int maxZ;
+        private final int preferredMinX;
+        private final int preferredMaxX;
+        private final int preferredMinZ;
+        private final int preferredMaxZ;
 
         private SearchBounds(int minX, int maxX, int minZ, int maxZ) {
+            this(minX, maxX, minZ, maxZ, minX, maxX, minZ, maxZ);
+        }
+
+        private SearchBounds(int minX, int maxX, int minZ, int maxZ, int preferredMinX, int preferredMaxX, int preferredMinZ, int preferredMaxZ) {
             this.minX = minX;
             this.maxX = maxX;
             this.minZ = minZ;
             this.maxZ = maxZ;
+            this.preferredMinX = preferredMinX;
+            this.preferredMaxX = preferredMaxX;
+            this.preferredMinZ = preferredMinZ;
+            this.preferredMaxZ = preferredMaxZ;
         }
+
+        private int minX(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMinX : minX; }
+        private int maxX(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMaxX : maxX; }
+        private int minZ(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMinZ : minZ; }
+        private int maxZ(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMaxZ : maxZ; }
+
 
         private static SearchBounds from(ServerLevel level) {
             if (ExplorationWorldManager.find(level) != null) {
                 int radius = Math.max(BORDER_PADDING + 16, ExplorationWorldConfig.get().borderRadius);
+                int preferredRadius = Math.max(BORDER_PADDING + 16, Math.min(radius, ExplorationWorldConfig.get().pregenerationRadius));
                 int min = -radius + BORDER_PADDING;
                 int max = radius - BORDER_PADDING;
-                if (min >= max) {
+                int preferredMin = -preferredRadius + BORDER_PADDING;
+                int preferredMax = preferredRadius - BORDER_PADDING;
+                if (min >= max || preferredMin >= preferredMax) {
                     return null;
                 }
-                return new SearchBounds(min, max, min, max);
+                return new SearchBounds(min, max, min, max, preferredMin, preferredMax, preferredMin, preferredMax);
             }
 
             WorldBorder border = level.getWorldBorder();

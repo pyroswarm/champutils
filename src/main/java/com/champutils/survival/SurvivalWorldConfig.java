@@ -1,0 +1,97 @@
+package com.champutils.survival;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class SurvivalWorldConfig {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File FILE = new File("config/champutils/survival_worlds.json");
+    private static Data data = new Data();
+
+    private SurvivalWorldConfig() {}
+
+    public static void load() {
+        try {
+            File parent = FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            if (!FILE.exists()) { save(); return; }
+            try (FileReader reader = new FileReader(FILE)) {
+                Data loaded = GSON.fromJson(reader, Data.class);
+                data = loaded == null ? new Data() : loaded.withDefaults();
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load survival_worlds.json. Using defaults.");
+            e.printStackTrace();
+            data = new Data();
+        }
+    }
+
+    public static void save() {
+        try {
+            File parent = FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            try (FileWriter writer = new FileWriter(FILE)) {
+                GSON.toJson(data.withDefaults(), writer);
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to save survival_worlds.json.");
+            e.printStackTrace();
+        }
+    }
+
+    public static Data get() { return data.withDefaults(); }
+
+    public static final class Data {
+        public boolean enabled = true;
+        public int overworldCount = 6;
+        public int netherWorldCount = 2;
+        public int endWorldCount = 2;
+        public String overworldPrefix = "multiworld:survival_overworld";
+        public String netherPrefix = "multiworld:survival_nether";
+        public String endPrefix = "multiworld:survival_end";
+        public int borderRadius = 10000;
+        public int spawnY = 100;
+        public boolean runWorldCommands = true;
+        public int defaultMaxHomes = 3;
+
+        public List<String> overworldCreateCommands = new ArrayList<>(List.of(
+                "mw create {world_id} NORMAL -g=NORMAL",
+                "mw load {world_id}"
+        ));
+        public List<String> netherCreateCommands = new ArrayList<>(List.of(
+                "mw create {world_id} NETHER -g=NETHER",
+                "mw load {world_id}"
+        ));
+        public List<String> endCreateCommands = new ArrayList<>(List.of(
+                "mw create {world_id} THE_END -g=THE_END",
+                "mw load {world_id}"
+        ));
+        public List<String> postCreateCommands = new ArrayList<>(List.of(
+                "worldborder center 0 0",
+                "worldborder set {border_diameter}"
+        ));
+
+        private Data withDefaults() {
+            if (overworldCount < 1) overworldCount = 6;
+            if (netherWorldCount < 0) netherWorldCount = 2;
+            if (endWorldCount < 0) endWorldCount = 2;
+            if (overworldPrefix == null || overworldPrefix.isBlank()) overworldPrefix = "multiworld:survival_overworld";
+            if (netherPrefix == null || netherPrefix.isBlank()) netherPrefix = "multiworld:survival_nether";
+            if (endPrefix == null || endPrefix.isBlank()) endPrefix = "multiworld:survival_end";
+            if (borderRadius < 500) borderRadius = 10000;
+            if (spawnY < -64) spawnY = 100;
+            if (defaultMaxHomes < 1) defaultMaxHomes = 3;
+            if (overworldCreateCommands == null || overworldCreateCommands.isEmpty()) overworldCreateCommands = new ArrayList<>(List.of("mw create {world_id} NORMAL -g=NORMAL", "mw load {world_id}"));
+            if (netherCreateCommands == null || netherCreateCommands.isEmpty()) netherCreateCommands = new ArrayList<>(List.of("mw create {world_id} NETHER -g=NETHER", "mw load {world_id}"));
+            if (endCreateCommands == null || endCreateCommands.isEmpty()) endCreateCommands = new ArrayList<>(List.of("mw create {world_id} THE_END -g=THE_END", "mw load {world_id}"));
+            if (postCreateCommands == null) postCreateCommands = new ArrayList<>();
+            return this;
+        }
+    }
+}

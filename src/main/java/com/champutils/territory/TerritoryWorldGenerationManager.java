@@ -95,10 +95,13 @@ public final class TerritoryWorldGenerationManager {
 
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
-            alignCenterToBiome(loadedLevel, territory);
+            if (!TerritoryConfig.get().skyblockTerritoryWorlds) {
+                alignCenterToBiome(loadedLevel, territory);
+            }
+            TerritorySkyblockIslandManager.ensureStarterIsland(loadedLevel, territory);
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + ". Chunky was not used.");
+            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " with a skyblock starter island." : ". Chunky was not used."));
         } else {
             territory.generationState = "PENDING";
             TerritoryRepository.save(territory, (success, message) -> {});
