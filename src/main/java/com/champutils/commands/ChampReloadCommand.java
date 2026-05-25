@@ -20,6 +20,8 @@ import com.champutils.economy.SellPriceConfig;
 import com.champutils.shop.ChestShopRegistry;
 import com.champutils.emblem.EmblemConfig;
 import com.champutils.guild.GuildConfig;
+import com.champutils.antilag.AntiLagConfig;
+import com.champutils.moderation.ModerationConfig;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -85,6 +87,8 @@ public class ChampReloadCommand {
             DexRewardConfig.load();
             EmblemConfig.load();
             GuildConfig.load();
+            AntiLagConfig.load();
+            ModerationConfig.load();
 
             source.sendSuccess(
                     () -> Component.literal(

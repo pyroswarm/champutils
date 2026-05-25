@@ -17,7 +17,7 @@ public class BattleMenu {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Battles"));
 
-        MenuUtil.fillBorders(gui, 4, 10, 13, 16, 22);
+        MenuUtil.fillBorders(gui, 4, 10, 12, 14, 16, 22);
 
         MenuUtil.addInfoCard(
                 gui,
@@ -38,13 +38,23 @@ public class BattleMenu {
         );
 
         gui.setSlot(
-                13,
+                12,
                 new GuiElementBuilder(CobblemonItems.GREAT_BALL)
                         .hideDefaultTooltip()
                         .setName(Component.literal("§aCasual Queue"))
                         .addLoreLine(Component.literal("§7Queue for practice battles."))
                         .addLoreLine(Component.literal("§eClick to join"))
                         .setCallback((i, c, t) -> MatchmakingManager.joinQueue(player, "casual"))
+        );
+
+        gui.setSlot(
+                14,
+                new GuiElementBuilder(Items.SPYGLASS)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("§bSpectate Battles"))
+                        .addLoreLine(Component.literal("§7Watch random high-MMR battles or pick a player."))
+                        .addLoreLine(Component.literal("§eClick to open"))
+                        .setCallback((i, c, t) -> BattleSpectateMenu.open(player))
         );
 
         gui.setSlot(

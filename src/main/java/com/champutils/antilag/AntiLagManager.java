@@ -1,6 +1,8 @@
 package com.champutils.antilag;
 
 import com.champutils.permissions.LuckPermsHook;
+import com.champutils.moderation.ModerationManager;
+import com.champutils.time.DailyResetManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -10,348 +12,50 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.Snowball;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.Optional;
+import java.io.OutputStream;
+import java.lang.reflect.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public final class AntiLagManager {
-    private static int ticksUntilScan = 20;
-    private static int ticksUntilCleanup = 20;
-    private static final Map<UUID, ThrowWindow> snowballThrows = new HashMap<>();
-    private static final Set<UUID> kickedThisSession = new HashSet<>();
+    private static int ticksUntilScan=20, ticksUntilCleanup=20; private static long lastTickNanos=System.nanoTime();
+    private static final ArrayDeque<Long> tickHistoryMs=new ArrayDeque<>(); private static final Map<UUID,ThrowWindow> snowballThrows=new HashMap<>(); private static final Map<UUID,Violation> violations=new HashMap<>(); private static long resetKey= DailyResetManager.currentResetKeyMillis();
+    private static final String[] PROTECTED_TAG_MARKERS={"champutils_mega_boss","champutils_guild_boss","champutils_world_boss","champutils_special_spawn","champutils_roaming_trainer","champutils_npc","boss","special"};
+    private AntiLagManager(){}
+    public static void tick(MinecraftServer server){ recordTick(); long key=DailyResetManager.currentResetKeyMillis(); if(key!=resetKey){ resetKey=key; violations.clear(); snowballThrows.clear(); alertAdmins(server,"§a[AntiLag] Daily lag violation records wiped at "+DailyResetManager.formatResetTime()+"."); } if(!AntiLagConfig.DATA.enabled) return; if(--ticksUntilScan<=0){ ticksUntilScan=Math.max(20,AntiLagConfig.DATA.scanIntervalSeconds*20); if(AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);} if(--ticksUntilCleanup<=0){ ticksUntilCleanup=Math.max(20,AntiLagConfig.DATA.cleanupIntervalMinutes*60*20); if(AntiLagConfig.DATA.entityCleanupEnabled) cleanupEntities(server,true);} }
+    private static void recordTick(){ long now=System.nanoTime(); long ms=(now-lastTickNanos)/1_000_000L; lastTickNanos=now; tickHistoryMs.addLast(ms); while(tickHistoryMs.size()>240) tickHistoryMs.removeFirst(); }
+    private static boolean hasTpsSpike(){ return tickHistoryMs.stream().anyMatch(v->v>=AntiLagConfig.DATA.tpsSpikeMsThreshold); }
+    private static double avgMs(){ return tickHistoryMs.stream().mapToLong(Long::longValue).average().orElse(50.0); }
 
-    private static final String[] PROTECTED_TAG_MARKERS = {
-            "champutils_mega_boss",
-            "champutils_guild_boss",
-            "champutils_world_boss",
-            "champutils_special_spawn",
-            "champutils_roaming_trainer",
-            "champutils_npc",
-            "boss",
-            "special"
-    };
+    public static CleanupResult cleanupEntities(MinecraftServer server, boolean notifyAdmins){ CleanupResult result=new CleanupResult(); int max=Math.max(1,AntiLagConfig.DATA.maxRemovalsPerScan); for(ServerLevel level:server.getAllLevels()){ if(isDisabled(level)) continue; for(Entity e:level.getAllEntities()){ if(result.totalRemoved()>=max) break; if(isWhitelistedArea(level,e)) continue; if(AntiLagConfig.DATA.cleanupDroppedItems && e instanceof ItemEntity){ e.discard(); result.droppedItems++; continue;} if(AntiLagConfig.DATA.cleanupWildPokemon && isSafeWildPokemonToWipe(e)){ e.discard(); result.wildPokemon++; } } } if(notifyAdmins&&result.totalRemoved()>0) alertAdmins(server,"§7Entity cleanup removed §e"+result.droppedItems+"§7 dropped item entities and §b"+result.wildPokemon+"§7 natural wild Pokémon."); return result; }
+    private static void scanForLagMachines(MinecraftServer server){ expireSnowballWindows(); int punished=0; for(ServerLevel level:server.getAllLevels()){ if(isDisabled(level)) continue; List<Entity> minecarts=new ArrayList<>(), snowballs=new ArrayList<>(), generic=new ArrayList<>(); for(Entity e:level.getAllEntities()){ if(isWhitelistedArea(level,e)) continue; if(e instanceof AbstractMinecart) minecarts.add(e); if(e instanceof Snowball){ snowballs.add(e); trackSnowballThrow(e);} if(!(e instanceof ServerPlayer)&&!(e instanceof ItemEntity)&&!isPokemonEntity(e)&&!isNpcEntity(e)) generic.add(e); }
+        if(AntiLagConfig.DATA.minecartDetectionEnabled) punished+=detectCluster(server,level,minecarts,AntiLagConfig.DATA.minecartClusterRadiusBlocks,AntiLagConfig.DATA.minecartClusterThreshold,"minecart cluster",30,punished); if(punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) return;
+        if(AntiLagConfig.DATA.snowballDetectionEnabled){ punished+=detectCluster(server,level,snowballs,AntiLagConfig.DATA.snowballClusterRadiusBlocks,AntiLagConfig.DATA.snowballClusterThreshold,"snowball projectile cluster",25,punished); punished+=detectSnowballThrowSpam(server,punished);} if(punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) return;
+        if(AntiLagConfig.DATA.genericEntityClusterDetectionEnabled) punished+=detectCluster(server,level,generic,AntiLagConfig.DATA.genericEntityClusterRadiusBlocks,AntiLagConfig.DATA.genericEntityClusterThreshold,"generic entity cluster",20,punished); } }
+    private static int detectCluster(MinecraftServer server,ServerLevel level,List<Entity> entities,int radius,int threshold,String reason,int score,int current){ if(entities.size()<threshold||current>=AntiLagConfig.DATA.maxPunishmentsPerScan) return 0; double r2=radius*radius; Set<UUID> handled=new HashSet<>(); int punished=0; for(Entity c:entities){ if(handled.contains(c.getUUID())) continue; List<Entity> cluster=new ArrayList<>(); for(Entity o:entities) if(c.distanceToSqr(o)<=r2) cluster.add(o); if(cluster.size()<threshold) continue; cluster.forEach(e->handled.add(e.getUUID())); ServerPlayer suspect=nearestPlayer(level,c,AntiLagConfig.DATA.minecartPlayerAttributionRadiusBlocks); String loc=level.dimension().location()+" "+c.blockPosition().toShortString(); String msg="§c[AntiLag] Possible lag machine: §e"+reason+" §7("+cluster.size()+" entities) near §f"+loc+"§7. avgTick="+String.format(Locale.ROOT,"%.1f",avgMs())+"ms spike="+hasTpsSpike()+(suspect==null?"":" suspect=§f"+suspect.getGameProfile().getName()); alertAdmins(server,msg); ModerationManager.webhook(msg.replace('§','&')); if(AntiLagConfig.DATA.removeDetectedLagMachineEntities) removeEntities(cluster); if(suspect!=null && addViolation(suspect,score,reason)) punished++; if(current+punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) break; } return punished; }
+    private static int detectSnowballThrowSpam(MinecraftServer server,int current){ int punished=0; for(Map.Entry<UUID,ThrowWindow> e:new ArrayList<>(snowballThrows.entrySet())){ if(e.getValue().count<AntiLagConfig.DATA.snowballThrowThresholdPerWindow) continue; ServerPlayer p=server.getPlayerList().getPlayer(e.getKey()); if(p==null) continue; alertAdmins(server,"§c[AntiLag] Possible snowball lag machine: §f"+p.getGameProfile().getName()+" §7created §e"+e.getValue().count+"§7 snowballs in one window."); ModerationManager.webhook("AntiLag caught: player="+p.getGameProfile().getName()+" snowballs="+e.getValue().count+" actionEligible="+(AntiLagConfig.DATA.autoPunishLagMachineSuspects&&(!AntiLagConfig.DATA.requireTpsSpikeForPunishment||hasTpsSpike()))); if(addViolation(p,35,"snowball throw spam")) punished++; snowballThrows.remove(e.getKey()); if(current+punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) break; } return punished; }
+    private static boolean addViolation(ServerPlayer p,int score,String reason){ if(!AntiLagConfig.DATA.autoPunishLagMachineSuspects) return false; Violation v=violations.computeIfAbsent(p.getUUID(),id->new Violation()); v.score+=score; v.lastReason=reason; boolean confident=v.score>=AntiLagConfig.DATA.warnScore; if(AntiLagConfig.DATA.requireTpsSpikeForPunishment && !hasTpsSpike()){ p.sendSystemMessage(Component.literal("[AntiLag] Your area matched a lag pattern, but no TPS spike was detected. Staff were alerted only.").withStyle(ChatFormatting.YELLOW)); ModerationManager.systemViolation(p,"AntiLag","score="+v.score+" reason="+reason+" no TPS spike, alert only",false); return false; } if(p.hasPermissions(4)){ p.sendSystemMessage(Component.literal("[AntiLag] You matched a lag rule, but ops are exempt: "+reason).withStyle(ChatFormatting.RED)); ModerationManager.systemViolation(p,"AntiLag","score="+v.score+" reason="+reason+" op exempt",false); return false; } if(confident){ return ModerationManager.systemViolation(p,"AntiLag","lag-machine confidence score="+v.score+" reason="+reason,true); } return false; }
+    private static void trackSnowballThrow(Entity e){ if(!(e instanceof Projectile p)) return; if(!(p.getOwner() instanceof ServerPlayer player)) return; long now=System.currentTimeMillis(), win=Math.max(1000L,AntiLagConfig.DATA.snowballWindowSeconds*1000L); ThrowWindow w=snowballThrows.computeIfAbsent(player.getUUID(),u->new ThrowWindow(now+win)); if(now>w.expiresAt){w.count=0;w.expiresAt=now+win;} w.count++; }
+    private static void expireSnowballWindows(){ long now=System.currentTimeMillis(); snowballThrows.entrySet().removeIf(e->now>e.getValue().expiresAt); }
+    private static void removeEntities(List<Entity> entities){ int removed=0,max=Math.max(1,AntiLagConfig.DATA.maxRemovalsPerScan); for(Entity e:entities){ if(removed>=max) break; if(e instanceof ServerPlayer) continue; e.discard(); removed++; } }
+    private static ServerPlayer nearestPlayer(ServerLevel level,Entity e,int radius){ double r2=radius*radius,best=Double.MAX_VALUE; ServerPlayer out=null; for(ServerPlayer p:level.players()){ if(p.isSpectator()) continue; double d=p.distanceToSqr(e); if(d<=r2&&d<best){best=d;out=p;}} return out; }
 
-    private AntiLagManager() {}
-
-    public static void tick(MinecraftServer server) {
-        if (!AntiLagConfig.DATA.enabled) return;
-
-        ticksUntilScan--;
-        if (ticksUntilScan <= 0) {
-            ticksUntilScan = Math.max(20, AntiLagConfig.DATA.scanIntervalSeconds * 20);
-            if (AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);
-        }
-
-        ticksUntilCleanup--;
-        if (ticksUntilCleanup <= 0) {
-            ticksUntilCleanup = Math.max(20, AntiLagConfig.DATA.cleanupIntervalMinutes * 60 * 20);
-            if (AntiLagConfig.DATA.entityCleanupEnabled) cleanupEntities(server, true);
-        }
-    }
-
-    public static CleanupResult cleanupEntities(MinecraftServer server, boolean notifyAdmins) {
-        CleanupResult result = new CleanupResult();
-        int max = Math.max(1, AntiLagConfig.DATA.maxRemovalsPerScan);
-
-        for (ServerLevel level : server.getAllLevels()) {
-            if (isDisabled(level)) continue;
-            for (Entity entity : level.getAllEntities()) {
-                if (result.totalRemoved() >= max) break;
-                if (AntiLagConfig.DATA.cleanupDroppedItems && entity instanceof ItemEntity) {
-                    entity.discard();
-                    result.droppedItems++;
-                    continue;
-                }
-                if (AntiLagConfig.DATA.cleanupWildPokemon && isSafeWildPokemonToWipe(entity)) {
-                    entity.discard();
-                    result.wildPokemon++;
-                }
-            }
-        }
-
-        if (notifyAdmins && result.totalRemoved() > 0) {
-            alertAdmins(server, "§7Entity cleanup removed §e" + result.droppedItems + "§7 dropped item entities and §b" + result.wildPokemon + "§7 natural wild Pokémon.");
-        }
-        return result;
-    }
-
-    private static void scanForLagMachines(MinecraftServer server) {
-        expireSnowballWindows();
-        int kicks = 0;
-
-        for (ServerLevel level : server.getAllLevels()) {
-            if (isDisabled(level)) continue;
-            List<Entity> minecarts = new ArrayList<>();
-            List<Entity> snowballs = new ArrayList<>();
-            List<Entity> generic = new ArrayList<>();
-
-            for (Entity entity : level.getAllEntities()) {
-                if (entity instanceof AbstractMinecart) minecarts.add(entity);
-                if (entity instanceof Snowball) {
-                    snowballs.add(entity);
-                    trackSnowballThrow(entity);
-                }
-                if (!(entity instanceof ServerPlayer) && !(entity instanceof ItemEntity) && !(isPokemonEntity(entity)) && !(isNpcEntity(entity))) {
-                    generic.add(entity);
-                }
-            }
-
-            if (AntiLagConfig.DATA.minecartDetectionEnabled) {
-                kicks += detectCluster(server, level, minecarts, AntiLagConfig.DATA.minecartClusterRadiusBlocks, AntiLagConfig.DATA.minecartClusterThreshold, "minecart cluster", kicks);
-            }
-            if (kicks >= AntiLagConfig.DATA.maxKicksPerScan) return;
-
-            if (AntiLagConfig.DATA.snowballDetectionEnabled) {
-                kicks += detectCluster(server, level, snowballs, AntiLagConfig.DATA.snowballClusterRadiusBlocks, AntiLagConfig.DATA.snowballClusterThreshold, "snowball cluster", kicks);
-                kicks += detectSnowballThrowSpam(server, kicks);
-            }
-            if (kicks >= AntiLagConfig.DATA.maxKicksPerScan) return;
-
-            if (AntiLagConfig.DATA.genericEntityClusterDetectionEnabled) {
-                kicks += detectCluster(server, level, generic, AntiLagConfig.DATA.genericEntityClusterRadiusBlocks, AntiLagConfig.DATA.genericEntityClusterThreshold, "entity cluster", kicks);
-            }
-        }
-    }
-
-    private static int detectCluster(MinecraftServer server, ServerLevel level, List<Entity> entities, int radius, int threshold, String reason, int currentKicks) {
-        if (entities.size() < threshold || currentKicks >= AntiLagConfig.DATA.maxKicksPerScan) return 0;
-        double radiusSq = radius * radius;
-        Set<UUID> handled = new HashSet<>();
-        int kicks = 0;
-
-        for (Entity center : entities) {
-            if (handled.contains(center.getUUID())) continue;
-            List<Entity> cluster = new ArrayList<>();
-            for (Entity other : entities) {
-                if (center.distanceToSqr(other) <= radiusSq) cluster.add(other);
-            }
-            if (cluster.size() < threshold) continue;
-            cluster.forEach(e -> handled.add(e.getUUID()));
-
-            ServerPlayer suspect = nearestPlayer(level, center, AntiLagConfig.DATA.minecartPlayerAttributionRadiusBlocks);
-            String location = level.dimension().location() + " " + center.blockPosition().toShortString();
-            alertAdmins(server, "§c[AntiLag] Possible lag machine: §e" + reason + " §7(" + cluster.size() + " entities) near §f" + location + (suspect == null ? "§7." : "§7. Suspect: §f" + suspect.getGameProfile().getName()));
-
-            if (AntiLagConfig.DATA.removeDetectedLagMachineEntities) removeEntities(cluster);
-            if (suspect != null && kickSuspect(suspect, reason + " detected near your location")) kicks++;
-            if (currentKicks + kicks >= AntiLagConfig.DATA.maxKicksPerScan) break;
-        }
-        return kicks;
-    }
-
-    private static int detectSnowballThrowSpam(MinecraftServer server, int currentKicks) {
-        int kicks = 0;
-        int threshold = AntiLagConfig.DATA.snowballThrowThresholdPerWindow;
-        for (Map.Entry<UUID, ThrowWindow> entry : new ArrayList<>(snowballThrows.entrySet())) {
-            if (entry.getValue().count < threshold) continue;
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null) continue;
-            alertAdmins(server, "§c[AntiLag] Possible snowball lag machine: §f" + player.getGameProfile().getName() + " §7created §e" + entry.getValue().count + "§7 snowballs in the current window.");
-            if (kickSuspect(player, "snowball spam detected")) kicks++;
-            snowballThrows.remove(entry.getKey());
-            if (currentKicks + kicks >= AntiLagConfig.DATA.maxKicksPerScan) break;
-        }
-        return kicks;
-    }
-
-    private static void trackSnowballThrow(Entity entity) {
-        if (!(entity instanceof Projectile projectile)) return;
-        Entity owner = projectile.getOwner();
-        if (!(owner instanceof ServerPlayer player)) return;
-        long now = System.currentTimeMillis();
-        long windowMillis = Math.max(1000L, AntiLagConfig.DATA.snowballWindowSeconds * 1000L);
-        ThrowWindow window = snowballThrows.computeIfAbsent(player.getUUID(), uuid -> new ThrowWindow(now + windowMillis));
-        if (now > window.expiresAt) {
-            window.count = 0;
-            window.expiresAt = now + windowMillis;
-        }
-        window.count++;
-    }
-
-    private static void expireSnowballWindows() {
-        long now = System.currentTimeMillis();
-        Iterator<Map.Entry<UUID, ThrowWindow>> iterator = snowballThrows.entrySet().iterator();
-        while (iterator.hasNext()) {
-            if (now > iterator.next().getValue().expiresAt) iterator.remove();
-        }
-    }
-
-    private static boolean kickSuspect(ServerPlayer player, String reason) {
-        if (!AntiLagConfig.DATA.autoKickLagMachineSuspects) return false;
-        if (player.hasPermissions(4)) {
-            player.sendSystemMessage(Component.literal("[AntiLag] You matched a lag-machine rule, but ops are not auto-kicked: " + reason).withStyle(ChatFormatting.RED));
-            return false;
-        }
-        if (kickedThisSession.contains(player.getUUID())) return false;
-        kickedThisSession.add(player.getUUID());
-        player.connection.disconnect(Component.literal(AntiLagConfig.DATA.lagMachineKickMessage));
-        return true;
-    }
-
-    private static void removeEntities(List<Entity> entities) {
-        int removed = 0;
-        int max = Math.max(1, AntiLagConfig.DATA.maxRemovalsPerScan);
-        for (Entity entity : entities) {
-            if (removed >= max) break;
-            if (entity instanceof ServerPlayer) continue;
-            entity.discard();
-            removed++;
-        }
-    }
-
-    private static ServerPlayer nearestPlayer(ServerLevel level, Entity entity, int radius) {
-        double radiusSq = radius * radius;
-        ServerPlayer best = null;
-        double bestDistance = Double.MAX_VALUE;
-        for (ServerPlayer player : level.players()) {
-            if (player.isSpectator()) continue;
-            double distance = player.distanceToSqr(entity);
-            if (distance > radiusSq || distance >= bestDistance) continue;
-            best = player;
-            bestDistance = distance;
-        }
-        return best;
-    }
-
-    private static boolean isSafeWildPokemonToWipe(Entity entity) {
-        if (!isPokemonEntity(entity)) return false;
-        if (hasProtectedTag(entity)) return false;
-        if (AntiLagConfig.DATA.protectPokemonWithCustomName && entity.hasCustomName()) return false;
-        if (AntiLagConfig.DATA.protectPokemonWithPersistenceRequired && entity instanceof Mob mob && mob.isPersistenceRequired()) return false;
-        if (AntiLagConfig.DATA.protectPokemonInBattle && booleanValue(entity, "isBattling", "isInBattle", "getBattleId", "getBattleIds")) return false;
-
-        Object pokemon = firstValue(entity, "pokemon", "getPokemon");
-        if (pokemon != null) {
-            if (booleanValue(pokemon, "getShiny", "isShiny") || booleanField(pokemon, "shiny")) return false;
-            if (AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage && hasOwnerOrStorage(pokemon)) return false;
-            String aspects = String.valueOf(firstValue(pokemon, "aspects", "getAspects")).toLowerCase(Locale.ROOT);
-            if (aspects.contains("shiny") || aspects.contains("boss") || aspects.contains("special")) return false;
-        }
-
-        return true;
-    }
-
-    private static boolean hasOwnerOrStorage(Object pokemon) {
-        Object owner = firstValue(pokemon, "ownerUUID", "getOwnerUUID", "owner", "getOwner", "originalTrainer", "getOriginalTrainer", "storeCoordinates", "getStoreCoordinates", "storeCoordinate", "getStoreCoordinate");
-        if (owner == null) return false;
-        if (owner instanceof Optional<?> optional) return optional.isPresent();
-        String value = owner.toString();
-        return !value.equalsIgnoreCase("null") && !value.equalsIgnoreCase("Optional.empty") && !value.isBlank();
-    }
-
-    private static boolean hasProtectedTag(Entity entity) {
-        for (String tag : entity.getTags()) {
-            String lower = tag.toLowerCase(Locale.ROOT);
-            for (String marker : PROTECTED_TAG_MARKERS) {
-                if (lower.contains(marker)) return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isPokemonEntity(Entity entity) {
-        return entity != null && entity.getClass().getName().equals("com.cobblemon.mod.common.entity.pokemon.PokemonEntity");
-    }
-
-    private static boolean isNpcEntity(Entity entity) {
-        return entity != null && entity.getClass().getName().equals("com.cobblemon.mod.common.entity.npc.NPCEntity");
-    }
-
-    private static boolean booleanValue(Object source, String... names) {
-        for (String name : names) {
-            Object value = firstValue(source, name);
-            if (value instanceof Boolean b) return b;
-            if (value instanceof Set<?> s && !s.isEmpty()) return true;
-            if (value instanceof Iterable<?> iterable) return iterable.iterator().hasNext();
-            if (value instanceof UUID) return true;
-            if (value instanceof Optional<?> optional) return optional.isPresent();
-        }
-        return false;
-    }
-
-    private static boolean booleanField(Object source, String fieldName) {
-        try {
-            Field field = findField(source.getClass(), fieldName);
-            if (field == null) return false;
-            field.setAccessible(true);
-            Object value = field.get(source);
-            return value instanceof Boolean b && b;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private static Object firstValue(Object source, String... names) {
-        if (source == null) return null;
-        for (String name : names) {
-            try {
-                if (name.startsWith("get") || name.startsWith("is")) {
-                    Method method = source.getClass().getMethod(name);
-                    method.setAccessible(true);
-                    if (method.getParameterCount() == 0) {
-                        Object value = method.invoke(source);
-                        if (value != null) return value;
-                    }
-                } else {
-                    Field field = findField(source.getClass(), name);
-                    if (field != null) {
-                        field.setAccessible(true);
-                        Object value = field.get(source);
-                        if (value != null) return value;
-                    }
-                }
-            } catch (Throwable ignored) {}
-        }
-        return null;
-    }
-
-    private static Field findField(Class<?> type, String name) {
-        Class<?> current = type;
-        while (current != null) {
-            try { return current.getDeclaredField(name); }
-            catch (Throwable ignored) { current = current.getSuperclass(); }
-        }
-        return null;
-    }
-
-    private static boolean isDisabled(ServerLevel level) {
-        ResourceLocation id = level.dimension().location();
-        return AntiLagConfig.DATA.disabledDimensions != null && AntiLagConfig.DATA.disabledDimensions.contains(id.toString());
-    }
-
-    private static void alertAdmins(MinecraftServer server, String message) {
-        if (!AntiLagConfig.DATA.alertAdmins) return;
-        Component component = Component.literal(message);
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player.hasPermissions(4) || LuckPermsHook.hasPermission(player, AntiLagConfig.DATA.adminAlertPermission)) {
-                player.sendSystemMessage(component);
-            }
-        }
-        System.out.println(message.replace('§', '&'));
-    }
-
-    private static final class ThrowWindow {
-        int count = 0;
-        long expiresAt;
-        ThrowWindow(long expiresAt) { this.expiresAt = expiresAt; }
-    }
-
-    public static final class CleanupResult {
-        public int droppedItems;
-        public int wildPokemon;
-        public int totalRemoved() { return droppedItems + wildPokemon; }
-    }
+    private static boolean isSafeWildPokemonToWipe(Entity e){ if(!isPokemonEntity(e)||hasProtectedTag(e)) return false; if(AntiLagConfig.DATA.protectPokemonWithCustomName&&e.hasCustomName()) return false; if(AntiLagConfig.DATA.protectPokemonWithPersistenceRequired&&e instanceof Mob m&&m.isPersistenceRequired()) return false; if(AntiLagConfig.DATA.protectPokemonInBattle&&booleanValue(e,"isBattling","isInBattle","getBattleId","getBattleIds")) return false; Object pokemon=firstValue(e,"pokemon","getPokemon"); if(pokemon!=null){ if(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny")) return false; if(AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage&&hasOwnerOrStorage(pokemon)) return false; String aspects=String.valueOf(firstValue(pokemon,"aspects","getAspects")).toLowerCase(Locale.ROOT); if(aspects.contains("shiny")||aspects.contains("boss")||aspects.contains("special")) return false; } return true; }
+    private static boolean hasOwnerOrStorage(Object p){ Object owner=firstValue(p,"ownerUUID","getOwnerUUID","owner","getOwner","originalTrainer","getOriginalTrainer","storeCoordinates","getStoreCoordinates","storeCoordinate","getStoreCoordinate"); if(owner==null) return false; if(owner instanceof Optional<?> o) return o.isPresent(); String v=owner.toString(); return !v.equalsIgnoreCase("null")&&!v.equalsIgnoreCase("Optional.empty")&&!v.isBlank(); }
+    private static boolean hasProtectedTag(Entity e){ for(String tag:e.getTags()){ String l=tag.toLowerCase(Locale.ROOT); for(String m:PROTECTED_TAG_MARKERS) if(l.contains(m)) return true;} return false; }
+    private static boolean isPokemonEntity(Entity e){ return e!=null&&e.getClass().getName().equals("com.cobblemon.mod.common.entity.pokemon.PokemonEntity"); } private static boolean isNpcEntity(Entity e){ return e!=null&&e.getClass().getName().equals("com.cobblemon.mod.common.entity.npc.NPCEntity"); }
+    private static boolean booleanValue(Object src,String...names){ for(String n:names){ Object v=firstValue(src,n); if(v instanceof Boolean b) return b; if(v instanceof Set<?> s&&!s.isEmpty()) return true; if(v instanceof Iterable<?> it&&it.iterator().hasNext()) return true; if(v instanceof UUID) return true; if(v instanceof Optional<?> o) return o.isPresent(); } return false; }
+    private static boolean booleanField(Object src,String name){ try{ Field f=findField(src.getClass(),name); if(f==null)return false; f.setAccessible(true); Object v=f.get(src); return v instanceof Boolean b&&b; }catch(Throwable ignored){return false;} }
+    private static Object firstValue(Object src,String...names){ if(src==null)return null; for(String n:names){ try{ if(n.startsWith("get")||n.startsWith("is")){ Method m=src.getClass().getMethod(n); m.setAccessible(true); if(m.getParameterCount()==0){ Object v=m.invoke(src); if(v!=null)return v; }} else { Field f=findField(src.getClass(),n); if(f!=null){ f.setAccessible(true); Object v=f.get(src); if(v!=null)return v; } } }catch(Throwable ignored){} } return null; }
+    private static Field findField(Class<?> t,String n){ for(Class<?> c=t;c!=null;c=c.getSuperclass()){ try{return c.getDeclaredField(n);}catch(Throwable ignored){} } return null; }
+    private static boolean isDisabled(ServerLevel level){ ResourceLocation id=level.dimension().location(); return AntiLagConfig.DATA.disabledDimensions!=null&&AntiLagConfig.DATA.disabledDimensions.contains(id.toString()); }
+    private static boolean isWhitelistedArea(ServerLevel level, Entity e){ if(AntiLagConfig.DATA.whitelistedAreas==null) return false; String dim=level.dimension().location().toString(); for(AntiLagConfig.Area a:AntiLagConfig.DATA.whitelistedAreas){ if(a==null||a.dimension==null||!a.dimension.equals(dim)) continue; int x=e.blockPosition().getX(),y=e.blockPosition().getY(),z=e.blockPosition().getZ(); if(x>=Math.min(a.minX,a.maxX)&&x<=Math.max(a.minX,a.maxX)&&y>=Math.min(a.minY,a.maxY)&&y<=Math.max(a.minY,a.maxY)&&z>=Math.min(a.minZ,a.maxZ)&&z<=Math.max(a.minZ,a.maxZ)) return true; } return false; }
+    private static void alertAdmins(MinecraftServer server,String msg){ if(!AntiLagConfig.DATA.alertAdmins) return; Component c=Component.literal(msg); for(ServerPlayer p:server.getPlayerList().getPlayers()) if(p.hasPermissions(4)|| LuckPermsHook.hasPermission(p,AntiLagConfig.DATA.adminAlertPermission)) p.sendSystemMessage(c); System.out.println(msg.replace('§','&')); }
+    private static void webhook(String text){ String hook=AntiLagConfig.DATA.discordWebhookUrl; if(hook==null||hook.isBlank()) return; new Thread(()->{ try{ HttpURLConnection con=(HttpURLConnection)new URL(hook).openConnection(); con.setRequestMethod("POST"); con.setRequestProperty("Content-Type","application/json"); con.setDoOutput(true); String json="{\"content\":\""+text.replace("\\","\\\\").replace("\"","\\\"")+"\"}"; try(OutputStream os=con.getOutputStream()){ os.write(json.getBytes(StandardCharsets.UTF_8)); } con.getInputStream().close(); }catch(Exception ignored){} },"ChampUtils-AntiLagWebhook").start(); }
+    private static final class ThrowWindow{ int count=0; long expiresAt; ThrowWindow(long e){expiresAt=e;} } private static final class Violation{ int score; String lastReason; } public static final class CleanupResult{ public int droppedItems,wildPokemon; public int totalRemoved(){return droppedItems+wildPokemon;} }
 }

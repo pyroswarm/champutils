@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileReader;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -180,6 +181,12 @@ public class GymConfig {
 
         public int partySize;
 
+        /**
+         * If true, this gym builds a fresh role-balanced team from the configured pool every time.
+         * Defaults to true whenever the pool has more Pokemon than partySize or any Pokemon has a role/tag.
+         */
+        public Boolean randomizeCompetitiveTeam;
+
         public boolean itemsAllowed;
 
         public int rewardMoney;
@@ -205,6 +212,15 @@ public class GymConfig {
         public String ability;
 
         public String heldItem;
+
+        /** Team role: lead/setup, pivot, sweeper, wallbreaker, flex, anchor. */
+        public String role;
+
+        /** Optional coverage tags like anti-electric, rain, hazard, bulky, speed-control. */
+        public List<String> tags = new ArrayList<>();
+
+        /** Weighted random selection weight. Higher = more common. */
+        public int weight = 1;
 
         public Stats ivs;
 

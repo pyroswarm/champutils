@@ -48,6 +48,7 @@ import com.champutils.chat.*;
 import com.champutils.party.*;
 import com.champutils.megaboss.*;
 import com.champutils.antilag.*;
+import com.champutils.moderation.*;
 
 /*
  =========================
@@ -148,6 +149,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialWildSpawnConfig.load();
         MegaBossConfig.load();
         AntiLagConfig.load();
+        ModerationConfig.load();
         ItemBindRegistry.load();
         ExplorationWorldConfig.load();
         ExplorationLootConfig.load();
@@ -395,6 +397,10 @@ public class ChampUtilsMod implements ModInitializer {
                     ChatPreferenceManager.clear(
                             player.getUUID()
                     );
+
+                    ModerationManager.handleJoin(
+                            player
+                    );
                 }
         );
 
@@ -453,6 +459,10 @@ public class ChampUtilsMod implements ModInitializer {
                         return false;
                     }
 
+                    if (!ModerationManager.allowChat(player, message.signedContent())) {
+                        return false;
+                    }
+
                     ServerChatManager.handleChat(
                             player,
                             message.signedContent()
@@ -508,6 +518,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialWildSpawnCommand.register();
         PokemonWikiCommand.register();
         BattleExitCommand.register();
+        BattleSpectateCommand.register();
         ItemBindCommand.register();
         OpenCratesCommand.register();
         ExplorationWorldCommand.register();
@@ -518,6 +529,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryCommand.register();
         ChatCommand.register();
         PartyCommand.register();
+        AutoModCommand.register();
 
         /*
          New custom item test command
@@ -555,6 +567,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryProtectionListener.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
+        XrayDetectionManager.register();
 
         /*
          =========================
@@ -599,6 +612,7 @@ public class ChampUtilsMod implements ModInitializer {
                     VanillaPortalBlocker.tick(server);
                     PartyManager.tick(server);
                     AntiLagManager.tick(server);
+                    ModerationManager.tick(server);
 
                     /*
                      Leaderboard refresh
