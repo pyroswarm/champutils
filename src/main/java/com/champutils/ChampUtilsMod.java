@@ -139,6 +139,7 @@ public class ChampUtilsMod implements ModInitializer {
         DexRewardConfig.load();
         DexRewardClaimData.load();
         TrueCaughtDexManager.load();
+        CatchStreakManager.load();
         PokemonOriginManager.load();
         EmblemConfig.load();
         RoamingTrainerConfig.load();
@@ -290,6 +291,7 @@ public class ChampUtilsMod implements ModInitializer {
                     QuestManager.saveAll();
                     DexRewardClaimData.save();
                     TrueCaughtDexManager.save();
+                    CatchStreakManager.save();
                     PokemonOriginManager.save();
                     RoamingTrainerManager.despawnAll(server);
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
@@ -541,6 +543,8 @@ public class ChampUtilsMod implements ModInitializer {
         ChampTrainerInteractionListener.register();
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
+        CatchStreakSpawnListener.register();
+        TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
         TerritoryNpcInteractionListener.register();
@@ -610,6 +614,7 @@ public class ChampUtilsMod implements ModInitializer {
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();
                         TrueCaughtDexManager.save();
+                        CatchStreakManager.save();
                         PokemonOriginManager.save();
                         PlaytimeManager.addOnlineMinute(server);
                         ServerStatusDatabaseRepository.sync(server);

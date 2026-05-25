@@ -53,6 +53,7 @@ public final class TrueCaughtDexListener {
                         Object pokemon = PokemonHuntReflection.extractPokemon(event);
                         if (player != null && pokemon != null) {
                             TrueCaughtDexManager.markTrueCaught(player, pokemon);
+                            CatchStreakManager.handleCatch(player, pokemon);
                             if (pokemon instanceof com.cobblemon.mod.common.pokemon.Pokemon p) {
                                 PokemonOriginManager.markOrigin(p, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
                                 BuffManager.applyCatchBuffs(BuffContext.trueWildCatch(player, p));
