@@ -78,17 +78,17 @@ public final class TerritoryRegionWipeManager {
                         System.err.println("[ChampUtils] Failed to finish database deletion for territory " + task.territory.id + ": " + message);
                         return;
                     }
-                    if (task.requesterId != null) {
-                        ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
-                        if (player != null) player.sendSystemMessage(Component.literal("Territory deletion finished. The old world was not loaded, so only saved territory records were removed.").withStyle(ChatFormatting.GREEN));
-                    }
+                    notifyDeletionFinished(server, task, "Territory deletion finished. The old world was not loaded, so saved territory records were removed.");
                 }));
             }
             return;
         }
         task.worldLoadAttempts = 0;
 
-        int budget = Math.max(256, TerritoryConfig.get().territoryWipeBlocksPerTick);
+        // Wipe by loaded chunk columns instead of single blocks. The old per-block scan was far too slow for
+        // 1000-block territory borders and could leave territories stuck in DELETING for hours/days. getChunk()
+        // intentionally loads the chunk even when no player is nearby, so deletion keeps progressing offline.
+        int budget = Math.max(4096, TerritoryConfig.get().territoryWipeBlocksPerTick);
         int used = 0;
 
         if (!task.entitiesCleared) {
@@ -96,14 +96,9 @@ public final class TerritoryRegionWipeManager {
             task.entitiesCleared = true;
         }
 
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         while (used < budget && !task.done(level)) {
-            pos.set(task.x, task.y, task.z);
-            if (!level.getBlockState(pos).isAir()) {
-                level.setBlock(pos, AIR, 3);
-            }
-            task.advance(level);
-            used++;
+            used += task.wipeCurrentChunk(level);
+            task.advanceChunk();
         }
 
         if (task.done(level)) {
@@ -114,11 +109,33 @@ public final class TerritoryRegionWipeManager {
                     System.err.println("[ChampUtils] Failed to finish deleting territory " + task.territory.id + ": " + message);
                     return;
                 }
-                if (task.requesterId != null) {
-                    ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
-                    if (player != null) player.sendSystemMessage(Component.literal("Territory deletion finished. You can create another territory after the cooldown ends.").withStyle(ChatFormatting.GREEN));
-                }
+                notifyDeletionFinished(server, task, "Territory deletion finished. You can create another territory after the cooldown ends.");
             }));
+        }
+    }
+
+    private static void notifyDeletionFinished(MinecraftServer server, WipeTask task, String message) {
+        if (server == null || task == null || message == null) return;
+        Set<UUID> notified = new HashSet<>();
+
+        if (task.requesterId != null) {
+            ServerPlayer requester = server.getPlayerList().getPlayer(task.requesterId);
+            if (requester != null) {
+                requester.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GREEN));
+                notified.add(requester.getUUID());
+            }
+        }
+
+        TerritoryRepository.Territory territory = task.territory;
+        if (territory != null && territory.ownerType == TerritoryRepository.OwnerType.PLAYER && territory.ownerId != null) {
+            try {
+                UUID ownerId = UUID.fromString(territory.ownerId);
+                if (!notified.contains(ownerId)) {
+                    ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
+                    if (owner != null) owner.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GREEN));
+                }
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -189,39 +206,62 @@ public final class TerritoryRegionWipeManager {
     private static final class WipeTask {
         private final TerritoryRepository.Territory territory;
         private final UUID requesterId;
-        private int x;
-        private int y;
-        private int z;
+        private final int minChunkX;
+        private final int maxChunkX;
+        private final int minChunkZ;
+        private final int maxChunkZ;
+        private int chunkX;
+        private int chunkZ;
         private boolean entitiesCleared;
         private int worldLoadAttempts;
 
         private WipeTask(TerritoryRepository.Territory territory, UUID requesterId) {
             this.territory = territory;
             this.requesterId = requesterId;
-            this.x = territory.minX;
-            this.z = territory.minZ;
-            this.y = Integer.MIN_VALUE;
+            this.minChunkX = Math.floorDiv(territory.minX, 16);
+            this.maxChunkX = Math.floorDiv(territory.maxX, 16);
+            this.minChunkZ = Math.floorDiv(territory.minZ, 16);
+            this.maxChunkZ = Math.floorDiv(territory.maxZ, 16);
+            this.chunkX = minChunkX;
+            this.chunkZ = minChunkZ;
         }
 
         private boolean done(ServerLevel level) {
-            int minY = level.getMinBuildHeight();
-            int maxY = level.getMaxBuildHeight() - 1;
-            if (y == Integer.MIN_VALUE) y = minY;
-            return x > territory.maxX || y > maxY;
+            return chunkX > maxChunkX;
         }
 
-        private void advance(ServerLevel level) {
+        private int wipeCurrentChunk(ServerLevel level) {
+            // Force-load the chunk so deletion does not depend on players keeping the area loaded.
+            level.getChunk(chunkX, chunkZ);
+
             int minY = level.getMinBuildHeight();
             int maxY = level.getMaxBuildHeight() - 1;
-            y++;
-            if (y <= maxY) return;
+            int minX = Math.max(territory.minX, chunkX << 4);
+            int maxX = Math.min(territory.maxX, (chunkX << 4) + 15);
+            int minZ = Math.max(territory.minZ, chunkZ << 4);
+            int maxZ = Math.min(territory.maxZ, (chunkZ << 4) + 15);
+            int examined = 0;
 
-            y = minY;
-            z++;
-            if (z <= territory.maxZ) return;
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    for (int y = minY; y <= maxY; y++) {
+                        pos.set(x, y, z);
+                        if (!level.getBlockState(pos).isAir()) {
+                            level.setBlock(pos, AIR, 2);
+                        }
+                        examined++;
+                    }
+                }
+            }
+            return Math.max(1, examined);
+        }
 
-            z = territory.minZ;
-            x++;
+        private void advanceChunk() {
+            chunkZ++;
+            if (chunkZ <= maxChunkZ) return;
+            chunkZ = minChunkZ;
+            chunkX++;
         }
     }
 }

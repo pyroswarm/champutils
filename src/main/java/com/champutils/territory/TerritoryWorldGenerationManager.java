@@ -1,7 +1,9 @@
 package com.champutils.territory;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -10,6 +12,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.HashSet;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -25,6 +29,8 @@ import java.util.UUID;
 public final class TerritoryWorldGenerationManager {
     private static final Set<String> WORLD_REQUESTED_THIS_RUNTIME = new HashSet<>();
     private static final Set<UUID> TERRITORY_REQUESTED_THIS_RUNTIME = new HashSet<>();
+    private static final Set<UUID> READY_NOTIFIED_THIS_RUNTIME = new HashSet<>();
+    private static final Map<UUID, UUID> READY_INITIATORS = new ConcurrentHashMap<>();
 
     private TerritoryWorldGenerationManager() {}
 
@@ -45,6 +51,7 @@ public final class TerritoryWorldGenerationManager {
 
     public static void requestGeneration(MinecraftServer server, ServerPlayer initiator, TerritoryRepository.Territory territory) {
         if (territory == null || territory.id == null) return;
+        if (initiator != null) READY_INITIATORS.putIfAbsent(territory.id, initiator.getUUID());
         boolean deleting = TerritoryRepository.isDeleting(territory);
 
         if (server == null && initiator != null) {
@@ -115,7 +122,8 @@ public final class TerritoryWorldGenerationManager {
 
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a VOID skyblock territory. Biome painting is disabled." : ". Chunky was not used."));
+            notifyTerritoryReady(finalServer, territory);
+            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a skyblock territory. Biome painting is disabled." : ". Chunky was not used."));
         } else {
             if (!deleting) {
                 territory.generationState = "PENDING";
@@ -125,6 +133,29 @@ public final class TerritoryWorldGenerationManager {
                 System.out.println("[ChampUtils] Multiworld command was sent for " + territory.worldName + ", but the dimension is not loaded yet. Territory remains PENDING and will retry automatically.");
             } else {
                 System.err.println("[ChampUtils] Failed to request/load Multiworld territory world " + territory.worldName + " for territory " + territory.id + ". Territory remains PENDING.");
+            }
+        }
+    }
+
+    public static void notifyTerritoryReady(MinecraftServer server, TerritoryRepository.Territory territory) {
+        if (server == null || territory == null || territory.id == null) return;
+        if (!READY_NOTIFIED_THIS_RUNTIME.add(territory.id)) return;
+
+        UUID initiatorId = READY_INITIATORS.remove(territory.id);
+        ServerPlayer initiator = initiatorId == null ? null : server.getPlayerList().getPlayer(initiatorId);
+        if (initiator != null) {
+            String command = territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "/gterritory home" : "/territory home";
+            initiator.sendSystemMessage(Component.literal((territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Your guild territory is ready! Use " : "Your territory is ready! Use ") + command + " to teleport there.").withStyle(ChatFormatting.GREEN));
+            return;
+        }
+
+        if (territory.ownerType == TerritoryRepository.OwnerType.PLAYER && territory.ownerId != null) {
+            try {
+                ServerPlayer owner = server.getPlayerList().getPlayer(UUID.fromString(territory.ownerId));
+                if (owner != null) {
+                    owner.sendSystemMessage(Component.literal("Your territory is ready! Use /territory home to teleport there.").withStyle(ChatFormatting.GREEN));
+                }
+            } catch (Exception ignored) {
             }
         }
     }

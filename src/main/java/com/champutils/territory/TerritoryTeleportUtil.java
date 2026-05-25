@@ -16,7 +16,7 @@ public final class TerritoryTeleportUtil {
     private TerritoryTeleportUtil() {}
 
     public static boolean teleportHome(ServerPlayer player, TerritoryRepository.Territory territory) {
-        if (player == null || territory == null) return false;
+        if (player == null || territory == null || !territory.isReady()) return false;
         ServerLevel level = resolveLevel(player.server, territory.worldName);
         if (level == null) return false;
 
@@ -25,7 +25,7 @@ public final class TerritoryTeleportUtil {
     }
 
     public static boolean teleportInside(ServerPlayer player, TerritoryRepository.Territory territory) {
-        if (player == null || territory == null) return false;
+        if (player == null || territory == null || !territory.isReady()) return false;
         ServerLevel level = resolveLevel(player.server, territory.worldName);
         if (level == null) return false;
 

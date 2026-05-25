@@ -345,7 +345,7 @@ public final class TerritoryRepository {
             Territory territory = allocate(OwnerType.PLAYER, ownerId, player.getGameProfile().getName(), worldName, biomePreference);
             save(territory, (success, message) -> {
                 if (success) TerritoryWorldGenerationManager.requestGeneration(player.server, player, territory);
-                callback.done(success, success ? "Territory created. " + generationMessage(territory) : message);
+                callback.done(success, success ? "Your territory is being prepared. You will get a chat message when it is ready. You cannot teleport there until it is finished." : message);
             });
         });
     }
@@ -372,7 +372,7 @@ public final class TerritoryRepository {
             Territory territory = allocate(OwnerType.GUILD, ownerId, guildName == null ? "Guild" : guildName, null, biomePreference);
             save(territory, (success, message) -> {
                 if (success) TerritoryWorldGenerationManager.requestGeneration(server, initiator, territory);
-                callback.done(success, success ? "Guild territory created. " + generationMessage(territory) : message);
+                callback.done(success, success ? "Your guild territory is being prepared. You will get a chat message when it is ready. Players cannot teleport there until it is finished." : message);
             });
         });
     }
