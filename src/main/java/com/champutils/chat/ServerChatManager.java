@@ -1,6 +1,7 @@
 package com.champutils.chat;
 
 import com.champutils.guild.GuildRepository;
+import com.champutils.moderation.ModerationManager;
 import com.champutils.party.PartyManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -22,6 +23,7 @@ public final class ServerChatManager {
 
     public static boolean send(ServerPlayer sender, ChatMode mode, String message, boolean warn) {
         if (mode == null) mode = ChatMode.LOCAL;
+        if (!ModerationManager.allowChat(sender, message)) return false;
         List<ServerPlayer> recipients = recipients(sender, mode);
         if (recipients.isEmpty()) {
             if (warn) sender.sendSystemMessage(unavailable(mode));

@@ -435,8 +435,8 @@ public final class BossConfig {
     private static List<WorldBossTheme> defaultWorldThemes() {
         return new ArrayList<>(List.of(
                 new WorldBossTheme("Molterra", "Fire", "Fire Boss Molterra", new ArrayList<>(List.of(
-                        boss("koraidon", "jolly", "clear_amulet", "orichalcum_pulse", 0, 252, 0, 0, 4, 252, "collision_course", "flare_blitz", "dragon_claw", "swords_dance"),
-                        boss("groudon", "adamant", "leftovers", "drought", 252, 252, 4, 0, 0, 0, "precipice_blades", "fire_punch", "stone_edge", "swords_dance"),
+                        boss("gouging_fire", "jolly", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "flare_blitz", "dragon_claw", "earthquake", "dragon_dance"),
+                        boss("cinderace", "jolly", "life_orb", "libero", 0, 252, 0, 0, 4, 252, "pyro_ball", "high_jump_kick", "sucker_punch", "u_turn"),
                         boss("ho_oh", "careful", "heavy_duty_boots", "regenerator", 248, 0, 8, 0, 252, 0, "sacred_fire", "brave_bird", "earthquake", "recover"),
                         boss("reshiram", "timid", "choice_specs", "turboblaze", 0, 0, 0, 252, 4, 252, "blue_flare", "draco_meteor", "earth_power", "overheat"),
                         boss("chi_yu", "timid", "choice_specs", "beads_of_ruin", 0, 0, 0, 252, 4, 252, "dark_pulse", "flamethrower", "overheat", "psychic"),

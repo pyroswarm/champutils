@@ -28,14 +28,19 @@ public final class TerritoryNpcManager {
 
     private TerritoryNpcManager() {}
 
+    /**
+     * Intentionally does not spawn/repair NPCs on a timer.
+     *
+     * Territory steward NPCs are persistent world entities. Creating them from a periodic server tick causes
+     * duplicates after restart if the existing NPC is in an unloaded chunk or is otherwise not returned by
+     * the nearby entity search yet. NPCs should only be created when the territory creation pipeline confirms
+     * the territory has become READY.
+     */
     public static void tick(MinecraftServer server) {
-        if (server == null || server.getTickCount() % 200 != 0) return;
-        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
-            ensureNpc(server, territory);
-        }
+        // No-op by design. Keep the hook so older initializers do not need to change.
     }
 
-    public static void ensureNpc(MinecraftServer server, TerritoryRepository.Territory territory) {
+    public static void spawnOnceWhenReady(MinecraftServer server, TerritoryRepository.Territory territory) {
         if (server == null || territory == null || territory.id == null || !territory.isReady() || TerritoryRepository.isDeleting(territory)) return;
         ServerLevel level = level(server, territory.worldName);
         if (level == null) return;

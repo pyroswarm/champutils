@@ -4,6 +4,7 @@ import com.champutils.util.CobblemonHeldItemUtil;
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
+import com.cobblemon.mod.common.api.moves.Moves;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
@@ -49,9 +50,8 @@ public final class RoamingTrainerPartyBuilder {
 
             party.initialize();
             npc.setParty(party);
-            // Roaming trainers use team quality for difficulty. Capping AI skill prevents the high-skill AI
-            // from getting stuck in repeated defensive switch loops.
-            try { npc.setSkill(Math.max(0, Math.min(2, settings.aiSkill))); } catch (Exception ignored) {}
+            // Roaming trainers should be real competitive PvE threats now. The AI wrapper prevents bad switch loops.
+            try { npc.setSkill(Math.max(3, Math.min(5, settings.aiSkill))); } catch (Exception ignored) {}
             try { npc.setCustomName(Component.literal(data.displayName).withStyle(data.rarity.color)); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
@@ -71,6 +71,7 @@ public final class RoamingTrainerPartyBuilder {
 
             applyBestIVs(pokemon);
             applyBestEVs(pokemon);
+            applyCompetitiveMoves(pokemon, species);
 
             if (RANDOM.nextDouble() < Math.max(0.0D, settings.shinyChance)) {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
@@ -223,6 +224,43 @@ public final class RoamingTrainerPartyBuilder {
             if (clean.equals(sanitize(blocked))) return true;
         }
         return false;
+    }
+
+
+    private static void applyCompetitiveMoves(Pokemon pokemon, String speciesName) {
+        if (pokemon == null) return;
+        try {
+            pokemon.getMoveSet().clear();
+            List<String> moves = competitiveMovesFor(sanitize(speciesName));
+            int learned = 0;
+            for (String move : moves) {
+                if (learned >= 4) break;
+                try { pokemon.getMoveSet().add(Moves.getByName(sanitizeMove(move)).create()); learned++; } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static List<String> competitiveMovesFor(String species) {
+        return switch (species) {
+            case "garchomp" -> List.of("earthquake", "dragonclaw", "stoneedge", "swordsdance");
+            case "dragonite" -> List.of("dragondance", "earthquake", "extremespeed", "dualwingbeat");
+            case "volcarona" -> List.of("quiverdance", "fierydance", "bugbuzz", "gigadrain");
+            case "greninja" -> List.of("hydropump", "darkpulse", "icebeam", "watershuriken");
+            case "gyarados" -> List.of("dragondance", "waterfall", "earthquake", "crunch");
+            case "lucario" -> List.of("swordsdance", "closecombat", "meteormash", "extremespeed");
+            case "tyranitar" -> List.of("stoneedge", "crunch", "earthquake", "dragondance");
+            case "metagross" -> List.of("meteormash", "zenheadbutt", "earthquake", "agility");
+            case "mimikyu" -> List.of("swordsdance", "playrough", "shadowclaw", "shadowsneak");
+            case "dragapult" -> List.of("dragondarts", "phantomforce", "uturn", "willowisp");
+            case "kingambit" -> List.of("kowtowcleave", "suckerpunch", "ironhead", "swordsdance");
+            case "annihilape" -> List.of("ragefist", "drainpunch", "bulkup", "taunt");
+            default -> List.of("earthquake", "thunderbolt", "flamethrower", "icebeam");
+        };
+    }
+
+    private static String sanitizeMove(String value) {
+        if (value == null) return "tackle";
+        return value.trim().toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9]", "");
     }
 
     private static void applyBestIVs(Pokemon pokemon) {

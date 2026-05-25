@@ -236,7 +236,14 @@ public final class TerritoryCommand {
     private static int markReady(ServerPlayer player, String rawId) {
         try {
             UUID id = UUID.fromString(rawId);
-            TerritoryRepository.markReady(id, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+            TerritoryRepository.markReady(id, (success, message) -> player.server.execute(() -> {
+                if (success) {
+                    TerritoryRepository.Territory territory = TerritoryRepository.get(id);
+                    TerritoryNpcManager.spawnOnceWhenReady(player.server, territory);
+                    TerritoryWorldGenerationManager.notifyTerritoryReady(player.server, territory);
+                }
+                player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }));
             return 1;
         } catch (Exception e) {
             player.sendSystemMessage(Component.literal("Invalid territory UUID.").withStyle(ChatFormatting.RED));

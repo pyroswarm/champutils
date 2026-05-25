@@ -85,6 +85,7 @@ public final class TerritorySkyblockIslandManager {
             ensureStarterIsland(level, live);
             live.generationState = "READY";
             TerritoryRepository.save(live, (success, message) -> {});
+            TerritoryNpcManager.spawnOnceWhenReady(server, live);
             TerritoryWorldGenerationManager.notifyTerritoryReady(server, live);
             System.out.println("[ChampUtils] Skyblock territory " + live.id + " prepared with NORMAL biome data and starter island in " + live.worldName + ".");
         }

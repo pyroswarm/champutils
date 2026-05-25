@@ -1,5 +1,7 @@
 package com.champutils.territory;
 
+import com.champutils.guild.GuildRepository;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -122,6 +124,7 @@ public final class TerritoryWorldGenerationManager {
 
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
+            TerritoryNpcManager.spawnOnceWhenReady(finalServer, territory);
             notifyTerritoryReady(finalServer, territory);
             System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a skyblock territory. Biome painting is disabled." : ". Chunky was not used."));
         } else {
@@ -143,9 +146,18 @@ public final class TerritoryWorldGenerationManager {
 
         UUID initiatorId = READY_INITIATORS.remove(territory.id);
         ServerPlayer initiator = initiatorId == null ? null : server.getPlayerList().getPlayer(initiatorId);
+        if (territory.ownerType == TerritoryRepository.OwnerType.GUILD && territory.ownerId != null) {
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(online.getUUID());
+                if (guild != null && territory.ownerId.equals(guild.id.toString())) {
+                    online.sendSystemMessage(Component.literal("Your guild territory is ready! Use /gterritory home to teleport there.").withStyle(ChatFormatting.GREEN));
+                }
+            }
+            return;
+        }
+
         if (initiator != null) {
-            String command = territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "/gterritory home" : "/territory home";
-            initiator.sendSystemMessage(Component.literal((territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Your guild territory is ready! Use " : "Your territory is ready! Use ") + command + " to teleport there.").withStyle(ChatFormatting.GREEN));
+            initiator.sendSystemMessage(Component.literal("Your territory is ready! Use /territory home to teleport there.").withStyle(ChatFormatting.GREEN));
             return;
         }
 

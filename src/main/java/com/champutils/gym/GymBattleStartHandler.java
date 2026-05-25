@@ -142,6 +142,9 @@ NPCBattleActor gymNpc = null;
                 return;
             }
 
+            // Rebuild the gym party for every new battle so pool-based gyms actually randomize per challenge.
+            GymNpcPartyBuilder.applyGymTeam(gymNpc.getNpc(), badge);
+
 
             String requiredGroup =
                     requiredGroup(

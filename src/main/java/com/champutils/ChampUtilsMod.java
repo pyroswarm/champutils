@@ -480,10 +480,6 @@ public class ChampUtilsMod implements ModInitializer {
                         return false;
                     }
 
-                    if (!ModerationManager.allowChat(player, message.signedContent())) {
-                        return false;
-                    }
-
                     ServerChatManager.handleChat(
                             player,
                             message.signedContent()

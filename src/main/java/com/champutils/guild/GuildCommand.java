@@ -452,29 +452,7 @@ public final class GuildCommand {
     }
 
     private static int guildChat(ServerPlayer player, String message) {
-        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
-        if (guild == null) {
-            player.sendSystemMessage(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-
-        String cleanMessage = message == null ? "" : message.trim();
-        if (cleanMessage.isBlank()) {
-            player.sendSystemMessage(Component.literal("Usage: /g <message>").withStyle(ChatFormatting.YELLOW));
-            return 0;
-        }
-
-        Component formatted = Component.literal("[Guild] ").withStyle(ChatFormatting.DARK_AQUA)
-                .append(Component.literal(player.getGameProfile().getName() + ": ").withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(cleanMessage).withStyle(ChatFormatting.WHITE));
-
-        for (ServerPlayer online : player.server.getPlayerList().getPlayers()) {
-            GuildRepository.GuildSnapshot otherGuild = GuildRepository.cachedGuild(online.getUUID());
-            if (otherGuild != null && guild.id.equals(otherGuild.id)) {
-                online.sendSystemMessage(formatted);
-            }
-        }
-        return 1;
+        return com.champutils.chat.ServerChatManager.send(player, com.champutils.chat.ChatMode.GUILD, message, true) ? 1 : 0;
     }
 
     private static int info(ServerPlayer player) {

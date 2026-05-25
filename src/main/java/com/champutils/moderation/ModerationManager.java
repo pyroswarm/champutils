@@ -37,6 +37,7 @@ public final class ModerationManager {
     private static final Pattern REPEATED_CHARS = Pattern.compile("(.)\\1{2,}");
     private static final Map<TrackKey, Record> records = new HashMap<>();
     private static final Map<UUID, TempBan> tempBans = new HashMap<>();
+    private static final Map<UUID, ChatWindow> chatWindows = new HashMap<>();
     private static long resetKey = DailyResetManager.currentResetKeyMillis();
 
     private ModerationManager() {}
@@ -46,6 +47,7 @@ public final class ModerationManager {
         if (key != resetKey) {
             records.clear();
             tempBans.clear();
+            chatWindows.clear();
             XrayDetectionManager.dailyReset();
             resetKey = key;
             alertAdmins(server, "§a[AutoMod] Daily moderation stages wiped at " + DailyResetManager.formatResetTime() + ". Chat, Xray, and AntiLag tracks were reset separately.");
@@ -77,6 +79,12 @@ public final class ModerationManager {
             return false;
         }
         if (!ModerationConfig.DATA.chatModEnabled) return true;
+        String spamReason = spamViolation(player, message);
+        if (spamReason != null) {
+            report(player, ModerationTrack.CHAT.webhookLabel, spamReason + " | original=`" + trimForLog(message) + "`", true);
+            advanceChatStage(player, r, spamReason);
+            return false;
+        }
         ChatViolation hit = blockedWord(message);
         if (hit == null) return true;
 
@@ -239,6 +247,28 @@ public final class ModerationManager {
         p.sendSystemMessage(Component.literal("You are muted for " + dur + ". Reason: " + reason).withStyle(ChatFormatting.RED));
     }
 
+
+    private static String spamViolation(ServerPlayer player, String message) {
+        if (player == null || message == null) return null;
+        long now = System.currentTimeMillis();
+        long windowMs = 5000L;
+        ChatWindow w = chatWindows.computeIfAbsent(player.getUUID(), id -> new ChatWindow(now + windowMs));
+        if (now > w.expiresAt) {
+            w.expiresAt = now + windowMs;
+            w.count = 0;
+            w.lastNormalized = "";
+            w.repeatCount = 0;
+        }
+        w.count++;
+        String normalized = normalizeChat(message);
+        if (!normalized.isBlank() && normalized.equals(w.lastNormalized)) w.repeatCount++;
+        else { w.lastNormalized = normalized; w.repeatCount = 1; }
+        if (w.count >= 7) return "chat spam: too many messages in 5 seconds";
+        if (w.repeatCount >= 3) return "chat spam: repeated message";
+        if (message.length() > 240) return "chat spam: message too long";
+        return null;
+    }
+
     private static ChatViolation blockedWord(String msg) {
         if (msg == null || msg.isBlank()) return null;
 
@@ -376,4 +406,12 @@ public final class ModerationManager {
     }
 
     private record TempBan(long untilMillis, String reason) {}
+
+    private static final class ChatWindow {
+        int count;
+        int repeatCount;
+        long expiresAt;
+        String lastNormalized = "";
+        ChatWindow(long expiresAt) { this.expiresAt = expiresAt; }
+    }
 }
