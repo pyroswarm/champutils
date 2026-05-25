@@ -134,6 +134,8 @@ public final class RoamingTrainerConfig {
 
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
+            settings.pokemonCount = desiredPokemonCount(rarity);
+            settings.aiSkill = Math.min(settings.aiSkill, desiredAiSkill(rarity));
             if (settings.trainerNames == null || settings.trainerNames.isEmpty()) {
                 settings.trainerNames = defaultTrainerNames(rarity);
             } else {
@@ -142,9 +144,26 @@ public final class RoamingTrainerConfig {
         }
     }
 
+    private static int desiredPokemonCount(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case COMMON, UNCOMMON -> 1;
+            case RARE, EPIC -> 2;
+            case LEGENDARY, MYTHIC -> 3;
+        };
+    }
+
+    private static int desiredAiSkill(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case COMMON, UNCOMMON -> 1;
+            case RARE, EPIC -> 2;
+            case LEGENDARY, MYTHIC -> 3;
+        };
+    }
+
     public static boolean isBlockedDimension(String dimensionId) {
         if (dimensionId == null) return false;
         String normalized = dimensionId.toLowerCase(Locale.ROOT);
+        if (normalized.contains("territor")) return true;
         for (String blocked : DATA.blockedDimensions) {
             if (blocked == null || blocked.isBlank()) continue;
             String b = blocked.trim().toLowerCase(Locale.ROOT);
@@ -193,21 +212,21 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 100");
             }
             case UNCOMMON -> {
-                s.weight = 20; s.pokemonCount = 2; s.levelOffsetMin = -1; s.levelOffsetMax = 3; s.aiSkill = 2;
+                s.weight = 20; s.pokemonCount = 1; s.levelOffsetMin = -2; s.levelOffsetMax = 2; s.aiSkill = 1;
                 s.allPokemonChance = 0.60D;
                 s.evolvedSpeciesChance = 0.15; s.heldItemChance = 0.10; s.competitiveNatureChance = 0.15;
                 s.fragmentMin = 1; s.fragmentMax = 3;
                 s.rewardCommands.add("eco give %player% 250");
             }
             case RARE -> {
-                s.weight = 7; s.pokemonCount = 3; s.levelOffsetMin = 1; s.levelOffsetMax = 5; s.aiSkill = 3;
+                s.weight = 7; s.pokemonCount = 2; s.levelOffsetMin = 0; s.levelOffsetMax = 3; s.aiSkill = 2;
                 s.allPokemonChance = 0.35D;
                 s.evolvedSpeciesChance = 0.35; s.heldItemChance = 0.25; s.competitiveNatureChance = 0.35;
                 s.fragmentMin = 2; s.fragmentMax = 4;
                 s.rewardCommands.add("eco give %player% 750");
             }
             case EPIC -> {
-                s.weight = 2; s.pokemonCount = 4; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 4;
+                s.weight = 2; s.pokemonCount = 2; s.levelOffsetMin = 1; s.levelOffsetMax = 4; s.aiSkill = 2;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.55; s.heldItemChance = 0.45; s.competitiveNatureChance = 0.55;
@@ -215,7 +234,7 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 2000");
             }
             case LEGENDARY -> {
-                s.weight = 0.8; s.pokemonCount = 5; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 5;
+                s.weight = 0.8; s.pokemonCount = 3; s.levelOffsetMin = 2; s.levelOffsetMax = 5; s.aiSkill = 3;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.75; s.heldItemChance = 0.65; s.competitiveNatureChance = 0.75;
@@ -223,7 +242,7 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 5000");
             }
             case MYTHIC -> {
-                s.weight = 0.2; s.pokemonCount = 6; s.levelOffsetMin = 0; s.levelOffsetMax = 0; s.aiSkill = 5;
+                s.weight = 0.2; s.pokemonCount = 3; s.levelOffsetMin = 3; s.levelOffsetMax = 6; s.aiSkill = 3;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 3;
                 s.evolvedSpeciesChance = 0.95; s.heldItemChance = 0.90; s.competitiveNatureChance = 0.95; s.shinyChance = 0.01;

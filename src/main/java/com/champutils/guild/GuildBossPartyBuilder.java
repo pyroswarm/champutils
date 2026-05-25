@@ -13,19 +13,30 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.List;
+
 public final class GuildBossPartyBuilder {
     private GuildBossPartyBuilder() {}
 
     public static boolean applyBossPokemon(NPCEntity npc, BossConfig.BossPokemon set, BossConfig.BossSettings settings) {
-        if (npc == null || set == null || settings == null) return false;
+        return applyBossTeam(npc, set == null ? null : List.of(set), settings);
+    }
+
+    public static boolean applyBossTeam(NPCEntity npc, List<BossConfig.BossPokemon> team, BossConfig.BossSettings settings) {
+        if (npc == null || team == null || team.isEmpty() || settings == null) return false;
         try {
             int level = Math.max(1, Math.min(100, settings.level));
             npc.initialize(level);
             NPCPartyStore party = new NPCPartyStore(npc);
-            Pokemon pokemon = createPokemon(set, level);
-            if (pokemon == null) return false;
-            try { pokemon.heal(); } catch (Exception ignored) {}
-            party.set(0, pokemon);
+            int slot = 0;
+            for (BossConfig.BossPokemon set : team) {
+                if (set == null || slot >= 6) continue;
+                Pokemon pokemon = createPokemon(set, level);
+                if (pokemon == null) continue;
+                try { pokemon.heal(); } catch (Exception ignored) {}
+                party.set(slot++, pokemon);
+            }
+            if (slot <= 0) return false;
             party.initialize();
             npc.setParty(party);
             npc.setSkill(5);
@@ -64,9 +75,14 @@ public final class GuildBossPartyBuilder {
                         if (move == null || move.isBlank()) continue;
                         if (learnedMoves >= 4) break;
                         try {
-                            pokemon.getMoveSet().add(Moves.getByName(cleanKey(move)).create());
+                            pokemon.getMoveSet().add(Moves.getByName(cleanMoveKey(move)).create());
                             learnedMoves++;
                         } catch (Exception ignored) {}
+                    }
+                }
+                if (pokemon.getMoveSet().getMoves() == null || pokemon.getMoveSet().getMoves().isEmpty()) {
+                    for (String move : new String[] {"tackle", "protect"}) {
+                        try { pokemon.getMoveSet().add(Moves.getByName(move).create()); } catch (Exception ignored) {}
                     }
                 }
             } catch (Exception ignored) {}
@@ -128,6 +144,11 @@ public final class GuildBossPartyBuilder {
     }
 
     private static String cleanKey(String value) {
-        return value == null ? "" : value.toLowerCase().replaceAll("[^a-z0-9_]", "");
+        return value == null ? "" : value.toLowerCase().replace("cobblemon:", "").replaceAll("[^a-z0-9_]", "");
+    }
+
+    private static String cleanMoveKey(String value) {
+        if (value == null) return "";
+        return value.toLowerCase().replace("cobblemon:", "").replace('-', '_').replaceAll("[^a-z0-9_]", "");
     }
 }

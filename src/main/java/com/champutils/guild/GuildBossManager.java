@@ -146,20 +146,12 @@ public final class GuildBossManager {
             msg(player, "You already defeated this world boss.", ChatFormatting.YELLOW);
             return false;
         }
-        BossConfig.BossPokemon pokemon = new BossConfig.BossPokemon();
-        pokemon.species = boss.species;
-        for (BossConfig.BossPokemon candidate : BossConfig.DATA.worldBoss.pool) {
-            if (candidate != null && candidate.species != null && candidate.species.equalsIgnoreCase(boss.species)) {
-                pokemon = candidate;
-                break;
-            }
-        }
-        boolean applied = GuildBossPartyBuilder.applyBossPokemon(npc, pokemon, BossConfig.DATA.worldBoss);
+        boolean applied = GuildBossPartyBuilder.applyBossTeam(npc, boss.team, BossConfig.DATA.worldBoss);
         if (!applied) {
             msg(player, "This world boss could not prepare its battle team. Tell staff to check console.", ChatFormatting.RED);
             return false;
         }
-        try { npc.setCustomName(Component.literal("World Boss - " + pretty(boss.species)).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
+        try { npc.setCustomName(Component.literal(boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         return true;
     }
@@ -235,10 +227,15 @@ public final class GuildBossManager {
 
     private static boolean spawnWorldBoss(MinecraftServer server) {
         BossConfig.WorldBossSettings settings = BossConfig.DATA.worldBoss;
-        BossConfig.BossPokemon pokemon = choose(settings.pool);
+        BossConfig.WorldBossTheme theme = chooseTheme(settings.themes);
+        List<BossConfig.BossPokemon> team = chooseTeam(theme.pool, Math.max(1, Math.min(6, settings.partySize)));
+        if (team.isEmpty()) team.add(choose(settings.pool));
         ActiveWorldBoss boss = new ActiveWorldBoss();
         boss.id = UUID.randomUUID();
-        boss.species = pokemon.species;
+        boss.species = team.get(0).species;
+        boss.theme = theme.type;
+        boss.displayName = theme.displayName;
+        boss.team = team;
         boss.despawnAtMillis = System.currentTimeMillis() + settings.aliveMinutes * 60_000L;
 
         BossConfig.SpawnLocation location = settings.spawnLocation;
@@ -248,7 +245,7 @@ public final class GuildBossManager {
                 System.err.println("[ChampUtils] World boss skipped unloaded/missing dimension: " + dimension);
                 continue;
             }
-            NPCEntity npc = spawnBossTrainer(level, pokemon, settings, location.x, location.y, location.z, settings.yaw, "World Boss - " + pretty(pokemon.species), "dmitibr");
+            NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, theme.displayName, "dmitibr");
             if (npc != null) {
                 boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z, npc.getUUID()));
             }
@@ -261,7 +258,7 @@ public final class GuildBossManager {
         activeWorldBoss = boss;
         BossConfig.DATA.worldBoss.lastSpawnAtMillis = System.currentTimeMillis();
         BossConfig.save();
-        broadcastAll(server, "A gigantic " + pretty(pokemon.species) + " has appeared at spawn! You have " + settings.aliveMinutes + " minutes to defeat it once.", ChatFormatting.LIGHT_PURPLE);
+        broadcastAll(server, theme.displayName + " has appeared at spawn! Theme: " + theme.type + ". This is a " + theme.type + "-type themed boss, so build a counter team and defeat it once within " + settings.aliveMinutes + " minutes.", ChatFormatting.LIGHT_PURPLE);
         return true;
     }
 
@@ -311,6 +308,29 @@ public final class GuildBossManager {
         msg(player, "Claimed your " + label + " reward!", ChatFormatting.GREEN);
     }
 
+
+    private static NPCEntity spawnBossTrainer(ServerLevel level, List<BossConfig.BossPokemon> team, BossConfig.BossSettings settings, double x, double y, double z, float yaw, String name, String skinUsername) {
+        try {
+            NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, new Vec3(x, y, z), yaw, name, skinUsername);
+            if (npc == null) return null;
+            try { npc.setNoAi(true); } catch (Exception ignored) {}
+            try { npc.setMovable(false); } catch (Exception ignored) {}
+            try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+            try {
+                npc.moveTo(x, y, z, yaw, 0.0F);
+                npc.setYHeadRot(yaw);
+                npc.setYBodyRot(yaw);
+            } catch (Exception ignored) {}
+            if (!GuildBossPartyBuilder.applyBossTeam(npc, team, settings)) {
+                try { npc.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
+                return null;
+            }
+            return npc;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 
     private static NPCEntity spawnBossTrainer(ServerLevel level, BossConfig.BossPokemon pokemon, BossConfig.BossSettings settings, double x, double y, double z, float yaw, String name, String skinUsername) {
         try {
@@ -383,6 +403,21 @@ public final class GuildBossManager {
         return cmd.toString();
     }
 
+    private static BossConfig.WorldBossTheme chooseTheme(List<BossConfig.WorldBossTheme> themes) {
+        if (themes == null || themes.isEmpty()) return new BossConfig.WorldBossTheme("Titan", "Mixed", "Mixed Boss Titan", BossConfig.DATA.worldBoss.pool);
+        return themes.get(RANDOM.nextInt(themes.size()));
+    }
+
+    private static List<BossConfig.BossPokemon> chooseTeam(List<BossConfig.BossPokemon> pool, int count) {
+        List<BossConfig.BossPokemon> clean = new ArrayList<>();
+        if (pool != null) {
+            for (BossConfig.BossPokemon p : pool) if (p != null) clean.add(p);
+        }
+        Collections.shuffle(clean, RANDOM);
+        if (clean.size() > count) return new ArrayList<>(clean.subList(0, count));
+        return clean;
+    }
+
     private static BossConfig.BossPokemon choose(List<BossConfig.BossPokemon> pool) {
         int total = 0;
         for (BossConfig.BossPokemon p : pool) total += Math.max(1, p.weight);
@@ -437,7 +472,7 @@ public final class GuildBossManager {
 
     public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
     private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
-    private static final class ActiveWorldBoss { UUID id; String species; long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
 }

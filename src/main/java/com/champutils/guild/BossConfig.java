@@ -120,10 +120,14 @@ public final class BossConfig {
          * On load, these are migrated into spawnDimensions + spawnLocation.
          */
         public List<SpawnPoint> spawnPoints = new ArrayList<>();
+        public int partySize = 3;
+        public List<WorldBossTheme> themes = new ArrayList<>();
 
         static WorldBossSettings defaults() {
             WorldBossSettings s = new WorldBossSettings();
             s.pool = defaultWorldPool();
+            s.themes = defaultWorldThemes();
+            s.partySize = 3;
             s.rewardTiers = defaultRewardTiers();
             s.spawnDimensions.add("multiworld:spawn1");
             s.spawnLocation = new SpawnLocation(0.5D, 80D, 0.5D);
@@ -135,6 +139,9 @@ public final class BossConfig {
         void normalize() {
             super.normalize();
             if (averageMinutesUntilNextBoss <= 0) averageMinutesUntilNextBoss = 1440;
+            if (partySize <= 0 || partySize > 6) partySize = 3;
+            if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
+            themes.forEach(WorldBossTheme::normalize);
             if (lastSpawnAtMillis < 0L) lastSpawnAtMillis = 0L;
             if (Float.isNaN(yaw) || Float.isInfinite(yaw)) yaw = 180.0F;
             yaw = normalizeYaw(yaw);
@@ -173,6 +180,31 @@ public final class BossConfig {
             if (normalized < -180.0F) normalized += 360.0F;
             if (normalized >= 180.0F) normalized -= 360.0F;
             return normalized;
+        }
+    }
+
+    public static final class WorldBossTheme {
+        public String name;
+        public String type;
+        public String displayName;
+        public List<BossPokemon> pool = new ArrayList<>();
+
+        public WorldBossTheme() {}
+        public WorldBossTheme(String name, String type, String displayName, List<BossPokemon> pool) {
+            this.name = name;
+            this.type = type;
+            this.displayName = displayName;
+            this.pool = pool;
+        }
+
+        void normalize() {
+            if (name == null || name.isBlank()) name = themedDefaultName(type);
+            if (type == null || type.isBlank()) type = "Mixed";
+            if (displayName == null || displayName.isBlank() || displayName.startsWith("World Boss ") || displayName.endsWith(" Theme")) {
+                displayName = type + " Boss " + name;
+            }
+            if (pool == null || pool.isEmpty()) pool = defaultWorldPool();
+            pool.forEach(BossPokemon::normalize);
         }
     }
 
@@ -325,6 +357,181 @@ public final class BossConfig {
                 boss("iron_boulder", "jolly", "booster_energy", "quark_drive", 0, 252, 0, 0, 4, 252, "mighty_cleave", "close_combat", "earthquake", "swords_dance"),
                 boss("iron_crown", "timid", "booster_energy", "quark_drive", 0, 0, 0, 252, 4, 252, "tachyon_cutter", "psyshock", "focus_blast", "calm_mind"),
                 boss("roaring_moon", "jolly", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "knock_off", "dragon_claw", "earthquake", "dragon_dance")
+        ));
+    }
+
+
+    private static String themedDefaultName(String type) {
+        if (type == null) return "Titan";
+        return switch (type.trim().toLowerCase()) {
+            case "fire" -> "Molterra";
+            case "water" -> "Tidalon";
+            case "steel" -> "Ferron";
+            case "grass" -> "Verdantis";
+            case "electric" -> "Voltrax";
+            case "ice" -> "Frostrix";
+            case "ground" -> "Terradon";
+            case "flying" -> "Aerovox";
+            case "psychic" -> "Psyren";
+            case "dark" -> "Umbrax";
+            case "ghost" -> "Spectra";
+            case "dragon" -> "Drakonos";
+            case "poison" -> "Venomira";
+            case "fairy" -> "Aurelia";
+            case "rock" -> "Boulderex";
+            case "bug" -> "Arachna";
+            case "fighting" -> "Valorak";
+            case "normal" -> "Obelisk";
+            default -> "Titan";
+        };
+    }
+
+    private static List<WorldBossTheme> defaultWorldThemes() {
+        return new ArrayList<>(List.of(
+                new WorldBossTheme("Molterra", "Fire", "Fire Boss Molterra", new ArrayList<>(List.of(
+                        boss("koraidon", "jolly", "clear_amulet", "orichalcum_pulse", 0, 252, 0, 0, 4, 252, "collision_course", "flare_blitz", "dragon_claw", "swords_dance"),
+                        boss("groudon", "adamant", "leftovers", "drought", 252, 252, 4, 0, 0, 0, "precipice_blades", "fire_punch", "stone_edge", "swords_dance"),
+                        boss("ho_oh", "careful", "heavy_duty_boots", "regenerator", 248, 0, 8, 0, 252, 0, "sacred_fire", "brave_bird", "earthquake", "recover"),
+                        boss("reshiram", "timid", "choice_specs", "turboblaze", 0, 0, 0, 252, 4, 252, "blue_flare", "draco_meteor", "earth_power", "overheat"),
+                        boss("chi_yu", "timid", "choice_specs", "beads_of_ruin", 0, 0, 0, 252, 4, 252, "dark_pulse", "flamethrower", "overheat", "psychic"),
+                        boss("volcarona", "timid", "heavy_duty_boots", "flame_body", 0, 0, 0, 252, 4, 252, "fiery_dance", "bug_buzz", "giga_drain", "quiver_dance")
+                ))),
+                new WorldBossTheme("Tidalon", "Water", "Water Boss Tidalon", new ArrayList<>(List.of(
+                        boss("kyogre", "modest", "choice_specs", "drizzle", 0, 0, 0, 252, 4, 252, "water_spout", "origin_pulse", "ice_beam", "thunder"),
+                        boss("palkia", "timid", "lustrous_orb", "pressure", 0, 0, 0, 252, 4, 252, "spacial_rend", "hydro_pump", "earth_power", "fire_blast"),
+                        boss("walking_wake", "timid", "booster_energy", "protosynthesis", 0, 0, 0, 252, 4, 252, "hydro_steam", "draco_meteor", "flamethrower", "dragon_pulse"),
+                        boss("urshifu", "jolly", "choice_band", "unseen_fist", 0, 252, 0, 0, 4, 252, "surging_strikes", "close_combat", "aqua_jet", "u_turn"),
+                        boss("greninja", "timid", "life_orb", "protean", 0, 0, 0, 252, 4, 252, "hydro_pump", "dark_pulse", "ice_beam", "water_shuriken"),
+                        boss("toxapex", "bold", "black_sludge", "regenerator", 252, 0, 252, 0, 4, 0, "scald", "sludge_bomb", "recover", "toxic")
+                ))),
+                new WorldBossTheme("Ferron", "Steel", "Steel Boss Ferron", new ArrayList<>(List.of(
+                        boss("zacian", "jolly", "rusted_sword", "intrepid_sword", 0, 252, 0, 0, 4, 252, "behemoth_blade", "play_rough", "close_combat", "swords_dance"),
+                        boss("dialga", "modest", "assault_vest", "pressure", 248, 0, 0, 252, 8, 0, "roar_of_time", "flash_cannon", "earth_power", "thunderbolt"),
+                        boss("solgaleo", "adamant", "weakness_policy", "full_metal_body", 252, 252, 4, 0, 0, 0, "sunsteel_strike", "earthquake", "wild_charge", "morning_sun"),
+                        boss("magearna", "modest", "leftovers", "soul_heart", 252, 0, 0, 252, 4, 0, "fleur_cannon", "flash_cannon", "thunderbolt", "shift_gear"),
+                        boss("melmetal", "adamant", "assault_vest", "iron_fist", 252, 252, 4, 0, 0, 0, "double_iron_bash", "earthquake", "thunder_punch", "ice_punch"),
+                        boss("metagross", "jolly", "life_orb", "clear_body", 0, 252, 0, 0, 4, 252, "meteor_mash", "zen_headbutt", "earthquake", "agility")
+                ))),
+                new WorldBossTheme("Verdantis", "Grass", "Grass Boss Verdantis", new ArrayList<>(List.of(
+                        boss("arceus", "timid", "meadow_plate", "multitype", 0, 0, 0, 252, 4, 252, "judgment", "earth_power", "recover", "calm_mind"),
+                        boss("shaymin", "timid", "life_orb", "serene_grace", 0, 0, 0, 252, 4, 252, "seed_flare", "air_slash", "earth_power", "healing_wish"),
+                        boss("rillaboom", "adamant", "choice_band", "grassy_surge", 0, 252, 0, 0, 4, 252, "grassy_glide", "wood_hammer", "knock_off", "u_turn"),
+                        boss("kartana", "jolly", "choice_scarf", "beast_boost", 0, 252, 0, 0, 4, 252, "leaf_blade", "smart_strike", "sacred_sword", "knock_off"),
+                        boss("ogerpon", "jolly", "focus_sash", "defiant", 0, 252, 0, 0, 4, 252, "ivy_cudgel", "power_whip", "play_rough", "swords_dance"),
+                        boss("venusaur", "timid", "black_sludge", "chlorophyll", 0, 0, 0, 252, 4, 252, "giga_drain", "sludge_bomb", "earth_power", "growth")
+                ))),
+                new WorldBossTheme("Voltrax", "Electric", "Electric Boss Voltrax", new ArrayList<>(List.of(
+                        boss("miraidon", "timid", "choice_specs", "hadron_engine", 0, 0, 0, 252, 4, 252, "electro_drift", "draco_meteor", "flash_cannon", "volt_switch"),
+                        boss("zekrom", "jolly", "life_orb", "teravolt", 0, 252, 0, 0, 4, 252, "bolt_strike", "dragon_claw", "crunch", "dragon_dance"),
+                        boss("regieleki", "timid", "magnet", "transistor", 0, 0, 0, 252, 4, 252, "thunderbolt", "volt_switch", "rapid_spin", "ancient_power"),
+                        boss("zapdos", "timid", "heavy_duty_boots", "static", 0, 0, 0, 252, 4, 252, "thunderbolt", "hurricane", "heat_wave", "roost"),
+                        boss("iron_hands", "adamant", "assault_vest", "quark_drive", 252, 252, 4, 0, 0, 0, "wild_charge", "drain_punch", "ice_punch", "fake_out"),
+                        boss("raging_bolt", "modest", "booster_energy", "protosynthesis", 252, 0, 0, 252, 4, 0, "thunderclap", "dragon_pulse", "thunderbolt", "calm_mind")
+                ))),
+                new WorldBossTheme("Frostrix", "Ice", "Ice Boss Frostrix", new ArrayList<>(List.of(
+                        boss("kyurem", "timid", "choice_specs", "pressure", 0, 0, 0, 252, 4, 252, "ice_beam", "draco_meteor", "earth_power", "freeze_dry"),
+                        boss("baxcalibur", "jolly", "loaded_dice", "thermal_exchange", 0, 252, 0, 0, 4, 252, "icicle_spear", "glaive_rush", "earthquake", "dragon_dance"),
+                        boss("chien_pao", "jolly", "life_orb", "sword_of_ruin", 0, 252, 0, 0, 4, 252, "ice_spinner", "crunch", "sucker_punch", "swords_dance"),
+                        boss("iron_bundle", "timid", "booster_energy", "quark_drive", 0, 0, 0, 252, 4, 252, "freeze_dry", "hydro_pump", "ice_beam", "flip_turn"),
+                        boss("weavile", "jolly", "heavy_duty_boots", "pressure", 0, 252, 0, 0, 4, 252, "triple_axel", "knock_off", "ice_shard", "swords_dance"),
+                        boss("mamoswine", "adamant", "life_orb", "thick_fat", 0, 252, 0, 0, 4, 252, "earthquake", "icicle_crash", "ice_shard", "stealth_rock")
+                ))),
+                new WorldBossTheme("Terradon", "Ground", "Ground Boss Terradon", new ArrayList<>(List.of(
+                        boss("groudon", "adamant", "leftovers", "drought", 252, 252, 4, 0, 0, 0, "precipice_blades", "fire_punch", "stone_edge", "swords_dance"),
+                        boss("landorus", "jolly", "choice_scarf", "intimidate", 0, 252, 0, 0, 4, 252, "earthquake", "stone_edge", "u_turn", "stealth_rock"),
+                        boss("great_tusk", "jolly", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "headlong_rush", "close_combat", "rapid_spin", "knock_off"),
+                        boss("garchomp", "jolly", "loaded_dice", "rough_skin", 0, 252, 0, 0, 4, 252, "earthquake", "scale_shot", "stone_edge", "swords_dance"),
+                        boss("ting_lu", "careful", "leftovers", "vessel_of_ruin", 252, 0, 4, 0, 252, 0, "earthquake", "ruination", "whirlwind", "stealth_rock"),
+                        boss("ursaluna", "adamant", "flame_orb", "guts", 252, 252, 0, 0, 4, 0, "facade", "earthquake", "crunch", "swords_dance")
+                ))),
+                new WorldBossTheme("Aerovox", "Flying", "Flying Boss Aerovox", new ArrayList<>(List.of(
+                        boss("rayquaza", "jolly", "life_orb", "air_lock", 0, 252, 0, 0, 4, 252, "dragon_ascent", "earthquake", "extreme_speed", "dragon_dance"),
+                        boss("yveltal", "timid", "heavy_duty_boots", "dark_aura", 0, 0, 0, 252, 4, 252, "dark_pulse", "oblivion_wing", "heat_wave", "nasty_plot"),
+                        boss("lugia", "bold", "heavy_duty_boots", "multiscale", 252, 0, 252, 0, 4, 0, "aeroblast", "ice_beam", "recover", "calm_mind"),
+                        boss("ho_oh", "careful", "heavy_duty_boots", "regenerator", 248, 0, 8, 0, 252, 0, "sacred_fire", "brave_bird", "earthquake", "recover"),
+                        boss("tornadus", "timid", "heavy_duty_boots", "regenerator", 0, 0, 0, 252, 4, 252, "hurricane", "heat_wave", "knock_off", "u_turn"),
+                        boss("dragonite", "jolly", "heavy_duty_boots", "multiscale", 0, 252, 0, 0, 4, 252, "dual_wingbeat", "earthquake", "extreme_speed", "dragon_dance")
+                ))),
+                new WorldBossTheme("Psyren", "Psychic", "Psychic Boss Psyren", new ArrayList<>(List.of(
+                        boss("mewtwo", "timid", "life_orb", "unnerve", 0, 0, 4, 252, 0, 252, "psystrike", "aura_sphere", "ice_beam", "nasty_plot"),
+                        boss("necrozma", "adamant", "weakness_policy", "prism_armor", 0, 252, 0, 0, 4, 252, "photon_geyser", "earthquake", "stone_edge", "dragon_dance"),
+                        boss("lunala", "timid", "power_herb", "shadow_shield", 0, 0, 0, 252, 4, 252, "moongeist_beam", "meteor_beam", "psyshock", "calm_mind"),
+                        boss("deoxys", "naive", "focus_sash", "pressure", 0, 252, 0, 4, 0, 252, "psycho_boost", "superpower", "extreme_speed", "spikes"),
+                        boss("hoopa", "timid", "choice_specs", "magician", 0, 0, 0, 252, 4, 252, "hyperspace_hole", "dark_pulse", "focus_blast", "trick"),
+                        boss("latios", "timid", "soul_dew", "levitate", 0, 0, 0, 252, 4, 252, "luster_purge", "draco_meteor", "aura_sphere", "recover")
+                ))),
+                new WorldBossTheme("Umbrax", "Dark", "Dark Boss Umbrax", new ArrayList<>(List.of(
+                        boss("yveltal", "timid", "heavy_duty_boots", "dark_aura", 0, 0, 0, 252, 4, 252, "dark_pulse", "oblivion_wing", "heat_wave", "nasty_plot"),
+                        boss("darkrai", "timid", "life_orb", "bad_dreams", 0, 0, 0, 252, 4, 252, "dark_pulse", "sludge_bomb", "ice_beam", "nasty_plot"),
+                        boss("roaring_moon", "jolly", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "knock_off", "dragon_claw", "earthquake", "dragon_dance"),
+                        boss("chien_pao", "jolly", "life_orb", "sword_of_ruin", 0, 252, 0, 0, 4, 252, "ice_spinner", "crunch", "sucker_punch", "swords_dance"),
+                        boss("kingambit", "adamant", "black_glasses", "supreme_overlord", 252, 252, 0, 0, 4, 0, "kowtow_cleave", "sucker_punch", "iron_head", "swords_dance"),
+                        boss("hydreigon", "timid", "choice_specs", "levitate", 0, 0, 0, 252, 4, 252, "dark_pulse", "draco_meteor", "flash_cannon", "fire_blast")
+                ))),
+                new WorldBossTheme("Spectra", "Ghost", "Ghost Boss Spectra", new ArrayList<>(List.of(
+                        boss("giratina", "calm", "leftovers", "pressure", 252, 0, 0, 4, 252, 0, "shadow_ball", "dragon_pulse", "will_o_wisp", "calm_mind"),
+                        boss("lunala", "timid", "power_herb", "shadow_shield", 0, 0, 0, 252, 4, 252, "moongeist_beam", "meteor_beam", "psyshock", "calm_mind"),
+                        boss("marshadow", "jolly", "life_orb", "technician", 0, 252, 0, 0, 4, 252, "spectral_thief", "close_combat", "shadow_sneak", "bulk_up"),
+                        boss("flutter_mane", "timid", "booster_energy", "protosynthesis", 0, 0, 0, 252, 4, 252, "moonblast", "shadow_ball", "mystical_fire", "calm_mind"),
+                        boss("dragapult", "naive", "choice_specs", "infiltrator", 0, 4, 0, 252, 0, 252, "shadow_ball", "draco_meteor", "flamethrower", "u_turn"),
+                        boss("gengar", "timid", "life_orb", "cursed_body", 0, 0, 0, 252, 4, 252, "shadow_ball", "sludge_wave", "focus_blast", "nasty_plot")
+                ))),
+                new WorldBossTheme("Drakonos", "Dragon", "Dragon Boss Drakonos", new ArrayList<>(List.of(
+                        boss("rayquaza", "jolly", "life_orb", "air_lock", 0, 252, 0, 0, 4, 252, "dragon_ascent", "earthquake", "extreme_speed", "dragon_dance"),
+                        boss("miraidon", "timid", "choice_specs", "hadron_engine", 0, 0, 0, 252, 4, 252, "electro_drift", "draco_meteor", "flash_cannon", "volt_switch"),
+                        boss("koraidon", "jolly", "clear_amulet", "orichalcum_pulse", 0, 252, 0, 0, 4, 252, "collision_course", "flare_blitz", "dragon_claw", "swords_dance"),
+                        boss("eternatus", "timid", "black_sludge", "pressure", 0, 0, 0, 252, 4, 252, "dynamax_cannon", "sludge_bomb", "flamethrower", "recover"),
+                        boss("kyurem", "timid", "choice_specs", "pressure", 0, 0, 0, 252, 4, 252, "ice_beam", "draco_meteor", "earth_power", "freeze_dry"),
+                        boss("dragapult", "naive", "choice_specs", "infiltrator", 0, 4, 0, 252, 0, 252, "shadow_ball", "draco_meteor", "flamethrower", "u_turn")
+                ))),
+                new WorldBossTheme("Venomira", "Poison", "Poison Boss Venomira", new ArrayList<>(List.of(
+                        boss("eternatus", "timid", "black_sludge", "pressure", 0, 0, 0, 252, 4, 252, "dynamax_cannon", "sludge_bomb", "flamethrower", "recover"),
+                        boss("naganadel", "timid", "life_orb", "beast_boost", 0, 0, 0, 252, 4, 252, "sludge_wave", "draco_meteor", "fire_blast", "nasty_plot"),
+                        boss("nihilego", "timid", "power_herb", "beast_boost", 0, 0, 0, 252, 4, 252, "meteor_beam", "sludge_wave", "thunderbolt", "grass_knot"),
+                        boss("toxapex", "bold", "black_sludge", "regenerator", 252, 0, 252, 0, 4, 0, "scald", "sludge_bomb", "recover", "toxic"),
+                        boss("sneasler", "jolly", "focus_sash", "unburden", 0, 252, 0, 0, 4, 252, "dire_claw", "close_combat", "throat_chop", "swords_dance"),
+                        boss("gengar", "timid", "life_orb", "cursed_body", 0, 0, 0, 252, 4, 252, "shadow_ball", "sludge_wave", "focus_blast", "nasty_plot")
+                ))),
+                new WorldBossTheme("Aurelia", "Fairy", "Fairy Boss Aurelia", new ArrayList<>(List.of(
+                        boss("xerneas", "modest", "power_herb", "fairy_aura", 104, 0, 0, 252, 0, 152, "moonblast", "thunder", "focus_blast", "geomancy"),
+                        boss("zacian", "jolly", "rusted_sword", "intrepid_sword", 0, 252, 0, 0, 4, 252, "behemoth_blade", "play_rough", "close_combat", "swords_dance"),
+                        boss("magearna", "modest", "leftovers", "soul_heart", 252, 0, 0, 252, 4, 0, "fleur_cannon", "flash_cannon", "thunderbolt", "shift_gear"),
+                        boss("flutter_mane", "timid", "booster_energy", "protosynthesis", 0, 0, 0, 252, 4, 252, "moonblast", "shadow_ball", "mystical_fire", "calm_mind"),
+                        boss("iron_valiant", "naive", "booster_energy", "quark_drive", 0, 252, 0, 4, 0, 252, "moonblast", "close_combat", "thunderbolt", "swords_dance"),
+                        boss("diancie", "naive", "life_orb", "clear_body", 0, 4, 0, 252, 0, 252, "moonblast", "diamond_storm", "earth_power", "stealth_rock")
+                ))),
+                new WorldBossTheme("Boulderex", "Rock", "Rock Boss Boulderex", new ArrayList<>(List.of(
+                        boss("terrakion", "jolly", "choice_band", "justified", 0, 252, 0, 0, 4, 252, "stone_edge", "close_combat", "earthquake", "quick_attack"),
+                        boss("diancie", "naive", "life_orb", "clear_body", 0, 4, 0, 252, 0, 252, "moonblast", "diamond_storm", "earth_power", "stealth_rock"),
+                        boss("nihilego", "timid", "power_herb", "beast_boost", 0, 0, 0, 252, 4, 252, "meteor_beam", "sludge_wave", "thunderbolt", "grass_knot"),
+                        boss("iron_boulder", "jolly", "booster_energy", "quark_drive", 0, 252, 0, 0, 4, 252, "mighty_cleave", "close_combat", "earthquake", "swords_dance"),
+                        boss("tyranitar", "adamant", "choice_band", "sand_stream", 252, 252, 0, 0, 4, 0, "stone_edge", "crunch", "earthquake", "fire_punch"),
+                        boss("garganacl", "careful", "leftovers", "purifying_salt", 252, 0, 4, 0, 252, 0, "salt_cure", "recover", "body_press", "iron_defense")
+                ))),
+                new WorldBossTheme("Arachna", "Bug", "Bug Boss Arachna", new ArrayList<>(List.of(
+                        boss("genesect", "naive", "choice_scarf", "download", 0, 252, 0, 4, 0, 252, "u_turn", "iron_head", "ice_beam", "flamethrower"),
+                        boss("buzzwole", "adamant", "rocky_helmet", "beast_boost", 252, 252, 4, 0, 0, 0, "close_combat", "leech_life", "ice_punch", "roost"),
+                        boss("pheromosa", "naive", "life_orb", "beast_boost", 0, 252, 0, 4, 0, 252, "close_combat", "bug_buzz", "ice_beam", "u_turn"),
+                        boss("volcarona", "timid", "heavy_duty_boots", "flame_body", 0, 0, 0, 252, 4, 252, "fiery_dance", "bug_buzz", "giga_drain", "quiver_dance"),
+                        boss("scizor", "adamant", "choice_band", "technician", 248, 252, 0, 0, 8, 0, "bullet_punch", "u_turn", "close_combat", "knock_off"),
+                        boss("slither_wing", "adamant", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "first_impression", "close_combat", "flare_blitz", "u_turn")
+                ))),
+                new WorldBossTheme("Valorak", "Fighting", "Fighting Boss Valorak", new ArrayList<>(List.of(
+                        boss("koraidon", "jolly", "clear_amulet", "orichalcum_pulse", 0, 252, 0, 0, 4, 252, "collision_course", "flare_blitz", "dragon_claw", "swords_dance"),
+                        boss("zamazenta", "jolly", "rusted_shield", "dauntless_shield", 0, 252, 4, 0, 0, 252, "behemoth_bash", "body_press", "crunch", "iron_defense"),
+                        boss("marshadow", "jolly", "life_orb", "technician", 0, 252, 0, 0, 4, 252, "spectral_thief", "close_combat", "shadow_sneak", "bulk_up"),
+                        boss("iron_valiant", "naive", "booster_energy", "quark_drive", 0, 252, 0, 4, 0, 252, "moonblast", "close_combat", "thunderbolt", "swords_dance"),
+                        boss("great_tusk", "jolly", "booster_energy", "protosynthesis", 0, 252, 0, 0, 4, 252, "headlong_rush", "close_combat", "rapid_spin", "knock_off"),
+                        boss("urshifu", "jolly", "choice_band", "unseen_fist", 0, 252, 0, 0, 4, 252, "wicked_blow", "close_combat", "sucker_punch", "u_turn")
+                ))),
+                new WorldBossTheme("Obelisk", "Normal", "Normal Boss Obelisk", new ArrayList<>(List.of(
+                        boss("arceus", "adamant", "silk_scarf", "multitype", 0, 252, 0, 0, 4, 252, "extreme_speed", "shadow_claw", "earthquake", "swords_dance"),
+                        boss("terapagos", "modest", "leftovers", "tera_shell", 252, 0, 0, 252, 4, 0, "tera_starstorm", "earth_power", "calm_mind", "recover"),
+                        boss("ursaluna", "adamant", "flame_orb", "guts", 252, 252, 0, 0, 4, 0, "facade", "earthquake", "crunch", "swords_dance"),
+                        boss("blissey", "bold", "heavy_duty_boots", "natural_cure", 252, 0, 252, 0, 4, 0, "seismic_toss", "soft_boiled", "thunder_wave", "stealth_rock"),
+                        boss("snorlax", "careful", "leftovers", "thick_fat", 252, 4, 0, 0, 252, 0, "body_slam", "earthquake", "curse", "rest"),
+                        boss("dragonite", "jolly", "heavy_duty_boots", "multiscale", 0, 252, 0, 0, 4, 252, "extreme_speed", "earthquake", "fire_punch", "dragon_dance")
+                )))
         ));
     }
 

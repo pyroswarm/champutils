@@ -25,6 +25,12 @@ public final class GuildRepository {
         MEMBER,
         RECRUIT;
 
+        @Override
+        public String toString() {
+            String lower = name().toLowerCase();
+            return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+        }
+
         public static Role fromDatabase(String raw) {
             if (raw == null || raw.isBlank()) return RECRUIT;
             String value = raw.trim().toUpperCase();
