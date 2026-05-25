@@ -88,33 +88,63 @@ public final class AntiLagManager {
         if(AntiLagConfig.DATA.protectPokemonInBattle&&isPokemonInAnyBattle(e)) return false;
 
         Object pokemon=firstValue(e,"pokemon","getPokemon");
-        if(pokemon==null) return false;
 
-        if(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny")) return false;
+        if(pokemon!=null&&(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny"))) return false;
         if(AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage&&(hasEntityOwner(e)||hasOwnerOrStorage(pokemon))) return false;
 
-        String entityAspects=String.valueOf(firstValue(e,"aspects","getAspects","appliedAspects","getAppliedAspects")).toLowerCase(Locale.ROOT);
-        String pokemonAspects=String.valueOf(firstValue(pokemon,"aspects","getAspects")).toLowerCase(Locale.ROOT);
+        String entityAspects=String.valueOf(firstValue(e,"aspects","getAspects","appliedAspects","getAppliedAspects","features","getFeatures")).toLowerCase(Locale.ROOT);
+        String pokemonAspects=String.valueOf(firstValue(pokemon,"aspects","getAspects","features","getFeatures")).toLowerCase(Locale.ROOT);
         String combinedAspects=entityAspects+" "+pokemonAspects;
         if(combinedAspects.contains("shiny")||combinedAspects.contains("boss")||combinedAspects.contains("special")||combinedAspects.contains("legendary")) return false;
 
         // Do NOT reject every Mob#isPersistenceRequired() Pokémon here. Cobblemon can mark ordinary
         // natural wild Pokémon persistent while they are loaded, which made the timed cleanup skip all wilds.
+        // Also do NOT treat Cobblemon storeCoordinates/storeCoordinate as proof of player ownership.
+        // Wild Pokémon can have world/storage coordinates while still being ordinary natural spawns.
         return true;
     }
     private static boolean isPokemonInAnyBattle(Entity e){ if(booleanValue(e,"isBattling","isInBattle","battleId","battleIds","getBattleId","getBattleIds","getBattleIdsSnapshot")) return true; Object pokemon=firstValue(e,"pokemon","getPokemon"); if(booleanValue(pokemon,"isBattling","isInBattle","battleId","battleIds","getBattleId","getBattleIds")) return true; MinecraftServer server=e.getServer(); if(server==null) return false; for(ServerPlayer player:server.getPlayerList().getPlayers()) if(player.level()==e.level() && player.distanceToSqr(e)<4096.0D && playerIsBattlingEntity(player,e)) return true; return false; }
     private static boolean playerIsBattlingEntity(ServerPlayer player, Entity target){ Object state=invokeStatic("com.cobblemon.mod.common.util.PlayerExtensionsKt","getBattleState",player); if(state==null) state=invokeStatic("com.cobblemon.mod.common.util.PlayerExtensionsKt","battleState",player); Object battle=firstValue(state,"first","getFirst"); if(battle==null) battle=state; Object actor=invokeMethod(battle,"getActor",target); return actor!=null; }
     private static boolean hasEntityOwner(Entity e){ Object owner=firstValue(e,"ownerUUID","getOwnerUUID","owner","getOwner"); if(owner==null) return false; if(owner instanceof Optional<?> o) return o.isPresent(); String v=owner.toString(); return !v.equalsIgnoreCase("null")&&!v.equalsIgnoreCase("Optional.empty")&&!v.isBlank(); }
-    private static boolean hasOwnerOrStorage(Object p){ Object owner=firstValue(p,"ownerUUID","getOwnerUUID","owner","getOwner","storeCoordinates","getStoreCoordinates","storeCoordinate","getStoreCoordinate"); if(owner==null) return false; if(owner instanceof Optional<?> o) return o.isPresent(); String v=owner.toString(); return !v.equalsIgnoreCase("null")&&!v.equalsIgnoreCase("Optional.empty")&&!v.isBlank(); }
+    private static boolean hasOwnerOrStorage(Object p){
+        // Only protect Pokémon that have a real owner/storage relationship. Do not include
+        // storeCoordinates/storeCoordinate here: natural wild Cobblemon entities may expose those
+        // while still being safe cleanup targets. Including them caused the wild cleanup to skip all mons.
+        Object owner=firstValue(p,"ownerUUID","getOwnerUUID","owner","getOwner","getOwnerPlayer","originalTrainer","getOriginalTrainer","getOriginalTrainerUuid","originalTrainerUuid","getOriginalTrainerUUID","originalTrainerUUID");
+        if(owner==null) return false;
+        if(owner instanceof Optional<?> o) return o.isPresent();
+        String v=owner.toString();
+        return !v.equalsIgnoreCase("null")&&!v.equalsIgnoreCase("Optional.empty")&&!v.isBlank();
+    }
     private static boolean hasProtectedTag(Entity e){ for(String tag:e.getTags()){ String l=tag.toLowerCase(Locale.ROOT); for(String m:PROTECTED_TAG_MARKERS) if(l.contains(m)) return true;} return false; }
     private static boolean isPokemonEntity(Entity e){ return e!=null&&(e.getClass().getName().equals("com.cobblemon.mod.common.entity.pokemon.PokemonEntity")||isInstanceOf(e,"com.cobblemon.mod.common.entity.pokemon.PokemonEntity")); } private static boolean isNpcEntity(Entity e){ return e!=null&&(e.getClass().getName().equals("com.cobblemon.mod.common.entity.npc.NPCEntity")||isInstanceOf(e,"com.cobblemon.mod.common.entity.npc.NPCEntity")); }
     private static boolean isInstanceOf(Object o,String className){ try{return Class.forName(className).isInstance(o);}catch(Throwable ignored){return false;} }
     private static boolean booleanValue(Object src,String...names){ for(String n:names){ Object v=firstValue(src,n); if(v instanceof Boolean b) return b; if(v instanceof Set<?> s&&!s.isEmpty()) return true; if(v instanceof Iterable<?> it&&it.iterator().hasNext()) return true; if(v instanceof UUID) return true; if(v instanceof Optional<?> o) return o.isPresent(); } return false; }
     private static boolean booleanField(Object src,String name){ try{ Field f=findField(src.getClass(),name); if(f==null)return false; f.setAccessible(true); Object v=f.get(src); return v instanceof Boolean b&&b; }catch(Throwable ignored){return false;} }
-    private static Object firstValue(Object src,String...names){ if(src==null)return null; for(String n:names){ try{ if(n.startsWith("get")||n.startsWith("is")){ Method m=src.getClass().getMethod(n); m.setAccessible(true); if(m.getParameterCount()==0){ Object v=m.invoke(src); if(v!=null)return v; }} else { Field f=findField(src.getClass(),n); if(f!=null){ f.setAccessible(true); Object v=f.get(src); if(v!=null)return v; } } }catch(Throwable ignored){} } return null; }
+    private static Object firstValue(Object src,String...names){
+        if(src==null)return null;
+        for(String n:names){
+            try{
+                if(n.startsWith("get")||n.startsWith("is")){
+                    Method m=findNoArgMethod(src.getClass(),n);
+                    if(m!=null){
+                        m.setAccessible(true);
+                        Object v=m.invoke(src);
+                        if(v!=null)return v;
+                    }
+                } else {
+                    Field f=findField(src.getClass(),n);
+                    if(f!=null){ f.setAccessible(true); Object v=f.get(src); if(v!=null)return v; }
+                }
+            }catch(Throwable ignored){}
+        }
+        return null;
+    }
 
-    private static Object invokeMethod(Object src,String name,Object...args){ if(src==null)return null; for(Method m:src.getClass().getMethods()){ if(!m.getName().equals(name)||m.getParameterCount()!=args.length) continue; try{ m.setAccessible(true); return m.invoke(src,args); }catch(Throwable ignored){} } return null; }
-    private static Object invokeStatic(String className,String name,Object...args){ try{ Class<?> c=Class.forName(className); for(Method m:c.getMethods()){ if(!Modifier.isStatic(m.getModifiers())||!m.getName().equals(name)||m.getParameterCount()!=args.length) continue; try{ m.setAccessible(true); return m.invoke(null,args); }catch(Throwable ignored){} } }catch(Throwable ignored){} return null; }
+    private static Object invokeMethod(Object src,String name,Object...args){ if(src==null)return null; for(Method m:allMethods(src.getClass())){ if(!m.getName().equals(name)||m.getParameterCount()!=args.length) continue; try{ m.setAccessible(true); return m.invoke(src,args); }catch(Throwable ignored){} } return null; }
+    private static Object invokeStatic(String className,String name,Object...args){ try{ Class<?> c=Class.forName(className); for(Method m:allMethods(c)){ if(!Modifier.isStatic(m.getModifiers())||!m.getName().equals(name)||m.getParameterCount()!=args.length) continue; try{ m.setAccessible(true); return m.invoke(null,args); }catch(Throwable ignored){} } }catch(Throwable ignored){} return null; }
+    private static Method findNoArgMethod(Class<?> t,String n){ for(Method m:allMethods(t)) if(m.getName().equals(n)&&m.getParameterCount()==0) return m; return null; }
+    private static List<Method> allMethods(Class<?> t){ List<Method> out=new ArrayList<>(); for(Class<?> c=t;c!=null;c=c.getSuperclass()){ try{ out.addAll(Arrays.asList(c.getDeclaredMethods())); }catch(Throwable ignored){} } try{ out.addAll(Arrays.asList(t.getMethods())); }catch(Throwable ignored){} return out; }
     private static Field findField(Class<?> t,String n){ for(Class<?> c=t;c!=null;c=c.getSuperclass()){ try{return c.getDeclaredField(n);}catch(Throwable ignored){} } return null; }
     private static boolean isDisabled(ServerLevel level){ ResourceLocation id=level.dimension().location(); return AntiLagConfig.DATA.disabledDimensions!=null&&AntiLagConfig.DATA.disabledDimensions.contains(id.toString()); }
     private static boolean isWhitelistedArea(ServerLevel level, Entity e){ if(AntiLagConfig.DATA.whitelistedAreas==null) return false; String dim=level.dimension().location().toString(); for(AntiLagConfig.Area a:AntiLagConfig.DATA.whitelistedAreas){ if(a==null||a.dimension==null||!a.dimension.equals(dim)) continue; int x=e.blockPosition().getX(),y=e.blockPosition().getY(),z=e.blockPosition().getZ(); if(x>=Math.min(a.minX,a.maxX)&&x<=Math.max(a.minX,a.maxX)&&y>=Math.min(a.minY,a.maxY)&&y<=Math.max(a.minY,a.maxY)&&z>=Math.min(a.minZ,a.maxZ)&&z<=Math.max(a.minZ,a.maxZ)) return true; } return false; }

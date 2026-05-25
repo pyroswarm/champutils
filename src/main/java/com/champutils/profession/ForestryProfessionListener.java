@@ -38,7 +38,7 @@ public class ForestryProfessionListener {
             Integer xp = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
             if (xp == null || xp <= 0) return true;
             if (ProfessionBlockTracker.isPlayerPlaced(serverPlayer.serverLevel(), pos)) {
-                ProfessionBlockTracker.remove(serverPlayer.serverLevel(), pos);
+                ProfessionBlockTracker.removeAfterCurrentTick(serverPlayer.serverLevel(), pos);
                 return true;
             }
 

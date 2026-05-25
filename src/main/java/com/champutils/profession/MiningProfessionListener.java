@@ -81,7 +81,7 @@ public class MiningProfessionListener {
                                 false
                         );
 
-                        ProfessionBlockTracker.remove(
+                        ProfessionBlockTracker.removeAfterCurrentTick(
                                 serverPlayer.serverLevel(),
                                 pos
                         );

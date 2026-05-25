@@ -144,6 +144,8 @@ public class ProfessionPlacementListener {
 
                         iterator.remove();
                     }
+
+                    ProfessionBlockTracker.flushScheduledRemovals();
                 }
         );
     }

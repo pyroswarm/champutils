@@ -22,6 +22,16 @@ public class ProfessionBlockTracker {
     private static final Map<String, UUID> PLACED_BLOCKS =
             new ConcurrentHashMap<>();
 
+    /*
+     * Blocks are not removed from PLACED_BLOCKS immediately during a break event.
+     * Fabric can fire multiple break/reward/passive handlers for the same block in
+     * the same server tick. If we remove the marker in the first handler, later
+     * handlers can incorrectly treat that player-placed log/ore as natural and
+     * award XP or bonus drops.
+     */
+    private static final Map<String, UUID> REMOVE_AFTER_TICK =
+            new ConcurrentHashMap<>();
+
     private static final Path SAVE_PATH =
             Path.of(
                     "config",
@@ -41,6 +51,8 @@ public class ProfessionBlockTracker {
                 key,
                 playerId
         );
+
+        REMOVE_AFTER_TICK.remove(key);
     }
 
     public static boolean isPlayerPlaced(
@@ -56,9 +68,37 @@ public class ProfessionBlockTracker {
             ServerLevel level,
             BlockPos pos
     ) {
-        PLACED_BLOCKS.remove(
-                serialize(level, pos)
-        );
+        String key = serialize(level, pos);
+        PLACED_BLOCKS.remove(key);
+        REMOVE_AFTER_TICK.remove(key);
+    }
+
+    public static void removeAfterCurrentTick(
+            ServerLevel level,
+            BlockPos pos
+    ) {
+        if (level == null || pos == null) {
+            return;
+        }
+
+        String key = serialize(level, pos);
+        UUID owner = PLACED_BLOCKS.get(key);
+
+        if (owner != null) {
+            REMOVE_AFTER_TICK.put(key, owner);
+        }
+    }
+
+    public static void flushScheduledRemovals() {
+        if (REMOVE_AFTER_TICK.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, UUID> entry : REMOVE_AFTER_TICK.entrySet()) {
+            PLACED_BLOCKS.remove(entry.getKey(), entry.getValue());
+        }
+
+        REMOVE_AFTER_TICK.clear();
     }
 
     public static boolean removeIfOwner(
@@ -70,8 +110,11 @@ public class ProfessionBlockTracker {
             return false;
         }
 
+        String key = serialize(level, pos);
+        REMOVE_AFTER_TICK.remove(key);
+
         return PLACED_BLOCKS.remove(
-                serialize(level, pos),
+                key,
                 playerId
         );
     }
@@ -139,6 +182,7 @@ public class ProfessionBlockTracker {
             }
 
             PLACED_BLOCKS.clear();
+            REMOVE_AFTER_TICK.clear();
 
             try (
                     BufferedReader reader =
