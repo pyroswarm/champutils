@@ -44,6 +44,7 @@ import com.champutils.crate.*;
 import com.champutils.network.*;
 import com.champutils.guild.*;
 import com.champutils.territory.*;
+import com.champutils.chat.*;
 
 /*
  =========================
@@ -110,6 +111,7 @@ public class ChampUtilsMod implements ModInitializer {
         GuildConfig.load();
         GuildBuffConfig.load();
         TerritoryConfig.load();
+        ChatTagConfig.load();
 
         /*
          =========================
@@ -375,6 +377,10 @@ public class ChampUtilsMod implements ModInitializer {
                             player.getUUID(),
                             playerName
                     );
+
+                    ChatPreferenceManager.clear(
+                            player.getUUID()
+                    );
                 }
         );
 
@@ -429,7 +435,12 @@ public class ChampUtilsMod implements ModInitializer {
                         return false;
                     }
 
-                    return true;
+                    ServerChatManager.handleChat(
+                            player,
+                            message.signedContent()
+                    );
+
+                    return false;
                 }
         );
 
@@ -485,6 +496,7 @@ public class ChampUtilsMod implements ModInitializer {
         BackCommand.register();
         GuildCommand.register();
         TerritoryCommand.register();
+        ChatCommand.register();
 
         /*
          New custom item test command

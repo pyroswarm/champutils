@@ -34,6 +34,10 @@ public final class MenuNpcCommand {
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
+                                            builder.suggest("territories");
+                                            builder.suggest("pterritories");
+                                            builder.suggest("gterritories");
+                                            builder.suggest("guilds");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> bind(
@@ -51,6 +55,10 @@ public final class MenuNpcCommand {
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
+                                            builder.suggest("territories");
+                                            builder.suggest("pterritories");
+                                            builder.suggest("gterritories");
+                                            builder.suggest("guilds");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> unbind(
@@ -66,6 +74,7 @@ public final class MenuNpcCommand {
     private static String normalizeMenu(String menu) {
         return switch (menu.toLowerCase()) {
             case "pvp", "battle", "battles" -> "battles";
+            case "guild" -> "guilds";
             default -> menu.toLowerCase();
         };
     }

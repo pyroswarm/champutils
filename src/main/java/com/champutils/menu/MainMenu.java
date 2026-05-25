@@ -12,7 +12,7 @@ import net.minecraft.world.item.Items;
 public class MainMenu {
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x1, player);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Cobble Champs"));
 
         MenuUtil.addOpenButton(
@@ -46,6 +46,16 @@ public class MainMenu {
         MenuUtil.addOpenButton(
                 gui,
                 6,
+                Items.COMPASS,
+                "§aTerritories",
+                () -> com.champutils.territory.TerritoryMenus.openHub(player),
+                "§7Personal territories, guild territories,",
+                "§7and public territory browsing."
+        );
+
+        MenuUtil.addOpenButton(
+                gui,
+                8,
                 Items.REDSTONE,
                 "§aSettings",
                 () -> SettingsMenu.open(player),
@@ -54,7 +64,7 @@ public class MainMenu {
 
         MenuUtil.addOpenButton(
                 gui,
-                8,
+                22,
                 Items.BOOK,
                 "§bHelp",
                 () -> HelpMenu.open(player),

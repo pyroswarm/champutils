@@ -27,6 +27,7 @@ public final class TerritoryCommand {
             dispatcher.register(Commands.literal("territory")
                     .executes(context -> infoPersonal(context.getSource().getPlayerOrException()))
                     .then(Commands.literal("info").executes(context -> infoPersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("menu").executes(context -> { TerritoryMenus.openPersonalManage(context.getSource().getPlayerOrException()); return 1; }))
                     .then(Commands.literal("create")
                             .executes(context -> createPersonal(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("home").executes(context -> homePersonal(context.getSource().getPlayerOrException())))
@@ -90,21 +91,49 @@ public final class TerritoryCommand {
                                 return 1;
                             })));
 
+            dispatcher.register(Commands.literal("territories")
+                    .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.ALL, "", 0); return 1; })
+                    .then(Commands.literal("search")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.ALL, StringArgumentType.getString(context, "name"), 0); return 1; })))
+                    .then(Commands.literal("all")
+                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.ALL, "", 0); return 1; })
+                            .then(Commands.literal("search")
+                                    .then(Commands.argument("name", StringArgumentType.greedyString())
+                                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.ALL, StringArgumentType.getString(context, "name"), 0); return 1; }))))
+                    .then(Commands.literal("personal")
+                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.PERSONAL, "", 0); return 1; })
+                            .then(Commands.literal("search")
+                                    .then(Commands.argument("name", StringArgumentType.greedyString())
+                                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.PERSONAL, StringArgumentType.getString(context, "name"), 0); return 1; }))))
+                    .then(Commands.literal("guild")
+                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.GUILD, "", 0); return 1; })
+                            .then(Commands.literal("search")
+                                    .then(Commands.argument("name", StringArgumentType.greedyString())
+                                            .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.GUILD, StringArgumentType.getString(context, "name"), 0); return 1; })))));
+
             dispatcher.register(Commands.literal("pterritories")
                     .executes(context -> {
-                        TerritoryMenus.open(context.getSource().getPlayerOrException(), TerritoryRepository.OwnerType.PLAYER);
+                        TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.PERSONAL, "", 0);
                         return 1;
-                    }));
+                    })
+                    .then(Commands.literal("search")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.PERSONAL, StringArgumentType.getString(context, "name"), 0); return 1; }))));
 
             dispatcher.register(Commands.literal("gterritories")
                     .executes(context -> {
-                        TerritoryMenus.open(context.getSource().getPlayerOrException(), TerritoryRepository.OwnerType.GUILD);
+                        TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.GUILD, "", 0);
                         return 1;
-                    }));
+                    })
+                    .then(Commands.literal("search")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .executes(context -> { TerritoryMenus.openBrowser(context.getSource().getPlayerOrException(), TerritoryMenus.BrowserType.GUILD, StringArgumentType.getString(context, "name"), 0); return 1; }))));
 
             dispatcher.register(Commands.literal("gterritory")
                     .executes(context -> infoGuild(context.getSource().getPlayerOrException()))
                     .then(Commands.literal("info").executes(context -> infoGuild(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("menu").executes(context -> { TerritoryMenus.openGuildManage(context.getSource().getPlayerOrException()); return 1; }))
                     .then(Commands.literal("home").executes(context -> homeGuild(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("name")
                             .then(Commands.argument("name", StringArgumentType.greedyString())

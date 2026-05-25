@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "gearworkshop", "gearappraiser", "auction", "shop", "essentials", "battles", "opencrates", "crates" -> true;
+            case "gearworkshop", "gearappraiser", "auction", "shop", "essentials", "battles", "opencrates", "crates", "territories", "territory", "pterritories", "gterritories", "guild", "guilds" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "gearworkshop, gearappraiser, battles, auction, shop, essentials, opencrates";
+        return "gearworkshop, gearappraiser, battles, auction, shop, essentials, opencrates, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {

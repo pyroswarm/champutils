@@ -2,6 +2,7 @@ package com.champutils.menu;
 
 import com.champutils.auction.AuctionHouseGui;
 import com.champutils.crate.OpenCratesMenu;
+import com.champutils.territory.TerritoryMenus;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
@@ -78,6 +79,10 @@ public final class MenuNpcInteractionListener {
             case "auction" -> AuctionHouseGui.openMain(player);
             case "shop", "essentials" -> NpcShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
+            case "territories", "territory" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.ALL, "", 0);
+            case "pterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.PERSONAL, "", 0);
+            case "gterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.GUILD, "", 0);
+            case "guild", "guilds" -> GuildMenu.open(player);
             default -> player.sendSystemMessage(Component.literal("This NPC is bound to an unknown menu: " + menu).withStyle(ChatFormatting.RED));
         }
     }
