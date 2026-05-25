@@ -2,6 +2,7 @@ package com.champutils.guild;
 
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.trainer.ChampTrainerSpawner;
+import com.champutils.time.DailyResetManager;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.champutils.territory.TerritoryRepository;
 import net.minecraft.ChatFormatting;
@@ -17,13 +18,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class GuildBossManager {
     private static final Map<UUID, ActiveGuildBoss> ACTIVE_GUILD = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> LAST_GUILD_SPAWN = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> NEXT_GUILD_RESET_ELIGIBLE_AT = new ConcurrentHashMap<>();
     private static final Map<UUID, RewardDrop> GUILD_REWARDS = new ConcurrentHashMap<>();
     private static final Map<UUID, RewardDrop> WORLD_REWARDS = new ConcurrentHashMap<>();
     private static final Random RANDOM = new Random();
@@ -52,23 +52,27 @@ public final class GuildBossManager {
         TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
         if (territory == null || !territory.isReady()) { msg(player, "Your guild territory is not ready yet.", ChatFormatting.RED); return; }
         long now = System.currentTimeMillis();
-        long cooldownMs = Duration.ofMinutes(Math.max(1, BossConfig.DATA.guildBoss.cooldownMinutes)).toMillis();
-        long last = LAST_GUILD_SPAWN.getOrDefault(guild.id, 0L);
-        long remaining = (last + cooldownMs) - now;
-        if (remaining > 0L) {
-            msg(player, "Your guild boss is on cooldown for " + formatDuration(remaining) + ".", ChatFormatting.RED);
+        long nextEligibleReset = NEXT_GUILD_RESET_ELIGIBLE_AT.getOrDefault(guild.id, 0L);
+        long currentReset = DailyResetManager.currentResetKeyMillis();
+        if (nextEligibleReset > currentReset) {
+            long remaining = Math.max(1L, DailyResetManager.nextResetMillis(now) - now);
+            msg(player, "Your guild boss resets at " + DailyResetManager.formatResetTime() + ". Try again in " + formatDuration(remaining) + ".", ChatFormatting.RED);
             return;
         }
         if (ACTIVE_GUILD.containsKey(guild.id)) { msg(player, "Your guild already has an active boss.", ChatFormatting.RED); return; }
 
-        BossConfig.BossPokemon pokemon = choose(BossConfig.DATA.guildBoss.pool);
+        BossConfig.WorldBossTheme theme = chooseTheme(BossConfig.DATA.guildBoss.themes);
+        List<BossConfig.BossPokemon> team = chooseTeam(theme.pool, Math.max(1, Math.min(6, BossConfig.DATA.guildBoss.partySize)));
+        if (team.isEmpty()) team.add(choose(BossConfig.DATA.guildBoss.pool));
+        if (team.isEmpty()) { msg(player, "No guild boss Pokémon are configured.", ChatFormatting.RED); return; }
         ServerLevel level = level(player.server, territory.worldName);
         if (level == null) {
             msg(player, "Your guild territory world is not loaded yet. Try again in a moment.", ChatFormatting.RED);
             return;
         }
         double x = territory.centerX + 0.5D, y = territory.spawnY - 1.0D, z = territory.centerZ + 0.5D;
-        NPCEntity npc = spawnBossTrainer(level, pokemon, BossConfig.DATA.guildBoss, x, y, z, 180.0F, "Guild Boss - "+ pretty(pokemon.species), "swordtap");
+        String displayName = guildBossDisplayName(theme);
+        NPCEntity npc = spawnBossTrainer(level, team, BossConfig.DATA.guildBoss, x, y, z, 180.0F, displayName, "swordtap");
         if (npc == null) {
             msg(player, "Could not spawn the guild boss trainer. Check bosses.json and console.", ChatFormatting.RED);
             return;
@@ -76,15 +80,18 @@ public final class GuildBossManager {
         ActiveGuildBoss boss = new ActiveGuildBoss();
         boss.guildId = guild.id;
         boss.guildName = guild.name;
-        boss.species = pokemon.species;
+        boss.species = team.get(0).species;
+        boss.theme = theme.type;
+        boss.displayName = displayName;
+        boss.team = team;
         boss.territoryId = territory.id;
         boss.dimension = level.dimension().location().toString();
         boss.x = x; boss.y = y; boss.z = z;
         boss.despawnAtMillis = now + BossConfig.DATA.guildBoss.aliveMinutes * 60_000L;
         boss.npcUuid = npc.getUUID();
         ACTIVE_GUILD.put(guild.id, boss);
-        LAST_GUILD_SPAWN.put(guild.id, now);
-        broadcastGuild(player.server, guild.id, "A guild boss trainer appeared on your guild island with " + pretty(pokemon.species) + "! You have " + BossConfig.DATA.guildBoss.aliveMinutes + " minutes to defeat it.", ChatFormatting.LIGHT_PURPLE);
+        NEXT_GUILD_RESET_ELIGIBLE_AT.put(guild.id, DailyResetManager.nextResetMillis(boss.despawnAtMillis));
+        broadcastGuild(player.server, guild.id, displayName + " appeared on your guild island! Theme: " + theme.type + ". Only your guild can fight it, and you have " + BossConfig.DATA.guildBoss.aliveMinutes + " minutes to defeat it.", ChatFormatting.LIGHT_PURPLE);
     }
 
 
@@ -120,20 +127,12 @@ public final class GuildBossManager {
             msg(player, "You already defeated this guild boss.", ChatFormatting.YELLOW);
             return false;
         }
-        BossConfig.BossPokemon pokemon = new BossConfig.BossPokemon();
-        pokemon.species = boss.species;
-        for (BossConfig.BossPokemon candidate : BossConfig.DATA.guildBoss.pool) {
-            if (candidate != null && candidate.species != null && candidate.species.equalsIgnoreCase(boss.species)) {
-                pokemon = candidate;
-                break;
-            }
-        }
-        boolean applied = GuildBossPartyBuilder.applyBossPokemon(npc, pokemon, BossConfig.DATA.guildBoss);
+        boolean applied = GuildBossPartyBuilder.applyBossTeam(npc, boss.team, BossConfig.DATA.guildBoss);
         if (!applied) {
             msg(player, "This guild boss could not prepare its battle team. Tell staff to check console.", ChatFormatting.RED);
             return false;
         }
-        try { npc.setCustomName(Component.literal("Guild Boss - " + pretty(boss.species)).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
+        try { npc.setCustomName(Component.literal(boss.displayName == null ? "Guild Boss" : boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         return true;
     }
@@ -429,6 +428,17 @@ public final class GuildBossManager {
         return pool.get(0);
     }
 
+    private static String guildBossDisplayName(BossConfig.WorldBossTheme theme) {
+        if (theme == null) return "Guild Boss";
+        String type = theme.type == null || theme.type.isBlank() ? "Mixed" : theme.type;
+        String name = theme.name == null || theme.name.isBlank() ? "Titan" : theme.name;
+        return type + " Guild Boss " + name;
+    }
+
+    public static String getGuildBossResetInfo() {
+        return DailyResetManager.formatResetTime();
+    }
+
     private static void scheduleNextWorldBoss(long fromMillis) {
         int avg = Math.max(1, BossConfig.DATA.worldBoss.averageMinutesUntilNextBoss);
         double factor = 0.75D + RANDOM.nextDouble() * 0.5D;
@@ -471,7 +481,7 @@ public final class GuildBossManager {
     }
 
     public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
-    private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }

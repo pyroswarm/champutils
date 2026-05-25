@@ -55,14 +55,14 @@ public final class WorldBossCommand {
                     .then(Commands.literal("guildcooldown")
                             .requires(source -> hasBossPermission(source, GUILD_COOLDOWN_PERMISSION) || hasBossPermission(source, ADMIN_PERMISSION))
                             .executes(context -> {
-                                context.getSource().sendSuccess(() -> Component.literal("Guild boss cooldown is " + GuildBossManager.getGuildBossCooldownMinutes() + " minute(s).").withStyle(ChatFormatting.AQUA), false);
+                                context.getSource().sendSuccess(() -> Component.literal("Guild boss daily reset is " + GuildBossManager.getGuildBossResetInfo() + ".").withStyle(ChatFormatting.AQUA), false);
                                 return 1;
                             })
                             .then(Commands.argument("minutes", IntegerArgumentType.integer(1))
                                     .executes(context -> {
                                         int minutes = IntegerArgumentType.getInteger(context, "minutes");
                                         GuildBossManager.setGuildBossCooldownMinutes(minutes);
-                                        context.getSource().sendSuccess(() -> Component.literal("Guild boss cooldown set to " + minutes + " minute(s).").withStyle(ChatFormatting.GREEN), true);
+                                        context.getSource().sendSuccess(() -> Component.literal("Legacy guild boss cooldown value set to " + minutes + " minute(s), but guild boss availability now uses the shared daily reset.").withStyle(ChatFormatting.GREEN), true);
                                         return 1;
                                     })))
                     .then(Commands.literal("setspawn")
@@ -159,7 +159,7 @@ public final class WorldBossCommand {
                                 player.sendSystemMessage(Component.literal("World boss shared spawn: X " + loc.x + ", Y " + loc.y + ", Z " + loc.z + ", yaw " + worldBoss.yaw).withStyle(ChatFormatting.AQUA));
                                 player.sendSystemMessage(Component.literal("World boss spawn worlds: " + String.join(", ", worldBoss.spawnDimensions)).withStyle(ChatFormatting.AQUA));
                                 player.sendSystemMessage(Component.literal("Last world boss spawn: " + GuildBossManager.formatLastWorldBossSpawnAgo()).withStyle(ChatFormatting.AQUA));
-                                player.sendSystemMessage(Component.literal("Guild boss cooldown: " + GuildBossManager.getGuildBossCooldownMinutes() + " minute(s)").withStyle(ChatFormatting.AQUA));
+                                player.sendSystemMessage(Component.literal("Guild boss reset: " + GuildBossManager.getGuildBossResetInfo()).withStyle(ChatFormatting.AQUA));
                                 return 1;
                             })));
         });

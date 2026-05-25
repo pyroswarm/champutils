@@ -54,14 +54,32 @@ public final class BossConfig {
     }
 
     public static final class Data {
-        public BossSettings guildBoss = BossSettings.guildDefaults();
+        public DailyResetSettings dailyReset = DailyResetSettings.defaults();
+        public GuildBossSettings guildBoss = GuildBossSettings.guildDefaults();
         public WorldBossSettings worldBoss = WorldBossSettings.defaults();
 
         void normalize() {
-            if (guildBoss == null) guildBoss = BossSettings.guildDefaults();
+            if (dailyReset == null) dailyReset = DailyResetSettings.defaults();
+            if (guildBoss == null) guildBoss = GuildBossSettings.guildDefaults();
             if (worldBoss == null) worldBoss = WorldBossSettings.defaults();
+            dailyReset.normalize();
             guildBoss.normalize();
             worldBoss.normalize();
+        }
+    }
+
+    public static final class DailyResetSettings {
+        /** Shared reset time used by guild bosses now and future daily systems later. */
+        public int hour = 2;
+        public int minute = 0;
+        /** Use "system" to follow the server JVM's local timezone. */
+        public String timeZone = "system";
+
+        static DailyResetSettings defaults() { return new DailyResetSettings(); }
+        void normalize() {
+            if (hour < 0 || hour > 23) hour = 2;
+            if (minute < 0 || minute > 59) minute = 0;
+            if (timeZone == null || timeZone.isBlank()) timeZone = "system";
         }
     }
 
@@ -70,18 +88,11 @@ public final class BossConfig {
         public double scaleModifier = 2.5D;
         public int level = 100;
         public int aliveMinutes = 15;
-        /** Cooldown between guild boss spawns for the same guild. */
+        /** Legacy field kept so older bosses.json files still load. Guild bosses now use dailyReset. */
         public int cooldownMinutes = 1440;
         public int countRadiusBlocks = 96;
         public List<BossPokemon> pool = new ArrayList<>();
         public List<RewardTier> rewardTiers = new ArrayList<>();
-
-        static BossSettings guildDefaults() {
-            BossSettings s = new BossSettings();
-            s.pool = defaultGuildPool();
-            s.rewardTiers = defaultRewardTiers();
-            return s;
-        }
 
         void normalize() {
             if (scaleModifier <= 0D) scaleModifier = 2.5D;
@@ -93,6 +104,30 @@ public final class BossConfig {
             if (rewardTiers == null || rewardTiers.isEmpty()) rewardTiers = defaultRewardTiers();
             pool.forEach(BossPokemon::normalize);
             rewardTiers.forEach(RewardTier::normalize);
+        }
+    }
+
+
+    public static final class GuildBossSettings extends BossSettings {
+        /** Guild bosses mirror world bosses by using themed trainer parties. */
+        public int partySize = 3;
+        public List<WorldBossTheme> themes = new ArrayList<>();
+
+        static GuildBossSettings guildDefaults() {
+            GuildBossSettings s = new GuildBossSettings();
+            s.pool = defaultGuildPool();
+            s.themes = defaultWorldThemes();
+            s.partySize = 3;
+            s.rewardTiers = defaultRewardTiers();
+            return s;
+        }
+
+        @Override
+        void normalize() {
+            super.normalize();
+            if (partySize <= 0 || partySize > 6) partySize = 3;
+            if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
+            themes.forEach(WorldBossTheme::normalize);
         }
     }
 
