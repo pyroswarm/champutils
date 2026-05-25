@@ -15,12 +15,14 @@ public final class GuildConfig {
 
     public static GuildXp GUILD_XP = new GuildXp();
     public static GuildLevels GUILD_LEVELS = new GuildLevels();
+    public static GuildCreation GUILD_CREATION = new GuildCreation();
 
     private GuildConfig() {}
 
     public static final class Root {
         public GuildXp guildXp = new GuildXp();
         public GuildLevels guildLevels = new GuildLevels();
+        public GuildCreation guildCreation = new GuildCreation();
     }
 
     public static final class GuildXp {
@@ -37,6 +39,11 @@ public final class GuildConfig {
         public long baseXp = 1000L;
         public double scalingMultiplier = 1.35D;
         public int maxLevel = 100;
+    }
+
+    public static final class GuildCreation {
+        public long createCostCredits = 10_000L;
+        public int disbandCreateCooldownMinutes = 30;
     }
 
     public static void load() {
@@ -59,10 +66,12 @@ public final class GuildConfig {
             if (loaded == null) loaded = new Root();
             if (loaded.guildXp == null) loaded.guildXp = new GuildXp();
             if (loaded.guildLevels == null) loaded.guildLevels = new GuildLevels();
+            if (loaded.guildCreation == null) loaded.guildCreation = new GuildCreation();
 
-            sanitize(loaded.guildXp, loaded.guildLevels);
+            sanitize(loaded.guildXp, loaded.guildLevels, loaded.guildCreation);
             GUILD_XP = loaded.guildXp;
             GUILD_LEVELS = loaded.guildLevels;
+            GUILD_CREATION = loaded.guildCreation;
 
             try (FileWriter writer = new FileWriter(file)) {
                 GSON.toJson(loaded, writer);
@@ -73,6 +82,7 @@ public final class GuildConfig {
             e.printStackTrace();
             GUILD_XP = new GuildXp();
             GUILD_LEVELS = new GuildLevels();
+            GUILD_CREATION = new GuildCreation();
         }
     }
 
@@ -134,7 +144,31 @@ public final class GuildConfig {
         };
     }
 
-    private static void sanitize(GuildXp xp, GuildLevels levels) {
+    public static void save() {
+        try {
+            File dir = new File("config/champutils/guilds");
+            if (!dir.exists()) dir.mkdirs();
+
+            Root root = new Root();
+            root.guildXp = GUILD_XP == null ? new GuildXp() : GUILD_XP;
+            root.guildLevels = GUILD_LEVELS == null ? new GuildLevels() : GUILD_LEVELS;
+            root.guildCreation = GUILD_CREATION == null ? new GuildCreation() : GUILD_CREATION;
+            sanitize(root.guildXp, root.guildLevels, root.guildCreation);
+
+            File file = new File(dir, "guild_config.json");
+            try (FileWriter writer = new FileWriter(file)) {
+                GSON.toJson(root, writer);
+            }
+
+            GUILD_XP = root.guildXp;
+            GUILD_LEVELS = root.guildLevels;
+            GUILD_CREATION = root.guildCreation;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void sanitize(GuildXp xp, GuildLevels levels, GuildCreation creation) {
         xp.rankedWin = Math.max(0, xp.rankedWin);
         xp.casualWin = Math.max(0, xp.casualWin);
         xp.worldEventCommon = Math.max(0, xp.worldEventCommon);
@@ -145,6 +179,8 @@ public final class GuildConfig {
         levels.baseXp = Math.max(1L, levels.baseXp);
         levels.scalingMultiplier = Math.max(1.01D, levels.scalingMultiplier);
         levels.maxLevel = Math.max(1, levels.maxLevel);
+        creation.createCostCredits = Math.max(0L, creation.createCostCredits);
+        creation.disbandCreateCooldownMinutes = Math.max(0, creation.disbandCreateCooldownMinutes);
     }
 
     private static long safeAdd(long a, long b) {

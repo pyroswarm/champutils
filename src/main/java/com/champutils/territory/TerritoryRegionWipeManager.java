@@ -27,15 +27,8 @@ public final class TerritoryRegionWipeManager {
     public static void enqueueDelete(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (player == null || territory == null) return;
 
-        if (QUEUED_TERRITORIES.contains(territory.id)) {
-            player.sendSystemMessage(Component.literal("That territory is already queued for deletion/wiping.").withStyle(ChatFormatting.YELLOW));
-            return;
-        }
-
-        ServerLevel level = TerritoryTeleportUtil.resolveLevel(player.server, territory.worldName);
-        if (level == null) {
-            player.sendSystemMessage(Component.literal("That territory world is not loaded, so it cannot be safely wiped yet: " + territory.worldName).withStyle(ChatFormatting.RED));
-            player.sendSystemMessage(Component.literal("Load the Multiworld world, then run the delete confirm command again.").withStyle(ChatFormatting.YELLOW));
+        if (QUEUED_TERRITORIES.contains(territory.id) || TerritoryRepository.isDeleting(territory)) {
+            player.sendSystemMessage(Component.literal("That territory is already being deleted.").withStyle(ChatFormatting.YELLOW));
             return;
         }
 
@@ -47,33 +40,32 @@ public final class TerritoryRegionWipeManager {
             return;
         }
 
-        WipeTask task = new WipeTask(copyOf(territory), player.getUUID());
-        QUEUE.addLast(task);
-        QUEUED_TERRITORIES.add(territory.id);
+        player.sendSystemMessage(Component.literal("Territory deletion started. You were sent to spawn.").withStyle(ChatFormatting.GREEN));
 
-        player.sendSystemMessage(Component.literal("Territory deletion confirmed. You were sent to spawn first.").withStyle(ChatFormatting.GREEN));
-        player.sendSystemMessage(Component.literal("Removing the territory from the database now. The region will keep wiping safely in the background.").withStyle(ChatFormatting.YELLOW));
-
-        TerritoryRepository.deleteTerritory(task.territory, (success, message) -> player.server.execute(() -> {
-            ServerPlayer requester = player.server.getPlayerList().getPlayer(task.requesterId);
-            if (requester != null) {
-                requester.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-            }
+        TerritoryRepository.beginDelete(territory, (success, message) -> player.server.execute(() -> {
             if (!success) {
-                QUEUE.remove(task);
-                QUEUED_TERRITORIES.remove(task.territory.id);
+                ServerPlayer requester = player.server.getPlayerList().getPlayer(player.getUUID());
+                if (requester != null) requester.sendSystemMessage(Component.literal("Could not delete territory. Please try again.").withStyle(ChatFormatting.RED));
+                System.err.println("[ChampUtils] Failed to mark territory " + territory.id + " as DELETING: " + message);
+                return;
             }
+            enqueueWipe(copyOf(territory), player.getUUID());
         }));
     }
 
     public static void tick(MinecraftServer server) {
-        if (server == null || QUEUE.isEmpty()) return;
+        if (server == null) return;
+        resumeDeletingTerritories();
+        if (QUEUE.isEmpty()) return;
 
         WipeTask task = QUEUE.peekFirst();
         if (task == null) return;
 
         ServerLevel level = TerritoryTeleportUtil.resolveLevel(server, task.territory.worldName);
-        if (level == null) return;
+        if (level == null) {
+            TerritoryWorldGenerationManager.requestGeneration(server, task.territory);
+            return;
+        }
 
         int budget = Math.max(256, TerritoryConfig.get().territoryWipeBlocksPerTick);
         int used = 0;
@@ -95,11 +87,34 @@ public final class TerritoryRegionWipeManager {
 
         if (task.done(level)) {
             QUEUE.removeFirst();
-            QUEUED_TERRITORIES.remove(task.territory.id);
-            ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
-            if (player != null) {
-                player.sendSystemMessage(Component.literal("Territory region wipe finished. The old packed slot is clean.").withStyle(ChatFormatting.GREEN));
-            }
+            TerritoryRepository.finishDelete(task.territory, (success, message) -> server.execute(() -> {
+                QUEUED_TERRITORIES.remove(task.territory.id);
+                if (!success) {
+                    System.err.println("[ChampUtils] Failed to finish deleting territory " + task.territory.id + ": " + message);
+                    return;
+                }
+                if (task.requesterId != null) {
+                    ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
+                    if (player != null) player.sendSystemMessage(Component.literal("Territory deleted.").withStyle(ChatFormatting.GREEN));
+                }
+            }));
+        }
+    }
+
+
+    private static void enqueueWipe(TerritoryRepository.Territory territory, UUID requesterId) {
+        if (territory == null || territory.id == null || QUEUED_TERRITORIES.contains(territory.id)) return;
+        WipeTask task = new WipeTask(copyOf(territory), requesterId);
+        QUEUE.addLast(task);
+        QUEUED_TERRITORIES.add(territory.id);
+        System.out.println("[ChampUtils] Queued territory wipe for " + territory.id + " in " + territory.worldName + " slot " + territory.slotIndex + ".");
+    }
+
+    private static void resumeDeletingTerritories() {
+        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
+            if (territory == null || territory.id == null) continue;
+            if (!TerritoryRepository.isDeleting(territory)) continue;
+            enqueueWipe(territory, null);
         }
     }
 

@@ -84,7 +84,7 @@ public final class TerritoryCommand {
                             .executes(context -> {
                                 TerritoryConfig.load();
                                 TerritoryRepository.refreshAll();
-                                context.getSource().sendSuccess(() -> Component.literal("Reloading territory config/cache from database."), false);
+                                context.getSource().sendSuccess(() -> Component.literal("Reloading territory settings."), false);
                                 return 1;
                             })));
 
@@ -225,7 +225,7 @@ public final class TerritoryCommand {
                 return 0;
             }
             TerritoryWorldGenerationManager.requestGeneration(player.server, player, territory);
-            player.sendSystemMessage(Component.literal("Requested generation for " + territory.worldName + " slot " + territory.slotIndex + ".").withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.literal("Territory preparation requested.").withStyle(ChatFormatting.GREEN));
             return 1;
         } catch (Exception e) {
             player.sendSystemMessage(Component.literal("Invalid territory UUID.").withStyle(ChatFormatting.RED));
@@ -235,7 +235,7 @@ public final class TerritoryCommand {
 
     private static int setRecreateCooldown(ServerPlayer player, int minutes) {
         TerritoryConfig.setRecreateCooldownMinutes(minutes);
-        player.sendSystemMessage(Component.literal("Territory recreate cooldown set to " + minutes + " minute" + (minutes == 1 ? "" : "s") + ". Saved to config/champutils/territories.json.").withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("Territory create cooldown set to " + minutes + " minute" + (minutes == 1 ? "" : "s") + ".").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -268,11 +268,11 @@ public final class TerritoryCommand {
             return 0;
         }
         if (!territory.isReady() && !player.hasPermissions(4)) {
-            player.sendSystemMessage(Component.literal("That territory world is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That territory is being deleted." : "Your territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
         if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
-            player.sendSystemMessage(Component.literal("That territory world is not loaded. Check Multiworld world name: " + territory.worldName).withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Your territory is not ready yet. Try again shortly.").withStyle(ChatFormatting.RED));
             return 0;
         }
         return 1;
@@ -285,7 +285,7 @@ public final class TerritoryCommand {
             return 0;
         }
         if (!territory.isReady() && !player.hasPermissions(4)) {
-            player.sendSystemMessage(Component.literal("That guild territory world is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That guild territory is being deleted." : "Your guild territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
         if (!TerritoryRepository.canEnter(player, territory)) {
@@ -293,7 +293,7 @@ public final class TerritoryCommand {
             return 0;
         }
         if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
-            player.sendSystemMessage(Component.literal("That territory world is not loaded. Check Multiworld world name: " + territory.worldName).withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Your territory is not ready yet. Try again shortly.").withStyle(ChatFormatting.RED));
             return 0;
         }
         return 1;
@@ -489,9 +489,9 @@ public final class TerritoryCommand {
             return 0;
         }
         player.sendSystemMessage(Component.literal(title + " - " + territory.ownerName).withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("World: " + territory.worldName + " | Slot: " + territory.slotIndex + " | Center: " + territory.centerX + ", " + territory.centerZ + " | Radius: " + territory.radius).withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("World key: " + (territory.worldKey == null ? territory.worldName : territory.worldKey) + " | Generation: " + (territory.generationState == null ? "READY" : territory.generationState) + " | ID: " + territory.id).withStyle(ChatFormatting.DARK_GRAY));
-        player.sendSystemMessage(Component.literal("Biome preference: " + TerritoryRepository.prettyBiome(territory.biomePreference)).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Size: " + territory.radius + " block radius").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Status: " + (TerritoryRepository.isDeleting(territory) ? "Deleting" : territory.isReady() ? "Ready" : "Preparing")).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Biome: " + TerritoryRepository.prettyBiome(territory.biomePreference)).withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("Public: " + territory.isPublic + " | Visitors: " + territory.allowVisitors + " | Border lock: " + territory.lockBorder).withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("Visitor permissions: build=" + territory.visitorsCanBuild + ", containers=" + territory.visitorsCanOpenContainers + ", entities=" + territory.visitorsCanInteractEntities + ", redstone=" + territory.visitorsCanUseRedstone).withStyle(ChatFormatting.GRAY));
         return 1;
@@ -524,7 +524,7 @@ public final class TerritoryCommand {
 
     private static boolean databaseReady(ServerPlayer player) {
         if (!com.champutils.database.DatabaseManager.isEnabled()) {
-            player.sendSystemMessage(Component.literal("The database is not connected, so territory actions are unavailable.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Territory actions are unavailable right now. Please try again later.").withStyle(ChatFormatting.RED));
             return false;
         }
         return true;

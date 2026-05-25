@@ -34,7 +34,7 @@ public final class TerritoryWorldGenerationManager {
 
         ServerPlayer fallbackPlayer = firstOnlinePlayer(server);
         for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
-            if (territory == null || territory.id == null || territory.isReady()) continue;
+            if (territory == null || territory.id == null || territory.isReady() || TerritoryRepository.isDeleting(territory)) continue;
             requestGeneration(server, fallbackPlayer, territory);
         }
     }
@@ -45,14 +45,17 @@ public final class TerritoryWorldGenerationManager {
 
     public static void requestGeneration(MinecraftServer server, ServerPlayer initiator, TerritoryRepository.Territory territory) {
         if (territory == null || territory.id == null) return;
+        boolean deleting = TerritoryRepository.isDeleting(territory);
 
         if (server == null && initiator != null) {
             server = initiator.server;
         }
         if (server == null) {
             // No server reference means we cannot call Multiworld commands. Leave it pending for the periodic tick.
-            territory.generationState = "PENDING";
-            TerritoryRepository.save(territory, (success, message) -> {});
+            if (!deleting) {
+                territory.generationState = "PENDING";
+                TerritoryRepository.save(territory, (success, message) -> {});
+            }
             return;
         }
 
@@ -70,8 +73,10 @@ public final class TerritoryWorldGenerationManager {
         if (!worldLoaded && TerritoryConfig.get().runGenerationCommands) {
             ServerPlayer commandPlayer = commandPlayer(finalServer, initiator);
             if (commandPlayer == null) {
-                territory.generationState = "PENDING";
-                TerritoryRepository.save(territory, (success, message) -> {});
+                if (!deleting) {
+                    territory.generationState = "PENDING";
+                    TerritoryRepository.save(territory, (success, message) -> {});
+                }
                 System.out.println("[ChampUtils] Territory " + territory.id + " is waiting for an online player so Multiworld 1.13.1 can create/load " + territory.worldName + ".");
                 return;
             }
@@ -95,6 +100,7 @@ public final class TerritoryWorldGenerationManager {
 
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
+            if (deleting) return;
             if (TerritoryConfig.get().skyblockTerritoryWorlds) {
                 // Biome painting is intentionally disabled. It was reflection-heavy and could leave
                 // territories stuck in GENERATING. Skyblock territories now only prepare the starter island.
@@ -111,8 +117,10 @@ public final class TerritoryWorldGenerationManager {
             TerritoryRepository.save(territory, (success, message) -> {});
             System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a VOID skyblock territory. Biome painting is disabled." : ". Chunky was not used."));
         } else {
-            territory.generationState = "PENDING";
-            TerritoryRepository.save(territory, (success, message) -> {});
+            if (!deleting) {
+                territory.generationState = "PENDING";
+                TerritoryRepository.save(territory, (success, message) -> {});
+            }
             if (commandsOk) {
                 System.out.println("[ChampUtils] Multiworld command was sent for " + territory.worldName + ", but the dimension is not loaded yet. Territory remains PENDING and will retry automatically.");
             } else {

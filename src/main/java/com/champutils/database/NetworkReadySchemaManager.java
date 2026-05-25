@@ -90,6 +90,13 @@ public final class NetworkReadySchemaManager {
 
 
                 statement.executeUpdate(
+                        "create table if not exists guild_create_cooldowns (" +
+                                "player_uuid uuid primary key, " +
+                                "disbanded_at timestamptz not null default now()" +
+                                ")"
+                );
+
+                statement.executeUpdate(
                         "create table if not exists guild_xp_log (" +
                                 "id bigserial primary key, " +
                                 "guild_id uuid not null references guilds(id) on delete cascade, " +

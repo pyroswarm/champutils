@@ -326,7 +326,11 @@ public final class TerritoryRepository {
         if (player == null) { callback.done(false, "Only players can create territories."); return; }
         UUID ownerUuid = player.getUUID();
         String ownerId = ownerUuid.toString();
-        if (cachedForOwner(OwnerType.PLAYER, ownerId) != null) { callback.done(false, "You already have a territory."); return; }
+        Territory existing = cachedForOwner(OwnerType.PLAYER, ownerId);
+        if (existing != null) {
+            callback.done(false, isDeleting(existing) ? "Your old territory is still being deleted. Try again later." : "You already have a territory.");
+            return;
+        }
         if (biomePreference != null && !biomePreference.isBlank() && cleanBiomePreference(biomePreference) == null) { callback.done(false, "Invalid biome. Press TAB after /territory create to choose an overworld biome."); return; }
 
         checkRecreateCooldown(OwnerType.PLAYER, ownerId, (allowed, remainingMessage) -> {
@@ -352,7 +356,11 @@ public final class TerritoryRepository {
     public static void ensureGuildTerritory(MinecraftServer server, ServerPlayer initiator, UUID guildId, String guildName, String biomePreference, Callback callback) {
         if (guildId == null) { callback.done(false, "Invalid guild territory."); return; }
         String ownerId = guildId.toString();
-        if (cachedForOwner(OwnerType.GUILD, ownerId) != null) { callback.done(true, "Guild territory already exists."); return; }
+        Territory existing = cachedForOwner(OwnerType.GUILD, ownerId);
+        if (existing != null) {
+            callback.done(!isDeleting(existing), isDeleting(existing) ? "Your old guild territory is still being deleted. Try again later." : "Guild territory already exists.");
+            return;
+        }
         if (biomePreference != null && !biomePreference.isBlank() && cleanBiomePreference(biomePreference) == null) { callback.done(false, "Invalid biome. Press TAB after /gterritory create to choose an overworld biome."); return; }
         checkRecreateCooldown(OwnerType.GUILD, ownerId, (allowed, remainingMessage) -> {
             if (!allowed) { callback.done(false, remainingMessage); return; }
@@ -472,9 +480,13 @@ public final class TerritoryRepository {
         return TERRITORIES.size();
     }
 
+    public static boolean isDeleting(Territory territory) {
+        return territory != null && territory.generationState != null && territory.generationState.equalsIgnoreCase("DELETING");
+    }
+
     private static String generationMessage(Territory territory) {
-        if (territory.isReady()) return "It is ready to enter.";
-        return "The packed Multiworld territory world is being created/loaded. Try /territory home shortly. No Chunky pregeneration is required.";
+        if (territory.isReady()) return "Use /territory home to visit it.";
+        return "It is being prepared. Try /territory home shortly.";
     }
 
     public static void markReady(UUID territoryId, Callback callback) {
@@ -484,7 +496,15 @@ public final class TerritoryRepository {
         save(territory, (success, message) -> callback.done(success, success ? "Territory marked READY." : message));
     }
 
-    public static void deleteTerritory(Territory territory, Callback callback) {
+    public static void beginDelete(Territory territory, Callback callback) {
+        if (territory == null) { callback.done(false, "No territory found."); return; }
+        territory.generationState = "DELETING";
+        territory.isPublic = false;
+        territory.allowVisitors = false;
+        save(territory, (success, message) -> callback.done(success, success ? "Territory deletion started." : message));
+    }
+
+    public static void finishDelete(Territory territory, Callback callback) {
         if (territory == null) { callback.done(false, "No territory found."); return; }
         DatabaseManager.executeAsync("delete territory " + territory.id, connection -> {
             try (PreparedStatement cooldown = connection.prepareStatement(
@@ -502,7 +522,7 @@ public final class TerritoryRepository {
             OWNER_INDEX.remove(ownerKey(territory.ownerType, territory.ownerId));
             TRUST.keySet().removeIf(key -> key.startsWith(territory.id.toString() + ":"));
             int minutes = TerritoryConfig.get().recreateCooldownMinutes;
-            callback.done(true, "Territory deleted. Its packed slot is now open. You must wait " + minutes + " minute" + (minutes == 1 ? "" : "s") + " before creating another.");
+            callback.done(true, "Territory deleted. You can create another after the cooldown ends.");
         });
     }
 

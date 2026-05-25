@@ -1,6 +1,10 @@
 package com.champutils.guild;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
+import com.champutils.economy.EconomyManager;
+import com.champutils.territory.TerritoryRegionWipeManager;
+import com.champutils.territory.TerritoryRepository;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -93,6 +97,20 @@ public final class GuildCommand {
                                             context.getSource().getPlayerOrException(),
                                             StringArgumentType.getString(context, "message")
                                     ))))
+                    .then(Commands.literal("admin")
+                            .requires(source -> source.hasPermission(4))
+                            .then(Commands.literal("setcreatecooldown")
+                                    .then(Commands.argument("minutes", LongArgumentType.longArg(0L))
+                                            .executes(context -> setCreateCooldown(
+                                                    context.getSource().getPlayerOrException(),
+                                                    LongArgumentType.getLong(context, "minutes")
+                                            ))))
+                            .then(Commands.literal("setcreatecost")
+                                    .then(Commands.argument("credits", LongArgumentType.longArg(0L))
+                                            .executes(context -> setCreateCost(
+                                                    context.getSource().getPlayerOrException(),
+                                                    LongArgumentType.getLong(context, "credits")
+                                            )))))
                     .then(Commands.literal("debugreload")
                             .requires(source -> source.hasPermission(4))
                             .executes(context -> {
@@ -128,14 +146,48 @@ public final class GuildCommand {
         }
 
         if (!com.champutils.database.DatabaseManager.isEnabled()) {
-            player.sendSystemMessage(Component.literal("The database is not connected, so guild creation is unavailable.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Guild creation is unavailable right now. Please try again later.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        player.sendSystemMessage(Component.literal("Creating guild in the database...").withStyle(ChatFormatting.YELLOW));
+        long createCost = GuildConfig.GUILD_CREATION == null ? 10_000L : Math.max(0L, GuildConfig.GUILD_CREATION.createCostCredits);
+        if (createCost > 0L) {
+            EconomyManager.TransactionResult charge = EconomyManager.withdraw(player, createCost, "Guild creation: " + cleanName);
+            if (!charge.success) {
+                player.sendSystemMessage(Component.literal(charge.error == null ? "You do not have enough credits to create a guild." : charge.error).withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
+        player.sendSystemMessage(Component.literal("Creating guild...").withStyle(ChatFormatting.YELLOW));
         GuildRepository.createGuild(player.getUUID(), player.getGameProfile().getName(), cleanName, cleanTag, (success, message) ->
-                player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED)))
+                player.server.execute(() -> {
+                    if (!success && createCost > 0L) {
+                        EconomyManager.deposit(player, createCost, "Refund failed guild creation: " + cleanName);
+                    }
+                    player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + " credits." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                })
         );
+        return 1;
+    }
+
+    private static int setCreateCooldown(ServerPlayer player, long minutes) {
+        if (GuildConfig.GUILD_CREATION == null) {
+            GuildConfig.GUILD_CREATION = new GuildConfig.GuildCreation();
+        }
+        GuildConfig.GUILD_CREATION.disbandCreateCooldownMinutes = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, minutes));
+        GuildConfig.save();
+        player.sendSystemMessage(Component.literal("Guild disband/create cooldown set to " + GuildConfig.GUILD_CREATION.disbandCreateCooldownMinutes + " minute(s).").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+    private static int setCreateCost(ServerPlayer player, long credits) {
+        if (GuildConfig.GUILD_CREATION == null) {
+            GuildConfig.GUILD_CREATION = new GuildConfig.GuildCreation();
+        }
+        GuildConfig.GUILD_CREATION.createCostCredits = Math.max(0L, credits);
+        GuildConfig.save();
+        player.sendSystemMessage(Component.literal("Guild creation cost set to " + EconomyManager.format(GuildConfig.GUILD_CREATION.createCostCredits) + " credits.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -307,7 +359,7 @@ public final class GuildCommand {
 
         PENDING_ACTIONS.put(actor.getUUID(), PendingGuildAction.disband(guild.id, guild.name));
         actor.sendSystemMessage(Component.literal("You are about to permanently disband " + guild.name + ".").withStyle(ChatFormatting.RED));
-        actor.sendSystemMessage(Component.literal("This removes the guild, members, invites, and its guild territory slot.").withStyle(ChatFormatting.YELLOW));
+        actor.sendSystemMessage(Component.literal("This removes the guild, members, invites, and guild territory.").withStyle(ChatFormatting.YELLOW));
         actor.sendSystemMessage(Component.literal("Run /guild disband confirm within 60 seconds to confirm, or /guild disband cancel to cancel.").withStyle(ChatFormatting.RED));
         return 1;
     }
@@ -322,8 +374,16 @@ public final class GuildCommand {
             return 0;
         }
 
+        TerritoryRepository.Territory guildTerritory = TerritoryRepository.cachedForOwner(TerritoryRepository.OwnerType.GUILD, pending.guildId.toString());
+        if (guildTerritory != null && !TerritoryRepository.isDeleting(guildTerritory)) {
+            TerritoryRegionWipeManager.enqueueDelete(actor, guildTerritory);
+        }
+
         GuildRepository.disbandGuild(actor.getUUID(), pending.guildId, pending.guildName, (success, message) ->
-                actor.server.execute(() -> actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED)))
+                actor.server.execute(() -> {
+                    actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    if (success) TerritoryRepository.refreshAll();
+                })
         );
         return 1;
     }
@@ -435,7 +495,7 @@ public final class GuildCommand {
 
     private static boolean databaseReady(ServerPlayer player) {
         if (!com.champutils.database.DatabaseManager.isEnabled()) {
-            player.sendSystemMessage(Component.literal("The database is not connected, so guild actions are unavailable.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Guild actions are unavailable right now. Please try again later.").withStyle(ChatFormatting.RED));
             return false;
         }
         return true;

@@ -7,6 +7,9 @@ import com.champutils.territory.TerritoryRepository;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Types;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +94,14 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("create guild " + cleanName, connection -> {
             try {
                 connection.setAutoCommit(false);
+                ensureGuildCreateCooldownTable(connection);
+
+                long remainingMs = guildCreateCooldownRemainingMillis(connection, ownerUuid);
+                if (remainingMs > 0L) {
+                    connection.rollback();
+                    callback.done(false, "You must wait " + formatDuration(remainingMs) + " before creating another guild.");
+                    return;
+                }
 
                 try (PreparedStatement existing = connection.prepareStatement(
                         "select guild_id from guild_members where player_uuid = ?"
@@ -501,6 +512,7 @@ public final class GuildRepository {
             List<UUID> memberIds = new ArrayList<>();
             try {
                 connection.setAutoCommit(false);
+                ensureGuildCreateCooldownTable(connection);
 
                 try (PreparedStatement members = connection.prepareStatement(
                         "select player_uuid from guild_members where guild_id = ?"
@@ -514,10 +526,32 @@ public final class GuildRepository {
                 }
 
                 try (PreparedStatement territory = connection.prepareStatement(
-                        "delete from territories where owner_type = 'GUILD' and owner_id = ?"
+                        "update territories set generation_state = 'DELETING', is_public = false, allow_visitors = false, updated_at = now() where owner_type = 'GUILD' and owner_id = ?"
                 )) {
                     territory.setString(1, actorGuild.id.toString());
                     territory.executeUpdate();
+                }
+
+                try (PreparedStatement deleteMembers = connection.prepareStatement(
+                        "delete from guild_members where guild_id = ?"
+                )) {
+                    deleteMembers.setObject(1, actorGuild.id);
+                    deleteMembers.executeUpdate();
+                }
+
+                try (PreparedStatement deleteInvites = connection.prepareStatement(
+                        "delete from guild_invites where guild_id = ?"
+                )) {
+                    deleteInvites.setObject(1, actorGuild.id);
+                    deleteInvites.executeUpdate();
+                }
+
+                try (PreparedStatement cooldown = connection.prepareStatement(
+                        "insert into guild_create_cooldowns (player_uuid, disbanded_at) values (?, now()) " +
+                                "on conflict (player_uuid) do update set disbanded_at = excluded.disbanded_at"
+                )) {
+                    cooldown.setObject(1, actorUuid);
+                    cooldown.executeUpdate();
                 }
 
                 try (PreparedStatement deleteGuild = connection.prepareStatement(
@@ -716,6 +750,65 @@ public final class GuildRepository {
             }
         }
         return members;
+    }
+
+
+    private static void ensureGuildCreateCooldownTable(java.sql.Connection connection) throws Exception {
+        try (java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "create table if not exists guild_create_cooldowns (" +
+                            "player_uuid uuid primary key, " +
+                            "disbanded_at timestamptz not null default now()" +
+                            ")"
+            );
+        }
+    }
+
+    private static long guildCreateCooldownRemainingMillis(java.sql.Connection connection, UUID playerUuid) throws Exception {
+        int cooldownMinutes = GuildConfig.GUILD_CREATION == null ? 30 : Math.max(0, GuildConfig.GUILD_CREATION.disbandCreateCooldownMinutes);
+        if (cooldownMinutes <= 0 || playerUuid == null) {
+            return 0L;
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select disbanded_at from guild_create_cooldowns where player_uuid = ?"
+        )) {
+            statement.setObject(1, playerUuid);
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    return 0L;
+                }
+                Timestamp timestamp = rs.getTimestamp("disbanded_at");
+                if (timestamp == null) {
+                    return 0L;
+                }
+                Instant allowedAt = timestamp.toInstant().plus(Duration.ofMinutes(cooldownMinutes));
+                long remaining = Duration.between(Instant.now(), allowedAt).toMillis();
+                if (remaining <= 0L) {
+                    try (PreparedStatement cleanup = connection.prepareStatement(
+                            "delete from guild_create_cooldowns where player_uuid = ?"
+                    )) {
+                        cleanup.setObject(1, playerUuid);
+                        cleanup.executeUpdate();
+                    }
+                    return 0L;
+                }
+                return remaining;
+            }
+        }
+    }
+
+    private static String formatDuration(long millis) {
+        long seconds = Math.max(1L, (millis + 999L) / 1000L);
+        long minutes = seconds / 60L;
+        long remainderSeconds = seconds % 60L;
+        if (minutes <= 0L) {
+            return seconds + " second" + (seconds == 1L ? "" : "s");
+        }
+        if (remainderSeconds == 0L) {
+            return minutes + " minute" + (minutes == 1L ? "" : "s");
+        }
+        return minutes + " minute" + (minutes == 1L ? "" : "s") + " " + remainderSeconds + " second" + (remainderSeconds == 1L ? "" : "s");
     }
 
     public static String cleanName(String input) {
