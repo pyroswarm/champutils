@@ -19,40 +19,62 @@ public class QuestMenu {
     public static void open(ServerPlayer player) {
         QuestDataManager.QuestData data = QuestManager.getData(player);
         QuestManager.refreshIfNeeded(player, data, true);
+        QuestDataManager.GuildQuestData guildData = QuestManager.getGuildData(player);
 
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal("Quests"));
-        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 22, 28, 29, 30, 31, 32, 33, 34, 40, 49);
+        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 22, 23, 24, 28, 29, 30, 31, 32, 33, 34, 40, 49);
 
         gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Daily, Weekly & Contract Quests"))
+                .setName(Component.literal("§6Quests, Contracts & Guild Weeklies"))
                 .addLoreLine(Component.literal("§7Daily period: §f" + QuestManager.dailyPeriodKey()))
                 .addLoreLine(Component.literal("§7Weekly period: §f" + QuestManager.weeklyPeriodKey()))
-                .addLoreLine(Component.literal("§7Contracts are paid, timed, single-objective quests.")));
+                .addLoreLine(Component.literal("§7Every quest now shows its rewards before claiming.")));
 
-        setSet(gui, 10, data.daily, "§bDaily Quests", "§e/quest daily complete");
-        setSet(gui, 14, data.weekly, "§dWeekly Quests", "§e/quest weekly complete");
+        setSet(gui, 10, data.daily, "§bDaily Quests", "§e/quest daily complete", true);
+        setSet(gui, 14, data.weekly, "§dWeekly Quests", "§e/quest weekly complete", false);
+        setGuildWeekly(gui, 19, player, guildData);
 
-        gui.setSlot(22, new GuiElementBuilder(Items.EMERALD)
+        GuiElementBuilder dailyClaim = new GuiElementBuilder(Items.EMERALD)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§aClaim Daily"))
                 .addLoreLine(Component.literal("§7Ready: " + readyText(data.daily)))
-                .addLoreLine(Component.literal("§eClick to claim daily rewards"))
-                .setCallback((index, click, action) -> {
-                    QuestManager.complete(player, true);
-                    open(player);
-                }));
+                .addLoreLine(Component.literal("§6Rewards:"));
+        addLore(dailyClaim, QuestManager.rewardLore(true));
+        dailyClaim.addLoreLine(Component.literal("§eClick to claim daily rewards"));
+        dailyClaim.setCallback((index, click, action) -> {
+            QuestManager.complete(player, true);
+            open(player);
+        });
+        gui.setSlot(22, dailyClaim);
 
-        gui.setSlot(23, new GuiElementBuilder(Items.NETHER_STAR)
+        GuiElementBuilder weeklyClaim = new GuiElementBuilder(Items.NETHER_STAR)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§dClaim Weekly"))
                 .addLoreLine(Component.literal("§7Ready: " + readyText(data.weekly)))
-                .addLoreLine(Component.literal("§eClick to claim weekly rewards"))
-                .setCallback((index, click, action) -> {
-                    QuestManager.complete(player, false);
-                    open(player);
-                }));
+                .addLoreLine(Component.literal("§6Rewards:"));
+        addLore(weeklyClaim, QuestManager.rewardLore(false));
+        weeklyClaim.addLoreLine(Component.literal("§eClick to claim weekly rewards"));
+        weeklyClaim.setCallback((index, click, action) -> {
+            QuestManager.complete(player, false);
+            open(player);
+        });
+        gui.setSlot(23, weeklyClaim);
+
+        GuiElementBuilder guildClaim = new GuiElementBuilder(Items.TRIAL_KEY)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§6Claim Guild Weekly"))
+                .addLoreLine(Component.literal("§7Ready: " + readyText(guildData == null ? null : guildData.weekly)))
+                .addLoreLine(Component.literal("§7Claimed: " + (QuestManager.hasClaimedGuildWeekly(player) ? "§aYes" : "§cNo")))
+                .addLoreLine(Component.literal("§6Rewards:"));
+        addLore(guildClaim, QuestManager.guildRewardLore());
+        guildClaim.addLoreLine(Component.literal("§eClick to claim guild weekly rewards"));
+        guildClaim.setCallback((index, click, action) -> {
+            QuestManager.completeGuildWeekly(player);
+            open(player);
+        });
+        gui.setSlot(24, guildClaim);
 
         setActiveContract(gui, 28, player, data);
         setAvailableContracts(gui, 37, player);
@@ -67,12 +89,14 @@ public class QuestMenu {
         gui.open();
     }
 
-    private static void setSet(SimpleGui gui, int start, QuestDataManager.QuestSet set, String title, String claimCommand) {
+    private static void setSet(SimpleGui gui, int start, QuestDataManager.QuestSet set, String title, String claimCommand, boolean daily) {
         GuiElementBuilder main = new GuiElementBuilder(Items.WRITABLE_BOOK)
                 .hideDefaultTooltip()
                 .setName(Component.literal(title))
                 .addLoreLine(Component.literal("§7Status: " + (set != null && set.completed ? "§aClaimed" : QuestManager.isReady(set) ? "§6Ready" : "§fIn Progress")))
-                .addLoreLine(Component.literal("§7Claim: " + claimCommand));
+                .addLoreLine(Component.literal("§7Claim: " + claimCommand))
+                .addLoreLine(Component.literal("§6Rewards:"));
+        addLore(main, QuestManager.rewardLore(daily));
         gui.setSlot(start, main);
 
         if (set == null || set.objectives == null) return;
@@ -89,11 +113,41 @@ public class QuestMenu {
         }
     }
 
+    private static void setGuildWeekly(SimpleGui gui, int start, ServerPlayer player, QuestDataManager.GuildQuestData guildData) {
+        GuiElementBuilder main = new GuiElementBuilder(Items.BELL)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§6Guild Weekly Quests"))
+                .addLoreLine(Component.literal("§7Unique members required: §f" + QuestConfig.SETTINGS.guildWeeklyRequiredPlayers))
+                .addLoreLine(Component.literal("§7Status: " + (guildData == null ? "§cNo Guild" : QuestManager.isReady(guildData.weekly) ? "§6Ready" : "§fIn Progress")))
+                .addLoreLine(Component.literal("§6Rewards:"));
+        addLore(main, QuestManager.guildRewardLore());
+        gui.setSlot(start, main);
+
+        if (guildData == null || guildData.weekly == null || guildData.weekly.objectives == null) {
+            gui.setSlot(start + 1, new GuiElementBuilder(Items.GRAY_DYE)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§7Join a guild to participate.")));
+            return;
+        }
+        for (int i = 0; i < Math.min(4, guildData.weekly.objectives.size()); i++) {
+            QuestDataManager.Objective o = guildData.weekly.objectives.get(i);
+            boolean done = o.progress >= Math.max(1, o.requiredPlayers);
+            int personal = o.playerProgress == null ? 0 : o.playerProgress.getOrDefault(player.getUUID().toString(), 0);
+            gui.setSlot(start + 1 + i, new GuiElementBuilder(done ? Items.LIME_DYE : Items.MAP)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal((done ? "§a" : "§e") + o.description))
+                    .addLoreLine(Component.literal("§7Guild progress: §f" + Math.min(o.progress, Math.max(1, o.requiredPlayers)) + "§7/§f" + Math.max(1, o.requiredPlayers) + " members"))
+                    .addLoreLine(Component.literal("§7Your progress: §f" + Math.min(personal, o.required) + "§7/§f" + o.required))
+                    .addLoreLine(Component.literal("§7Profession: §f" + o.profession))
+                    .addLoreLine(Component.literal(done ? "§aComplete for the guild" : "§7Help your guild finish it.")));
+        }
+    }
+
     private static void setActiveContract(SimpleGui gui, int start, ServerPlayer player, QuestDataManager.QuestData data) {
         gui.setSlot(start, new GuiElementBuilder(Items.CLOCK)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Active Contract"))
-                .addLoreLine(Component.literal("§7Paid, timed, single-objective quest."))
+                .setName(Component.literal("§6Active Contracts"))
+                .addLoreLine(Component.literal("§7Paid, timed, single-objective quests."))
                 .addLoreLine(Component.literal("§7Max active: §f" + QuestConfig.SETTINGS.maxActiveContracts)));
 
         if (data == null || data.contracts == null || data.contracts.isEmpty()) {
@@ -108,17 +162,20 @@ public class QuestMenu {
         for (QuestDataManager.Contract c : data.contracts) {
             if (c == null || c.completed || now >= c.expiresAtMillis) continue;
             boolean done = c.progress >= c.required;
-            gui.setSlot(start + offset, new GuiElementBuilder(done ? Items.LIME_DYE : Items.MAP)
+            GuiElementBuilder item = new GuiElementBuilder(done ? Items.LIME_DYE : Items.MAP)
                     .hideDefaultTooltip()
                     .setName(Component.literal((done ? "§a" : "§e") + c.description))
                     .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(c.progress, c.required) + "§7/§f" + c.required))
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
-                    .addLoreLine(Component.literal(done ? "§eClick to claim" : "§7Complete before it expires."))
-                    .setCallback((index, click, action) -> {
-                        QuestManager.completeContract(player);
-                        open(player);
-                    }));
+                    .addLoreLine(Component.literal("§6Rewards:"));
+            addLore(item, QuestManager.contractRewardLore(c.rewardCommands));
+            item.addLoreLine(Component.literal(done ? "§eClick to claim" : "§7Complete before it expires."));
+            item.setCallback((index, click, action) -> {
+                QuestManager.completeContract(player);
+                open(player);
+            });
+            gui.setSlot(start + offset, item);
             offset++;
             if (offset > 5) break;
         }
@@ -130,10 +187,10 @@ public class QuestMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Available Contracts"))
                 .addLoreLine(Component.literal("§7Click a contract to buy it."))
-                .addLoreLine(Component.literal("§7Contracts are a Credits sink with item rewards.")));
+                .addLoreLine(Component.literal("§7Rewards are shown on each contract.")));
         for (int i = 0; i < Math.min(8, contracts.size()); i++) {
             QuestConfig.ContractTemplate c = contracts.get(i);
-            gui.setSlot(start + i, new GuiElementBuilder(Items.PAPER)
+            GuiElementBuilder item = new GuiElementBuilder(Items.PAPER)
                     .hideDefaultTooltip()
                     .setName(Component.literal("§e" + c.description))
                     .addLoreLine(Component.literal("§7ID: §f" + c.id))
@@ -141,12 +198,20 @@ public class QuestMenu {
                     .addLoreLine(Component.literal("§7Time: §f" + c.durationHours + "h"))
                     .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
                     .addLoreLine(Component.literal("§7Profession: §f" + c.profession))
-                    .addLoreLine(Component.literal("§eClick to buy"))
-                    .setCallback((index, click, action) -> {
-                        QuestManager.buyContract(player, c.id);
-                        open(player);
-                    }));
+                    .addLoreLine(Component.literal("§6Rewards:"));
+            addLore(item, QuestManager.contractRewardLore(c.rewardCommands));
+            item.addLoreLine(Component.literal("§eClick to buy"));
+            item.setCallback((index, click, action) -> {
+                QuestManager.buyContract(player, c.id);
+                open(player);
+            });
+            gui.setSlot(start + i, item);
         }
+    }
+
+    private static void addLore(GuiElementBuilder builder, List<Component> lore) {
+        if (builder == null || lore == null) return;
+        for (Component line : lore) builder.addLoreLine(line);
     }
 
     private static String readyText(QuestDataManager.QuestSet set) {

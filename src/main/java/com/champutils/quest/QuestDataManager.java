@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.UUID;
 
 public class QuestDataManager {
@@ -35,6 +37,16 @@ public class QuestDataManager {
         public String target;
         public int required;
         public int progress;
+        public int requiredPlayers;
+        public HashMap<String, Integer> playerProgress = new HashMap<>();
+        public HashSet<String> completedPlayers = new HashSet<>();
+    }
+
+    public static class GuildQuestData {
+        public String guildId;
+        public String guildName;
+        public QuestSet weekly;
+        public HashSet<String> claimedWeekly = new HashSet<>();
     }
 
     public static class Contract extends Objective {
@@ -52,8 +64,18 @@ public class QuestDataManager {
         return dir;
     }
 
+    private static File guildDir() {
+        File dir = new File("config/champutils/quests/guilds");
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
     private static File file(UUID uuid) {
         return new File(dir(), uuid.toString() + ".json");
+    }
+
+    private static File guildFile(UUID guildId) {
+        return new File(guildDir(), guildId.toString() + ".json");
     }
 
     public static QuestData load(UUID uuid, String name) {
@@ -89,6 +111,45 @@ public class QuestDataManager {
 
     public static void save(UUID uuid, QuestData data) {
         try (FileWriter writer = new FileWriter(file(uuid))) {
+            GSON.toJson(data, writer);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static GuildQuestData loadGuild(UUID guildId, String guildName) {
+        try {
+            File file = guildFile(guildId);
+            GuildQuestData data = null;
+            if (file.exists()) {
+                try (FileReader reader = new FileReader(file)) {
+                    data = GSON.fromJson(reader, GuildQuestData.class);
+                }
+            }
+            if (data == null) data = new GuildQuestData();
+            data.guildId = guildId.toString();
+            data.guildName = guildName;
+            if (data.weekly == null) data.weekly = new QuestSet();
+            if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+            if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
+            for (Objective o : data.weekly.objectives) {
+                if (o.playerProgress == null) o.playerProgress = new HashMap<>();
+                if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
+            }
+            return data;
+        } catch (Exception e) {
+            e.printStackTrace();
+            GuildQuestData data = new GuildQuestData();
+            data.guildId = guildId.toString();
+            data.guildName = guildName;
+            data.weekly = new QuestSet();
+            data.claimedWeekly = new HashSet<>();
+            return data;
+        }
+    }
+
+    public static void saveGuild(UUID guildId, GuildQuestData data) {
+        try (FileWriter writer = new FileWriter(guildFile(guildId))) {
             GSON.toJson(data, writer);
         } catch (Exception e) {
             e.printStackTrace();

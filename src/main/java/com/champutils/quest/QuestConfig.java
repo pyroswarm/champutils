@@ -27,6 +27,11 @@ public class QuestConfig {
         public int weeklyCompletionCredits = 1500;
         public int dailyProfessionXpPerObjective = 75;
         public int weeklyProfessionXpPerObjective = 350;
+        public int guildWeeklyObjectiveCount = 3;
+        public int guildWeeklyRequiredPlayers = 10;
+        public int guildWeeklyCompletionCredits = 1000;
+        public List<String> guildWeeklyRewardCommands = new ArrayList<>();
+        public List<Template> guildWeeklyTemplates = new ArrayList<>();
         public int maxActiveContracts = 1;
         public List<Template> dailyTemplates = new ArrayList<>();
         public List<Template> weeklyTemplates = new ArrayList<>();
@@ -75,6 +80,15 @@ public class QuestConfig {
         if (SETTINGS.dailyTemplates == null) SETTINGS.dailyTemplates = new ArrayList<>();
         if (SETTINGS.weeklyTemplates == null) SETTINGS.weeklyTemplates = new ArrayList<>();
         if (SETTINGS.contractTemplates == null) SETTINGS.contractTemplates = new ArrayList<>();
+        if (SETTINGS.guildWeeklyTemplates == null) SETTINGS.guildWeeklyTemplates = new ArrayList<>();
+        if (SETTINGS.guildWeeklyRewardCommands == null) SETTINGS.guildWeeklyRewardCommands = new ArrayList<>();
+        if (SETTINGS.guildWeeklyRequiredPlayers <= 0) SETTINGS.guildWeeklyRequiredPlayers = 10;
+        if (SETTINGS.guildWeeklyObjectiveCount <= 0) SETTINGS.guildWeeklyObjectiveCount = 3;
+        if (SETTINGS.guildWeeklyRewardCommands.isEmpty()) {
+            SETTINGS.guildWeeklyRewardCommands.add("opencrates givekey %player% guild 1");
+            SETTINGS.guildWeeklyRewardCommands.add("give %player% minecraft:emerald 8");
+        }
+        if (SETTINGS.guildWeeklyTemplates.isEmpty()) addDefaultGuildWeeklyTemplates(SETTINGS);
         if (SETTINGS.dailyRewardCommands == null) SETTINGS.dailyRewardCommands = new ArrayList<>();
         if (SETTINGS.weeklyRewardCommands == null) SETTINGS.weeklyRewardCommands = new ArrayList<>();
         for (ContractTemplate c : SETTINGS.contractTemplates) if (c.rewardCommands == null) c.rewardCommands = new ArrayList<>();
@@ -86,6 +100,8 @@ public class QuestConfig {
             Settings s = new Settings();
             s.dailyRewardCommands.add("give %player% cobblemon:poke_ball 8");
             s.weeklyRewardCommands.add("give %player% cobblemon:great_ball 12");
+            s.guildWeeklyRewardCommands.add("opencrates givekey %player% guild 1");
+            s.guildWeeklyRewardCommands.add("give %player% minecraft:emerald 8");
 
             // Daily pool: intentionally wide so players don't see the same quests constantly.
             daily(s, "daily_mine_coal", "Mine 96 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 96, 1, 10);
@@ -139,6 +155,14 @@ public class QuestConfig {
             weekly(s, "weekly_npc_wins", "Win 75 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 75, 1, 8);
             for (String type : types) weekly(s, "weekly_defeat_" + type, "Defeat 120 " + cap(type) + "-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, type, 120, type.equals("dragon") ? 25 : 1, type.equals("dragon") ? 4 : 6);
 
+            // Guild weekly pool: every member contributes, and each objective requires multiple unique members to finish it.
+            guildWeekly(s, "guild_weekly_mine_diamonds", "Guild members mine 64 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 64, 10, 8);
+            guildWeekly(s, "guild_weekly_chop_logs", "Guild members chop 900 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 900, 1, 10);
+            guildWeekly(s, "guild_weekly_harvest_crops", "Guild members harvest 1200 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 1200, 1, 10);
+            guildWeekly(s, "guild_weekly_ranked_wins", "Guild members win 15 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 15, 15, 7);
+            guildWeekly(s, "guild_weekly_npc_wins", "Guild members win 40 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 40, 1, 8);
+            guildWeekly(s, "guild_weekly_defeat_dragons", "Guild members defeat 60 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 60, 25, 4);
+
             // Purchasable single-objective contracts. Durations scale by difficulty.
             contract(s, "contract_diamond_rush", "Mine 24 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 24, 10, 10, 750, 6, "HARD", "give %player% cobblemon:great_ball 8", "give %player% cobblemon:fire_stone 1");
             contract(s, "contract_ancient_debris", "Mine 12 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 12, 35, 5, 1250, 8, "EXPERT", "give %player% cobblemon:ultra_ball 6", "give %player% cobblemon:dusk_stone 1");
@@ -160,6 +184,15 @@ public class QuestConfig {
         }
     }
 
+    private static void addDefaultGuildWeeklyTemplates(Settings s) {
+        guildWeekly(s, "guild_weekly_mine_diamonds", "Guild members mine 64 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 64, 10, 8);
+        guildWeekly(s, "guild_weekly_chop_logs", "Guild members chop 900 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 900, 1, 10);
+        guildWeekly(s, "guild_weekly_harvest_crops", "Guild members harvest 1200 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 1200, 1, 10);
+        guildWeekly(s, "guild_weekly_ranked_wins", "Guild members win 15 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 15, 15, 7);
+        guildWeekly(s, "guild_weekly_npc_wins", "Guild members win 40 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 40, 1, 8);
+        guildWeekly(s, "guild_weekly_defeat_dragons", "Guild members defeat 60 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 60, 25, 4);
+    }
+
     private static String cap(String s) { return s == null || s.isEmpty() ? "" : s.substring(0, 1).toUpperCase() + s.substring(1); }
 
     private static void daily(Settings s, String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
@@ -168,6 +201,10 @@ public class QuestConfig {
 
     private static void weekly(Settings s, String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
         s.weeklyTemplates.add(template(id, desc, type, profession, target, amount, minLevel, weight));
+    }
+
+    private static void guildWeekly(Settings s, String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
+        s.guildWeeklyTemplates.add(template(id, desc, type, profession, target, amount, minLevel, weight));
     }
 
     private static Template template(String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
