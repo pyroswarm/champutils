@@ -14,6 +14,7 @@ public class BattleContextManager {
         NPC,
         TOURNAMENT,
         WORLD_BOSS,
+        MEGA_BOSS,
         PROFESSION,
         UNKNOWN
     }

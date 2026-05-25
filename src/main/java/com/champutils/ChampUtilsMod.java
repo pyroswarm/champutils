@@ -46,6 +46,8 @@ import com.champutils.guild.*;
 import com.champutils.territory.*;
 import com.champutils.chat.*;
 import com.champutils.party.*;
+import com.champutils.megaboss.*;
+import com.champutils.antilag.*;
 
 /*
  =========================
@@ -144,6 +146,8 @@ public class ChampUtilsMod implements ModInitializer {
         EmblemConfig.load();
         RoamingTrainerConfig.load();
         SpecialWildSpawnConfig.load();
+        MegaBossConfig.load();
+        AntiLagConfig.load();
         ItemBindRegistry.load();
         ExplorationWorldConfig.load();
         ExplorationLootConfig.load();
@@ -536,6 +540,8 @@ public class ChampUtilsMod implements ModInitializer {
         GymBattleHandler.register();
         GymBattleStartHandler.register();
         WorldEventBattleListener.register();
+        MegaBossBattleListener.register();
+        MegaBossCaptureBlocker.register();
         WorldEventAreaProtectionListener.register();
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
@@ -577,6 +583,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PortalManager.tick(server);
                     RoamingTrainerManager.tick(server);
                     SpecialWildSpawnManager.tick(server);
+                    MegaBossManager.tick(server);
                     ChestShopDisplayManager.tick(server);
                     BattleStuckCleanupManager.tick(server);
                     TerritoryBorderManager.tick(server);
@@ -591,6 +598,7 @@ public class ChampUtilsMod implements ModInitializer {
                     SurvivalWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);
                     PartyManager.tick(server);
+                    AntiLagManager.tick(server);
 
                     /*
                      Leaderboard refresh

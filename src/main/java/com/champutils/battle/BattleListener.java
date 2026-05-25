@@ -215,6 +215,11 @@ public class BattleListener {
                 );
                 break;
 
+            case MEGA_BOSS:
+                // Rewards are handled by MegaBossBattleListener so these fights do not roll normal wild/NPC loot.
+                xp = 0;
+                break;
+
             case PROFESSION:
                 xp = getBattleXp("profession");
                 break;
