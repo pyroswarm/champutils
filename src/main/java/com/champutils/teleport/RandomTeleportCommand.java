@@ -11,10 +11,15 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -43,6 +48,7 @@ public final class RandomTeleportCommand {
     private static final int BORDER_PADDING = 32;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int PREGENERATED_AREA_ATTEMPTS = 120;
+    private static final int MAX_RTP_SEARCH_ATTEMPTS = 20000;
 
     private RandomTeleportCommand() {
     }
@@ -50,23 +56,37 @@ public final class RandomTeleportCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("rtp")
-                    .executes(ctx -> rtpUsage(ctx.getSource()))
+                    .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null))
                     .then(literal("exploration")
-                            .executes(ctx -> rtp(ctx.getSource(), "overworld"))
+                            .executes(ctx -> rtp(ctx.getSource(), "overworld", null))
                             .then(literal("overworld")
-                                    .executes(ctx -> rtp(ctx.getSource(), "overworld")))
+                                    .executes(ctx -> rtp(ctx.getSource(), "overworld", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtp(ctx.getSource(), "overworld", StringArgumentType.getString(ctx, "biome")))))
                             .then(literal("nether")
-                                    .executes(ctx -> rtp(ctx.getSource(), "nether")))
+                                    .executes(ctx -> rtp(ctx.getSource(), "nether", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtp(ctx.getSource(), "nether", StringArgumentType.getString(ctx, "biome")))))
                             .then(literal("end")
-                                    .executes(ctx -> rtp(ctx.getSource(), "end"))))
+                                    .executes(ctx -> rtp(ctx.getSource(), "end", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtp(ctx.getSource(), "end", StringArgumentType.getString(ctx, "biome"))))))
                     .then(literal("survival")
-                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld"))
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null))
                             .then(literal("overworld")
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld")))
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", StringArgumentType.getString(ctx, "biome")))))
                             .then(literal("nether")
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "nether")))
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "nether", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtpSurvival(ctx.getSource(), "nether", StringArgumentType.getString(ctx, "biome")))))
                             .then(literal("end")
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "end")))));
+                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "end", null))
+                                    .then(argument("biome", StringArgumentType.greedyString())
+                                            .executes(ctx -> rtpSurvival(ctx.getSource(), "end", StringArgumentType.getString(ctx, "biome"))))))
+                    .then(argument("biome", StringArgumentType.greedyString())
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", StringArgumentType.getString(ctx, "biome")))));
 
             dispatcher.register(literal("rtpcooldown")
                     .requires(source -> source.hasPermission(4))
@@ -149,12 +169,7 @@ public final class RandomTeleportCommand {
         return clean.contains(":") ? clean : "multiworld:" + clean;
     }
 
-    private static int rtpUsage(CommandSourceStack source) {
-        source.sendFailure(Component.literal("Usage: /rtp survival overworld|nether|end OR /rtp exploration overworld|nether|end."));
-        return 0;
-    }
-
-    private static int rtp(CommandSourceStack source, String explorationType) {
+    private static int rtp(CommandSourceStack source, String explorationType, String biomeName) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
@@ -181,6 +196,10 @@ public final class RandomTeleportCommand {
 
         ServerLevel startLevel = player.serverLevel();
         String currentDimension = startLevel.dimension().location().toString();
+        ResourceKey<Biome> desiredBiome = resolveBiome(player, biomeName);
+        if (biomeName != null && desiredBiome == null) {
+            return 0;
+        }
 
         String normalizedType = ExplorationWorldManager.normalizeType(explorationType);
         ExplorationWorldManager.RtpTarget explorationTarget = ExplorationWorldManager.pickRtpTarget(player.server, normalizedType);
@@ -208,14 +227,15 @@ public final class RandomTeleportCommand {
         }
 
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType));
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType, desiredBiome));
 
-        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " exploration RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        String biomeText = desiredBiome == null ? "" : " in biome " + desiredBiome.location();
+        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " exploration RTP location" + biomeText + " at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
         player.sendSystemMessage(Component.literal("Target exploration world: " + explorationTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
-    private static int rtpSurvival(CommandSourceStack source, String survivalType) {
+    private static int rtpSurvival(CommandSourceStack source, String survivalType, String biomeName) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
@@ -242,6 +262,10 @@ public final class RandomTeleportCommand {
 
         ServerLevel startLevel = player.serverLevel();
         String currentDimension = startLevel.dimension().location().toString();
+        ResourceKey<Biome> desiredBiome = resolveBiome(player, biomeName);
+        if (biomeName != null && desiredBiome == null) {
+            return 0;
+        }
 
         String normalizedType = SurvivalWorldManager.normalizeType(survivalType);
         SurvivalWorldManager.RtpTarget survivalTarget = SurvivalWorldManager.pickRtpTarget(player.server, normalizedType);
@@ -269,9 +293,10 @@ public final class RandomTeleportCommand {
         }
 
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType));
+        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType, desiredBiome));
 
-        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " survival RTP location at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        String biomeText = desiredBiome == null ? "" : " in biome " + desiredBiome.location();
+        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " survival RTP location" + biomeText + " at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
         player.sendSystemMessage(Component.literal("Target survival world: " + survivalTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
@@ -310,6 +335,10 @@ public final class RandomTeleportCommand {
             int x = randomBetween(bounds.minX(task.attempts), bounds.maxX(task.attempts));
             int z = randomBetween(bounds.minZ(task.attempts), bounds.maxZ(task.attempts));
 
+            if (!isInsideRtpBorder(border, x, z)) {
+                continue;
+            }
+
             if (!isFarEnoughFromStart(task, x, z)) {
                 continue;
             }
@@ -321,9 +350,9 @@ public final class RandomTeleportCommand {
                 continue;
             }
 
-            BlockPos feet = "nether".equalsIgnoreCase(task.explorationType)
-                    ? findNetherSafePosition(level, x, z)
-                    : findSurfaceSafePosition(level, border, x, z);
+            BlockPos feet = "nether".equalsIgnoreCase(task.worldType)
+                    ? findNetherSafePosition(task, level, x, z)
+                    : findSurfaceSafePosition(task, level, border, x, z);
 
             if (feet == null) continue;
             return feet;
@@ -333,20 +362,23 @@ public final class RandomTeleportCommand {
     }
 
 
-    private static BlockPos findSurfaceSafePosition(ServerLevel level, WorldBorder border, int x, int z) {
+    private static BlockPos findSurfaceSafePosition(SearchTask task, ServerLevel level, WorldBorder border, int x, int z) {
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
         BlockPos feet = new BlockPos(x, y, z);
         BlockPos ground = feet.below();
         BlockPos head = feet.above();
 
+        if (!isInsideRtpBorder(border, feet.getX(), feet.getZ())) return null;
         if (!border.isWithinBounds(feet)) return null;
         if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) return null;
+        if (!matchesRequestedBiome(task, level, feet)) return null;
+        if (isOceanBiome(level, feet) || isOceanBiome(level, ground)) return null;
         if (!hasRoomForPlayer(level, feet, head)) return null;
         if (!hasSafeLanding(level, feet, ground)) return null;
         return feet;
     }
 
-    private static BlockPos findNetherSafePosition(ServerLevel level, int x, int z) {
+    private static BlockPos findNetherSafePosition(SearchTask task, ServerLevel level, int x, int z) {
         int minY = Math.max(level.getMinBuildHeight() + 2, 8);
         int maxY = Math.min(level.getMaxBuildHeight() - 3, 120);
 
@@ -355,6 +387,8 @@ public final class RandomTeleportCommand {
             BlockPos head = feet.above();
             BlockPos ground = feet.below();
 
+            if (!level.getWorldBorder().isWithinBounds(feet)) continue;
+            if (!matchesRequestedBiome(task, level, feet)) continue;
             if (!hasRoomForPlayer(level, feet, head)) continue;
             if (!hasSafeLanding(level, feet, ground)) continue;
             if (level.getFluidState(feet).is(FluidTags.LAVA) || level.getFluidState(head).is(FluidTags.LAVA)) continue;
@@ -376,7 +410,7 @@ public final class RandomTeleportCommand {
         FluidState groundFluid = level.getFluidState(ground);
 
         if (feetFluid.is(FluidTags.WATER) || groundFluid.is(FluidTags.WATER)) {
-            return true;
+            return false;
         }
 
         if (feetFluid.is(FluidTags.LAVA) || groundFluid.is(FluidTags.LAVA)) {
@@ -394,6 +428,44 @@ public final class RandomTeleportCommand {
         }
 
         return !groundState.isAir();
+    }
+
+    private static boolean isInsideRtpBorder(WorldBorder border, int x, int z) {
+        double minX = border.getMinX() + BORDER_PADDING;
+        double maxX = border.getMaxX() - BORDER_PADDING;
+        double minZ = border.getMinZ() + BORDER_PADDING;
+        double maxZ = border.getMaxZ() - BORDER_PADDING;
+        return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+    }
+
+    private static boolean isOceanBiome(ServerLevel level, BlockPos pos) {
+        return level.getBiome(pos).is(BiomeTags.IS_OCEAN);
+    }
+
+    private static boolean matchesRequestedBiome(SearchTask task, ServerLevel level, BlockPos pos) {
+        return task.desiredBiome == null || level.getBiome(pos).is(task.desiredBiome);
+    }
+
+    private static ResourceKey<Biome> resolveBiome(ServerPlayer player, String biomeName) {
+        if (biomeName == null || biomeName.trim().isBlank()) {
+            return null;
+        }
+
+        String clean = biomeName.trim().toLowerCase(java.util.Locale.ROOT).replace(' ', '_').replace('-', '_');
+        ResourceLocation id;
+        try {
+            id = clean.contains(":") ? ResourceLocation.parse(clean) : ResourceLocation.fromNamespaceAndPath("minecraft", clean);
+        } catch (Exception e) {
+            player.sendSystemMessage(Component.literal("Unknown biome: " + biomeName + ". Example: /rtp plains or /rtp survival overworld cherry_grove").withStyle(ChatFormatting.RED));
+            return null;
+        }
+
+        ResourceKey<Biome> key = ResourceKey.create(Registries.BIOME, id);
+        if (player.server.registryAccess().registryOrThrow(Registries.BIOME).getHolder(key).isEmpty()) {
+            player.sendSystemMessage(Component.literal("Unknown biome: " + biomeName + ". Example: plains, cherry_grove, minecraft:desert").withStyle(ChatFormatting.RED));
+            return null;
+        }
+        return key;
     }
 
     private static boolean isFarEnoughFromStart(SearchTask task, int x, int z) {
@@ -471,17 +543,19 @@ public final class RandomTeleportCommand {
         private final SearchBounds bounds;
         private final double startX;
         private final double startZ;
-        private final String explorationType;
+        private final String worldType;
+        private final ResourceKey<Biome> desiredBiome;
         private int attempts = 0;
         private int ticks = 0;
 
-        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String explorationType) {
+        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String worldType, ResourceKey<Biome> desiredBiome) {
             this.playerId = playerId;
             this.level = level;
             this.bounds = bounds;
             this.startX = startX;
             this.startZ = startZ;
-            this.explorationType = explorationType;
+            this.worldType = worldType;
+            this.desiredBiome = desiredBiome;
         }
 
         private boolean tick(ServerPlayer player) {
@@ -489,6 +563,11 @@ public final class RandomTeleportCommand {
 
             BlockPos target = findSafePosition(this);
             if (target == null) {
+                if (attempts >= MAX_RTP_SEARCH_ATTEMPTS) {
+                    String biomeText = desiredBiome == null ? "" : " in " + desiredBiome.location();
+                    player.sendSystemMessage(Component.literal("RTP could not find a safe location" + biomeText + " after checking " + attempts + " spots. Try a different biome or another unlocked world.").withStyle(ChatFormatting.RED));
+                    return true;
+                }
                 if (ticks % 100 == 0) {
                     player.sendSystemMessage(Component.literal("Still searching/generating RTP chunks... checked " + attempts + " spots.").withStyle(ChatFormatting.GRAY));
                 }
@@ -496,7 +575,8 @@ public final class RandomTeleportCommand {
             }
 
             SafeTeleportManager.teleport(player, level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
-            player.sendSystemMessage(Component.literal("Teleported to a random safe location after checking " + attempts + " spots.").withStyle(ChatFormatting.GREEN));
+            String biomeText = desiredBiome == null ? "" : " in " + desiredBiome.location();
+            player.sendSystemMessage(Component.literal("Teleported to a random safe location" + biomeText + " after checking " + attempts + " spots.").withStyle(ChatFormatting.GREEN));
             return true;
         }
     }
@@ -533,31 +613,50 @@ public final class RandomTeleportCommand {
 
 
         private static SearchBounds from(ServerLevel level) {
-            if (ExplorationWorldManager.find(level) != null) {
-                int radius = Math.max(BORDER_PADDING + 16, ExplorationWorldConfig.get().borderRadius);
-                int preferredRadius = Math.max(BORDER_PADDING + 16, Math.min(radius, ExplorationWorldConfig.get().pregenerationRadius));
-                int min = -radius + BORDER_PADDING;
-                int max = radius - BORDER_PADDING;
-                int preferredMin = -preferredRadius + BORDER_PADDING;
-                int preferredMax = preferredRadius - BORDER_PADDING;
-                if (min >= max || preferredMin >= preferredMax) {
-                    return null;
-                }
-                return new SearchBounds(min, max, min, max, preferredMin, preferredMax, preferredMin, preferredMax);
-            }
-
             WorldBorder border = level.getWorldBorder();
 
-            int minX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;
-            int maxX = (int) Math.floor(border.getMaxX()) - BORDER_PADDING;
-            int minZ = (int) Math.ceil(border.getMinZ()) + BORDER_PADDING;
-            int maxZ = (int) Math.floor(border.getMaxZ()) - BORDER_PADDING;
+            int borderMinX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;
+            int borderMaxX = (int) Math.floor(border.getMaxX()) - BORDER_PADDING;
+            int borderMinZ = (int) Math.ceil(border.getMinZ()) + BORDER_PADDING;
+            int borderMaxZ = (int) Math.floor(border.getMaxZ()) - BORDER_PADDING;
 
-            if (minX >= maxX || minZ >= maxZ) {
+            if (borderMinX >= borderMaxX || borderMinZ >= borderMaxZ) {
                 return null;
             }
 
-            return new SearchBounds(minX, maxX, minZ, maxZ);
+            if (ExplorationWorldManager.find(level) != null) {
+                int radius = Math.max(BORDER_PADDING + 16, ExplorationWorldConfig.get().borderRadius);
+                int preferredRadius = Math.max(BORDER_PADDING + 16, Math.min(radius, ExplorationWorldConfig.get().pregenerationRadius));
+
+                int configMin = -radius + BORDER_PADDING;
+                int configMax = radius - BORDER_PADDING;
+                int preferredConfigMin = -preferredRadius + BORDER_PADDING;
+                int preferredConfigMax = preferredRadius - BORDER_PADDING;
+
+                int min = Math.max(configMin, borderMinX);
+                int max = Math.min(configMax, borderMaxX);
+                int minZ = Math.max(configMin, borderMinZ);
+                int maxZ = Math.min(configMax, borderMaxZ);
+                int preferredMinX = Math.max(preferredConfigMin, min);
+                int preferredMaxX = Math.min(preferredConfigMax, max);
+                int preferredMinZ = Math.max(preferredConfigMin, minZ);
+                int preferredMaxZ = Math.min(preferredConfigMax, maxZ);
+
+                if (min >= max || minZ >= maxZ) {
+                    return null;
+                }
+
+                if (preferredMinX >= preferredMaxX || preferredMinZ >= preferredMaxZ) {
+                    preferredMinX = min;
+                    preferredMaxX = max;
+                    preferredMinZ = minZ;
+                    preferredMaxZ = maxZ;
+                }
+
+                return new SearchBounds(min, max, minZ, maxZ, preferredMinX, preferredMaxX, preferredMinZ, preferredMaxZ);
+            }
+
+            return new SearchBounds(borderMinX, borderMaxX, borderMinZ, borderMaxZ);
         }
     }
 }
