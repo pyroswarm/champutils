@@ -45,6 +45,7 @@ import com.champutils.network.*;
 import com.champutils.guild.*;
 import com.champutils.territory.*;
 import com.champutils.chat.*;
+import com.champutils.party.*;
 
 /*
  =========================
@@ -411,6 +412,10 @@ public class ChampUtilsMod implements ModInitializer {
                     QuestManager.unloadPlayer(
                             handler.player
                     );
+
+                    PartyManager.handleDisconnect(
+                            handler.player
+                    );
                 }
         );
 
@@ -497,6 +502,7 @@ public class ChampUtilsMod implements ModInitializer {
         GuildCommand.register();
         TerritoryCommand.register();
         ChatCommand.register();
+        PartyCommand.register();
 
         /*
          New custom item test command
@@ -566,6 +572,7 @@ public class ChampUtilsMod implements ModInitializer {
                     ExplorationWorldManager.tick(server);
                     SurvivalWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);
+                    PartyManager.tick(server);
 
                     /*
                      Leaderboard refresh

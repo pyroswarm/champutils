@@ -1,6 +1,7 @@
 package com.champutils.chat;
 
 import com.champutils.guild.GuildRepository;
+import com.champutils.party.PartyManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -48,9 +49,7 @@ public final class ServerChatManager {
                     if (other != null && guild.id.equals(other.id)) result.add(player);
                 }
             }
-            case PARTY -> {
-                // Placeholder resolver for future party systems. For now, party chat is disabled instead of leaking messages globally.
-            }
+            case PARTY -> result.addAll(PartyManager.onlineMembers(sender));
         }
         return result;
     }
