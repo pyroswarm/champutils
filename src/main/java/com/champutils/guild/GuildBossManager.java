@@ -1,6 +1,8 @@
 package com.champutils.guild;
 
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.database.BossAttemptDatabaseRepository;
+import com.champutils.permissions.LuckPermsHook;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.champutils.time.DailyResetManager;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -22,6 +24,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class GuildBossManager {
+    private static final String BOSS_ADMIN_PERMISSION = "champutils.worldboss.admin";
+    private static final String GUILD_BOSS_MONITOR_PERMISSION = "champutils.guildboss.monitor";
     private static final Map<UUID, ActiveGuildBoss> ACTIVE_GUILD = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> NEXT_GUILD_RESET_ELIGIBLE_AT = new ConcurrentHashMap<>();
     private static final Map<UUID, RewardDrop> GUILD_REWARDS = new ConcurrentHashMap<>();
@@ -36,6 +40,8 @@ public final class GuildBossManager {
     public static void tick(MinecraftServer server) {
         if (server == null || server.getTickCount() % 20 != 0) return;
         long now = System.currentTimeMillis();
+        long currentResetKey = DailyResetManager.currentResetKeyMillis();
+        BossAttemptDatabaseRepository.pruneBeforeResetAsync(currentResetKey);
         if (nextWorldBossAtMillis <= 0L) scheduleNextWorldBoss(now);
         if (activeWorldBoss == null && BossConfig.DATA.worldBoss.enabled && now >= nextWorldBossAtMillis) spawnWorldBoss(server);
 
@@ -78,6 +84,7 @@ public final class GuildBossManager {
             return;
         }
         ActiveGuildBoss boss = new ActiveGuildBoss();
+        boss.id = UUID.randomUUID();
         boss.guildId = guild.id;
         boss.guildName = guild.name;
         boss.species = team.get(0).species;
@@ -123,8 +130,9 @@ public final class GuildBossManager {
             msg(player, "Only members of this guild can fight this boss.", ChatFormatting.RED);
             return false;
         }
-        if (boss.defeatedPlayers.contains(player.getUUID())) {
-            msg(player, "You already defeated this guild boss.", ChatFormatting.YELLOW);
+        UUID playerUuid = player.getUUID();
+        if (boss.attemptedPlayers.contains(playerUuid) || boss.defeatedPlayers.contains(playerUuid) || BossAttemptDatabaseRepository.hasAttempt("guild", boss.id, playerUuid)) {
+            msg(player, "You already challenged this guild boss. Each player only gets one chance, even if they forfeit.", ChatFormatting.YELLOW);
             return false;
         }
         boolean applied = GuildBossPartyBuilder.applyBossTeam(npc, boss.team, BossConfig.DATA.guildBoss);
@@ -134,6 +142,8 @@ public final class GuildBossManager {
         }
         try { npc.setCustomName(Component.literal(boss.displayName == null ? "Guild Boss" : boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        boss.attemptedPlayers.add(playerUuid);
+        BossAttemptDatabaseRepository.recordAttempt("guild", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
 
@@ -141,8 +151,9 @@ public final class GuildBossManager {
         if (player == null || npc == null) return false;
         ActiveWorldBoss boss = activeWorldBoss;
         if (boss == null || !isActiveWorldBossNpc(npc.getUUID())) return false;
-        if (boss.defeatedPlayers.contains(player.getUUID())) {
-            msg(player, "You already defeated this world boss.", ChatFormatting.YELLOW);
+        UUID playerUuid = player.getUUID();
+        if (boss.attemptedPlayers.contains(playerUuid) || boss.defeatedPlayers.contains(playerUuid) || BossAttemptDatabaseRepository.hasAttempt("world", boss.id, playerUuid)) {
+            msg(player, "You already challenged this world boss. Each player only gets one chance, even if they change spawn worlds or forfeit.", ChatFormatting.YELLOW);
             return false;
         }
         boolean applied = GuildBossPartyBuilder.applyBossTeam(npc, boss.team, BossConfig.DATA.worldBoss);
@@ -152,6 +163,8 @@ public final class GuildBossManager {
         }
         try { npc.setCustomName(Component.literal(boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        boss.attemptedPlayers.add(playerUuid);
+        BossAttemptDatabaseRepository.recordAttempt("world", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
 
@@ -412,9 +425,32 @@ public final class GuildBossManager {
         if (pool != null) {
             for (BossConfig.BossPokemon p : pool) if (p != null) clean.add(p);
         }
+        if (clean.isEmpty()) return clean;
+
+        List<BossConfig.BossPokemon> team = new ArrayList<>();
+
+        // Structured boss teams always open with utility pressure, then damage, then a bulky anchor.
+        addRolePick(team, clean, "lead/setup");
+        if (count > 1) addRolePick(team, clean, "sweeper");
+        if (count > 2) addRolePick(team, clean, "anchor");
+
         Collections.shuffle(clean, RANDOM);
-        if (clean.size() > count) return new ArrayList<>(clean.subList(0, count));
-        return clean;
+        for (BossConfig.BossPokemon pokemon : clean) {
+            if (team.size() >= count) break;
+            if (!team.contains(pokemon)) team.add(pokemon);
+        }
+        return team;
+    }
+
+    private static void addRolePick(List<BossConfig.BossPokemon> team, List<BossConfig.BossPokemon> pool, String role) {
+        List<BossConfig.BossPokemon> matches = new ArrayList<>();
+        for (BossConfig.BossPokemon pokemon : pool) {
+            if (pokemon == null || team.contains(pokemon)) continue;
+            String pokemonRole = pokemon.role == null ? "sweeper" : pokemon.role.trim().toLowerCase().replace('_', '-');
+            if (pokemonRole.equals("lead") || pokemonRole.equals("setup") || pokemonRole.equals("lead-setup")) pokemonRole = "lead/setup";
+            if (pokemonRole.equals(role)) matches.add(pokemon);
+        }
+        if (!matches.isEmpty()) team.add(choose(matches));
     }
 
     private static BossConfig.BossPokemon choose(List<BossConfig.BossPokemon> pool) {
@@ -460,10 +496,36 @@ public final class GuildBossManager {
 
     private static void broadcastGuild(MinecraftServer server, UUID guildId, String text, ChatFormatting color) {
         if (server == null || guildId == null) return;
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            GuildRepository.GuildSnapshot g = GuildRepository.cachedGuild(p.getUUID());
-            if (g != null && guildId.equals(g.id)) msg(p, text, color);
+
+        Component message = Component.literal(text).withStyle(color);
+        Set<UUID> delivered = new HashSet<>();
+
+        // Guild boss notifications must never use PlayerList#broadcastSystemMessage.
+        // Send only to online members of the guild that owns this active boss.
+        for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(server.getPlayerList().getPlayers(), guildId)) {
+            if (member == null || member.playerUuid == null) continue;
+
+            ServerPlayer player = server.getPlayerList().getPlayer(member.playerUuid);
+            if (player == null) continue;
+
+            player.sendSystemMessage(message);
+            delivered.add(player.getUUID());
         }
+
+        // Staff monitoring copy. Ops/admins outside the guild can still see guild boss lifecycle messages,
+        // but normal players outside the owning guild never receive them.
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player == null || delivered.contains(player.getUUID())) continue;
+            if (isBossNotificationAdmin(player)) {
+                player.sendSystemMessage(Component.literal("[Guild Boss Monitor] ").withStyle(ChatFormatting.DARK_GRAY).append(message));
+            }
+        }
+    }
+
+    private static boolean isBossNotificationAdmin(ServerPlayer player) {
+        if (player == null) return false;
+        if (player.hasPermissions(4)) return true;
+        return LuckPermsHook.hasPermission(player, BOSS_ADMIN_PERMISSION) || LuckPermsHook.hasPermission(player, GUILD_BOSS_MONITOR_PERMISSION);
     }
 
     private static void broadcastAll(MinecraftServer server, String text, ChatFormatting color) {
@@ -481,8 +543,8 @@ public final class GuildBossManager {
     }
 
     public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
-    private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
-    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveGuildBoss { UUID id; UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
 }

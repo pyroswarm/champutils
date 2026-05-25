@@ -13,10 +13,28 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public final class GuildBossPartyBuilder {
     private GuildBossPartyBuilder() {}
+
+    private static final int MAX_MOVES = 4;
+
+    /**
+     * These moves make NPC bosses feel terrible because the battle AI can repeatedly choose them.
+     * Bosses should beat players by using strong curated attacks/setup, not by wasting turns.
+     */
+    private static final Set<String> DISALLOWED_BOSS_MOVES = Set.of(
+            "protect", "detect", "endure", "wideguard", "quickguard", "kingsshield",
+            "spikyshield", "banefulbunker", "obstruct", "silktrap", "burningbulwark"
+    );
+
+    private static final List<String> SAFE_FALLBACK_MOVES = List.of(
+            "earthquake", "thunderbolt", "flamethrower", "icebeam", "shadowball", "closecombat", "dragonpulse", "psychic"
+    );
 
     public static boolean applyBossPokemon(NPCEntity npc, BossConfig.BossPokemon set, BossConfig.BossSettings settings) {
         return applyBossTeam(npc, set == null ? null : List.of(set), settings);
@@ -67,26 +85,7 @@ public final class GuildBossPartyBuilder {
                 }
             } catch (Exception ignored) {}
 
-            try {
-                pokemon.getMoveSet().clear();
-                if (set.moves != null) {
-                    int learnedMoves = 0;
-                    for (String move : set.moves) {
-                        if (move == null || move.isBlank()) continue;
-                        if (learnedMoves >= 4) break;
-                        try {
-                            pokemon.getMoveSet().add(Moves.getByName(cleanMoveKey(move)).create());
-                            learnedMoves++;
-                        } catch (Exception ignored) {}
-                    }
-                }
-                if (pokemon.getMoveSet().getMoves() == null || pokemon.getMoveSet().getMoves().isEmpty()) {
-                    for (String move : new String[] {"tackle", "protect"}) {
-                        try { pokemon.getMoveSet().add(Moves.getByName(move).create()); } catch (Exception ignored) {}
-                    }
-                }
-            } catch (Exception ignored) {}
-
+            applyBossMoves(pokemon, set.moves);
             applyPerfectIvs(pokemon);
             applyBossEvs(pokemon, set.evs);
             applyHeldItem(pokemon, set.heldItem);
@@ -96,6 +95,41 @@ public final class GuildBossPartyBuilder {
             e.printStackTrace();
             return null;
         }
+    }
+
+    private static void applyBossMoves(Pokemon pokemon, List<String> configuredMoves) {
+        if (pokemon == null) return;
+        try {
+            pokemon.getMoveSet().clear();
+            LinkedHashSet<String> candidates = new LinkedHashSet<>();
+            if (configuredMoves != null) {
+                for (String move : configuredMoves) {
+                    String key = cleanMoveKey(move);
+                    if (!key.isBlank() && !isDisallowedBossMove(key)) candidates.add(key);
+                }
+            }
+            for (String fallback : SAFE_FALLBACK_MOVES) candidates.add(fallback);
+
+            int learned = 0;
+            for (String move : candidates) {
+                if (learned >= MAX_MOVES) break;
+                if (tryAddMove(pokemon, move)) learned++;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static boolean tryAddMove(Pokemon pokemon, String moveKey) {
+        if (pokemon == null || moveKey == null || moveKey.isBlank() || isDisallowedBossMove(moveKey)) return false;
+        try {
+            pokemon.getMoveSet().add(Moves.getByName(moveKey).create());
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isDisallowedBossMove(String moveKey) {
+        return DISALLOWED_BOSS_MOVES.contains(cleanMoveKey(moveKey));
     }
 
     private static boolean applyHeldItem(Pokemon pokemon, String heldItemId) {
@@ -138,17 +172,18 @@ public final class GuildBossPartyBuilder {
 
     private static String normalizeSpecies(String species) {
         if (species == null || species.isBlank()) return "cobblemon:mewtwo";
-        String s = species.trim().toLowerCase();
+        String s = species.trim().toLowerCase(Locale.ROOT);
         if (!s.contains(":")) s = "cobblemon:" + s;
         return s;
     }
 
     private static String cleanKey(String value) {
-        return value == null ? "" : value.toLowerCase().replace("cobblemon:", "").replaceAll("[^a-z0-9_]", "");
+        return value == null ? "" : value.toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9_]", "");
     }
 
     private static String cleanMoveKey(String value) {
         if (value == null) return "";
-        return value.toLowerCase().replace("cobblemon:", "").replace('-', '_').replaceAll("[^a-z0-9_]", "");
+        // Cobblemon/Showdown move IDs are compact IDs: U-turn -> uturn, Ice Beam -> icebeam, King's Shield -> kingsshield.
+        return value.toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9]", "");
     }
 }

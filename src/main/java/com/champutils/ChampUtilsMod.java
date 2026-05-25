@@ -521,6 +521,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         CobblemonBattleHandler.register();
+        BattleAIDifficultyManager.register();
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
 

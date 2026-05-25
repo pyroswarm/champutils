@@ -246,6 +246,25 @@ public final class NetworkReadySchemaManager {
                                 ")"
                 );
 
+
+
+                statement.executeUpdate(
+                        "create table if not exists boss_attempts (" +
+                                "boss_type text not null, " +
+                                "boss_id uuid not null, " +
+                                "player_uuid uuid not null, " +
+                                "reset_key_millis bigint not null default 0, " +
+                                "player_name text not null default '', " +
+                                "attempted_at timestamptz not null default now(), " +
+                                "primary key (boss_type, boss_id, player_uuid, reset_key_millis)" +
+                                ")"
+                );
+                statement.executeUpdate("alter table boss_attempts add column if not exists reset_key_millis bigint not null default 0");
+                statement.executeUpdate("alter table boss_attempts add column if not exists player_name text not null default ''");
+                statement.executeUpdate("alter table boss_attempts add column if not exists attempted_at timestamptz not null default now()");
+                statement.executeUpdate("create index if not exists boss_attempts_player_index on boss_attempts (player_uuid)");
+                statement.executeUpdate("create index if not exists boss_attempts_reset_index on boss_attempts (reset_key_millis)");
+
                 statement.executeUpdate(
                         "create table if not exists player_settings (" +
                                 "player_uuid uuid not null, " +

@@ -278,6 +278,8 @@ public final class BossConfig {
         public String nature = "adamant";
         public String ability = "";
         public String heldItem = "";
+        /** Team role used by structured boss parties. Valid values: lead/setup, sweeper, anchor. */
+        public String role = "sweeper";
         public EvSpread evs = new EvSpread(252, 252, 252, 252, 252, 252);
         public List<String> moves = new ArrayList<>();
         public String extraProperties = "";
@@ -307,6 +309,8 @@ public final class BossConfig {
             if (nature == null) nature = "";
             if (ability == null) ability = "";
             if (heldItem == null) heldItem = "";
+            if (role == null || role.isBlank()) role = "sweeper";
+            role = normalizeRole(role);
             if (evs == null) evs = new EvSpread(252, 252, 252, 252, 252, 252);
             evs.normalize();
             if (moves == null) moves = new ArrayList<>();
@@ -364,6 +368,13 @@ public final class BossConfig {
 
     private static BossPokemon boss(String species, String nature, String heldItem, String ability, int hp, int attack, int defence, int specialAttack, int specialDefence, int speed, String... moves) {
         return new BossPokemon(species, nature, heldItem, ability, moves).withEvs(hp, attack, defence, specialAttack, specialDefence, speed);
+    }
+
+    private static String normalizeRole(String role) {
+        String clean = role == null ? "" : role.trim().toLowerCase().replace('_', '-');
+        if (clean.equals("lead") || clean.equals("setup") || clean.equals("lead-setup") || clean.equals("lead/setup")) return "lead/setup";
+        if (clean.equals("anchor") || clean.equals("tank") || clean.equals("wall") || clean.equals("stall")) return "anchor";
+        return "sweeper";
     }
 
     private static List<BossPokemon> defaultGuildPool() {

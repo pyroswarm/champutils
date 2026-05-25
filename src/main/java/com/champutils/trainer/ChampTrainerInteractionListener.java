@@ -7,6 +7,7 @@ import com.champutils.gym.GymRegistry;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.BattleAIDifficultyManager;
 
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -34,6 +35,8 @@ public final class ChampTrainerInteractionListener {
             if (world.isClientSide()) return InteractionResult.PASS;
             if (!(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             if (!(entity instanceof NPCEntity npc)) return InteractionResult.PASS;
+
+            BattleAIDifficultyManager.prepareNpc(npc);
 
             try {
                 WorldEventManager.ActiveEvent active = WorldEventManager.getByNpc(npc.getUUID());
