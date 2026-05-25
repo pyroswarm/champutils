@@ -46,6 +46,8 @@ public final class RandomTeleportCommand {
 
     private static final int ATTEMPTS_PER_TICK = 8;
     private static final int BORDER_PADDING = 32;
+    private static final int RTP_BORDER_RADIUS = 10000;
+    private static final int NETHER_MAX_SAFE_Y = 119;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int PREGENERATED_AREA_ATTEMPTS = 120;
     private static final int MAX_RTP_SEARCH_ATTEMPTS = 20000;
@@ -380,7 +382,7 @@ public final class RandomTeleportCommand {
 
     private static BlockPos findNetherSafePosition(SearchTask task, ServerLevel level, int x, int z) {
         int minY = Math.max(level.getMinBuildHeight() + 2, 8);
-        int maxY = Math.min(level.getMaxBuildHeight() - 3, 120);
+        int maxY = Math.min(level.getMaxBuildHeight() - 3, NETHER_MAX_SAFE_Y);
 
         for (int y = maxY; y >= minY; y--) {
             BlockPos feet = new BlockPos(x, y, z);
@@ -417,7 +419,8 @@ public final class RandomTeleportCommand {
             return false;
         }
 
-        if (groundState.is(Blocks.LAVA)
+        if (groundState.is(Blocks.BEDROCK)
+                || groundState.is(Blocks.LAVA)
                 || groundState.is(Blocks.MAGMA_BLOCK)
                 || groundState.is(Blocks.CACTUS)
                 || groundState.is(Blocks.CAMPFIRE)
@@ -615,17 +618,17 @@ public final class RandomTeleportCommand {
         private static SearchBounds from(ServerLevel level) {
             WorldBorder border = level.getWorldBorder();
 
-            int borderMinX = (int) Math.ceil(border.getMinX()) + BORDER_PADDING;
-            int borderMaxX = (int) Math.floor(border.getMaxX()) - BORDER_PADDING;
-            int borderMinZ = (int) Math.ceil(border.getMinZ()) + BORDER_PADDING;
-            int borderMaxZ = (int) Math.floor(border.getMaxZ()) - BORDER_PADDING;
+            int borderMinX = Math.max((int) Math.ceil(border.getMinX()), -RTP_BORDER_RADIUS) + BORDER_PADDING;
+            int borderMaxX = Math.min((int) Math.floor(border.getMaxX()), RTP_BORDER_RADIUS) - BORDER_PADDING;
+            int borderMinZ = Math.max((int) Math.ceil(border.getMinZ()), -RTP_BORDER_RADIUS) + BORDER_PADDING;
+            int borderMaxZ = Math.min((int) Math.floor(border.getMaxZ()), RTP_BORDER_RADIUS) - BORDER_PADDING;
 
             if (borderMinX >= borderMaxX || borderMinZ >= borderMaxZ) {
                 return null;
             }
 
             if (ExplorationWorldManager.find(level) != null) {
-                int radius = Math.max(BORDER_PADDING + 16, ExplorationWorldConfig.get().borderRadius);
+                int radius = Math.max(BORDER_PADDING + 16, Math.min(RTP_BORDER_RADIUS, ExplorationWorldConfig.get().borderRadius));
                 int preferredRadius = Math.max(BORDER_PADDING + 16, Math.min(radius, ExplorationWorldConfig.get().pregenerationRadius));
 
                 int configMin = -radius + BORDER_PADDING;

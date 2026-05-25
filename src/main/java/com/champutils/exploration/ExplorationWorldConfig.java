@@ -55,7 +55,7 @@ public final class ExplorationWorldConfig {
         public String worldPrefix = "multiworld:exploration";
         public String netherWorldPrefix = "multiworld:nether_exploration";
         public String endWorldPrefix = "multiworld:end_exploration";
-        public int borderRadius = 5000;
+        public int borderRadius = 10000;
         public int pregenerationRadius = 1500;
         public int chunkySpeed = 20;
         public long autoReadyAfterPregenerationMinutes = 30;
@@ -98,7 +98,7 @@ public final class ExplorationWorldConfig {
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "multiworld:exploration";
             if (netherWorldPrefix == null || netherWorldPrefix.isBlank()) netherWorldPrefix = "multiworld:nether_exploration";
             if (endWorldPrefix == null || endWorldPrefix.isBlank()) endWorldPrefix = "multiworld:end_exploration";
-            if (borderRadius < 500) borderRadius = 5000;
+            if (borderRadius != 10000) borderRadius = 10000;
             if (pregenerationRadius < 250) pregenerationRadius = 1500;
             if (pregenerationRadius > borderRadius) pregenerationRadius = borderRadius;
             if (chunkySpeed < 1) chunkySpeed = 20;

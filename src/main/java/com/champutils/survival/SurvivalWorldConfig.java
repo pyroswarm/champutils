@@ -84,7 +84,7 @@ public final class SurvivalWorldConfig {
             if (overworldPrefix == null || overworldPrefix.isBlank()) overworldPrefix = "multiworld:survival_overworld";
             if (netherPrefix == null || netherPrefix.isBlank()) netherPrefix = "multiworld:survival_nether";
             if (endPrefix == null || endPrefix.isBlank()) endPrefix = "multiworld:survival_end";
-            if (borderRadius < 500) borderRadius = 10000;
+            if (borderRadius != 10000) borderRadius = 10000;
             if (spawnY < -64) spawnY = 100;
             if (defaultMaxHomes < 1) defaultMaxHomes = 3;
             if (overworldCreateCommands == null || overworldCreateCommands.isEmpty()) overworldCreateCommands = new ArrayList<>(List.of("mw create {world_id} NORMAL -g=NORMAL", "mw load {world_id}"));

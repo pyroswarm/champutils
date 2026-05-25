@@ -315,6 +315,7 @@ public final class ExplorationWorldManager {
         if (state.wipeInProgressWorld != null && !state.wipeInProgressWorld.isBlank() && !forced) return;
         state.wipeInProgressWorld = entry.worldName;
         entry.status = "WIPING";
+        ExplorationLootState.clearWorld(entry.worldName);
         save();
 
         ServerLevel oldLevel = getLevel(server, entry.worldName);

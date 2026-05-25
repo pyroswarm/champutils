@@ -145,6 +145,8 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialWildSpawnConfig.load();
         ItemBindRegistry.load();
         ExplorationWorldConfig.load();
+        ExplorationLootConfig.load();
+        ExplorationLootState.load();
         ExplorationWorldManager.load();
         SurvivalWorldConfig.load();
         SurvivalWorldManager.load();
@@ -176,6 +178,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionToolStatEffectListener.register();
         ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
+        ExplorationProtectionListener.register();
         ItemRollCommand.register();
         ProfessionSalvageCommand.register();
 
@@ -275,6 +278,7 @@ public class ChampUtilsMod implements ModInitializer {
                     MenuNpcBindingRegistry.save();
                     BossConfig.save();
                     ItemBindRegistry.save();
+                    ExplorationLootState.save();
                     ExplorationWorldManager.save();
                     SurvivalWorldManager.save();
                     HomeCommand.save();
@@ -540,6 +544,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
         TerritoryNpcInteractionListener.register();
+        VanillaPortalBlocker.register();
 
         /*
          =========================
