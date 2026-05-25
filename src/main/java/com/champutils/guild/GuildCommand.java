@@ -33,6 +33,17 @@ public final class GuildCommand {
                             .executes(context -> info(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("buffs")
                             .executes(context -> buffs(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("boss")
+                            .then(Commands.literal("spawn")
+                                    .executes(context -> {
+                                        GuildBossManager.spawnBoss(context.getSource().getPlayerOrException());
+                                        return 1;
+                                    }))
+                            .then(Commands.literal("claim")
+                                    .executes(context -> {
+                                        GuildBossManager.claimRewards(context.getSource().getPlayerOrException());
+                                        return 1;
+                                    })))
                     .then(Commands.literal("territory")
                             .executes(context -> guildTerritoryHome(context.getSource().getPlayerOrException()))
                             .then(Commands.literal("home")

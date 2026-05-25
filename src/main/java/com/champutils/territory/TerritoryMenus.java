@@ -76,6 +76,34 @@ public final class TerritoryMenus {
         gui.open();
     }
 
+
+    public static void openNpcManage(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (territory == null) territory = TerritoryRepository.cachedPersonal(player);
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
+        gui.setLockPlayerInventory(true);
+        gui.setTitle(Component.literal("Territory Steward"));
+        fillAll(gui);
+        gui.setSlot(4, territoryCard(territory, Items.GRASS_BLOCK, "No personal territory yet"));
+        gui.setSlot(10, button(Items.ENDER_PEARL, "Go Home", "Teleport to this territory home.", () -> {
+            gui.close();
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory home");
+        }));
+        gui.setSlot(12, button(Items.COMPARATOR, "Settings", "Show territory settings in chat.", () -> {
+            gui.close();
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory settings");
+        }));
+        gui.setSlot(14, button(Items.OAK_SIGN, "Set Home", "Set your territory home where you are standing.", () -> {
+            gui.close();
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory sethome");
+        }));
+        gui.setSlot(16, button(Items.NAME_TAG, "Rename", "Use /territory name <name>.", () -> {
+            gui.close();
+            player.sendSystemMessage(Component.literal("Rename with: /territory name <name>").withStyle(ChatFormatting.YELLOW));
+        }));
+        gui.setSlot(22, button(Items.BOOK, "Full Territory Menu", "Open all territory options.", () -> openPersonalManage(player)));
+        gui.open();
+    }
+
     public static void openPersonalManage(ServerPlayer player) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setLockPlayerInventory(true);

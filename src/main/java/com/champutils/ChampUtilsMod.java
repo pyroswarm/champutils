@@ -111,6 +111,7 @@ public class ChampUtilsMod implements ModInitializer {
         NetworkServerConfig.load();
         GuildConfig.load();
         GuildBuffConfig.load();
+        BossConfig.load();
         TerritoryConfig.load();
         ChatTagConfig.load();
 
@@ -271,6 +272,7 @@ public class ChampUtilsMod implements ModInitializer {
                     WorldEventBindingRegistry.save();
                     AuctionHouseNpcBindingRegistry.save();
                     MenuNpcBindingRegistry.save();
+                    BossConfig.save();
                     ItemBindRegistry.save();
                     ExplorationWorldManager.save();
                     SurvivalWorldManager.save();
@@ -500,6 +502,7 @@ public class ChampUtilsMod implements ModInitializer {
         TpaCommand.register();
         BackCommand.register();
         GuildCommand.register();
+        WorldBossCommand.register();
         TerritoryCommand.register();
         ChatCommand.register();
         PartyCommand.register();
@@ -533,6 +536,7 @@ public class ChampUtilsMod implements ModInitializer {
         TrueCaughtDexListener.register();
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
+        TerritoryNpcInteractionListener.register();
 
         /*
          =========================
@@ -569,6 +573,8 @@ public class ChampUtilsMod implements ModInitializer {
                     TerritoryWorldGenerationManager.tick(server);
                     TerritorySkyblockIslandManager.tick(server);
                     TerritoryRegionWipeManager.tick(server);
+                    TerritoryNpcManager.tick(server);
+                    GuildBossManager.tick(server);
                     ExplorationWorldManager.tick(server);
                     SurvivalWorldManager.tick(server);
                     VanillaPortalBlocker.tick(server);

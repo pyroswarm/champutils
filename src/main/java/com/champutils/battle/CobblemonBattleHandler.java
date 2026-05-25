@@ -145,6 +145,8 @@ public class CobblemonBattleHandler {
              */
             if (winner != null) {
 
+                com.champutils.guild.GuildBossManager.recordBossVictory(winner);
+
                 BattleListener.onBattleEnd(
                         winner,
                         loser
