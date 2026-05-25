@@ -44,9 +44,24 @@ public final class PortalManager {
         }
 
         String cleaned = command.trim().toLowerCase();
-        return cleaned.equals("rtp")
-                || cleaned.equals("spawn")
-                || cleaned.startsWith("warp ");
+        return cleaned.equals("spawn")
+                || cleaned.startsWith("warp ")
+                || isAllowedRtpPortalCommand(cleaned);
+    }
+
+    private static boolean isAllowedRtpPortalCommand(String cleaned) {
+        if (cleaned.equals("rtp")) {
+            return true;
+        }
+
+        String[] parts = cleaned.split("\\s+");
+        if (parts.length != 3 || !parts[0].equals("rtp")) {
+            return false;
+        }
+
+        boolean validCategory = parts[1].equals("survival") || parts[1].equals("exploration");
+        boolean validType = parts[2].equals("overworld") || parts[2].equals("nether") || parts[2].equals("end");
+        return validCategory && validType;
     }
 
     private static void runPortalCommand(ServerPlayer player, String command) {

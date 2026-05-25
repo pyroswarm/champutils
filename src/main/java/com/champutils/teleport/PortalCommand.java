@@ -72,7 +72,7 @@ public final class PortalCommand {
         }
 
         if (!PortalManager.isAllowedPortalCommand(cleaned)) {
-            source.sendFailure(Component.literal("Portal commands are limited to: rtp, spawn, warp <name>").withStyle(ChatFormatting.RED));
+            source.sendFailure(Component.literal("Portal commands are limited to: rtp, rtp survival overworld|nether|end, rtp exploration overworld|nether|end, spawn, warp <name>").withStyle(ChatFormatting.RED));
             return 0;
         }
 
