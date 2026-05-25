@@ -133,6 +133,13 @@ public final class ForestryBlockUtil {
                     "cobblemon:apricorn_seed"
             );
 
+            case "biomeswevegone:saccharine_log",
+                 "biomeswevegone:saccharine_wood",
+                 "biomeswevegone:stripped_saccharine_log",
+                 "biomeswevegone:stripped_saccharine_wood" -> getOptionalBlock(
+                    "biomeswevegone:saccharine_sapling"
+            );
+
             default -> Blocks.AIR;
         };
     }

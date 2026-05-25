@@ -3,6 +3,7 @@ package com.champutils.profession;
 import com.champutils.profession.ProfessionNotificationSettings;
 
 import com.champutils.profession.actives.ActiveEffectManager;
+import com.champutils.profession.actives.ForestryBlockUtil;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.core.BlockPos;
@@ -151,24 +152,9 @@ public class ForestryProfessionListener {
     }
 
     private static void tryReplantSapling(ServerPlayer player, BlockPos pos, BlockState oldState) {
-        Block sapling = saplingFor(oldState.getBlock());
+        Block sapling = ForestryBlockUtil.getSaplingForLog(getBlockId(oldState.getBlock()));
         if (sapling == Blocks.AIR) return;
         player.serverLevel().setBlock(pos, sapling.defaultBlockState(), 3);
-    }
-
-    private static Block saplingFor(Block block) {
-        String id = getBlockId(block);
-        return switch (id) {
-            case "minecraft:oak_log" -> Blocks.OAK_SAPLING;
-            case "minecraft:spruce_log" -> Blocks.SPRUCE_SAPLING;
-            case "minecraft:birch_log" -> Blocks.BIRCH_SAPLING;
-            case "minecraft:jungle_log" -> Blocks.JUNGLE_SAPLING;
-            case "minecraft:acacia_log" -> Blocks.ACACIA_SAPLING;
-            case "minecraft:dark_oak_log" -> Blocks.DARK_OAK_SAPLING;
-            case "minecraft:mangrove_log" -> Blocks.MANGROVE_PROPAGULE;
-            case "minecraft:cherry_log" -> Blocks.CHERRY_SAPLING;
-            default -> Blocks.AIR;
-        };
     }
 
     private static Iterable<BlockPos> neighbors(BlockPos pos) {

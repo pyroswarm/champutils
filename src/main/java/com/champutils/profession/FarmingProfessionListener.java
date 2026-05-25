@@ -16,8 +16,12 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CocoaBlock;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.NetherWartBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.Property;
 
 import java.util.Random;
 
@@ -28,13 +32,16 @@ public class FarmingProfessionListener {
     public static void register() {
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return;
-            if (!(state.getBlock() instanceof CropBlock crop)) return;
-            if (!crop.isMaxAge(state)) return;
+            if (!isMatureFarmingBlock(state)) return;
 
             ItemStack tool = serverPlayer.getMainHandItem();
-            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10);
+            String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault(
+                    blockId,
+                    ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
+            );
             ProfessionManager.addXp(serverPlayer, ProfessionType.FARMING, xp);
-            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FARMING, BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FARMING, blockId);
             rollXpSurge(serverPlayer, tool, xp);
             ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FARMING);
             ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FARMING);
@@ -43,13 +50,65 @@ public class FarmingProfessionListener {
             rollRewardPassive(serverPlayer, tool, "goldenHarvestChance", "farming_golden_harvest");
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
-                serverPlayer.serverLevel().setBlock(pos, crop.getStateForAge(0), 3);
+                BlockState replanted = getReplantedState(state);
+                if (replanted != null) {
+                    serverPlayer.serverLevel().setBlock(pos, replanted, 3);
+                }
             }
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "harvest_wave", tool)) {
                 harvestNearbyCrops(serverPlayer, pos, getIntStat(tool, "harvestWaveRadius", 4));
             }
         });
+    }
+
+
+    private static boolean isMatureFarmingBlock(BlockState state) {
+        if (state == null || state.isAir()) return false;
+
+        String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        boolean configured = ProfessionConfig.SETTINGS.farmingXp.containsKey(blockId);
+
+        if (state.getBlock() instanceof CropBlock crop) {
+            return crop.isMaxAge(state);
+        }
+
+        if (state.getBlock() instanceof NetherWartBlock || state.getBlock() instanceof CocoaBlock || configured) {
+            IntegerProperty age = findAgeProperty(state);
+            return age != null && state.getValue(age) >= maxAge(age);
+        }
+
+        return false;
+    }
+
+    private static BlockState getReplantedState(BlockState oldState) {
+        if (oldState.getBlock() instanceof CropBlock crop) {
+            return crop.getStateForAge(0);
+        }
+
+        IntegerProperty age = findAgeProperty(oldState);
+        if (age != null && oldState.hasProperty(age) && age.getPossibleValues().contains(0)) {
+            return oldState.setValue(age, 0);
+        }
+
+        return null;
+    }
+
+    private static IntegerProperty findAgeProperty(BlockState state) {
+        for (Property<?> property : state.getProperties()) {
+            if (property instanceof IntegerProperty integerProperty && "age".equals(integerProperty.getName())) {
+                return integerProperty;
+            }
+        }
+        return null;
+    }
+
+    private static int maxAge(IntegerProperty property) {
+        int max = 0;
+        for (Integer value : property.getPossibleValues()) {
+            if (value > max) max = value;
+        }
+        return max;
     }
 
     private static void rollHarvestMultiplier(ServerPlayer player, Block cropBlock, ItemStack tool) {
@@ -108,11 +167,13 @@ public class FarmingProfessionListener {
             if (harvested >= 64) return;
             if (pos.equals(center)) continue;
             BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof CropBlock crop)) continue;
-            if (!crop.isMaxAge(state)) continue;
+            if (!isMatureFarmingBlock(state)) continue;
             level.destroyBlock(pos.immutable(), true, player);
             if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
-                level.setBlock(pos.immutable(), crop.getStateForAge(0), 3);
+                BlockState replanted = getReplantedState(state);
+                if (replanted != null) {
+                    level.setBlock(pos.immutable(), replanted, 3);
+                }
             }
             harvested++;
         }
