@@ -51,9 +51,9 @@ public final class PokemonWikiIndex {
                             addArray(info.structures, condition, "structures", PokemonWikiIndex::prettyId);
                             addTime(info.times, condition);
                             addWeather(info.weather, condition);
-                            if (condition.has("canSeeSky")) info.extra.add(bool(condition.get("canSeeSky")) ? "must be outside under open sky" : "does not need open sky");
-                            if (condition.has("isRaining")) info.weather.add(bool(condition.get("isRaining")) ? "rain" : "not raining");
-                            if (condition.has("isThundering")) info.weather.add(bool(condition.get("isThundering")) ? "thunderstorm" : "not thundering");
+                            if (condition.has("canSeeSky")) info.extra.add(bool(condition.get("canSeeSky")) ? "Must Be Outside Under Open Sky" : "Does Not Need Open Sky");
+                            if (condition.has("isRaining")) info.weather.add(bool(condition.get("isRaining")) ? "Rain" : "Not Raining");
+                            if (condition.has("isThundering")) info.weather.add(bool(condition.get("isThundering")) ? "Thunderstorm" : "Not Thundering");
                         }
                     }
                 } catch (Exception ignored) {}
@@ -161,28 +161,81 @@ public final class PokemonWikiIndex {
         for (String key : List.of("moonPhase", "moonPhases")) {
             if (!condition.has(key)) continue;
             JsonElement e = condition.get(key);
-            if (e.isJsonArray()) for (JsonElement item : e.getAsJsonArray()) out.add("moon phase " + item.toString().replace("\"", ""));
-            else out.add("moon phase " + e.toString().replace("\"", ""));
+            if (e.isJsonArray()) for (JsonElement item : e.getAsJsonArray()) out.add("Moon Phase " + prettyId(item.toString()));
+            else out.add("Moon Phase " + prettyId(e.toString()));
         }
     }
 
-    private static String cleanLevel(String raw) { return raw.replace("-", " to ").replace("..", " to ").trim(); }
-    private static String prettyBucket(String raw) { return switch (raw.toLowerCase(Locale.ROOT)) { case "common" -> "common"; case "uncommon" -> "uncommon"; case "rare" -> "rare"; case "ultra-rare", "ultrarare" -> "ultra rare"; default -> prettyId(raw); }; }
+    private static String cleanLevel(String raw) { return raw == null ? "" : raw.replace("-", " to ").replace("..", " to ").trim(); }
+
+    private static String prettyBucket(String raw) {
+        String v = raw == null ? "" : raw.toLowerCase(Locale.ROOT).replace("_", "-");
+        return switch (v) {
+            case "common" -> "Common";
+            case "uncommon" -> "Uncommon";
+            case "rare" -> "Rare";
+            case "ultra-rare", "ultrarare" -> "Ultra Rare";
+            default -> prettyId(raw);
+        };
+    }
+
     private static String prettyBiome(String raw) {
-        String v = raw.replace("#", "");
+        String v = raw == null ? "" : raw.replace("#", "");
         if (v.startsWith("cobblemon:is_")) v = v.substring("cobblemon:is_".length());
+        if (v.startsWith("minecraft:is_")) v = v.substring("minecraft:is_".length());
         return prettyId(v);
     }
-    private static String prettyId(String raw) {
+
+    /**
+     * Cleans every wiki-facing value before it is printed to chat.
+     * Handles Cobblemon translation keys, registry IDs, tags, snake_case, kebab-case,
+     * enum-style values, and quoted JSON fragments.
+     */
+    public static String prettyId(String raw) {
         if (raw == null) return "";
-        String v = raw.replace("#", "");
-        int colon = v.indexOf(':'); if (colon >= 0) v = v.substring(colon + 1);
-        v = v.replace("is_", "").replace('_', ' ').replace('-', ' ').trim();
-        return v.isBlank() ? raw : v;
+        String v = raw.trim();
+        if (v.isBlank()) return "";
+
+        v = v.replace("\"", "").replace("'", "").replace("[", "").replace("]", "").trim();
+        v = v.replace("#", "");
+
+        // Cobblemon/Minecraft translation keys sometimes leak from reflection, for example:
+        // cobblemon.ability.protean, cobblemon.move.hydro_pump, cobblemon.type.fire
+        if (v.startsWith("cobblemon.") || v.startsWith("minecraft.")) {
+            int dot = v.lastIndexOf('.');
+            if (dot >= 0 && dot + 1 < v.length()) v = v.substring(dot + 1);
+        }
+
+        int colon = v.indexOf(':');
+        if (colon >= 0 && colon + 1 < v.length()) v = v.substring(colon + 1);
+
+        v = v.replaceFirst("^is[_-]", "");
+        v = v.replace('_', ' ').replace('-', ' ').replace('.', ' ').trim();
+        return titleCase(v);
     }
+
     private static String prettyTime(String raw) {
-        String v = raw.replace("\"", "").replace("[", "").replace("]", "").trim().toLowerCase(Locale.ROOT);
-        return switch (v) { case "day" -> "daytime"; case "night" -> "nighttime"; case "dawn" -> "dawn"; case "dusk" -> "dusk"; default -> v.replace('_', ' ').replace('-', ' '); };
+        String v = raw == null ? "" : raw.replace("\"", "").replace("[", "").replace("]", "").trim().toLowerCase(Locale.ROOT);
+        return switch (v) {
+            case "day" -> "Daytime";
+            case "night" -> "Nighttime";
+            case "dawn" -> "Dawn";
+            case "dusk" -> "Dusk";
+            default -> prettyId(v);
+        };
+    }
+
+    private static String titleCase(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        StringBuilder out = new StringBuilder();
+        for (String part : raw.trim().split("\\s+")) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            String lower = part.toLowerCase(Locale.ROOT);
+            out.append(Character.toUpperCase(lower.charAt(0)));
+            if (lower.length() > 1) out.append(lower.substring(1));
+        }
+        return out.toString();
     }
 
     private static void collectAbilityNames(Object obj, Set<String> out, Set<Object> seen, int depth) {

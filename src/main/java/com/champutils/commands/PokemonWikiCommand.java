@@ -88,17 +88,14 @@ public final class PokemonWikiCommand {
 
     private static String join(Set<String> values, String fallback) {
         if (values == null || values.isEmpty()) return fallback;
-        return String.join("§7, §f", values);
+        return values.stream()
+                .map(PokemonWikiIndex::prettyId)
+                .filter(value -> !value.isBlank())
+                .reduce((a, b) -> a + "§7, §f" + b)
+                .orElse(fallback);
     }
 
     private static String prettyPokemon(String raw) {
-        String value = raw == null ? "" : raw.replace('_', ' ').replace('-', ' ');
-        StringBuilder out = new StringBuilder();
-        for (String p : value.split(" ")) {
-            if (p.isBlank()) continue;
-            if (out.length() > 0) out.append(' ');
-            out.append(Character.toUpperCase(p.charAt(0))).append(p.length() > 1 ? p.substring(1).toLowerCase(Locale.ROOT) : "");
-        }
-        return out.toString();
+        return PokemonWikiIndex.prettyId(raw);
     }
 }
