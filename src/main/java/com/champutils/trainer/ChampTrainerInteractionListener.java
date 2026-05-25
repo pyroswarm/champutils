@@ -8,6 +8,7 @@ import com.champutils.worldevent.WorldEventManager;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleAIDifficultyManager;
+import com.champutils.battle.AITestGymLeaderBuilder;
 
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -45,8 +46,9 @@ public final class ChampTrainerInteractionListener {
                 boolean roaming = RoamingTrainerManager.isRoamingTrainer(npc.getUUID());
                 boolean guildBoss = GuildBossManager.getActiveGuildBossByNpc(npc.getUUID()) != null;
                 boolean worldBoss = GuildBossManager.isActiveWorldBossNpc(npc.getUUID());
+                boolean aiTestGym = npc.getTags().contains(AITestGymLeaderBuilder.TAG);
 
-                if (active == null && badge == null && !roaming && !guildBoss && !worldBoss) {
+                if (active == null && badge == null && !roaming && !guildBoss && !worldBoss && !aiTestGym) {
                     return InteractionResult.PASS;
                 }
 
@@ -65,6 +67,7 @@ public final class ChampTrainerInteractionListener {
                 LAST_TRAINER_CLICK.put(key, now);
 
                 if (guildBoss) {
+                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.WORLD_BOSS);
                     if (!GuildBossManager.prepareGuildBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
@@ -73,6 +76,7 @@ public final class ChampTrainerInteractionListener {
                 }
 
                 if (worldBoss) {
+                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.WORLD_BOSS);
                     if (!GuildBossManager.prepareWorldBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
@@ -102,7 +106,15 @@ public final class ChampTrainerInteractionListener {
                     return InteractionResult.SUCCESS;
                 }
 
+                if (aiTestGym) {
+                    AITestGymLeaderBuilder.applyTeam(npc);
+                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
+                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    return InteractionResult.SUCCESS;
+                }
+
                 GymNpcPartyBuilder.applyGymTeam(npc, badge);
+                BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
                 BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
                 return InteractionResult.SUCCESS;
             } catch (Exception e) {

@@ -93,6 +93,7 @@ public final class SpawnTrainerCommand {
         builder.suggest("elite4-3");
         builder.suggest("elite4-4");
         builder.suggest("champion");
+        builder.suggest("ai-test-gym");
         for (BadgeType badge : BadgeType.values()) builder.suggest(badge.name().toLowerCase());
         for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
     }

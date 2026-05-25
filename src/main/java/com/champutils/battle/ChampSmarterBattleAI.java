@@ -1,0 +1,271 @@
+package com.champutils.battle;
+
+import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
+import com.cobblemon.mod.common.api.battles.model.ai.BattleAI;
+import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
+import com.cobblemon.mod.common.battles.BattleSide;
+import com.cobblemon.mod.common.battles.InBattleMove;
+import com.cobblemon.mod.common.battles.MoveActionResponse;
+import com.cobblemon.mod.common.battles.ShowdownActionResponse;
+import com.cobblemon.mod.common.battles.ShowdownMoveset;
+import com.cobblemon.mod.common.battles.ai.StrongBattleAI;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Server-side ChampUtils AI wrapper.
+ *
+ * It keeps Cobblemon StrongBattleAI as the real decision engine and adds safe guardrails:
+ * - wild battles can be smarter without being competitive/ladders-style
+ * - gyms/trainers/bosses get anti-spam corrections on top of StrongBattleAI(5)
+ * - if anything fails, the original StrongBattleAI answer is used
+ */
+public final class ChampSmarterBattleAI implements BattleAI {
+    private static final Set<String> PROTECT_MOVES = Set.of(
+            "protect", "detect", "spikyshield", "kingsshield", "banefulbunker", "silktrap", "burningbulwark", "obstruct"
+    );
+
+    private static final Set<String> SELF_RECOVERY_MOVES = Set.of(
+            "recover", "roost", "slackoff", "softboiled", "milkdrink", "healorder", "rest", "shoreup",
+            "synthesis", "morningsun", "moonlight", "lifedew", "strengthsap"
+    );
+
+    /**
+     * Cobblemon's StrongBattleAI can occasionally value Recover/Roost too early.
+     * This wrapper only allows direct self-healing once the Pokémon is meaningfully damaged.
+     */
+    private static final double SELF_RECOVERY_MAX_HP_FRACTION = 0.70D;
+
+    private final BattleAI fallback;
+    private final int skill;
+    private final boolean competitiveLayer;
+    private final boolean antiSpamLayer;
+    private final Map<UUID, Memory> memoryByPokemon = new HashMap<>();
+
+    public ChampSmarterBattleAI(int skill, boolean competitiveLayer, boolean antiSpamLayer) {
+        this.skill = Math.max(0, Math.min(5, skill));
+        this.competitiveLayer = competitiveLayer;
+        this.antiSpamLayer = antiSpamLayer;
+        this.fallback = new StrongBattleAI(this.skill);
+    }
+
+    @Override
+    public ShowdownActionResponse choose(
+            ActiveBattlePokemon activeBattlePokemon,
+            PokemonBattle battle,
+            BattleSide aiSide,
+            ShowdownMoveset moveset,
+            boolean forceSwitch
+    ) {
+        ShowdownActionResponse chosen;
+        try {
+            chosen = fallback.choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
+        } catch (Throwable t) {
+            BattleAIDifficultyManager.debug("Fallback: custom AI failed before decision, using StrongBattleAI(" + skill + ") error=" + t.getClass().getSimpleName());
+            return new StrongBattleAI(skill).choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
+        }
+
+        if (!antiSpamLayer || moveset == null || forceSwitch || activeBattlePokemon == null || activeBattlePokemon.isGone()) {
+            remember(activeBattlePokemon, chosen);
+            return chosen;
+        }
+
+        try {
+            String chosenMove = readMoveId(chosen);
+            if (chosenMove == null || chosenMove.isBlank()) {
+                remember(activeBattlePokemon, chosen);
+                return chosen;
+            }
+
+            UUID pokemonId = pokemonKey(activeBattlePokemon);
+            Memory memory = memoryByPokemon.computeIfAbsent(pokemonId, ignored -> new Memory());
+            String normalized = normalize(chosenMove);
+
+            boolean protectSpam = ChampBattleAIConfig.DATA.antiSpam.preventProtectSpam
+                    && PROTECT_MOVES.contains(normalized)
+                    && memory.protectCooldown > 0;
+
+            boolean sameMoveLoop = competitiveLayer
+                    && ChampBattleAIConfig.DATA.antiSpam.preventSameMoveLoops
+                    && normalized.equals(memory.lastMove)
+                    && memory.sameMoveCount >= ChampBattleAIConfig.DATA.antiSpam.sameMoveSoftLimit;
+
+            double hpFraction = readHpFraction(activeBattlePokemon);
+            boolean wastefulRecovery = SELF_RECOVERY_MOVES.contains(normalized)
+                    && hpFraction >= SELF_RECOVERY_MAX_HP_FRACTION;
+
+            if (protectSpam || sameMoveLoop || wastefulRecovery) {
+                InBattleMove replacement = findReplacementMove(moveset, normalized, protectSpam || wastefulRecovery, hpFraction);
+                if (replacement != null) {
+                    if (protectSpam) {
+                        BattleAIDifficultyManager.debug("AntiSpam: blocked repeated Protect from pokemon=" + pokemonId
+                                + " lastMove=" + memory.lastMove + " repeatCount=" + memory.sameMoveCount);
+                    } else if (wastefulRecovery) {
+                        BattleAIDifficultyManager.debug("AntiWaste: blocked early recovery pokemon=" + pokemonId
+                                + " move=" + normalized + " hp=" + Math.round(hpFraction * 100.0D) + "%");
+                    } else {
+                        BattleAIDifficultyManager.debug("AntiSpam: penalized same move pokemon=" + pokemonId
+                                + " move=" + normalized + " repeatCount=" + memory.sameMoveCount);
+                    }
+                    chosen = new MoveActionResponse(replacement.getId(), null, null);
+                    normalized = normalize(replacement.getId());
+                }
+            }
+
+            if (PROTECT_MOVES.contains(normalized)) {
+                memory.protectCooldown = ChampBattleAIConfig.DATA.antiSpam.protectRepeatPenaltyTurns;
+            } else if (memory.protectCooldown > 0) {
+                memory.protectCooldown--;
+            }
+
+            if (normalized.equals(memory.lastMove)) {
+                memory.sameMoveCount++;
+            } else {
+                memory.lastMove = normalized;
+                memory.sameMoveCount = 1;
+            }
+
+            return chosen;
+        } catch (Throwable t) {
+            BattleAIDifficultyManager.debug("Fallback: custom AI wrapper failed, using original StrongBattleAI(" + skill + ") decision. error=" + t.getClass().getSimpleName());
+            return chosen;
+        }
+    }
+
+    private void remember(ActiveBattlePokemon activeBattlePokemon, ShowdownActionResponse chosen) {
+        try {
+            if (activeBattlePokemon == null) return;
+            String move = readMoveId(chosen);
+            if (move == null) return;
+            UUID pokemonId = pokemonKey(activeBattlePokemon);
+            Memory memory = memoryByPokemon.computeIfAbsent(pokemonId, ignored -> new Memory());
+            String normalized = normalize(move);
+            if (PROTECT_MOVES.contains(normalized)) memory.protectCooldown = ChampBattleAIConfig.DATA.antiSpam.protectRepeatPenaltyTurns;
+            else if (memory.protectCooldown > 0) memory.protectCooldown--;
+            if (normalized.equals(memory.lastMove)) memory.sameMoveCount++;
+            else {
+                memory.lastMove = normalized;
+                memory.sameMoveCount = 1;
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private UUID pokemonKey(ActiveBattlePokemon activeBattlePokemon) {
+        try {
+            if (activeBattlePokemon.getBattlePokemon() != null) {
+                return activeBattlePokemon.getBattlePokemon().getUuid();
+            }
+        } catch (Throwable ignored) {
+        }
+        return new UUID(0L, System.identityHashCode(activeBattlePokemon));
+    }
+
+    private InBattleMove findReplacementMove(ShowdownMoveset moveset, String blockedMove, boolean avoidStallMoves, double hpFraction) {
+        List<InBattleMove> moves = moveset.getMoves();
+        InBattleMove firstUsable = null;
+        InBattleMove firstDamaging = null;
+
+        for (InBattleMove move : moves) {
+            if (move == null || !move.canBeUsed()) continue;
+            String id = normalize(move.getId());
+            if (id.equals(blockedMove)) continue;
+            if (avoidStallMoves && PROTECT_MOVES.contains(id)) continue;
+            if (hpFraction >= SELF_RECOVERY_MAX_HP_FRACTION && SELF_RECOVERY_MOVES.contains(id)) continue;
+            if (firstUsable == null) firstUsable = move;
+
+            int power = readMovePower(id);
+            if (power > 0 && firstDamaging == null) firstDamaging = move;
+        }
+
+        return firstDamaging != null ? firstDamaging : firstUsable;
+    }
+
+    private double readHpFraction(ActiveBattlePokemon activeBattlePokemon) {
+        try {
+            Object battlePokemon = activeBattlePokemon.getBattlePokemon();
+            if (battlePokemon == null) return 0.0D;
+
+            Number health = readNumber(battlePokemon, "getHealth");
+            Number maxHealth = readNumber(battlePokemon, "getMaxHealth");
+            if (health == null || maxHealth == null || maxHealth.doubleValue() <= 0.0D) {
+                return 0.0D;
+            }
+
+            return Math.max(0.0D, Math.min(1.0D, health.doubleValue() / maxHealth.doubleValue()));
+        } catch (Throwable ignored) {
+            return 0.0D;
+        }
+    }
+
+    private Number readNumber(Object target, String methodName) {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            Object value = method.invoke(target);
+            return value instanceof Number n ? n : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private int readMovePower(String moveId) {
+        try {
+            Class<?> movesClass = Class.forName("com.cobblemon.mod.common.api.moves.Moves");
+            Method getByName = movesClass.getMethod("getByName", String.class);
+            Object template = getByName.invoke(null, moveId);
+            if (template == null) return 0;
+            Method getPower = template.getClass().getMethod("getPower");
+            Object value = getPower.invoke(template);
+            return value instanceof Number n ? n.intValue() : 0;
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private static String normalize(String moveId) {
+        return moveId == null ? "" : moveId.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "").replace(" ", "");
+    }
+
+    private static String readMoveId(ShowdownActionResponse response) {
+        if (response == null) return null;
+        String className = response.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        if (!className.contains("move")) return null;
+
+        for (String methodName : List.of("getMove", "getMoveId", "getId")) {
+            try {
+                Method method = response.getClass().getMethod(methodName);
+                Object value = method.invoke(response);
+                if (value instanceof String s) return s;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        Class<?> current = response.getClass();
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                if (field.getType() != String.class) continue;
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(response);
+                    if (value instanceof String s && !s.isBlank()) return s;
+                } catch (Throwable ignored) {
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private static final class Memory {
+        String lastMove = "";
+        int sameMoveCount = 0;
+        int protectCooldown = 0;
+    }
+}

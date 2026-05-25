@@ -112,6 +112,7 @@ public class ChampUtilsMod implements ModInitializer {
         GuildConfig.load();
         GuildBuffConfig.load();
         BossConfig.load();
+        ChampBattleAIConfig.load();
         TerritoryConfig.load();
         ChatTagConfig.load();
 
@@ -457,6 +458,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ChampUtilsHelpCommand.register();
+        ChampAICommand.register();
         MenuCommand.register();
         SeasonCommand.register();
         LeaderboardCommand.register();

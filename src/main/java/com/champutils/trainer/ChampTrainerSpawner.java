@@ -6,6 +6,7 @@ import com.champutils.gym.GymNpcPartyBuilder;
 import com.champutils.gym.GymRegistry;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.worldevent.WorldEventConfig;
+import com.champutils.battle.AITestGymLeaderBuilder;
 
 import com.cobblemon.mod.common.api.npc.NPCClass;
 import com.cobblemon.mod.common.api.npc.NPCClasses;
@@ -57,6 +58,12 @@ public final class ChampTrainerSpawner {
         if (trainerId == null || trainerId.isBlank()) return SpawnResult.fail("Trainer id cannot be blank.");
 
         String id = trainerId.trim();
+        if (id.equalsIgnoreCase("ai-test-gym") || id.equalsIgnoreCase("aitestgym") || id.equalsIgnoreCase("ai-test")) {
+            NPCEntity npc = AITestGymLeaderBuilder.spawn(level, pos, yaw);
+            if (npc == null) return SpawnResult.fail("Could not create AI Test Gym Leader.");
+            return SpawnResult.ok("Spawned AI Test Gym Leader", npc, TrainerKind.GYM);
+        }
+
         BadgeType badge = resolveBadge(id);
         if (badge != null && GymConfig.hasGym(badge)) {
             return spawnGym(level, pos, yaw, id, badge);
