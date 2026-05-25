@@ -31,7 +31,9 @@ public final class ServerSellCommand {
                                                     IntegerArgumentType.getInteger(context, "amount")
                                             ))))
                             .then(Commands.literal("all")
-                                    .executes(context -> sellAll(context.getSource().getPlayerOrException())))
+                                    .executes(context -> previewSellAll(context.getSource().getPlayerOrException()))
+                                    .then(Commands.literal("confirm")
+                                            .executes(context -> sellAll(context.getSource().getPlayerOrException()))))
                             .then(Commands.literal("price")
                                     .executes(context -> showPrice(context.getSource().getPlayerOrException())))
             );
@@ -48,7 +50,9 @@ public final class ServerSellCommand {
 
             dispatcher.register(
                     Commands.literal("sellall")
-                            .executes(context -> sellAll(context.getSource().getPlayerOrException()))
+                            .executes(context -> previewSellAll(context.getSource().getPlayerOrException()))
+                            .then(Commands.literal("confirm")
+                                    .executes(context -> sellAll(context.getSource().getPlayerOrException())))
             );
         });
     }
@@ -121,12 +125,67 @@ public final class ServerSellCommand {
         return 1;
     }
 
+    private static int previewSellAll(ServerPlayer player) {
+        if (!SellPriceConfig.isEnabled()) {
+            player.sendSystemMessage(Component.literal("§cServer selling is currently disabled."));
+            return 0;
+        }
+
+        SellAllPreview preview = scanSellableInventory(player);
+        if (preview.total <= 0L) {
+            player.sendSystemMessage(Component.literal("§cYou do not have any items the server buys."));
+            return 0;
+        }
+
+        player.sendSystemMessage(Component.literal(
+                "§e/sellall will sell §f" + preview.itemsSold + " items §7(" + preview.stacksSold + " stacks§7) §efor §6" + EconomyManager.format(preview.total) + "§e."
+        ));
+        player.sendSystemMessage(Component.literal("§cThis cannot be undone. Use §e/sellall confirm §cor §e/sell all confirm §cto continue."));
+        return 1;
+    }
+
     private static int sellAll(ServerPlayer player) {
         if (!SellPriceConfig.isEnabled()) {
             player.sendSystemMessage(Component.literal("§cServer selling is currently disabled."));
             return 0;
         }
 
+        SellAllPreview preview = scanSellableInventory(player);
+        if (preview.total <= 0L) {
+            player.sendSystemMessage(Component.literal("§cYou do not have any items the server buys."));
+            return 0;
+        }
+
+        EconomyManager.TransactionResult result = EconomyManager.deposit(player, preview.total, "server_sell_all");
+        if (!result.success) {
+            player.sendSystemMessage(Component.literal("§c" + result.error));
+            return 0;
+        }
+
+        Inventory inventory = player.getInventory();
+        for (int i = 0; i < inventory.items.size(); i++) {
+            ItemStack stack = inventory.items.get(i);
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+
+            long unit = SellPriceConfig.getUnitPrice(stack);
+            if (unit <= 0L || unit * stack.getCount() <= 0L) {
+                continue;
+            }
+
+            inventory.items.set(i, ItemStack.EMPTY);
+        }
+
+        inventory.setChanged();
+        player.sendSystemMessage(Component.literal(
+                "§aSold §f" + preview.itemsSold + " items §7(" + preview.stacksSold + " stacks§7) §afor §6" + EconomyManager.format(preview.total) + "§a."
+        ));
+        player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+        return 1;
+    }
+
+    private static SellAllPreview scanSellableInventory(ServerPlayer player) {
         Inventory inventory = player.getInventory();
         long total = 0L;
         int stacksSold = 0;
@@ -152,25 +211,11 @@ public final class ServerSellCommand {
             total += value;
             itemsSold += count;
             stacksSold++;
-            inventory.items.set(i, ItemStack.EMPTY);
         }
 
-        if (total <= 0L) {
-            player.sendSystemMessage(Component.literal("§cYou do not have any items the server buys."));
-            return 0;
-        }
+        return new SellAllPreview(total, stacksSold, itemsSold);
+    }
 
-        EconomyManager.TransactionResult result = EconomyManager.deposit(player, total, "server_sell_all");
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-
-        inventory.setChanged();
-        player.sendSystemMessage(Component.literal(
-                "§aSold §f" + itemsSold + " items §7(" + stacksSold + " stacks§7) §afor §6" + EconomyManager.format(total) + "§a."
-        ));
-        player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
-        return 1;
+    private record SellAllPreview(long total, int stacksSold, int itemsSold) {
     }
 }
