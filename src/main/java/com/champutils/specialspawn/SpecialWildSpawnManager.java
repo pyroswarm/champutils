@@ -46,6 +46,8 @@ public final class SpecialWildSpawnManager {
     private static final String SPECIAL_EXPIRES_TAG_PREFIX = "champutils_special_expires_";
     private static State state = new State();
     private static boolean stateLoaded = false;
+    private static double cashShopChanceBoost = 0.0D;
+    private static long cashShopChanceBoostExpiresAt = 0L;
 
     private SpecialWildSpawnManager() {}
 
@@ -239,6 +241,19 @@ public final class SpecialWildSpawnManager {
         return hours + "h " + minutes + "m ago";
     }
 
+    public static void activateCashShopBoost(double amount, long durationMillis) {
+        cashShopChanceBoost = Math.max(cashShopChanceBoost, Math.max(0.0D, amount));
+        cashShopChanceBoostExpiresAt = Math.max(cashShopChanceBoostExpiresAt, System.currentTimeMillis() + Math.max(1L, durationMillis));
+    }
+
+    private static double activeCashShopChanceBoost() {
+        if (cashShopChanceBoostExpiresAt <= System.currentTimeMillis()) {
+            cashShopChanceBoost = 0.0D;
+            cashShopChanceBoostExpiresAt = 0L;
+        }
+        return Math.max(0.0D, cashShopChanceBoost);
+    }
+
     private static double currentGlobalChancePerCheck(int intervalTicks) {
         double targetMinutes = Math.max(1.0D, SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
         double targetTicks = targetMinutes * 60.0D * 20.0D;
@@ -256,7 +271,7 @@ public final class SpecialWildSpawnManager {
         double multiplier = SpecialWildSpawnConfig.DATA.baseChanceMultiplier
                 + (elapsedTargetWindows * SpecialWildSpawnConfig.DATA.pityChanceIncreasePerTargetWindow);
         multiplier = Math.max(0.01D, Math.min(Math.max(0.01D, SpecialWildSpawnConfig.DATA.maxPityMultiplier), multiplier));
-        return Math.max(0.0D, Math.min(1.0D, base * multiplier));
+        return Math.max(0.0D, Math.min(1.0D, base * multiplier * (1.0D + activeCashShopChanceBoost())));
     }
 
     private static SpawnBucket pickBucket() {

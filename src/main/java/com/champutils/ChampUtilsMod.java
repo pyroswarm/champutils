@@ -50,6 +50,9 @@ import com.champutils.megaboss.*;
 import com.champutils.antilag.*;
 import com.champutils.moderation.*;
 import com.champutils.dailylogin.*;
+import com.champutils.cosmetic.*;
+import com.champutils.worldfirst.*;
+import com.champutils.cashshop.*;
 
 /*
  =========================
@@ -119,6 +122,8 @@ public class ChampUtilsMod implements ModInitializer {
         ChampBattleAIConfig.load();
         TerritoryConfig.load();
         ChatTagConfig.load();
+        TitleManager.load();
+        WorldFirstManager.load();
 
         /*
          =========================
@@ -305,6 +310,8 @@ public class ChampUtilsMod implements ModInitializer {
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
                     DailyLoginManager.save();
+                    TitleManager.save();
+                    WorldFirstManager.save();
                     DatabaseManager.shutdown();
 
                     System.out.println(
@@ -539,6 +546,9 @@ public class ChampUtilsMod implements ModInitializer {
         WorldBossCommand.register();
         TerritoryCommand.register();
         ChatCommand.register();
+        TitleCommand.register();
+        WorldFirstCommand.register();
+        CashShopCommand.register();
         PartyCommand.register();
         AutoModCommand.register();
         DailyLoginCommand.register();
@@ -580,6 +590,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();
+        CashShopBoostItemManager.register();
 
         /*
          =========================

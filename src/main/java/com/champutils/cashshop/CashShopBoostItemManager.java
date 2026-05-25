@@ -1,0 +1,92 @@
+package com.champutils.cashshop;
+
+import com.champutils.buff.BuffManager;
+import com.champutils.buff.BuffType;
+import com.champutils.buff.ServerBuffManager;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+import java.util.*;
+
+public final class CashShopBoostItemManager {
+    public static final long DEFAULT_DURATION_MS = 15L * 60L * 1000L;
+    private static final Map<String, Def> DEFS = new LinkedHashMap<>();
+    private static boolean registered = false;
+
+    static {
+        add("shiny_surge", "§dServer Shiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Adds +1% shiny catch chance for the whole server for 15 minutes.");
+        add("special_surge", "§5Server Special Spawn Surge", null, 0.50D, "Adds +50% special wild spawn chance for the whole server for 15 minutes.");
+        add("pokemon_xp_surge", "§bServer Pokémon XP Surge", BuffType.BATTLING_XP, 0.25D, "Adds +25% battling/Pokémon reward XP hooks for 15 minutes.");
+        add("profession_xp_surge", "§aServer Profession XP Surge", null, 0.25D, "Adds +25% Mining, Forestry, Farming, and Battling XP for 15 minutes.");
+    }
+
+    private CashShopBoostItemManager() {}
+    private static void add(String id, String name, BuffType type, double amount, String lore) { DEFS.put(id, new Def(id, name, type, amount, lore)); }
+    public static Collection<Def> defs() { return DEFS.values(); }
+
+    public static void register() {
+        if (registered) return;
+        registered = true;
+        UseItemCallback.EVENT.register((player, world, hand) -> {
+            if (world.isClientSide || !(player instanceof ServerPlayer sp)) return InteractionResultHolder.pass(player.getItemInHand(hand));
+            ItemStack stack = player.getItemInHand(hand);
+            String id = readId(stack);
+            Def def = DEFS.get(id);
+            if (def == null) return InteractionResultHolder.pass(stack);
+            activate(sp, def);
+            if (!sp.getAbilities().instabuild) stack.shrink(1);
+            return InteractionResultHolder.success(stack);
+        });
+    }
+
+    public static ItemStack createItem(String id, int count) {
+        Def def = DEFS.get(id);
+        if (def == null) return ItemStack.EMPTY;
+        ItemStack stack = new ItemStack(Items.NETHER_STAR, Math.max(1, count));
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(def.name));
+        stack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
+                Component.literal("§7Cash shop consumable"),
+                Component.literal("§7" + def.lore),
+                Component.literal("§eRight-click to activate for everyone."),
+                Component.literal("§8champutils_cash_boost:" + id)
+        )));
+        return stack;
+    }
+
+    private static String readId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        try {
+            net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
+            if (lore == null) return null;
+            for (Component line : lore.lines()) {
+                String text = line.getString();
+                int idx = text.indexOf("champutils_cash_boost:");
+                if (idx >= 0) return text.substring(idx + "champutils_cash_boost:".length()).trim();
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private static void activate(ServerPlayer player, Def def) {
+        if (def.id.equals("profession_xp_surge")) {
+            ServerBuffManager.activateAndAnnounce(player.server, "cash_mining_xp", BuffType.MINING_XP, def.amount, DEFAULT_DURATION_MS);
+            ServerBuffManager.activate("cash_forestry_xp", BuffType.FORESTRY_XP, def.amount, DEFAULT_DURATION_MS);
+            ServerBuffManager.activate("cash_farming_xp", BuffType.FARMING_XP, def.amount, DEFAULT_DURATION_MS);
+            ServerBuffManager.activate("cash_battling_xp", BuffType.BATTLING_XP, def.amount, DEFAULT_DURATION_MS);
+            return;
+        }
+        if (def.id.equals("special_surge")) {
+            com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(def.amount, DEFAULT_DURATION_MS);
+            player.server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Special Spawn Chance is now active!").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+            return;
+        }
+        ServerBuffManager.activateAndAnnounce(player.server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);
+    }
+
+    public static final class Def { public final String id, name, lore; public final BuffType type; public final double amount; Def(String id, String name, BuffType type, double amount, String lore){this.id=id;this.name=name;this.type=type;this.amount=amount;this.lore=lore;} }
+}

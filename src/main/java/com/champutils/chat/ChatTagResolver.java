@@ -27,6 +27,14 @@ public final class ChatTagResolver {
             result.append(legacy(tag.display)).append(Component.literal(" "));
         }
 
+        String selectedTitle = com.champutils.cosmetic.TitleManager.selected(player.getUUID());
+        if (selectedTitle != null && !selectedTitle.isBlank()) {
+            String titleDisplay = com.champutils.cosmetic.TitleManager.displayFor(selectedTitle);
+            if (titleDisplay != null && !titleDisplay.isBlank()) {
+                result.append(legacy(titleDisplay)).append(Component.literal(" "));
+            }
+        }
+
         if (ChatTagConfig.INSTANCE.showLuckPermsSuffix) {
             String suffix = luckPermsMeta(player, "getSuffix");
             if (suffix != null && !suffix.isBlank()) result.append(legacy(suffix)).append(Component.literal(" "));

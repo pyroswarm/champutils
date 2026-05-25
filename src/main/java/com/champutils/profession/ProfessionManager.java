@@ -100,6 +100,12 @@ public class ProfessionManager {
                     profession,
                     currentLevel
             );
+
+            com.champutils.worldfirst.WorldFirstManager.handleProfessionLevel(
+                    player,
+                    profession,
+                    currentLevel
+            );
         }
 
         data.xp.put(

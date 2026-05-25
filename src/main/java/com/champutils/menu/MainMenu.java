@@ -74,7 +74,36 @@ public class MainMenu {
 
         MenuUtil.addOpenButton(
                 gui,
+                20,
+                Items.NAME_TAG,
+                "§dTitles",
+                () -> com.champutils.cosmetic.TitleMenu.open(player),
+                "§7Select unlocked title cosmetics."
+        );
+
+        MenuUtil.addOpenButton(
+                gui,
                 22,
+                Items.NETHER_STAR,
+                "§6World Firsts",
+                () -> com.champutils.worldfirst.WorldFirstMenu.open(player),
+                "§7Server-first achievements.",
+                "§7Locked entries show as ???."
+        );
+
+        MenuUtil.addOpenButton(
+                gui,
+                24,
+                Items.EMERALD,
+                "§aServer Boosters",
+                () -> com.champutils.cashshop.CashShopMenu.open(player),
+                "§7Cash shop consumables that",
+                "§7benefit the full server."
+        );
+
+        MenuUtil.addOpenButton(
+                gui,
+                26,
                 Items.BOOK,
                 "§bHelp",
                 () -> HelpMenu.open(player),

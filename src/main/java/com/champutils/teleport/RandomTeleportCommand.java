@@ -46,7 +46,7 @@ public final class RandomTeleportCommand {
 
     private static final int ATTEMPTS_PER_TICK = 8;
     private static final int BORDER_PADDING = 32;
-    private static final int RTP_BORDER_RADIUS = 10000;
+    private static final int RTP_BORDER_RADIUS = 4999;
     private static final int NETHER_MAX_SAFE_Y = 119;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int PREGENERATED_AREA_ATTEMPTS = 120;
@@ -438,7 +438,9 @@ public final class RandomTeleportCommand {
         double maxX = border.getMaxX() - BORDER_PADDING;
         double minZ = border.getMinZ() + BORDER_PADDING;
         double maxZ = border.getMaxZ() - BORDER_PADDING;
-        return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+        return x >= minX && x <= maxX && z >= minZ && z <= maxZ
+                && x >= -4999 && x <= 4999
+                && z >= -4999 && z <= 4999;
     }
 
     private static boolean isOceanBiome(ServerLevel level, BlockPos pos) {
