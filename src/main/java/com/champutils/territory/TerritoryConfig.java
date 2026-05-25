@@ -144,7 +144,7 @@ public final class TerritoryConfig {
         /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world_id} NORMAL -g=VOID",
+                "mw create {world_id} NORMAL -g=NORMAL",
                 "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>();
@@ -166,18 +166,18 @@ public final class TerritoryConfig {
             if (gridWidth < 1) gridWidth = slotGridWidth;
             if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
                 worldCreateCommands = new ArrayList<>(List.of(
-                        "mw create {world_id} NORMAL -g=VOID",
+                        "mw create {world_id} NORMAL -g=NORMAL",
                         "mw load {world_id}"
                 ));
             }
             // Migrate older generated configs to the correct Multiworld 1.13.1 syntax. Multiworld creates by
             // plain world name (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
             worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=VOID")
-                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=VOID")
+                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=NORMAL")
                     .replace("mw load {world_key}", "mw load {world_id}")
-                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=VOID")
-                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=VOID")
+                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
                     .replace("mw load {world}", "mw load {world_id}")
                     .replace("multiworld:{world_id}", "{world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
@@ -185,7 +185,7 @@ public final class TerritoryConfig {
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
-            // Skyblock territory worlds should stay terrainless. Biome painting is intentionally disabled.
+            // Biome painting is intentionally disabled. Multiworld 1.13.1 is created with its known-good NORMAL generator syntax.
             paintVoidTerritoryBiomes = false;
             if (skyblockTerritoryWorlds) {
                 worldCreateCommands.replaceAll(command -> command == null ? "" : command

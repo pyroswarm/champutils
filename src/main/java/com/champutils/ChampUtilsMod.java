@@ -235,8 +235,8 @@ public class ChampUtilsMod implements ModInitializer {
                     PokemonHuntManager.ensureStarted(server);
                     PokemonWikiIndex.reload(server);
                     ChestShopDisplayManager.syncAll(server);
-                    ExplorationWorldManager.ensureStartupWorlds(server);
-                    SurvivalWorldManager.ensureStartupWorlds(server);
+                    // Do not auto-create/load configured exploration or survival Multiworlds on server restart.
+                    // Existing worlds can still be used once they are manually created/loaded.
 
                     if (DatabaseManager.isEnabled()) {
                         try {
@@ -368,10 +368,8 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
-                    // Multiworld needs an online player command source. On first join after startup,
-                    // create/load every missing configured exploration and survival world at once.
-                    ExplorationWorldManager.ensureStartupWorlds(server);
-                    SurvivalWorldManager.ensureStartupWorlds(server);
+                    // Do not auto-create/load configured exploration or survival Multiworlds on player join.
+                    // Admins can manually create/load more worlds when needed.
 
                     GuildRepository.loadForPlayer(
                             player.getUUID(),

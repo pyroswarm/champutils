@@ -21,6 +21,7 @@ public final class TerritoryRegionWipeManager {
     private static final Deque<WipeTask> QUEUE = new ArrayDeque<>();
     private static final Set<UUID> QUEUED_TERRITORIES = new HashSet<>();
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
+    private static final int MAX_WORLD_LOAD_ATTEMPTS_BEFORE_DATABASE_DELETE = 18;
 
     private TerritoryRegionWipeManager() {}
 
@@ -63,9 +64,29 @@ public final class TerritoryRegionWipeManager {
 
         ServerLevel level = TerritoryTeleportUtil.resolveLevel(server, task.territory.worldName);
         if (level == null) {
-            TerritoryWorldGenerationManager.requestGeneration(server, task.territory);
+            task.worldLoadAttempts++;
+            if (server.getTickCount() % 200 == 0) {
+                System.err.println("[ChampUtils] Territory deletion is waiting for world " + task.territory.worldName + " to load for territory " + task.territory.id + " (attempt " + task.worldLoadAttempts + "/" + MAX_WORLD_LOAD_ATTEMPTS_BEFORE_DATABASE_DELETE + ").");
+                TerritoryWorldGenerationManager.requestGeneration(server, task.territory);
+            }
+            if (task.worldLoadAttempts >= MAX_WORLD_LOAD_ATTEMPTS_BEFORE_DATABASE_DELETE) {
+                QUEUE.removeFirst();
+                System.err.println("[ChampUtils] Territory world " + task.territory.worldName + " could not be loaded for deletion. Removing territory records anyway so players are not stuck in DELETING forever. If that world folder exists later, delete/clean that slot manually.");
+                TerritoryRepository.finishDelete(task.territory, (success, message) -> server.execute(() -> {
+                    QUEUED_TERRITORIES.remove(task.territory.id);
+                    if (!success) {
+                        System.err.println("[ChampUtils] Failed to finish database deletion for territory " + task.territory.id + ": " + message);
+                        return;
+                    }
+                    if (task.requesterId != null) {
+                        ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
+                        if (player != null) player.sendSystemMessage(Component.literal("Territory deletion finished. The old world was not loaded, so only saved territory records were removed.").withStyle(ChatFormatting.GREEN));
+                    }
+                }));
+            }
             return;
         }
+        task.worldLoadAttempts = 0;
 
         int budget = Math.max(256, TerritoryConfig.get().territoryWipeBlocksPerTick);
         int used = 0;
@@ -95,7 +116,7 @@ public final class TerritoryRegionWipeManager {
                 }
                 if (task.requesterId != null) {
                     ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
-                    if (player != null) player.sendSystemMessage(Component.literal("Territory deleted.").withStyle(ChatFormatting.GREEN));
+                    if (player != null) player.sendSystemMessage(Component.literal("Territory deletion finished. You can create another territory after the cooldown ends.").withStyle(ChatFormatting.GREEN));
                 }
             }));
         }
@@ -135,6 +156,7 @@ public final class TerritoryRegionWipeManager {
         copy.ownerType = source.ownerType;
         copy.ownerId = source.ownerId;
         copy.ownerName = source.ownerName;
+        copy.displayName = source.displayName;
         copy.serverId = source.serverId;
         copy.worldName = source.worldName;
         copy.worldKey = source.worldKey;
@@ -171,6 +193,7 @@ public final class TerritoryRegionWipeManager {
         private int y;
         private int z;
         private boolean entitiesCleared;
+        private int worldLoadAttempts;
 
         private WipeTask(TerritoryRepository.Territory territory, UUID requesterId) {
             this.territory = territory;

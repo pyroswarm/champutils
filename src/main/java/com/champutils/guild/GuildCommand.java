@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import com.champutils.economy.EconomyManager;
 import com.champutils.territory.TerritoryRegionWipeManager;
 import com.champutils.territory.TerritoryRepository;
+import com.champutils.territory.TerritoryTeleportUtil;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -32,6 +33,12 @@ public final class GuildCommand {
                             .executes(context -> info(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("buffs")
                             .executes(context -> buffs(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("territory")
+                            .executes(context -> guildTerritoryHome(context.getSource().getPlayerOrException()))
+                            .then(Commands.literal("home")
+                                    .executes(context -> guildTerritoryHome(context.getSource().getPlayerOrException())))
+                            .then(Commands.literal("tp")
+                                    .executes(context -> guildTerritoryHome(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("create")
                             .then(Commands.argument("name", StringArgumentType.string())
                                     .executes(context -> create(
@@ -131,6 +138,27 @@ public final class GuildCommand {
         });
     }
 
+    private static int guildTerritoryHome(ServerPlayer player) {
+        TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("Your guild does not have a territory yet.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        if (!territory.isReady() && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That guild territory is being deleted." : "Your guild territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        if (!TerritoryRepository.canEnter(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot enter that guild territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
+            player.sendSystemMessage(Component.literal("Your guild territory is not ready yet. Try again shortly.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        return 1;
+    }
+
     private static int create(ServerPlayer player, String name, String tag) {
         String cleanName = GuildRepository.cleanName(name);
         String cleanTag = GuildRepository.cleanTag(tag);
@@ -165,7 +193,7 @@ public final class GuildCommand {
                     if (!success && createCost > 0L) {
                         EconomyManager.deposit(player, createCost, "Refund failed guild creation: " + cleanName);
                     }
-                    player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + " credits." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + "." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
                 })
         );
         return 1;
@@ -187,7 +215,7 @@ public final class GuildCommand {
         }
         GuildConfig.GUILD_CREATION.createCostCredits = Math.max(0L, credits);
         GuildConfig.save();
-        player.sendSystemMessage(Component.literal("Guild creation cost set to " + EconomyManager.format(GuildConfig.GUILD_CREATION.createCostCredits) + " credits.").withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("Guild creation cost set to " + EconomyManager.format(GuildConfig.GUILD_CREATION.createCostCredits) + ".").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 

@@ -32,7 +32,7 @@ public final class TerritoryMenus {
             lore.add(Component.literal("Click to visit.").withStyle(ChatFormatting.AQUA));
 
             gui.setSlot(slot++, new GuiElementBuilder(type == TerritoryRepository.OwnerType.GUILD ? Items.BELL : Items.GRASS_BLOCK)
-                    .setName(Component.literal(territory.ownerName).withStyle(ChatFormatting.GOLD))
+                    .setName(Component.literal(territory.publicName()).withStyle(ChatFormatting.GOLD))
                     .setLore(lore)
                     .setCallback((index, clickType, actionType) -> {
                         if (!territory.isReady() && !player.hasPermissions(4)) {

@@ -126,6 +126,7 @@ public final class NetworkReadySchemaManager {
                                 "owner_type text not null, " +
                                 "owner_id text not null, " +
                                 "owner_name text not null default '', " +
+                                "display_name text, " +
                                 "server_id text not null, " +
                                 "world_name text not null, " +
                                 "min_x integer not null, " +
@@ -145,6 +146,8 @@ public final class NetworkReadySchemaManager {
                 );
 
                 statement.executeUpdate("alter table territories add column if not exists world_key text");
+                statement.executeUpdate("alter table territories add column if not exists display_name text");
+                statement.executeUpdate("update territories set display_name = owner_name where display_name is null or trim(display_name) = ''");
                 statement.executeUpdate("alter table territories add column if not exists slot_index integer not null default 0");
                 statement.executeUpdate("alter table territories add column if not exists generation_state text not null default 'READY'");
                 statement.executeUpdate("alter table territories add column if not exists deleted_at timestamptz");

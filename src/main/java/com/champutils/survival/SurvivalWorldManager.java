@@ -56,13 +56,14 @@ public final class SurvivalWorldManager {
     }
 
     public static void ensureStartupWorlds(MinecraftServer server) {
-        ensureWorlds(server, true);
+        // Intentionally no-op. Configured survival Multiworlds are no longer auto-created/loaded
+        // on restart or first player join. Manually create/load worlds when you want them available.
     }
 
     public static void tick(MinecraftServer server) {
         if (server == null || !SurvivalWorldConfig.get().enabled) return;
         if (server.getTickCount() % 10 == 0) enforceBorders(server);
-        if (server.getTickCount() % 200 == 0) ensureWorlds(server, false);
+        // Do not periodically auto-create/load missing survival Multiworlds.
     }
 
     public static RtpTarget pickRtpTarget(MinecraftServer server, String type) {

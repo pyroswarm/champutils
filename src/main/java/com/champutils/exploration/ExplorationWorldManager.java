@@ -59,13 +59,14 @@ public final class ExplorationWorldManager {
     public static List<Entry> entries() { bootstrapState(); return state.worlds; }
 
     public static void ensureStartupWorlds(MinecraftServer server) {
-        ensureWorlds(server, true);
+        // Intentionally no-op. Configured exploration Multiworlds are no longer auto-created/loaded
+        // on restart or first player join. Manually create/load worlds when you want them available.
     }
 
     public static void tick(MinecraftServer server) {
         if (server == null || !ExplorationWorldConfig.get().enabled) return;
         if (server.getTickCount() % 10 == 0) enforceBorders(server);
-        if (server.getTickCount() % 200 == 0) ensureWorlds(server, false);
+        // Do not periodically auto-create/load missing exploration Multiworlds.
         if (server.getTickCount() % 1200 != 0) return;
         bootstrapState();
         long now = System.currentTimeMillis();

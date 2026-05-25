@@ -30,6 +30,7 @@ public final class TerritoryRepository {
         public OwnerType ownerType;
         public String ownerId;
         public String ownerName;
+        public String displayName;
         public String serverId;
         public String worldName;
         public String worldKey;
@@ -78,6 +79,10 @@ public final class TerritoryRepository {
 
         public String displayType() {
             return ownerType == OwnerType.GUILD ? "Guild" : "Personal";
+        }
+
+        public String publicName() {
+            return displayName == null || displayName.isBlank() ? ownerName : displayName;
         }
     }
 
@@ -138,7 +143,7 @@ public final class TerritoryRepository {
         for (Territory t : TERRITORIES.values()) {
             if (t.ownerType == type && t.isPublic) list.add(t);
         }
-        list.sort(Comparator.comparing(t -> t.ownerName.toLowerCase(Locale.ROOT)));
+        list.sort(Comparator.comparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
         return list;
     }
 
@@ -411,6 +416,32 @@ public final class TerritoryRepository {
         save(territory, (success, message) -> callback.done(success, success ? "Biome preference set to " + prettyBiome(clean) + ". New generation will use this when the territory is assigned/generated." : message));
     }
 
+    public static void setDisplayName(Territory territory, String rawName, Callback callback) {
+        if (territory == null) { callback.done(false, "Invalid territory."); return; }
+        String clean = rawName == null ? "" : rawName.trim();
+        if (clean.isBlank()) { callback.done(false, "Name cannot be blank."); return; }
+        if (clean.length() > 32) { callback.done(false, "Name must be 32 characters or less."); return; }
+        if (!clean.matches("[A-Za-z0-9 _'&.-]+")) {
+            callback.done(false, "Name can only use letters, numbers, spaces, and basic punctuation.");
+            return;
+        }
+        territory.displayName = clean;
+        save(territory, (success, message) -> callback.done(success, success ? "Territory name set to " + clean + "." : message));
+    }
+
+    public static List<Territory> trustedPersonalFor(ServerPlayer player) {
+        List<Territory> list = new ArrayList<>();
+        if (player == null) return list;
+        for (Territory t : TERRITORIES.values()) {
+            if (t.ownerType != OwnerType.PLAYER) continue;
+            if (t.ownerId.equalsIgnoreCase(player.getUUID().toString())) continue;
+            TrustLevel trust = getTrust(t.id, player.getUUID());
+            if (trust != null && trust != TrustLevel.BANNED) list.add(t);
+        }
+        list.sort(Comparator.comparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
+        return list;
+    }
+
     private static Territory allocate(OwnerType ownerType, String ownerId, String ownerName, String forcedWorldName, String biomePreference) {
         TerritoryConfig.Data cfg = TerritoryConfig.get();
         int slot = findFirstFreeSlot(ownerType);
@@ -431,6 +462,7 @@ public final class TerritoryRepository {
         territory.ownerType = ownerType;
         territory.ownerId = ownerId;
         territory.ownerName = ownerName == null ? "" : ownerName;
+        territory.displayName = territory.ownerName;
         territory.serverId = NetworkServerConfig.serverId();
         territory.worldName = worldName;
         territory.worldKey = worldName;
@@ -507,9 +539,12 @@ public final class TerritoryRepository {
     public static void finishDelete(Territory territory, Callback callback) {
         if (territory == null) { callback.done(false, "No territory found."); return; }
         DatabaseManager.executeAsync("delete territory " + territory.id, connection -> {
-            try (PreparedStatement cooldown = connection.prepareStatement(
-                    "insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now()) " +
-                            "on conflict (owner_type, owner_id) do update set deleted_at = now()")) {
+            try (PreparedStatement cleanup = connection.prepareStatement("delete from territory_delete_cooldowns where owner_type = ? and owner_id = ?")) {
+                cleanup.setString(1, territory.ownerType.name());
+                cleanup.setString(2, territory.ownerId);
+                cleanup.executeUpdate();
+            }
+            try (PreparedStatement cooldown = connection.prepareStatement("insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now())")) {
                 cooldown.setString(1, territory.ownerType.name());
                 cooldown.setString(2, territory.ownerId);
                 cooldown.executeUpdate();
@@ -532,10 +567,10 @@ public final class TerritoryRepository {
         DatabaseManager.executeAsync("save territory " + territory.id, connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into territories " +
-                            "(id, owner_type, owner_id, owner_name, server_id, world_name, world_key, slot_index, generation_state, center_x, center_z, radius, min_x, max_x, min_z, max_z, spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch, level, biome_preference, is_public, allow_visitors, visitors_can_build, visitors_can_open_containers, visitors_can_interact_entities, visitors_can_use_redstone, lock_border, created_at, updated_at) " +
-                            "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) " +
+                            "(id, owner_type, owner_id, owner_name, display_name, server_id, world_name, world_key, slot_index, generation_state, center_x, center_z, radius, min_x, max_x, min_z, max_z, spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch, level, biome_preference, is_public, allow_visitors, visitors_can_build, visitors_can_open_containers, visitors_can_interact_entities, visitors_can_use_redstone, lock_border, created_at, updated_at) " +
+                            "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) " +
                             "on conflict (owner_type, owner_id) do update set " +
-                            "owner_name = excluded.owner_name, server_id = excluded.server_id, world_name = excluded.world_name, world_key = excluded.world_key, slot_index = excluded.slot_index, generation_state = excluded.generation_state, center_x = excluded.center_x, center_z = excluded.center_z, radius = excluded.radius, " +
+                            "owner_name = excluded.owner_name, display_name = excluded.display_name, server_id = excluded.server_id, world_name = excluded.world_name, world_key = excluded.world_key, slot_index = excluded.slot_index, generation_state = excluded.generation_state, center_x = excluded.center_x, center_z = excluded.center_z, radius = excluded.radius, " +
                             "min_x = excluded.min_x, max_x = excluded.max_x, min_z = excluded.min_z, max_z = excluded.max_z, " +
                             "spawn_x = excluded.spawn_x, spawn_y = excluded.spawn_y, spawn_z = excluded.spawn_z, spawn_yaw = excluded.spawn_yaw, spawn_pitch = excluded.spawn_pitch, level = excluded.level, biome_preference = excluded.biome_preference, " +
                             "is_public = excluded.is_public, allow_visitors = excluded.allow_visitors, visitors_can_build = excluded.visitors_can_build, visitors_can_open_containers = excluded.visitors_can_open_containers, visitors_can_interact_entities = excluded.visitors_can_interact_entities, visitors_can_use_redstone = excluded.visitors_can_use_redstone, lock_border = excluded.lock_border, updated_at = now()"
@@ -544,32 +579,33 @@ public final class TerritoryRepository {
                 statement.setString(2, territory.ownerType.name());
                 statement.setString(3, territory.ownerId);
                 statement.setString(4, territory.ownerName);
-                statement.setString(5, territory.serverId);
-                statement.setString(6, territory.worldName);
-                statement.setString(7, territory.worldKey == null ? territory.worldName : territory.worldKey);
-                statement.setInt(8, territory.slotIndex);
-                statement.setString(9, territory.generationState == null ? "READY" : territory.generationState);
-                statement.setInt(10, territory.centerX);
-                statement.setInt(11, territory.centerZ);
-                statement.setInt(12, territory.radius);
-                statement.setInt(13, territory.minX);
-                statement.setInt(14, territory.maxX);
-                statement.setInt(15, territory.minZ);
-                statement.setInt(16, territory.maxZ);
-                statement.setDouble(17, territory.spawnX);
-                statement.setDouble(18, territory.spawnY);
-                statement.setDouble(19, territory.spawnZ);
-                statement.setFloat(20, territory.spawnYaw);
-                statement.setFloat(21, territory.spawnPitch);
-                statement.setInt(22, territory.level);
-                if (territory.biomePreference == null) statement.setNull(23, Types.VARCHAR); else statement.setString(23, territory.biomePreference);
-                statement.setBoolean(24, territory.isPublic);
-                statement.setBoolean(25, territory.allowVisitors);
-                statement.setBoolean(26, territory.visitorsCanBuild);
-                statement.setBoolean(27, territory.visitorsCanOpenContainers);
-                statement.setBoolean(28, territory.visitorsCanInteractEntities);
-                statement.setBoolean(29, territory.visitorsCanUseRedstone);
-                statement.setBoolean(30, territory.lockBorder);
+                statement.setString(5, territory.displayName == null || territory.displayName.isBlank() ? territory.ownerName : territory.displayName);
+                statement.setString(6, territory.serverId);
+                statement.setString(7, territory.worldName);
+                statement.setString(8, territory.worldKey == null ? territory.worldName : territory.worldKey);
+                statement.setInt(9, territory.slotIndex);
+                statement.setString(10, territory.generationState == null ? "READY" : territory.generationState);
+                statement.setInt(11, territory.centerX);
+                statement.setInt(12, territory.centerZ);
+                statement.setInt(13, territory.radius);
+                statement.setInt(14, territory.minX);
+                statement.setInt(15, territory.maxX);
+                statement.setInt(16, territory.minZ);
+                statement.setInt(17, territory.maxZ);
+                statement.setDouble(18, territory.spawnX);
+                statement.setDouble(19, territory.spawnY);
+                statement.setDouble(20, territory.spawnZ);
+                statement.setFloat(21, territory.spawnYaw);
+                statement.setFloat(22, territory.spawnPitch);
+                statement.setInt(23, territory.level);
+                if (territory.biomePreference == null) statement.setNull(24, Types.VARCHAR); else statement.setString(24, territory.biomePreference);
+                statement.setBoolean(25, territory.isPublic);
+                statement.setBoolean(26, territory.allowVisitors);
+                statement.setBoolean(27, territory.visitorsCanBuild);
+                statement.setBoolean(28, territory.visitorsCanOpenContainers);
+                statement.setBoolean(29, territory.visitorsCanInteractEntities);
+                statement.setBoolean(30, territory.visitorsCanUseRedstone);
+                statement.setBoolean(31, territory.lockBorder);
                 statement.executeUpdate();
             }
             TERRITORIES.put(territory.id, territory);
@@ -584,6 +620,7 @@ public final class TerritoryRepository {
         t.ownerType = OwnerType.valueOf(rs.getString("owner_type"));
         t.ownerId = rs.getString("owner_id");
         t.ownerName = rs.getString("owner_name");
+        t.displayName = getStringOrNull(rs, "display_name");
         t.serverId = rs.getString("server_id");
         t.worldName = rs.getString("world_name");
         t.worldKey = getStringOrNull(rs, "world_key");
@@ -665,6 +702,10 @@ public final class TerritoryRepository {
         }
         suggestions.sort(String.CASE_INSENSITIVE_ORDER);
         return suggestions;
+    }
+
+    public static List<String> settingSuggestions() {
+        return List.of("public", "visitors", "visitorbuild", "visitorcontainers", "visitorentities", "visitorredstone", "border");
     }
 
     public static String prettyBiome(String raw) {

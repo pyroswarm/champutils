@@ -19,6 +19,7 @@ import java.util.UUID;
 public final class TerritoryCommand {
 
     private static final SuggestionProvider<net.minecraft.commands.CommandSourceStack> BIOME_SUGGESTIONS = (context, builder) -> SharedSuggestionProvider.suggest(TerritoryRepository.biomeSuggestions(), builder);
+    private static final SuggestionProvider<net.minecraft.commands.CommandSourceStack> SETTING_SUGGESTIONS = (context, builder) -> SharedSuggestionProvider.suggest(TerritoryRepository.settingSuggestions(), builder);
 
     private TerritoryCommand() {}
 
@@ -33,6 +34,14 @@ public final class TerritoryCommand {
                                     .suggests(BIOME_SUGGESTIONS)
                                     .executes(context -> createPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "biome")))))
                     .then(Commands.literal("home").executes(context -> homePersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("trusted").executes(context -> trustedPersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("visit")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(TerritoryRepository.trustedPersonalFor(context.getSource().getPlayerOrException()).stream().map(TerritoryRepository.Territory::publicName).toList(), builder))
+                                    .executes(context -> visitTrustedPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
+                    .then(Commands.literal("name")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .executes(context -> namePersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
                     .then(Commands.literal("border")
                             .executes(context -> borderPersonal(context.getSource().getPlayerOrException(), null))
                             .then(Commands.literal("show").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), true)))
@@ -41,6 +50,7 @@ public final class TerritoryCommand {
                     .then(Commands.literal("settings").executes(context -> settings(context.getSource().getPlayerOrException(), ownPersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("set")
                             .then(Commands.argument("setting", StringArgumentType.word())
+                                    .suggests(SETTING_SUGGESTIONS)
                                     .then(Commands.argument("value", BoolArgumentType.bool())
                                             .executes(context -> setPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "setting"), BoolArgumentType.getBool(context, "value"))))))
                     .then(Commands.literal("biome")
@@ -104,6 +114,9 @@ public final class TerritoryCommand {
                     .executes(context -> infoGuild(context.getSource().getPlayerOrException()))
                     .then(Commands.literal("info").executes(context -> infoGuild(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("home").executes(context -> homeGuild(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("name")
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                    .executes(context -> nameGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
                     .then(Commands.literal("border")
                             .executes(context -> borderGuild(context.getSource().getPlayerOrException(), null))
                             .then(Commands.literal("show").executes(context -> borderGuild(context.getSource().getPlayerOrException(), true)))
@@ -117,6 +130,7 @@ public final class TerritoryCommand {
                     .then(Commands.literal("settings").executes(context -> settings(context.getSource().getPlayerOrException(), ownGuild(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("set")
                             .then(Commands.argument("setting", StringArgumentType.word())
+                                    .suggests(SETTING_SUGGESTIONS)
                                     .then(Commands.argument("value", BoolArgumentType.bool())
                                             .executes(context -> setGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "setting"), BoolArgumentType.getBool(context, "value"))))))
                     .then(Commands.literal("biome")
@@ -296,6 +310,63 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Your territory is not ready yet. Try again shortly.").withStyle(ChatFormatting.RED));
             return 0;
         }
+        return 1;
+    }
+
+    private static int trustedPersonal(ServerPlayer player) {
+        java.util.List<TerritoryRepository.Territory> territories = TerritoryRepository.trustedPersonalFor(player);
+        if (territories.isEmpty()) {
+            player.sendSystemMessage(Component.literal("You are not trusted in any player territories yet.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("Trusted player territories:").withStyle(ChatFormatting.GOLD));
+        for (TerritoryRepository.Territory territory : territories) {
+            player.sendSystemMessage(Component.literal("- " + territory.publicName() + " owned by " + territory.ownerName + " | /territory visit " + territory.publicName()).withStyle(ChatFormatting.AQUA));
+        }
+        return 1;
+    }
+
+    private static int visitTrustedPersonal(ServerPlayer player, String name) {
+        String clean = name == null ? "" : name.trim();
+        for (TerritoryRepository.Territory territory : TerritoryRepository.trustedPersonalFor(player)) {
+            if (territory.publicName().equalsIgnoreCase(clean) || territory.ownerName.equalsIgnoreCase(clean)) {
+                if (!territory.isReady() && !player.hasPermissions(4)) {
+                    player.sendSystemMessage(Component.literal("That territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
+                    return 0;
+                }
+                if (!TerritoryRepository.canEnter(player, territory)) {
+                    player.sendSystemMessage(Component.literal("You cannot enter that territory.").withStyle(ChatFormatting.RED));
+                    return 0;
+                }
+                if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
+                    player.sendSystemMessage(Component.literal("That territory is not ready yet. Try again shortly.").withStyle(ChatFormatting.RED));
+                    return 0;
+                }
+                return 1;
+            }
+        }
+        player.sendSystemMessage(Component.literal("No trusted player territory found with that name.").withStyle(ChatFormatting.RED));
+        return 0;
+    }
+
+    private static int namePersonal(ServerPlayer player, String name) {
+        return name(player, ownPersonal(player), name);
+    }
+
+    private static int nameGuild(ServerPlayer player, String name) {
+        return name(player, ownGuild(player), name);
+    }
+
+    private static int name(ServerPlayer player, TerritoryRepository.Territory territory, String name) {
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("No territory found.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        TerritoryRepository.setDisplayName(territory, name, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
         return 1;
     }
 
@@ -503,6 +574,9 @@ public final class TerritoryCommand {
             return 0;
         }
         player.sendSystemMessage(Component.literal("Territory Settings").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("TAB after /territory set to pick a setting.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("/territory name <name> - Set the name shown in /pterritories").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("/territory trusted - Show trusted player territories you can visit").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set public true|false - Show in /pterritories").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set visitors true|false - Allow public visitors to enter").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory set visitorbuild true|false - Visitors may build").withStyle(ChatFormatting.GRAY));
