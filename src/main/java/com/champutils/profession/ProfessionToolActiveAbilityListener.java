@@ -47,6 +47,23 @@ public class ProfessionToolActiveAbilityListener {
                                     stack
                             );
 
+                    ProfessionToolConfig.ToolData toolData =
+                            ProfessionToolUtil.getToolData(
+                                    stack
+                            );
+
+                    /*
+                     Farming profession hoes must not consume normal right-click.
+                     Normal right-click needs to stay vanilla so players can till dirt/grass.
+                     Sneak + right-click is the dedicated active ability input for hoes.
+                     */
+                    if (
+                            isHoeTool(toolData) &&
+                                    !serverPlayer.isShiftKeyDown()
+                    ) {
+                        return InteractionResult.PASS;
+                    }
+
                     if (toolId != null &&
                             !ProfessionToolMetadata.isIdentified(
                                     stack
@@ -60,11 +77,6 @@ public class ProfessionToolActiveAbilityListener {
 
                         return InteractionResult.FAIL;
                     }
-
-                    ProfessionToolConfig.ToolData toolData =
-                            ProfessionToolUtil.getToolData(
-                                    stack
-                            );
 
                     if (
                             toolData != null &&
@@ -152,6 +164,20 @@ public class ProfessionToolActiveAbilityListener {
                     return InteractionResult.SUCCESS;
                 }
         );
+    }
+
+
+    private static boolean isHoeTool(
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (toolData == null || toolData.baseItem == null) {
+            return false;
+        }
+
+        return toolData.baseItem
+                .toLowerCase()
+                .contains("hoe");
     }
 
     private static boolean canUseTool(
