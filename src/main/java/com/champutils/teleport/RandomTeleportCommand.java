@@ -4,6 +4,7 @@ import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.exploration.ExplorationWorldConfig;
 import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.survival.SurvivalWorldManager;
+import com.champutils.worldborder.ChampWorldBorderManager;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -46,7 +47,7 @@ public final class RandomTeleportCommand {
 
     private static final int ATTEMPTS_PER_TICK = 8;
     private static final int BORDER_PADDING = 32;
-    private static final int RTP_BORDER_RADIUS = 4999;
+    private static final int FALLBACK_RTP_BORDER_RADIUS = 4999;
     private static final int NETHER_MAX_SAFE_Y = 119;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
     private static final int PREGENERATED_AREA_ATTEMPTS = 120;
@@ -439,8 +440,7 @@ public final class RandomTeleportCommand {
         double minZ = border.getMinZ() + BORDER_PADDING;
         double maxZ = border.getMaxZ() - BORDER_PADDING;
         return x >= minX && x <= maxX && z >= minZ && z <= maxZ
-                && x >= -4999 && x <= 4999
-                && z >= -4999 && z <= 4999;
+                ;
     }
 
     private static boolean isOceanBiome(ServerLevel level, BlockPos pos) {
@@ -620,17 +620,27 @@ public final class RandomTeleportCommand {
         private static SearchBounds from(ServerLevel level) {
             WorldBorder border = level.getWorldBorder();
 
-            int borderMinX = Math.max((int) Math.ceil(border.getMinX()), -RTP_BORDER_RADIUS) + BORDER_PADDING;
-            int borderMaxX = Math.min((int) Math.floor(border.getMaxX()), RTP_BORDER_RADIUS) - BORDER_PADDING;
-            int borderMinZ = Math.max((int) Math.ceil(border.getMinZ()), -RTP_BORDER_RADIUS) + BORDER_PADDING;
-            int borderMaxZ = Math.min((int) Math.floor(border.getMaxZ()), RTP_BORDER_RADIUS) - BORDER_PADDING;
+            boolean hasChampBorder = ChampWorldBorderManager.isConfigured(level);
+            int configuredRadius = hasChampBorder
+                    ? (int) Math.floor(ChampWorldBorderManager.radius(level))
+                    : FALLBACK_RTP_BORDER_RADIUS;
+
+            int rawMinX = (int) Math.ceil(border.getMinX());
+            int rawMaxX = (int) Math.floor(border.getMaxX());
+            int rawMinZ = (int) Math.ceil(border.getMinZ());
+            int rawMaxZ = (int) Math.floor(border.getMaxZ());
+
+            int borderMinX = (hasChampBorder ? rawMinX : Math.max(rawMinX, -configuredRadius)) + BORDER_PADDING;
+            int borderMaxX = (hasChampBorder ? rawMaxX : Math.min(rawMaxX, configuredRadius)) - BORDER_PADDING;
+            int borderMinZ = (hasChampBorder ? rawMinZ : Math.max(rawMinZ, -configuredRadius)) + BORDER_PADDING;
+            int borderMaxZ = (hasChampBorder ? rawMaxZ : Math.min(rawMaxZ, configuredRadius)) - BORDER_PADDING;
 
             if (borderMinX >= borderMaxX || borderMinZ >= borderMaxZ) {
                 return null;
             }
 
             if (ExplorationWorldManager.find(level) != null) {
-                int radius = Math.max(BORDER_PADDING + 16, Math.min(RTP_BORDER_RADIUS, ExplorationWorldConfig.get().borderRadius));
+                int radius = Math.max(BORDER_PADDING + 16, Math.min(configuredRadius, ExplorationWorldConfig.get().borderRadius));
                 int preferredRadius = Math.max(BORDER_PADDING + 16, Math.min(radius, ExplorationWorldConfig.get().pregenerationRadius));
 
                 int configMin = -radius + BORDER_PADDING;

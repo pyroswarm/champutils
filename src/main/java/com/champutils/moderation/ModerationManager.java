@@ -96,6 +96,43 @@ public final class ModerationManager {
         return p.hasPermissions(4) || LuckPermsHook.hasPermission(p, ModerationConfig.DATA.moderatorPermission);
     }
 
+    public static void manualMute(String actorName, ServerPlayer target, Duration duration, String reason) {
+        if (target == null || duration == null) return;
+        tick(target.server);
+
+        String staffName = (actorName == null || actorName.isBlank()) ? "Console" : actorName;
+        String finalReason = (reason == null || reason.isBlank()) ? "Manual staff mute" : reason;
+        long until = System.currentTimeMillis() + duration.toMillis();
+
+        Record r = record(target.getUUID(), ModerationTrack.CHAT);
+        r.mutedUntil = until;
+
+        target.sendSystemMessage(Component.literal("You were muted by staff for " + format(duration.toMillis()) + ". Reason: " + finalReason).withStyle(ChatFormatting.RED));
+        alertAdmins(target.server, "§c[Staff Mute] §f" + staffName + " §7muted §f" + target.getGameProfile().getName() + " §7for §e" + format(duration.toMillis()) + "§7. Reason: §c" + finalReason);
+        webhook("Staff mute: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | duration=" + format(duration.toMillis()) + " | reason=" + finalReason);
+    }
+
+    public static boolean manualUnmute(String actorName, ServerPlayer target) {
+        if (target == null) return false;
+        tick(target.server);
+
+        TrackKey key = new TrackKey(target.getUUID(), ModerationTrack.CHAT);
+        Record r = records.get(key);
+        long now = System.currentTimeMillis();
+        boolean wasMuted = r != null && r.mutedUntil > now;
+        if (r != null) {
+            r.mutedUntil = 0L;
+        }
+
+        String staffName = (actorName == null || actorName.isBlank()) ? "Console" : actorName;
+        if (wasMuted) {
+            target.sendSystemMessage(Component.literal("You have been unmuted by staff.").withStyle(ChatFormatting.GREEN));
+            alertAdmins(target.server, "§a[Staff Unmute] §f" + staffName + " §7unmuted §f" + target.getGameProfile().getName() + "§7.");
+            webhook("Staff unmute: actor=" + staffName + " | player=" + target.getGameProfile().getName());
+        }
+        return wasMuted;
+    }
+
     public static boolean systemViolation(ServerPlayer player, String system, String reason, boolean confidentEnoughForAction) {
         if (player == null) return false;
         tick(player.server);

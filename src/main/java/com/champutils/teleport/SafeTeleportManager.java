@@ -2,6 +2,7 @@ package com.champutils.teleport;
 
 import com.champutils.matchmaking.ArenaManager;
 import com.champutils.territory.TerritoryRepository;
+import com.champutils.worldborder.ChampWorldBorderConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -45,6 +46,17 @@ public final class SafeTeleportManager {
     public static boolean canTeleportTo(ServerPlayer player, ServerLevel level, double x, double y, double z) {
         if (player == null || level == null) return false;
         if (ArenaManager.isArenaLocation(level, x, z)) return false;
+
+        ChampWorldBorderConfig.BorderEntry border = ChampWorldBorderConfig.get(level.dimension().location().toString());
+        if (border != null) {
+            double minX = border.centerX - border.radius;
+            double maxX = border.centerX + border.radius;
+            double minZ = border.centerZ - border.radius;
+            double maxZ = border.centerZ + border.radius;
+            if (x < minX || x > maxX || z < minZ || z > maxZ) {
+                return false;
+            }
+        }
 
         TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, BlockPos.containing(x, y, z));
         if (territory != null && !TerritoryRepository.canEnter(player, territory)) return false;

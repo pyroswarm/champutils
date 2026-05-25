@@ -53,6 +53,7 @@ import com.champutils.dailylogin.*;
 import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
+import com.champutils.worldborder.*;
 
 /*
  =========================
@@ -167,6 +168,7 @@ public class ChampUtilsMod implements ModInitializer {
         CrateConfig.load();
         CrateCreditManager.load();
         DailyLoginManager.load();
+        ChampWorldBorderConfig.load();
 
         /*
          =========================
@@ -249,6 +251,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     LeaderboardManager.refresh(server);
                     ServerStatusDatabaseRepository.sync(server);
+                    ChampWorldBorderManager.applyAll(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
                     TerritoryRepository.refreshAll();
@@ -552,6 +555,7 @@ public class ChampUtilsMod implements ModInitializer {
         PartyCommand.register();
         AutoModCommand.register();
         DailyLoginCommand.register();
+        ChampWorldBorderCommand.register();
 
         /*
          New custom item test command
@@ -637,6 +641,7 @@ public class ChampUtilsMod implements ModInitializer {
                     AntiLagManager.tick(server);
                     ModerationManager.tick(server);
                     DailyLoginManager.tick(server);
+                    ChampWorldBorderManager.tick(server);
 
                     /*
                      Leaderboard refresh
