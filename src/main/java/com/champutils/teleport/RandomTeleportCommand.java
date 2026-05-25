@@ -87,7 +87,66 @@ public final class RandomTeleportCommand {
                     .then(literal("fallback")
                             .then(argument("dimension", StringArgumentType.greedyString())
                                     .executes(ctx -> setFallback(ctx.getSource(), StringArgumentType.getString(ctx, "dimension"))))));
+
+
+            dispatcher.register(literal("rtpworlds")
+                    .requires(source -> source.hasPermission(4))
+                    .then(literal("list")
+                            .executes(ctx -> listRtpWorlds(ctx.getSource())))
+                    .then(literal("unlock")
+                            .then(argument("password", StringArgumentType.word())
+                                    .then(argument("world", StringArgumentType.greedyString())
+                                            .executes(ctx -> setRtpWorldActive(ctx.getSource(), StringArgumentType.getString(ctx, "password"), StringArgumentType.getString(ctx, "world"), true)))))
+                    .then(literal("lock")
+                            .then(argument("password", StringArgumentType.word())
+                                    .then(argument("world", StringArgumentType.greedyString())
+                                            .executes(ctx -> setRtpWorldActive(ctx.getSource(), StringArgumentType.getString(ctx, "password"), StringArgumentType.getString(ctx, "world"), false))))));
         });
+    }
+
+
+    private static int listRtpWorlds(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal("Survival RTP Worlds").withStyle(ChatFormatting.GOLD), false);
+        for (SurvivalWorldManager.Entry entry : SurvivalWorldManager.entries()) {
+            ChatFormatting color = entry.activeForRtp ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY;
+            source.sendSuccess(() -> Component.literal((entry.activeForRtp ? "ACTIVE " : "LOCKED ") + "[" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status).withStyle(color), false);
+        }
+
+        source.sendSuccess(() -> Component.literal("Exploration RTP Worlds").withStyle(ChatFormatting.GOLD), false);
+        for (ExplorationWorldManager.Entry entry : ExplorationWorldManager.entries()) {
+            ChatFormatting color = entry.activeForRtp ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY;
+            source.sendSuccess(() -> Component.literal((entry.activeForRtp ? "ACTIVE " : "LOCKED ") + "[" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status).withStyle(color), false);
+        }
+
+        source.sendSuccess(() -> Component.literal("Use /rtpworlds unlock <password> <world> or /rtpworlds lock <password> <world>. Default password is CHANGE_ME and will not work until changed in config/champutils/teleport_config.json.").withStyle(ChatFormatting.GRAY), false);
+        return 1;
+    }
+
+    private static int setRtpWorldActive(CommandSourceStack source, String password, String worldName, boolean active) {
+        if (!TeleportConfig.isCorrectRtpWorldUnlockPassword(password)) {
+            source.sendFailure(Component.literal("Invalid RTP world unlock password. Set rtpWorldUnlockPassword in config/champutils/teleport_config.json first; CHANGE_ME is intentionally disabled."));
+            return 0;
+        }
+
+        String normalized = normalizeMultiworldName(worldName);
+        boolean changed = SurvivalWorldManager.setActive(normalized, active);
+        if (!changed) changed = ExplorationWorldManager.setActive(normalized, active);
+
+        if (!changed) {
+            source.sendFailure(Component.literal("Unknown RTP world: " + worldName));
+            return 0;
+        }
+
+        String action = active ? "unlocked for RTP" : "locked from RTP";
+        source.sendSuccess(() -> Component.literal(normalized + " is now " + action + ".").withStyle(active ? ChatFormatting.GREEN : ChatFormatting.YELLOW), true);
+        return 1;
+    }
+
+    private static String normalizeMultiworldName(String worldName) {
+        if (worldName == null) return "";
+        String clean = worldName.trim();
+        if (clean.isBlank()) return clean;
+        return clean.contains(":") ? clean : "multiworld:" + clean;
     }
 
     private static int rtpUsage(CommandSourceStack source) {

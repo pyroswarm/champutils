@@ -129,6 +129,10 @@ public final class TerritoryRepository {
 
     public static Collection<Territory> allCached() { return TERRITORIES.values(); }
 
+    public static Territory get(UUID territoryId) {
+        return territoryId == null ? null : TERRITORIES.get(territoryId);
+    }
+
     public static List<Territory> publicCached(OwnerType type) {
         List<Territory> list = new ArrayList<>();
         for (Territory t : TERRITORIES.values()) {

@@ -81,10 +81,19 @@ public final class TerritoryConfig {
         public int borderWarningCooldownSeconds = 5;
 
         /**
-         * If true, territories behave like skyblock slots, but the Multiworld dimension is still created
-         * with NORMAL generation so biome data stays real for Cobblemon spawns, colors, weather, and biome checks.
+         * If true, territories behave like skyblock slots. Territory worlds should use VOID generation, then
+         * ChampUtils paints biome data inside each territory's bounds so Cobblemon/biome checks still work.
          */
         public boolean skyblockTerritoryWorlds = true;
+
+        /** Paints the selected biome into VOID-generated territory bounds before the territory is marked READY. */
+        public boolean paintVoidTerritoryBiomes = true;
+
+        /** Fallback biome for skyblock territories when no valid biome is supplied. */
+        public String defaultVoidTerritoryBiome = "plains";
+
+        /** How many territory chunks may have biome data painted per tick. */
+        public int biomePaintChunksPerTick = 2;
 
         /** Clears the territory starter area before the starter island is built. */
         public boolean clearSkyblockStarterArea = true;
@@ -94,16 +103,16 @@ public final class TerritoryConfig {
          * Keep this smaller than the full territory radius to avoid huge one-time lag spikes.
          * Players still remain locked inside their territory border.
          */
-        public int skyblockInitialClearRadius = 128;
+        public int skyblockInitialClearRadius = 40;
 
         /** Minimum Y to clear for new skyblock territory starter areas. */
-        public int skyblockClearMinY = -16;
+        public int skyblockClearMinY = 60;
 
         /** Maximum Y to clear for new skyblock territory starter areas. */
-        public int skyblockClearMaxY = 200;
+        public int skyblockClearMaxY = 120;
 
         /** How many block positions the skyblock preparation queue may inspect per tick. */
-        public int skyblockPrepareBlocksPerTick = 8192;
+        public int skyblockPrepareBlocksPerTick = 1024;
 
         /** Creates/rebuilds the starter island at each territory slot center when the slot becomes READY. */
         public boolean createSkyblockStarterIsland = true;
@@ -135,7 +144,7 @@ public final class TerritoryConfig {
         /** Kept for old configs. Territory creation no longer uses Chunky. */
         public boolean autoMarkReadyAfterGenerationRequest = true;
         public List<String> worldCreateCommands = new ArrayList<>(List.of(
-                "mw create {world_id} NORMAL -g=NORMAL",
+                "mw create {world_id} NORMAL -g=VOID",
                 "mw load {world_id}"
         ));
         public List<String> chunkyPregenerationCommands = new ArrayList<>();
@@ -157,18 +166,18 @@ public final class TerritoryConfig {
             if (gridWidth < 1) gridWidth = slotGridWidth;
             if (worldCreateCommands == null || worldCreateCommands.isEmpty()) {
                 worldCreateCommands = new ArrayList<>(List.of(
-                        "mw create {world_id} NORMAL -g=NORMAL",
+                        "mw create {world_id} NORMAL -g=VOID",
                         "mw load {world_id}"
                 ));
             }
             // Migrate older generated configs to the correct Multiworld 1.13.1 syntax. Multiworld creates by
             // plain world name (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
             worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=VOID")
+                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=VOID")
                     .replace("mw load {world_key}", "mw load {world_id}")
-                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
+                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=VOID")
+                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=VOID")
                     .replace("mw load {world}", "mw load {world_id}")
                     .replace("multiworld:{world_id}", "{world_id}"));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
@@ -176,15 +185,19 @@ public final class TerritoryConfig {
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
-            // Older configs created skyblock territory worlds with -g=VOID. That breaks biome data and makes
-            // every slot report minecraft:the_void, so migrate territory worlds back to NORMAL generation.
-            worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                    .replace("-g=VOID", "-g=NORMAL")
-                    .replace("-g=FLAT", "-g=NORMAL"));
+            // Skyblock territory worlds should stay terrainless. Biomes are painted into territory bounds later.
+            if (skyblockTerritoryWorlds) {
+                worldCreateCommands.replaceAll(command -> command == null ? "" : command
+                        .replace("-g=NORMAL", "-g=VOID")
+                        .replace("-g=FLAT", "-g=VOID"));
+            }
             if (skyblockInitialClearRadius < skyblockIslandRadius + 8) skyblockInitialClearRadius = skyblockIslandRadius + 8;
             if (skyblockInitialClearRadius > defaultRadius) skyblockInitialClearRadius = defaultRadius;
             if (skyblockClearMinY < -64) skyblockClearMinY = -16;
             if (skyblockClearMaxY <= skyblockClearMinY) skyblockClearMaxY = Math.max(skyblockClearMinY + 32, defaultSpawnY + 32);
+            if (paintVoidTerritoryBiomes && (defaultVoidTerritoryBiome == null || defaultVoidTerritoryBiome.isBlank())) defaultVoidTerritoryBiome = "plains";
+            if (biomePaintChunksPerTick < 1) biomePaintChunksPerTick = 1;
+            if (biomePaintChunksPerTick > 32) biomePaintChunksPerTick = 32;
             if (skyblockPrepareBlocksPerTick < 1024) skyblockPrepareBlocksPerTick = 8192;
             if (skyblockPrepareBlocksPerTick > 65536) skyblockPrepareBlocksPerTick = 65536;
             if (skyblockIslandRadius < 3) skyblockIslandRadius = 9;

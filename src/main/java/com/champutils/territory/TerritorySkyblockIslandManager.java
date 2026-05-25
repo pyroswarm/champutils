@@ -65,14 +65,12 @@ public final class TerritorySkyblockIslandManager {
         ServerLevel level = TerritoryTeleportUtil.resolveLevel(server, task.territory.worldName);
         if (level == null) return;
 
-        int budget = Math.max(1024, TerritoryConfig.get().skyblockPrepareBlocksPerTick);
+        int budget = Math.max(128, Math.min(2048, TerritoryConfig.get().skyblockPrepareBlocksPerTick));
         int used = 0;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         while (used < budget && !task.done()) {
             pos.set(task.x, task.y, task.z);
-            if (!level.getBlockState(pos).isAir()) {
-                level.setBlock(pos, AIR, 2);
-            }
+            clearBlockSafely(level, pos);
             task.advance();
             used++;
         }
@@ -117,9 +115,31 @@ public final class TerritorySkyblockIslandManager {
         for (int x = cx - radius; x <= cx + radius; x++) {
             for (int z = cz - radius; z <= cz + radius; z++) {
                 for (int y = minY; y <= maxY; y++) {
-                    level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                    clearBlockSafely(level, new BlockPos(x, y, z));
                 }
             }
+        }
+    }
+
+
+    private static void clearBlockSafely(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return;
+        if (level.getBlockState(pos).isAir()) {
+            if (level.getBlockEntity(pos) != null) {
+                level.removeBlockEntity(pos);
+            }
+            return;
+        }
+
+        // Remove block entities before and after the state change. This prevents Minecraft from later
+        // trying to deserialize a leftover chest/sign/spawner/etc. block entity at an air block, which
+        // is what caused the DUMMY block entity warnings in the console.
+        if (level.getBlockEntity(pos) != null) {
+            level.removeBlockEntity(pos);
+        }
+        level.setBlock(pos, AIR, 18);
+        if (level.getBlockEntity(pos) != null) {
+            level.removeBlockEntity(pos);
         }
     }
 
@@ -223,13 +243,17 @@ public final class TerritorySkyblockIslandManager {
         private PrepareTask(TerritoryRepository.Territory territory, int levelMinY, int levelMaxY) {
             TerritoryConfig.Data cfg = TerritoryConfig.get();
             this.territory = territory;
-            int clearRadius = Math.max(cfg.skyblockIslandRadius + 8, Math.min(cfg.skyblockInitialClearRadius, territory.radius));
+            int clearRadius = Math.max(cfg.skyblockIslandRadius + 8, Math.min(Math.min(cfg.skyblockInitialClearRadius, territory.radius), 48));
+            int baseY = Math.max(levelMinY + 8, Math.min(levelMaxY - 16, cfg.defaultSpawnY));
             this.minX = territory.centerX - clearRadius;
             this.maxX = territory.centerX + clearRadius;
             this.minZ = territory.centerZ - clearRadius;
             this.maxZ = territory.centerZ + clearRadius;
-            this.minY = Math.max(levelMinY, cfg.skyblockClearMinY);
-            this.maxY = Math.min(levelMaxY - 1, cfg.skyblockClearMaxY);
+
+            // Only clear the skyblock starter volume, not the entire territory column.
+            // Clearing full 128x128x216 areas caused avoidable TPS drops and stale block entity warnings.
+            this.minY = Math.max(levelMinY, Math.max(cfg.skyblockClearMinY, baseY - 12));
+            this.maxY = Math.min(levelMaxY - 1, Math.min(cfg.skyblockClearMaxY, baseY + 36));
             this.x = minX;
             this.z = minZ;
             this.y = minY;

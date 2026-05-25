@@ -145,6 +145,19 @@ public final class TeleportConfig {
         return Math.max(0, data.rtpCooldownSeconds);
     }
 
+    public static String getRtpWorldUnlockPassword() {
+        if (data.rtpWorldUnlockPassword == null || data.rtpWorldUnlockPassword.isBlank()) {
+            data.rtpWorldUnlockPassword = "CHANGE_ME";
+            save();
+        }
+        return data.rtpWorldUnlockPassword;
+    }
+
+    public static boolean isCorrectRtpWorldUnlockPassword(String password) {
+        String configured = getRtpWorldUnlockPassword();
+        return password != null && !configured.equals("CHANGE_ME") && configured.equals(password);
+    }
+
     public static void setRtpCooldownSeconds(int seconds) {
         data.rtpCooldownSeconds = Math.max(0, seconds);
         save();
@@ -258,5 +271,6 @@ public final class TeleportConfig {
         Set<String> rtpBlockedDimensions = new HashSet<>();
         String rtpFallbackDimension = "minecraft:overworld";
         Map<String, PortalRegion> portals = new HashMap<>();
+        String rtpWorldUnlockPassword = "CHANGE_ME";
     }
 }

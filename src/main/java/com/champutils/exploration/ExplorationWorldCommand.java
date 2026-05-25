@@ -37,9 +37,10 @@ public final class ExplorationWorldCommand {
     private static int list(ServerPlayer player) {
         player.sendSystemMessage(Component.literal("Exploration Worlds").withStyle(ChatFormatting.GOLD));
         for (ExplorationWorldManager.Entry entry : ExplorationWorldManager.entries()) {
-            player.sendSystemMessage(Component.literal("#" + entry.index + " [" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status + " - next wipe: " + TIME.format(Instant.ofEpochMilli(entry.nextWipeAtMillis))).withStyle("READY".equalsIgnoreCase(entry.status) ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+            ChatFormatting color = entry.activeForRtp ? ("READY".equalsIgnoreCase(entry.status) ? ChatFormatting.GREEN : ChatFormatting.YELLOW) : ChatFormatting.DARK_GRAY;
+            player.sendSystemMessage(Component.literal("#" + entry.index + " [" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + (entry.activeForRtp ? "ACTIVE" : "LOCKED") + " - " + entry.status + " - next wipe: " + TIME.format(Instant.ofEpochMilli(entry.nextWipeAtMillis))).withStyle(color));
         }
-        player.sendSystemMessage(Component.literal("Player travel: /rtp exploration, /rtp nether, /rtp end. Admin: /exploration admin ready <world>, /exploration admin wipe <number>.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Player travel: /rtp exploration overworld|nether|end. Admin: /exploration admin ready <world>, /exploration admin wipe <number>. RTP locks: /rtpworlds list.").withStyle(ChatFormatting.GRAY));
         return 1;
     }
 

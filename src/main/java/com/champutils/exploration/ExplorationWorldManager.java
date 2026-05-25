@@ -72,16 +72,16 @@ public final class ExplorationWorldManager {
         if (markFinishedGeneratingWorldsReady(now)) save();
         if (state.wipeInProgressWorld != null && !state.wipeInProgressWorld.isBlank()) return;
         for (Entry entry : state.worlds) {
-            if ("GENERATING".equalsIgnoreCase(entry.status) || "WIPING".equalsIgnoreCase(entry.status)) return;
+            if (entry.activeForRtp && ("GENERATING".equalsIgnoreCase(entry.status) || "WIPING".equalsIgnoreCase(entry.status))) return;
         }
         for (Entry entry : state.worlds) {
-            if ("PENDING".equalsIgnoreCase(entry.status)) {
+            if (entry.activeForRtp && "PENDING".equalsIgnoreCase(entry.status)) {
                 startWipe(server, entry, false);
                 return;
             }
         }
         for (Entry entry : state.worlds) {
-            if (entry.nextWipeAtMillis <= now) {
+            if (entry.activeForRtp && entry.nextWipeAtMillis <= now) {
                 startWipe(server, entry, false);
                 break;
             }
@@ -101,7 +101,7 @@ public final class ExplorationWorldManager {
         List<Entry> candidates = new ArrayList<>();
         for (Entry entry : state.worlds) {
             String entryType = normalizeType(entry.worldType);
-            if (wantedType.equals(entryType) && isSafeForRtp(server, entry)) {
+            if (wantedType.equals(entryType) && entry.activeForRtp && isSafeForRtp(server, entry)) {
                 candidates.add(entry);
             }
         }
@@ -130,6 +130,7 @@ public final class ExplorationWorldManager {
 
     public static boolean isSafeForRtp(MinecraftServer server, Entry entry) {
         if (server == null || entry == null) return false;
+        if (!entry.activeForRtp) return false;
         if (!"READY".equalsIgnoreCase(entry.status)) return false;
         if (state.wipeInProgressWorld != null && state.wipeInProgressWorld.equalsIgnoreCase(entry.worldName)) return false;
         if (getLevel(server, entry.worldName) == null) return false;
@@ -161,6 +162,7 @@ public final class ExplorationWorldManager {
 
         for (Entry entry : state.worlds) {
             if (!"overworld".equalsIgnoreCase(normalizeType(entry.worldType))) continue;
+            if (!entry.activeForRtp) continue;
             if (!isSafeForRtp(server, entry)) continue;
             ServerLevel level = getLevel(server, entry.worldName);
             if (level != null) candidates.add(level);
@@ -212,6 +214,9 @@ public final class ExplorationWorldManager {
 
         for (Entry entry : state.worlds) {
             if (entry == null || entry.worldName == null || entry.worldName.isBlank()) continue;
+            if (!entry.activeForRtp) {
+                continue;
+            }
 
             ServerLevel level = getLevel(server, entry.worldName);
             if (level != null) {
@@ -346,6 +351,25 @@ public final class ExplorationWorldManager {
         save();
     }
 
+
+    public static boolean setActive(String worldName, boolean active) {
+        bootstrapState();
+        Entry entry = findExisting(worldName);
+        if (entry == null) return false;
+        entry.activeForRtp = active;
+        if (active && (entry.status == null || entry.status.isBlank() || "LOCKED".equalsIgnoreCase(entry.status))) {
+            entry.status = ExplorationWorldConfig.get().requirePregenerationBeforeEntry ? "PENDING" : "READY";
+        }
+        save();
+        return true;
+    }
+
+    public static boolean isActive(String worldName) {
+        bootstrapState();
+        Entry entry = findExisting(worldName);
+        return entry != null && entry.activeForRtp;
+    }
+
     public static boolean markReady(String worldName) {
         bootstrapState();
         for (Entry entry : state.worlds) {
@@ -411,6 +435,10 @@ public final class ExplorationWorldManager {
                 entry.status = cfg.requirePregenerationBeforeEntry ? "PENDING" : "READY";
                 entry.lastWipeAtMillis = 0L;
                 entry.nextWipeAtMillis = now + ((long) (globalIndex - 1) * cfg.staggerHours * 60L * 60L * 1000L);
+                entry.activeForRtp = local == 1;
+            }
+            if (local == 1) {
+                entry.activeForRtp = true;
             }
             entry.index = globalIndex;
             entry.localIndex = local;
@@ -518,5 +546,6 @@ public final class ExplorationWorldManager {
         public int localIndex;
         public long generationStartedAtMillis;
         public boolean pregenerationRequested;
+        public boolean activeForRtp;
     }
 }

@@ -95,21 +95,25 @@ public final class TerritoryWorldGenerationManager {
 
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
-            // Always align to the requested biome when possible. Skyblock territories now use NORMAL world
-            // generation too, so this preserves real biome data instead of minecraft:the_void.
-            alignCenterToBiome(loadedLevel, territory);
-
             if (TerritoryConfig.get().skyblockTerritoryWorlds) {
-                boolean prepared = TerritorySkyblockIslandManager.requestStarterAreaPreparation(loadedLevel, territory);
-                if (!prepared) {
-                    System.out.println("[ChampUtils] Territory " + territory.id + " is GENERATING in " + territory.worldName + " slot " + territory.slotIndex + " with NORMAL biome data. Waiting for starter area clear.");
+                boolean biomePainted = TerritoryBiomePaintManager.requestBiomePaint(loadedLevel, territory);
+                if (!biomePainted) {
+                    System.out.println("[ChampUtils] Territory " + territory.id + " is GENERATING in " + territory.worldName + " slot " + territory.slotIndex + ". Painting selected biome into VOID territory bounds.");
                     return;
                 }
+
+                boolean prepared = TerritorySkyblockIslandManager.requestStarterAreaPreparation(loadedLevel, territory);
+                if (!prepared) {
+                    System.out.println("[ChampUtils] Territory " + territory.id + " is GENERATING in " + territory.worldName + " slot " + territory.slotIndex + ". Waiting for skyblock starter island.");
+                    return;
+                }
+            } else {
+                alignCenterToBiome(loadedLevel, territory);
             }
 
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " with NORMAL biome data and a skyblock starter island." : ". Chunky was not used."));
+            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a VOID skyblock territory with painted biome data." : ". Chunky was not used."));
         } else {
             territory.generationState = "PENDING";
             TerritoryRepository.save(territory, (success, message) -> {});

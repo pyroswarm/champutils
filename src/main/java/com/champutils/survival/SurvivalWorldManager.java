@@ -72,6 +72,7 @@ public final class SurvivalWorldManager {
         List<Entry> candidates = new ArrayList<>();
         for (Entry entry : state.worlds) {
             if (!wantedType.equals(normalizeType(entry.worldType))) continue;
+            if (!entry.activeForRtp) continue;
             ServerLevel level = getLevel(server, entry.worldName);
             if (level != null) candidates.add(entry);
         }
@@ -118,6 +119,9 @@ public final class SurvivalWorldManager {
         boolean changed = false;
         for (Entry entry : state.worlds) {
             if (entry == null || entry.worldName == null || entry.worldName.isBlank()) continue;
+            if (!entry.activeForRtp) {
+                continue;
+            }
             ServerLevel level = getLevel(server, entry.worldName);
             if (level != null) {
                 entry.status = "READY";
@@ -199,6 +203,10 @@ public final class SurvivalWorldManager {
                 entry = new Entry();
                 entry.worldName = worldName;
                 entry.status = "PENDING";
+                entry.activeForRtp = local == 1;
+            }
+            if (local == 1) {
+                entry.activeForRtp = true;
             }
             entry.index = globalIndex;
             entry.localIndex = local;
@@ -283,6 +291,25 @@ public final class SurvivalWorldManager {
         }
     }
 
+
+    public static boolean setActive(String worldName, boolean active) {
+        bootstrapState();
+        Entry entry = findExisting(worldName);
+        if (entry == null) return false;
+        entry.activeForRtp = active;
+        if (active && (entry.status == null || entry.status.isBlank() || "LOCKED".equalsIgnoreCase(entry.status))) {
+            entry.status = "PENDING";
+        }
+        save();
+        return true;
+    }
+
+    public static boolean isActive(String worldName) {
+        bootstrapState();
+        Entry entry = findExisting(worldName);
+        return entry != null && entry.activeForRtp;
+    }
+
     public static final class RtpTarget {
         public final Entry entry;
         public final ServerLevel level;
@@ -297,5 +324,6 @@ public final class SurvivalWorldManager {
         public String status;
         public String worldType = "overworld";
         public int localIndex;
+        public boolean activeForRtp;
     }
 }
