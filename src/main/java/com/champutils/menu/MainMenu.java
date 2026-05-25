@@ -64,6 +64,16 @@ public class MainMenu {
 
         MenuUtil.addOpenButton(
                 gui,
+                18,
+                Items.CLOCK,
+                "§eDaily Login",
+                () -> com.champutils.dailylogin.DailyLoginMenu.open(player),
+                "§7Monthly 20-day reward track.",
+                "§7Stay online 30 minutes after reset."
+        );
+
+        MenuUtil.addOpenButton(
+                gui,
                 22,
                 Items.BOOK,
                 "§bHelp",

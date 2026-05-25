@@ -49,6 +49,7 @@ import com.champutils.party.*;
 import com.champutils.megaboss.*;
 import com.champutils.antilag.*;
 import com.champutils.moderation.*;
+import com.champutils.dailylogin.*;
 
 /*
  =========================
@@ -160,6 +161,7 @@ public class ChampUtilsMod implements ModInitializer {
         HomeCommand.load();
         CrateConfig.load();
         CrateCreditManager.load();
+        DailyLoginManager.load();
 
         /*
          =========================
@@ -302,6 +304,7 @@ public class ChampUtilsMod implements ModInitializer {
                     RoamingTrainerManager.despawnAll(server);
                     ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
+                    DailyLoginManager.save();
                     DatabaseManager.shutdown();
 
                     System.out.println(
@@ -401,6 +404,10 @@ public class ChampUtilsMod implements ModInitializer {
                     ModerationManager.handleJoin(
                             player
                     );
+
+                    DailyLoginManager.handleJoin(
+                            player
+                    );
                 }
         );
 
@@ -433,6 +440,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     PartyManager.handleDisconnect(
+                            handler.player
+                    );
+
+                    DailyLoginManager.handleDisconnect(
                             handler.player
                     );
                 }
@@ -530,6 +541,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChatCommand.register();
         PartyCommand.register();
         AutoModCommand.register();
+        DailyLoginCommand.register();
 
         /*
          New custom item test command
@@ -613,6 +625,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PartyManager.tick(server);
                     AntiLagManager.tick(server);
                     ModerationManager.tick(server);
+                    DailyLoginManager.tick(server);
 
                     /*
                      Leaderboard refresh

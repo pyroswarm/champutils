@@ -52,6 +52,8 @@ public final class RankedFormatDatabaseRepository {
         payload.put("description", description(formatKey));
         payload.put("levelCap", format.level_cap);
         payload.put("battleItemsAllowed", format.allow_battle_items);
+        payload.put("battleRules", safeList(format.battle_rules));
+        payload.put("cobblemonFormat", format.cobblemon_format == null ? "gen9singles" : format.cobblemon_format);
         payload.put("matchStyle", "6v6 Singles");
         payload.put("teamPreview", true);
         payload.put("teraAllowed", true);

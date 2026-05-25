@@ -1,8 +1,11 @@
 package com.champutils.matchmaking;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.PvPBattleFormatRules;
+import com.champutils.battle.PvPBattleStarter;
 
-import com.cobblemon.mod.common.battles.BattleBuilder;
+import com.cobblemon.mod.common.battles.BattleFormat;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 
@@ -301,8 +304,10 @@ public class TeamPreviewManager {
             applyLead(p1);
             applyLead(p2);
 
-            BattleBuilder.INSTANCE
-                    .pvp1v1(p1, p2);
+            String formatId = BattleContextManager.getFormatId(p1.getUUID());
+            BattleFormat battleFormat = PvPBattleFormatRules.getCobblemonFormat(formatId);
+
+            PvPBattleStarter.start1v1(p1, p2, battleFormat);
 
             cleanup(p1);
             cleanup(p2);

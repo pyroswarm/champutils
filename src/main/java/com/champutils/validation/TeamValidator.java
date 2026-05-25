@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 import com.champutils.util.CobblemonHeldItemUtil;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -68,12 +69,25 @@ public class TeamValidator {
                 format.level_cap;
 
 
+        List<Pokemon> partyPokemon = new ArrayList<>();
         for (Pokemon pokemon : party) {
-
-            if (pokemon == null) {
-                continue;
+            if (pokemon != null) {
+                partyPokemon.add(pokemon);
             }
+        }
 
+        String partyClauseViolation = BattleClauseValidator.validatePartyWide(partyPokemon, format);
+        if (partyClauseViolation != null) {
+            return partyClauseViolation;
+        }
+
+        for (Pokemon pokemon : partyPokemon) {
+
+
+            String clauseViolation = BattleClauseValidator.validate(pokemon, format);
+            if (clauseViolation != null) {
+                return clauseViolation;
+            }
 
             /*
              LEVEL CAP
@@ -90,10 +104,11 @@ public class TeamValidator {
              BANNED POKEMON
              */
             String species =
-                    pokemon.getSpecies()
-                            .getResourceIdentifier()
-                            .toString()
-                            .toLowerCase();
+                    BattleClauseValidator.normalizeId(
+                            pokemon.getSpecies()
+                                    .getResourceIdentifier()
+                                    .toString()
+                    );
 
             if (
                     bannedPokemon.contains(
@@ -111,9 +126,10 @@ public class TeamValidator {
                     pokemon.getAbility() != null
             ) {
                 String ability =
-                        pokemon.getAbility()
-                                .getName()
-                                .toLowerCase();
+                        BattleClauseValidator.normalizeId(
+                                pokemon.getAbility()
+                                        .getName()
+                        );
 
                 if (
                         bannedAbilities.contains(
@@ -170,9 +186,10 @@ public class TeamValidator {
                     }
 
                     String moveName =
-                            move.getTemplate()
-                                    .getName()
-                                    .toLowerCase();
+                            BattleClauseValidator.normalizeId(
+                                    move.getTemplate()
+                                            .getName()
+                            );
 
                     if (
                             bannedMoves.contains(
@@ -205,7 +222,7 @@ public class TeamValidator {
                             !value.isBlank()
             ) {
                 set.add(
-                        value.toLowerCase()
+                        BattleClauseValidator.normalizeId(value)
                 );
             }
         }

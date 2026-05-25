@@ -90,6 +90,7 @@ public class Config {
                     data.arenas;
 
             ensureDefaultArenas();
+            ensureDefaultBattleRules();
 
             save();
 
@@ -145,6 +146,71 @@ public class Config {
     }
 
 
+
+    public static void ensureDefaultBattleRules(){
+        if(formats == null){
+            return;
+        }
+
+        Format ranked = formats.get("ranked");
+        if(ranked == null){
+            return;
+        }
+
+        if(ranked.battle_rules == null){
+            ranked.battle_rules = new ArrayList<>();
+        }
+
+        addBattleRuleIfMissing(ranked, "Sleep Clause Mod");
+        addBattleRuleIfMissing(ranked, "Species Clause");
+        addBattleRuleIfMissing(ranked, "OHKO Clause");
+        addBattleRuleIfMissing(ranked, "Evasion Moves Clause");
+        addBattleRuleIfMissing(ranked, "Endless Battle Clause");
+        addBattleRuleIfMissing(ranked, "Moody Clause");
+        addBattleRuleIfMissing(ranked, "Baton Pass Clause");
+        addBattleRuleIfMissing(ranked, "Swagger Clause");
+
+        if(ranked.cobblemon_format == null || ranked.cobblemon_format.isBlank()){
+            ranked.cobblemon_format = "gen9singles";
+        }
+    }
+    private static void addBattleRuleIfMissing(Format format, String ruleName){
+        if(format == null){
+            return;
+        }
+
+        if(format.battle_rules == null){
+            format.battle_rules = new ArrayList<>();
+        }
+
+        String expected = compactBattleRule(ruleName);
+        for(String existing : format.battle_rules){
+            if(expected.equals(compactBattleRule(existing))){
+                return;
+            }
+        }
+
+        format.battle_rules.add(ruleName);
+    }
+
+    private static String compactBattleRule(String rule){
+        if(rule == null){
+            return "";
+        }
+
+        String compact = rule
+                .toLowerCase()
+                .replace(" ", "")
+                .replace("_", "")
+                .replace("-", "");
+
+        // Treat Sleep Clause and Sleep Clause Mod as the same ChampUtils setting.
+        if(compact.equals("sleepclausemod")){
+            return "sleepclause";
+        }
+
+        return compact;
+    }
 
 
 
