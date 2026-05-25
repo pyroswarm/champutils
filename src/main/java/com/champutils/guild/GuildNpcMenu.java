@@ -31,7 +31,13 @@ public final class GuildNpcMenu {
 
         gui.setSlot(10, button(Items.PLAYER_HEAD, "Member Management", "Promote, demote, kick, or transfer leadership.", () -> openMembers(player, 0)));
         gui.setSlot(12, button(Items.ENDER_PEARL, "Guild Territory Home", "Teleport to your guild territory.", () -> run(player, gui, "gterritory home")));
-        gui.setSlot(14, button(Items.COMPARATOR, "Territory Settings", "Manage guild territory settings.", () -> run(player, gui, "gterritory settings")));
+        gui.setSlot(14, button(Items.COMPARATOR, "Territory Settings", officer ? "Manage guild territory settings." : "Only leaders and officers can manage settings.", () -> {
+            if (!officer) {
+                player.sendSystemMessage(Component.literal("Only guild leaders and officers can manage guild territory settings.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            run(player, gui, "gterritory settings");
+        }));
         gui.setSlot(16, button(Items.NETHER_STAR, "Daily Guild Boss", officer ? "Spawn today's guild boss." : "Only leaders and officers can spawn this.", () -> {
             gui.close();
             GuildBossManager.spawnBoss(player);

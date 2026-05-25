@@ -110,4 +110,56 @@ public class LuckPermsHook {
 
     }
 
+
+    public static boolean hasPermission(
+            ServerPlayer player,
+            String permission
+    ){
+        if(
+                player == null
+                        || permission == null
+                        || permission.isBlank()
+        ){
+            return false;
+        }
+
+        if(
+                player.hasPermissions(4)
+        ){
+            return true;
+        }
+
+        try{
+            LuckPerms lp =
+                    LuckPermsProvider.get();
+
+            User user =
+                    lp.getUserManager()
+                            .getUser(
+                                    player.getUUID()
+                            );
+
+            if(
+                    user == null
+            ){
+                user =
+                        lp.getUserManager()
+                                .loadUser(
+                                        player.getUUID()
+                                )
+                                .join();
+            }
+
+            return user.getCachedData()
+                    .getPermissionData()
+                    .checkPermission(
+                            permission
+                    )
+                    .asBoolean();
+        }
+        catch(Exception ignored){
+            return player.hasPermissions(4);
+        }
+    }
+
 }

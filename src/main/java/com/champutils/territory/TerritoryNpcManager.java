@@ -41,23 +41,22 @@ public final class TerritoryNpcManager {
         if (level == null) return;
         String uniqueTag = TAG_PREFIX + territory.id;
         Vec3 pos = npcPosition(territory);
-        AABB search = new AABB(pos.x - 32, pos.y - 16, pos.z - 32, pos.x + 32, pos.y + 16, pos.z + 32);
+        AABB search = new AABB(territory.minX, pos.y - 64, territory.minZ, territory.maxX, pos.y + 64, territory.maxZ);
         for (Entity entity : level.getEntities((Entity) null, search, e -> e.getTags().contains(uniqueTag))) {
-            if (entity instanceof NPCEntity) return;
+            if (entity instanceof NPCEntity npc) {
+                configureNpc(npc, pos, territory);
+                return;
+            }
             entity.discard();
         }
         if (!SPAWNED_THIS_RUNTIME.add(territory.id)) return;
 
         NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, pos, 180.0F,
-                territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Guild Steward" : "Territory Steward", "");
+                territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Guild Steward" : "Territory Steward", "Pivilee");
         if (npc == null) return;
         npc.addTag(uniqueTag);
         npc.addTag(territory.ownerType == TerritoryRepository.OwnerType.GUILD ? GUILD_TAG : PERSONAL_TAG);
-        try { npc.setNoAi(true); } catch (Exception ignored) {}
-        try { npc.setInvulnerable(Boolean.TRUE); } catch (Exception ignored) {}
-        try { npc.setMovable(Boolean.FALSE); } catch (Exception ignored) {}
-        try { npc.setAllowProjectileHits(Boolean.FALSE); } catch (Exception ignored) {}
-        try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
+        configureNpc(npc, pos, territory);
     }
 
     public static TerritoryRepository.Territory territoryFor(Entity entity) {
@@ -77,10 +76,27 @@ public final class TerritoryNpcManager {
         return TerritoryRepository.isOwnerOrGuildMember(player, territory);
     }
 
+    private static void configureNpc(NPCEntity npc, Vec3 pos, TerritoryRepository.Territory territory) {
+        if (npc == null || territory == null) return;
+        String displayName = territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Guild Steward" : "Territory Steward";
+        npc.moveTo(pos.x, pos.y, pos.z, 180.0F, 0.0F);
+        npc.setYHeadRot(180.0F);
+        npc.setYBodyRot(180.0F);
+        npc.setCustomName(Component.literal(displayName));
+        npc.setCustomNameVisible(true);
+        ChampTrainerSpawner.applyTrainerSkin(npc, "Pivilee");
+        try { npc.setNoAi(true); } catch (Exception ignored) {}
+        try { npc.setInvulnerable(Boolean.TRUE); } catch (Exception ignored) {}
+        try { npc.setMovable(Boolean.FALSE); } catch (Exception ignored) {}
+        try { npc.setAllowProjectileHits(Boolean.FALSE); } catch (Exception ignored) {}
+        try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
+        try { npc.setDeltaMovement(Vec3.ZERO); } catch (Exception ignored) {}
+    }
+
     private static Vec3 npcPosition(TerritoryRepository.Territory territory) {
-        double x = territory.spawnX + 3.5D;
-        double y = territory.spawnY;
-        double z = territory.spawnZ + 2.5D;
+        double x = territory.centerX + 0.5D;
+        double y = territory.spawnY - 1.0D;
+        double z = territory.centerZ + 4.5D;
         return new Vec3(x, y, z);
     }
 

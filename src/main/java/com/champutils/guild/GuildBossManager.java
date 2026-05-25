@@ -1,6 +1,8 @@
 package com.champutils.guild;
 
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.trainer.ChampTrainerSpawner;
+import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.champutils.territory.TerritoryRepository;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -12,6 +14,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 import java.time.Duration;
 import java.util.*;
@@ -48,7 +52,7 @@ public final class GuildBossManager {
         TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
         if (territory == null || !territory.isReady()) { msg(player, "Your guild territory is not ready yet.", ChatFormatting.RED); return; }
         long now = System.currentTimeMillis();
-        long cooldownMs = Duration.ofHours(24).toMillis();
+        long cooldownMs = Duration.ofMinutes(Math.max(1, BossConfig.DATA.guildBoss.cooldownMinutes)).toMillis();
         long last = LAST_GUILD_SPAWN.getOrDefault(guild.id, 0L);
         long remaining = (last + cooldownMs) - now;
         if (remaining > 0L) {
@@ -58,10 +62,15 @@ public final class GuildBossManager {
         if (ACTIVE_GUILD.containsKey(guild.id)) { msg(player, "Your guild already has an active boss.", ChatFormatting.RED); return; }
 
         BossConfig.BossPokemon pokemon = choose(BossConfig.DATA.guildBoss.pool);
-        ServerLevel level = player.serverLevel();
-        double x = territory.spawnX + 8.0D, y = territory.spawnY, z = territory.spawnZ;
-        if (!spawnPokemon(player.server, level, pokemon, BossConfig.DATA.guildBoss, x, y, z)) {
-            msg(player, "Could not spawn the guild boss. Check bosses.json and /pokespawn syntax.", ChatFormatting.RED);
+        ServerLevel level = level(player.server, territory.worldName);
+        if (level == null) {
+            msg(player, "Your guild territory world is not loaded yet. Try again in a moment.", ChatFormatting.RED);
+            return;
+        }
+        double x = territory.centerX + 0.5D, y = territory.spawnY - 1.0D, z = territory.centerZ + 0.5D;
+        NPCEntity npc = spawnBossTrainer(level, pokemon, BossConfig.DATA.guildBoss, x, y, z, 180.0F, "Guild Boss - "+ pretty(pokemon.species), "swordtap");
+        if (npc == null) {
+            msg(player, "Could not spawn the guild boss trainer. Check bosses.json and console.", ChatFormatting.RED);
             return;
         }
         ActiveGuildBoss boss = new ActiveGuildBoss();
@@ -72,9 +81,113 @@ public final class GuildBossManager {
         boss.dimension = level.dimension().location().toString();
         boss.x = x; boss.y = y; boss.z = z;
         boss.despawnAtMillis = now + BossConfig.DATA.guildBoss.aliveMinutes * 60_000L;
+        boss.npcUuid = npc.getUUID();
         ACTIVE_GUILD.put(guild.id, boss);
         LAST_GUILD_SPAWN.put(guild.id, now);
-        broadcastGuild(player.server, guild.id, "A gigantic " + pretty(pokemon.species) + " appeared on your guild island! You have " + BossConfig.DATA.guildBoss.aliveMinutes + " minutes to defeat it.", ChatFormatting.LIGHT_PURPLE);
+        broadcastGuild(player.server, guild.id, "A guild boss trainer appeared on your guild island with " + pretty(pokemon.species) + "! You have " + BossConfig.DATA.guildBoss.aliveMinutes + " minutes to defeat it.", ChatFormatting.LIGHT_PURPLE);
+    }
+
+
+    public static ActiveGuildBossView getActiveGuildBossByNpc(UUID npcUuid) {
+        if (npcUuid == null) return null;
+        for (ActiveGuildBoss boss : ACTIVE_GUILD.values()) {
+            if (npcUuid.equals(boss.npcUuid)) return new ActiveGuildBossView(boss.guildId, boss.npcUuid);
+        }
+        return null;
+    }
+
+    public static boolean isActiveWorldBossNpc(UUID npcUuid) {
+        if (npcUuid == null || activeWorldBoss == null) return false;
+        for (BossSpawn spawn : activeWorldBoss.spawns) {
+            if (spawn != null && npcUuid.equals(spawn.npcUuid)) return true;
+        }
+        return false;
+    }
+
+    public static boolean prepareGuildBossBattle(ServerPlayer player, NPCEntity npc) {
+        if (player == null || npc == null) return false;
+        ActiveGuildBoss boss = null;
+        for (ActiveGuildBoss candidate : ACTIVE_GUILD.values()) {
+            if (npc.getUUID().equals(candidate.npcUuid)) { boss = candidate; break; }
+        }
+        if (boss == null) return false;
+        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+        if (guild == null || !boss.guildId.equals(guild.id)) {
+            msg(player, "Only members of this guild can fight this boss.", ChatFormatting.RED);
+            return false;
+        }
+        if (boss.defeatedPlayers.contains(player.getUUID())) {
+            msg(player, "You already defeated this guild boss.", ChatFormatting.YELLOW);
+            return false;
+        }
+        BossConfig.BossPokemon pokemon = new BossConfig.BossPokemon();
+        pokemon.species = boss.species;
+        for (BossConfig.BossPokemon candidate : BossConfig.DATA.guildBoss.pool) {
+            if (candidate != null && candidate.species != null && candidate.species.equalsIgnoreCase(boss.species)) {
+                pokemon = candidate;
+                break;
+            }
+        }
+        boolean applied = GuildBossPartyBuilder.applyBossPokemon(npc, pokemon, BossConfig.DATA.guildBoss);
+        if (!applied) {
+            msg(player, "This guild boss could not prepare its battle team. Tell staff to check console.", ChatFormatting.RED);
+            return false;
+        }
+        try { npc.setCustomName(Component.literal("Guild Boss - " + pretty(boss.species)).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
+        try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        return true;
+    }
+
+    public static boolean prepareWorldBossBattle(ServerPlayer player, NPCEntity npc) {
+        if (player == null || npc == null) return false;
+        ActiveWorldBoss boss = activeWorldBoss;
+        if (boss == null || !isActiveWorldBossNpc(npc.getUUID())) return false;
+        if (boss.defeatedPlayers.contains(player.getUUID())) {
+            msg(player, "You already defeated this world boss.", ChatFormatting.YELLOW);
+            return false;
+        }
+        BossConfig.BossPokemon pokemon = new BossConfig.BossPokemon();
+        pokemon.species = boss.species;
+        for (BossConfig.BossPokemon candidate : BossConfig.DATA.worldBoss.pool) {
+            if (candidate != null && candidate.species != null && candidate.species.equalsIgnoreCase(boss.species)) {
+                pokemon = candidate;
+                break;
+            }
+        }
+        boolean applied = GuildBossPartyBuilder.applyBossPokemon(npc, pokemon, BossConfig.DATA.worldBoss);
+        if (!applied) {
+            msg(player, "This world boss could not prepare its battle team. Tell staff to check console.", ChatFormatting.RED);
+            return false;
+        }
+        try { npc.setCustomName(Component.literal("World Boss - " + pretty(boss.species)).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
+        try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        return true;
+    }
+
+    public static boolean forceSpawnWorldBoss(MinecraftServer server) {
+        if (server == null) return false;
+        if (activeWorldBoss != null) return false;
+        return spawnWorldBoss(server);
+    }
+
+    public static boolean hasActiveWorldBoss() {
+        return activeWorldBoss != null;
+    }
+
+    public static String formatLastWorldBossSpawnAgo() {
+        long last = BossConfig.DATA.worldBoss.lastSpawnAtMillis;
+        if (last <= 0L) return "Never";
+        long elapsed = Math.max(0L, System.currentTimeMillis() - last);
+        return formatDuration(elapsed) + " ago";
+    }
+
+    public static int getGuildBossCooldownMinutes() {
+        return Math.max(1, BossConfig.DATA.guildBoss.cooldownMinutes);
+    }
+
+    public static void setGuildBossCooldownMinutes(int minutes) {
+        BossConfig.DATA.guildBoss.cooldownMinutes = Math.max(1, minutes);
+        BossConfig.save();
     }
 
     public static void claimRewards(ServerPlayer player) {
@@ -120,7 +233,7 @@ public final class GuildBossManager {
         }
     }
 
-    private static void spawnWorldBoss(MinecraftServer server) {
+    private static boolean spawnWorldBoss(MinecraftServer server) {
         BossConfig.WorldBossSettings settings = BossConfig.DATA.worldBoss;
         BossConfig.BossPokemon pokemon = choose(settings.pool);
         ActiveWorldBoss boss = new ActiveWorldBoss();
@@ -135,21 +248,26 @@ public final class GuildBossManager {
                 System.err.println("[ChampUtils] World boss skipped unloaded/missing dimension: " + dimension);
                 continue;
             }
-            if (spawnPokemon(server, level, pokemon, settings, location.x, location.y, location.z)) {
-                boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z));
+            NPCEntity npc = spawnBossTrainer(level, pokemon, settings, location.x, location.y, location.z, settings.yaw, "World Boss - " + pretty(pokemon.species), "dmitibr");
+            if (npc != null) {
+                boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z, npc.getUUID()));
             }
         }
 
         if (boss.spawns.isEmpty()) {
             scheduleNextWorldBoss(System.currentTimeMillis());
-            return;
+            return false;
         }
         activeWorldBoss = boss;
+        BossConfig.DATA.worldBoss.lastSpawnAtMillis = System.currentTimeMillis();
+        BossConfig.save();
         broadcastAll(server, "A gigantic " + pretty(pokemon.species) + " has appeared at spawn! You have " + settings.aliveMinutes + " minutes to defeat it once.", ChatFormatting.LIGHT_PURPLE);
+        return true;
     }
 
     private static void finishGuildBoss(MinecraftServer server, ActiveGuildBoss boss) {
         ACTIVE_GUILD.remove(boss.guildId);
+        removeBossNpc(server, boss);
         int clears = boss.defeatedPlayers.size();
         if (clears <= 0) { broadcastGuild(server, boss.guildId, "The guild boss escaped. No rewards were earned.", ChatFormatting.RED); return; }
         RewardDrop drop = makeReward(boss.guildId, clears, BossConfig.DATA.guildBoss.rewardTiers);
@@ -159,6 +277,7 @@ public final class GuildBossManager {
 
     private static void finishWorldBoss(MinecraftServer server, ActiveWorldBoss boss) {
         if (activeWorldBoss == boss) activeWorldBoss = null;
+        removeWorldBossNpcs(server, boss);
         int clears = boss.defeatedPlayers.size();
         if (clears <= 0) {
             broadcastAll(server, "The world boss escaped. No rewards were earned.", ChatFormatting.RED);
@@ -192,6 +311,51 @@ public final class GuildBossManager {
         msg(player, "Claimed your " + label + " reward!", ChatFormatting.GREEN);
     }
 
+
+    private static NPCEntity spawnBossTrainer(ServerLevel level, BossConfig.BossPokemon pokemon, BossConfig.BossSettings settings, double x, double y, double z, float yaw, String name, String skinUsername) {
+        try {
+            NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, new Vec3(x, y, z), yaw, name, skinUsername);
+            if (npc == null) return null;
+            try { npc.setNoAi(true); } catch (Exception ignored) {}
+            try { npc.setMovable(false); } catch (Exception ignored) {}
+            try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+            try {
+                npc.moveTo(x, y, z, yaw, 0.0F);
+                npc.setYHeadRot(yaw);
+                npc.setYBodyRot(yaw);
+            } catch (Exception ignored) {}
+            if (!GuildBossPartyBuilder.applyBossPokemon(npc, pokemon, settings)) {
+                try { npc.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
+                return null;
+            }
+            return npc;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static void removeBossNpc(MinecraftServer server, ActiveGuildBoss boss) {
+        if (server == null || boss == null || boss.npcUuid == null) return;
+        removeNpc(server, boss.dimension, boss.npcUuid);
+    }
+
+    private static void removeWorldBossNpcs(MinecraftServer server, ActiveWorldBoss boss) {
+        if (server == null || boss == null) return;
+        for (BossSpawn spawn : boss.spawns) {
+            if (spawn != null && spawn.npcUuid != null) removeNpc(server, spawn.dimension, spawn.npcUuid);
+        }
+    }
+
+    private static void removeNpc(MinecraftServer server, String dimension, UUID npcUuid) {
+        ServerLevel level = level(server, dimension);
+        if (level == null) return;
+        Entity entity = level.getEntity(npcUuid);
+        if (entity != null) {
+            try { entity.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
+        }
+    }
+
     private static boolean spawnPokemon(MinecraftServer server, ServerLevel level, BossConfig.BossPokemon pokemon, BossConfig.BossSettings settings, double x, double y, double z) {
         try {
             CommandSourceStack source = server.createCommandSourceStack().withLevel(level).withPermission(4).withSuppressedOutput();
@@ -208,7 +372,7 @@ public final class GuildBossManager {
                 .append(" lvl=").append(settings.level)
                 .append(" x=").append(x).append(" y=").append(y).append(" z=").append(z)
                 .append(" scale_modifier=").append(settings.scaleModifier)
-                .append(" shiny=false ai=true")
+                .append(" shiny=false ai=false")
                 .append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31")
                 .append(" ev_hp=252 ev_attack=252 ev_defence=252 ev_special_attack=252 ev_special_defence=252 ev_speed=252");
         if (!pokemon.nature.isBlank()) cmd.append(" nature=").append(pokemon.nature);
@@ -271,8 +435,9 @@ public final class GuildBossManager {
         return hours > 0 ? hours + "h " + mins + "m" : mins + "m";
     }
 
-    private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; String guildName; String species; String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
+    private static final class ActiveGuildBoss { UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class ActiveWorldBoss { UUID id; String species; long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
-    private static final class BossSpawn { String dimension; double x; double y; double z; BossSpawn(String dimension, double x, double y, double z) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; } }
+    private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
 }

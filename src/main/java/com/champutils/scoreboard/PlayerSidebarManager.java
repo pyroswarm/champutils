@@ -8,6 +8,7 @@ import com.champutils.profile.PlayerDataManager;
 import com.champutils.rank.RankManager;
 import com.champutils.config.Rank;
 import com.champutils.specialspawn.SpecialWildSpawnManager;
+import com.champutils.guild.GuildBossManager;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -166,6 +167,7 @@ public final class PlayerSidebarManager {
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
         lines.add("§6Last Special §f" + SpecialWildSpawnManager.formatLastSpawnAgo());
+        lines.add("§5Last Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         lines.add("§8§m----------------");
         lines.add(professionLine("§cBattling", player, ProfessionType.BATTLING));
         lines.add(professionLine("§7Mining", player, ProfessionType.MINING));

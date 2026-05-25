@@ -2,6 +2,7 @@ package com.champutils.trainer;
 
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymNpcPartyBuilder;
+import com.champutils.guild.GuildBossManager;
 import com.champutils.gym.GymRegistry;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.roaming.RoamingTrainerManager;
@@ -39,8 +40,10 @@ public final class ChampTrainerInteractionListener {
                 BadgeType badge = GymRegistry.getBadgeForNpc(npc.getUUID());
 
                 boolean roaming = RoamingTrainerManager.isRoamingTrainer(npc.getUUID());
+                boolean guildBoss = GuildBossManager.getActiveGuildBossByNpc(npc.getUUID()) != null;
+                boolean worldBoss = GuildBossManager.isActiveWorldBossNpc(npc.getUUID());
 
-                if (active == null && badge == null && !roaming) {
+                if (active == null && badge == null && !roaming && !guildBoss && !worldBoss) {
                     return InteractionResult.PASS;
                 }
 
@@ -57,6 +60,22 @@ public final class ChampTrainerInteractionListener {
                     return InteractionResult.SUCCESS;
                 }
                 LAST_TRAINER_CLICK.put(key, now);
+
+                if (guildBoss) {
+                    if (!GuildBossManager.prepareGuildBossBattle(serverPlayer, npc)) {
+                        return InteractionResult.SUCCESS;
+                    }
+                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    return InteractionResult.SUCCESS;
+                }
+
+                if (worldBoss) {
+                    if (!GuildBossManager.prepareWorldBossBattle(serverPlayer, npc)) {
+                        return InteractionResult.SUCCESS;
+                    }
+                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    return InteractionResult.SUCCESS;
+                }
 
                 if (roaming) {
                     if (!RoamingTrainerManager.tryStartChallenge(serverPlayer, npc)) {

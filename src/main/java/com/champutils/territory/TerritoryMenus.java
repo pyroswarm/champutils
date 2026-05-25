@@ -1,5 +1,6 @@
 package com.champutils.territory;
 
+import com.champutils.guild.GuildRepository;
 import com.champutils.menu.MainMenu;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -88,10 +89,7 @@ public final class TerritoryMenus {
             gui.close();
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory home");
         }));
-        gui.setSlot(12, button(Items.COMPARATOR, "Settings", "Show territory settings in chat.", () -> {
-            gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory settings");
-        }));
+        gui.setSlot(12, button(Items.COMPARATOR, "Settings", "Toggle territory settings.", () -> openSettings(player, false)));
         gui.setSlot(14, button(Items.OAK_SIGN, "Set Home", "Set your territory home where you are standing.", () -> {
             gui.close();
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory sethome");
@@ -121,10 +119,7 @@ public final class TerritoryMenus {
             gui.close();
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory home");
         }));
-        gui.setSlot(14, button(Items.COMPARATOR, "Settings", "Shows territory settings in chat.", () -> {
-            gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory settings");
-        }));
+        gui.setSlot(14, button(Items.COMPARATOR, "Settings", "Toggle territory settings.", () -> openSettings(player, false)));
         gui.setSlot(16, button(Items.COMPASS, "Browse Public Personal Territories", "Opens the public personal territory browser.", () -> openBrowser(player, BrowserType.PERSONAL, "", 0)));
 
         gui.setSlot(18, button(Items.BARRIER, "Delete Territory", "Runs the delete confirmation prompt.", () -> {
@@ -152,10 +147,7 @@ public final class TerritoryMenus {
             gui.close();
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "gterritory home");
         }));
-        gui.setSlot(14, button(Items.COMPARATOR, "Settings", "Shows guild territory settings in chat.", () -> {
-            gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "gterritory settings");
-        }));
+        gui.setSlot(14, button(Items.COMPARATOR, "Settings", "Toggle guild territory settings.", () -> openSettings(player, true)));
         gui.setSlot(16, button(Items.COMPASS, "Browse Public Guild Territories", "Opens the public guild territory browser.", () -> openBrowser(player, BrowserType.GUILD, "", 0)));
 
         gui.setSlot(18, button(Items.BARRIER, "Delete Guild Territory", "Runs the delete confirmation prompt.", () -> {
@@ -164,6 +156,64 @@ public final class TerritoryMenus {
         }));
         gui.setSlot(22, button(Items.ARROW, "Back", "Return to territory menu.", () -> openHub(player)));
         gui.open();
+    }
+
+
+    public static void openSettings(ServerPlayer player, boolean guild) {
+        TerritoryRepository.Territory territory = guild
+                ? TerritoryRepository.cachedGuildForPlayer(player)
+                : TerritoryRepository.cachedPersonal(player);
+
+        if (guild) {
+            GuildRepository.GuildSnapshot snapshot = GuildRepository.cachedGuild(player.getUUID());
+            if (snapshot == null || !GuildRepository.canManageGuildTerritory(snapshot.role)) {
+                player.sendSystemMessage(Component.literal("Only guild leaders and officers can manage guild territory settings.").withStyle(ChatFormatting.RED));
+                return;
+            }
+        }
+
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x1, player, false);
+        gui.setLockPlayerInventory(true);
+        gui.setTitle(Component.literal(guild ? "Guild Territory Settings" : "Territory Settings"));
+
+        if (territory == null) {
+            gui.setSlot(4, new GuiElementBuilder(Items.BARRIER)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal(guild ? "No guild territory" : "No territory").withStyle(ChatFormatting.RED))
+                    .addLoreLine(Component.literal(guild ? "Create a guild territory first." : "Create a territory first.").withStyle(ChatFormatting.GRAY)));
+            gui.setSlot(8, new GuiElementBuilder(Items.ARROW)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("Back").withStyle(ChatFormatting.YELLOW))
+                    .setCallback((index, clickType, actionType) -> { if (guild) openGuildManage(player); else openPersonalManage(player); }));
+            gui.open();
+            return;
+        }
+
+        setToggle(gui, 0, "Public Listing", "Show this territory in public browsers.", territory.isPublic, guild, "public", player);
+        setToggle(gui, 1, "Visitors", "Allow players to visit this territory.", territory.allowVisitors, guild, "visitors", player);
+        setToggle(gui, 2, "Visitor Build", "Allow visitors to build and break blocks.", territory.visitorsCanBuild, guild, "visitorbuild", player);
+        setToggle(gui, 3, "Visitor Containers", "Allow visitors to open containers.", territory.visitorsCanOpenContainers, guild, "visitorcontainers", player);
+        setToggle(gui, 4, "Visitor Entities", "Allow visitors to interact with entities.", territory.visitorsCanInteractEntities, guild, "visitorentities", player);
+        setToggle(gui, 5, "Visitor Redstone", "Allow visitors to use buttons, levers, and redstone.", territory.visitorsCanUseRedstone, guild, "visitorredstone", player);
+        gui.setSlot(8, new GuiElementBuilder(Items.ARROW)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Back").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, actionType) -> { if (guild) openGuildManage(player); else openPersonalManage(player); }));
+        gui.open();
+    }
+
+    private static void setToggle(SimpleGui gui, int slot, String label, String description, boolean enabled, boolean guild, String setting, ServerPlayer player) {
+        Item icon = enabled ? Items.LIME_DYE : Items.GRAY_DYE;
+        gui.setSlot(slot, new GuiElementBuilder(icon)
+                .hideDefaultTooltip()
+                .setName(Component.literal((enabled ? "§a" : "§c") + label + ": " + (enabled ? "ON" : "OFF")))
+                .addLoreLine(Component.literal("§7" + description))
+                .addLoreLine(Component.literal("§eClick to toggle"))
+                .setCallback((index, clickType, actionType) -> {
+                    String command = (guild ? "gterritory" : "territory") + " set " + setting + " " + (!enabled);
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), command);
+                    player.getServer().execute(() -> openSettings(player, guild));
+                }));
     }
 
     public static void openBrowser(ServerPlayer player, BrowserType type, String search, int page) {
