@@ -39,8 +39,11 @@ public final class SpecialWildSpawnManager {
     private static final File STATE_FILE = new File("config/champutils/special_wild_spawn_state.json");
     private static final Random RANDOM = new Random();
     private static int ticksUntilCheck = 200;
+    private static int ticksUntilCleanup = 200;
     private static final Map<UUID, Long> tracked = new ConcurrentHashMap<>();
     private static final long SPECIAL_DESPAWN_MILLIS = 15L * 60L * 1000L;
+    private static final String SPECIAL_TAG = "champutils_special_spawn";
+    private static final String SPECIAL_EXPIRES_TAG_PREFIX = "champutils_special_expires_";
     private static State state = new State();
     private static boolean stateLoaded = false;
 
@@ -49,6 +52,12 @@ public final class SpecialWildSpawnManager {
     public static void tick(MinecraftServer server) {
         if (!SpecialWildSpawnConfig.DATA.enabled) return;
         ensureStateLoaded();
+
+        ticksUntilCleanup--;
+        if (ticksUntilCleanup <= 0) {
+            ticksUntilCleanup = 200; // cleanup every 10 seconds, independent from the spawn roll interval
+            cleanupTracked(server);
+        }
 
         ticksUntilCheck--;
         if (ticksUntilCheck > 0) return;
@@ -125,6 +134,10 @@ public final class SpecialWildSpawnManager {
     public static void cleanupTracked(MinecraftServer server) {
         long now = System.currentTimeMillis();
 
+        // Rebuild tracking from persistent entity scoreboard tags. This fixes special spawns
+        // surviving restarts or any case where the in-memory map missed the spawned entity.
+        recoverTaggedSpecialSpawns(server);
+
         tracked.entrySet().removeIf(entry -> {
             UUID id = entry.getKey();
             long expiresAt = entry.getValue();
@@ -134,7 +147,7 @@ public final class SpecialWildSpawnManager {
 
                 if (e != null && e.isAlive()) {
                     if (now >= expiresAt) {
-                        e.discard();
+                        removeSpecialSpawnEntity(e);
                         return true;
                     }
                     return false;
@@ -143,6 +156,72 @@ public final class SpecialWildSpawnManager {
 
             return true;
         });
+
+        // Safety net: if a tagged entity was not in the map for any reason, still remove it.
+        removeExpiredTaggedSpecialSpawns(server, now);
+    }
+
+    private static void recoverTaggedSpecialSpawns(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!isTaggedSpecialSpawn(entity)) continue;
+                long expiresAt = readSpecialExpiresAt(entity);
+                if (expiresAt > 0L) {
+                    tracked.put(entity.getUUID(), expiresAt);
+                }
+            }
+        }
+    }
+
+    private static void removeExpiredTaggedSpecialSpawns(MinecraftServer server, long now) {
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!isTaggedSpecialSpawn(entity)) continue;
+                long expiresAt = readSpecialExpiresAt(entity);
+                if (expiresAt > 0L && now >= expiresAt) {
+                    removeSpecialSpawnEntity(entity);
+                    tracked.remove(entity.getUUID());
+                }
+            }
+        }
+    }
+
+    private static boolean isTaggedSpecialSpawn(Entity entity) {
+        return entity != null && entity.getTags().contains(SPECIAL_TAG);
+    }
+
+    private static long readSpecialExpiresAt(Entity entity) {
+        if (entity == null) return 0L;
+        for (String tag : entity.getTags()) {
+            if (tag != null && tag.startsWith(SPECIAL_EXPIRES_TAG_PREFIX)) {
+                try {
+                    return Long.parseLong(tag.substring(SPECIAL_EXPIRES_TAG_PREFIX.length()));
+                } catch (NumberFormatException ignored) {
+                    return 0L;
+                }
+            }
+        }
+        return 0L;
+    }
+
+    private static void markSpecialSpawnEntity(Entity entity, long expiresAt) {
+        if (entity == null) return;
+        entity.addTag(SPECIAL_TAG);
+        entity.getTags().stream()
+                .filter(tag -> tag != null && tag.startsWith(SPECIAL_EXPIRES_TAG_PREFIX))
+                .toList()
+                .forEach(entity::removeTag);
+        entity.addTag(SPECIAL_EXPIRES_TAG_PREFIX + expiresAt);
+
+        if (entity instanceof Mob mob) {
+            mob.setPersistenceRequired();
+        }
+        tracked.put(entity.getUUID(), expiresAt);
+    }
+
+    private static void removeSpecialSpawnEntity(Entity entity) {
+        if (entity == null) return;
+        entity.discard();
     }
 
     public static long getLastSpawnEpochMillis() {
@@ -310,10 +389,7 @@ public final class SpecialWildSpawnManager {
 
             if (spawnedEntity instanceof Entity entity) {
                 long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
-                if (entity instanceof Mob mob) {
-                    mob.setPersistenceRequired();
-                }
-                tracked.put(entity.getUUID(), expiresAt);
+                markSpecialSpawnEntity(entity, expiresAt);
                 return true;
             }
 
@@ -397,10 +473,7 @@ public final class SpecialWildSpawnManager {
             for (Entity entity : level.getEntities(null, new net.minecraft.world.phys.AABB(pos).inflate(24.0D))) {
                 if (before.contains(entity.getUUID())) continue;
 
-                if (entity instanceof Mob mob) {
-                    mob.setPersistenceRequired();
-                }
-                tracked.put(entity.getUUID(), expiresAt);
+                markSpecialSpawnEntity(entity, expiresAt);
                 foundNewSpawn = true;
             }
 
