@@ -52,7 +52,18 @@ public final class TerritoryRegionWipeManager {
         QUEUED_TERRITORIES.add(territory.id);
 
         player.sendSystemMessage(Component.literal("Territory deletion confirmed. You were sent to spawn first.").withStyle(ChatFormatting.GREEN));
-        player.sendSystemMessage(Component.literal("Wiping the territory region now. The packed slot will not be freed until the wipe finishes.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Removing the territory from the database now. The region will keep wiping safely in the background.").withStyle(ChatFormatting.YELLOW));
+
+        TerritoryRepository.deleteTerritory(task.territory, (success, message) -> player.server.execute(() -> {
+            ServerPlayer requester = player.server.getPlayerList().getPlayer(task.requesterId);
+            if (requester != null) {
+                requester.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }
+            if (!success) {
+                QUEUE.remove(task);
+                QUEUED_TERRITORIES.remove(task.territory.id);
+            }
+        }));
     }
 
     public static void tick(MinecraftServer server) {
@@ -85,12 +96,10 @@ public final class TerritoryRegionWipeManager {
         if (task.done(level)) {
             QUEUE.removeFirst();
             QUEUED_TERRITORIES.remove(task.territory.id);
-            TerritoryRepository.deleteTerritory(task.territory, (success, message) -> server.execute(() -> {
-                ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
-                if (player != null) {
-                    player.sendSystemMessage(Component.literal(success ? "Territory region wiped. " + message : message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                }
-            }));
+            ServerPlayer player = server.getPlayerList().getPlayer(task.requesterId);
+            if (player != null) {
+                player.sendSystemMessage(Component.literal("Territory region wipe finished. The old packed slot is clean.").withStyle(ChatFormatting.GREEN));
+            }
         }
     }
 

@@ -551,7 +551,6 @@ public class ChampUtilsMod implements ModInitializer {
                     TerritoryPhysicalBorderManager.tick(server);
                     TerritoryBorderDisplayManager.tick(server);
                     TerritoryWorldGenerationManager.tick(server);
-                    TerritoryBiomePaintManager.tick(server);
                     TerritorySkyblockIslandManager.tick(server);
                     TerritoryRegionWipeManager.tick(server);
                     ExplorationWorldManager.tick(server);

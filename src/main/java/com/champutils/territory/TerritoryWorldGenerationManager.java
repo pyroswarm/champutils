@@ -96,12 +96,8 @@ public final class TerritoryWorldGenerationManager {
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
             if (TerritoryConfig.get().skyblockTerritoryWorlds) {
-                boolean biomePainted = TerritoryBiomePaintManager.requestBiomePaint(loadedLevel, territory);
-                if (!biomePainted) {
-                    System.out.println("[ChampUtils] Territory " + territory.id + " is GENERATING in " + territory.worldName + " slot " + territory.slotIndex + ". Painting selected biome into VOID territory bounds.");
-                    return;
-                }
-
+                // Biome painting is intentionally disabled. It was reflection-heavy and could leave
+                // territories stuck in GENERATING. Skyblock territories now only prepare the starter island.
                 boolean prepared = TerritorySkyblockIslandManager.requestStarterAreaPreparation(loadedLevel, territory);
                 if (!prepared) {
                     System.out.println("[ChampUtils] Territory " + territory.id + " is GENERATING in " + territory.worldName + " slot " + territory.slotIndex + ". Waiting for skyblock starter island.");
@@ -113,7 +109,7 @@ public final class TerritoryWorldGenerationManager {
 
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
-            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a VOID skyblock territory with painted biome data." : ". Chunky was not used."));
+            System.out.println("[ChampUtils] Territory " + territory.id + " is READY in " + territory.worldName + " slot " + territory.slotIndex + (TerritoryConfig.get().skyblockTerritoryWorlds ? " as a VOID skyblock territory. Biome painting is disabled." : ". Chunky was not used."));
         } else {
             territory.generationState = "PENDING";
             TerritoryRepository.save(territory, (success, message) -> {});

@@ -10,6 +10,8 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,9 +22,15 @@ import java.util.UUID;
  *
  * This gives skyblock territories real biome identity without generating normal terrain. It edits the chunk biome
  * containers only; it does not place terrain, trees, caves, ores, water, structures, or decorations.
+ *
+ * IMPORTANT:
+ * Minecraft/Fabric production runtime names can change enough that biome container reflection is not guaranteed.
+ * Biome painting is nice-to-have, not worth crashing the server. If reflection fails, the task now fails open:
+ * the territory can still become READY and the selected biome preference remains saved for future systems.
  */
 public final class TerritoryBiomePaintManager {
     private static final Map<UUID, PaintTask> TASKS = new LinkedHashMap<>();
+    private static boolean loggedReflectionFailure = false;
 
     private TerritoryBiomePaintManager() {}
 
@@ -64,14 +72,26 @@ public final class TerritoryBiomePaintManager {
 
         int budget = Math.max(1, TerritoryConfig.get().biomePaintChunksPerTick);
         while (budget-- > 0 && !task.done) {
-            task.paintNextChunk(level);
+            try {
+                task.paintNextChunk(level);
+            } catch (Throwable throwable) {
+                // Absolute safety net: optional biome painting must never crash the server tick loop.
+                task.failed = true;
+                task.done = true;
+                logReflectionFailure(task, throwable);
+            }
         }
 
         if (task.done) {
             TerritoryRepository.Territory live = TerritoryRepository.get(task.territory.id);
             if (live != null) live.biomePreference = task.biomePreference;
             iterator.remove();
-            System.out.println("[ChampUtils] Finished painting territory " + task.territory.id + " biome to minecraft:" + task.biomePreference + ".");
+
+            if (task.failed) {
+                System.err.println("[ChampUtils] Skipped biome painting for territory " + task.territory.id + ". Territory creation will continue safely.");
+            } else {
+                System.out.println("[ChampUtils] Finished painting territory " + task.territory.id + " biome to minecraft:" + task.biomePreference + ".");
+            }
         }
     }
 
@@ -100,55 +120,111 @@ public final class TerritoryBiomePaintManager {
         return copy;
     }
 
-    private static void setBiomeReflective(LevelChunkSection section, int x, int y, int z, Holder<Biome> biome) {
+    private static boolean setBiomeReflective(LevelChunkSection section, int x, int y, int z, Holder<Biome> biome) {
         try {
-            Object container = null;
-            Class<?> clazz = section.getClass();
-            while (clazz != null && container == null) {
-                for (java.lang.reflect.Field field : clazz.getDeclaredFields()) {
-                    if (field.getType().getName().contains("PalettedContainer")) {
-                        field.setAccessible(true);
-                        Object value = field.get(section);
-                        if (value != null && value.getClass().getName().contains("PalettedContainer")) {
-                            container = value;
-                            break;
-                        }
-                    }
+            Object container = findBiomeContainer(section);
+            if (container == null) return false;
+
+            Method setter = findSetter(container);
+            if (setter == null) return false;
+
+            setter.setAccessible(true);
+            setter.invoke(container, x, y, z, biome);
+            return true;
+        } catch (Throwable throwable) {
+            return false;
+        }
+    }
+
+    private static Object findBiomeContainer(LevelChunkSection section) {
+        // Prefer public/protected accessors first. Dev mappings commonly expose getBiomes().
+        for (String methodName : new String[] { "getBiomes", "method_38292" }) {
+            try {
+                Method method = section.getClass().getMethod(methodName);
+                method.setAccessible(true);
+                Object value = method.invoke(section);
+                if (looksLikeBiomeContainer(value)) return value;
+            } catch (Throwable ignored) {
+            }
+
+            try {
+                Method method = section.getClass().getDeclaredMethod(methodName);
+                method.setAccessible(true);
+                Object value = method.invoke(section);
+                if (looksLikeBiomeContainer(value)) return value;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // Then scan fields. Production runtime names can be obfuscated, so do not rely on type names.
+        Class<?> clazz = section.getClass();
+        while (clazz != null) {
+            for (Field field : clazz.getDeclaredFields()) {
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(section);
+                    if (looksLikeBiomeContainer(value)) return value;
+                } catch (Throwable ignored) {
                 }
-                clazz = clazz.getSuperclass();
             }
+            clazz = clazz.getSuperclass();
+        }
 
-            if (container == null) {
-                throw new IllegalStateException("Could not find biome PalettedContainer on LevelChunkSection");
-            }
+        return null;
+    }
 
-            for (String methodName : new String[] { "set", "getAndSetUnchecked", "getAndSet" }) {
-                for (java.lang.reflect.Method method : container.getClass().getMethods()) {
-                    if (!method.getName().equals(methodName)) continue;
-                    Class<?>[] types = method.getParameterTypes();
-                    if (types.length != 4) continue;
-                    if (types[0] != int.class || types[1] != int.class || types[2] != int.class) continue;
-                    method.setAccessible(true);
-                    method.invoke(container, x, y, z, biome);
-                    return;
-                }
-            }
+    private static boolean looksLikeBiomeContainer(Object value) {
+        if (value == null) return false;
 
-            for (String methodName : new String[] { "set", "getAndSetUnchecked", "getAndSet" }) {
-                for (java.lang.reflect.Method method : container.getClass().getDeclaredMethods()) {
-                    if (!method.getName().equals(methodName)) continue;
-                    Class<?>[] types = method.getParameterTypes();
-                    if (types.length != 4) continue;
-                    if (types[0] != int.class || types[1] != int.class || types[2] != int.class) continue;
-                    method.setAccessible(true);
-                    method.invoke(container, x, y, z, biome);
-                    return;
-                }
-            }
+        Method setter = findSetter(value);
+        if (setter == null) return false;
 
-            throw new IllegalStateException("Could not find biome PalettedContainer setter");
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to paint territory biome", e);
+        // We cannot reliably inspect generic type at runtime, so accept the container if it has a 3D setter.
+        // LevelChunkSection only has one such container we can safely write Holder<Biome> into on mapped dev jars.
+        return true;
+    }
+
+    private static Method findSetter(Object container) {
+        if (container == null) return null;
+
+        for (String methodName : new String[] {
+                "set",
+                "getAndSetUnchecked",
+                "getAndSet",
+                "method_12227",
+                "method_12228"
+        }) {
+            Method method = findFourArgIntSetter(container.getClass(), methodName, true);
+            if (method != null) return method;
+
+            method = findFourArgIntSetter(container.getClass(), methodName, false);
+            if (method != null) return method;
+        }
+
+        return null;
+    }
+
+    private static Method findFourArgIntSetter(Class<?> clazz, String name, boolean publicOnly) {
+        Method[] methods = publicOnly ? clazz.getMethods() : clazz.getDeclaredMethods();
+
+        for (Method method : methods) {
+            if (!method.getName().equals(name)) continue;
+            Class<?>[] types = method.getParameterTypes();
+            if (types.length != 4) continue;
+            if (types[0] != int.class || types[1] != int.class || types[2] != int.class) continue;
+            return method;
+        }
+
+        return null;
+    }
+
+    private static void logReflectionFailure(PaintTask task, Throwable throwable) {
+        if (loggedReflectionFailure) return;
+        loggedReflectionFailure = true;
+        System.err.println("[ChampUtils] Territory biome painting is not compatible with this runtime mapping. This is non-fatal.");
+        System.err.println("[ChampUtils] Selected biome preference will still be saved, and territory creation will continue.");
+        if (throwable != null) {
+            throwable.printStackTrace();
         }
     }
 
@@ -164,6 +240,7 @@ public final class TerritoryBiomePaintManager {
         private int chunkX;
         private int chunkZ;
         private boolean done;
+        private boolean failed;
 
         private PaintTask(TerritoryRepository.Territory territory, Holder<Biome> biome, String biomePreference, String dimensionId) {
             this.territory = territory;
@@ -177,6 +254,7 @@ public final class TerritoryBiomePaintManager {
             this.chunkX = minChunkX;
             this.chunkZ = minChunkZ;
             this.done = false;
+            this.failed = false;
         }
 
         private void paintNextChunk(ServerLevel level) {
@@ -184,26 +262,38 @@ public final class TerritoryBiomePaintManager {
             LevelChunk chunk = level.getChunk(chunkX, chunkZ);
             LevelChunkSection[] sections = chunk.getSections();
             int minSection = level.getMinSection();
+            boolean paintedAny = false;
 
             for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
                 LevelChunkSection section = sections[sectionIndex];
+                if (section == null) continue;
+
                 int sectionY = minSection + sectionIndex;
                 int sectionBaseY = sectionY * 16;
                 for (int localBiomeY = 0; localBiomeY < 4; localBiomeY++) {
                     int blockY = sectionBaseY + (localBiomeY * 4) + 2;
-                    if (blockY < level.getMinBuildHeight() || blockY > level.getMaxBuildHeight()) continue;
+                    if (blockY < level.getMinBuildHeight() || blockY >= level.getMaxBuildHeight()) continue;
                     for (int localBiomeZ = 0; localBiomeZ < 4; localBiomeZ++) {
                         int blockZ = (chunkZ * 16) + (localBiomeZ * 4) + 2;
                         if (blockZ < territory.minZ || blockZ > territory.maxZ) continue;
                         for (int localBiomeX = 0; localBiomeX < 4; localBiomeX++) {
                             int blockX = (chunkX * 16) + (localBiomeX * 4) + 2;
                             if (blockX < territory.minX || blockX > territory.maxX) continue;
-                            setBiomeReflective(section, localBiomeX, localBiomeY, localBiomeZ, biome);
+
+                            if (!setBiomeReflective(section, localBiomeX, localBiomeY, localBiomeZ, biome)) {
+                                failed = true;
+                                done = true;
+                                logReflectionFailure(this, null);
+                                return;
+                            }
+
+                            paintedAny = true;
                         }
                     }
                 }
             }
-            chunk.setUnsaved(true);
+
+            if (paintedAny) chunk.setUnsaved(true);
             advance();
         }
 

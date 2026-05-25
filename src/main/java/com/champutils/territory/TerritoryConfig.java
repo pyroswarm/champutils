@@ -81,13 +81,13 @@ public final class TerritoryConfig {
         public int borderWarningCooldownSeconds = 5;
 
         /**
-         * If true, territories behave like skyblock slots. Territory worlds should use VOID generation, then
-         * ChampUtils paints biome data inside each territory's bounds so Cobblemon/biome checks still work.
+         * If true, territories behave like skyblock slots in VOID-generated territory worlds.
+         * Biome painting is disabled because it was unsafe on the current runtime mappings.
          */
         public boolean skyblockTerritoryWorlds = true;
 
-        /** Paints the selected biome into VOID-generated territory bounds before the territory is marked READY. */
-        public boolean paintVoidTerritoryBiomes = true;
+        /** Disabled legacy option. Kept only so older territories.json files still deserialize safely. */
+        public boolean paintVoidTerritoryBiomes = false;
 
         /** Fallback biome for skyblock territories when no valid biome is supplied. */
         public String defaultVoidTerritoryBiome = "plains";
@@ -185,7 +185,8 @@ public final class TerritoryConfig {
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
             chunkyPregenerationCommands.clear();
             if (defaultSpawnY < -64) defaultSpawnY = 80;
-            // Skyblock territory worlds should stay terrainless. Biomes are painted into territory bounds later.
+            // Skyblock territory worlds should stay terrainless. Biome painting is intentionally disabled.
+            paintVoidTerritoryBiomes = false;
             if (skyblockTerritoryWorlds) {
                 worldCreateCommands.replaceAll(command -> command == null ? "" : command
                         .replace("-g=NORMAL", "-g=VOID")
@@ -195,7 +196,7 @@ public final class TerritoryConfig {
             if (skyblockInitialClearRadius > defaultRadius) skyblockInitialClearRadius = defaultRadius;
             if (skyblockClearMinY < -64) skyblockClearMinY = -16;
             if (skyblockClearMaxY <= skyblockClearMinY) skyblockClearMaxY = Math.max(skyblockClearMinY + 32, defaultSpawnY + 32);
-            if (paintVoidTerritoryBiomes && (defaultVoidTerritoryBiome == null || defaultVoidTerritoryBiome.isBlank())) defaultVoidTerritoryBiome = "plains";
+            if (defaultVoidTerritoryBiome == null || defaultVoidTerritoryBiome.isBlank()) defaultVoidTerritoryBiome = "plains";
             if (biomePaintChunksPerTick < 1) biomePaintChunksPerTick = 1;
             if (biomePaintChunksPerTick > 32) biomePaintChunksPerTick = 32;
             if (skyblockPrepareBlocksPerTick < 1024) skyblockPrepareBlocksPerTick = 8192;
