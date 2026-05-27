@@ -182,6 +182,7 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_interact_entities boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_use_redstone boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists lock_border boolean not null default true");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_spawned boolean not null default true");
                 statement.executeUpdate("update territories set world_key = world_name where world_key is null or trim(world_key) = ''");
                 statement.executeUpdate("update territories set generation_state = 'READY' where generation_state is null or trim(generation_state) = ''");
                 statement.executeUpdate("update territories set center_x = ((min_x + max_x) / 2) where center_x is null");
@@ -214,6 +215,20 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table guilds add column if not exists owner_player_uuid uuid");
                 statement.executeUpdate("alter table guild_members add column if not exists player_uuid uuid");
                 statement.executeUpdate("alter table guild_members add column if not exists profile_id uuid");
+
+                // Guilds are account-based, not profile-based. Some builds during the SQL profile migration
+                // created/altered guild columns as NOT NULL profile columns, which makes normal guild creation
+                // fail even when the guild name and tag are available. Repair those schemas here.
+                statement.executeUpdate("alter table guilds alter column owner_profile_id drop not null");
+                statement.executeUpdate("alter table guilds alter column owner_player_uuid drop not null");
+                statement.executeUpdate("alter table guild_members alter column profile_id drop not null");
+                statement.executeUpdate("update guilds set owner_uuid = coalesce(owner_uuid, owner_player_uuid) where owner_uuid is null");
+                statement.executeUpdate("update guilds set owner_player_uuid = coalesce(owner_player_uuid, owner_uuid) where owner_player_uuid is null");
+                statement.executeUpdate("update guild_members set player_uuid = profile_id where player_uuid is null");
+                statement.executeUpdate("delete from guild_members where player_uuid is null");
+                statement.executeUpdate("alter table guilds alter column owner_uuid set not null");
+                statement.executeUpdate("alter table guild_members alter column player_uuid set not null");
+
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists deleted_at timestamptz not null default now()");
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_type text");
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_id text");

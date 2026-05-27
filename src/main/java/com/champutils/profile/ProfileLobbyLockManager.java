@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.menu.ProfileSelectionMenu;
+import com.champutils.permissions.LuckPermsHook;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -27,11 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * commands, or keep drifting away from the selector area.
  */
 public final class ProfileLobbyLockManager {
-    private static final double LOBBY_X = 0.5D;
-    private static final double LOBBY_Y = 128.0D;
-    private static final double LOBBY_Z = 0.5D;
+    private static final double LOBBY_X = ProfileLobbyManager.LOBBY_X;
+    private static final double LOBBY_Y = ProfileLobbyManager.LOBBY_Y;
+    private static final double LOBBY_Z = ProfileLobbyManager.LOBBY_Z;
     private static final double MAX_DISTANCE_SQUARED = 36.0D;
-    private static final int REOPEN_MENU_EVERY_TICKS = 80;
+    private static final int REOPEN_MENU_EVERY_TICKS = 5;
     private static final long DENY_COOLDOWN_MS = 1500L;
 
     private static final Map<UUID, Long> LAST_DENY = new ConcurrentHashMap<>();
@@ -45,7 +46,7 @@ public final class ProfileLobbyLockManager {
         registered = true;
 
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 deny(serverPlayer);
                 return false;
             }
@@ -53,7 +54,7 @@ public final class ProfileLobbyLockManager {
         });
 
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 deny(serverPlayer);
                 return InteractionResult.FAIL;
             }
@@ -61,7 +62,7 @@ public final class ProfileLobbyLockManager {
         });
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 deny(serverPlayer);
                 return InteractionResult.FAIL;
             }
@@ -69,7 +70,7 @@ public final class ProfileLobbyLockManager {
         });
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 ProfileSelectionMenu.open(serverPlayer);
                 return InteractionResult.FAIL;
             }
@@ -77,7 +78,7 @@ public final class ProfileLobbyLockManager {
         });
 
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 deny(serverPlayer);
                 return InteractionResult.FAIL;
             }
@@ -85,7 +86,7 @@ public final class ProfileLobbyLockManager {
         });
 
         UseItemCallback.EVENT.register((player, world, hand) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer)) {
+            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 ProfileSelectionMenu.open(serverPlayer);
                 return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
             }
@@ -96,7 +97,11 @@ public final class ProfileLobbyLockManager {
     }
 
     public static boolean isLocked(ServerPlayer player) {
-        return player != null && PlayerProfileManager.isInMainMenu(player);
+        return ProfileLobbyManager.isInLobby(player);
+    }
+
+    public static boolean hasBypass(ServerPlayer player) {
+        return player != null && LuckPermsHook.hasPermission(player, "champutils.profilelobby.bypass");
     }
 
     public static boolean isAllowedCommand(String command) {
@@ -104,9 +109,9 @@ public final class ProfileLobbyLockManager {
         String clean = command.startsWith("/") ? command.substring(1) : command;
         clean = clean.trim().toLowerCase();
         return clean.equals("profiles")
-                || clean.startsWith("profiles ")
                 || clean.equals("profilemode")
-                || clean.startsWith("profilemode ");
+                || clean.equals("login")
+                || clean.startsWith("login ");
     }
 
     public static void deny(ServerPlayer player) {
@@ -115,21 +120,17 @@ public final class ProfileLobbyLockManager {
         long last = LAST_DENY.getOrDefault(player.getUUID(), 0L);
         if (now - last >= DENY_COOLDOWN_MS) {
             LAST_DENY.put(player.getUUID(), now);
-            player.sendSystemMessage(Component.literal("Select a profile before playing. Use /profiles.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Select a profile from the menu before playing.").withStyle(ChatFormatting.YELLOW));
+            ProfileSelectionMenu.open(player);
         }
     }
 
     private static void tick(MinecraftServer server) {
         tickCounter++;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!isLocked(player)) continue;
+            if (!isLocked(player) || hasBypass(player)) continue;
 
-            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-            player.resetFallDistance();
-            player.setHealth(player.getMaxHealth());
-            player.getFoodData().setFoodLevel(20);
-            player.getFoodData().setSaturation(20.0F);
-            player.clearFire();
+            ProfileLobbyManager.applyLobbyProtections(player);
 
             double dx = player.getX() - LOBBY_X;
             double dy = player.getY() - LOBBY_Y;

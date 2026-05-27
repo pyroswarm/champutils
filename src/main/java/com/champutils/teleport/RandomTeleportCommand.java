@@ -5,6 +5,7 @@ import com.champutils.exploration.ExplorationWorldConfig;
 import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.survival.SurvivalWorldManager;
 import com.champutils.worldborder.ChampWorldBorderManager;
+import com.champutils.profile.ProfileLobbyLockManager;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -176,6 +177,11 @@ public final class RandomTeleportCommand {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
+            return 0;
+        }
+
+        if (ProfileLobbyLockManager.isLocked(player) && !ProfileLobbyLockManager.hasBypass(player)) {
+            player.sendSystemMessage(Component.literal("Select a profile before using RTP.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
 

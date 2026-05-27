@@ -25,6 +25,7 @@ public abstract class CommandsLockedLobbyMixin {
         }
 
         if (!ProfileLobbyLockManager.isLocked(player)) return;
+        if (ProfileLobbyLockManager.hasBypass(player)) return;
         if (ProfileLobbyLockManager.isAllowedCommand(command)) return;
 
         ProfileLobbyLockManager.deny(player);

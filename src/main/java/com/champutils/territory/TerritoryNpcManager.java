@@ -42,6 +42,7 @@ public final class TerritoryNpcManager {
 
     public static void spawnOnceWhenReady(MinecraftServer server, TerritoryRepository.Territory territory) {
         if (server == null || territory == null || territory.id == null || !territory.isReady() || TerritoryRepository.isDeleting(territory)) return;
+        if (territory.stewardNpcSpawned) return;
         ServerLevel level = level(server, territory.worldName);
         if (level == null) return;
         String uniqueTag = TAG_PREFIX + territory.id;
@@ -50,6 +51,7 @@ public final class TerritoryNpcManager {
         for (Entity entity : level.getEntities((Entity) null, search, e -> e.getTags().contains(uniqueTag))) {
             if (entity instanceof NPCEntity npc) {
                 configureNpc(npc, pos, territory);
+                markStewardSpawned(territory);
                 return;
             }
             entity.discard();
@@ -62,6 +64,13 @@ public final class TerritoryNpcManager {
         npc.addTag(uniqueTag);
         npc.addTag(territory.ownerType == TerritoryRepository.OwnerType.GUILD ? GUILD_TAG : PERSONAL_TAG);
         configureNpc(npc, pos, territory);
+        markStewardSpawned(territory);
+    }
+
+    private static void markStewardSpawned(TerritoryRepository.Territory territory) {
+        if (territory == null || territory.stewardNpcSpawned) return;
+        territory.stewardNpcSpawned = true;
+        TerritoryRepository.save(territory, (success, message) -> {});
     }
 
     public static TerritoryRepository.Territory territoryFor(Entity entity) {

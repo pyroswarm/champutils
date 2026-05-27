@@ -41,13 +41,14 @@ public final class ProfileSessionLoader {
         ShopPokemonCrateOpeningGui.handleJoin(player);
         AuctionHouseService.handleJoin(player);
         GuildRepository.loadForPlayer(player.getUUID(), playerName);
-        ChatPreferenceManager.clear(player.getUUID());
+        ChatPreferenceManager.load(player);
         ModerationManager.handleJoin(player);
         DailyLoginManager.handleJoin(player);
     }
 
     public static void unload(ServerPlayer player) {
         if (player == null) return;
+        ChatPreferenceManager.save(player);
         ShopPokemonCrateOpeningGui.handleDisconnect(player);
         com.champutils.profession.ProfessionManager.unloadPlayer(player);
         QuestManager.unloadPlayer(player);

@@ -136,6 +136,7 @@ public class ChampUtilsMod implements ModInitializer {
         PlayerProfileManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStateManager.ensureSchemaAsync();
+        ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
@@ -261,6 +262,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PlayerProfileManager.ensureSchemaAsync();
                     VanillaProfileStateManager.ensureSchemaAsync();
                     CobblemonProfileStateManager.ensureSchemaAsync();
+                    ChatPreferenceManager.ensureSchemaAsync();
                     TerritoryRepository.refreshAll();
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
@@ -418,8 +420,8 @@ public class ChampUtilsMod implements ModInitializer {
                             playerName
                     );
 
-                    ChatPreferenceManager.clear(
-                            player.getUUID()
+                    ChatPreferenceManager.load(
+                            player
                     );
 
                     ModerationManager.handleJoin(
@@ -440,8 +442,10 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
 
+                    PlayerProfileManager.saveActiveLocation(handler.player);
                     VanillaProfileStateManager.save(handler.player);
                     CobblemonProfileStateManager.save(handler.player);
+                    ChatPreferenceManager.save(handler.player);
 
                     MatchmakingManager.leaveQueue(
                             handler.player
@@ -677,6 +681,11 @@ public class ChampUtilsMod implements ModInitializer {
                             server.getTickCount() > 0 &&
                                     server.getTickCount() % 1200 == 0
                     ) {
+                        for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+                            PlayerProfileManager.saveActiveLocation(onlinePlayer);
+                            VanillaProfileStateManager.save(onlinePlayer);
+                            CobblemonProfileStateManager.save(onlinePlayer);
+                        }
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();
                         TrueCaughtDexManager.save();

@@ -78,6 +78,11 @@ public final class ProfileCommand {
     }
 
     private static int load(ServerPlayer player, String name) {
+        if (PlayerProfileManager.isInMainMenu(player)) {
+            player.sendSystemMessage(Component.literal("Use the profile menu to select a profile.").withStyle(ChatFormatting.YELLOW));
+            ProfileSelectionMenu.open(player);
+            return 0;
+        }
         if (!PlayerProfileManager.isInMainMenu(player)) {
             ProfileMainMenuManager.enter(player, true);
             ProfileSelectionMenu.open(player);
@@ -91,6 +96,11 @@ public final class ProfileCommand {
     }
 
     private static int create(ServerPlayer player, String name, String rawMode, String type) {
+        if (PlayerProfileManager.isInMainMenu(player)) {
+            player.sendSystemMessage(Component.literal("Use the profile menu to create profiles.").withStyle(ChatFormatting.YELLOW));
+            ProfileSelectionMenu.open(player);
+            return 0;
+        }
         ProfileGameMode mode = ProfileGameMode.parse(rawMode);
         String result = PlayerProfileManager.createBlocking(player, name, mode, type);
         player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Created") ? ChatFormatting.GREEN : ChatFormatting.RED));
@@ -98,6 +108,11 @@ public final class ProfileCommand {
     }
 
     private static int delete(ServerPlayer player, String name) {
+        if (PlayerProfileManager.isInMainMenu(player)) {
+            player.sendSystemMessage(Component.literal("Use the profile menu to delete profiles.").withStyle(ChatFormatting.YELLOW));
+            ProfileSelectionMenu.open(player);
+            return 0;
+        }
         String result = PlayerProfileManager.deleteBlocking(player, name);
         player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Deleted") || result.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
         return result.startsWith("Deleted") || result.startsWith("Profile") ? 1 : 0;

@@ -7,6 +7,7 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.validation.TeamValidator;
 import com.champutils.profile.ProfileRestrictions;
+import com.champutils.profile.ProfileLobbyLockManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 
@@ -50,6 +51,12 @@ public class CobblemonBattleStartHandler {
                     players.add(
                             player
                     );
+
+                    if (ProfileLobbyLockManager.isLocked(player) && !ProfileLobbyLockManager.hasBypass(player)) {
+                        e.cancel();
+                        player.sendSystemMessage(Component.literal("§cSelect a profile before battling."));
+                        return;
+                    }
 
                     // IMPORTANT:
                     // mark any battle (wild/gym/pvp)

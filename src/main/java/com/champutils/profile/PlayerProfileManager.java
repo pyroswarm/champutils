@@ -1,6 +1,10 @@
 package com.champutils.profile;
 
+import com.champutils.chat.ChatPreferenceManager;
 import com.champutils.database.DatabaseManager;
+import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.teleport.TeleportConfig;
+import com.champutils.teleport.TeleportLocation;
 import com.champutils.menu.ProfileSelectionMenu;
 import com.champutils.permissions.LuckPermsHook;
 import net.minecraft.ChatFormatting;
@@ -53,6 +57,12 @@ public final class PlayerProfileManager {
                         "name text not null, mode text not null check (mode in ('NORMAL','IRONMAN','MONOTYPE')), monotype text, " +
                         "is_locked boolean not null default false, is_pending_delete boolean not null default false, delete_available_at timestamptz, " +
                         "created_at timestamptz not null default now(), last_used_at timestamptz, deleted_at timestamptz, metadata jsonb not null default '{}'::jsonb)");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
                 statement.executeUpdate("create unique index if not exists player_profiles_unique_live_name on player_profiles(player_uuid, lower(name)) where deleted_at is null");
                 statement.executeUpdate("create table if not exists player_active_profiles (" +
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
@@ -229,14 +239,20 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (target == null) return "No profile named " + clean + ".";
             if (target.pendingDelete()) return "That profile is pending deletion and cannot be loaded.";
             if (hasActiveProfile(player)) {
+                saveActiveLocation(player);
                 VanillaProfileStateManager.save(player);
                 CobblemonProfileStateManager.save(player);
+                ChatPreferenceManager.save(player);
+                ProfileSessionLoader.unload(player);
             }
             setActive(connection, player.getUUID(), target.profileId());
             ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
             ACTIVE.put(player.getUUID(), active);
+            ProfileLobbyManager.leaveLobby(player);
             VanillaProfileStateManager.load(player);
             CobblemonProfileStateManager.load(player);
+            ProfileSessionLoader.load(player);
+            teleportToSavedLocation(player);
             return "Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].";
         }
         catch (Exception e) { e.printStackTrace(); return "Could not switch profile. Check console/database logs."; }
@@ -278,6 +294,120 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             return rows > 0 ? "Finalized " + rows + " queued profile deletion(s)." : "";
             }
         } catch (Exception e) { e.printStackTrace(); return ""; }
+    }
+
+
+    public static void saveActiveLocation(ServerPlayer player) {
+        if (player == null || !DatabaseManager.isEnabled() || !hasActiveProfile(player)) return;
+        UUID profileId = activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
+            }
+
+            String dimension = player.serverLevel().dimension().location().toString();
+            if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
+                return;
+            }
+
+            try (var ps = connection.prepareStatement(
+                    "update player_profiles set last_dimension = ?, last_x = ?, last_y = ?, last_z = ?, last_yaw = ?, last_pitch = ?, last_used_at = now() where id = ?")) {
+                ps.setString(1, dimension);
+                ps.setDouble(2, player.getX());
+                ps.setDouble(3, player.getY());
+                ps.setDouble(4, player.getZ());
+                ps.setFloat(5, player.getYRot());
+                ps.setFloat(6, player.getXRot());
+                ps.setObject(7, profileId);
+                ps.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to save profile location for " + player.getGameProfile().getName());
+            e.printStackTrace();
+        }
+    }
+
+    public static void teleportToSavedLocation(ServerPlayer player) {
+        if (player == null || player.server == null || !DatabaseManager.isEnabled() || !hasActiveProfile(player)) return;
+        UUID profileId = activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
+            }
+
+            try (var ps = connection.prepareStatement("select last_dimension, last_x, last_y, last_z, last_yaw, last_pitch from player_profiles where id = ?")) {
+                ps.setObject(1, profileId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return;
+                    String dimension = rs.getString("last_dimension");
+                    if (dimension == null || dimension.isBlank() || ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension)) {
+                        teleportToFirstProfileFallback(player);
+                        return;
+                    }
+
+                    net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
+                            net.minecraft.resources.ResourceKey.create(
+                                    net.minecraft.core.registries.Registries.DIMENSION,
+                                    net.minecraft.resources.ResourceLocation.parse(dimension)
+                            );
+                    net.minecraft.server.level.ServerLevel level = player.server.getLevel(key);
+                    if (level == null) {
+                        player.sendSystemMessage(Component.literal("Saved profile location dimension is missing: " + dimension + ". Sending you to spawn.").withStyle(ChatFormatting.YELLOW));
+                        teleportToFirstProfileFallback(player);
+                        return;
+                    }
+
+                    double x = rs.getDouble("last_x");
+                    double y = rs.getDouble("last_y");
+                    double z = rs.getDouble("last_z");
+                    float yaw = rs.getFloat("last_yaw");
+                    float pitch = rs.getFloat("last_pitch");
+                    player.teleportTo(level, x, y, z, yaw, pitch);
+                    player.setYRot(yaw);
+                    player.setYHeadRot(yaw);
+                    player.setXRot(pitch);
+                    player.resetFallDistance();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to restore profile location for " + player.getGameProfile().getName());
+            e.printStackTrace();
+        }
+    }
+
+    private static void teleportToFirstProfileFallback(ServerPlayer player) {
+        if (player == null || player.server == null) return;
+
+        TeleportLocation configuredSpawn = TeleportConfig.getSpawn();
+        if (configuredSpawn != null && TeleportConfig.teleport(player, configuredSpawn)) {
+            player.resetFallDistance();
+            return;
+        }
+
+        net.minecraft.server.level.ServerLevel level = player.server.overworld();
+        net.minecraft.core.BlockPos spawn = level.getSharedSpawnPos();
+        int x = spawn.getX();
+        int z = spawn.getZ();
+        int y = Math.max(level.getMinBuildHeight() + 1, level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z));
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, x + 0.5D, y, z + 0.5D, 0.0F, 0.0F);
+        player.resetFallDistance();
+        player.sendSystemMessage(Component.literal("No saved location yet, so you were sent to server spawn.").withStyle(ChatFormatting.YELLOW));
     }
 
     private static void ensurePlayerRow(Connection connection, ServerPlayer player) throws Exception {

@@ -1,7 +1,5 @@
 package com.champutils.dailylogin;
 
-import com.champutils.profile.PlayerProfileManager;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -45,8 +43,14 @@ public final class DailyLoginData {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
+    /**
+     * Daily login rewards are account-based.
+     *
+     * Do not key this by active profile id. A player should not be able to swap
+     * profiles to earn/claim multiple daily login rewards on the same account.
+     */
     public static synchronized PlayerState state(UUID uuid, String name) {
-        String key = PlayerProfileManager.activeProfileId(uuid).toString();
+        String key = uuid == null ? "" : uuid.toString();
         PlayerState state = DATA.players.computeIfAbsent(key, ignored -> new PlayerState());
         state.uuid = key;
         state.name = name == null ? state.name : name;

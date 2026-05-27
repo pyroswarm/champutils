@@ -100,6 +100,7 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("create guild " + cleanName, connection -> {
             try {
                 connection.setAutoCommit(false);
+                ensureGuildAccountSchema(connection);
                 ensureGuildCreateCooldownTable(connection);
 
                 long remainingMs = guildCreateCooldownRemainingMillis(connection, ownerUuid);
@@ -123,8 +124,8 @@ public final class GuildRepository {
                 }
 
                 try (PreparedStatement insertGuild = connection.prepareStatement(
-                        "insert into guilds (id, name, tag, description, owner_uuid, level, xp, created_at, updated_at) " +
-                                "values (?, ?, ?, '', ?, 1, 0, now(), now())"
+                        "insert into guilds (id, name, tag, description, owner_uuid, owner_player_uuid, level, xp, created_at, updated_at) " +
+                                "values (?, ?, ?, '', ?, ?, 1, 0, now(), now())"
                 )) {
                     insertGuild.setObject(1, guildId);
                     insertGuild.setString(2, cleanName);
@@ -134,6 +135,7 @@ public final class GuildRepository {
                         insertGuild.setString(3, cleanTag);
                     }
                     insertGuild.setObject(4, ownerUuid);
+                    insertGuild.setObject(5, ownerUuid);
                     insertGuild.executeUpdate();
                 }
 
@@ -175,7 +177,9 @@ public final class GuildRepository {
             }
             catch (Exception e) {
                 try { connection.rollback(); } catch (Exception ignored) {}
-                callback.done(false, "Failed to create guild. The name or tag may already be taken.");
+                String detail = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+                System.err.println("[ChampUtils] Guild create failed for '" + cleanName + "' [" + cleanTag + "]: " + detail);
+                callback.done(false, "Failed to create guild. " + detail);
                 throw e;
             }
             finally {
@@ -190,6 +194,7 @@ public final class GuildRepository {
         }
 
         DatabaseManager.executeAsync("load guild for " + uuid, connection -> {
+            ensureGuildAccountSchema(connection);
             loadForPlayerSync(connection, uuid);
             upsertPlayer(connection, uuid, username == null || username.isBlank() ? uuid.toString() : username);
         });
@@ -456,11 +461,12 @@ public final class GuildRepository {
                 }
 
                 try (PreparedStatement guildUpdate = connection.prepareStatement(
-                        "update guilds set owner_uuid = ?, updated_at = now() where id = ? and owner_uuid = ?"
+                        "update guilds set owner_uuid = ?, owner_player_uuid = ?, updated_at = now() where id = ? and owner_uuid = ?"
                 )) {
                     guildUpdate.setObject(1, targetUuid);
-                    guildUpdate.setObject(2, actorGuild.id);
-                    guildUpdate.setObject(3, actorUuid);
+                    guildUpdate.setObject(2, targetUuid);
+                    guildUpdate.setObject(3, actorGuild.id);
+                    guildUpdate.setObject(4, actorUuid);
                     if (guildUpdate.executeUpdate() <= 0) {
                         connection.rollback();
                         callback.done(false, "Guild ownership changed before this transfer could complete.");
@@ -518,6 +524,7 @@ public final class GuildRepository {
             List<UUID> memberIds = new ArrayList<>();
             try {
                 connection.setAutoCommit(false);
+                ensureGuildAccountSchema(connection);
                 ensureGuildCreateCooldownTable(connection);
 
                 try (PreparedStatement members = connection.prepareStatement(
@@ -758,6 +765,79 @@ public final class GuildRepository {
         return members;
     }
 
+
+    /**
+     * Repairs older profile-migration guild schemas before any guild query runs.
+     * Guild membership is account-based, so all current guild logic uses player_uuid.
+     */
+    private static void ensureGuildAccountSchema(java.sql.Connection connection) throws Exception {
+        try (java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "create table if not exists players (" +
+                            "uuid uuid primary key, " +
+                            "username text not null, " +
+                            "playtime_seconds bigint not null default 0, " +
+                            "first_seen timestamptz not null default now(), " +
+                            "last_seen timestamptz not null default now(), " +
+                            "last_server_id text" +
+                            ")"
+            );
+            statement.executeUpdate("alter table players add column if not exists last_server_id text");
+
+            statement.executeUpdate(
+                    "create table if not exists guilds (" +
+                            "id uuid primary key, " +
+                            "name text not null unique, " +
+                            "tag text unique, " +
+                            "description text not null default '', " +
+                            "owner_uuid uuid not null, " +
+                            "level integer not null default 1, " +
+                            "xp bigint not null default 0, " +
+                            "created_at timestamptz not null default now(), " +
+                            "updated_at timestamptz not null default now()" +
+                            ")"
+            );
+
+            statement.executeUpdate("alter table guilds add column if not exists owner_uuid uuid");
+            statement.executeUpdate("alter table guilds add column if not exists owner_profile_id uuid");
+            statement.executeUpdate("alter table guilds add column if not exists owner_player_uuid uuid");
+            statement.executeUpdate("alter table guilds add column if not exists description text not null default ''");
+            statement.executeUpdate("alter table guilds add column if not exists level integer not null default 1");
+            statement.executeUpdate("alter table guilds add column if not exists xp bigint not null default 0");
+            statement.executeUpdate("alter table guilds add column if not exists created_at timestamptz not null default now()");
+            statement.executeUpdate("alter table guilds add column if not exists updated_at timestamptz not null default now()");
+            statement.executeUpdate("alter table guilds alter column owner_profile_id drop not null");
+            statement.executeUpdate("alter table guilds alter column owner_player_uuid drop not null");
+            statement.executeUpdate("update guilds set owner_uuid = coalesce(owner_uuid, owner_player_uuid, owner_profile_id) where owner_uuid is null");
+            statement.executeUpdate("update guilds set owner_player_uuid = coalesce(owner_player_uuid, owner_uuid) where owner_player_uuid is null");
+
+            statement.executeUpdate(
+                    "create table if not exists guild_members (" +
+                            "guild_id uuid not null references guilds(id) on delete cascade, " +
+                            "player_uuid uuid not null, " +
+                            "player_name text not null, " +
+                            "role text not null, " +
+                            "joined_at timestamptz not null default now(), " +
+                            "primary key (guild_id, player_uuid), " +
+                            "unique (player_uuid)" +
+                            ")"
+            );
+
+            statement.executeUpdate("alter table guild_members add column if not exists player_uuid uuid");
+            statement.executeUpdate("alter table guild_members add column if not exists profile_id uuid");
+            statement.executeUpdate("alter table guild_members add column if not exists player_name text not null default ''");
+            statement.executeUpdate("alter table guild_members add column if not exists role text not null default 'RECRUIT'");
+            statement.executeUpdate("alter table guild_members add column if not exists joined_at timestamptz not null default now()");
+            statement.executeUpdate("alter table guild_members alter column profile_id drop not null");
+            statement.executeUpdate("update guild_members set player_uuid = profile_id where player_uuid is null");
+            statement.executeUpdate("delete from guild_members where player_uuid is null");
+            statement.executeUpdate("update guild_members set role = 'LEADER' where upper(role) = 'OWNER'");
+            statement.executeUpdate("update guild_members set role = 'RECRUIT' where role is null or trim(role) = ''");
+            statement.executeUpdate("alter table guild_members alter column player_uuid set not null");
+
+            statement.executeUpdate("create unique index if not exists guild_members_player_uuid_unique on guild_members (player_uuid)");
+        }
+    }
 
     private static void ensureGuildCreateCooldownTable(java.sql.Connection connection) throws Exception {
         try (java.sql.Statement statement = connection.createStatement()) {
