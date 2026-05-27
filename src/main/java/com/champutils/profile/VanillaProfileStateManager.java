@@ -47,7 +47,6 @@ public final class VanillaProfileStateManager {
         if (profileId == null || profileId.equals(player.getUUID())) return;
         try {
             Connection connection = DatabaseManager.getConnection();
-            ensureSchema(connection);
             CompoundTag tag = new CompoundTag();
             player.saveWithoutId(tag);
             scrubAccountOnlyFields(tag, player);
@@ -65,13 +64,38 @@ public final class VanillaProfileStateManager {
         }
     }
 
+    public static void saveAsync(ServerPlayer player) {
+        if (player == null || !DatabaseManager.isEnabled()) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+
+        UUID playerUuid = player.getUUID();
+        String playerName = player.getGameProfile().getName();
+        CompoundTag tag = new CompoundTag();
+        player.saveWithoutId(tag);
+        scrubAccountOnlyFields(tag, player);
+        String snbt = tag.toString();
+
+        DatabaseManager.executeAsync("save vanilla profile state", connection -> {
+            try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
+                    "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
+                ps.setObject(1, profileId);
+                ps.setObject(2, playerUuid);
+                ps.setString(3, snbt);
+                ps.executeUpdate();
+            } catch (Exception e) {
+                System.err.println("[ChampUtils] Failed async vanilla profile save for " + playerName);
+                throw e;
+            }
+        });
+    }
+
     public static void load(ServerPlayer player) {
         if (player == null || !DatabaseManager.isEnabled()) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
         try {
             Connection connection = DatabaseManager.getConnection();
-            ensureSchema(connection);
             try (var ps = connection.prepareStatement("select vanilla_snbt from profile_vanilla_state where profile_id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {

@@ -682,24 +682,41 @@ public class ChampUtilsMod implements ModInitializer {
                     }
 
                     /*
-                     Profession autosave
+                     Light autosave: small snapshots only.
                      */
                     if (
                             server.getTickCount() > 0 &&
                                     server.getTickCount() % 1200 == 0
                     ) {
                         for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
-                            PlayerProfileManager.saveActiveLocation(onlinePlayer);
-                            VanillaProfileStateManager.save(onlinePlayer);
-                            CobblemonProfileStorageBridge.forceSaveActiveProfileStores(onlinePlayer);
+                            PlayerProfileManager.saveActiveLocationAsync(onlinePlayer);
                         }
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();
+                        PlaytimeManager.addOnlineMinute(server);
+                        ServerStatusDatabaseRepository.sync(server);
+                    }
+
+                    /*
+                     Heavy profile autosave: full NBT/Cobblemon snapshots are more expensive, so throttle them.
+                     */
+                    if (
+                            server.getTickCount() > 0 &&
+                                    server.getTickCount() % 6000 == 0
+                    ) {
+                        for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+                            VanillaProfileStateManager.saveAsync(onlinePlayer);
+                            CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(onlinePlayer);
+                        }
                         TrueCaughtDexManager.save();
                         CatchStreakManager.save();
                         PokemonOriginManager.save();
-                        PlaytimeManager.addOnlineMinute(server);
-                        ServerStatusDatabaseRepository.sync(server);
+                    }
+
+                    /*
+                     Territory DB refresh: expensive, so do it every 10 minutes instead of every minute.
+                     */
+                    if (server.getTickCount() > 0 && server.getTickCount() % 12000 == 0) {
                         TerritoryRepository.refreshAll();
                     }
 

@@ -128,6 +128,17 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         for (UUID profileId : pcCache.keySet()) save(profileId, registryAccess);
     }
 
+    public void saveAsync(UUID profileId, RegistryAccess registryAccess) {
+        if (!canOwn(profileId)) return;
+        PlayerPartyStore party = partyCache.get(profileId);
+        PCStore pc = pcCache.get(profileId);
+        if (party == null && pc == null) return;
+
+        String partyNbt = party == null ? null : party.saveToNBT(new CompoundTag(), registryAccess).toString();
+        String pcNbt = pc == null ? null : pc.saveToNBT(new CompoundTag(), registryAccess).toString();
+        DatabaseManager.executeAsync("save SQL Cobblemon profile stores", connection -> upsertSnapshot(connection, profileId, partyNbt, pcNbt));
+    }
+
     public void evict(UUID profileId) {
         if (profileId == null) return;
         partyCache.remove(profileId);
@@ -146,7 +157,6 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         if (!DatabaseManager.isEnabled()) return;
         try {
             Connection connection = DatabaseManager.getConnection();
-            ensureSchema(connection);
             try (var ps = connection.prepareStatement("select party_nbt, pc_nbt from profile_cobblemon_storage where profile_id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -166,23 +176,25 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private void upsert(UUID profileId, PlayerPartyStore party, PCStore pc, RegistryAccess registryAccess) {
         if (!DatabaseManager.isEnabled()) return;
         try {
-            Connection connection = DatabaseManager.getConnection();
-            ensureSchema(connection);
             String partyNbt = party == null ? null : party.saveToNBT(new CompoundTag(), registryAccess).toString();
             String pcNbt = pc == null ? null : pc.saveToNBT(new CompoundTag(), registryAccess).toString();
-            try (var ps = connection.prepareStatement("insert into profile_cobblemon_storage (profile_id, party_nbt, pc_nbt, updated_at) values (?, ?, ?, now()) " +
-                    "on conflict (profile_id) do update set " +
-                    "party_nbt = coalesce(excluded.party_nbt, profile_cobblemon_storage.party_nbt), " +
-                    "pc_nbt = coalesce(excluded.pc_nbt, profile_cobblemon_storage.pc_nbt), " +
-                    "updated_at = now()")) {
-                ps.setObject(1, profileId);
-                ps.setString(2, partyNbt);
-                ps.setString(3, pcNbt);
-                ps.executeUpdate();
-            }
+            upsertSnapshot(DatabaseManager.getConnection(), profileId, partyNbt, pcNbt);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to save SQL Cobblemon stores for profile " + profileId + ".");
             e.printStackTrace();
+        }
+    }
+
+    private static void upsertSnapshot(Connection connection, UUID profileId, String partyNbt, String pcNbt) throws Exception {
+        try (var ps = connection.prepareStatement("insert into profile_cobblemon_storage (profile_id, party_nbt, pc_nbt, updated_at) values (?, ?, ?, now()) " +
+                "on conflict (profile_id) do update set " +
+                "party_nbt = coalesce(excluded.party_nbt, profile_cobblemon_storage.party_nbt), " +
+                "pc_nbt = coalesce(excluded.pc_nbt, profile_cobblemon_storage.pc_nbt), " +
+                "updated_at = now()")) {
+            ps.setObject(1, profileId);
+            ps.setString(2, partyNbt);
+            ps.setString(3, pcNbt);
+            ps.executeUpdate();
         }
     }
 }

@@ -14,7 +14,10 @@ public final class DatabaseManager {
         void run(Connection connection) throws Exception;
     }
 
+    private static final int ASYNC_DATABASE_THREADS = 4;
+
     private static Connection connection;
+    private static final ThreadLocal<Connection> asyncConnection = new ThreadLocal<>();
     private static DatabaseConfig config;
     private static boolean enabled = false;
     private static ExecutorService executor;
@@ -46,7 +49,7 @@ public final class DatabaseManager {
         }
 
         if (executor == null || executor.isShutdown()) {
-            executor = Executors.newSingleThreadExecutor(runnable -> {
+            executor = Executors.newFixedThreadPool(ASYNC_DATABASE_THREADS, runnable -> {
                 Thread thread = new Thread(runnable, "ChampUtils-Database");
                 thread.setDaemon(true);
                 return thread;
@@ -72,11 +75,7 @@ public final class DatabaseManager {
                 return;
             }
 
-            connection = DriverManager.getConnection(
-                    config.jdbcUrl(),
-                    config.username,
-                    config.password
-            );
+            connection = openConnection();
 
             enabled = true;
             lastStatus = "Connected to Supabase/Postgres successfully.";
@@ -94,6 +93,14 @@ public final class DatabaseManager {
             System.err.println("[ChampUtils] " + lastStatus);
             e.printStackTrace();
         }
+    }
+
+    private static Connection openConnection() throws SQLException {
+        return DriverManager.getConnection(
+                config.jdbcUrl(),
+                config.username,
+                config.password
+        );
     }
 
     public static synchronized Connection getConnection() throws SQLException {
@@ -116,6 +123,23 @@ public final class DatabaseManager {
         return connection;
     }
 
+    private static Connection getAsyncConnection() throws SQLException {
+        if (config == null) {
+            init();
+        }
+
+        if (config == null || !config.enabled || !config.isConfigured()) {
+            throw new SQLException(lastStatus);
+        }
+
+        Connection existing = asyncConnection.get();
+        if (existing == null || existing.isClosed() || !existing.isValid(2)) {
+            existing = openConnection();
+            asyncConnection.set(existing);
+        }
+        return existing;
+    }
+
     public static void executeAsync(String description, SqlTask task) {
         if (task == null) {
             return;
@@ -132,7 +156,7 @@ public final class DatabaseManager {
 
         executor.submit(() -> {
             try {
-                task.run(getConnection());
+                task.run(getAsyncConnection());
             }
             catch (Exception e) {
                 System.err.println("[ChampUtils] Database task failed: " + description);
@@ -173,6 +197,9 @@ public final class DatabaseManager {
             executor = null;
         }
 
+        closeQuietly(asyncConnection.get());
+        asyncConnection.remove();
+
         try {
             if (connection != null) {
                 connection.close();
@@ -185,5 +212,13 @@ public final class DatabaseManager {
         }
 
         enabled = false;
+    }
+
+    private static void closeQuietly(Connection connection) {
+        if (connection == null) return;
+        try {
+            connection.close();
+        } catch (SQLException ignored) {
+        }
     }
 }

@@ -115,7 +115,11 @@ public final class MonotypeStarterManager {
             boolean monotype = PlayerProfileManager.gameMode(player) == ProfileGameMode.MONOTYPE;
 
             var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
-            playerData.setStarterLocked(monotype);
+            // For monotype profiles, block Cobblemon's normal starter UI only until the
+            // custom ChampUtils starter has been claimed. Leaving starterLocked=true after
+            // claiming keeps Cobblemon's client-side party controls in a restricted state.
+            boolean stillNeedsCustomStarter = monotype && !claimed && partyEmpty;
+            playerData.setStarterLocked(stillNeedsCustomStarter);
             playerData.setStarterSelected(claimed || !partyEmpty);
             playerData.setStarterPrompted(claimed || !partyEmpty);
             Cobblemon.INSTANCE.getPlayerDataManager().saveSingle(playerData, PlayerInstancedDataStoreTypes.INSTANCE.getGENERAL());
@@ -189,7 +193,9 @@ public final class MonotypeStarterManager {
             syncCobblemonStarterState(player);
             try {
                 var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
+                playerData.setStarterLocked(false);
                 playerData.setStarterSelected(true);
+                playerData.setStarterPrompted(true);
                 playerData.setStarterUUID(pokemon.getUuid());
                 Cobblemon.INSTANCE.getPlayerDataManager().saveSingle(playerData, PlayerInstancedDataStoreTypes.INSTANCE.getGENERAL());
                 playerData.sendToPlayer(player);

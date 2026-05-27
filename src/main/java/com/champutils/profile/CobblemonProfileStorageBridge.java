@@ -30,7 +30,9 @@ public final class CobblemonProfileStorageBridge {
     }
 
     public static synchronized void ensureSchemaAsync() {
-        if (sqlFactory != null) sqlFactory.ensureSchema();
+        if (sqlFactory != null) {
+            com.champutils.database.DatabaseManager.executeAsync("ensure Cobblemon SQL storage schema", connection -> sqlFactory.ensureSchema());
+        }
     }
 
     public static UUID storageKey(UUID playerUuid) {
@@ -66,6 +68,13 @@ public final class CobblemonProfileStorageBridge {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         forceSaveProfileStores(profileId, player);
+    }
+
+    public static void forceSaveActiveProfileStoresAsync(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || sqlFactory == null) return;
+        sqlFactory.saveAsync(profileId, player.registryAccess());
     }
 
     public static void forceSaveProfileStores(UUID profileId, ServerPlayer player) {

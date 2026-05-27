@@ -318,36 +318,62 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         UUID profileId = activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
 
+        String dimension = player.serverLevel().dimension().location().toString();
+        if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
+            return;
+        }
+
+        saveLocationSnapshotBlocking(
+                player.getGameProfile().getName(),
+                profileId,
+                dimension,
+                player.getX(),
+                player.getY(),
+                player.getZ(),
+                player.getYRot(),
+                player.getXRot()
+        );
+    }
+
+    public static void saveActiveLocationAsync(ServerPlayer player) {
+        if (player == null || !DatabaseManager.isEnabled() || !hasActiveProfile(player)) return;
+        UUID profileId = activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+
+        String dimension = player.serverLevel().dimension().location().toString();
+        if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
+            return;
+        }
+
+        String playerName = player.getGameProfile().getName();
+        double x = player.getX();
+        double y = player.getY();
+        double z = player.getZ();
+        float yaw = player.getYRot();
+        float pitch = player.getXRot();
+        DatabaseManager.executeAsync("save active profile location", connection -> saveLocationSnapshot(connection, playerName, profileId, dimension, x, y, z, yaw, pitch));
+    }
+
+    private static void saveLocationSnapshotBlocking(String playerName, UUID profileId, String dimension, double x, double y, double z, float yaw, float pitch) {
         try {
-            Connection connection = DatabaseManager.getConnection();
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
-            }
-
-            String dimension = player.serverLevel().dimension().location().toString();
-            if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
-                return;
-            }
-
-            try (var ps = connection.prepareStatement(
-                    "update player_profiles set last_dimension = ?, last_x = ?, last_y = ?, last_z = ?, last_yaw = ?, last_pitch = ?, last_used_at = now() where id = ?")) {
-                ps.setString(1, dimension);
-                ps.setDouble(2, player.getX());
-                ps.setDouble(3, player.getY());
-                ps.setDouble(4, player.getZ());
-                ps.setFloat(5, player.getYRot());
-                ps.setFloat(6, player.getXRot());
-                ps.setObject(7, profileId);
-                ps.executeUpdate();
-            }
+            saveLocationSnapshot(DatabaseManager.getConnection(), playerName, profileId, dimension, x, y, z, yaw, pitch);
         } catch (Exception e) {
-            System.err.println("[ChampUtils] Failed to save profile location for " + player.getGameProfile().getName());
+            System.err.println("[ChampUtils] Failed to save profile location for " + playerName);
             e.printStackTrace();
+        }
+    }
+
+    private static void saveLocationSnapshot(Connection connection, String playerName, UUID profileId, String dimension, double x, double y, double z, float yaw, float pitch) throws Exception {
+        try (var ps = connection.prepareStatement(
+                "update player_profiles set last_dimension = ?, last_x = ?, last_y = ?, last_z = ?, last_yaw = ?, last_pitch = ?, last_used_at = now() where id = ?")) {
+            ps.setString(1, dimension);
+            ps.setDouble(2, x);
+            ps.setDouble(3, y);
+            ps.setDouble(4, z);
+            ps.setFloat(5, yaw);
+            ps.setFloat(6, pitch);
+            ps.setObject(7, profileId);
+            ps.executeUpdate();
         }
     }
 
@@ -358,15 +384,6 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
         try {
             Connection connection = DatabaseManager.getConnection();
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
-                statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
-            }
-
             try (var ps = connection.prepareStatement("select last_dimension, last_x, last_y, last_z, last_yaw, last_pitch from player_profiles where id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {

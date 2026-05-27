@@ -23,11 +23,62 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public final class AntiLagManager {
-    private static int ticksUntilScan=20, ticksUntilCleanup=20; private static boolean cleanupWarningSent=false; private static long lastTickNanos=System.nanoTime();
+    private static int ticksUntilScan=20;
+    private static int ticksUntilCleanup=-1;
+    private static boolean cleanupWarningSent=false;
+    private static long lastTickNanos=System.nanoTime();
     private static final ArrayDeque<Long> tickHistoryMs=new ArrayDeque<>(); private static final Map<UUID,ThrowWindow> snowballThrows=new HashMap<>(); private static final Map<UUID,Violation> violations=new HashMap<>(); private static long resetKey= DailyResetManager.currentResetKeyMillis();
-    private static final String[] PROTECTED_TAG_MARKERS={"champutils_mega_boss","champutils_guild_boss","champutils_world_boss","champutils_special_spawn","champutils_roaming_trainer","champutils_npc","boss","special"};
+    private static final String[] PROTECTED_TAG_MARKERS={
+        "champutils_mega_boss","champutils_guild_boss","champutils_world_boss","champutils_special_spawn",
+        "champutils_roaming_trainer","champutils_npc","boss","special","legendary","mythical","ultra_beast",
+        "ultrabeast","roaming","event","titan","totem","raid","raid_boss","mega_boss","world_boss","guild_boss"
+    };
     private AntiLagManager(){}
-    public static void tick(MinecraftServer server){ recordTick(); long key=DailyResetManager.currentResetKeyMillis(); if(key!=resetKey){ resetKey=key; violations.clear(); snowballThrows.clear(); alertAdmins(server,"§a[AntiLag] Daily lag violation records wiped at "+DailyResetManager.formatResetTime()+"."); } if(!AntiLagConfig.DATA.enabled) return; if(--ticksUntilScan<=0){ ticksUntilScan=Math.max(10,Math.min(AntiLagConfig.DATA.scanIntervalSeconds*20,40)); if(AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);} if(AntiLagConfig.DATA.entityCleanupEnabled){ int warningTicks=Math.max(0,AntiLagConfig.DATA.cleanupWarningSeconds)*20; if(!cleanupWarningSent && warningTicks>0 && ticksUntilCleanup<=warningTicks){ cleanupWarningSent=true; warnCleanup(server); } } if(--ticksUntilCleanup<=0){ ticksUntilCleanup=Math.max(20,AntiLagConfig.DATA.cleanupIntervalMinutes*60*20); cleanupWarningSent=false; if(AntiLagConfig.DATA.entityCleanupEnabled) cleanupEntities(server,true);} }
+    public static void tick(MinecraftServer server){
+        recordTick();
+
+        long key=DailyResetManager.currentResetKeyMillis();
+        if(key!=resetKey){
+            resetKey=key;
+            violations.clear();
+            snowballThrows.clear();
+            alertAdmins(server,"§a[AntiLag] Daily lag violation records wiped at "+DailyResetManager.formatResetTime()+".");
+        }
+
+        if(!AntiLagConfig.DATA.enabled) return;
+
+        if(--ticksUntilScan<=0){
+            ticksUntilScan=Math.max(10,Math.min(AntiLagConfig.DATA.scanIntervalSeconds*20,40));
+            if(AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);
+        }
+
+        // Destructive entity cleanup must never run from the frequent lag-machine scan path.
+        // It is intentionally isolated behind the long cleanup scheduler. Default is 15 minutes = 18,000 ticks.
+        if(ticksUntilCleanup<0){
+            ticksUntilCleanup=cleanupIntervalTicks();
+        }
+        if(!AntiLagConfig.DATA.entityCleanupEnabled){
+            cleanupWarningSent=false;
+            ticksUntilCleanup=cleanupIntervalTicks();
+            return;
+        }
+
+        int warningTicks=Math.max(0,AntiLagConfig.DATA.cleanupWarningSeconds)*20;
+        if(!cleanupWarningSent && warningTicks>0 && ticksUntilCleanup<=warningTicks){
+            cleanupWarningSent=true;
+            warnCleanup(server);
+        }
+
+        if(--ticksUntilCleanup<=0){
+            ticksUntilCleanup=cleanupIntervalTicks();
+            cleanupWarningSent=false;
+            cleanupEntities(server,true);
+        }
+    }
+
+    private static int cleanupIntervalTicks(){
+        return Math.max(18000, AntiLagConfig.DATA.cleanupIntervalMinutes*60*20);
+    }
     private static void warnCleanup(MinecraftServer server){ String msg="§6[Cleanup] §eDropped items and natural wild Pokémon will be cleared in §c"+AntiLagConfig.DATA.cleanupWarningSeconds+" seconds§e. Pokémon currently in battle are protected."; server.getPlayerList().broadcastSystemMessage(Component.literal(msg), false); }
     private static void recordTick(){ long now=System.nanoTime(); long ms=(now-lastTickNanos)/1_000_000L; lastTickNanos=now; tickHistoryMs.addLast(ms); while(tickHistoryMs.size()>240) tickHistoryMs.removeFirst(); }
     private static boolean hasTpsSpike(){ return tickHistoryMs.stream().anyMatch(v->v>=AntiLagConfig.DATA.tpsSpikeMsThreshold); }
@@ -89,19 +140,53 @@ public final class AntiLagManager {
 
         Object pokemon=firstValue(e,"pokemon","getPokemon");
 
-        if(pokemon!=null&&(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny"))) return false;
-        if(AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage&&(hasEntityOwner(e)||hasOwnerOrStorage(pokemon))) return false;
+        // Absolutely never wipe player/NPC-owned Cobblemon entities. Profile-backed
+        // parties can make ownership look different from normal account UUID storage,
+        // so check entity owner, Pokemon owner, store ownership, and active sent-out state.
+        if(isOwnedOrActivePokemonEntity(e, pokemon)) return false;
 
-        String entityAspects=String.valueOf(firstValue(e,"aspects","getAspects","appliedAspects","getAppliedAspects","features","getFeatures")).toLowerCase(Locale.ROOT);
-        String pokemonAspects=String.valueOf(firstValue(pokemon,"aspects","getAspects","features","getFeatures")).toLowerCase(Locale.ROOT);
-        String combinedAspects=entityAspects+" "+pokemonAspects;
-        if(combinedAspects.contains("shiny")||combinedAspects.contains("boss")||combinedAspects.contains("special")||combinedAspects.contains("legendary")) return false;
+        if(pokemon!=null&&(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny"))) return false;
+        if(isShinyOrSpecialPokemon(e, pokemon)) return false;
+        if(AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage&&(hasEntityOwner(e)||hasOwnerOrStorage(pokemon))) return false;
 
         // Do NOT reject every Mob#isPersistenceRequired() Pokémon here. Cobblemon can mark ordinary
         // natural wild Pokémon persistent while they are loaded, which made the timed cleanup skip all wilds.
         // Also do NOT treat Cobblemon storeCoordinates/storeCoordinate as proof of player ownership.
         // Wild Pokémon can have world/storage coordinates while still being ordinary natural spawns.
         return true;
+    }
+
+
+    private static boolean isShinyOrSpecialPokemon(Entity e,Object pokemon){
+        String entityAspects=String.valueOf(firstValue(e,"aspects","getAspects","appliedAspects","getAppliedAspects","features","getFeatures")).toLowerCase(Locale.ROOT);
+        String pokemonAspects=String.valueOf(firstValue(pokemon,"aspects","getAspects","features","getFeatures","labels","getLabels")).toLowerCase(Locale.ROOT);
+        String species=String.valueOf(firstValue(pokemon,"species","getSpecies")).toLowerCase(Locale.ROOT);
+        String form=String.valueOf(firstValue(pokemon,"form","getForm")).toLowerCase(Locale.ROOT);
+        String spawnData=String.valueOf(firstValue(e,"spawnData","getSpawnData","spawnContext","getSpawnContext","spawnDetail","getSpawnDetail")).toLowerCase(Locale.ROOT);
+        String combined=entityAspects+" "+pokemonAspects+" "+species+" "+form+" "+spawnData;
+        if(combined.contains("shiny")) return true;
+        for(String marker:PROTECTED_TAG_MARKERS) if(combined.contains(marker)) return true;
+
+        Object speciesObj=firstValue(pokemon,"species","getSpecies");
+        if(booleanValue(speciesObj,"legendary","isLegendary","mythical","isMythical","ultraBeast","isUltraBeast")) return true;
+        Object labels=firstValue(speciesObj,"labels","getLabels");
+        String labelText=String.valueOf(labels).toLowerCase(Locale.ROOT);
+        return labelText.contains("legendary")||labelText.contains("mythical")||labelText.contains("ultra_beast")||labelText.contains("ultrabeast");
+    }
+
+    private static boolean isOwnedOrActivePokemonEntity(Entity e,Object pokemon){
+        if(hasEntityOwner(e)||hasOwnerOrStorage(pokemon)) return true;
+        if(booleanValue(pokemon,"isPlayerOwned","isNPCOwned")) return true;
+        Object ownerEntity=firstValue(pokemon,"getOwnerEntity","getOwnerPlayer","getOwnerNPC");
+        if(ownerEntity!=null) return true;
+        Object state=firstValue(pokemon,"state","getState");
+        if(state!=null){
+            String name=state.getClass().getName().toLowerCase(Locale.ROOT);
+            String text=String.valueOf(state).toLowerCase(Locale.ROOT);
+            if(name.contains("sentoutstate")||name.contains("shoulderedstate")||text.contains("sentoutstate")||text.contains("shoulderedstate")) return true;
+        }
+        Object tethering=firstValue(e,"tethering","getTethering");
+        return tethering!=null;
     }
     private static boolean isPokemonInAnyBattle(Entity e){ if(booleanValue(e,"isBattling","isInBattle","battleId","battleIds","getBattleId","getBattleIds","getBattleIdsSnapshot")) return true; Object pokemon=firstValue(e,"pokemon","getPokemon"); if(booleanValue(pokemon,"isBattling","isInBattle","battleId","battleIds","getBattleId","getBattleIds")) return true; MinecraftServer server=e.getServer(); if(server==null) return false; for(ServerPlayer player:server.getPlayerList().getPlayers()) if(player.level()==e.level() && player.distanceToSqr(e)<4096.0D && playerIsBattlingEntity(player,e)) return true; return false; }
     private static boolean playerIsBattlingEntity(ServerPlayer player, Entity target){ Object state=invokeStatic("com.cobblemon.mod.common.util.PlayerExtensionsKt","getBattleState",player); if(state==null) state=invokeStatic("com.cobblemon.mod.common.util.PlayerExtensionsKt","battleState",player); Object battle=firstValue(state,"first","getFirst"); if(battle==null) battle=state; Object actor=invokeMethod(battle,"getActor",target); return actor!=null; }
