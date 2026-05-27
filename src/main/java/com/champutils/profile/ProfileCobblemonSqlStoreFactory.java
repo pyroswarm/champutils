@@ -58,7 +58,13 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     public PlayerPartyStore getPlayerParty(UUID playerID, RegistryAccess registryAccess) {
         if (!canOwn(playerID)) return null;
         return partyCache.computeIfAbsent(playerID, uuid -> {
-            PlayerPartyStore store = new PlayerPartyStore(uuid);
+            UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(uuid);
+            if (accountUuid == null) accountUuid = uuid;
+
+            // Important: playerUUID must be the real Minecraft account UUID so Cobblemon
+            // ownership, observers, send-out, and recall all target the online player.
+            // storageUUID remains the profile UUID so SQL/file ownership stays profile-scoped.
+            PlayerPartyStore store = new PlayerPartyStore(accountUuid, uuid);
             loadStore(uuid, true, store, registryAccess);
             store.initialize();
             return store;

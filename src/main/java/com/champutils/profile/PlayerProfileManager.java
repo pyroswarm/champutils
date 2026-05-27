@@ -63,6 +63,9 @@ public final class PlayerProfileManager {
                 statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
+                // Drop the old non-partial unique index if it exists. It kept soft-deleted profile names reserved forever.
+                statement.executeUpdate("drop index if exists idx_unique_profile_name_per_player_uuid");
+                statement.executeUpdate("drop index if exists player_profiles_unique_name_per_player_uuid");
                 statement.executeUpdate("create unique index if not exists player_profiles_unique_live_name on player_profiles(player_uuid, lower(name)) where deleted_at is null");
                 statement.executeUpdate("create table if not exists player_active_profiles (" +
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
@@ -224,6 +227,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             Connection connection = DatabaseManager.getConnection();
             ensurePlayerRow(connection, player);
             syncLimitFromLuckPerms(connection, player);
+            finalizePendingDeletesBlocking(player);
+            ProfileRecord existing = readByName(connection, player.getUUID(), clean);
+            if (existing != null) {
+                if (existing.pendingDelete()) return "That profile color is still pending deletion.";
+                return "You already have a profile named " + clean + ".";
+            }
             ProfileLimit limit = limitBlocking(player);
             int liveProfiles = countLiveProfiles(connection, player.getUUID());
             if (liveProfiles >= limit.maxProfiles()) return "You already have the max of " + limit.maxProfiles() + " profiles.";

@@ -52,6 +52,16 @@ public final class CobblemonProfileStorageBridge {
         return false;
     }
 
+    public static UUID accountUuidForProfile(UUID profileId) {
+        if (profileId == null) return null;
+        for (PlayerProfileManager.ProfileRecord record : PlayerProfileManager.activeProfilesSnapshot()) {
+            if (record != null && profileId.equals(record.profileId())) {
+                return record.playerUuid();
+            }
+        }
+        return null;
+    }
+
     public static void forceSaveActiveProfileStores(ServerPlayer player) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);

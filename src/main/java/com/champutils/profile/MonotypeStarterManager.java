@@ -155,7 +155,7 @@ public final class MonotypeStarterManager {
                     .setName(Component.literal(choice.display()).withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Level 5 " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to choose this Pokémon.").withStyle(ChatFormatting.YELLOW))
-                    .setCallback((index, clickType, action) -> claim(player, choice));
+                    .setCallback((index, clickType, action, gui1) -> claim(player, choice));
             gui.setSlot(slots[i], builder);
         }
 
@@ -175,7 +175,7 @@ public final class MonotypeStarterManager {
         }
         String required = normalize(PlayerProfileManager.monotypeType(player));
         try {
-            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + choice.species() + "\" level=5").create();
+            Pokemon pokemon = PokemonProperties.Companion.parse("species=cobblemon:" + choice.species() + " level=5").create();
             if (!ProfileRestrictions.hasType(pokemon, required)) {
                 player.sendSystemMessage(Component.literal("That starter is not valid for your " + required + " monotype profile.").withStyle(ChatFormatting.RED));
                 return;
@@ -206,7 +206,10 @@ public final class MonotypeStarterManager {
     private static boolean addStarterToProfileParty(ServerPlayer player, Pokemon pokemon) {
         if (player == null || pokemon == null) return false;
         try {
-            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            UUID profileId = PlayerProfileManager.activeProfileId(player);
+            var party = (profileId != null && !profileId.equals(player.getUUID()))
+                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
+                    : Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return false;
             if (partyContains(player, pokemon.getUuid())) return true;
             boolean added = party.add(pokemon);
@@ -225,7 +228,10 @@ public final class MonotypeStarterManager {
     private static boolean partyContains(ServerPlayer player, UUID pokemonUuid) {
         if (player == null || pokemonUuid == null) return false;
         try {
-            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            UUID profileId = PlayerProfileManager.activeProfileId(player);
+            var party = (profileId != null && !profileId.equals(player.getUUID()))
+                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
+                    : Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return false;
             for (Pokemon pokemon : party) {
                 if (pokemon != null && pokemonUuid.equals(pokemon.getUuid())) return true;
@@ -236,7 +242,10 @@ public final class MonotypeStarterManager {
 
     private static boolean isPartyEmpty(ServerPlayer player) {
         try {
-            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            UUID profileId = PlayerProfileManager.activeProfileId(player);
+            var party = (profileId != null && !profileId.equals(player.getUUID()))
+                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
+                    : Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return true;
             for (Pokemon pokemon : party) if (pokemon != null) return false;
         } catch (Throwable ignored) {}
