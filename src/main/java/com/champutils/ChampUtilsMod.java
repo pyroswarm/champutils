@@ -140,6 +140,8 @@ public class ChampUtilsMod implements ModInitializer {
         ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
         MonotypeStarterManager.register();
+        IronmanItemOwnership.register();
+        IronmanTradeBlocker.register();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
@@ -552,6 +554,7 @@ public class ChampUtilsMod implements ModInitializer {
         DexRewardCommand.register();
         TextCommand.register();
         WonderTradeCommand.register();
+        TradeSimCommand.register();
         EmblemCommand.register();
         RandomTeleportCommand.register();
         HomeCommand.register();

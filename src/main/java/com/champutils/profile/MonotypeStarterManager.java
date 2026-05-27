@@ -68,8 +68,19 @@ public final class MonotypeStarterManager {
 
             UUID profileId = PlayerProfileManager.activeProfileId(player);
             if (profileId != null && !profileId.equals(player.getUUID())) {
-                try { markClaimed(profileId, event.getPokemon() == null || event.getPokemon().getSpecies() == null ? "unknown" : event.getPokemon().getSpecies().getResourceIdentifier().toString()); }
-                catch (Exception e) { e.printStackTrace(); }
+                Pokemon chosen = event.getPokemon();
+                String species = chosen == null || chosen.getSpecies() == null ? "unknown" : chosen.getSpecies().getResourceIdentifier().toString();
+                player.server.execute(() -> {
+                    try {
+                        if (chosen != null && !partyContains(player, chosen.getUuid())) {
+                            addStarterToProfileParty(player, chosen);
+                        }
+                        markClaimed(profileId, species);
+                        syncCobblemonStarterState(player);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
             }
         });
     }
@@ -144,7 +155,7 @@ public final class MonotypeStarterManager {
                     .setName(Component.literal(choice.display()).withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Level 5 " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to choose this Pokémon.").withStyle(ChatFormatting.YELLOW))
-                    .setCallback((index, clickType, action, g) -> claim(player, choice));
+                    .setCallback((index, clickType, action) -> claim(player, choice));
             gui.setSlot(slots[i], builder);
         }
 
@@ -169,12 +180,13 @@ public final class MonotypeStarterManager {
                 player.sendSystemMessage(Component.literal("That starter is not valid for your " + required + " monotype profile.").withStyle(ChatFormatting.RED));
                 return;
             }
-            boolean added = Cobblemon.INSTANCE.getStorage().getParty(player).add(pokemon);
+            boolean added = addStarterToProfileParty(player, pokemon);
             if (!added) {
                 player.sendSystemMessage(Component.literal("Could not add starter. Make sure your party has room.").withStyle(ChatFormatting.RED));
                 return;
             }
             markClaimed(PlayerProfileManager.activeProfileId(player), choice.species());
+            syncCobblemonStarterState(player);
             try {
                 var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
                 playerData.setStarterSelected(true);
@@ -191,6 +203,37 @@ public final class MonotypeStarterManager {
         }
     }
 
+    private static boolean addStarterToProfileParty(ServerPlayer player, Pokemon pokemon) {
+        if (player == null || pokemon == null) return false;
+        try {
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party == null) return false;
+            if (partyContains(player, pokemon.getUuid())) return true;
+            boolean added = party.add(pokemon);
+            if (!added) return false;
+            try { pokemon.heal(); } catch (Throwable ignored) {}
+            try { party.sendTo(player); } catch (Throwable ignored) {}
+            try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
+            try { CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player); } catch (Throwable ignored) {}
+            return true;
+        } catch (Throwable t) {
+            t.printStackTrace();
+            return false;
+        }
+    }
+
+    private static boolean partyContains(ServerPlayer player, UUID pokemonUuid) {
+        if (player == null || pokemonUuid == null) return false;
+        try {
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party == null) return false;
+            for (Pokemon pokemon : party) {
+                if (pokemon != null && pokemonUuid.equals(pokemon.getUuid())) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     private static boolean isPartyEmpty(ServerPlayer player) {
         try {
             var party = Cobblemon.INSTANCE.getStorage().getParty(player);
@@ -201,6 +244,7 @@ public final class MonotypeStarterManager {
     }
 
     private static boolean hasClaimed(UUID profileId) {
+        if (profileId == null) return false;
         try (var ps = DatabaseManager.getConnection().prepareStatement("select 1 from profile_starter_claims where profile_id = ? limit 1")) {
             ps.setObject(1, profileId);
             try (var rs = ps.executeQuery()) { return rs.next(); }
@@ -211,6 +255,7 @@ public final class MonotypeStarterManager {
     }
 
     private static void markClaimed(UUID profileId, String species) throws Exception {
+        if (profileId == null || profileId.equals(new UUID(0L, 0L))) return;
         try (Connection connection = DatabaseManager.getConnection();
              var ps = connection.prepareStatement("insert into profile_starter_claims (profile_id, starter_species, claimed_at) values (?, ?, now()) on conflict (profile_id) do update set starter_species = excluded.starter_species, claimed_at = now()")) {
             ps.setObject(1, profileId);

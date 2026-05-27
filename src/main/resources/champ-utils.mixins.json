@@ -5,7 +5,9 @@
   "mixins": [
     "StandardExperienceCalculatorMixin",
     "CommandsLockedLobbyMixin",
-    "CobblemonPokemonStoreManagerMixin"
+    "CobblemonPokemonStoreManagerMixin",
+    "IronmanItemEntityMixin",
+    "IronmanPlayerDropMixin"
   ],
   "injectors": {
     "defaultRequire": 1

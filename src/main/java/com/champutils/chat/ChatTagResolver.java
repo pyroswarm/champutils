@@ -4,6 +4,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileGameMode;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -18,6 +20,15 @@ public final class ChatTagResolver {
         if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
             String prefix = luckPermsMeta(player, "getPrefix");
             if (prefix != null && !prefix.isBlank()) result.append(legacy(prefix)).append(Component.literal(" "));
+        }
+
+        ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
+        if (profileMode == ProfileGameMode.IRONMAN) {
+            result.append(Component.literal("[Ironman]").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.MONOTYPE) {
+            String type = PlayerProfileManager.monotypeType(player);
+            if (type == null || type.isBlank()) type = "Unknown";
+            result.append(Component.literal("[Monotype: " + prettyType(type) + "]").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
         }
 
         List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
@@ -41,6 +52,12 @@ public final class ChatTagResolver {
         }
 
         return result;
+    }
+
+    private static String prettyType(String raw) {
+        if (raw == null || raw.isBlank()) return "Unknown";
+        String lower = raw.trim().toLowerCase(java.util.Locale.ROOT);
+        return lower.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + lower.substring(1);
     }
 
     private static boolean hasPermission(ServerPlayer player, String permission) {
