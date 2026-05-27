@@ -1,5 +1,7 @@
 package com.champutils.dex;
 
+import com.champutils.profile.PlayerProfileManager;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -60,12 +62,12 @@ public final class DexRewardClaimData {
     }
 
     public static boolean hasClaimed(UUID uuid, int percent) {
-        Set<Integer> claimed = CLAIMS.get(uuid.toString());
+        Set<Integer> claimed = CLAIMS.get(PlayerProfileManager.activeProfileId(uuid).toString());
         return claimed != null && claimed.contains(percent);
     }
 
     public static void markClaimed(UUID uuid, int percent) {
-        CLAIMS.computeIfAbsent(uuid.toString(), ignored -> new HashSet<>()).add(percent);
+        CLAIMS.computeIfAbsent(PlayerProfileManager.activeProfileId(uuid).toString(), ignored -> new HashSet<>()).add(percent);
         save();
     }
 

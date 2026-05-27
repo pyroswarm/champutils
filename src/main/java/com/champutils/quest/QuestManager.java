@@ -5,6 +5,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.guild.GuildRepository;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionType;
+import com.champutils.profile.PlayerProfileManager;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -60,7 +61,7 @@ public class QuestManager {
     }
 
     public static QuestDataManager.QuestData getData(ServerPlayer player) {
-        UUID uuid = player.getUUID();
+        UUID uuid = PlayerProfileManager.activeProfileId(player);
         QuestDataManager.QuestData data = CACHE.get(uuid);
         if (data != null) return data;
         data = QuestDataManager.load(uuid, player.getName().getString());
@@ -276,7 +277,7 @@ public class QuestManager {
         QuestDataManager.GuildQuestData data = getGuildData(player);
         if (data == null || data.weekly == null || data.weekly.objectives == null) return false;
         boolean changed = false;
-        String playerKey = player.getUUID().toString();
+        String playerKey = PlayerProfileManager.activeProfileId(player).toString();
         for (QuestDataManager.Objective o : data.weekly.objectives) {
             if (o == null) continue;
             if (o.requiredPlayers <= 0) o.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
@@ -307,7 +308,7 @@ public class QuestManager {
 
     public static boolean hasClaimedGuildWeekly(ServerPlayer player) {
         QuestDataManager.GuildQuestData data = getGuildData(player);
-        return data != null && data.claimedWeekly != null && data.claimedWeekly.contains(player.getUUID().toString());
+        return data != null && data.claimedWeekly != null && data.claimedWeekly.contains(PlayerProfileManager.activeProfileId(player).toString());
     }
 
     public static boolean completeGuildWeekly(ServerPlayer player) {
@@ -322,7 +323,7 @@ public class QuestManager {
             return false;
         }
         if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
-        String playerKey = player.getUUID().toString();
+        String playerKey = PlayerProfileManager.activeProfileId(player).toString();
         if (data.claimedWeekly.contains(playerKey)) {
             player.sendSystemMessage(Component.literal("You already claimed this guild weekly reward.").withStyle(ChatFormatting.RED));
             return false;
@@ -427,7 +428,7 @@ public class QuestManager {
         if (server == null || commands == null) return;
         for (String raw : commands) {
             if (raw == null || raw.isBlank()) continue;
-            String cmd = raw.replace("%player%", player.getName().getString()).replace("%uuid%", player.getUUID().toString());
+            String cmd = raw.replace("%player%", player.getName().getString()).replace("%uuid%", PlayerProfileManager.activeProfileId(player).toString());
             server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), cmd);
         }
     }
@@ -647,7 +648,7 @@ public class QuestManager {
 
     private static String safe(String s) { return s == null ? "" : s.trim(); }
 
-    private static void markDirty(ServerPlayer player) { DIRTY.add(player.getUUID()); }
+    private static void markDirty(ServerPlayer player) { DIRTY.add(PlayerProfileManager.activeProfileId(player)); }
 
     private static void markGuildDirty(UUID guildId) { if (guildId != null) DIRTY_GUILDS.add(guildId); }
 
@@ -659,7 +660,7 @@ public class QuestManager {
     }
 
     public static void savePlayer(ServerPlayer player) {
-        UUID uuid = player.getUUID();
+        UUID uuid = PlayerProfileManager.activeProfileId(player);
         if (!DIRTY.contains(uuid)) return;
         QuestDataManager.QuestData data = CACHE.get(uuid);
         if (data != null) QuestDataManager.save(uuid, data);
@@ -668,7 +669,7 @@ public class QuestManager {
 
     public static void unloadPlayer(ServerPlayer player) {
         savePlayer(player);
-        CACHE.remove(player.getUUID());
+        CACHE.remove(PlayerProfileManager.activeProfileId(player));
     }
 
     public static void saveAll() {

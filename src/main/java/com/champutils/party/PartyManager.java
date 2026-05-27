@@ -1,5 +1,7 @@
 package com.champutils.party;
 
+import com.champutils.profile.ProfileRestrictions;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -79,6 +81,8 @@ public final class PartyManager {
 
     public static Result invite(ServerPlayer inviter, ServerPlayer target) {
         if (inviter == null || target == null) return Result.fail("Could not send that invite.");
+        if (ProfileRestrictions.blockIronmanTrade(inviter, "player parties")) return Result.fail("Ironman profiles cannot invite players to parties.");
+        if (ProfileRestrictions.blockIronmanTrade(target, "player parties")) return Result.fail(target.getGameProfile().getName() + " is on an Ironman profile.");
         if (inviter.getUUID().equals(target.getUUID())) return Result.fail("You cannot invite yourself.");
 
         UUID ownerId = PLAYER_TO_OWNER.get(inviter.getUUID());
@@ -96,6 +100,10 @@ public final class PartyManager {
 
     public static Result accept(ServerPlayer player) {
         if (player == null) return Result.fail("Could not accept that invite.");
+        if (ProfileRestrictions.blockIronmanTrade(player, "player parties")) {
+            INVITES_BY_TARGET.remove(player.getUUID());
+            return Result.fail("Ironman profiles cannot join player parties.");
+        }
         if (hasParty(player.getUUID())) {
             INVITES_BY_TARGET.remove(player.getUUID());
             return Result.fail("You are already in a party.");

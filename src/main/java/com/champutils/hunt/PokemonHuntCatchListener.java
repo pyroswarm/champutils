@@ -1,8 +1,7 @@
 package com.champutils.hunt;
 
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
 
+import com.champutils.util.CobblemonEventReflection;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Field;
@@ -31,33 +30,18 @@ public final class PokemonHuntCatchListener {
 
             int subscriptions = 0;
             for (Object observable : observables) {
-                Method subscribe = null;
-                for (Method method : observable.getClass().getMethods()) {
-                    if (!method.getName().equals("subscribe")) continue;
-                    if (method.getParameterCount() == 1) {
-                        subscribe = method;
-                        break;
-                    }
-                }
-
-                if (subscribe == null) continue;
-
-                subscribe.invoke(observable, new Function1<Object, Unit>() {
-                    @Override
-                    public Unit invoke(Object event) {
-                        try {
-                            ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
-                            Object pokemon = PokemonHuntReflection.extractPokemon(event);
-                            if (player != null && pokemon != null) {
-                                PokemonHuntManager.handleCatch(player, pokemon);
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                boolean subscribed = CobblemonEventReflection.subscribe(observable, event -> {
+                    try {
+                        ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
+                        Object pokemon = PokemonHuntReflection.extractPokemon(event);
+                        if (player != null && pokemon != null) {
+                            PokemonHuntManager.handleCatch(player, pokemon);
                         }
-                        return Unit.INSTANCE;
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 });
-                subscriptions++;
+                if (subscribed) subscriptions++;
             }
 
             if (subscriptions <= 0) {

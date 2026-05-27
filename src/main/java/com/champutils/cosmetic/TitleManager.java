@@ -1,5 +1,6 @@
 package com.champutils.cosmetic;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.ChatFormatting;
@@ -75,7 +76,7 @@ public final class TitleManager {
     }
 
     private static PlayerTitles data(UUID uuid) {
-        return state.players.computeIfAbsent(uuid.toString(), k -> new PlayerTitles());
+        return state.players.computeIfAbsent(PlayerProfileManager.activeProfileId(uuid).toString(), k -> new PlayerTitles());
     }
 
     private static final class State { Map<String, PlayerTitles> players = new ConcurrentHashMap<>(); }

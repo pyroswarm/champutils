@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -87,7 +88,7 @@ public final class TrueCaughtDexManager {
     public static boolean markTrueCaught(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null) return false;
         String species = speciesId(pokemon);
-        return markTrueCaught(player.getUUID(), species);
+        return markTrueCaught(PlayerProfileManager.activeProfileId(player), species);
     }
 
     public static boolean markTrueCaught(UUID playerId, String species) {
@@ -103,7 +104,7 @@ public final class TrueCaughtDexManager {
     }
 
     public static boolean hasTrueCaught(ServerPlayer player, String species) {
-        return player != null && hasTrueCaught(player.getUUID(), species);
+        return player != null && hasTrueCaught(PlayerProfileManager.activeProfileId(player), species);
     }
 
     public static boolean hasTrueCaught(UUID playerId, String species) {
@@ -116,14 +117,14 @@ public final class TrueCaughtDexManager {
     public static int getCaughtCount(ServerPlayer player) {
         if (player == null) return 0;
         load();
-        Set<String> set = TRUE_CAUGHT.get(player.getUUID());
+        Set<String> set = TRUE_CAUGHT.get(PlayerProfileManager.activeProfileId(player));
         return set == null ? 0 : set.size();
     }
 
     public static Set<String> getCaughtSpecies(ServerPlayer player) {
         if (player == null) return Collections.emptySet();
         load();
-        Set<String> set = TRUE_CAUGHT.get(player.getUUID());
+        Set<String> set = TRUE_CAUGHT.get(PlayerProfileManager.activeProfileId(player));
         return set == null ? Collections.emptySet() : Collections.unmodifiableSet(set);
     }
 

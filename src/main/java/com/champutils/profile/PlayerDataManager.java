@@ -91,9 +91,22 @@ public class PlayerDataManager {
             UUID uuid
     ){
 
+        UUID profileId =
+                PlayerProfileManager.activeProfileId(uuid);
+
+        File dir =
+                new File(
+                        playerDir(),
+                        "profiles"
+                );
+
+        if(!dir.exists()){
+            dir.mkdirs();
+        }
+
         return new File(
-                playerDir(),
-                uuid.toString()+".json"
+                dir,
+                profileId.toString()+".json"
         );
     }
 
@@ -119,7 +132,7 @@ public class PlayerDataManager {
                 new PlayerData();
 
         data.uuid=
-                uuid.toString();
+                PlayerProfileManager.activeProfileId(uuid).toString();
 
         data.name=
                 name;
@@ -163,7 +176,7 @@ public class PlayerDataManager {
                 }
 
                 data.uuid=
-                        uuid.toString();
+                        PlayerProfileManager.activeProfileId(uuid).toString();
 
                 data.name=
                         fallbackName;
@@ -179,7 +192,7 @@ public class PlayerDataManager {
                     new PlayerData();
 
             d.uuid=
-                    uuid.toString();
+                    PlayerProfileManager.activeProfileId(uuid).toString();
 
             d.name=
                     fallbackName;

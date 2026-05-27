@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.profile.ProfileRestrictions;
 import com.champutils.wondertrade.WonderTradeSeeder;
 import com.champutils.wondertrade.WonderTradeService;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -25,7 +26,9 @@ public final class WonderTradeCommand {
                         })
                         .then(literal("claim")
                                 .executes(context -> {
-                                    WonderTradeService.claimPending(context.getSource().getPlayerOrException());
+                                    var player = context.getSource().getPlayerOrException();
+                                    if (ProfileRestrictions.blockIronmanTrade(player, "Wonder Trade")) return 0;
+                                    WonderTradeService.claimPending(player);
                                     return 1;
                                 }))
                         .then(literal("cooldown")
@@ -66,8 +69,10 @@ public final class WonderTradeCommand {
                                         })))
                         .then(argument("slot", IntegerArgumentType.integer(1, 6))
                                 .executes(context -> {
+                                    var player = context.getSource().getPlayerOrException();
+                                    if (ProfileRestrictions.blockIronmanTrade(player, "Wonder Trade")) return 0;
                                     WonderTradeService.trade(
-                                            context.getSource().getPlayerOrException(),
+                                            player,
                                             IntegerArgumentType.getInteger(context, "slot")
                                     );
                                     return 1;

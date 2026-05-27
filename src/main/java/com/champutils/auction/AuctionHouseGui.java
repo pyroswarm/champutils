@@ -1,5 +1,7 @@
 package com.champutils.auction;
 
+import com.champutils.profile.PlayerProfileManager;
+
 import com.champutils.economy.EconomyManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
@@ -137,7 +139,7 @@ public final class AuctionHouseGui {
                 AuctionHouseRepository.AuctionListingSummary listing = listings.get(i);
                 List<Component> lore = listingLore(listing);
                 lore.add(Component.literal(""));
-                if (player.getUUID().toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
+                if (PlayerProfileManager.activeProfileId(player).toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
                     lore.add(Component.literal("§eThis is your listing."));
                     lore.add(Component.literal("§7Click to inspect."));
                 } else {
@@ -164,7 +166,7 @@ public final class AuctionHouseGui {
         gui.open();
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.fetchSellerActiveListings(player.getUUID(), 45); }
+            try { return AuctionHouseRepository.fetchSellerActiveListings(PlayerProfileManager.activeProfileId(player), 45); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listings, error) -> player.server.execute(() -> {
             if (error != null) {
@@ -200,7 +202,7 @@ public final class AuctionHouseGui {
         fill(gui);
 
         boolean pokemon = "POKEMON".equalsIgnoreCase(listing.kind);
-        boolean mine = player.getUUID().toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid));
+        boolean mine = PlayerProfileManager.activeProfileId(player).toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid));
 
         // Header / featured icon
         gui.setSlot(4, iconFor(player, listing)

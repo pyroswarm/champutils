@@ -133,6 +133,10 @@ public class ChampUtilsMod implements ModInitializer {
          */
         DatabaseManager.init();
         NetworkReadySchemaManager.ensureAsync();
+        PlayerProfileManager.ensureSchemaAsync();
+        VanillaProfileStateManager.ensureSchemaAsync();
+        CobblemonProfileStateManager.ensureSchemaAsync();
+        ProfileLobbyLockManager.register();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
@@ -254,6 +258,9 @@ public class ChampUtilsMod implements ModInitializer {
                     ChampWorldBorderManager.applyAll(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
+                    PlayerProfileManager.ensureSchemaAsync();
+                    VanillaProfileStateManager.ensureSchemaAsync();
+                    CobblemonProfileStateManager.ensureSchemaAsync();
                     TerritoryRepository.refreshAll();
                     DatabaseBootstrapSync.syncExistingLocalData();
                     EconomyManager.syncAllToDatabase();
@@ -342,6 +349,10 @@ public class ChampUtilsMod implements ModInitializer {
                             playerName
                     );
 
+                    PlayerProfileManager.handleJoin(player);
+                    if (PlayerProfileManager.isInMainMenu(player)) {
+                        return;
+                    }
                     PlayerDataManager.ensurePlayer(
                             player.getUUID(),
                             playerName
@@ -429,6 +440,9 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
 
+                    VanillaProfileStateManager.save(handler.player);
+                    CobblemonProfileStateManager.save(handler.player);
+
                     MatchmakingManager.leaveQueue(
                             handler.player
                     );
@@ -455,6 +469,10 @@ public class ChampUtilsMod implements ModInitializer {
 
                     DailyLoginManager.handleDisconnect(
                             handler.player
+                    );
+
+                    PlayerProfileManager.unload(
+                            handler.player.getUUID()
                     );
                 }
         );
@@ -552,6 +570,7 @@ public class ChampUtilsMod implements ModInitializer {
         AutoModCommand.register();
         DailyLoginCommand.register();
         ChampWorldBorderCommand.register();
+        ProfileCommand.register();
 
         /*
          New custom item test command

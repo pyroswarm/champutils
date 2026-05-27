@@ -1,7 +1,7 @@
 package com.champutils.database;
 
 import com.champutils.profile.PlayerDataManager;
-
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.network.NetworkServerConfig;
 
 import java.sql.PreparedStatement;
@@ -11,93 +11,94 @@ public final class PlayerDatabaseRepository {
 
     private static boolean schemaEnsured = false;
 
-    private PlayerDatabaseRepository() {
-    }
+    private PlayerDatabaseRepository() {}
 
     private static String getCurrentSeasonId() {
         return "season_" + Math.max(1, com.champutils.rank.SeasonManager.CURRENT_SEASON);
     }
 
     private static void ensureSchema(java.sql.Connection connection) throws Exception {
-        if (schemaEnsured) {
-            return;
-        }
-
+        if (schemaEnsured) return;
         try (PreparedStatement statement = connection.prepareStatement(
-                "alter table players add column if not exists playtime_seconds bigint not null default 0"
-        )) {
-            statement.executeUpdate();
-        }
-
+                "create table if not exists profile_player_stats (" +
+                        "profile_id uuid primary key references player_profiles(id) on delete cascade, " +
+                        "playtime_seconds bigint not null default 0, money numeric(18,2) not null default 0, " +
+                        "battling_xp bigint not null default 0, battling_level integer not null default 1, total_level integer not null default 1, " +
+                        "metadata jsonb not null default '{}'::jsonb, updated_at timestamptz not null default now())"
+        )) { statement.executeUpdate(); }
         try (PreparedStatement statement = connection.prepareStatement(
-                "alter table players add column if not exists last_server_id text"
-        )) {
-            statement.executeUpdate();
-        }
-
+                "create table if not exists profile_ranked_stats (" +
+                        "profile_id uuid not null references player_profiles(id) on delete cascade, season_id text not null default 'default', " +
+                        "rp integer not null default 1000, peak_rp integer not null default 1000, wins integer not null default 0, losses integer not null default 0, " +
+                        "streak integer not null default 0, updated_at timestamptz not null default now(), primary key(profile_id, season_id))"
+        )) { statement.executeUpdate(); }
         schemaEnsured = true;
     }
 
     public static void sync(PlayerDataManager.PlayerData data) {
-        if (data == null || data.uuid == null || data.uuid.isBlank()) {
-            return;
-        }
+        if (data == null || data.uuid == null || data.uuid.isBlank()) return;
 
-        DatabaseManager.executeAsync("sync ranked player " + data.uuid, connection -> {
+        DatabaseManager.executeAsync("sync profile player " + data.uuid, connection -> {
             ensureSchema(connection);
 
-            try (PreparedStatement playerStatement = connection.prepareStatement(
-                    "insert into players (uuid, username, playtime_seconds, last_seen, last_server_id) values (?, ?, ?, now(), ?) " +
-                            "on conflict (uuid) do update set username = excluded.username, playtime_seconds = excluded.playtime_seconds, last_seen = now(), last_server_id = excluded.last_server_id"
+            UUID profileId = UUID.fromString(data.uuid);
+            UUID playerUuid = resolvePlayerUuid(connection, profileId);
+            String username = safeName(data);
+
+            if (playerUuid != null) {
+                try (PreparedStatement playerStatement = connection.prepareStatement(
+                        "insert into players (uuid, username, playtime_seconds, last_seen, last_server_id) values (?, ?, ?, now(), ?) " +
+                                "on conflict (uuid) do update set username = excluded.username, playtime_seconds = excluded.playtime_seconds, last_seen = now(), last_server_id = excluded.last_server_id"
+                )) {
+                    playerStatement.setObject(1, playerUuid);
+                    playerStatement.setString(2, username);
+                    playerStatement.setLong(3, Math.max(0L, data.playtimeSeconds));
+                    playerStatement.setString(4, NetworkServerConfig.serverId());
+                    playerStatement.executeUpdate();
+                }
+            }
+
+            try (PreparedStatement playerStats = connection.prepareStatement(
+                    "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) values (?, ?, now()) " +
+                            "on conflict (profile_id) do update set playtime_seconds = excluded.playtime_seconds, updated_at = now()"
             )) {
-                playerStatement.setString(1, data.uuid);
-                playerStatement.setString(2, safeName(data));
-                playerStatement.setLong(3, Math.max(0L, data.playtimeSeconds));
-                playerStatement.setString(4, NetworkServerConfig.serverId());
-                playerStatement.executeUpdate();
+                playerStats.setObject(1, profileId);
+                playerStats.setLong(2, Math.max(0L, data.playtimeSeconds));
+                playerStats.executeUpdate();
             }
 
             try (PreparedStatement rankedStatement = connection.prepareStatement(
-                    "insert into ranked_stats (uuid, season_id, rp, wins, losses, updated_at) values (?, ?, ?, ?, ?, now()) " +
-                            "on conflict (uuid, season_id) do update set rp = excluded.rp, wins = excluded.wins, losses = excluded.losses, updated_at = now()"
+                    "insert into profile_ranked_stats (profile_id, season_id, rp, peak_rp, wins, losses, streak, updated_at) values (?, ?, ?, ?, ?, ?, ?, now()) " +
+                            "on conflict (profile_id, season_id) do update set rp = excluded.rp, peak_rp = greatest(profile_ranked_stats.peak_rp, excluded.peak_rp), wins = excluded.wins, losses = excluded.losses, streak = excluded.streak, updated_at = now()"
             )) {
-                rankedStatement.setString(1, data.uuid);
+                rankedStatement.setObject(1, profileId);
                 rankedStatement.setString(2, getCurrentSeasonId());
                 rankedStatement.setInt(3, Math.max(0, data.rp));
-                rankedStatement.setInt(4, Math.max(0, data.rankedWins));
-                rankedStatement.setInt(5, Math.max(0, data.rankedLosses));
+                rankedStatement.setInt(4, Math.max(0, data.peakRp));
+                rankedStatement.setInt(5, Math.max(0, data.rankedWins));
+                rankedStatement.setInt(6, Math.max(0, data.rankedLosses));
+                rankedStatement.setInt(7, Math.max(0, data.currentStreak));
                 rankedStatement.executeUpdate();
             }
         });
     }
 
-
     public static void saveAsync(UUID uuid, String name, PlayerDataManager.PlayerData data) {
-        if (data == null) {
-            return;
-        }
-        if (data.uuid == null && uuid != null) {
-            data.uuid = uuid.toString();
-        }
-        if ((data.name == null || data.name.isBlank()) && name != null) {
-            data.name = name;
-        }
+        if (data == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        data.uuid = profileId.toString();
+        if ((data.name == null || data.name.isBlank()) && name != null) data.name = name;
         sync(data);
     }
 
     public static void touchPlayer(UUID uuid, String name) {
-        if (uuid == null) {
-            return;
-        }
-
+        if (uuid == null) return;
         DatabaseManager.executeAsync("touch player " + uuid, connection -> {
-            ensureSchema(connection);
-
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into players (uuid, username, last_seen, last_server_id) values (?, ?, now(), ?) " +
                             "on conflict (uuid) do update set username = excluded.username, last_seen = now(), last_server_id = excluded.last_server_id"
             )) {
-                statement.setString(1, uuid.toString());
+                statement.setObject(1, uuid);
                 statement.setString(2, name == null || name.isBlank() ? uuid.toString() : name);
                 statement.setString(3, NetworkServerConfig.serverId());
                 statement.executeUpdate();
@@ -105,10 +106,14 @@ public final class PlayerDatabaseRepository {
         });
     }
 
-    private static String safeName(PlayerDataManager.PlayerData data) {
-        if (data.name == null || data.name.isBlank()) {
-            return data.uuid;
+    private static UUID resolvePlayerUuid(java.sql.Connection connection, UUID profileId) throws Exception {
+        try (PreparedStatement ps = connection.prepareStatement("select player_uuid from player_profiles where id = ?")) {
+            ps.setObject(1, profileId);
+            try (var rs = ps.executeQuery()) { return rs.next() ? (UUID) rs.getObject("player_uuid") : null; }
         }
-        return data.name;
+    }
+
+    private static String safeName(PlayerDataManager.PlayerData data) {
+        return data.name == null || data.name.isBlank() ? data.uuid : data.name;
     }
 }

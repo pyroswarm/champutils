@@ -3,6 +3,7 @@ package com.champutils.wondertrade;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
 import com.champutils.dex.PokemonOriginManager;
+import com.champutils.profile.ProfileRestrictions;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
 import net.minecraft.ChatFormatting;
@@ -30,6 +31,7 @@ public final class WonderTradeService {
 
     public static void trade(ServerPlayer player, int slotNumber) {
         if (player == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "wondertrade")) return;
         if (!DatabaseManager.isEnabled()) {
             player.sendSystemMessage(Component.literal("Wondertrade requires the database to be enabled.").withStyle(ChatFormatting.RED));
             return;
@@ -225,6 +227,7 @@ public final class WonderTradeService {
 
     public static void claimPending(ServerPlayer player) {
         if (player == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "wondertrade")) return;
         if (!DatabaseManager.isEnabled()) {
             player.sendSystemMessage(Component.literal("Wondertrade database is disabled.").withStyle(ChatFormatting.RED));
             return;
@@ -324,6 +327,7 @@ public final class WonderTradeService {
 
     public static void sendStatus(ServerPlayer player) {
         if (player == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "wondertrade")) return;
         if (!DatabaseManager.isEnabled()) {
             player.sendSystemMessage(Component.literal("Wondertrade database is disabled.").withStyle(ChatFormatting.RED));
             return;

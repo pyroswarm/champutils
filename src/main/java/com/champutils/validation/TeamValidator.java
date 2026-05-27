@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 
 import com.champutils.config.Config;
 import com.champutils.config.Format;
+import com.champutils.profile.ProfileRestrictions;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -74,6 +75,11 @@ public class TeamValidator {
             if (pokemon != null) {
                 partyPokemon.add(pokemon);
             }
+        }
+
+        String profileViolation = ProfileRestrictions.validateBattleProfile(player, partyPokemon);
+        if (profileViolation != null) {
+            return profileViolation;
         }
 
         String partyClauseViolation = BattleClauseValidator.validatePartyWide(partyPokemon, format);

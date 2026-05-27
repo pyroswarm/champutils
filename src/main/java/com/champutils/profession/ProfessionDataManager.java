@@ -1,6 +1,7 @@
 package com.champutils.profession;
 
 import com.champutils.database.ProfessionDatabaseRepository;
+import com.champutils.profile.PlayerProfileManager;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -51,9 +52,14 @@ public class ProfessionDataManager {
     }
 
     private static File getFile(UUID uuid) {
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        File dir = new File(professionDir(), "profiles");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
         return new File(
-                professionDir(),
-                uuid.toString() + ".json"
+                dir,
+                profileId.toString() + ".json"
         );
     }
 
@@ -76,7 +82,7 @@ public class ProfessionDataManager {
                 new ProfessionData();
 
         data.uuid =
-                uuid.toString();
+                PlayerProfileManager.activeProfileId(uuid).toString();
 
         data.name =
                 name;
@@ -120,7 +126,7 @@ public class ProfessionDataManager {
                 }
 
                 data.uuid =
-                        uuid.toString();
+                        PlayerProfileManager.activeProfileId(uuid).toString();
 
                 data.name =
                         name;
@@ -139,7 +145,7 @@ public class ProfessionDataManager {
                     new ProfessionData();
 
             d.uuid =
-                    uuid.toString();
+                    PlayerProfileManager.activeProfileId(uuid).toString();
 
             d.name =
                     name;

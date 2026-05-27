@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.profile.ProfileRestrictions;
 import com.champutils.auction.AuctionHouseBindInteractionListener;
 import com.champutils.auction.AuctionHouseGui;
 import com.champutils.auction.AuctionHouseNpcBindingRegistry;
@@ -26,14 +27,18 @@ public final class AuctionHouseCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("ah")
                         .executes(context -> {
-                            AuctionHouseGui.openMain(context.getSource().getPlayerOrException());
+                            var player = context.getSource().getPlayerOrException();
+                            if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                            AuctionHouseGui.openMain(player);
                             return 1;
                         })
                         .then(literal("sell")
                                 .then(argument("price", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
                                         .executes(context -> {
-                                            AuctionHouseService.beginHeldItemListing(
-                                                    context.getSource().getPlayerOrException(),
+                                            var player = context.getSource().getPlayerOrException();
+                                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                                    AuctionHouseService.beginHeldItemListing(
+                                                    player,
                                                     LongArgumentType.getLong(context, "price")
                                             );
                                             return 1;
@@ -42,8 +47,10 @@ public final class AuctionHouseCommand {
                                 .then(argument("slot", IntegerArgumentType.integer(1, 6))
                                         .then(argument("price", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
                                                 .executes(context -> {
-                                                    AuctionHouseService.beginPokemonListing(
-                                                            context.getSource().getPlayerOrException(),
+                                                    var player = context.getSource().getPlayerOrException();
+                                                            if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                                            AuctionHouseService.beginPokemonListing(
+                                                            player,
                                                             IntegerArgumentType.getInteger(context, "slot"),
                                                             LongArgumentType.getLong(context, "price")
                                                     );
@@ -51,7 +58,9 @@ public final class AuctionHouseCommand {
                                                 }))))
                         .then(literal("confirm")
                                 .executes(context -> {
-                                    AuctionHouseService.confirmPending(context.getSource().getPlayerOrException());
+                                    var player = context.getSource().getPlayerOrException();
+                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    AuctionHouseService.confirmPending(player);
                                     return 1;
                                 }))
                         .then(literal("cancel")
@@ -66,12 +75,16 @@ public final class AuctionHouseCommand {
                                         ))))
                         .then(literal("claim")
                                 .executes(context -> {
-                                    AuctionHouseService.claimNext(context.getSource().getPlayerOrException());
+                                    var player = context.getSource().getPlayerOrException();
+                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    AuctionHouseService.claimNext(player);
                                     return 1;
                                 }))
                         .then(literal("mylistings")
                                 .executes(context -> {
-                                    AuctionHouseGui.openMyListings(context.getSource().getPlayerOrException());
+                                    var player = context.getSource().getPlayerOrException();
+                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    AuctionHouseGui.openMyListings(player);
                                     return 1;
                                 }))
                         .then(literal("bind")

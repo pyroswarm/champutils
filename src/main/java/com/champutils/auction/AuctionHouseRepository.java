@@ -294,6 +294,23 @@ public final class AuctionHouseRepository {
                         "updated_at timestamp with time zone default now(), expires_at timestamp with time zone default (now() + interval '7 days'))"
         )) { statement.executeUpdate(); }
 
+        String[] listingColumns = {
+                "alter table auction_listings add column if not exists seller_uuid text",
+                "alter table auction_listings add column if not exists seller_username text not null default ''",
+                "alter table auction_listings add column if not exists listing_kind text not null default 'ITEM'",
+                "alter table auction_listings add column if not exists title text not null default 'Auction Listing'",
+                "alter table auction_listings add column if not exists description text",
+                "alter table auction_listings add column if not exists unit_price bigint not null default 1",
+                "alter table auction_listings add column if not exists quantity integer not null default 1",
+                "alter table auction_listings add column if not exists payload jsonb not null default '{}'::jsonb",
+                "alter table auction_listings add column if not exists status text not null default 'ACTIVE'",
+                "alter table auction_listings add column if not exists updated_at timestamptz not null default now()",
+                "alter table auction_listings add column if not exists expires_at timestamptz not null default (now() + interval '7 days')"
+        };
+        for (String sql : listingColumns) {
+            try (PreparedStatement statement = connection.prepareStatement(sql)) { statement.executeUpdate(); }
+        }
+
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists auction_purchases (" +
                         "id uuid primary key default gen_random_uuid(), listing_id uuid references auction_listings(id) on delete set null, " +

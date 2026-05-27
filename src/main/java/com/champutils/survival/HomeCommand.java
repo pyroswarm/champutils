@@ -1,5 +1,6 @@
 package com.champutils.survival;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -173,7 +174,7 @@ public final class HomeCommand {
 
     private static Map<String, HomeLocation> homes(UUID uuid) {
         if (state.players == null) state.players = new HashMap<>();
-        String key = uuid.toString();
+        String key = PlayerProfileManager.activeProfileId(uuid).toString();
         PlayerHomes playerHomes = state.players.computeIfAbsent(key, ignored -> new PlayerHomes());
         if (playerHomes.homes == null) playerHomes.homes = new HashMap<>();
         return playerHomes.homes;

@@ -1,5 +1,6 @@
 package com.champutils.profession;
 
+import com.champutils.profile.PlayerProfileManager;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.HashMap;
@@ -19,7 +20,7 @@ public class ProfessionManager {
     public static ProfessionDataManager.ProfessionData getData(
             ServerPlayer player
     ) {
-        UUID uuid = player.getUUID();
+        UUID uuid = PlayerProfileManager.activeProfileId(player);
 
         if (CACHE.containsKey(uuid)) {
             return CACHE.get(uuid);
@@ -114,7 +115,7 @@ public class ProfessionManager {
         );
 
         markDirty(
-                player.getUUID()
+                PlayerProfileManager.activeProfileId(player)
         );
     }
 
@@ -190,7 +191,7 @@ public class ProfessionManager {
         );
 
         markDirty(
-                player.getUUID()
+                PlayerProfileManager.activeProfileId(player)
         );
     }
 
@@ -222,7 +223,7 @@ public class ProfessionManager {
         );
 
         markDirty(
-                player.getUUID()
+                PlayerProfileManager.activeProfileId(player)
         );
 
         return true;
@@ -238,7 +239,7 @@ public class ProfessionManager {
             ServerPlayer player
     ) {
         UUID uuid =
-                player.getUUID();
+                PlayerProfileManager.activeProfileId(player);
 
         if (!DIRTY_PLAYERS.contains(uuid)) {
             return;
@@ -284,7 +285,7 @@ public class ProfessionManager {
         savePlayer(player);
 
         CACHE.remove(
-                player.getUUID()
+                PlayerProfileManager.activeProfileId(player)
         );
 
         ProfessionXpBoostManager.clearFractionBank(player);

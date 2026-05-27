@@ -1,5 +1,7 @@
 package com.champutils.dailylogin;
 
+import com.champutils.profile.PlayerProfileManager;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -44,7 +46,7 @@ public final class DailyLoginData {
     }
 
     public static synchronized PlayerState state(UUID uuid, String name) {
-        String key = uuid.toString();
+        String key = PlayerProfileManager.activeProfileId(uuid).toString();
         PlayerState state = DATA.players.computeIfAbsent(key, ignored -> new PlayerState());
         state.uuid = key;
         state.name = name == null ? state.name : name;

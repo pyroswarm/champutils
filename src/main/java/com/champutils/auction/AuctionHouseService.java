@@ -1,6 +1,8 @@
 package com.champutils.auction;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileRestrictions;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
 import com.champutils.notifications.NotificationRepository;
@@ -27,6 +29,7 @@ public final class AuctionHouseService {
 
     public static void beginHeldItemListing(ServerPlayer player, long price) {
         if (player == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "auction house")) return;
         if (!validatePrice(player, price)) return;
         ItemStack held = player.getItemInHand(InteractionHand.MAIN_HAND);
         if (held == null || held.isEmpty()) {
@@ -38,6 +41,7 @@ public final class AuctionHouseService {
 
     public static void beginPokemonListing(ServerPlayer player, int playerSlotNumber, long price) {
         if (player == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "auction house")) return;
         if (!validatePrice(player, price)) return;
         int slotIndex = playerSlotNumber - 1;
         if (slotIndex < 0 || slotIndex > 5) {
@@ -99,7 +103,7 @@ public final class AuctionHouseService {
         }
 
         try {
-            int activeListings = AuctionHouseRepository.countActiveListings(player.getUUID());
+            int activeListings = AuctionHouseRepository.countActiveListings(PlayerProfileManager.activeProfileId(player));
             if (activeListings >= maxSlots) {
                 LISTING.remove(player.getUUID());
                 player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + activeListings + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
@@ -121,7 +125,7 @@ public final class AuctionHouseService {
         CompletableFuture.supplyAsync(() -> {
             try {
                 JsonObject payload = AuctionItemSerializer.toPayload(player, listedStack);
-                return AuctionHouseRepository.createItemListing(player.getUUID(), player.getName().getString(), listedStack.getHoverName().getString(), "Listed in-game by " + player.getName().getString(), action.price, listedStack.getCount(), payload, config.safeListingDurationDays());
+                return AuctionHouseRepository.createItemListing(PlayerProfileManager.activeProfileId(player), player.getName().getString(), listedStack.getHoverName().getString(), "Listed in-game by " + player.getName().getString(), action.price, listedStack.getCount(), payload, config.safeListingDurationDays());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -165,7 +169,7 @@ public final class AuctionHouseService {
         }
 
         try {
-            int activeListings = AuctionHouseRepository.countActiveListings(player.getUUID());
+            int activeListings = AuctionHouseRepository.countActiveListings(PlayerProfileManager.activeProfileId(player));
             if (activeListings >= maxSlots) {
                 LISTING.remove(player.getUUID());
                 player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + activeListings + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
@@ -195,7 +199,7 @@ public final class AuctionHouseService {
 
         CompletableFuture.supplyAsync(() -> {
             try {
-                return AuctionHouseRepository.createPokemonListing(player.getUUID(), player.getName().getString(), title, "Pokémon listed in-game by " + player.getName().getString(), action.price, payload, config.safeListingDurationDays());
+                return AuctionHouseRepository.createPokemonListing(PlayerProfileManager.activeProfileId(player), player.getName().getString(), title, "Pokémon listed in-game by " + player.getName().getString(), action.price, payload, config.safeListingDurationDays());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -229,6 +233,7 @@ public final class AuctionHouseService {
 
     public static void buyListing(ServerPlayer player, UUID listingId) {
         if (player == null || listingId == null) return;
+        if (ProfileRestrictions.blockIronmanTrade(player, "auction house")) return;
         if (!BUYING.add(player.getUUID())) {
             player.sendSystemMessage(Component.literal("You already have an auction purchase in progress.").withStyle(ChatFormatting.RED));
             return;
@@ -249,7 +254,7 @@ public final class AuctionHouseService {
                 player.sendSystemMessage(Component.literal("That auction is no longer active.").withStyle(ChatFormatting.YELLOW));
                 return;
             }
-            if (player.getUUID().equals(listing.sellerUuid)) {
+            if (PlayerProfileManager.activeProfileId(player).equals(listing.sellerUuid)) {
                 BUYING.remove(player.getUUID());
                 player.sendSystemMessage(Component.literal("You cannot buy your own auction. Use cancel instead.").withStyle(ChatFormatting.RED));
                 return;
@@ -319,7 +324,7 @@ public final class AuctionHouseService {
         }
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.purchaseActiveListingClaimed(listing.id, player.getUUID(), player.getName().getString()); }
+            try { return AuctionHouseRepository.purchaseActiveListingClaimed(listing.id, PlayerProfileManager.activeProfileId(player), player.getName().getString()); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((record, error) -> player.server.execute(() -> {
             if (error != null || record == null || record.listing == null) {
@@ -352,7 +357,7 @@ public final class AuctionHouseService {
         }
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.fetchSellerActiveListing(player.getUUID(), listingId); }
+            try { return AuctionHouseRepository.fetchSellerActiveListing(PlayerProfileManager.activeProfileId(player), listingId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listing, error) -> player.server.execute(() -> {
             if (error != null) {
@@ -396,7 +401,7 @@ public final class AuctionHouseService {
         }
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.cancelActiveListing(player.getUUID(), listing.id); }
+            try { return AuctionHouseRepository.cancelActiveListing(PlayerProfileManager.activeProfileId(player), listing.id); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((cancelled, error) -> player.server.execute(() -> {
             CANCELING.remove(player.getUUID());
@@ -426,7 +431,7 @@ public final class AuctionHouseService {
         }
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.cancelActiveListing(player.getUUID(), listing.id); }
+            try { return AuctionHouseRepository.cancelActiveListing(PlayerProfileManager.activeProfileId(player), listing.id); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((cancelled, error) -> player.server.execute(() -> {
             CANCELING.remove(player.getUUID());
@@ -453,7 +458,7 @@ public final class AuctionHouseService {
         player.sendSystemMessage(Component.literal("Checking for pending auction purchases...").withStyle(ChatFormatting.GRAY));
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.fetchOldestPendingPurchase(player.getUUID()); }
+            try { return AuctionHouseRepository.fetchOldestPendingPurchase(PlayerProfileManager.activeProfileId(player)); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((purchase, error) -> player.server.execute(() -> {
             if (error != null) {
@@ -536,7 +541,7 @@ public final class AuctionHouseService {
         if (player == null || player.server == null) return;
 
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.countPendingPokemonPurchases(player.getUUID()); }
+            try { return AuctionHouseRepository.countPendingPokemonPurchases(PlayerProfileManager.activeProfileId(player)); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((count, error) -> player.server.execute(() -> {
             if (error != null) {

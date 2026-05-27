@@ -1,11 +1,10 @@
 package com.champutils.dex;
 
+import com.champutils.util.CobblemonEventReflection;
 import com.champutils.hunt.PokemonHuntReflection;
 import com.champutils.buff.BuffContext;
 import com.champutils.buff.BuffManager;
 
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -31,41 +30,28 @@ public final class TrueCaughtDexListener {
                 return;
             }
 
-            Method subscribe = null;
-            for (Method method : observable.getClass().getMethods()) {
-                if (!method.getName().equals("subscribe")) continue;
-                if (method.getParameterCount() == 1) {
-                    subscribe = method;
-                    break;
+            boolean subscribed = CobblemonEventReflection.subscribe(observable, event -> {
+                try {
+                    ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
+                    Object pokemon = PokemonHuntReflection.extractPokemon(event);
+                    if (player != null && pokemon != null) {
+                        TrueCaughtDexManager.markTrueCaught(player, pokemon);
+                        CatchStreakManager.handleCatch(player, pokemon);
+                        com.champutils.worldfirst.WorldFirstManager.handleCatch(player, pokemon);
+                        if (pokemon instanceof com.cobblemon.mod.common.pokemon.Pokemon p) {
+                            PokemonOriginManager.markOrigin(p, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
+                            BuffManager.applyCatchBuffs(BuffContext.trueWildCatch(player, p));
+                        }
+                    }
+                } catch (Throwable throwable) {
+                    throwable.printStackTrace();
                 }
-            }
+            });
 
-            if (subscribe == null) {
+            if (!subscribed) {
                 System.out.println("[ChampUtils] Could not subscribe to Cobblemon capture event for true caught dex tracking.");
                 return;
             }
-
-            subscribe.invoke(observable, new Function1<Object, Unit>() {
-                @Override
-                public Unit invoke(Object event) {
-                    try {
-                        ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
-                        Object pokemon = PokemonHuntReflection.extractPokemon(event);
-                        if (player != null && pokemon != null) {
-                            TrueCaughtDexManager.markTrueCaught(player, pokemon);
-                            CatchStreakManager.handleCatch(player, pokemon);
-                            com.champutils.worldfirst.WorldFirstManager.handleCatch(player, pokemon);
-                            if (pokemon instanceof com.cobblemon.mod.common.pokemon.Pokemon p) {
-                                PokemonOriginManager.markOrigin(p, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
-                                BuffManager.applyCatchBuffs(BuffContext.trueWildCatch(player, p));
-                            }
-                        }
-                    } catch (Throwable throwable) {
-                        throwable.printStackTrace();
-                    }
-                    return Unit.INSTANCE;
-                }
-            });
 
             System.out.println("[ChampUtils] True caught dex capture-only listener registered.");
         } catch (Throwable throwable) {

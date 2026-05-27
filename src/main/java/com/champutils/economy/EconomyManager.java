@@ -3,6 +3,7 @@ package com.champutils.economy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.champutils.database.CreditsDatabaseRepository;
+import com.champutils.profile.PlayerProfileManager;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -79,11 +80,12 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
-        Account account = getOrCreateLocked(player.getUUID());
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         account.updatedAt = Instant.now().toString();
         saveLocked();
-        syncAccountLocked(player.getUUID(), account);
+        syncAccountLocked(profileId, account);
     }
 
     public static synchronized long getBalance(UUID playerId) {
@@ -101,7 +103,7 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
-        Account account = getOrCreateLocked(player.getUUID());
+        Account account = getOrCreateLocked(PlayerProfileManager.activeProfileId(player));
         account.username = player.getName().getString();
         return account.balance;
     }
@@ -111,7 +113,7 @@ public final class EconomyManager {
             return TransactionResult.fail("Player not found.");
         }
 
-        return deposit(player.getUUID(), player.getName().getString(), amount, reason);
+        return deposit(PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
     }
 
     public static synchronized TransactionResult deposit(UUID playerId, String username, long amount, String reason) {
@@ -147,7 +149,7 @@ public final class EconomyManager {
             return TransactionResult.fail("Player not found.");
         }
 
-        return withdraw(player.getUUID(), player.getName().getString(), amount, reason);
+        return withdraw(PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
     }
 
     public static synchronized TransactionResult withdraw(UUID playerId, String username, long amount, String reason) {
@@ -190,14 +192,15 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
-        Account account = getOrCreateLocked(player.getUUID());
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         account.balance = amount;
         account.updatedAt = Instant.now().toString();
 
-        writeLedgerLocked("SET", player.getUUID(), account.username, amount, account.balance, reason, null);
+        writeLedgerLocked("SET", profileId, account.username, amount, account.balance, reason, null);
         saveLocked();
-        syncAccountLocked(player.getUUID(), account);
+        syncAccountLocked(profileId, account);
 
         return TransactionResult.success(amount, account.balance);
     }
@@ -207,7 +210,10 @@ public final class EconomyManager {
             return TransactionResult.fail("Player not found.");
         }
 
-        if (from.getUUID().equals(to.getUUID())) {
+        UUID fromProfileId = PlayerProfileManager.activeProfileId(from);
+        UUID toProfileId = PlayerProfileManager.activeProfileId(to);
+
+        if (fromProfileId.equals(toProfileId)) {
             return TransactionResult.fail("You cannot pay yourself.");
         }
 
@@ -217,8 +223,8 @@ public final class EconomyManager {
 
         ensureLoadedLocked();
 
-        Account sender = getOrCreateLocked(from.getUUID());
-        Account receiver = getOrCreateLocked(to.getUUID());
+        Account sender = getOrCreateLocked(fromProfileId);
+        Account receiver = getOrCreateLocked(toProfileId);
         sender.username = from.getName().getString();
         receiver.username = to.getName().getString();
 
@@ -243,11 +249,11 @@ public final class EconomyManager {
         receiver.lifetimeEarned = safeAdd(receiver.lifetimeEarned, amount);
         receiver.updatedAt = now;
 
-        writeLedgerLocked("TRANSFER_OUT", from.getUUID(), sender.username, amount, sender.balance, reason, transferId);
-        writeLedgerLocked("TRANSFER_IN", to.getUUID(), receiver.username, amount, receiver.balance, reason, transferId);
+        writeLedgerLocked("TRANSFER_OUT", fromProfileId, sender.username, amount, sender.balance, reason, transferId);
+        writeLedgerLocked("TRANSFER_IN", toProfileId, receiver.username, amount, receiver.balance, reason, transferId);
         saveLocked();
-        syncAccountLocked(from.getUUID(), sender);
-        syncAccountLocked(to.getUUID(), receiver);
+        syncAccountLocked(fromProfileId, sender);
+        syncAccountLocked(toProfileId, receiver);
 
         return TransactionResult.success(amount, sender.balance);
     }

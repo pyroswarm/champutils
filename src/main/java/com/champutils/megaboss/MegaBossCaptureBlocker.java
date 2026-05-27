@@ -1,7 +1,6 @@
 package com.champutils.megaboss;
 
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
+import com.champutils.util.CobblemonEventReflection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -29,15 +28,10 @@ public final class MegaBossCaptureBlocker {
             Class<?> eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents");
             int count = 0;
             for (Object observable : captureObservables(eventsClass)) {
-                Method subscribe = subscribeMethod(observable);
-                if (subscribe == null) continue;
-                subscribe.invoke(observable, new Function1<Object, Unit>() {
-                    @Override public Unit invoke(Object event) {
-                        try { cancelIfMegaBoss(event); } catch (Throwable ignored) {}
-                        return Unit.INSTANCE;
-                    }
+                boolean subscribed = CobblemonEventReflection.subscribe(observable, event -> {
+                    try { cancelIfMegaBoss(event); } catch (Throwable ignored) {}
                 });
-                count++;
+                if (subscribed) count++;
             }
             System.out.println("[ChampUtils] Mega boss capture blocker registered (" + count + " observable(s)).");
         } catch (Throwable throwable) {

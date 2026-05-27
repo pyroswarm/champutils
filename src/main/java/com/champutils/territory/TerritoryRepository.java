@@ -1,6 +1,7 @@
 package com.champutils.territory;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -194,14 +195,14 @@ public final class TerritoryRepository {
     public static boolean isOwnerOrGuildMember(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return false;
         UUID playerId = player.getUUID();
-        if (territory.ownerType == OwnerType.PLAYER) return territory.ownerId.equalsIgnoreCase(playerId.toString());
+        if (territory.ownerType == OwnerType.PLAYER) return territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(playerId).toString());
         com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(playerId);
         return guild != null && territory.ownerId.equalsIgnoreCase(guild.id.toString());
     }
 
     public static boolean isBanned(ServerPlayer player, Territory territory) {
         if (player == null || territory == null || player.hasPermissions(4)) return false;
-        if (territory.ownerType == OwnerType.PLAYER && territory.ownerId.equalsIgnoreCase(player.getUUID().toString())) return false;
+        if (territory.ownerType == OwnerType.PLAYER && territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(player).toString())) return false;
         return getTrust(territory.id, player.getUUID()) == TrustLevel.BANNED;
     }
 
@@ -217,7 +218,7 @@ public final class TerritoryRepository {
         if (player.hasPermissions(4)) return true;
         UUID playerId = player.getUUID();
         if (territory.ownerType == OwnerType.PLAYER) {
-            if (territory.ownerId.equalsIgnoreCase(playerId.toString())) return true;
+            if (territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(playerId).toString())) return true;
             return getTrust(territory.id, playerId) == TrustLevel.MANAGER;
         }
         com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(playerId);
@@ -242,7 +243,7 @@ public final class TerritoryRepository {
         if (player.hasPermissions(4)) return true;
         if (isBanned(player, territory)) return false;
         if (territory.ownerType == OwnerType.PLAYER) {
-            if (territory.ownerId.equalsIgnoreCase(player.getUUID().toString())) return true;
+            if (territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(player).toString())) return true;
             TrustLevel trust = getTrust(territory.id, player.getUUID());
             if (trust == TrustLevel.TRUSTED || trust == TrustLevel.MANAGER) return true;
             return territory.allowVisitors && territory.visitorsCanBuild;
@@ -330,7 +331,7 @@ public final class TerritoryRepository {
     public static void createPersonalTerritory(ServerPlayer player, String biomePreference, Callback callback) {
         if (player == null) { callback.done(false, "Only players can create territories."); return; }
         UUID ownerUuid = player.getUUID();
-        String ownerId = ownerUuid.toString();
+        String ownerId = PlayerProfileManager.activeProfileId(ownerUuid).toString();
         Territory existing = cachedForOwner(OwnerType.PLAYER, ownerId);
         if (existing != null) {
             callback.done(false, isDeleting(existing) ? "Your old territory is still being deleted. Try again later." : "You already have a territory.");
@@ -434,7 +435,7 @@ public final class TerritoryRepository {
         if (player == null) return list;
         for (Territory t : TERRITORIES.values()) {
             if (t.ownerType != OwnerType.PLAYER) continue;
-            if (t.ownerId.equalsIgnoreCase(player.getUUID().toString())) continue;
+            if (t.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(player).toString())) continue;
             TrustLevel trust = getTrust(t.id, player.getUUID());
             if (trust != null && trust != TrustLevel.BANNED) list.add(t);
         }

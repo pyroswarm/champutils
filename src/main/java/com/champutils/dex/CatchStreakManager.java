@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -109,7 +110,8 @@ public final class CatchStreakManager {
         String species = TrueCaughtDexManager.speciesId(pokemon);
         if (species.isBlank()) return;
 
-        CatchStreak previous = STREAKS.get(player.getUUID());
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        CatchStreak previous = STREAKS.get(profileId);
         int previousCount = previous == null ? 0 : previous.count;
         String previousSpecies = previous == null ? "" : previous.species;
 
@@ -117,7 +119,7 @@ public final class CatchStreakManager {
         next.species = species;
         next.updatedAt = System.currentTimeMillis();
         next.count = species.equals(previousSpecies) ? previousCount + 1 : 1;
-        STREAKS.put(player.getUUID(), next);
+        STREAKS.put(profileId, next);
         save();
 
         int minMessage = Math.max(1, CONFIG.minimumMessageStreak);
@@ -144,7 +146,7 @@ public final class CatchStreakManager {
     public static double getShinyChance(ServerPlayer player, String species) {
         if (player == null || species == null) return CONFIG.baseShinyChance;
         load();
-        CatchStreak streak = STREAKS.get(player.getUUID());
+        CatchStreak streak = STREAKS.get(PlayerProfileManager.activeProfileId(player));
         String key = TrueCaughtDexManager.normalizeSpecies(species);
         if (streak == null || !key.equals(streak.species) || streak.count < CONFIG.minimumBonusStreak) return CONFIG.baseShinyChance;
         int bonusCatches = Math.max(0, streak.count - CONFIG.minimumBonusStreak + 1);

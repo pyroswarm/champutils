@@ -46,6 +46,21 @@ public final class NetworkReadySchemaManager {
                                 ")"
                 );
 
+
+                statement.executeUpdate(
+                        "create table if not exists server_status (" +
+                                "id text primary key, " +
+                                "online_players integer not null default 0, " +
+                                "max_players integer not null default 0, " +
+                                "motd text not null default '', " +
+                                "last_heartbeat timestamptz not null default now()" +
+                                ")"
+                );
+                statement.executeUpdate("alter table server_status add column if not exists online_players integer not null default 0");
+                statement.executeUpdate("alter table server_status add column if not exists max_players integer not null default 0");
+                statement.executeUpdate("alter table server_status add column if not exists motd text not null default ''");
+                statement.executeUpdate("alter table server_status add column if not exists last_heartbeat timestamptz not null default now()");
+
                 statement.executeUpdate(
                         "create table if not exists guilds (" +
                                 "id uuid primary key, " +
@@ -145,6 +160,11 @@ public final class NetworkReadySchemaManager {
                                 ")"
                 );
 
+                statement.executeUpdate("alter table territories add column if not exists owner_id text");
+                statement.executeUpdate("alter table territories add column if not exists owner_profile_id uuid");
+                statement.executeUpdate("alter table territories add column if not exists owner_guild_id uuid");
+                statement.executeUpdate("update territories set owner_id = coalesce(owner_id, owner_profile_id::text, owner_guild_id::text, '') where owner_id is null");
+                statement.executeUpdate("delete from territories where owner_id is null or trim(owner_id) = ''");
                 statement.executeUpdate("alter table territories add column if not exists world_key text");
                 statement.executeUpdate("alter table territories add column if not exists display_name text");
                 statement.executeUpdate("update territories set display_name = owner_name where display_name is null or trim(display_name) = ''");
@@ -189,6 +209,11 @@ public final class NetworkReadySchemaManager {
                 );
                 // Existing servers may already have this table from an older build without deleted_at.
                 // CREATE TABLE IF NOT EXISTS will not repair that, so keep these as explicit migrations.
+                statement.executeUpdate("alter table guilds add column if not exists owner_uuid uuid");
+                statement.executeUpdate("alter table guilds add column if not exists owner_profile_id uuid");
+                statement.executeUpdate("alter table guilds add column if not exists owner_player_uuid uuid");
+                statement.executeUpdate("alter table guild_members add column if not exists player_uuid uuid");
+                statement.executeUpdate("alter table guild_members add column if not exists profile_id uuid");
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists deleted_at timestamptz not null default now()");
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_type text");
                 statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_id text");
@@ -200,7 +225,58 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territory_delete_cooldowns alter column owner_type set not null");
                 statement.executeUpdate("alter table territory_delete_cooldowns alter column owner_id set not null");
                 statement.executeUpdate("create unique index if not exists territory_delete_cooldowns_owner_unique on territory_delete_cooldowns (owner_type, owner_id)");
+
+                // Repair territory schemas from older ChampUtils builds. Older DBs may still have an
+                // owner_type CHECK constraint that only allowed the pre-profile values, which rejects
+                // the current PLAYER/GUILD values and prevents personal territories from being created.
+                statement.executeUpdate(
+                        "do $$ " +
+                                "declare constraint_name text; " +
+                                "begin " +
+                                "for constraint_name in " +
+                                "select c.conname " +
+                                "from pg_constraint c " +
+                                "join pg_class t on t.oid = c.conrelid " +
+                                "join pg_namespace n on n.oid = t.relnamespace " +
+                                "where t.relname = 'territories' " +
+                                "and n.nspname = current_schema() " +
+                                "and c.contype = 'c' " +
+                                "and pg_get_constraintdef(c.oid) ilike '%owner_type%' " +
+                                "loop " +
+                                "execute format('alter table territories drop constraint if exists %I', constraint_name); " +
+                                "end loop; " +
+                                "end $$"
+                );
+                statement.executeUpdate("update territories set owner_type = upper(owner_type) where owner_type is not null");
+                statement.executeUpdate("update territories set owner_type = 'PLAYER' where owner_type in ('PERSONAL', 'PROFILE', 'USER')");
+                statement.executeUpdate("update territories set owner_type = 'GUILD' where owner_type in ('CLAN')");
+                statement.executeUpdate("delete from territories where owner_type not in ('PLAYER', 'GUILD')");
+                statement.executeUpdate("alter table territories add constraint territories_owner_type_check check (owner_type in ('PLAYER', 'GUILD'))");
                 statement.executeUpdate("create unique index if not exists territories_owner_unique on territories (owner_type, owner_id)");
+
+                // Repair territory_trust from older DBs. CREATE TABLE IF NOT EXISTS does not add
+                // missing columns to existing tables, so refreshAll() can fail with: column player_uuid does not exist.
+                statement.executeUpdate("alter table territory_trust add column if not exists player_uuid uuid");
+                statement.executeUpdate("alter table territory_trust add column if not exists player_name text not null default ''");
+                statement.executeUpdate("alter table territory_trust add column if not exists trust_level text not null default 'TRUSTED'");
+                statement.executeUpdate("alter table territory_trust add column if not exists created_at timestamptz not null default now()");
+                statement.executeUpdate(
+                        "do $$ " +
+                                "begin " +
+                                "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'trusted_player_uuid') then " +
+                                "execute 'update territory_trust set player_uuid = trusted_player_uuid where player_uuid is null'; " +
+                                "end if; " +
+                                "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'player_id') then " +
+                                "execute 'update territory_trust set player_uuid = player_id where player_uuid is null'; " +
+                                "end if; " +
+                                "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'trusted_uuid') then " +
+                                "execute 'update territory_trust set player_uuid = trusted_uuid where player_uuid is null'; " +
+                                "end if; " +
+                                "end $$"
+                );
+                statement.executeUpdate("delete from territory_trust where territory_id is null or player_uuid is null");
+                statement.executeUpdate("alter table territory_trust alter column player_uuid set not null");
+                statement.executeUpdate("create unique index if not exists territory_trust_territory_player_unique on territory_trust (territory_id, player_uuid)");
 
                 statement.executeUpdate(
                         "create table if not exists player_homes (" +

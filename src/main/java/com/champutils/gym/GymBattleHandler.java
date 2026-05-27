@@ -6,7 +6,6 @@ import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeUnlockManager;
 
-import com.champutils.permissions.LuckPermsHook;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
@@ -269,20 +268,14 @@ public class GymBattleHandler {
 
 
 /* =========================
- SILENT LUCKPERMS PROMOTION
+ PROFILE SQL GYM PROGRESSION
 ========================= */
 
-            try{
-
-                LuckPermsHook.promoteForBadge(
-                        winner,
-                        badge
-                );
-
-            }
-            catch(Exception e){
-                e.printStackTrace();
-            }
+            GymProgressRepository.recordAttempt(
+                    winner,
+                    badge,
+                    true
+            );
 
 
 

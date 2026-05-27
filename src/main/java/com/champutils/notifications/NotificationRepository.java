@@ -90,21 +90,31 @@ public final class NotificationRepository {
     }
 
     private static void ensureSchema() throws Exception {
-        try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
-                "create table if not exists notifications (" +
-                        "id uuid primary key default gen_random_uuid(), " +
-                        "user_uuid text not null, " +
-                        "username text, " +
-                        "type text not null default 'GENERAL', " +
-                        "title text not null, " +
-                        "message text not null, " +
-                        "data jsonb not null default '{}'::jsonb, " +
-                        "read_at timestamp with time zone, " +
-                        "delivered_in_game boolean not null default false, " +
-                        "delivered_in_game_at timestamp with time zone, " +
-                        "created_at timestamp with time zone default now()" +
-                        ")"
-        )) { statement.executeUpdate(); }
+        try (var statement = DatabaseManager.getConnection().createStatement()) {
+            statement.executeUpdate("create table if not exists notifications (" +
+                    "id uuid primary key default gen_random_uuid(), " +
+                    "user_uuid text, " +
+                    "username text, " +
+                    "type text not null default 'GENERAL', " +
+                    "title text not null default '', " +
+                    "message text not null default '', " +
+                    "data jsonb not null default '{}'::jsonb, " +
+                    "read_at timestamp with time zone, " +
+                    "delivered_in_game boolean not null default false, " +
+                    "delivered_in_game_at timestamp with time zone, " +
+                    "created_at timestamp with time zone default now()" +
+                    ")");
+            statement.executeUpdate("alter table notifications add column if not exists user_uuid text");
+            statement.executeUpdate("alter table notifications add column if not exists username text");
+            statement.executeUpdate("alter table notifications add column if not exists type text not null default 'GENERAL'");
+            statement.executeUpdate("alter table notifications add column if not exists title text not null default ''");
+            statement.executeUpdate("alter table notifications add column if not exists message text not null default ''");
+            statement.executeUpdate("alter table notifications add column if not exists data jsonb not null default '{}'::jsonb");
+            statement.executeUpdate("alter table notifications add column if not exists read_at timestamp with time zone");
+            statement.executeUpdate("alter table notifications add column if not exists delivered_in_game boolean not null default false");
+            statement.executeUpdate("alter table notifications add column if not exists delivered_in_game_at timestamp with time zone");
+            statement.executeUpdate("alter table notifications add column if not exists created_at timestamp with time zone default now()");
+        }
     }
 
     public static final class PlayerNotification {

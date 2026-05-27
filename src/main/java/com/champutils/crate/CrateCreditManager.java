@@ -1,5 +1,6 @@
 package com.champutils.crate;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -75,15 +76,16 @@ public final class CrateCreditManager {
     public static int getCredits(ServerPlayer player, String crateId) {
         if (player == null) return 0;
         load();
-        return CREDITS.getOrDefault(player.getUUID(), Map.of()).getOrDefault(normalize(crateId), 0);
+        return CREDITS.getOrDefault(PlayerProfileManager.activeProfileId(player), Map.of()).getOrDefault(normalize(crateId), 0);
     }
 
     public static void addCredits(ServerPlayer player, String crateId, int amount) {
         if (player == null || amount <= 0) return;
         load();
         String id = normalize(crateId);
-        CREDITS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>());
-        Map<String, Integer> balances = CREDITS.get(player.getUUID());
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        CREDITS.computeIfAbsent(profileId, k -> new LinkedHashMap<>());
+        Map<String, Integer> balances = CREDITS.get(profileId);
         balances.put(id, balances.getOrDefault(id, 0) + amount);
         save();
         CrateConfig.CrateDefinition crate = CrateConfig.getCrate(id);
@@ -95,7 +97,7 @@ public final class CrateCreditManager {
         if (player == null) return;
         load();
         String id = normalize(crateId);
-        Map<String, Integer> balances = CREDITS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>());
+        Map<String, Integer> balances = CREDITS.computeIfAbsent(PlayerProfileManager.activeProfileId(player), k -> new LinkedHashMap<>());
         int safeAmount = Math.max(0, amount);
         if (safeAmount == 0) balances.remove(id); else balances.put(id, safeAmount);
         save();
@@ -108,7 +110,7 @@ public final class CrateCreditManager {
         if (player == null || amount <= 0) return;
         load();
         String id = normalize(crateId);
-        Map<String, Integer> balances = CREDITS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>());
+        Map<String, Integer> balances = CREDITS.computeIfAbsent(PlayerProfileManager.activeProfileId(player), k -> new LinkedHashMap<>());
         int current = balances.getOrDefault(id, 0);
         int next = Math.max(0, current - amount);
         if (next == 0) balances.remove(id); else balances.put(id, next);
@@ -122,7 +124,7 @@ public final class CrateCreditManager {
         if (player == null) return false;
         load();
         String id = normalize(crateId);
-        Map<String, Integer> balances = CREDITS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>());
+        Map<String, Integer> balances = CREDITS.computeIfAbsent(PlayerProfileManager.activeProfileId(player), k -> new LinkedHashMap<>());
         int current = balances.getOrDefault(id, 0);
         if (current <= 0) return false;
         if (current == 1) balances.remove(id); else balances.put(id, current - 1);

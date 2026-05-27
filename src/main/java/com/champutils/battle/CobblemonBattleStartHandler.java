@@ -6,6 +6,9 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 
 import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.validation.TeamValidator;
+import com.champutils.profile.ProfileRestrictions;
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
@@ -64,6 +67,16 @@ public class CobblemonBattleStartHandler {
                     players.isEmpty()
             ){
                 return;
+            }
+
+            for (ServerPlayer player : players) {
+                String profileError = validateProfileBattleRules(player);
+                if (profileError != null) {
+                    e.cancel();
+                    BattleStateManager.setInBattle(player, false);
+                    player.sendSystemMessage(Component.literal("§c" + profileError));
+                    return;
+                }
             }
 
 
@@ -195,6 +208,26 @@ public class CobblemonBattleStartHandler {
         });
     }
 
+
+    private static String validateProfileBattleRules(ServerPlayer player) {
+        try {
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party == null) {
+                return null;
+            }
+            List<Pokemon> pokemon = new ArrayList<>();
+            for (Pokemon p : party) {
+                if (p != null) {
+                    pokemon.add(p);
+                }
+            }
+            return ProfileRestrictions.validateBattleProfile(player, pokemon);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return "Could not validate your active profile battle restrictions.";
+        }
+    }
 
 
 

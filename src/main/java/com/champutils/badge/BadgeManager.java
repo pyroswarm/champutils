@@ -1,5 +1,6 @@
 package com.champutils.badge;
 
+import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -47,13 +48,22 @@ public class BadgeManager {
  FILE
 ========================= */
 
+    private static UUID profileKey(UUID uuid){
+        return PlayerProfileManager.activeProfileId(uuid);
+    }
+
     private static File getPlayerFile(
             UUID uuid
     ){
 
+        UUID key = profileKey(uuid);
+        File dir = new File(BADGE_FOLDER, "profiles");
+        if(!dir.exists()){
+            dir.mkdirs();
+        }
         return new File(
-                BADGE_FOLDER,
-                uuid.toString()+".json"
+                dir,
+                key.toString()+".json"
         );
     }
 
@@ -67,13 +77,15 @@ public class BadgeManager {
             UUID uuid
     ){
 
+        UUID key = profileKey(uuid);
+
         if(
                 CACHE.containsKey(
-                        uuid
+                        key
                 )
         ){
             return CACHE.get(
-                    uuid
+                    key
             );
         }
 
@@ -97,7 +109,7 @@ public class BadgeManager {
             );
 
             CACHE.put(
-                    uuid,
+                    key,
                     data
             );
 
@@ -156,7 +168,7 @@ public class BadgeManager {
 
 
             CACHE.put(
-                    uuid,
+                    key,
                     data
             );
 
@@ -171,7 +183,7 @@ public class BadgeManager {
                     new BadgeData();
 
             CACHE.put(
-                    uuid,
+                    key,
                     data
             );
 
@@ -191,11 +203,13 @@ public class BadgeManager {
             BadgeData data
     ){
 
+        UUID key = profileKey(uuid);
+
         try(
                 FileWriter writer =
                         new FileWriter(
                                 getPlayerFile(
-                                        uuid
+                                        key
                                 )
                         )
         ){

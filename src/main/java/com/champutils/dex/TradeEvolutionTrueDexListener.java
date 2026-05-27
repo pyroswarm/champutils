@@ -1,7 +1,6 @@
 package com.champutils.dex;
 
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
+import com.champutils.util.CobblemonEventReflection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,15 +32,10 @@ public final class TradeEvolutionTrueDexListener {
             List<Object> observables = getEvolutionObservables(eventsClass);
             int subscriptions = 0;
             for (Object observable : observables) {
-                Method subscribe = findSubscribe(observable);
-                if (subscribe == null) continue;
-                subscribe.invoke(observable, new Function1<Object, Unit>() {
-                    @Override public Unit invoke(Object event) {
-                        try { handleEvolutionEvent(event); } catch (Throwable throwable) { throwable.printStackTrace(); }
-                        return Unit.INSTANCE;
-                    }
+                boolean subscribed = CobblemonEventReflection.subscribe(observable, event -> {
+                    try { handleEvolutionEvent(event); } catch (Throwable throwable) { throwable.printStackTrace(); }
                 });
-                subscriptions++;
+                if (subscribed) subscriptions++;
             }
             System.out.println("[ChampUtils] Trade evolution true dex listener registered (" + subscriptions + " observable(s)).");
         } catch (Throwable throwable) {
