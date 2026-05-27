@@ -135,9 +135,11 @@ public class ChampUtilsMod implements ModInitializer {
         NetworkReadySchemaManager.ensureAsync();
         PlayerProfileManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
-        CobblemonProfileStateManager.ensureSchemaAsync();
+        CobblemonProfileStorageBridge.ensureSchemaAsync();
+        MonotypeStarterManager.ensureSchemaAsync();
         ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
+        MonotypeStarterManager.register();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
@@ -253,6 +255,7 @@ public class ChampUtilsMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
                     ServerLifecycleBridge.setServer(server);
+                    CobblemonProfileStorageBridge.registerSqlFactory(server);
 
                     LeaderboardManager.refresh(server);
                     ServerStatusDatabaseRepository.sync(server);
@@ -261,7 +264,8 @@ public class ChampUtilsMod implements ModInitializer {
                     NetworkReadySchemaManager.ensureAsync();
                     PlayerProfileManager.ensureSchemaAsync();
                     VanillaProfileStateManager.ensureSchemaAsync();
-                    CobblemonProfileStateManager.ensureSchemaAsync();
+                    CobblemonProfileStorageBridge.ensureSchemaAsync();
+                    MonotypeStarterManager.ensureSchemaAsync();
                     ChatPreferenceManager.ensureSchemaAsync();
                     TerritoryRepository.refreshAll();
                     DatabaseBootstrapSync.syncExistingLocalData();
@@ -444,7 +448,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     PlayerProfileManager.saveActiveLocation(handler.player);
                     VanillaProfileStateManager.save(handler.player);
-                    CobblemonProfileStateManager.save(handler.player);
+                    CobblemonProfileStorageBridge.forceSaveActiveProfileStores(handler.player);
                     ChatPreferenceManager.save(handler.player);
 
                     MatchmakingManager.leaveQueue(
@@ -684,7 +688,7 @@ public class ChampUtilsMod implements ModInitializer {
                         for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
                             PlayerProfileManager.saveActiveLocation(onlinePlayer);
                             VanillaProfileStateManager.save(onlinePlayer);
-                            CobblemonProfileStateManager.save(onlinePlayer);
+                            CobblemonProfileStorageBridge.forceSaveActiveProfileStores(onlinePlayer);
                         }
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();

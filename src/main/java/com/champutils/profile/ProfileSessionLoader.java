@@ -44,6 +44,7 @@ public final class ProfileSessionLoader {
         ChatPreferenceManager.load(player);
         ModerationManager.handleJoin(player);
         DailyLoginManager.handleJoin(player);
+        MonotypeStarterManager.handleProfileLoaded(player);
     }
 
     public static void unload(ServerPlayer player) {

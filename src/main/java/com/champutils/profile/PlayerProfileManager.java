@@ -124,6 +124,11 @@ public static boolean isInMainMenu(ServerPlayer player) {
     return player != null && !ACTIVE.containsKey(player.getUUID());
 }
 
+
+    public static java.util.Collection<ProfileRecord> activeProfilesSnapshot() {
+        return java.util.List.copyOf(ACTIVE.values());
+    }
+
 public static void unload(UUID playerUuid) {
         if (playerUuid != null) ACTIVE.remove(playerUuid);
     }
@@ -238,10 +243,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ProfileRecord target = readByName(connection, player.getUUID(), clean);
             if (target == null) return "No profile named " + clean + ".";
             if (target.pendingDelete()) return "That profile is pending deletion and cannot be loaded.";
+            UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
             if (hasActiveProfile(player)) {
                 saveActiveLocation(player);
                 VanillaProfileStateManager.save(player);
-                CobblemonProfileStateManager.save(player);
+                CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player);
+                if (previousProfileId != null) CobblemonProfileStorageBridge.evictProfileStores(previousProfileId);
                 ChatPreferenceManager.save(player);
                 ProfileSessionLoader.unload(player);
             }
@@ -250,7 +257,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ACTIVE.put(player.getUUID(), active);
             ProfileLobbyManager.leaveLobby(player);
             VanillaProfileStateManager.load(player);
-            CobblemonProfileStateManager.load(player);
+            CobblemonProfileStorageBridge.loadActiveProfileStores(player);
             ProfileSessionLoader.load(player);
             teleportToSavedLocation(player);
             return "Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].";

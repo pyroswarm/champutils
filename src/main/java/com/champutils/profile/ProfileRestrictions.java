@@ -31,7 +31,7 @@ public final class ProfileRestrictions {
         return null;
     }
 
-    private static boolean hasType(Pokemon pokemon, String required) {
+    public static boolean hasType(Pokemon pokemon, String required) {
         String needle = required.toLowerCase();
         try {
             Object types = pokemon.getClass().getMethod("getTypes").invoke(pokemon);

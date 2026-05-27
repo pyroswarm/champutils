@@ -3,7 +3,9 @@
   "package": "com.champutils.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "StandardExperienceCalculatorMixin"
+    "StandardExperienceCalculatorMixin",
+    "CommandsLockedLobbyMixin",
+    "CobblemonPokemonStoreManagerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
