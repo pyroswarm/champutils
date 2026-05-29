@@ -24,6 +24,8 @@ import com.champutils.antilag.AntiLagConfig;
 import com.champutils.moderation.ModerationConfig;
 import com.champutils.worldborder.ChampWorldBorderConfig;
 import com.champutils.worldborder.ChampWorldBorderManager;
+import com.champutils.gamerule.GlobalGameruleConfig;
+import com.champutils.gamerule.GlobalGameruleManager;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -92,7 +94,9 @@ public class ChampReloadCommand {
             AntiLagConfig.load();
             ModerationConfig.load();
             ChampWorldBorderConfig.load();
+            GlobalGameruleConfig.load();
             ChampWorldBorderManager.applyAll(source.getServer());
+            GlobalGameruleManager.applyAll(source.getServer());
 
             source.sendSuccess(
                     () -> Component.literal(
@@ -103,7 +107,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json, guilds/guild_config.json, world_borders.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json, guilds/guild_config.json, world_borders.json, global_gamerules.json"
                     ),
                     false
             );

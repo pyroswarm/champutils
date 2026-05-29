@@ -51,6 +51,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists pc_nbt text");
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("create index if not exists idx_profile_cobblemon_storage_updated_at on profile_cobblemon_storage(updated_at)");
+            statement.executeUpdate("create index if not exists idx_profile_cobblemon_storage_profile_updated on profile_cobblemon_storage(profile_id, updated_at)");
         }
     }
 
@@ -111,7 +112,9 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
 
     @Override
     public void shutdown(RegistryAccess registryAccess) {
-        saveAll(registryAccess);
+        // Server shutdown is the one place where a blocking flush is acceptable.
+        // Profile switching, menu flows, and disconnects must use saveAsync/save().
+        saveAllBlocking(registryAccess);
         partyCache.clear();
         pcCache.clear();
     }
@@ -119,24 +122,33 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     @Override
     public void onPlayerDisconnect(ServerPlayer player) {
         UUID profileId = PlayerProfileManager.activeProfileId(player);
-        save(profileId, player.registryAccess());
+        // Snapshot now, write later. Do not stall the server thread on player disconnect.
+        saveAsync(profileId, player.registryAccess());
         partyCache.remove(profileId);
         pcCache.remove(profileId);
     }
 
+    /**
+     * Safe default save path. This intentionally does NOT perform SQL on the caller thread.
+     * Kept with the old name because older ChampUtils call sites still call save(...).
+     */
     public void save(UUID profileId, RegistryAccess registryAccess) {
+        saveAsync(profileId, registryAccess);
+    }
+
+    private void saveBlocking(UUID profileId, RegistryAccess registryAccess) {
         if (!canOwn(profileId)) return;
         long start = System.currentTimeMillis();
         PlayerPartyStore party = partyCache.get(profileId);
         PCStore pc = pcCache.get(profileId); // null means PC was never lazy-loaded; never load it just to save.
         if (party == null && pc == null) return;
         upsert(profileId, party, pc, registryAccess);
-        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.save took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null));
+        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveBlocking took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null));
     }
 
-    public void saveAll(RegistryAccess registryAccess) {
-        for (UUID profileId : partyCache.keySet()) save(profileId, registryAccess);
-        for (UUID profileId : pcCache.keySet()) save(profileId, registryAccess);
+    public void saveAllBlocking(RegistryAccess registryAccess) {
+        for (UUID profileId : partyCache.keySet()) saveBlocking(profileId, registryAccess);
+        for (UUID profileId : pcCache.keySet()) saveBlocking(profileId, registryAccess);
     }
 
     public void saveAsync(UUID profileId, RegistryAccess registryAccess) {
@@ -161,15 +173,23 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         return profileId != null && pcCache.containsKey(profileId);
     }
 
+    public boolean isPartyLoaded(UUID profileId) {
+        return profileId != null && partyCache.containsKey(profileId);
+    }
+
     public void prefetchParty(UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
         if (profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
+        if (partyCache.containsKey(profileId)) {
+            System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took 0ms for profile=" + profileId + " cacheHit=true");
+            return;
+        }
         partyCache.computeIfAbsent(profileId, uuid -> {
             long start = System.currentTimeMillis();
             PlayerPartyStore store = new PlayerPartyStore(accountUuid);
             loadStore(uuid, true, store, registryAccess);
             store.initialize();
             long elapsed = System.currentTimeMillis() - start;
-            System.out.println("[PROFILE] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId);
+            System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId + " cacheHit=false");
             return store;
         });
     }
@@ -192,11 +212,14 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         if (!DatabaseManager.isEnabled()) return;
         try {
             Connection connection = DatabaseManager.getConnection();
-            try (var ps = connection.prepareStatement("select party_nbt, pc_nbt from profile_cobblemon_storage where profile_id = ?")) {
+            String column = party ? "party_nbt" : "pc_nbt";
+            // Do not SELECT the PC blob when loading the party. Large pc_nbt values were making
+            // party-only profile activation behave like a partial PC load.
+            try (var ps = connection.prepareStatement("select " + column + " from profile_cobblemon_storage where profile_id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) return;
-                    String raw = rs.getString(party ? "party_nbt" : "pc_nbt");
+                    String raw = rs.getString(column);
                     if (raw == null || raw.isBlank()) return;
                     CompoundTag tag = TagParser.parseTag(raw);
                     store.loadFromNBT(tag, registryAccess);

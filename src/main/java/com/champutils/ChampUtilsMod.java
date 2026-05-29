@@ -54,6 +54,7 @@ import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
 import com.champutils.worldborder.*;
+import com.champutils.gamerule.*;
 
 /*
  =========================
@@ -63,6 +64,7 @@ import com.champutils.worldborder.*;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
@@ -180,6 +182,8 @@ public class ChampUtilsMod implements ModInitializer {
         CrateCreditManager.load();
         DailyLoginManager.load();
         ChampWorldBorderConfig.load();
+        IslanderSpawningManager.load();
+        GlobalGameruleConfig.load();
 
         /*
          =========================
@@ -264,6 +268,8 @@ public class ChampUtilsMod implements ModInitializer {
                     LeaderboardManager.refresh(server);
                     ServerStatusDatabaseRepository.sync(server);
                     ChampWorldBorderManager.applyAll(server);
+                    GlobalGameruleManager.applyAll(server);
+                    IslanderSpawningManager.handleServerStarted(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
                     PlayerProfileManager.ensureSchemaAsync();
@@ -295,6 +301,15 @@ public class ChampUtilsMod implements ModInitializer {
                             "[ChampUtils] Leaderboard loaded."
                     );
                 }
+        );
+
+        /*
+         =========================
+         WORLD LOAD
+         =========================
+         */
+        ServerWorldEvents.LOAD.register(
+                (server, level) -> GlobalGameruleManager.applyToLevel(server, level)
         );
 
         /*
@@ -333,6 +348,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DailyLoginManager.save();
                     TitleManager.save();
                     WorldFirstManager.save();
+                    com.champutils.profile.ProfilePlaytimeManager.flushBlockingBestEffort();
                     DatabaseManager.shutdown();
 
                     System.out.println(
@@ -584,6 +600,7 @@ public class ChampUtilsMod implements ModInitializer {
         AutoModCommand.register();
         DailyLoginCommand.register();
         ChampWorldBorderCommand.register();
+        GlobalGameruleCommand.register();
         ProfileCommand.register();
 
         /*
@@ -624,6 +641,7 @@ public class ChampUtilsMod implements ModInitializer {
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();
         CashShopBoostItemManager.register();
+        IslanderSpawningManager.register();
 
         /*
          =========================

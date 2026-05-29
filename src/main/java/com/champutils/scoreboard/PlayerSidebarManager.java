@@ -5,6 +5,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.rank.RankManager;
 import com.champutils.config.Rank;
 import com.champutils.specialspawn.SpecialWildSpawnManager;
@@ -166,6 +167,7 @@ public final class PlayerSidebarManager {
         lines.add("§bRP §f" + rp);
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
+        lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getCachedPlaytimeSeconds(player)));
         lines.add("§6Last Special §f" + SpecialWildSpawnManager.formatLastSpawnAgo());
         lines.add("§5Last Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         lines.add("§8§m----------------");
@@ -216,6 +218,13 @@ public final class PlayerSidebarManager {
 
     private static String formatPercent(double value) {
         return String.format("%.1f", value);
+    }
+
+    private static String formatPlaytime(long seconds) {
+        long safe = Math.max(0L, seconds);
+        long hours = safe / 3600L;
+        long minutes = (safe % 3600L) / 60L;
+        return hours + "h " + minutes + "m";
     }
 
     private static List<String> makeUniqueAndSafe(List<String> source) {

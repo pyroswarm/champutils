@@ -39,6 +39,7 @@ public final class VanillaProfileStateManager {
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists vanilla_snbt text not null default '{}'");
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("create index if not exists idx_profile_vanilla_state_player_uuid on profile_vanilla_state(player_uuid)");
+            statement.executeUpdate("create index if not exists idx_profile_vanilla_state_updated_at on profile_vanilla_state(updated_at)");
         }
     }
 

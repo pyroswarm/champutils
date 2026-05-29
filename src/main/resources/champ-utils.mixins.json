@@ -7,7 +7,8 @@
     "CommandsLockedLobbyMixin",
     "CobblemonPokemonStoreManagerMixin",
     "IronmanItemEntityMixin",
-    "IronmanPlayerDropMixin"
+    "IronmanPlayerDropMixin",
+    "IslanderPlayerSpawnerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

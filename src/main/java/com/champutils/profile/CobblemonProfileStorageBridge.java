@@ -78,8 +78,10 @@ public final class CobblemonProfileStorageBridge {
     }
 
     public static void forceSaveProfileStores(UUID profileId, ServerPlayer player) {
+        // Historical method name kept for compatibility, but it must be async.
+        // Profile switching and profile-menu flows call this path; never do SQL here.
         if (profileId == null || player == null || sqlFactory == null) return;
-        sqlFactory.save(profileId, player.registryAccess());
+        sqlFactory.saveAsync(profileId, player.registryAccess());
     }
 
 
@@ -100,6 +102,10 @@ public final class CobblemonProfileStorageBridge {
         return sqlFactory != null && sqlFactory.hasCachedStores(profileId);
     }
 
+    public static boolean hasSqlCachedParty(UUID profileId) {
+        return sqlFactory != null && sqlFactory.isPartyLoaded(profileId);
+    }
+
     public static void loadActiveProfileStores(ServerPlayer player) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
@@ -109,10 +115,26 @@ public final class CobblemonProfileStorageBridge {
         // throw-out, battles, and party UI work after switching, but DO NOT load/send the PC here.
         // Large PCs are lazily loaded by ProfileCobblemonSqlStoreFactory#getPC/getPCForPlayer on
         // first actual PC access instead of during every profile swap.
-        Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess()).sendTo(player);
-        try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
+        long getPartyStart = System.currentTimeMillis();
+        boolean cacheHitBefore = hasSqlCachedParty(profileId);
+        var party = Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess());
+        System.out.println("[PROFILE-TIMING] Cobblemon get cached party took " + (System.currentTimeMillis() - getPartyStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " cacheHitBefore=" + cacheHitBefore);
+
+        long sendStart = System.currentTimeMillis();
+        party.sendTo(player);
+        System.out.println("[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+
+        // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
+        // but move the broader Cobblemon player-data sync out of the profile activation critical path.
+        // MinecraftServer#execute queues this after the current activation runnable instead of making
+        // the switch block wait on it.
+        player.server.execute(() -> {
+            long syncStart = System.currentTimeMillis();
+            try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
+            System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync deferred took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        });
 
         long elapsed = System.currentTimeMillis() - start;
-        System.out.println("[PROFILE] Cobblemon party activation took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        System.out.println("[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
     }
 }

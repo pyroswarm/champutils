@@ -40,6 +40,14 @@ public final class SpecialWildSpawnConfig {
         if (DATA.ultraBeastSpawns == null) DATA.ultraBeastSpawns = d.ultraBeastSpawns;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = d.disabledDimensions;
         if (DATA.islanderWorldPrefix == null || DATA.islanderWorldPrefix.isBlank()) DATA.islanderWorldPrefix = d.islanderWorldPrefix;
+        if (DATA.islanderMinimumProfilePlaytimeSeconds < 0L) DATA.islanderMinimumProfilePlaytimeSeconds = d.islanderMinimumProfilePlaytimeSeconds;
+        if (DATA.islanderTargetAverageSpawnMinutes <= 0.0D) DATA.islanderTargetAverageSpawnMinutes = d.islanderTargetAverageSpawnMinutes;
+        if (DATA.islanderLegendaryChancePerCheck <= 0.0D) DATA.islanderLegendaryChancePerCheck = d.islanderLegendaryChancePerCheck;
+        if (DATA.islanderParadoxChancePerCheck <= 0.0D) DATA.islanderParadoxChancePerCheck = d.islanderParadoxChancePerCheck;
+        if (DATA.islanderUltraBeastChancePerCheck <= 0.0D) DATA.islanderUltraBeastChancePerCheck = d.islanderUltraBeastChancePerCheck;
+        if (DATA.islanderLegendarySpawns == null || DATA.islanderLegendarySpawns.isEmpty()) DATA.islanderLegendarySpawns = DATA.legendarySpawns;
+        if (DATA.islanderParadoxSpawns == null || DATA.islanderParadoxSpawns.isEmpty()) DATA.islanderParadoxSpawns = DATA.paradoxSpawns;
+        if (DATA.islanderUltraBeastSpawns == null || DATA.islanderUltraBeastSpawns.isEmpty()) DATA.islanderUltraBeastSpawns = DATA.ultraBeastSpawns;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = d.checkIntervalTicks;
         if (DATA.minDistanceFromPlayer < 8) DATA.minDistanceFromPlayer = d.minDistanceFromPlayer;
         if (DATA.maxDistanceFromPlayer < DATA.minDistanceFromPlayer) DATA.maxDistanceFromPlayer = d.maxDistanceFromPlayer;
@@ -85,6 +93,11 @@ public final class SpecialWildSpawnConfig {
         root.islanderSpecialSpawnsEnabled = true;
         root.islanderWorldPrefix = "islander_";
         root.islanderOnlyNotifyIslanders = true;
+        root.islanderMinimumProfilePlaytimeSeconds = 10L * 60L * 60L;
+        root.islanderTargetAverageSpawnMinutes = 120.0;
+        root.islanderLegendaryChancePerCheck = root.legendaryChancePerCheck;
+        root.islanderParadoxChancePerCheck = root.paradoxChancePerCheck;
+        root.islanderUltraBeastChancePerCheck = root.ultraBeastChancePerCheck;
         root.disabledDimensions = new ArrayList<>(List.of("multiworld:spawn1", "multiworld:spawn", "minecraft:the_end"));
 
         root.legendarySpawns = new ArrayList<>(List.of(
@@ -152,6 +165,10 @@ public final class SpecialWildSpawnConfig {
                 entry("blacephalon", tags("#cobblemon:is_dark_forest", "#cobblemon:is_nether"), times("night"))
         ));
         if (root.removeBiomeRequirements) clearBiomeRequirements(root.legendarySpawns, root.paradoxSpawns, root.ultraBeastSpawns);
+        root.islanderLegendarySpawns = new ArrayList<>(root.legendarySpawns);
+        root.islanderParadoxSpawns = new ArrayList<>(root.paradoxSpawns);
+        root.islanderUltraBeastSpawns = new ArrayList<>(root.ultraBeastSpawns);
+
         return root;
     }
 
@@ -198,10 +215,18 @@ public final class SpecialWildSpawnConfig {
         public boolean islanderSpecialSpawnsEnabled;
         public String islanderWorldPrefix;
         public boolean islanderOnlyNotifyIslanders;
+        public long islanderMinimumProfilePlaytimeSeconds;
+        public double islanderTargetAverageSpawnMinutes;
+        public double islanderLegendaryChancePerCheck;
+        public double islanderParadoxChancePerCheck;
+        public double islanderUltraBeastChancePerCheck;
         public List<String> disabledDimensions;
         public List<SpawnEntry> legendarySpawns;
         public List<SpawnEntry> paradoxSpawns;
         public List<SpawnEntry> ultraBeastSpawns;
+        public List<SpawnEntry> islanderLegendarySpawns;
+        public List<SpawnEntry> islanderParadoxSpawns;
+        public List<SpawnEntry> islanderUltraBeastSpawns;
     }
 
     public static final class SpawnEntry {

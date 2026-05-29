@@ -28,6 +28,9 @@ public final class PlayerProfileManager {
 
     private static final Map<UUID, ProfileRecord> ACTIVE = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> SWITCHING = new ConcurrentHashMap<>();
+    private static final Map<UUID, Map<String, ProfileRecord>> PROFILE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> VANILLA_STATE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, SavedLocationSnapshot> SAVED_LOCATION_CACHE = new ConcurrentHashMap<>();
 
     private PlayerProfileManager() {}
 
@@ -62,6 +65,22 @@ public final class PlayerProfileManager {
             float pitch,
             boolean useFallback
     ) {}
+
+    private static void cacheProfile(ProfileRecord record) {
+        if (record == null || record.playerUuid() == null || record.profileName() == null) return;
+        PROFILE_CACHE.computeIfAbsent(record.playerUuid(), ignored -> new ConcurrentHashMap<>())
+                .put(record.profileName().toLowerCase(), record);
+    }
+
+    private static void clearProfileCache(UUID playerUuid) {
+        if (playerUuid != null) PROFILE_CACHE.remove(playerUuid);
+    }
+
+    private static ProfileRecord cachedProfileByName(UUID playerUuid, String name) {
+        if (playerUuid == null || name == null) return null;
+        Map<String, ProfileRecord> cache = PROFILE_CACHE.get(playerUuid);
+        return cache == null ? null : cache.get(name.toLowerCase());
+    }
 
     public static void ensureSchemaAsync() {
         if (!DatabaseManager.isEnabled()) return;
@@ -101,6 +120,13 @@ public final class PlayerProfileManager {
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
                         "profile_id uuid not null references player_profiles(id) on delete cascade, updated_at timestamptz not null default now())");
                 statement.executeUpdate("create index if not exists idx_player_active_profiles_profile on player_active_profiles(profile_id)");
+
+                // Profile switch hot-path indexes. These are safe if they already exist and keep
+                // profile lookup, active lookup, profile-state lookup, and location lookup indexed.
+                statement.executeUpdate("create index if not exists idx_player_profiles_player_uuid on player_profiles(player_uuid)");
+                statement.executeUpdate("create index if not exists idx_player_profiles_player_id on player_profiles(player_uuid, id) where deleted_at is null");
+                statement.executeUpdate("create index if not exists idx_player_profiles_player_last_used on player_profiles(player_uuid, last_used_at) where deleted_at is null");
+                // profile_vanilla_state and profile_cobblemon_storage create their own indexes in their schema managers.
                 statement.executeUpdate("create table if not exists profile_ranked_stats (" +
                         "profile_id uuid not null references player_profiles(id) on delete cascade, season_id text not null default 'default', " +
                         "rp integer not null default 1000, peak_rp integer not null default 1000, wins integer not null default 0, losses integer not null default 0, " +
@@ -253,7 +279,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         "where p.player_uuid = ? and p.deleted_at is null order by p.created_at asc")) {
             statement.setObject(1, player.getUUID());
             try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) profiles.add(fromResultSet(rs));
+                while (rs.next()) {
+                    ProfileRecord record = fromResultSet(rs);
+                    profiles.add(record);
+                    cacheProfile(record);
+                }
             }
         }
         catch (Exception e) { e.printStackTrace(); }
@@ -267,19 +297,47 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         if (mode == ProfileGameMode.MONOTYPE && (monotypeType == null || monotypeType.isBlank())) return "Monotype profiles need a type, example: /profiles create FireRun monotype fire";
         if (!DatabaseManager.isEnabled()) return "Profiles require the SQL database to be enabled.";
         try {
+            long createTotalStart = System.currentTimeMillis();
+            long connectionStart = System.currentTimeMillis();
             Connection connection = DatabaseManager.getConnection();
+            System.out.println("[PROFILE-TIMING] createBlocking.connection acquisition took " + (System.currentTimeMillis() - connectionStart) + "ms");
+
+            long ensureStart = System.currentTimeMillis();
             ensurePlayerRow(connection, player);
+            System.out.println("[PROFILE-TIMING] createBlocking.ensurePlayerRow took " + (System.currentTimeMillis() - ensureStart) + "ms");
+
+            long limitSyncStart = System.currentTimeMillis();
             syncLimitFromLuckPerms(connection, player);
+            System.out.println("[PROFILE-TIMING] createBlocking.syncLimitFromLuckPerms took " + (System.currentTimeMillis() - limitSyncStart) + "ms");
+
+            long pendingDeleteStart = System.currentTimeMillis();
             finalizePendingDeletesBlocking(player);
+            System.out.println("[PROFILE-TIMING] createBlocking.finalizePendingDeletes took " + (System.currentTimeMillis() - pendingDeleteStart) + "ms");
+
+            long existingStart = System.currentTimeMillis();
             ProfileRecord existing = readByName(connection, player.getUUID(), clean);
+            System.out.println("[PROFILE-TIMING] createBlocking.existingProfileLookup took " + (System.currentTimeMillis() - existingStart) + "ms");
             if (existing != null) {
                 if (existing.pendingDelete()) return "That profile color is still pending deletion.";
                 return "You already have a profile named " + clean + ".";
             }
+
+            long limitStart = System.currentTimeMillis();
             ProfileLimit limit = limitBlocking(player);
             int liveProfiles = countLiveProfiles(connection, player.getUUID());
+            System.out.println("[PROFILE-TIMING] createBlocking.limit/count lookup took " + (System.currentTimeMillis() - limitStart) + "ms");
             if (liveProfiles >= limit.maxProfiles()) return "You already have the max of " + limit.maxProfiles() + " profiles.";
+
+            long createTimingStart = System.currentTimeMillis();
             ProfileRecord created = createProfile(connection, player, clean, mode, normalizeType(monotypeType), false);
+            System.out.println("[PROFILE-TIMING] createBlocking.ProfileRepository.createProfile insert took " + (System.currentTimeMillis() - createTimingStart) + "ms");
+
+            long defaultCacheStart = System.currentTimeMillis();
+            cacheProfile(created);
+            VANILLA_STATE_CACHE.put(created.profileId(), "{}");
+            SAVED_LOCATION_CACHE.put(created.profileId(), new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true));
+            System.out.println("[PROFILE-TIMING] createBlocking.default profile cache took " + (System.currentTimeMillis() - defaultCacheStart) + "ms");
+            System.out.println("[PROFILE-TIMING] createBlocking total took " + (System.currentTimeMillis() - createTotalStart) + "ms");
             return "Created profile " + clean + ". Use /profiles to select it.";
         }
         catch (Exception e) { e.printStackTrace(); return "Could not create profile. Check console/database logs."; }
@@ -298,10 +356,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
             if (hasActiveProfile(player)) {
                 saveActiveLocation(player);
-                VanillaProfileStateManager.save(player);
-                CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player);
+                VanillaProfileStateManager.saveAsync(player);
+                CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
                 if (previousProfileId != null) CobblemonProfileStorageBridge.evictProfileStores(previousProfileId);
-                ChatPreferenceManager.save(player);
+                ChatPreferenceManager.saveAsync(player.getUUID(), ChatPreferenceManager.get(player.getUUID()));
                 ProfileSessionLoader.unload(player);
             }
             setActive(connection, player.getUUID(), target.profileId());
@@ -381,17 +439,24 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
         DatabaseManager.runAsync("async profile switch", connection -> {
             long sqlStart = System.currentTimeMillis();
-            ProfileRecord target = readByName(connection, playerUuid, clean);
+            ProfileRecord target = cachedProfileByName(playerUuid, clean);
+            boolean cacheHit = target != null;
+            if (target == null) {
+                target = readByName(connection, playerUuid, clean);
+                cacheProfile(target);
+            }
             if (target == null) throw new IllegalArgumentException("No profile named " + clean + ".");
             if (target.pendingDelete()) throw new IllegalStateException("That profile is pending deletion and cannot be loaded.");
-            System.out.println("[PROFILE-TIMING] SQL profile lookup took " + (System.currentTimeMillis() - sqlStart) + "ms");
+            System.out.println("[PROFILE-TIMING] SQL profile lookup took " + (System.currentTimeMillis() - sqlStart) + "ms cacheHit=" + cacheHit);
 
             if (hadActiveProfileFinal && previousProfileIdFinal != null) {
                 long oldSaveStart = System.currentTimeMillis();
                 if (saveDimensionFinal != null && !ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(saveDimensionFinal)) {
                     saveLocationSnapshot(connection, playerName, previousProfileIdFinal, saveDimensionFinal, saveXFinal, saveYFinal, saveZFinal, saveYawFinal, savePitchFinal);
+                    SAVED_LOCATION_CACHE.put(previousProfileIdFinal, new SavedLocationSnapshot(saveDimensionFinal, saveXFinal, saveYFinal, saveZFinal, saveYawFinal, savePitchFinal, false));
                 }
                 if (vanillaSnapshotFinal != null && !vanillaSnapshotFinal.isBlank()) {
+                    VANILLA_STATE_CACHE.put(previousProfileIdFinal, vanillaSnapshotFinal);
                     try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
                             "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
                         ps.setObject(1, previousProfileIdFinal);
@@ -403,17 +468,39 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 System.out.println("[PROFILE-TIMING] SQL old profile location/vanilla save took " + (System.currentTimeMillis() - oldSaveStart) + "ms");
             }
 
-            long activeSqlStart = System.currentTimeMillis();
-            setActive(connection, playerUuid, target.profileId());
-            String targetSnbt = VanillaProfileStateManager.loadSnbt(connection, target.profileId());
-            SavedLocationSnapshot savedLocationSnapshot = loadSavedLocationSnapshot(connection, target.profileId());
-            System.out.println("[PROFILE-TIMING] SQL active update + vanilla/location load took " + (System.currentTimeMillis() - activeSqlStart) + "ms");
+            long sqlLoadStart = System.currentTimeMillis();
+            // Do not block the player's switch on the remote SQL active-profile write. The active
+            // profile is applied from the already-resolved target record below, then persisted in
+            // a separate DB task. This removes the common 60-80ms WAN/commit delay from switchAsync.
+            System.out.println("[PROFILE-TIMING] SQL active profile update skipped critical path; queued async persistence");
+
+            long vanillaLoadStart = System.currentTimeMillis();
+            String targetSnbt = VANILLA_STATE_CACHE.get(target.profileId());
+            boolean vanillaCacheHit = targetSnbt != null;
+            if (!vanillaCacheHit) {
+                targetSnbt = VanillaProfileStateManager.loadSnbt(connection, target.profileId());
+                if (targetSnbt != null) VANILLA_STATE_CACHE.put(target.profileId(), targetSnbt);
+            }
+            System.out.println("[PROFILE-TIMING] SQL vanilla inventory/state load took " + (System.currentTimeMillis() - vanillaLoadStart) + "ms cacheHit=" + vanillaCacheHit);
+
+            long locationLoadStart = System.currentTimeMillis();
+            SavedLocationSnapshot savedLocationSnapshot = SAVED_LOCATION_CACHE.get(target.profileId());
+            boolean locationCacheHit = savedLocationSnapshot != null;
+            if (!locationCacheHit) {
+                savedLocationSnapshot = loadSavedLocationSnapshot(connection, target.profileId());
+                if (savedLocationSnapshot != null) SAVED_LOCATION_CACHE.put(target.profileId(), savedLocationSnapshot);
+            }
+            System.out.println("[PROFILE-TIMING] SQL saved location load took " + (System.currentTimeMillis() - locationLoadStart) + "ms cacheHit=" + locationCacheHit);
+            System.out.println("[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
 
             long partyPrefetchStart = System.currentTimeMillis();
             CobblemonProfileStorageBridge.prefetchProfileStores(target.profileId(), playerUuid, registryAccess);
             System.out.println("[PROFILE-TIMING] party prefetch took " + (System.currentTimeMillis() - partyPrefetchStart) + "ms");
 
+            final String targetSnbtFinal = targetSnbt;
+            final SavedLocationSnapshot savedLocationSnapshotFinal = savedLocationSnapshot;
             ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
+            persistActiveProfileAsync(playerUuid, active.profileId(), playerName);
 
             player.server.execute(() -> {
                 long activationStart = System.currentTimeMillis();
@@ -426,11 +513,13 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         timing("server.execute.evict old Cobblemon stores", () -> CobblemonProfileStorageBridge.evictProfileStores(previousProfileIdFinal));
                     }
                     ACTIVE.put(playerUuid, active);
+                    cacheProfile(active);
+                    ProfilePlaytimeManager.warmCacheAsync(active.profileId());
                     timing("server.execute.ProfileLobbyManager.leaveLobby", () -> ProfileLobbyManager.leaveLobby(player));
-                    timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbt));
+                    timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbtFinal));
                     timing("server.execute.loadActiveProfileStores", () -> CobblemonProfileStorageBridge.loadActiveProfileStores(player));
                     timing("server.execute.ProfileSessionLoader.loadCritical", () -> ProfileSessionLoader.loadCritical(player));
-                    timing("server.execute.teleportToSavedLocation", () -> teleportToSavedLocationSnapshot(player, savedLocationSnapshot));
+                    timing("server.execute.teleportToSavedLocation", () -> teleportToSavedLocationSnapshot(player, savedLocationSnapshotFinal));
 
                     System.out.println("[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
 
@@ -486,11 +575,13 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     ps.executeUpdate();
                 }
                 if (target.active()) ACTIVE.remove(player.getUUID());
+                clearProfileCache(player.getUUID());
                 return "Deleted profile " + target.profileName() + ".";
             }
             try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = true, delete_available_at = now() + interval '30 minutes' where id = ?")) {
                 ps.setObject(1, target.profileId());
                 ps.executeUpdate();
+                clearProfileCache(player.getUUID());
             }
             return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in 30 minutes.";
         } catch (Exception e) { e.printStackTrace(); return "Could not delete profile. Check console/database logs."; }
@@ -741,15 +832,46 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         }
     }
 
+    private static void persistActiveProfileAsync(UUID playerUuid, UUID profileId, String playerName) {
+        if (playerUuid == null || profileId == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("persist active profile", connection -> {
+            long start = System.currentTimeMillis();
+            setActive(connection, playerUuid, profileId);
+            System.out.println("[PROFILE-TIMING] async SQL active profile persist took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+        });
+    }
+
     private static void setActive(Connection connection, UUID playerUuid, UUID profileId) throws Exception {
-        try (var ps = connection.prepareStatement("insert into player_active_profiles (player_uuid, profile_id, updated_at) values (?, ?, now()) on conflict (player_uuid) do update set profile_id = excluded.profile_id, updated_at = now()")) {
-            ps.setObject(1, playerUuid);
-            ps.setObject(2, profileId);
-            ps.executeUpdate();
-        }
-        try (var ps = connection.prepareStatement("update player_profiles set last_used_at = now() where id = ?")) {
-            ps.setObject(1, profileId);
-            ps.executeUpdate();
+        long connectionReady = System.currentTimeMillis();
+        boolean oldAutoCommit = connection.getAutoCommit();
+        long beginStart = System.currentTimeMillis();
+        connection.setAutoCommit(false);
+        System.out.println("[PROFILE-TIMING] setActive.transaction begin took " + (System.currentTimeMillis() - beginStart) + "ms");
+        try {
+            long upsertStart = System.currentTimeMillis();
+            try (var ps = connection.prepareStatement("insert into player_active_profiles (player_uuid, profile_id, updated_at) values (?, ?, now()) " +
+                    "on conflict (player_uuid) do update set profile_id = excluded.profile_id, updated_at = now()")) {
+                ps.setObject(1, playerUuid);
+                ps.setObject(2, profileId);
+                ps.executeUpdate();
+            }
+            System.out.println("[PROFILE-TIMING] setActive.active upsert took " + (System.currentTimeMillis() - upsertStart) + "ms");
+
+            long lastUsedStart = System.currentTimeMillis();
+            try (var ps = connection.prepareStatement("update player_profiles set last_used_at = now() where id = ?")) {
+                ps.setObject(1, profileId);
+                ps.executeUpdate();
+            }
+            System.out.println("[PROFILE-TIMING] setActive.last_used update took " + (System.currentTimeMillis() - lastUsedStart) + "ms");
+
+            long commitStart = System.currentTimeMillis();
+            connection.commit();
+            System.out.println("[PROFILE-TIMING] setActive.commit took " + (System.currentTimeMillis() - commitStart) + "ms");
+        } catch (Exception e) {
+            try { connection.rollback(); } catch (Exception ignored) {}
+            throw e;
+        } finally {
+            try { connection.setAutoCommit(oldAutoCommit); } catch (Exception ignored) {}
         }
     }
 
@@ -788,7 +910,13 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ps.setString(2, name);
             ps.setString(3, mode.name());
             ps.setString(4, mode == ProfileGameMode.MONOTYPE ? normalizeType(monotypeType) : null);
-            try (ResultSet rs = ps.executeQuery()) { if (rs.next()) return fromResultSet(rs); }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    ProfileRecord record = fromResultSet(rs);
+                    cacheProfile(record);
+                    return record;
+                }
+            }
         }
         throw new IllegalStateException("Profile insert returned no row.");
     }

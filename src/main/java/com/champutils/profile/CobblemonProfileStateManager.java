@@ -18,7 +18,7 @@ public final class CobblemonProfileStateManager {
     }
 
     public static void save(ServerPlayer player) {
-        CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player);
+        CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
     }
 
     public static void load(ServerPlayer player) {

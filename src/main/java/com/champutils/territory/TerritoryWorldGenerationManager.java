@@ -1,6 +1,7 @@
 package com.champutils.territory;
 
 import com.champutils.guild.GuildRepository;
+import com.champutils.gamerule.GlobalGameruleManager;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -109,6 +110,7 @@ public final class TerritoryWorldGenerationManager {
 
         ServerLevel loadedLevel = getLoadedLevel(finalServer, territory.worldName);
         if (loadedLevel != null) {
+            GlobalGameruleManager.applyToLevel(finalServer, loadedLevel);
             if (deleting) return;
             if (TerritoryConfig.get().skyblockTerritoryWorlds) {
                 // Biome painting is intentionally disabled. It was reflection-heavy and could leave

@@ -3,6 +3,7 @@ package com.champutils.profile;
 import com.champutils.database.DatabaseManager;
 import com.champutils.hunt.PokemonHuntReflection;
 import com.champutils.util.CobblemonEventReflection;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -91,6 +92,7 @@ public final class NuzlockeManager {
                     if (speciesAlreadyKept(profileId, species)) {
                         recordGraveyard(profileId, pokemon, species, "duplicate_species_catch");
                         boolean removed = removeFromCurrentStore(pokemon);
+                        try { CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player); } catch (Throwable ignored) {}
                         player.sendSystemMessage(Component.literal(
                                 removed
                                         ? "Nuzlocke: duplicate " + species + " caught. It was moved to your locked Graveyard."
@@ -114,11 +116,22 @@ public final class NuzlockeManager {
             CobblemonEventReflection.subscribe(observable, event -> {
                 try {
                     Object killed = firstValue(event, "killed", "getKilled", "pokemon", "getPokemon");
-                    Object pokemon = firstValue(killed, "effectedPokemon", "getEffectedPokemon", "pokemon", "getPokemon");
+                    Object pokemon = firstValue(killed, "originalPokemon", "getOriginalPokemon", "effectedPokemon", "getEffectedPokemon", "pokemon", "getPokemon");
                     ServerPlayer owner = ownerOfPokemon(pokemon);
                     if (owner == null || !PlayerProfileManager.isNuzlocke(owner)) return;
-                    recordDeath(PlayerProfileManager.activeProfileId(owner), pokemon, "battle_faint");
-                    owner.sendSystemMessage(Component.literal("Nuzlocke: a Pokémon fainted and is now dead. Box or release it permanently.").withStyle(ChatFormatting.RED));
+                    UUID profileId = PlayerProfileManager.activeProfileId(owner);
+                    recordDeath(profileId, pokemon, "battle_faint");
+                    ServerPlayer finalOwner = owner;
+                    Object finalPokemon = pokemon;
+                    owner.server.execute(() -> {
+                        boolean removed = removeFromCurrentStore(finalPokemon);
+                        try { CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(finalOwner); } catch (Throwable ignored) {}
+                        finalOwner.sendSystemMessage(Component.literal(
+                                removed
+                                        ? "Nuzlocke: a Pokémon fainted and was moved to your locked Graveyard. It has been removed from active storage."
+                                        : "Nuzlocke: a Pokémon fainted and was moved to your locked Graveyard. If it still appears, relog and do not use it."
+                        ).withStyle(ChatFormatting.RED));
+                    });
                 } catch (Throwable t) { t.printStackTrace(); }
             });
         } catch (Throwable ignored) {}
@@ -168,20 +181,41 @@ public final class NuzlockeManager {
     }
 
     private static boolean removeFromCurrentStore(Object pokemon) {
+        if (pokemon == null) return false;
+
+        // Preferred Cobblemon path. PokemonStore.remove(...) already recalls the Pokémon,
+        // clears storeCoordinates, emits store change events, and sends the client removal packet.
         try {
-            Object coordinates = firstValue(pokemon, "storeCoordinates", "getStoreCoordinates");
+            if (pokemon instanceof Pokemon p) {
+                var coordinates = p.getStoreCoordinates().get();
+                if (coordinates != null) {
+                    return coordinates.remove();
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // Reflection fallback kept for API compatibility. The previous version accidentally
+        // called storeCoordinates.get() first, which returns the Pokémon at that position, not
+        // the coordinates object. We need the coordinates object's remove()/store path instead.
+        try {
+            Object coordinatesObservable = firstValue(pokemon, "storeCoordinates", "getStoreCoordinates");
+            Object coordinates = firstValue(coordinatesObservable, "get", "getValue", "value");
             if (coordinates != null) {
-                Object resolved = firstValue(coordinates, "get", "getValue", "value");
-                if (resolved != null) {
-                    Object store = firstValue(resolved, "store", "getStore");
-                    if (store != null) {
-                        for (Method m : store.getClass().getMethods()) {
-                            if (!m.getName().equals("remove") || m.getParameterCount() != 1) continue;
-                            if (!m.getParameterTypes()[0].isAssignableFrom(pokemon.getClass())) continue;
-                            m.setAccessible(true);
-                            Object result = m.invoke(store, pokemon);
-                            return !(result instanceof Boolean) || (Boolean) result;
-                        }
+                for (Method m : coordinates.getClass().getMethods()) {
+                    if (!m.getName().equals("remove") || m.getParameterCount() != 0) continue;
+                    m.setAccessible(true);
+                    Object result = m.invoke(coordinates);
+                    return !(result instanceof Boolean) || (Boolean) result;
+                }
+
+                Object store = firstValue(coordinates, "store", "getStore");
+                if (store != null) {
+                    for (Method m : store.getClass().getMethods()) {
+                        if (!m.getName().equals("remove") || m.getParameterCount() != 1) continue;
+                        if (!m.getParameterTypes()[0].isAssignableFrom(pokemon.getClass())) continue;
+                        m.setAccessible(true);
+                        Object result = m.invoke(store, pokemon);
+                        return !(result instanceof Boolean) || (Boolean) result;
                     }
                 }
             }

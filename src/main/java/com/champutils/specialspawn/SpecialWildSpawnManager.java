@@ -3,6 +3,7 @@ package com.champutils.specialspawn;
 import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.profile.IslanderProfileManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfilePlaytimeManager;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -71,11 +72,21 @@ public final class SpecialWildSpawnManager {
         cleanupTracked(server);
         if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
 
+        // Normal and Islander special spawns roll independently. Islander spawns use their
+        // own player list, chance settings, species pool, and last-spawn pity timer.
+        runSpawnRoll(server, intervalTicks, false);
+        runSpawnRoll(server, intervalTicks, true);
+    }
+
+
+    private static void runSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
+        if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
+
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
-        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p));
+        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, islanderRoll));
         if (players.isEmpty()) return;
 
-        double chance = currentGlobalChancePerCheck(intervalTicks);
+        double chance = currentGlobalChancePerCheck(intervalTicks, islanderRoll);
         if (RANDOM.nextDouble() >= chance) return;
 
         Collections.shuffle(players, RANDOM);
@@ -83,12 +94,12 @@ public final class SpecialWildSpawnManager {
                 && RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventChance));
 
         if (rareTripleEvent) {
-            runRareTripleSpawnEvent(server, players);
+            runRareTripleSpawnEvent(server, players, islanderRoll);
             return;
         }
 
         ServerPlayer player = players.get(0);
-        SpawnBucket bucket = pickBucket();
+        SpawnBucket bucket = pickBucket(islanderRoll);
         if (bucket == null) return;
 
         SpawnResult result = trySpawnFor(player, bucket);
@@ -100,7 +111,7 @@ public final class SpecialWildSpawnManager {
             }
         }
         if (result != null) {
-            markSpawned(result.type, result.species, false);
+            markSpawned(result.type, result.species, false, islanderRoll);
             announce(server, result.type, result.species, result.level, result.pos);
         }
     }
@@ -109,17 +120,18 @@ public final class SpecialWildSpawnManager {
 
     public static boolean forceSpawnFor(ServerPlayer player) {
         if (player == null || !SpecialWildSpawnConfig.DATA.enabled) return false;
-        if (!isEligibleSpecialSpawnPlayer(player)) return false;
-        SpawnBucket bucket = pickBucket();
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        if (!isEligibleSpecialSpawnPlayer(player, islanderRoll)) return false;
+        SpawnBucket bucket = pickBucket(islanderRoll);
         if (bucket == null) return false;
         SpawnResult result = trySpawnFor(player, bucket);
         if (result == null) return false;
-        markSpawned(result.type, result.species, false);
+        markSpawned(result.type, result.species, false, islanderRoll);
         announce(player.getServer(), result.type, result.species, result.level, result.pos);
         return true;
     }
 
-    private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players) {
+    private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players, boolean islanderRoll) {
         int availableSlots = Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon - tracked.size());
         int wanted = Math.max(1, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventSpawnCount);
         int targetCount = Math.min(wanted, Math.min(players.size(), availableSlots));
@@ -131,7 +143,7 @@ public final class SpecialWildSpawnManager {
             if (results.size() >= targetCount) break;
             if (usedPlayers.contains(player.getUUID())) continue;
 
-            SpawnBucket bucket = pickBucket();
+            SpawnBucket bucket = pickBucket(islanderRoll);
             if (bucket == null) continue;
 
             SpawnResult result = trySpawnFor(player, bucket);
@@ -144,7 +156,7 @@ public final class SpecialWildSpawnManager {
         if (results.isEmpty()) return;
 
         SpawnResult last = results.get(results.size() - 1);
-        markSpawned(last.type, last.species, true);
+        markSpawned(last.type, last.species, true, islanderRoll);
         announceRareTripleEvent(server, results);
     }
 
@@ -269,12 +281,12 @@ public final class SpecialWildSpawnManager {
         return Math.max(0.0D, cashShopChanceBoost);
     }
 
-    private static double currentGlobalChancePerCheck(int intervalTicks) {
-        double targetMinutes = Math.max(1.0D, SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
+    private static double currentGlobalChancePerCheck(int intervalTicks, boolean islanderRoll) {
+        double targetMinutes = Math.max(1.0D, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderTargetAverageSpawnMinutes : SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
         double targetTicks = targetMinutes * 60.0D * 20.0D;
         double base = Math.max(0.000001D, Math.min(1.0D, intervalTicks / targetTicks));
 
-        long last = state.lastSpawnEpochMillis;
+        long last = islanderRoll ? state.islanderLastSpawnEpochMillis : state.lastSpawnEpochMillis;
         double elapsedTargetWindows;
         if (last <= 0L) {
             elapsedTargetWindows = 0.0D;
@@ -289,11 +301,11 @@ public final class SpecialWildSpawnManager {
         return Math.max(0.0D, Math.min(1.0D, base * multiplier * (1.0D + activeCashShopChanceBoost())));
     }
 
-    private static SpawnBucket pickBucket() {
+    private static SpawnBucket pickBucket(boolean islanderRoll) {
         List<SpawnBucket> buckets = new ArrayList<>();
-        addBucket(buckets, "legendary", SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
-        addBucket(buckets, "paradox", SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox);
-        addBucket(buckets, "ultra beast", SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
+        addBucket(buckets, islanderRoll ? "islander legendary" : "legendary", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendaryChancePerCheck : SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendarySpawns : SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
+        addBucket(buckets, islanderRoll ? "islander paradox" : "paradox", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxChancePerCheck : SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxSpawns : SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox);
+        addBucket(buckets, islanderRoll ? "islander ultra beast" : "ultra beast", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastChancePerCheck : SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastSpawns : SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
         if (buckets.isEmpty()) return null;
 
         double total = 0.0D;
@@ -341,11 +353,19 @@ public final class SpecialWildSpawnManager {
         return null;
     }
 
-    private static void markSpawned(String type, String species, boolean rareEvent) {
-        state.lastSpawnEpochMillis = System.currentTimeMillis();
-        state.lastSpawnType = type == null ? "" : type;
-        state.lastSpawnSpecies = species == null ? "" : species;
-        state.lastSpawnWasRareTripleEvent = rareEvent;
+    private static void markSpawned(String type, String species, boolean rareEvent, boolean islanderRoll) {
+        long now = System.currentTimeMillis();
+        if (islanderRoll) {
+            state.islanderLastSpawnEpochMillis = now;
+            state.islanderLastSpawnType = type == null ? "" : type;
+            state.islanderLastSpawnSpecies = species == null ? "" : species;
+            state.islanderLastSpawnWasRareTripleEvent = rareEvent;
+        } else {
+            state.lastSpawnEpochMillis = now;
+            state.lastSpawnType = type == null ? "" : type;
+            state.lastSpawnSpecies = species == null ? "" : species;
+            state.lastSpawnWasRareTripleEvent = rareEvent;
+        }
         saveState();
     }
 
@@ -569,16 +589,20 @@ public final class SpecialWildSpawnManager {
         return false;
     }
 
-    private static boolean isEligibleSpecialSpawnPlayer(ServerPlayer player) {
+    private static boolean isEligibleSpecialSpawnPlayer(ServerPlayer player, boolean islanderRoll) {
         if (player == null || player.serverLevel() == null) return false;
         ServerLevel level = player.serverLevel();
         if (isDisabledDimension(level)) return false;
 
-        if (isIslanderSpecialSpawnLevel(level)) {
-            return SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled && PlayerProfileManager.isIslander(player);
+        boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
+        if (islanderRoll) {
+            return islanderLevel
+                    && SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled
+                    && PlayerProfileManager.isIslander(player)
+                    && ProfilePlaytimeManager.hasAtLeastPlaytime(player, SpecialWildSpawnConfig.DATA.islanderMinimumProfilePlaytimeSeconds);
         }
 
-        return ExplorationWorldManager.isOverworldGameplayLevel(level) && !PlayerProfileManager.isIslander(player);
+        return !islanderLevel && ExplorationWorldManager.isOverworldGameplayLevel(level) && !PlayerProfileManager.isIslander(player);
     }
 
     private static boolean isIslanderSpecialSpawnLevel(ServerLevel level) {
@@ -646,5 +670,9 @@ public final class SpecialWildSpawnManager {
         String lastSpawnType = "";
         String lastSpawnSpecies = "";
         boolean lastSpawnWasRareTripleEvent = false;
+        long islanderLastSpawnEpochMillis = 0L;
+        String islanderLastSpawnType = "";
+        String islanderLastSpawnSpecies = "";
+        boolean islanderLastSpawnWasRareTripleEvent = false;
     }
 }

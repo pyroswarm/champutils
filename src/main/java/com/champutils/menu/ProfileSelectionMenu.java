@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -217,10 +218,24 @@ public final class ProfileSelectionMenu {
                     .addLoreLine(Component.literal("Mode: " + mode.displayName() + (monotype == null ? "" : ": " + monotype)).withStyle(ChatFormatting.GRAY));
             if (!taken) {
                 builder.setCallback((index, clickType, action, gui1) -> {
-                    String result = PlayerProfileManager.createBlocking(player, color.name(), mode, monotype);
-                    invalidateSnapshot(player);
-                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Created") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (result.startsWith("Created")) navigate(player, () -> open(player)); else navigate(player, () -> openColorMenu(player, mode, monotype));
+                    gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
+                            .hideDefaultTooltip()
+                            .setName(Component.literal("Creating profile...").withStyle(ChatFormatting.YELLOW))
+                            .addLoreLine(Component.literal("SQL work is running off the server thread.").withStyle(ChatFormatting.GRAY)));
+                    player.sendSystemMessage(Component.literal("Creating profile " + color.name() + "...").withStyle(ChatFormatting.YELLOW));
+                    CompletableFuture
+                            .supplyAsync(() -> PlayerProfileManager.createBlocking(player, color.name(), mode, monotype))
+                            .whenComplete((result, error) -> player.server.execute(() -> {
+                                String finalResult = result;
+                                if (error != null) {
+                                    error.printStackTrace();
+                                    finalResult = "Could not create profile. Check console/database logs.";
+                                }
+                                invalidateSnapshot(player);
+                                boolean created = finalResult.startsWith("Created");
+                                player.sendSystemMessage(Component.literal(finalResult).withStyle(created ? ChatFormatting.GREEN : ChatFormatting.RED));
+                                if (created) navigate(player, () -> open(player)); else navigate(player, () -> openColorMenu(player, mode, monotype));
+                            }));
                 });
             }
             gui.setSlot(slots[i], builder);
