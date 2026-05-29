@@ -9,6 +9,8 @@ import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
+import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.ChatFormatting;
@@ -38,6 +40,7 @@ public final class MegaBossBattleListener {
     private MegaBossBattleListener() {}
 
     public static void register() {
+        CobblemonEvents.BATTLE_STARTED_PRE.subscribe(event -> handleBattleStarting((BattleStartedEvent) event));
         CobblemonEvents.BATTLE_STARTED_POST.subscribe(event -> handleBattleStarted((BattleStartedEvent) event));
         CobblemonEvents.BATTLE_VICTORY.subscribe(event -> handleVictory((BattleVictoryEvent) event));
         UseItemCallback.EVENT.register((player, world, hand) -> {
@@ -54,9 +57,16 @@ public final class MegaBossBattleListener {
         return player != null && ACTIVE_PLAYER_BOSS.containsKey(player.getUUID());
     }
 
+    private static void handleBattleStarting(BattleStartedEvent event) {
+        Entity boss = findMegaBossEntity(event.getBattle().getActors());
+        if (boss == null) return;
+        scaleBossForBattleStart(boss, event.getBattle().getActors());
+    }
+
     private static void handleBattleStarted(BattleStartedEvent event) {
         Entity boss = findMegaBossEntity(event.getBattle().getActors());
         if (boss == null) return;
+        scaleBossForBattleStart(boss, event.getBattle().getActors());
         for (Object actor : event.getBattle().getActors()) {
             if (actor instanceof PlayerBattleActor playerActor) {
                 ServerPlayer player = (ServerPlayer) playerActor.getEntity();
@@ -122,6 +132,62 @@ public final class MegaBossBattleListener {
             if (MegaBossManager.isMegaBoss(actorEntity)) return actorEntity;
         }
         return null;
+    }
+
+
+    private static void scaleBossForBattleStart(Entity boss, Iterable<?> actors) {
+        if (boss == null) return;
+        int targetLevel = 0;
+        for (ServerPlayer player : playerActors(actors)) {
+            targetLevel = Math.max(targetLevel, MegaBossManager.playerPartyHighestLevelPlusFive(player));
+        }
+        if (targetLevel <= 0) return;
+        applyEntityPokemonLevel(boss, targetLevel);
+
+        for (Object actor : actors) {
+            Entity actorEntity = entityFromActor(actor);
+            boolean actorIsBoss = actorEntity != null && actorEntity.getUUID().equals(boss.getUUID());
+            for (Object battlePokemonObject : pokemonList(actor)) {
+                if (!(battlePokemonObject instanceof BattlePokemon battlePokemon)) continue;
+                Entity pokemonEntity = entityFromBattlePokemon(battlePokemon);
+                boolean pokemonIsBoss = pokemonEntity != null && pokemonEntity.getUUID().equals(boss.getUUID());
+                if (!actorIsBoss && !pokemonIsBoss) continue;
+                applyBattlePokemonLevel(battlePokemon, targetLevel);
+            }
+        }
+        boss.setCustomName(Component.literal(updateNameTagLevel(boss.getCustomName() == null ? "" : boss.getCustomName().getString(), targetLevel)));
+        boss.setCustomNameVisible(true);
+    }
+
+    private static void applyEntityPokemonLevel(Entity entity, int targetLevel) {
+        try {
+            Object pokemonObject = invoke(entity, "getPokemon");
+            if (pokemonObject instanceof Pokemon pokemon) {
+                pokemon.setLevel(targetLevel);
+                pokemon.setCurrentHealth(pokemon.getMaxHealth());
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private static void applyBattlePokemonLevel(BattlePokemon battlePokemon, int targetLevel) {
+        try {
+            Pokemon effected = battlePokemon.getEffectedPokemon();
+            effected.setLevel(targetLevel);
+            effected.setCurrentHealth(effected.getMaxHealth());
+        } catch (Throwable ignored) {}
+        try {
+            Pokemon original = battlePokemon.getOriginalPokemon();
+            original.setLevel(targetLevel);
+            original.setCurrentHealth(original.getMaxHealth());
+        } catch (Throwable ignored) {}
+        try { battlePokemon.sendUpdate(); } catch (Throwable ignored) {}
+    }
+
+    private static String updateNameTagLevel(String current, int targetLevel) {
+        if (current == null || current.isBlank()) return "§5§lMega Boss §fLv." + targetLevel;
+        if (current.matches(".*Lv\\.\\d+.*")) return current.replaceAll("Lv\\.\\d+", "Lv." + targetLevel);
+        if (current.matches(".*Lv\\s+\\d+.*")) return current.replaceAll("Lv\\s+\\d+", "Lv." + targetLevel);
+        return current + " §fLv." + targetLevel;
     }
 
     private static List<ServerPlayer> playerActors(Iterable<?> actors) {

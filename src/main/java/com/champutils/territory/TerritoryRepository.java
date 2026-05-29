@@ -2,6 +2,7 @@ package com.champutils.territory;
 
 import com.champutils.database.DatabaseManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.IslanderProfileManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -233,6 +234,7 @@ public final class TerritoryRepository {
         if (player == null || territory == null) return true;
         if (player.hasPermissions(4)) return true;
         if (!territory.isReady()) return player.hasPermissions(4);
+        if (!IslanderProfileManager.canEnterTerritory(player, territory)) return false;
         if (isBanned(player, territory)) return false;
         if (isOwnerOrGuildMember(player, territory)) return true;
         TrustLevel trust = getTrust(territory.id, player.getUUID());
@@ -344,8 +346,18 @@ public final class TerritoryRepository {
         checkRecreateCooldown(OwnerType.PLAYER, ownerId, (allowed, remainingMessage) -> {
             if (!allowed) { callback.done(false, remainingMessage); return; }
             TerritoryConfig.Data cfg = TerritoryConfig.get();
-            String worldName = cfg.createPersonalInCurrentWorld ? player.serverLevel().dimension().location().toString() : null;
-            Territory territory = allocate(OwnerType.PLAYER, ownerId, player.getGameProfile().getName(), worldName, biomePreference);
+            String worldName = PlayerProfileManager.isIslander(player) ? "multiworld:islander_1" : (cfg.createPersonalInCurrentWorld ? player.serverLevel().dimension().location().toString() : null);
+            String preferredBiome = PlayerProfileManager.isIslander(player) ? "plains" : biomePreference;
+            Territory territory = allocate(OwnerType.PLAYER, ownerId, player.getGameProfile().getName(), worldName, preferredBiome);
+            if (PlayerProfileManager.isIslander(player)) {
+                territory.displayName = "Islander - " + player.getGameProfile().getName();
+                territory.isPublic = true;
+                territory.allowVisitors = true;
+                territory.visitorsCanBuild = false;
+                territory.visitorsCanOpenContainers = false;
+                territory.visitorsCanInteractEntities = true;
+                territory.visitorsCanUseRedstone = false;
+            }
             save(territory, (success, message) -> {
                 if (success) TerritoryWorldGenerationManager.requestGeneration(player.server, player, territory);
                 callback.done(success, success ? "Your territory is being prepared. You will get a chat message when it is ready. You cannot teleport there until it is finished." : message);

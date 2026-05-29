@@ -13,6 +13,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,10 @@ public final class ExplorationLootManager {
         if (!ExplorationLootConfig.get().enabled || !ExplorationLootConfig.get().virtualPerPlayerLoot) return;
 
         ExplorationLootState.markDiscovered(level, pos);
+
+        if (!isInstancedLootContainer(level, pos)) {
+            return;
+        }
 
         if (ExplorationLootState.hasClaimed(player.getUUID(), level, pos)) {
             player.sendSystemMessage(Component.literal("You have already claimed this exploration loot.").withStyle(ChatFormatting.YELLOW));
@@ -78,7 +84,7 @@ public final class ExplorationLootManager {
     }
 
     private static List<ItemStack> rollRewards(ServerLevel level, BlockPos pos, long playerSalt) {
-        String tableId = tableId(level);
+        String tableId = tableId(level, pos);
         ExplorationLootConfig.LootTable table = ExplorationLootConfig.get().tables.get(tableId);
         if (table == null) table = ExplorationLootConfig.get().tables.get("overworld");
         if (table == null) return List.of();
@@ -147,13 +153,47 @@ public final class ExplorationLootManager {
         }
     }
 
-    private static String tableId(ServerLevel level) {
+    private static String tableId(ServerLevel level, BlockPos pos) {
+        String blockId = blockId(level, pos);
+        String override = ExplorationLootConfig.get().blockTableOverrides.get(blockId);
+        if (override != null && !override.isBlank()) return override.toLowerCase(Locale.ROOT);
+
         ExplorationWorldManager.Entry entry = ExplorationWorldManager.find(level);
         if (entry != null && entry.worldType != null) return entry.worldType.toLowerCase(Locale.ROOT);
         String id = level.dimension().location().toString().toLowerCase(Locale.ROOT);
         if (id.contains("nether")) return "nether";
         if (id.contains("end")) return "end";
         return "overworld";
+    }
+
+
+    public static boolean isInstancedLootContainer(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        if (!ExplorationLootConfig.get().enabled || !ExplorationLootConfig.get().virtualPerPlayerLoot) return false;
+
+        String id = blockId(level, pos);
+        if (id.isBlank()) return false;
+
+        for (String exact : ExplorationLootConfig.get().lootContainerBlockIds) {
+            if (exact != null && id.equalsIgnoreCase(exact.trim())) return true;
+        }
+        String lower = id.toLowerCase(Locale.ROOT);
+        for (String contains : ExplorationLootConfig.get().lootContainerIdContains) {
+            if (contains != null && !contains.isBlank() && lower.contains(contains.toLowerCase(Locale.ROOT))) return true;
+        }
+
+        BlockEntity entity = level.getBlockEntity(pos);
+        return entity instanceof net.minecraft.world.Container
+                && (lower.contains("chest") || lower.contains("barrel") || lower.contains("loot"));
+    }
+
+    private static String blockId(ServerLevel level, BlockPos pos) {
+        try {
+            ResourceLocation key = level.getBlockState(pos).getBlock().builtInRegistryHolder().key().location();
+            return key.toString();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private static void giveOrDrop(ServerPlayer player, ItemStack stack) {

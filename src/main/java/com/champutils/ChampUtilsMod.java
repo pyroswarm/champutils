@@ -137,9 +137,11 @@ public class ChampUtilsMod implements ModInitializer {
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStorageBridge.ensureSchemaAsync();
         MonotypeStarterManager.ensureSchemaAsync();
+        NuzlockeManager.ensureSchemaAsync();
         ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
         MonotypeStarterManager.register();
+        NuzlockeManager.register();
         IronmanItemOwnership.register();
         IronmanTradeBlocker.register();
         EconomyManager.load();
@@ -268,6 +270,7 @@ public class ChampUtilsMod implements ModInitializer {
                     VanillaProfileStateManager.ensureSchemaAsync();
                     CobblemonProfileStorageBridge.ensureSchemaAsync();
                     MonotypeStarterManager.ensureSchemaAsync();
+                    NuzlockeManager.ensureSchemaAsync();
                     ChatPreferenceManager.ensureSchemaAsync();
                     TerritoryRepository.refreshAll();
                     DatabaseBootstrapSync.syncExistingLocalData();
@@ -668,6 +671,7 @@ public class ChampUtilsMod implements ModInitializer {
                     ModerationManager.tick(server);
                     DailyLoginManager.tick(server);
                     ChampWorldBorderManager.tick(server);
+                    IslanderProfileManager.tick(server);
 
                     /*
                      Leaderboard refresh

@@ -39,6 +39,7 @@ public final class SpecialWildSpawnConfig {
         if (DATA.paradoxSpawns == null) DATA.paradoxSpawns = d.paradoxSpawns;
         if (DATA.ultraBeastSpawns == null) DATA.ultraBeastSpawns = d.ultraBeastSpawns;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = d.disabledDimensions;
+        if (DATA.islanderWorldPrefix == null || DATA.islanderWorldPrefix.isBlank()) DATA.islanderWorldPrefix = d.islanderWorldPrefix;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = d.checkIntervalTicks;
         if (DATA.minDistanceFromPlayer < 8) DATA.minDistanceFromPlayer = d.minDistanceFromPlayer;
         if (DATA.maxDistanceFromPlayer < DATA.minDistanceFromPlayer) DATA.maxDistanceFromPlayer = d.maxDistanceFromPlayer;
@@ -81,6 +82,9 @@ public final class SpecialWildSpawnConfig {
         root.levelRangeLegendary = "60-80";
         root.levelRangeParadox = "45-65";
         root.levelRangeUltraBeast = "50-70";
+        root.islanderSpecialSpawnsEnabled = true;
+        root.islanderWorldPrefix = "islander_";
+        root.islanderOnlyNotifyIslanders = true;
         root.disabledDimensions = new ArrayList<>(List.of("multiworld:spawn1", "multiworld:spawn", "minecraft:the_end"));
 
         root.legendarySpawns = new ArrayList<>(List.of(
@@ -191,6 +195,9 @@ public final class SpecialWildSpawnConfig {
         public String levelRangeLegendary;
         public String levelRangeParadox;
         public String levelRangeUltraBeast;
+        public boolean islanderSpecialSpawnsEnabled;
+        public String islanderWorldPrefix;
+        public boolean islanderOnlyNotifyIslanders;
         public List<String> disabledDimensions;
         public List<SpawnEntry> legendarySpawns;
         public List<SpawnEntry> paradoxSpawns;

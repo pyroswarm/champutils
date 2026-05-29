@@ -1,6 +1,7 @@
 package com.champutils.menu;
 
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.ProfileGameMode;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -16,9 +17,58 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public final class ProfileSelectionMenu {
     private ProfileSelectionMenu() {}
+
+    private static final long SNAPSHOT_TTL_MILLIS = 1500L;
+    private static final long FINALIZE_CHECK_TTL_MILLIS = 10_000L;
+    private static final ConcurrentMap<UUID, MenuSnapshot> SNAPSHOTS = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Long> LAST_FINALIZE_CHECK = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Runnable> FORCED_REOPENERS = new ConcurrentHashMap<>();
+    private static final Set<UUID> SUPPRESS_NEXT_CLOSE_REOPEN = ConcurrentHashMap.newKeySet();
+
+    private record MenuSnapshot(
+            List<PlayerProfileManager.ProfileRecord> profiles,
+            PlayerProfileManager.ProfileLimit limit,
+            long createdAtMillis
+    ) {}
+
+    private static MenuSnapshot snapshot(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        long now = System.currentTimeMillis();
+        MenuSnapshot cached = SNAPSHOTS.get(playerId);
+        if (cached != null && now - cached.createdAtMillis() <= SNAPSHOT_TTL_MILLIS) {
+            return cached;
+        }
+
+        MenuSnapshot fresh = new MenuSnapshot(
+                List.copyOf(PlayerProfileManager.listBlocking(player)),
+                PlayerProfileManager.limitBlocking(player),
+                now
+        );
+        SNAPSHOTS.put(playerId, fresh);
+        return fresh;
+    }
+
+    private static void invalidateSnapshot(ServerPlayer player) {
+        if (player != null) SNAPSHOTS.remove(player.getUUID());
+    }
+
+    private static String finalizePendingDeletesIfDue(ServerPlayer player) {
+        if (player == null) return "";
+        UUID playerId = player.getUUID();
+        long now = System.currentTimeMillis();
+        Long last = LAST_FINALIZE_CHECK.get(playerId);
+        if (last != null && now - last <= FINALIZE_CHECK_TTL_MILLIS) {
+            return "";
+        }
+        LAST_FINALIZE_CHECK.put(playerId, now);
+        return PlayerProfileManager.finalizePendingDeletesBlocking(player);
+    }
 
     private record ProfileColor(String name, Item icon, ChatFormatting style) {}
 
@@ -41,14 +91,18 @@ public final class ProfileSelectionMenu {
 
     public static void open(ServerPlayer player) {
         if (player == null) return;
-        String finalized = PlayerProfileManager.finalizePendingDeletesBlocking(player);
-        if (!finalized.isBlank()) player.sendSystemMessage(Component.literal(finalized).withStyle(ChatFormatting.GRAY));
+        String finalized = finalizePendingDeletesIfDue(player);
+        if (!finalized.isBlank()) {
+            invalidateSnapshot(player);
+            player.sendSystemMessage(Component.literal(finalized).withStyle(ChatFormatting.GRAY));
+        }
 
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> open(player));
         gui.setTitle(Component.literal("Select Profile"));
 
-        List<PlayerProfileManager.ProfileRecord> profiles = PlayerProfileManager.listBlocking(player);
-        PlayerProfileManager.ProfileLimit limit = PlayerProfileManager.limitBlocking(player);
+        MenuSnapshot snapshot = snapshot(player);
+        List<PlayerProfileManager.ProfileRecord> profiles = snapshot.profiles();
+        PlayerProfileManager.ProfileLimit limit = snapshot.limit();
 
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
@@ -69,9 +123,22 @@ public final class ProfileSelectionMenu {
             }
             gui.setSlot(slots[i], item.setCallback((index, clickType, action, gui1) -> {
                 if (profile.pendingDelete()) return;
-                String result = PlayerProfileManager.switchBlocking(player, profile.profileName());
-                player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Loaded") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                gui.close();
+                invalidateSnapshot(player);
+                gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("Loading profile...").withStyle(ChatFormatting.YELLOW))
+                        .addLoreLine(Component.literal("Please wait. This no longer blocks the whole server.").withStyle(ChatFormatting.GRAY)));
+                player.sendSystemMessage(Component.literal("Loading profile " + profile.profileName() + "...").withStyle(ChatFormatting.YELLOW));
+                PlayerProfileManager.switchAsync(player, profile.profileName(), result -> {
+                    boolean loaded = result.startsWith("Loaded");
+                    if (loaded) clearForcedReopener(player);
+                    player.sendSystemMessage(Component.literal(result).withStyle(loaded ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    if (loaded) {
+                        gui.close();
+                    } else {
+                        navigate(player, () -> open(player));
+                    }
+                });
             }));
         }
 
@@ -83,10 +150,10 @@ public final class ProfileSelectionMenu {
                 .setCallback((index, clickType, action, gui1) -> {
                     if (profiles.size() >= limit.maxProfiles()) {
                         player.sendSystemMessage(Component.literal("You already have the max of " + limit.maxProfiles() + " profiles.").withStyle(ChatFormatting.RED));
-                        open(player);
+                        navigate(player, () -> open(player));
                         return;
                     }
-                    openCreateModeMenu(player);
+                    navigate(player, () -> openCreateModeMenu(player));
                 }));
 
         gui.setSlot(26, new GuiElementBuilder(Items.BARRIER)
@@ -94,25 +161,29 @@ public final class ProfileSelectionMenu {
                 .setName(Component.literal("Delete Profiles").withStyle(ChatFormatting.RED))
                 .addLoreLine(Component.literal(limit.instantDelete() ? "VIP instant deletion active." : "Normal deletion has a 24 hour cooldown.").withStyle(ChatFormatting.GRAY))
                 .addLoreLine(Component.literal("Click to choose a profile.").withStyle(ChatFormatting.YELLOW))
-                .setCallback((index, clickType, action, gui1) -> openDeleteMenu(player)));
+                .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
 
         MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 22, 26);
         gui.open();
     }
 
     private static void openCreateModeMenu(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openCreateModeMenu(player));
         gui.setTitle(Component.literal("Choose Profile Type"));
 
-        setModeButton(gui, player, 11, ProfileGameMode.NORMAL, Items.GRASS_BLOCK,
+        setModeButton(gui, player, 10, ProfileGameMode.NORMAL, Items.GRASS_BLOCK,
                 "Normal", "Standard profile with normal trading and gameplay.");
-        setModeButton(gui, player, 13, ProfileGameMode.IRONMAN, Items.IRON_INGOT,
-                "Ironman", "No player trading, auction, chest shops, or handouts.");
-        setModeButton(gui, player, 15, ProfileGameMode.MONOTYPE, Items.BLAZE_POWDER,
+        setModeButton(gui, player, 12, ProfileGameMode.IRONMAN, Items.IRON_INGOT,
+                "Ironman", "Solo self-found profile with no player trading, auction, chest shops, or handouts.");
+        setModeButton(gui, player, 14, ProfileGameMode.MONOTYPE, Items.BLAZE_POWDER,
                 "Monotype", "Choose one Pokémon type for battle restrictions next.");
+        setModeButton(gui, player, 16, ProfileGameMode.ISLANDER, Items.OAK_SAPLING,
+                "Islander", "Island-only survival profile for completing the full dex from Islander areas.");
+        setModeButton(gui, player, 22, ProfileGameMode.NUZLOCKE, Items.SKELETON_SKULL,
+                "Nuzlocke", "Challenge profile with Ironman-style restrictions and Nuzlocke tracking.");
 
-        MenuUtil.addBackButton(gui, 18, () -> open(player));
-        MenuUtil.fillBordersForced(gui, 11, 13, 15, 18);
+        MenuUtil.addBackButton(gui, 18, () -> navigate(player, () -> open(player)));
+        MenuUtil.fillBordersForced(gui, 10, 12, 14, 16, 18, 22);
         gui.open();
     }
 
@@ -122,7 +193,7 @@ public final class ProfileSelectionMenu {
                 .setName(Component.literal(title).withStyle(ChatFormatting.AQUA))
                 .addLoreLine(Component.literal(lore).withStyle(ChatFormatting.GRAY))
                 .addLoreLine(Component.literal("Click to continue.").withStyle(ChatFormatting.YELLOW))
-                .setCallback((index, clickType, action, gui1) -> openColorMenu(player, mode, null)));
+                .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openColorMenu(player, mode, null))));
     }
 
     private static void openColorMenu(ServerPlayer player, ProfileGameMode mode, String monotype) {
@@ -131,7 +202,7 @@ public final class ProfileSelectionMenu {
             return;
         }
 
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x6, player, () -> openColorMenu(player, mode, monotype));
         gui.setTitle(Component.literal("Choose Profile Color"));
 
         Set<String> used = usedProfileNames(player);
@@ -147,26 +218,27 @@ public final class ProfileSelectionMenu {
             if (!taken) {
                 builder.setCallback((index, clickType, action, gui1) -> {
                     String result = PlayerProfileManager.createBlocking(player, color.name(), mode, monotype);
+                    invalidateSnapshot(player);
                     player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Created") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (result.startsWith("Created")) open(player); else openColorMenu(player, mode, monotype);
+                    if (result.startsWith("Created")) navigate(player, () -> open(player)); else navigate(player, () -> openColorMenu(player, mode, monotype));
                 });
             }
             gui.setSlot(slots[i], builder);
         }
 
-        MenuUtil.addBackButton(gui, 45, () -> {
+        MenuUtil.addBackButton(gui, 45, () -> navigate(player, () -> {
             if (mode == ProfileGameMode.MONOTYPE) {
                 openMonotypeMenu(player);
             } else {
                 openCreateModeMenu(player);
             }
-        });
+        }));
         MenuUtil.fillBordersForced(gui, concat(slots, 45));
         gui.open();
     }
 
     private static void openMonotypeMenu(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x6, player, () -> openMonotypeMenu(player));
         gui.setTitle(Component.literal("Choose Monotype Type"));
         String[] types = {"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"};
         Item[] icons = {Items.WHITE_WOOL, Items.BLAZE_POWDER, Items.WATER_BUCKET, Items.OAK_SAPLING, Items.REDSTONE_TORCH, Items.ICE, Items.IRON_SWORD, Items.SPIDER_EYE, Items.DIRT, Items.FEATHER, Items.ENDER_PEARL, Items.STRING, Items.COBBLESTONE, Items.SOUL_LANTERN, Items.DRAGON_BREATH, Items.BLACK_DYE, Items.IRON_INGOT, Items.PINK_DYE};
@@ -177,17 +249,17 @@ public final class ProfileSelectionMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal(cap(type) + " Type").withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Click to choose profile color next.").withStyle(ChatFormatting.YELLOW))
-                    .setCallback((index, clickType, action, gui1) -> openColorMenu(player, ProfileGameMode.MONOTYPE, type)));
+                    .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openColorMenu(player, ProfileGameMode.MONOTYPE, type))));
         }
-        MenuUtil.addBackButton(gui, 45, () -> openCreateModeMenu(player));
+        MenuUtil.addBackButton(gui, 45, () -> navigate(player, () -> openCreateModeMenu(player)));
         MenuUtil.fillBordersForced(gui, concat(slots, 45));
         gui.open();
     }
 
     private static void openDeleteMenu(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openDeleteMenu(player));
         gui.setTitle(Component.literal("Delete Profile"));
-        List<PlayerProfileManager.ProfileRecord> profiles = PlayerProfileManager.listBlocking(player);
+        List<PlayerProfileManager.ProfileRecord> profiles = snapshot(player).profiles();
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
             var profile = profiles.get(i);
@@ -195,24 +267,115 @@ public final class ProfileSelectionMenu {
             GuiElementBuilder builder = new GuiElementBuilder(disabled ? Items.GRAY_DYE : Items.BARRIER)
                     .hideDefaultTooltip()
                     .setName(Component.literal(profile.profileName()).withStyle(disabled ? ChatFormatting.DARK_GRAY : ChatFormatting.RED))
-                    .addLoreLine(Component.literal(profile.active() ? "Load another profile before deleting this one." : profile.pendingDelete() ? "Already pending deletion." : "Click to queue/delete this profile.").withStyle(disabled ? ChatFormatting.GRAY : ChatFormatting.YELLOW));
+                    .addLoreLine(Component.literal(profile.active() ? "Load another profile before deleting this one." : profile.pendingDelete() ? "Already pending deletion." : "Click to review deletion confirmation.").withStyle(disabled ? ChatFormatting.GRAY : ChatFormatting.YELLOW));
             if (!disabled) {
-                builder.setCallback((index, clickType, action, gui1) -> {
-                    String result = PlayerProfileManager.deleteBlocking(player, profile.profileName());
-                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Deleted") || result.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    open(player);
-                });
+                builder.setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteConfirmMenu(player, profile)));
             }
             gui.setSlot(slots[i], builder);
         }
-        MenuUtil.addBackButton(gui, 18, () -> open(player));
+        MenuUtil.addBackButton(gui, 18, () -> navigate(player, () -> open(player)));
         MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 18);
         gui.open();
     }
 
+    private static void openDeleteConfirmMenu(ServerPlayer player, PlayerProfileManager.ProfileRecord profile) {
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openDeleteConfirmMenu(player, profile));
+        gui.setTitle(Component.literal("Are you sure?"));
+
+        gui.setSlot(13, new GuiElementBuilder(icon(profile.gameMode()))
+                .hideDefaultTooltip()
+                .setName(Component.literal("Delete " + profile.profileName() + "?").withStyle(ChatFormatting.RED))
+                .addLoreLine(Component.literal("Mode: " + profile.gameMode().displayName() + PlayerProfileManager.modeSuffix(profile)).withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("This cannot be selected until deletion finishes.").withStyle(ChatFormatting.DARK_RED)));
+
+        gui.setSlot(11, new GuiElementBuilder(Items.GREEN_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Yes, delete this profile").withStyle(ChatFormatting.GREEN))
+                .addLoreLine(Component.literal("Confirm deletion for " + profile.profileName() + ".").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> {
+                    String result = PlayerProfileManager.deleteBlocking(player, profile.profileName());
+                    invalidateSnapshot(player);
+                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Deleted") || result.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    navigate(player, () -> open(player));
+                }));
+
+        gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("No, keep this profile").withStyle(ChatFormatting.RED))
+                .addLoreLine(Component.literal("Cancel and go back.").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
+
+        MenuUtil.fillBordersForced(gui, 11, 13, 15);
+        gui.open();
+    }
+
+    /**
+     * Creates a profile-lobby menu that cannot be escaped while the player is still
+     * in the no-profile-loaded lobby state. Each submenu registers itself as the
+     * player's current forced menu, so pressing ESC, inventory key, or any client-side
+     * close action reopens the same submenu instead of always falling back to the
+     * root profile selector.
+     */
+    private static SimpleGui createForcedGui(MenuType<?> type, ServerPlayer player, Runnable reopenAction) {
+        if (player != null && reopenAction != null) {
+            FORCED_REOPENERS.put(player.getUUID(), reopenAction);
+        }
+        SimpleGui gui = new ForcedProfileGui(type, player);
+        gui.setLockPlayerInventory(true);
+        return gui;
+    }
+
+    private static void navigate(ServerPlayer player, Runnable action) {
+        if (player != null) {
+            SUPPRESS_NEXT_CLOSE_REOPEN.add(player.getUUID());
+        }
+        action.run();
+    }
+
+    public static void reopenForcedOrRoot(ServerPlayer player) {
+        if (player == null) return;
+        Runnable opener = FORCED_REOPENERS.get(player.getUUID());
+        if (opener != null) {
+            opener.run();
+        } else {
+            open(player);
+        }
+    }
+
+    public static void clearForcedReopener(ServerPlayer player) {
+        if (player != null) {
+            FORCED_REOPENERS.remove(player.getUUID());
+        }
+    }
+
+    private static final class ForcedProfileGui extends SimpleGui {
+        private final ServerPlayer owner;
+
+        private ForcedProfileGui(MenuType<?> type, ServerPlayer owner) {
+            super(type, owner, false);
+            this.owner = owner;
+            this.setLockPlayerInventory(true);
+        }
+
+        @Override
+        public void onClose() {
+            super.onClose();
+            if (owner == null || owner.server == null) return;
+            if (SUPPRESS_NEXT_CLOSE_REOPEN.remove(owner.getUUID())) return;
+            owner.server.execute(() -> {
+                if (owner.isRemoved() || owner.hasDisconnected()) return;
+                if (!ProfileLobbyLockManager.isLocked(owner) || ProfileLobbyLockManager.hasBypass(owner)) {
+                    clearForcedReopener(owner);
+                    return;
+                }
+                reopenForcedOrRoot(owner);
+            });
+        }
+    }
+
     private static Set<String> usedProfileNames(ServerPlayer player) {
         Set<String> used = new HashSet<>();
-        for (PlayerProfileManager.ProfileRecord profile : PlayerProfileManager.listBlocking(player)) {
+        for (PlayerProfileManager.ProfileRecord profile : snapshot(player).profiles()) {
             if (profile != null && !profile.pendingDelete()) used.add(profile.profileName().toLowerCase(Locale.ROOT));
         }
         return used;
@@ -222,6 +385,8 @@ public final class ProfileSelectionMenu {
         return switch (mode) {
             case IRONMAN -> Items.IRON_INGOT;
             case MONOTYPE -> Items.BLAZE_POWDER;
+            case ISLANDER -> Items.OAK_SAPLING;
+            case NUZLOCKE -> Items.SKELETON_SKULL;
             case NORMAL -> Items.GRASS_BLOCK;
         };
     }

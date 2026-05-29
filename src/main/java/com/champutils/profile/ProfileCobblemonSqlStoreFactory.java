@@ -17,7 +17,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Map;
 import java.util.UUID;
-import kotlin.Unit;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -51,6 +50,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists party_nbt text");
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists pc_nbt text");
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists updated_at timestamptz not null default now()");
+            statement.executeUpdate("create index if not exists idx_profile_cobblemon_storage_updated_at on profile_cobblemon_storage(updated_at)");
         }
     }
 
@@ -61,10 +61,14 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(uuid);
             if (accountUuid == null) accountUuid = uuid;
 
-            // Important: playerUUID must be the real Minecraft account UUID so Cobblemon
-            // ownership, observers, send-out, and recall all target the online player.
-            // storageUUID remains the profile UUID so SQL/file ownership stays profile-scoped.
-            PlayerPartyStore store = new PlayerPartyStore(accountUuid, uuid);
+            // Important: BOTH playerUUID and the live PartyStore UUID must be the real
+            // Minecraft account UUID. Cobblemon 1.7.3 resolves a player-owned Pokémon's
+            // owner entity through store.uuid in Pokemon#getOwnerEntity(), not only through
+            // PlayerPartyStore#playerUUID. If this live store UUID is the ChampUtils
+            // profile UUID, sent-out Pokémon spawn and then immediately lose valid owner
+            // linkage/tether behavior. The SQL row key below is still the profile UUID,
+            // so persistence remains profile-scoped without breaking Cobblemon runtime logic.
+            PlayerPartyStore store = new PlayerPartyStore(accountUuid);
             loadStore(uuid, true, store, registryAccess);
             store.initialize();
             return store;
@@ -75,16 +79,21 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     public PCStore getPC(UUID playerID, RegistryAccess registryAccess) {
         if (!canOwn(playerID)) return null;
         return pcCache.computeIfAbsent(playerID, uuid -> {
-            PCStore store = new PCStore(uuid);
+            long start = System.currentTimeMillis();
+            UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(uuid);
+            if (accountUuid == null) accountUuid = uuid;
+            PCStore store = new PCStore(accountUuid);
             try {
-            store.resize(
-                com.cobblemon.mod.common.Cobblemon.INSTANCE.getConfig().getDefaultBoxCount(),
-                false,
-                pokemon -> kotlin.Unit.INSTANCE
-            );
-        } catch (Throwable ignored) {}
+                store.resize(
+                    com.cobblemon.mod.common.Cobblemon.INSTANCE.getConfig().getDefaultBoxCount(),
+                    false,
+                    pokemon -> kotlin.Unit.INSTANCE
+                );
+            } catch (Throwable ignored) {}
             loadStore(uuid, false, store, registryAccess);
             store.initialize();
+            long elapsed = System.currentTimeMillis() - start;
+            System.out.println("[PROFILE] Lazy SQL Cobblemon PC load took " + elapsed + "ms for profile=" + uuid);
             return store;
         });
     }
@@ -134,9 +143,23 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         PCStore pc = pcCache.get(profileId);
         if (party == null && pc == null) return;
 
-        String partyNbt = party == null ? null : party.saveToNBT(new CompoundTag(), registryAccess).toString();
-        String pcNbt = pc == null ? null : pc.saveToNBT(new CompoundTag(), registryAccess).toString();
+        String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
+        String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
         DatabaseManager.executeAsync("save SQL Cobblemon profile stores", connection -> upsertSnapshot(connection, profileId, partyNbt, pcNbt));
+    }
+
+
+    public void prefetchParty(UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
+        if (profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
+        partyCache.computeIfAbsent(profileId, uuid -> {
+            long start = System.currentTimeMillis();
+            PlayerPartyStore store = new PlayerPartyStore(accountUuid);
+            loadStore(uuid, true, store, registryAccess);
+            store.initialize();
+            long elapsed = System.currentTimeMillis() - start;
+            System.out.println("[PROFILE] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId);
+            return store;
+        });
     }
 
     public void evict(UUID profileId) {
@@ -176,12 +199,25 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private void upsert(UUID profileId, PlayerPartyStore party, PCStore pc, RegistryAccess registryAccess) {
         if (!DatabaseManager.isEnabled()) return;
         try {
-            String partyNbt = party == null ? null : party.saveToNBT(new CompoundTag(), registryAccess).toString();
-            String pcNbt = pc == null ? null : pc.saveToNBT(new CompoundTag(), registryAccess).toString();
+            String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
+            String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
             upsertSnapshot(DatabaseManager.getConnection(), profileId, partyNbt, pcNbt);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to save SQL Cobblemon stores for profile " + profileId + ".");
             e.printStackTrace();
+        }
+    }
+
+    private static String safeStoreNbt(PokemonStore<?> store, RegistryAccess registryAccess) {
+        try {
+            CompoundTag tag = store.saveToNBT(new CompoundTag(), registryAccess);
+            String raw = tag.toString();
+            // Never let an accidentally empty live store wipe a previously saved SQL PC/party.
+            // Empty NBT can happen during profile swaps or before Cobblemon finishes hydrating a store.
+            if (raw == null || raw.isBlank() || raw.equals("{}")) return null;
+            return raw;
+        } catch (Throwable throwable) {
+            return null;
         }
     }
 

@@ -8,7 +8,9 @@ import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.api.storage.player.PlayerInstancedDataStoreTypes;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
+import eu.pb4.sgui.api.elements.GuiElementInterface;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -21,7 +23,9 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class MonotypeStarterManager {
     private MonotypeStarterManager() {}
@@ -30,6 +34,7 @@ public final class MonotypeStarterManager {
 
     private static final int[] MANY_SLOTS = {10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34};
     private static final int[] THREE_SLOTS = {11,13,15};
+    private static final Set<UUID> CLAIMING = ConcurrentHashMap.newKeySet();
 
     private static final Map<String, StarterChoice[]> STARTERS = Map.ofEntries(
             Map.entry("fire", choices("charmander", "cyndaquil", "torchic", "chimchar", "tepig", "fennekin", "litten", "scorbunny", "fuecoco")),
@@ -147,7 +152,7 @@ public final class MonotypeStarterManager {
             return;
         }
 
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        LockedStarterGui gui = new LockedStarterGui(player);
         gui.setTitle(Component.literal(cap(type) + " Starter"));
         int[] slots = choices.length <= 3 ? THREE_SLOTS : MANY_SLOTS;
 
@@ -159,7 +164,7 @@ public final class MonotypeStarterManager {
                     .setName(Component.literal(choice.display()).withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Level 5 " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to choose this Pokémon.").withStyle(ChatFormatting.YELLOW))
-                    .setCallback((index, clickType, action, gui1) -> claim(player, choice));
+                    .setCallback((index, clickType, action, gui1) -> gui.claim(choice));
             gui.setSlot(slots[i], builder);
         }
 
@@ -173,23 +178,34 @@ public final class MonotypeStarterManager {
 
     private static void claim(ServerPlayer player, StarterChoice choice) {
         if (player == null || choice == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+        if (!CLAIMING.add(profileId)) {
+            player.sendSystemMessage(Component.literal("Starter selection is already being processed.").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         if (!needsStarter(player)) {
+            CLAIMING.remove(profileId);
             player.sendSystemMessage(Component.literal("This profile already has a starter or Pokémon in its party.").withStyle(ChatFormatting.RED));
             return;
         }
         String required = normalize(PlayerProfileManager.monotypeType(player));
         try {
-            Pokemon pokemon = PokemonProperties.Companion.parse("species=cobblemon:" + choice.species() + " level=5").create();
-            if (!ProfileRestrictions.hasType(pokemon, required)) {
+            if (!isConfiguredStarter(required, choice.species())) {
                 player.sendSystemMessage(Component.literal("That starter is not valid for your " + required + " monotype profile.").withStyle(ChatFormatting.RED));
                 return;
             }
+            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + choice.species() + "\" level=5").create();
+            // The starter menu itself is the source of truth for the first pick. Do not
+            // reject a configured starter just because Cobblemon's generated Pokemon/form
+            // type reflection is not ready yet. Battle/catch enforcement still uses
+            // ProfileRestrictions.hasType after the Pokemon is fully hydrated.
             boolean added = addStarterToProfileParty(player, pokemon);
             if (!added) {
                 player.sendSystemMessage(Component.literal("Could not add starter. Make sure your party has room.").withStyle(ChatFormatting.RED));
                 return;
             }
-            markClaimed(PlayerProfileManager.activeProfileId(player), choice.species());
+            markClaimed(profileId, choice.species());
             syncCobblemonStarterState(player);
             try {
                 var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
@@ -206,6 +222,8 @@ public final class MonotypeStarterManager {
         } catch (Throwable t) {
             t.printStackTrace();
             player.sendSystemMessage(Component.literal("Could not create that starter. Check console logs.").withStyle(ChatFormatting.RED));
+        } finally {
+            CLAIMING.remove(profileId);
         }
     }
 
@@ -222,6 +240,7 @@ public final class MonotypeStarterManager {
             if (!added) return false;
             try { pokemon.heal(); } catch (Throwable ignored) {}
             try { party.sendTo(player); } catch (Throwable ignored) {}
+            try { Cobblemon.INSTANCE.getStorage().getParty(player).sendTo(player); } catch (Throwable ignored) {}
             try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
             try { CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player); } catch (Throwable ignored) {}
             return true;
@@ -258,6 +277,54 @@ public final class MonotypeStarterManager {
         return true;
     }
 
+
+    private static final class LockedStarterGui extends SimpleGui {
+        private final ServerPlayer owner;
+        private boolean selected = false;
+
+        private LockedStarterGui(ServerPlayer owner) {
+            super(MenuType.GENERIC_9x6, owner, false);
+            this.owner = owner;
+            this.setLockPlayerInventory(true);
+        }
+
+        void claim(StarterChoice choice) {
+            if (selected) return;
+            selected = true;
+            MonotypeStarterManager.claim(owner, choice);
+            if (owner != null && MonotypeStarterManager.needsStarter(owner)) {
+                selected = false;
+            }
+        }
+
+        @Override
+        public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
+            // Hard-cancel every click action, including pickup, shift-click, hotbar swap,
+            // clone, throw, quick-craft, and pickup-all. SGUI still runs element callbacks,
+            // but the virtual inventory is never allowed to move items to the player.
+            return false;
+        }
+
+        @Override
+        public boolean onClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action, GuiElementInterface element) {
+            // Return false so SGUI performs its normal safe sync after the callback.
+            // The actual movement permission is denied by onAnyClick above.
+            return false;
+        }
+
+        @Override
+        public void onClose() {
+            if (selected) return;
+            if (owner == null || owner.server == null) return;
+            owner.server.execute(() -> {
+                if (owner.isRemoved() || owner.hasDisconnected()) return;
+                if (MonotypeStarterManager.needsStarter(owner)) {
+                    MonotypeStarterManager.open(owner);
+                }
+            });
+        }
+    }
+
     private static boolean hasClaimed(UUID profileId) {
         if (profileId == null) return false;
         try (var ps = DatabaseManager.getConnection().prepareStatement("select 1 from profile_starter_claims where profile_id = ? limit 1")) {
@@ -277,6 +344,26 @@ public final class MonotypeStarterManager {
             ps.setString(2, species);
             ps.executeUpdate();
         }
+    }
+
+
+    private static boolean isConfiguredStarter(String requiredType, String species) {
+        String type = normalize(requiredType);
+        String cleanSpecies = normalizeSpecies(species);
+        StarterChoice[] configured = STARTERS.get(type);
+        if (configured == null || cleanSpecies.isBlank()) return false;
+        for (StarterChoice choice : configured) {
+            if (normalizeSpecies(choice.species()).equals(cleanSpecies)) return true;
+        }
+        return false;
+    }
+
+    private static String normalizeSpecies(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        int colon = s.indexOf(':');
+        if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1);
+        return s;
     }
 
     private static StarterChoice[] choices(String... species) {

@@ -71,7 +71,7 @@ public final class ProfileLobbyLockManager {
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
-                ProfileSelectionMenu.open(serverPlayer);
+                ProfileSelectionMenu.reopenForcedOrRoot(serverPlayer);
                 return InteractionResult.FAIL;
             }
             return InteractionResult.PASS;
@@ -87,7 +87,7 @@ public final class ProfileLobbyLockManager {
 
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
-                ProfileSelectionMenu.open(serverPlayer);
+                ProfileSelectionMenu.reopenForcedOrRoot(serverPlayer);
                 return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
             }
             return InteractionResultHolder.pass(player.getItemInHand(hand));
@@ -121,7 +121,7 @@ public final class ProfileLobbyLockManager {
         if (now - last >= DENY_COOLDOWN_MS) {
             LAST_DENY.put(player.getUUID(), now);
             player.sendSystemMessage(Component.literal("Select a profile from the menu before playing.").withStyle(ChatFormatting.YELLOW));
-            ProfileSelectionMenu.open(player);
+            ProfileSelectionMenu.reopenForcedOrRoot(player);
         }
     }
 
@@ -140,7 +140,7 @@ public final class ProfileLobbyLockManager {
             }
 
             if (tickCounter % REOPEN_MENU_EVERY_TICKS == 0 && player.containerMenu == player.inventoryMenu) {
-                ProfileSelectionMenu.open(player);
+                ProfileSelectionMenu.reopenForcedOrRoot(player);
             }
         }
     }

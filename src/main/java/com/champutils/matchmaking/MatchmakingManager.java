@@ -8,6 +8,7 @@ import com.champutils.battle.BattleStateManager;
 import com.champutils.config.Config;
 import com.champutils.config.Rank;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.ProfileRestrictions;
 import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.validation.TeamValidator;
 
@@ -76,6 +77,10 @@ public class MatchmakingManager {
     ) {
 
         type = normalizeType(type);
+
+        if (ProfileRestrictions.blockPvp(player, "PvP queues")) {
+            return;
+        }
 
         if (isInAnyQueue(player)) {
             player.sendSystemMessage(

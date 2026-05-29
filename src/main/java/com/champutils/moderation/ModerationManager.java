@@ -279,6 +279,9 @@ public final class ModerationManager {
         ChatViolation exact = matchCategory("slur/hate term", ModerationConfig.DATA.blockedExact, lower, normalized, true);
         if (exact != null) return exact;
 
+        ChatViolation shortened = matchShortenedSlur(lower, normalized);
+        if (shortened != null) return shortened;
+
         ChatViolation threat = matchCategory("severe threat", ModerationConfig.DATA.blockedSevereThreats, lower, normalized, false);
         if (threat != null) return threat;
 
@@ -312,6 +315,62 @@ public final class ModerationManager {
             }
         }
         return null;
+    }
+
+
+    private static ChatViolation matchShortenedSlur(String lower, String normalized) {
+        List<String> patterns = ModerationConfig.DATA.blockedShortSlurs;
+        if (patterns == null || patterns.isEmpty()) return null;
+
+        List<String> normalizedTokens = normalizedTokens(lower);
+        for (String rawPattern : patterns) {
+            if (rawPattern == null || rawPattern.isBlank() || rawPattern.equalsIgnoreCase("replace_slurs_here")) continue;
+
+            String pattern = normalizeChat(rawPattern.trim());
+            if (pattern.length() < 3) continue;
+
+            for (String token : normalizedTokens) {
+                if (isShortenedSlurToken(token, pattern)) {
+                    return new ChatViolation("shortened slur/hate term", rawPattern, !token.equals(rawPattern), normalized, "shortened slur/hate term: " + rawPattern);
+                }
+            }
+
+            // Handles separator-only evasion like "n i g" or "n.i.g" while avoiding long normal words.
+            if (normalized.equals(pattern) || isShortenedSlurToken(normalized, pattern)) {
+                String extra = ModerationConfig.DATA.normalizedBypassExtraSeverity == null
+                        ? "filter evasion"
+                        : ModerationConfig.DATA.normalizedBypassExtraSeverity;
+                return new ChatViolation("shortened slur/hate term", rawPattern, true, normalized, "shortened slur/hate term / " + extra + ": " + rawPattern);
+            }
+        }
+        return null;
+    }
+
+    private static boolean isShortenedSlurToken(String token, String pattern) {
+        if (token == null || token.isBlank() || pattern == null || pattern.isBlank()) return false;
+        if (isSafeNormalizedWord(token)) return false;
+        if (token.equals(pattern)) return true;
+
+        // Allow repeated final-letter spam, e.g. "nigg" / "niggg", without matching words like "night".
+        if (token.startsWith(pattern) && token.length() <= pattern.length() + 3) {
+            char repeat = pattern.charAt(pattern.length() - 1);
+            for (int i = pattern.length(); i < token.length(); i++) {
+                if (token.charAt(i) != repeat) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static List<String> normalizedTokens(String input) {
+        if (input == null || input.isBlank()) return Collections.emptyList();
+        String[] rawTokens = input.split("[^\\p{L}\\p{N}]+");
+        List<String> tokens = new ArrayList<>();
+        for (String raw : rawTokens) {
+            String token = normalizeChat(raw);
+            if (!token.isBlank()) tokens.add(token);
+        }
+        return tokens;
     }
 
     private static boolean wordOrPhraseMatch(String lower, String pattern) {

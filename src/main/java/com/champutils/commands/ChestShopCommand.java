@@ -1,10 +1,10 @@
 package com.champutils.commands;
 
-import com.champutils.profile.ProfileRestrictions;
 import com.champutils.economy.EconomyManager;
 import com.champutils.shop.ChestShopClaimCompat;
 import com.champutils.shop.ChestShopRegistry;
 import com.champutils.shop.ChestShopService;
+import com.champutils.profile.ProfileRestrictions;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 
@@ -82,7 +82,10 @@ public final class ChestShopCommand {
     }
 
     private static int create(ServerPlayer player, ChestShopRegistry.ShopMode mode, long price, int amount) {
-        if (ProfileRestrictions.blockIronmanTrade(player, "Chest Shops")) return 0;
+        if (ProfileRestrictions.blockIronmanTrade(player, "chest shops")) {
+            return 0;
+        }
+
         Target target = getTargetChest(player);
         if (target == null) {
             player.sendSystemMessage(Component.literal("Look at a chest or barrel within 6 blocks first.").withStyle(ChatFormatting.RED));
@@ -152,7 +155,6 @@ public final class ChestShopCommand {
     }
 
     private static int info(ServerPlayer player) {
-        if (ProfileRestrictions.blockIronmanTrade(player, "Chest Shops")) return 0;
         Target target = getTargetChest(player);
         if (target == null) {
             player.sendSystemMessage(Component.literal("Look at a chest shop within 6 blocks first.").withStyle(ChatFormatting.RED));

@@ -1,6 +1,7 @@
 package com.champutils.shop;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.profile.ProfileRestrictions;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -49,6 +50,10 @@ public final class ChestShopService {
 
             sendInfo(player, shop);
             player.sendSystemMessage(Component.literal("Sneak-right-click to open your shop chest.").withStyle(ChatFormatting.GRAY));
+            return InteractionResult.SUCCESS;
+        }
+
+        if (ProfileRestrictions.blockIronmanTrade(player, "chest shops")) {
             return InteractionResult.SUCCESS;
         }
 
@@ -155,7 +160,8 @@ public final class ChestShopService {
         }
 
         EconomyManager.deposit(shop.ownerUuid(), shop.ownerName, shop.price, "chest_shop_sale");
-        addItem(buyer.getInventory(), new ItemStack(item, amount));
+        ItemStack purchased = new ItemStack(item, amount);
+        addItem(buyer.getInventory(), purchased);
         chest.setChanged();
         buyer.getInventory().setChanged();
 

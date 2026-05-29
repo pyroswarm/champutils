@@ -60,6 +60,12 @@ public final class ModerationConfig {
             }
         }
 
+        if (DATA.blockedShortSlurs == null) DATA.blockedShortSlurs = new ArrayList<>(d.blockedShortSlurs);
+        for (String shortened : d.blockedShortSlurs) {
+            if (shortened != null && !shortened.isBlank() && !DATA.blockedShortSlurs.contains(shortened)) {
+                DATA.blockedShortSlurs.add(shortened);
+            }
+        }
         if (DATA.blockedSevereThreats == null) DATA.blockedSevereThreats = new ArrayList<>(d.blockedSevereThreats);
         if (DATA.blockedSexualHarassment == null) DATA.blockedSexualHarassment = new ArrayList<>(d.blockedSexualHarassment);
         if (DATA.softProfanityAllowed == null) DATA.softProfanityAllowed = new ArrayList<>(d.softProfanityAllowed);
@@ -67,6 +73,7 @@ public final class ModerationConfig {
         if (DATA.normalizedBypassExtraSeverity == null || DATA.normalizedBypassExtraSeverity.isBlank()) DATA.normalizedBypassExtraSeverity = d.normalizedBypassExtraSeverity;
 
         if (DATA.xrayOreIds == null) DATA.xrayOreIds = d.xrayOreIds;
+        if (DATA.xrayContextBlockIds == null || DATA.xrayContextBlockIds.isEmpty()) DATA.xrayContextBlockIds = d.xrayContextBlockIds;
         if (DATA.xrayWindowMinutes <= 0) DATA.xrayWindowMinutes = d.xrayWindowMinutes;
         if (DATA.xrayDiamondThreshold <= 0) DATA.xrayDiamondThreshold = d.xrayDiamondThreshold;
         if (DATA.xrayAncientDebrisThreshold <= 0) DATA.xrayAncientDebrisThreshold = d.xrayAncientDebrisThreshold;
@@ -85,7 +92,9 @@ public final class ModerationConfig {
         if (DATA.xrayDirectOreMaxDistance <= 0) DATA.xrayDirectOreMaxDistance = d.xrayDirectOreMaxDistance;
         if (DATA.xrayCloseOreClusterThreshold <= 0) DATA.xrayCloseOreClusterThreshold = d.xrayCloseOreClusterThreshold;
         if (DATA.xrayCloseOreClusterDistance <= 0) DATA.xrayCloseOreClusterDistance = d.xrayCloseOreClusterDistance;
-        if (!DATA.xrayIgnoreOps) DATA.xrayIgnoreOps = d.xrayIgnoreOps;
+        if (DATA.xrayExposedFacesStillHidden < 0) DATA.xrayExposedFacesStillHidden = d.xrayExposedFacesStillHidden;
+        if (DATA.xrayLowContextValuableOreThreshold <= 0) DATA.xrayLowContextValuableOreThreshold = d.xrayLowContextValuableOreThreshold;
+        if (DATA.xrayLowContextMaxMinedBlocksPerOre <= 0) DATA.xrayLowContextMaxMinedBlocksPerOre = d.xrayLowContextMaxMinedBlocksPerOre;
     }
 
     private static Data defaults() {
@@ -101,6 +110,10 @@ public final class ModerationConfig {
         d.blockedExact = new ArrayList<>(List.of(
                 "nigger", "nigga", "faggot", "fag", "kike", "chink", "spic", "gook", "tranny", "retard", "coon", "wetback"
         ));
+        // Shortened hate terms are checked with stricter token rules so normal words like "night" or "Nigeria" do not trip the filter.
+        d.blockedShortSlurs = new ArrayList<>(List.of(
+                "nig"
+        ));
         d.blockedSevereThreats = new ArrayList<>(List.of(
                 "kys", "kill yourself", "go kill yourself", "rape you", "i will rape", "i will kill you"
         ));
@@ -112,27 +125,31 @@ public final class ModerationConfig {
         d.normalizedBypassExtraSeverity = "filter evasion";
 
         d.xrayWindowMinutes = 20;
-        d.xrayDiamondThreshold = 30;
-        d.xrayAncientDebrisThreshold = 16;
+        d.xrayDiamondThreshold = 10;
+        d.xrayAncientDebrisThreshold = 8;
         d.xrayMinYForDiamondAlert = 16;
         d.xrayIgnoreOps = true;
         d.xrayNotifyPlayerOnStaffAlert = false;
-        d.xrayMinBlocksMinedForAlert = 160;
-        d.xrayMinValuableOresForAlert = 10;
-        d.xrayHiddenValuableOreThreshold = 8;
-        d.xrayValuableOreDensityAlertRatio = 0.10;
-        d.xrayHiddenOreRatioAlert = 0.70;
-        d.xrayDirectHiddenOreRunThreshold = 5;
+        d.xrayMinBlocksMinedForAlert = 50;
+        d.xrayMinValuableOresForAlert = 6;
+        d.xrayHiddenValuableOreThreshold = 4;
+        d.xrayValuableOreDensityAlertRatio = 0.08;
+        d.xrayHiddenOreRatioAlert = 0.55;
+        d.xrayDirectHiddenOreRunThreshold = 3;
         d.xrayDirectOreSeconds = 45;
         d.xrayDirectOreMaxDistance = 18;
         d.xrayCloseOreClusterThreshold = 6;
         d.xrayCloseOreClusterDistance = 20;
-        d.xrayAlertScoreThreshold = 45;
-        d.xrayMinIndependentSignals = 2;
+        d.xrayAlertScoreThreshold = 35;
+        d.xrayMinIndependentSignals = 1;
         d.xrayAlertCooldownMinutes = 15;
         d.xrayAutoPunishEnabled = true;
         d.xrayAutoPunishScoreThreshold = 90;
         d.xrayAutoPunishMinIndependentSignals = 4;
+        d.xrayExposedFacesStillHidden = 1;
+        d.xrayLowContextValuableOreThreshold = 5;
+        d.xrayLowContextMaxMinedBlocksPerOre = 6;
+        d.xrayContextBlockIds = new ArrayList<>(List.of("minecraft:stone", "minecraft:deepslate", "minecraft:netherrack", "minecraft:tuff", "minecraft:calcite", "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:basalt", "minecraft:blackstone", "minecraft:dirt", "minecraft:gravel", "minecraft:sand", "minecraft:red_sand", "minecraft:clay", "minecraft:dripstone_block"));
         d.xrayOreIds = new ArrayList<>(List.of("minecraft:diamond_ore", "minecraft:deepslate_diamond_ore", "minecraft:ancient_debris", "minecraft:iron_ore", "minecraft:deepslate_iron_ore", "minecraft:gold_ore", "minecraft:deepslate_gold_ore", "minecraft:nether_gold_ore", "cobblemon:dawn_stone_ore", "cobblemon:deepslate_dawn_stone_ore", "cobblemon:dusk_stone_ore", "cobblemon:deepslate_dusk_stone_ore", "cobblemon:moon_stone_ore", "cobblemon:deepslate_moon_stone_ore", "cobblemon:shiny_stone_ore", "cobblemon:deepslate_shiny_stone_ore", "cobblemon:sun_stone_ore", "cobblemon:deepslate_sun_stone_ore", "cobblemon:fire_stone_ore", "cobblemon:deepslate_fire_stone_ore", "cobblemon:water_stone_ore", "cobblemon:deepslate_water_stone_ore", "cobblemon:thunder_stone_ore", "cobblemon:deepslate_thunder_stone_ore", "cobblemon:ice_stone_ore", "cobblemon:deepslate_ice_stone_ore", "cobblemon:leaf_stone_ore", "cobblemon:deepslate_leaf_stone_ore"));
         return d;
     }
@@ -150,6 +167,7 @@ public final class ModerationConfig {
         public List<String> blockedWords;
 
         public List<String> blockedExact;
+        public List<String> blockedShortSlurs;
         public List<String> blockedSevereThreats;
         public List<String> blockedSexualHarassment;
         public List<String> softProfanityAllowed;
@@ -172,6 +190,10 @@ public final class ModerationConfig {
         public int xrayDirectOreMaxDistance;
         public int xrayCloseOreClusterThreshold;
         public int xrayCloseOreClusterDistance;
+        public int xrayExposedFacesStillHidden;
+        public int xrayLowContextValuableOreThreshold;
+        public int xrayLowContextMaxMinedBlocksPerOre;
+        public List<String> xrayContextBlockIds;
         public int xrayAlertScoreThreshold;
         public int xrayMinIndependentSignals;
         public int xrayAlertCooldownMinutes;

@@ -38,6 +38,67 @@ public final class VanillaProfileStateManager {
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists player_uuid uuid");
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists vanilla_snbt text not null default '{}'");
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists updated_at timestamptz not null default now()");
+            statement.executeUpdate("create index if not exists idx_profile_vanilla_state_player_uuid on profile_vanilla_state(player_uuid)");
+        }
+    }
+
+
+    public static String snapshotSnbt(ServerPlayer player) {
+        if (player == null) return null;
+        try {
+            CompoundTag tag = new CompoundTag();
+            player.saveWithoutId(tag);
+            scrubAccountOnlyFields(tag, player);
+            return tag.toString();
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to snapshot vanilla profile state for " + player.getGameProfile().getName());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static void saveSnapshotAsync(UUID profileId, UUID playerUuid, String playerName, String snbt) {
+        if (profileId == null || playerUuid == null || snbt == null || snbt.isBlank() || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("save vanilla profile state snapshot", connection -> {
+            try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
+                    "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
+                ps.setObject(1, profileId);
+                ps.setObject(2, playerUuid);
+                ps.setString(3, snbt);
+                ps.executeUpdate();
+            } catch (Exception e) {
+                System.err.println("[ChampUtils] Failed async vanilla profile save for " + playerName);
+                throw e;
+            }
+        });
+    }
+
+    public static String loadSnbt(Connection connection, UUID profileId) throws Exception {
+        if (connection == null || profileId == null) return null;
+        try (var ps = connection.prepareStatement("select vanilla_snbt from profile_vanilla_state where profile_id = ?")) {
+            ps.setObject(1, profileId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return rs.getString("vanilla_snbt");
+            }
+        }
+    }
+
+    public static void applySnbt(ServerPlayer player, String snbt) {
+        if (player == null) return;
+        try {
+            if (snbt == null || snbt.isBlank() || snbt.equals("{}")) {
+                clearLiveForMenu(player);
+                return;
+            }
+            CompoundTag tag = TagParser.parseTag(snbt);
+            scrubAccountOnlyFields(tag, player);
+            player.load(tag);
+            player.inventoryMenu.broadcastChanges();
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to apply vanilla profile state for " + player.getGameProfile().getName());
+            e.printStackTrace();
+            player.sendSystemMessage(Component.literal("Profile load failed. Staff should check console/database logs.").withStyle(ChatFormatting.RED));
         }
     }
 

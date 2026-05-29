@@ -48,6 +48,7 @@ public final class ProfileLobbyManager {
 
     public static void leaveLobby(ServerPlayer player) {
         if (player == null) return;
+        ProfileSelectionMenu.clearForcedReopener(player);
         applyNormalPlayerState(player);
     }
 

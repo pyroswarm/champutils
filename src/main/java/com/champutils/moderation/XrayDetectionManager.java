@@ -27,10 +27,13 @@ public final class XrayDetectionManager {
     private XrayDetectionManager() {}
 
     public static void register() {
-        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+        // Use BEFORE so we inspect the original block while all neighboring blocks still exist.
+        // AFTER can miss hidden ores because the target block has already been removed by the time we sample context.
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (player instanceof ServerPlayer sp && world instanceof ServerLevel level) {
                 record(sp, level, pos, state);
             }
+            return true;
         });
     }
 
@@ -58,8 +61,8 @@ public final class XrayDetectionManager {
         if (!trackedOre && !commonMiningBlock) return;
 
         int exposedFaces = countExposedFaces(level, pos);
-        boolean hidden = exposedFaces == 0;
-        Sample sample = new Sample(now, blockId, pos.getX(), pos.getY(), pos.getZ(), level.dimension().location().toString(), trackedOre, valuableOre, hidden);
+        boolean hidden = exposedFaces <= Math.max(0, ModerationConfig.DATA.xrayExposedFacesStillHidden);
+        Sample sample = new Sample(now, blockId, pos.getX(), pos.getY(), pos.getZ(), level.dimension().location().toString(), trackedOre, valuableOre, hidden, exposedFaces);
         window.samples.addLast(sample);
 
         if (commonMiningBlock) window.commonBlocks++;
@@ -98,6 +101,7 @@ public final class XrayDetectionManager {
         int directHiddenRuns = countDirectHiddenRuns(window.samples);
         int closeClusters = countCloseValuableClusters(window.samples);
         int dimensionHops = countDimensionChanges(window.samples);
+        int lowContextOreRuns = countLowContextValuableOreRuns(window.samples);
 
         int score = 0;
         List<String> reasons = new ArrayList<>();
@@ -111,7 +115,7 @@ public final class XrayDetectionManager {
             reasons.add("ancientDebris=" + window.ancientDebris);
         }
         if (window.hiddenValuableOres >= ModerationConfig.DATA.xrayHiddenValuableOreThreshold) {
-            score += 24;
+            score += 28;
             reasons.add("hiddenValuableOres=" + window.hiddenValuableOres);
         }
         if (valuableDensity >= ModerationConfig.DATA.xrayValuableOreDensityAlertRatio) {
@@ -129,6 +133,10 @@ public final class XrayDetectionManager {
         if (closeClusters >= ModerationConfig.DATA.xrayCloseOreClusterThreshold) {
             score += 10;
             reasons.add("closeOreClusters=" + closeClusters);
+        }
+        if (lowContextOreRuns >= ModerationConfig.DATA.xrayLowContextValuableOreThreshold) {
+            score += 18;
+            reasons.add("lowContextOreRuns=" + lowContextOreRuns);
         }
         if (dimensionHops >= 2 && window.ancientDebris >= Math.max(4, ModerationConfig.DATA.xrayAncientDebrisThreshold / 2)) {
             score += 8;
@@ -154,6 +162,7 @@ public final class XrayDetectionManager {
                 + "§7 iron=§f" + window.iron
                 + "§7 gold=§e" + window.gold
                 + "§7 hiddenValuable=§c" + window.hiddenValuableOres
+                + "§7 lowContext=§c" + lowContextOreRuns
                 + "§7 reasons=§f" + String.join(", ", reasons)
                 + "§7 autoActionEligible=§e" + (ModerationConfig.DATA.xrayAutoPunishEnabled && score >= ModerationConfig.DATA.xrayAutoPunishScoreThreshold && reasons.size() >= ModerationConfig.DATA.xrayAutoPunishMinIndependentSignals);
 
@@ -161,7 +170,7 @@ public final class XrayDetectionManager {
         ModerationManager.webhook("Xray review: " + name + " score=" + score + " signals=" + reasons.size()
                 + " breaks=" + totalBreaks + " diamonds=" + window.diamonds + " deep=" + window.deepDiamonds
                 + " debris=" + window.ancientDebris + " iron=" + window.iron + " gold=" + window.gold
-                + " hiddenValuable=" + window.hiddenValuableOres + " reasons=" + String.join(", ", reasons));
+                + " hiddenValuable=" + window.hiddenValuableOres + " lowContext=" + lowContextOreRuns + " reasons=" + String.join(", ", reasons));
 
         boolean actionEligible = ModerationConfig.DATA.xrayAutoPunishEnabled
                 && score >= ModerationConfig.DATA.xrayAutoPunishScoreThreshold
@@ -206,6 +215,29 @@ public final class XrayDetectionManager {
         return clusters;
     }
 
+
+    private static int countLowContextValuableOreRuns(Deque<Sample> samples) {
+        int suspicious = 0;
+        int contextSinceLastValuable = 999;
+        String dimension = null;
+        for (Sample sample : samples) {
+            if (dimension == null || !dimension.equals(sample.dimension)) {
+                dimension = sample.dimension;
+                contextSinceLastValuable = 999;
+            }
+
+            if (sample.valuableOre) {
+                if (sample.hidden && contextSinceLastValuable <= Math.max(1, ModerationConfig.DATA.xrayLowContextMaxMinedBlocksPerOre)) {
+                    suspicious++;
+                }
+                contextSinceLastValuable = 0;
+            } else if (isCommonMiningBlock(sample.blockId) || sample.trackedOre) {
+                contextSinceLastValuable++;
+            }
+        }
+        return suspicious;
+    }
+
     private static int countDimensionChanges(Deque<Sample> samples) {
         int changes = 0;
         String last = null;
@@ -243,10 +275,13 @@ public final class XrayDetectionManager {
     private static boolean isGold(String id) { return id.equals("minecraft:gold_ore") || id.equals("minecraft:deepslate_gold_ore") || id.equals("minecraft:nether_gold_ore"); }
 
     private static boolean isCommonMiningBlock(String id) {
+        if (ModerationConfig.DATA.xrayContextBlockIds != null && ModerationConfig.DATA.xrayContextBlockIds.contains(id)) return true;
         return id.equals("minecraft:stone") || id.equals("minecraft:deepslate") || id.equals("minecraft:netherrack")
                 || id.equals("minecraft:tuff") || id.equals("minecraft:calcite") || id.equals("minecraft:granite")
                 || id.equals("minecraft:diorite") || id.equals("minecraft:andesite") || id.equals("minecraft:basalt")
-                || id.equals("minecraft:blackstone");
+                || id.equals("minecraft:blackstone") || id.equals("minecraft:dirt") || id.equals("minecraft:gravel")
+                || id.equals("minecraft:sand") || id.equals("minecraft:red_sand") || id.equals("minecraft:clay")
+                || id.equals("minecraft:dripstone_block");
     }
 
     private static String blockId(BlockState state) {
@@ -310,5 +345,5 @@ public final class XrayDetectionManager {
         }
     }
 
-    private record Sample(long time, String blockId, int x, int y, int z, String dimension, boolean trackedOre, boolean valuableOre, boolean hidden) {}
+    private record Sample(long time, String blockId, int x, int y, int z, String dimension, boolean trackedOre, boolean valuableOre, boolean hidden, int exposedFaces) {}
 }

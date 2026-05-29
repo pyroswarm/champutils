@@ -136,6 +136,13 @@ public final class AntiLagManager {
     private static boolean isSafeWildPokemonToWipe(Entity e){
         if(!isPokemonEntity(e)||hasProtectedTag(e)) return false;
         if(AntiLagConfig.DATA.protectPokemonWithCustomName&&e.hasCustomName()) return false;
+
+        // Extra safety: never wipe freshly spawned Pokémon. Player throw-out, NPC send-out,
+        // and battle send-out all create short-lived PokemonEntity instances that may not
+        // have every ownership/state field populated during the same tick they appear.
+        // Timed cleanup is only for old natural wild spawns, so a minimum age is safe.
+        if(e.tickCount < 20 * 60) return false;
+
         if(AntiLagConfig.DATA.protectPokemonInBattle&&isPokemonInAnyBattle(e)) return false;
 
         Object pokemon=firstValue(e,"pokemon","getPokemon");
@@ -195,11 +202,13 @@ public final class AntiLagManager {
         // Only protect Pokémon that have a real owner/storage relationship. Do not include
         // storeCoordinates/storeCoordinate here: natural wild Cobblemon entities may expose those
         // while still being safe cleanup targets. Including them caused the wild cleanup to skip all mons.
-        Object owner=firstValue(p,"ownerUUID","getOwnerUUID","owner","getOwner","getOwnerPlayer","originalTrainer","getOriginalTrainer","getOriginalTrainerUuid","originalTrainerUuid","getOriginalTrainerUUID","originalTrainerUUID");
+        Object owner=firstValue(p,"ownerUUID","getOwnerUUID","owner","getOwner","getOwnerPlayer","getOwnerEntity","getStoreUUID","storeUUID","getStoreUuid","storeUuid");
         if(owner==null) return false;
         if(owner instanceof Optional<?> o) return o.isPresent();
         String v=owner.toString();
-        return !v.equalsIgnoreCase("null")&&!v.equalsIgnoreCase("Optional.empty")&&!v.isBlank();
+        if(v.equalsIgnoreCase("null")||v.equalsIgnoreCase("Optional.empty")||v.isBlank()) return false;
+        // Cobblemon can expose zero/default UUID-like values on wild Pokémon; those are not ownership.
+        return !v.contains("00000000-0000-0000-0000-000000000000");
     }
     private static boolean hasProtectedTag(Entity e){ for(String tag:e.getTags()){ String l=tag.toLowerCase(Locale.ROOT); for(String m:PROTECTED_TAG_MARKERS) if(l.contains(m)) return true;} return false; }
     private static boolean isPokemonEntity(Entity e){ return e!=null&&(e.getClass().getName().equals("com.cobblemon.mod.common.entity.pokemon.PokemonEntity")||isInstanceOf(e,"com.cobblemon.mod.common.entity.pokemon.PokemonEntity")); } private static boolean isNpcEntity(Entity e){ return e!=null&&(e.getClass().getName().equals("com.cobblemon.mod.common.entity.npc.NPCEntity")||isInstanceOf(e,"com.cobblemon.mod.common.entity.npc.NPCEntity")); }

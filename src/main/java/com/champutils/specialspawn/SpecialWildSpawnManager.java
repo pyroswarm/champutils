@@ -1,6 +1,8 @@
 package com.champutils.specialspawn;
 
 import com.champutils.exploration.ExplorationWorldManager;
+import com.champutils.profile.IslanderProfileManager;
+import com.champutils.profile.PlayerProfileManager;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -70,7 +72,7 @@ public final class SpecialWildSpawnManager {
         if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
-        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()) || !ExplorationWorldManager.isOverworldGameplayLevel(p.serverLevel()));
+        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p));
         if (players.isEmpty()) return;
 
         double chance = currentGlobalChancePerCheck(intervalTicks);
@@ -103,6 +105,19 @@ public final class SpecialWildSpawnManager {
         }
     }
 
+
+
+    public static boolean forceSpawnFor(ServerPlayer player) {
+        if (player == null || !SpecialWildSpawnConfig.DATA.enabled) return false;
+        if (!isEligibleSpecialSpawnPlayer(player)) return false;
+        SpawnBucket bucket = pickBucket();
+        if (bucket == null) return false;
+        SpawnResult result = trySpawnFor(player, bucket);
+        if (result == null) return false;
+        markSpawned(result.type, result.species, false);
+        announce(player.getServer(), result.type, result.species, result.level, result.pos);
+        return true;
+    }
 
     private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players) {
         int availableSlots = Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon - tracked.size());
@@ -506,6 +521,14 @@ public final class SpecialWildSpawnManager {
         String name = pretty(species);
         String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
         Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ") §e[X: " + pos.getX() + ", Y: " + pos.getY() + ", Z: " + pos.getZ() + "] §cDespawns in 15 minutes!");
+
+        if (isIslanderSpecialSpawnLevel(level) && SpecialWildSpawnConfig.DATA.islanderOnlyNotifyIslanders) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (PlayerProfileManager.isIslander(player)) player.sendSystemMessage(msg);
+            }
+            return;
+        }
+
         server.getPlayerList().broadcastSystemMessage(msg, false);
     }
 
@@ -514,20 +537,56 @@ public final class SpecialWildSpawnManager {
         if (message == null || message.isBlank()) {
             message = "§5§lA COSMIC RIFT HAS OPENED! §dThree special Pokémon have appeared across the world!";
         }
-        server.getPlayerList().broadcastSystemMessage(Component.literal(message), false);
-        server.getPlayerList().broadcastSystemMessage(Component.literal("§d§l★ §fThis is a §51% super rare event§f! Hunt them down before someone else does! §d§l★"), false);
+
+        boolean islanderOnly = results.stream().allMatch(r -> isIslanderSpecialSpawnLevel(r.level))
+                && SpecialWildSpawnConfig.DATA.islanderOnlyNotifyIslanders;
+
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal(message));
+        lines.add(Component.literal("§d§l★ §fThis is a §51% super rare event§f! Hunt them down before someone else does! §d§l★"));
 
         for (SpawnResult result : results) {
             String name = pretty(result.species);
             String biome = result.level.registryAccess().registryOrThrow(Registries.BIOME).getKey(result.level.getBiome(result.pos).value()).toString();
-            server.getPlayerList().broadcastSystemMessage(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + " §e[X: " + result.pos.getX() + ", Y: " + result.pos.getY() + ", Z: " + result.pos.getZ() + "] §c(15 minute despawn)"), false);
+            lines.add(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + " §e[X: " + result.pos.getX() + ", Y: " + result.pos.getY() + ", Z: " + result.pos.getZ() + "] §c(15 minute despawn)"));
         }
+
+        if (islanderOnly) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (PlayerProfileManager.isIslander(player)) {
+                    for (Component line : lines) player.sendSystemMessage(line);
+                }
+            }
+            return;
+        }
+
+        for (Component line : lines) server.getPlayerList().broadcastSystemMessage(line, false);
     }
 
     private static boolean isDisabledDimension(ServerLevel level) {
         String id = level.dimension().location().toString();
         for (String d : SpecialWildSpawnConfig.DATA.disabledDimensions) if (id.equalsIgnoreCase(d)) return true;
         return false;
+    }
+
+    private static boolean isEligibleSpecialSpawnPlayer(ServerPlayer player) {
+        if (player == null || player.serverLevel() == null) return false;
+        ServerLevel level = player.serverLevel();
+        if (isDisabledDimension(level)) return false;
+
+        if (isIslanderSpecialSpawnLevel(level)) {
+            return SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled && PlayerProfileManager.isIslander(player);
+        }
+
+        return ExplorationWorldManager.isOverworldGameplayLevel(level) && !PlayerProfileManager.isIslander(player);
+    }
+
+    private static boolean isIslanderSpecialSpawnLevel(ServerLevel level) {
+        if (level == null) return false;
+        String prefix = SpecialWildSpawnConfig.DATA.islanderWorldPrefix;
+        if (prefix == null || prefix.isBlank()) prefix = "islander_";
+        String path = level.dimension().location().getPath().toLowerCase(Locale.ROOT);
+        return IslanderProfileManager.isIslanderWorld(level) || path.startsWith(prefix.toLowerCase(Locale.ROOT));
     }
 
     private static void ensureStateLoaded() {

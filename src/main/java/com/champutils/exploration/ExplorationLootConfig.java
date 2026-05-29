@@ -111,7 +111,7 @@ public final class ExplorationLootConfig {
                 loot("EPIC", "genesisforms:lustrous_globe", 2, 1, 1),
                 loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
         ));
-        return root.withDefaults();
+        return root;
     }
 
     private static LootTable table(int minRolls, int maxRolls, LootEntry... entries) {
@@ -139,6 +139,33 @@ public final class ExplorationLootConfig {
         public int discoveredStructureProtectionRadius = 24;
         public String maxRarity = "EPIC";
         public boolean skipUnknownItems = true;
+
+        /**
+         * Any container block in this list opens ChampUtils instanced per-player loot in exploration worlds.
+         * This includes Cobblemon's naturally generated gilded chest blocks.
+         */
+        public List<String> lootContainerBlockIds = new ArrayList<>(List.of(
+                "minecraft:chest",
+                "minecraft:trapped_chest",
+                "minecraft:barrel",
+                "cobblemon:gilded_chest",
+                "cobblemon:black_gilded_chest",
+                "cobblemon:blue_gilded_chest",
+                "cobblemon:green_gilded_chest",
+                "cobblemon:pink_gilded_chest",
+                "cobblemon:white_gilded_chest",
+                "cobblemon:yellow_gilded_chest"
+        ));
+
+        /**
+         * Fallback matcher for modded natural loot containers whose exact registry id may change.
+         */
+        public List<String> lootContainerIdContains = new ArrayList<>(List.of("gilded_chest"));
+
+        /**
+         * Optional per-block loot table override. Example: "cobblemon:gilded_chest": "overworld".
+         */
+        public Map<String, String> blockTableOverrides = new LinkedHashMap<>();
         public List<String> bannedItemContains = new ArrayList<>(List.of(
                 "dynamax", "max_band", "dynamax_band", "mega_bracelet", "mega_charm", "mega_ring", "mega_cuff", "mega_anklet", "keystone", "key_stone"
         ));
@@ -147,7 +174,28 @@ public final class ExplorationLootConfig {
         private Data withDefaults() {
             if (maxRarity == null || maxRarity.isBlank()) maxRarity = "EPIC";
             if (discoveredStructureProtectionRadius < 0) discoveredStructureProtectionRadius = 24;
-            if (bannedItemContains == null) bannedItemContains = new ArrayList<>();
+            if (bannedItemContains == null) bannedItemContains = new ArrayList<>(List.of(
+                    "dynamax", "max_band", "dynamax_band", "mega_bracelet", "mega_charm", "mega_ring", "mega_cuff", "mega_anklet", "keystone", "key_stone"
+            ));
+
+            if (lootContainerBlockIds == null || lootContainerBlockIds.isEmpty()) {
+                lootContainerBlockIds = new ArrayList<>(List.of(
+                        "minecraft:chest",
+                        "minecraft:trapped_chest",
+                        "minecraft:barrel",
+                        "cobblemon:gilded_chest",
+                        "cobblemon:black_gilded_chest",
+                        "cobblemon:blue_gilded_chest",
+                        "cobblemon:green_gilded_chest",
+                        "cobblemon:pink_gilded_chest",
+                        "cobblemon:white_gilded_chest",
+                        "cobblemon:yellow_gilded_chest"
+                ));
+            }
+            if (lootContainerIdContains == null || lootContainerIdContains.isEmpty()) {
+                lootContainerIdContains = new ArrayList<>(List.of("gilded_chest"));
+            }
+            if (blockTableOverrides == null) blockTableOverrides = new LinkedHashMap<>();
             if (tables == null || tables.isEmpty()) tables = defaults().tables;
             tables.values().forEach(LootTable::withDefaults);
             return this;

@@ -1,16 +1,30 @@
 package com.champutils.profile;
 
+import com.cobblemon.mod.common.api.types.ElementalType;
+import com.cobblemon.mod.common.api.types.ElementalTypes;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
+
 public final class ProfileRestrictions {
     private ProfileRestrictions() {}
 
     public static boolean blockIronmanTrade(ServerPlayer player, String featureName) {
-        if (player != null && PlayerProfileManager.isIronman(player) && !player.hasPermissions(4)) {
-            player.sendSystemMessage(Component.literal("Ironman profiles cannot use " + featureName + ".").withStyle(ChatFormatting.RED));
+        if (player != null && PlayerProfileManager.blocksAuctionHouse(player) && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal(PlayerProfileManager.gameMode(player).displayName() + " profiles cannot use " + featureName + ".").withStyle(ChatFormatting.RED));
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean blockPvp(ServerPlayer player, String featureName) {
+        if (player != null && PlayerProfileManager.isNuzlocke(player) && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal("Nuzlocke profiles cannot use " + featureName + ".").withStyle(ChatFormatting.RED));
             return true;
         }
         return false;
@@ -21,38 +35,109 @@ public final class ProfileRestrictions {
         if (PlayerProfileManager.gameMode(player) != ProfileGameMode.MONOTYPE) return null;
         String required = PlayerProfileManager.monotypeType(player);
         if (required == null || required.isBlank()) return null;
+
         for (Pokemon pokemon : partyPokemon) {
             if (pokemon == null) continue;
             if (!hasType(pokemon, required)) {
                 String name = pokemon.getSpecies() == null ? "A Pokémon" : pokemon.getSpecies().getName();
-                return "Monotype profile requires every battle Pokémon to include " + required + " type. Invalid: " + name;
+                return "Monotype profile requires every battle Pokémon to include " + normalizeTypeName(required) + " type. Invalid: " + name;
             }
         }
         return null;
     }
 
     public static boolean hasType(Pokemon pokemon, String required) {
-        String needle = required.toLowerCase();
-        try {
-            Object types = pokemon.getClass().getMethod("getTypes").invoke(pokemon);
-            if (types instanceof Iterable<?> iterable) {
-                for (Object type : iterable) if (type != null && type.toString().toLowerCase().contains(needle)) return true;
+        if (pokemon == null || required == null || required.isBlank()) return false;
+
+        String needle = normalizeTypeName(required);
+        ElementalType requiredType = ElementalTypes.get(needle);
+
+        for (ElementalType type : collectPokemonTypes(pokemon)) {
+            if (matchesType(type, needle, requiredType)) {
+                return true;
             }
-        } catch (Exception ignored) {}
-        try {
-            Object species = pokemon.getSpecies();
-            Object types = species.getClass().getMethod("getTypes").invoke(species);
-            if (types instanceof Iterable<?> iterable) {
-                for (Object type : iterable) if (type != null && type.toString().toLowerCase().contains(needle)) return true;
-            }
-        } catch (Exception ignored) {}
-        try {
-            Object form = pokemon.getClass().getMethod("getForm").invoke(pokemon);
-            Object types = form.getClass().getMethod("getTypes").invoke(form);
-            if (types instanceof Iterable<?> iterable) {
-                for (Object type : iterable) if (type != null && type.toString().toLowerCase().contains(needle)) return true;
-            }
-        } catch (Exception ignored) {}
+        }
+
         return false;
+    }
+
+    private static Set<ElementalType> collectPokemonTypes(Pokemon pokemon) {
+        Set<ElementalType> result = new LinkedHashSet<>();
+
+        // Primary source: Cobblemon's Pokemon.types property. This is backed by the
+        // active form and is the safest source for regional/form-specific typing.
+        try {
+            for (ElementalType type : pokemon.getTypes()) {
+                if (type != null) result.add(type);
+            }
+        } catch (Throwable ignored) {}
+
+        // Defensive fallbacks: in some load/migration paths a Pokemon object can be
+        // partially hydrated for a tick. Check the active FormData and Species directly.
+        addTypesFromObject(result, safeInvoke(pokemon, "getForm"));
+        addTypesFromObject(result, safeInvoke(pokemon, "getSpecies"));
+
+        return result;
+    }
+
+    private static void addTypesFromObject(Set<ElementalType> result, Object source) {
+        if (source == null) return;
+
+        Object types = safeInvoke(source, "getTypes");
+        if (types instanceof Iterable<?> iterable) {
+            for (Object type : iterable) {
+                if (type instanceof ElementalType elementalType) {
+                    result.add(elementalType);
+                }
+            }
+        }
+
+        Object primary = safeInvoke(source, "getPrimaryType");
+        if (primary instanceof ElementalType primaryType) {
+            result.add(primaryType);
+        }
+
+        Object secondary = safeInvoke(source, "getSecondaryType");
+        if (secondary instanceof ElementalType secondaryType) {
+            result.add(secondaryType);
+        }
+    }
+
+    private static boolean matchesType(ElementalType type, String required, ElementalType requiredType) {
+        if (type == null) return false;
+        if (requiredType != null && type == requiredType) return true;
+        if (requiredType != null && type.equals(requiredType)) return true;
+
+        if (normalizeTypeName(type.getName()).equals(required)) return true;
+        if (normalizeTypeName(type.showdownId()).equals(required)) return true;
+
+        try {
+            if (normalizeTypeName(type.getDisplayName().getString()).equals(required)) return true;
+        } catch (Throwable ignored) {}
+
+        try {
+            String path = type.getResourceLocation().getPath();
+            if (normalizeTypeName(path).equals(required)) return true;
+        } catch (Throwable ignored) {}
+
+
+        return false;
+    }
+
+    private static Object safeInvoke(Object target, String method) {
+        if (target == null) return null;
+        try {
+            java.lang.reflect.Method m = target.getClass().getMethod(method);
+            m.setAccessible(true);
+            return m.invoke(target);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeTypeName(String raw) {
+        return raw == null
+                ? ""
+                : raw.trim().toLowerCase(Locale.ROOT).replace(" ", "").replace("_", "").replace("-", "");
     }
 }

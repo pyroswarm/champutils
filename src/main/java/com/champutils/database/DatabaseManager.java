@@ -6,6 +6,8 @@ import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 public final class DatabaseManager {
 
@@ -163,6 +165,32 @@ public final class DatabaseManager {
                 e.printStackTrace();
             }
         });
+    }
+
+
+    public static CompletableFuture<Void> runAsync(String description, SqlTask task) {
+        if (task == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (config == null) {
+            init();
+        }
+
+        if (!isEnabled() || executor == null) {
+            CompletableFuture<Void> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new SQLException(lastStatus));
+            return failed;
+        }
+
+        return CompletableFuture.runAsync(() -> {
+            try {
+                task.run(getAsyncConnection());
+            } catch (Exception e) {
+                System.err.println("[ChampUtils] Database task failed: " + description);
+                throw new CompletionException(e);
+            }
+        }, executor);
     }
 
     public static boolean isEnabled() {

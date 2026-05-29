@@ -57,6 +57,7 @@ public final class ExplorationProtectionListener {
     }
 
     private static boolean isLootContainer(ServerLevel level, BlockPos pos, BlockState state) {
+        if (ExplorationLootManager.isInstancedLootContainer(level, pos)) return true;
         BlockEntity entity = level.getBlockEntity(pos);
         if (entity instanceof net.minecraft.world.Container) {
             return state.getBlock() instanceof ChestBlock || state.getBlock() instanceof BarrelBlock || state.getBlock() instanceof ShulkerBoxBlock;

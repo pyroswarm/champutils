@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileMainMenuManager;
+import com.champutils.profile.NuzlockeManager;
 import com.champutils.menu.ProfileSelectionMenu;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -15,7 +16,7 @@ import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 public final class ProfileCommand {
-    private static final String[] MODES = {"normal", "ironman", "monotype"};
+    private static final String[] MODES = {"normal", "ironman", "monotype", "islander", "nuzlocke"};
     private static final String[] TYPES = {"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"};
 
     private ProfileCommand() {}
@@ -27,6 +28,12 @@ public final class ProfileCommand {
                     .then(literal("list").executes(context -> list(context.getSource().getPlayerOrException())))
                     .then(literal("menu").executes(context -> openOrEnterMenu(context.getSource().getPlayerOrException())))
                     .then(literal("current").executes(context -> current(context.getSource().getPlayerOrException())))
+                    .then(literal("converttonormal").executes(context -> convertToNormal(context.getSource().getPlayerOrException())))
+                    .then(literal("nuzlockecomplete")
+                            .requires(source -> source.hasPermission(4))
+                            .executes(context -> nuzlockeComplete(context.getSource().getPlayerOrException(), "champion"))
+                            .then(argument("champion", StringArgumentType.word())
+                                    .executes(context -> nuzlockeComplete(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "champion")))))
                     .then(literal("switch")
                             .then(argument("name", StringArgumentType.word())
                                     .suggests((context, builder) -> SharedSuggestionProvider.suggest(PlayerProfileManager.profileNamesBlocking(context.getSource().getPlayerOrException()), builder))
@@ -67,6 +74,20 @@ public final class ProfileCommand {
         String suffix = profile.gameMode() == ProfileGameMode.MONOTYPE && profile.monotypeType() != null ? ": " + profile.monotypeType() : "";
         player.sendSystemMessage(Component.literal("Active profile: " + profile.profileName() + " [" + profile.gameMode().displayName() + suffix + "]").withStyle(ChatFormatting.AQUA));
         return 1;
+    }
+
+    private static int nuzlockeComplete(ServerPlayer player, String champion) {
+        String result = NuzlockeManager.completeActiveRun(player, champion);
+        boolean ok = result.startsWith("Nuzlocke complete");
+        player.sendSystemMessage(Component.literal(result).withStyle(ok ? ChatFormatting.GOLD : ChatFormatting.RED));
+        return ok ? 1 : 0;
+    }
+
+    private static int convertToNormal(ServerPlayer player) {
+        String result = PlayerProfileManager.convertActiveToNormalBlocking(player);
+        boolean ok = result.startsWith("Converted") || result.contains("already Normal");
+        player.sendSystemMessage(Component.literal(result).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
+        return ok ? 1 : 0;
     }
 
     private static int openOrEnterMenu(ServerPlayer player) {

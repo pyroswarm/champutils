@@ -1,6 +1,7 @@
 package com.champutils.menu;
 
 import com.champutils.profile.ProfileManager;
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.badge.BadgeManager;
 import com.champutils.rank.RankManager;
 
@@ -42,6 +43,17 @@ public class ProfileMenu {
                         player
                 );
 
+        PlayerProfileManager.ProfileRecord activeProfile =
+                PlayerProfileManager.active(player);
+
+        String profileName =
+                activeProfile == null ? "Offline" : activeProfile.profileName();
+
+        String profileMode =
+                activeProfile == null
+                        ? "Normal"
+                        : activeProfile.gameMode().displayName() + PlayerProfileManager.modeSuffix(activeProfile);
+
         gui.setSlot(
                 4,
                 new GuiElementBuilder(
@@ -57,6 +69,16 @@ public class ProfileMenu {
                                 Component.literal(
                                         "§7Trainer: §f"+
                                                 player.getName().getString()
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Profile: §f"+profileName
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Mode: §f"+profileMode
                                 )
                         )
         );

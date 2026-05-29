@@ -4,11 +4,15 @@ import com.champutils.economy.EconomyManager;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.Display.TextDisplay;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -66,7 +70,7 @@ public final class ChestShopDisplayManager {
 
         display.setPos(position.x, position.y, position.z);
         display.setText(displayText(shop));
-        applyDisplayOptions(display);
+        applyDisplayOptions(level, display, shop.pos());
 
         UUID displayId = display.getUUID();
         if (!displayId.equals(shop.displayUuid())) {
@@ -122,7 +126,7 @@ public final class ChestShopDisplayManager {
         return null;
     }
 
-    private static void applyDisplayOptions(TextDisplay display) {
+    private static void applyDisplayOptions(ServerLevel level, TextDisplay display, BlockPos storagePos) {
         invokeOptional(display, "setLineWidth", int.class, 220);
         invokeOptional(display, "setSeeThrough", boolean.class, false);
         invokeOptional(display, "setDefaultBackground", boolean.class, true);
@@ -132,8 +136,11 @@ public final class ChestShopDisplayManager {
         try {
             Class<?> displayClass = Class.forName("net.minecraft.world.entity.Display");
             Class<?> billboardClass = Class.forName("net.minecraft.world.entity.Display$BillboardConstraints");
-            Object center = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "CENTER");
-            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, center);
+            Object fixed = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "FIXED");
+            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, fixed);
+            Direction facing = chestFacing(level, storagePos);
+            display.setYRot(facing.toYRot() + 180.0F);
+            display.setYHeadRot(display.getYRot());
         } catch (Exception ignored) {
         }
     }
@@ -160,8 +167,9 @@ public final class ChestShopDisplayManager {
 
     private static Vec3 displayPosition(ServerLevel level, BlockPos storagePos) {
         BlockPos connected = ChestShopContainers.connectedContainerPos(level, storagePos);
+        Direction facing = chestFacing(level, storagePos);
         double x = storagePos.getX() + 0.5D;
-        double y = storagePos.getY() + 1.45D;
+        double y = storagePos.getY() + 1.35D;
         double z = storagePos.getZ() + 0.5D;
 
         if (connected != null) {
@@ -169,7 +177,19 @@ public final class ChestShopDisplayManager {
             z = (z + connected.getZ() + 0.5D) / 2.0D;
         }
 
+        x += facing.getStepX() * 0.62D;
+        z += facing.getStepZ() * 0.62D;
         return new Vec3(x, y, z);
+    }
+
+    private static Direction chestFacing(ServerLevel level, BlockPos storagePos) {
+        try {
+            BlockState state = level.getBlockState(storagePos);
+            if (state.hasProperty(ChestBlock.FACING)) return state.getValue(ChestBlock.FACING);
+            if (state.hasProperty(BarrelBlock.FACING)) return state.getValue(BarrelBlock.FACING);
+        } catch (Throwable ignored) {
+        }
+        return Direction.NORTH;
     }
 
     private static ServerLevel levelFor(MinecraftServer server, ChestShopRegistry.ChestShop shop) {

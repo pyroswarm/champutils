@@ -28,11 +28,18 @@ public final class MegaBossConfig {
             if (DATA.bosses == null || DATA.bosses.isEmpty()) DATA.bosses = defaults().bosses;
 
             Data defaultData = defaults();
-            if (DATA.configVersion < defaultData.configVersion) {
+            boolean upgradedConfig = DATA.configVersion < defaultData.configVersion;
+            if (upgradedConfig) {
                 DATA.bosses = defaultData.bosses;
                 DATA.rarityWeights = defaultData.rarityWeights;
+                DATA.maxAliveBosses = defaultData.maxAliveBosses;
+                DATA.maxAliveMegaBossesPerNearbyPlayer = defaultData.maxAliveMegaBossesPerNearbyPlayer;
+                DATA.nearbyPlayerBossRadius = defaultData.nearbyPlayerBossRadius;
+                DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
+                DATA.nameTagFormat = defaultData.nameTagFormat;
                 DATA.configVersion = defaultData.configVersion;
             }
+            sanitizeRuntimeDefaults(defaultData);
             DATA.bosses.removeIf(boss -> boss == null || boss.species == null || boss.species.equalsIgnoreCase("rayquaza"));
             save();
         } catch (Exception e) {
@@ -46,6 +53,16 @@ public final class MegaBossConfig {
             if (!FILE.getParentFile().exists()) FILE.getParentFile().mkdirs();
             try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(DATA, writer); }
         } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private static void sanitizeRuntimeDefaults(Data defaultData) {
+        if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = defaultData.checkIntervalTicks;
+        if (DATA.maxAliveMegaBossesPerNearbyPlayer <= 0) DATA.maxAliveMegaBossesPerNearbyPlayer = defaultData.maxAliveMegaBossesPerNearbyPlayer;
+        if (DATA.nearbyPlayerBossRadius <= 0) DATA.nearbyPlayerBossRadius = defaultData.nearbyPlayerBossRadius;
+        if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
+        if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
+        if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
+        if (DATA.rarityWeights == null) DATA.rarityWeights = defaultData.rarityWeights;
     }
 
     private static Data defaults() {
@@ -119,10 +136,32 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 2;
+        public int configVersion = 3;
         public boolean enabled = true;
         public int checkIntervalTicks = 1200;
-        public int maxAliveBosses = 2;
+        /**
+         * Soft safety cap. Set high enough that megabosses can behave like roaming trainers across the server.
+         * The real spawn limiter is maxAliveMegaBossesPerNearbyPlayer below.
+         */
+        public int maxAliveBosses = 50;
+
+        /**
+         * Roaming-trainer-style density cap: each player can only have this many megabosses near them.
+         */
+        public int maxAliveMegaBossesPerNearbyPlayer = 1;
+
+        /**
+         * Radius used for the nearby-player megaboss cap.
+         */
+        public int nearbyPlayerBossRadius = 128;
+
+        /**
+         * Prevents one server tick from spawning around every online player at once.
+         * Raise this if you want bigger worlds to fill faster.
+         */
+        public int maxSpawnedPlayersPerCheck = 3;
+
+        public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;
         public int maxDistanceFromPlayer = 96;
         public int levelsAbovePlayerHighest = 5;

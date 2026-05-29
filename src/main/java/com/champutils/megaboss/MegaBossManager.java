@@ -58,17 +58,24 @@ public final class MegaBossManager {
         if (ticksUntilCheck > 0) return;
         ticksUntilCheck = Math.max(20, MegaBossConfig.DATA.checkIntervalTicks);
         cleanup(server);
-        if (TRACKED.size() >= Math.max(1, MegaBossConfig.DATA.maxAliveBosses)) return;
+        int globalSafetyCap = Math.max(1, MegaBossConfig.DATA.maxAliveBosses);
+        if (TRACKED.size() >= globalSafetyCap) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
         players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()) || !ExplorationWorldManager.isOverworldGameplayLevel(p.serverLevel()));
         if (players.isEmpty()) return;
 
-        MegaBossConfig.BossEntry boss = pickBoss();
-        if (boss == null) return;
         Collections.shuffle(players, RANDOM);
+        int spawnedThisCheck = 0;
+        int maxSpawnedThisCheck = Math.max(1, MegaBossConfig.DATA.maxSpawnedPlayersPerCheck);
         for (ServerPlayer player : players) {
-            if (trySpawnFor(player, boss)) return;
+            if (TRACKED.size() >= globalSafetyCap) return;
+            if (spawnedThisCheck >= maxSpawnedThisCheck) return;
+            if (countMegaBossesNear(player.serverLevel(), player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) continue;
+
+            MegaBossConfig.BossEntry boss = pickBoss();
+            if (boss == null) continue;
+            if (trySpawnFor(player, boss)) spawnedThisCheck++;
         }
     }
 
@@ -100,6 +107,7 @@ public final class MegaBossManager {
 
     private static boolean trySpawnFor(ServerPlayer player, MegaBossConfig.BossEntry boss) {
         ServerLevel level = player.serverLevel();
+        if (countMegaBossesNear(level, player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) return false;
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) continue;
@@ -107,7 +115,11 @@ public final class MegaBossManager {
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
             if (entity == null) continue;
-            markBoss(entity, boss);
+            if (countMegaBossesNear(level, pos, nearbyBossRadius()) > Math.max(0, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer - 1)) {
+                entity.discard();
+                continue;
+            }
+            markBoss(entity, boss, pokemonLevel);
             announce(player.getServer(), boss, level, pos, pokemonLevel);
             return true;
         }
@@ -226,15 +238,39 @@ public final class MegaBossManager {
         return null;
     }
 
-    private static void markBoss(Entity entity, MegaBossConfig.BossEntry boss) {
+    private static void markBoss(Entity entity, MegaBossConfig.BossEntry boss, int pokemonLevel) {
         entity.addTag(BOSS_TAG);
         entity.addTag(BOSS_RARITY_PREFIX + normalizeRarity(boss.rarity));
         String stone = boss.megaStoneItem == null || boss.megaStoneItem.isBlank() ? defaultMegaStoneItem(boss) : boss.megaStoneItem.trim();
         entity.addTag(BOSS_STONE_PREFIX + stone);
         long expiresAt = System.currentTimeMillis() + Math.max(1L, MegaBossConfig.DATA.despawnMinutes) * 60_000L;
         entity.addTag(EXPIRES_PREFIX + expiresAt);
+        entity.setCustomName(Component.literal(formatNameTag(boss, pokemonLevel)));
+        entity.setCustomNameVisible(true);
         if (entity instanceof Mob mob) mob.setPersistenceRequired();
         TRACKED.put(entity.getUUID(), expiresAt);
+    }
+
+    private static int nearbyBossRadius() {
+        return Math.max(32, MegaBossConfig.DATA.nearbyPlayerBossRadius);
+    }
+
+    private static int countMegaBossesNear(ServerLevel level, BlockPos origin, int radius) {
+        int count = 0;
+        AABB box = new AABB(origin).inflate(radius);
+        for (Entity entity : level.getEntities(null, box)) {
+            if (isMegaBoss(entity) && entity.isAlive()) count++;
+        }
+        return count;
+    }
+
+    private static String formatNameTag(MegaBossConfig.BossEntry boss, int level) {
+        String format = MegaBossConfig.DATA.nameTagFormat;
+        if (format == null || format.isBlank()) format = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
+        return format
+                .replace("{species}", pretty(boss.species))
+                .replace("{rarity}", normalizeRarity(boss.rarity))
+                .replace("{level}", Integer.toString(level));
     }
 
     public static String defaultMegaStoneItem(MegaBossConfig.BossEntry boss) {
@@ -307,7 +343,7 @@ public final class MegaBossManager {
         return top;
     }
 
-    private static int playerPartyHighestLevelPlusFive(ServerPlayer player) {
+    public static int playerPartyHighestLevelPlusFive(ServerPlayer player) {
         int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {

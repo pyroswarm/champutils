@@ -71,16 +71,58 @@ public final class PokemonWikiIndex {
     public static String abilities(String speciesName) {
         Species species = findSpecies(speciesName);
         if (species == null) return "I do not know that Pokémon.";
-        LinkedHashSet<String> names = new LinkedHashSet<>();
-        for (String methodName : List.of("getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "getStandardAbilities", "getHiddenAbilities")) {
+
+        LinkedHashSet<String> normal = new LinkedHashSet<>();
+        LinkedHashSet<String> hidden = new LinkedHashSet<>();
+        LinkedHashSet<String> fallback = new LinkedHashSet<>();
+
+        collectNamedAbilities(species, normal, "getStandardAbilities", "getNormalAbilities", "standardAbilities", "normalAbilities");
+        collectNamedAbilities(species, hidden, "getHiddenAbilities", "hiddenAbilities");
+        collectNamedAbilities(species, fallback, "getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "abilities");
+
+        cleanAbilitySet(normal);
+        cleanAbilitySet(hidden);
+        cleanAbilitySet(fallback);
+
+        // If the Cobblemon API only exposes one combined pool on this version, still show it clearly.
+        if (normal.isEmpty() && hidden.isEmpty()) normal.addAll(fallback);
+        normal.removeAll(hidden);
+
+        if (normal.isEmpty() && hidden.isEmpty()) return "No ability data found for this Pokémon yet.";
+
+        String normalText = normal.isEmpty() ? "None found" : String.join("§7, §f", normal);
+        String hiddenText = hidden.isEmpty() ? "None found" : String.join("§7, §f", hidden);
+        return "Normal: §f" + normalText + " §7| Hidden: §f" + hiddenText;
+    }
+
+    private static void collectNamedAbilities(Species species, Set<String> out, String... memberNames) {
+        if (species == null || out == null) return;
+        for (String name : memberNames) {
             try {
-                Method m = species.getClass().getMethod(methodName);
-                collectAbilityNames(m.invoke(species), names, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+                Method m = species.getClass().getMethod(name);
+                if (m.getParameterCount() == 0) {
+                    collectAbilityNames(m.invoke(species), out, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+                }
+            } catch (Throwable ignored) {}
+            try {
+                Field f = findField(species.getClass(), name);
+                if (f != null) {
+                    f.setAccessible(true);
+                    collectAbilityNames(f.get(species), out, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+                }
             } catch (Throwable ignored) {}
         }
-        names.removeIf(s -> s.isBlank() || s.equalsIgnoreCase("abilities") || s.equalsIgnoreCase("abilitypool"));
-        if (names.isEmpty()) return "No ability data found for this Pokémon yet.";
-        return String.join("§7, §f", names);
+    }
+
+    private static void cleanAbilitySet(Set<String> values) {
+        values.removeIf(s -> s == null || s.isBlank() || s.equalsIgnoreCase("abilities") || s.equalsIgnoreCase("abilitypool") || s.equalsIgnoreCase("hidden") || s.equalsIgnoreCase("normal") || s.equalsIgnoreCase("standard"));
+    }
+
+    private static Field findField(Class<?> type, String name) {
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            try { return c.getDeclaredField(name); } catch (Throwable ignored) {}
+        }
+        return null;
     }
 
     public static String types(String speciesName) {

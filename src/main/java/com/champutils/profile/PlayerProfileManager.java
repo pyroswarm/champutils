@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public final class PlayerProfileManager {
     public static final int DEFAULT_MAX_PROFILES = 2;
@@ -54,9 +55,12 @@ public final class PlayerProfileManager {
                         "source text not null default 'DEFAULT', updated_at timestamptz not null default now())");
                 statement.executeUpdate("create table if not exists player_profiles (" +
                         "id uuid primary key default gen_random_uuid(), player_uuid uuid not null references players(uuid) on delete cascade, " +
-                        "name text not null, mode text not null check (mode in ('NORMAL','IRONMAN','MONOTYPE')), monotype text, " +
+                        "name text not null, mode text not null check (mode in ('NORMAL','IRONMAN','MONOTYPE','ISLANDER','NUZLOCKE')), monotype text, " +
                         "is_locked boolean not null default false, is_pending_delete boolean not null default false, delete_available_at timestamptz, " +
                         "created_at timestamptz not null default now(), last_used_at timestamptz, deleted_at timestamptz, metadata jsonb not null default '{}'::jsonb)");
+
+                statement.executeUpdate("alter table player_profiles drop constraint if exists player_profiles_mode_check");
+                statement.executeUpdate("alter table player_profiles add constraint player_profiles_mode_check check (mode in ('NORMAL','IRONMAN','MONOTYPE','ISLANDER','NUZLOCKE'))");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_dimension text");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_x double precision");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_y double precision");
@@ -67,9 +71,13 @@ public final class PlayerProfileManager {
                 statement.executeUpdate("drop index if exists idx_unique_profile_name_per_player_uuid");
                 statement.executeUpdate("drop index if exists player_profiles_unique_name_per_player_uuid");
                 statement.executeUpdate("create unique index if not exists player_profiles_unique_live_name on player_profiles(player_uuid, lower(name)) where deleted_at is null");
+                statement.executeUpdate("create index if not exists idx_player_profiles_player_live on player_profiles(player_uuid) where deleted_at is null");
+                statement.executeUpdate("create index if not exists idx_player_profiles_player_name_live on player_profiles(player_uuid, lower(name)) where deleted_at is null");
+                statement.executeUpdate("create index if not exists idx_player_profiles_pending_delete on player_profiles(player_uuid, is_pending_delete, delete_available_at) where deleted_at is null");
                 statement.executeUpdate("create table if not exists player_active_profiles (" +
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
                         "profile_id uuid not null references player_profiles(id) on delete cascade, updated_at timestamptz not null default now())");
+                statement.executeUpdate("create index if not exists idx_player_active_profiles_profile on player_active_profiles(profile_id)");
                 statement.executeUpdate("create table if not exists profile_ranked_stats (" +
                         "profile_id uuid not null references player_profiles(id) on delete cascade, season_id text not null default 'default', " +
                         "rp integer not null default 1000, peak_rp integer not null default 1000, wins integer not null default 0, losses integer not null default 0, " +
@@ -168,7 +176,19 @@ public static void unload(UUID playerUuid) {
     }
 
     public static boolean isIronman(ServerPlayer player) {
-        return gameMode(player) == ProfileGameMode.IRONMAN;
+        return gameMode(player).usesIronmanRules();
+    }
+
+    public static boolean isIslander(ServerPlayer player) {
+        return gameMode(player) == ProfileGameMode.ISLANDER;
+    }
+
+    public static boolean isNuzlocke(ServerPlayer player) {
+        return gameMode(player) == ProfileGameMode.NUZLOCKE;
+    }
+
+    public static boolean blocksAuctionHouse(ServerPlayer player) {
+        return gameMode(player).blocksAuctionHouse();
     }
 
     public static ProfileLimit limitBlocking(ServerPlayer player) {
@@ -274,6 +294,120 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         catch (Exception e) { e.printStackTrace(); return "Could not switch profile. Check console/database logs."; }
     }
 
+
+    public static void switchAsync(ServerPlayer player, String name, Consumer<String> callback) {
+        if (player == null) {
+            if (callback != null) callback.accept("Could not switch profile.");
+            return;
+        }
+        String clean = cleanName(name);
+        if (clean == null) {
+            if (callback != null) callback.accept("Invalid profile name.");
+            return;
+        }
+        if (!DatabaseManager.isEnabled()) {
+            if (callback != null) callback.accept("Profiles require the SQL database to be enabled.");
+            return;
+        }
+
+        UUID playerUuid = player.getUUID();
+        String playerName = player.getGameProfile().getName();
+        UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
+        boolean hadActiveProfile = previousProfileId != null && !previousProfileId.equals(playerUuid);
+
+        String saveDimension = null;
+        double saveX = 0.0D;
+        double saveY = 0.0D;
+        double saveZ = 0.0D;
+        float saveYaw = 0.0F;
+        float savePitch = 0.0F;
+        String vanillaSnapshot = null;
+        net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
+
+        if (hadActiveProfile) {
+            saveDimension = player.serverLevel().dimension().location().toString();
+            saveX = player.getX();
+            saveY = player.getY();
+            saveZ = player.getZ();
+            saveYaw = player.getYRot();
+            savePitch = player.getXRot();
+            vanillaSnapshot = VanillaProfileStateManager.snapshotSnbt(player);
+
+            CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
+            ChatPreferenceManager.save(player);
+            ProfileSessionLoader.unload(player);
+        }
+
+        final UUID previousProfileIdFinal = previousProfileId;
+        final boolean hadActiveProfileFinal = hadActiveProfile;
+        final String saveDimensionFinal = saveDimension;
+        final double saveXFinal = saveX;
+        final double saveYFinal = saveY;
+        final double saveZFinal = saveZ;
+        final float saveYawFinal = saveYaw;
+        final float savePitchFinal = savePitch;
+        final String vanillaSnapshotFinal = vanillaSnapshot;
+
+        DatabaseManager.runAsync("async profile switch", connection -> {
+            ProfileRecord target = readByName(connection, playerUuid, clean);
+            if (target == null) throw new IllegalArgumentException("No profile named " + clean + ".");
+            if (target.pendingDelete()) throw new IllegalStateException("That profile is pending deletion and cannot be loaded.");
+
+            if (hadActiveProfileFinal && previousProfileIdFinal != null) {
+                if (saveDimensionFinal != null && !ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(saveDimensionFinal)) {
+                    saveLocationSnapshot(connection, playerName, previousProfileIdFinal, saveDimensionFinal, saveXFinal, saveYFinal, saveZFinal, saveYawFinal, savePitchFinal);
+                }
+                if (vanillaSnapshotFinal != null && !vanillaSnapshotFinal.isBlank()) {
+                    try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
+                            "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
+                        ps.setObject(1, previousProfileIdFinal);
+                        ps.setObject(2, playerUuid);
+                        ps.setString(3, vanillaSnapshotFinal);
+                        ps.executeUpdate();
+                    }
+                }
+            }
+
+            setActive(connection, playerUuid, target.profileId());
+            String targetSnbt = VanillaProfileStateManager.loadSnbt(connection, target.profileId());
+            CobblemonProfileStorageBridge.prefetchProfileStores(target.profileId(), playerUuid, registryAccess);
+            ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
+
+            player.server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                try {
+                    if (hadActiveProfileFinal && previousProfileIdFinal != null) {
+                        CobblemonProfileStorageBridge.evictProfileStores(previousProfileIdFinal);
+                    }
+                    ACTIVE.put(playerUuid, active);
+                    ProfileLobbyManager.leaveLobby(player);
+                    VanillaProfileStateManager.applySnbt(player, targetSnbt);
+                    long cobblemonStart = System.currentTimeMillis();
+                    CobblemonProfileStorageBridge.loadActiveProfileStores(player);
+                    System.out.println("[PROFILE] loadActiveProfileStores total took " + (System.currentTimeMillis() - cobblemonStart) + "ms for " + player.getGameProfile().getName());
+
+                    long sessionStart = System.currentTimeMillis();
+                    ProfileSessionLoader.load(player);
+                    System.out.println("[PROFILE] ProfileSessionLoader.load took " + (System.currentTimeMillis() - sessionStart) + "ms for " + player.getGameProfile().getName());
+
+                    teleportToSavedLocation(player);
+                    if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    if (callback != null) callback.accept("Could not switch profile. Check console/database logs.");
+                }
+            });
+        }).exceptionally(throwable -> {
+            String message = throwable.getCause() != null ? throwable.getCause().getMessage() : throwable.getMessage();
+            if (message == null || message.isBlank()) message = "Could not switch profile. Check console/database logs.";
+            final String finalMessage = message;
+            player.server.execute(() -> {
+                if (callback != null) callback.accept(finalMessage);
+            });
+            return null;
+        });
+    }
+
     public static String deleteBlocking(ServerPlayer player, String name) {
         if (player == null) return "Could not delete profile.";
         String clean = cleanName(name);
@@ -292,11 +426,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 if (target.active()) ACTIVE.remove(player.getUUID());
                 return "Deleted profile " + target.profileName() + ".";
             }
-            try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = true, delete_available_at = now() + interval '24 hours' where id = ?")) {
+            try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = true, delete_available_at = now() + interval '30 minutes' where id = ?")) {
                 ps.setObject(1, target.profileId());
                 ps.executeUpdate();
             }
-            return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in 24 hours.";
+            return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in 30 minutes.";
         } catch (Exception e) { e.printStackTrace(); return "Could not delete profile. Check console/database logs."; }
     }
 
@@ -503,6 +637,35 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ps.setObject(1, profileId);
             ps.executeUpdate();
         }
+    }
+
+
+    public static String convertActiveToNormalBlocking(ServerPlayer player) {
+        ProfileRecord record = active(player);
+        if (player == null || record == null) return "No active profile loaded.";
+        if (record.gameMode() == ProfileGameMode.NORMAL) return "This profile is already Normal.";
+        if (!DatabaseManager.isEnabled()) return "Profiles require SQL.";
+        try (var ps = DatabaseManager.getConnection().prepareStatement("update player_profiles set mode = 'NORMAL', monotype = null, metadata = metadata || jsonb_build_object('converted_to_normal_at', now()::text, 'converted_from_mode', ?) where id = ?")) {
+            ps.setString(1, record.gameMode().name());
+            ps.setObject(2, record.profileId());
+            ps.executeUpdate();
+            ACTIVE.put(player.getUUID(), new ProfileRecord(record.profileId(), record.playerUuid(), record.profileName(), ProfileGameMode.NORMAL, null, true, false, null));
+            return "Converted " + record.profileName() + " to Normal. This cannot be changed back into a special profile.";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Could not convert profile. Check console/database logs.";
+        }
+    }
+
+    public static ProfileGameMode modeOfProfileIdBlocking(String profileId) {
+        if (profileId == null || profileId.isBlank() || !DatabaseManager.isEnabled()) return ProfileGameMode.NORMAL;
+        try (var ps = DatabaseManager.getConnection().prepareStatement("select mode from player_profiles where id = ? and deleted_at is null")) {
+            ps.setObject(1, java.util.UUID.fromString(profileId));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return ProfileGameMode.parse(rs.getString("mode"));
+            }
+        } catch (Exception ignored) {}
+        return ProfileGameMode.NORMAL;
     }
 
     private static ProfileRecord createProfile(Connection connection, ServerPlayer player, String name, ProfileGameMode mode, String monotypeType, boolean active) throws Exception {

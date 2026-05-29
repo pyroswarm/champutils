@@ -82,6 +82,16 @@ public final class CobblemonProfileStorageBridge {
         sqlFactory.save(profileId, player.registryAccess());
     }
 
+
+    public static void prefetchProfileStores(UUID profileId, UUID accountUuid, net.minecraft.core.RegistryAccess registryAccess) {
+        if (profileId == null || accountUuid == null || registryAccess == null || sqlFactory == null) return;
+        // Profile switching only needs the active party. The PC can be huge, so loading it here
+        // turns profile activation into a full PC SQL read + SNBT parse + Cobblemon hydration path.
+        // Keep switchAsync fast by warming only the party; getPC/getPCForPlayer will lazily hydrate
+        // the PC when the player actually opens/accesses PC storage.
+        sqlFactory.prefetchParty(profileId, accountUuid, registryAccess);
+    }
+
     public static void evictProfileStores(UUID profileId) {
         if (sqlFactory != null) sqlFactory.evict(profileId);
     }
@@ -93,9 +103,16 @@ public final class CobblemonProfileStorageBridge {
     public static void loadActiveProfileStores(ServerPlayer player) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
-        // These calls intentionally hydrate Cobblemon's native in-memory stores from SQL.
+        long start = System.currentTimeMillis();
+
+        // Profile activation must stay main-thread-light. Hydrate/send the party immediately so
+        // throw-out, battles, and party UI work after switching, but DO NOT load/send the PC here.
+        // Large PCs are lazily loaded by ProfileCobblemonSqlStoreFactory#getPC/getPCForPlayer on
+        // first actual PC access instead of during every profile swap.
         Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess()).sendTo(player);
-        Cobblemon.INSTANCE.getStorage().getPC(profileId, player.registryAccess()).sendTo(player);
         try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
+
+        long elapsed = System.currentTimeMillis() - start;
+        System.out.println("[PROFILE] Cobblemon party activation took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
     }
 }

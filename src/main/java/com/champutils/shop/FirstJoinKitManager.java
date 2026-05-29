@@ -1,6 +1,7 @@
 package com.champutils.shop;
 
 import com.champutils.profession.ProfessionToolManager;
+import com.champutils.profile.PlayerProfileManager;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -80,7 +81,8 @@ public final class FirstJoinKitManager {
             return;
         }
 
-        UUID uuid = player.getUUID();
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        UUID uuid = profileId == null ? player.getUUID() : profileId;
         String key = uuid.toString();
         if (DATA.claimed.contains(key)) {
             return;
@@ -93,7 +95,7 @@ public final class FirstJoinKitManager {
             give(player, entry);
         }
 
-        player.sendSystemMessage(Component.literal("Welcome! Your starter kit has been added to your inventory.").withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("Welcome! This profile's starter kit has been added to your inventory.").withStyle(ChatFormatting.GREEN));
     }
 
     private static void give(ServerPlayer player, FirstJoinKitConfig.KitEntry entry) {
