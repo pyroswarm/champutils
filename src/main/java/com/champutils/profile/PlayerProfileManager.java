@@ -20,14 +20,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public final class PlayerProfileManager {
     public static final int DEFAULT_MAX_PROFILES = 2;
 
     private static final Map<UUID, ProfileRecord> ACTIVE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Boolean> SWITCHING = new ConcurrentHashMap<>();
 
     private PlayerProfileManager() {}
+
+    private static long timing(String operation, Runnable runnable) {
+        long start = System.currentTimeMillis();
+        try {
+            runnable.run();
+        } finally {
+            System.out.println("[PROFILE-TIMING] " + operation + " took " + (System.currentTimeMillis() - start) + "ms");
+        }
+        return System.currentTimeMillis() - start;
+    }
+
 
     public record ProfileRecord(
             UUID profileId,
@@ -38,6 +51,16 @@ public final class PlayerProfileManager {
             boolean active,
             boolean pendingDelete,
             OffsetDateTime deleteAvailableAt
+    ) {}
+
+    private record SavedLocationSnapshot(
+            String dimension,
+            double x,
+            double y,
+            double z,
+            float yaw,
+            float pitch,
+            boolean useFallback
     ) {}
 
     public static void ensureSchemaAsync() {
@@ -311,6 +334,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         }
 
         UUID playerUuid = player.getUUID();
+        if (SWITCHING.putIfAbsent(playerUuid, Boolean.TRUE) != null) {
+            if (callback != null) callback.accept("Profile switch already in progress. Please wait a moment.");
+            return;
+        }
+
+        long switchStart = System.currentTimeMillis();
         String playerName = player.getGameProfile().getName();
         UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
         boolean hadActiveProfile = previousProfileId != null && !previousProfileId.equals(playerUuid);
@@ -325,6 +354,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
 
         if (hadActiveProfile) {
+            long snapshotStart = System.currentTimeMillis();
             saveDimension = player.serverLevel().dimension().location().toString();
             saveX = player.getX();
             saveY = player.getY();
@@ -332,10 +362,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             saveYaw = player.getYRot();
             savePitch = player.getXRot();
             vanillaSnapshot = VanillaProfileStateManager.snapshotSnbt(player);
+            System.out.println("[PROFILE-TIMING] switchAsync.snapshot old vanilla/location took " + (System.currentTimeMillis() - snapshotStart) + "ms");
 
-            CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
-            ChatPreferenceManager.save(player);
-            ProfileSessionLoader.unload(player);
+            timing("switchAsync.forceSaveProfileStores old profile", () -> CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player));
+            timing("switchAsync.ChatPreferenceManager.saveAsync", () -> ChatPreferenceManager.saveAsync(player.getUUID(), ChatPreferenceManager.get(player.getUUID())));
+            timing("switchAsync.ProfileSessionLoader.unload", () -> ProfileSessionLoader.unload(player));
         }
 
         final UUID previousProfileIdFinal = previousProfileId;
@@ -349,11 +380,14 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         final String vanillaSnapshotFinal = vanillaSnapshot;
 
         DatabaseManager.runAsync("async profile switch", connection -> {
+            long sqlStart = System.currentTimeMillis();
             ProfileRecord target = readByName(connection, playerUuid, clean);
             if (target == null) throw new IllegalArgumentException("No profile named " + clean + ".");
             if (target.pendingDelete()) throw new IllegalStateException("That profile is pending deletion and cannot be loaded.");
+            System.out.println("[PROFILE-TIMING] SQL profile lookup took " + (System.currentTimeMillis() - sqlStart) + "ms");
 
             if (hadActiveProfileFinal && previousProfileIdFinal != null) {
+                long oldSaveStart = System.currentTimeMillis();
                 if (saveDimensionFinal != null && !ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(saveDimensionFinal)) {
                     saveLocationSnapshot(connection, playerName, previousProfileIdFinal, saveDimensionFinal, saveXFinal, saveYFinal, saveZFinal, saveYawFinal, savePitchFinal);
                 }
@@ -366,38 +400,66 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         ps.executeUpdate();
                     }
                 }
+                System.out.println("[PROFILE-TIMING] SQL old profile location/vanilla save took " + (System.currentTimeMillis() - oldSaveStart) + "ms");
             }
 
+            long activeSqlStart = System.currentTimeMillis();
             setActive(connection, playerUuid, target.profileId());
             String targetSnbt = VanillaProfileStateManager.loadSnbt(connection, target.profileId());
+            SavedLocationSnapshot savedLocationSnapshot = loadSavedLocationSnapshot(connection, target.profileId());
+            System.out.println("[PROFILE-TIMING] SQL active update + vanilla/location load took " + (System.currentTimeMillis() - activeSqlStart) + "ms");
+
+            long partyPrefetchStart = System.currentTimeMillis();
             CobblemonProfileStorageBridge.prefetchProfileStores(target.profileId(), playerUuid, registryAccess);
+            System.out.println("[PROFILE-TIMING] party prefetch took " + (System.currentTimeMillis() - partyPrefetchStart) + "ms");
+
             ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
 
             player.server.execute(() -> {
-                if (player.hasDisconnected()) return;
+                long activationStart = System.currentTimeMillis();
+                if (player.hasDisconnected()) {
+                    SWITCHING.remove(playerUuid);
+                    return;
+                }
                 try {
                     if (hadActiveProfileFinal && previousProfileIdFinal != null) {
-                        CobblemonProfileStorageBridge.evictProfileStores(previousProfileIdFinal);
+                        timing("server.execute.evict old Cobblemon stores", () -> CobblemonProfileStorageBridge.evictProfileStores(previousProfileIdFinal));
                     }
                     ACTIVE.put(playerUuid, active);
-                    ProfileLobbyManager.leaveLobby(player);
-                    VanillaProfileStateManager.applySnbt(player, targetSnbt);
-                    long cobblemonStart = System.currentTimeMillis();
-                    CobblemonProfileStorageBridge.loadActiveProfileStores(player);
-                    System.out.println("[PROFILE] loadActiveProfileStores total took " + (System.currentTimeMillis() - cobblemonStart) + "ms for " + player.getGameProfile().getName());
+                    timing("server.execute.ProfileLobbyManager.leaveLobby", () -> ProfileLobbyManager.leaveLobby(player));
+                    timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbt));
+                    timing("server.execute.loadActiveProfileStores", () -> CobblemonProfileStorageBridge.loadActiveProfileStores(player));
+                    timing("server.execute.ProfileSessionLoader.loadCritical", () -> ProfileSessionLoader.loadCritical(player));
+                    timing("server.execute.teleportToSavedLocation", () -> teleportToSavedLocationSnapshot(player, savedLocationSnapshot));
 
-                    long sessionStart = System.currentTimeMillis();
-                    ProfileSessionLoader.load(player);
-                    System.out.println("[PROFILE] ProfileSessionLoader.load took " + (System.currentTimeMillis() - sessionStart) + "ms for " + player.getGameProfile().getName());
+                    System.out.println("[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
 
-                    teleportToSavedLocation(player);
+                    CompletableFuture
+                            .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
+                            .whenComplete((snapshot, error) -> player.server.execute(() -> {
+                                try {
+                                    if (error != null) {
+                                        System.err.println("[ChampUtils] Background profile session load failed for " + playerName + ": " + error.getMessage());
+                                        error.printStackTrace();
+                                    } else {
+                                        ProfileSessionLoader.applyBackground(player, snapshot);
+                                    }
+                                    ProfileSessionLoader.loadDelayedNonCritical(player);
+                                } finally {
+                                    SWITCHING.remove(playerUuid);
+                                    System.out.println("[PROFILE-TIMING] switchAsync total took " + (System.currentTimeMillis() - switchStart) + "ms for " + playerName);
+                                }
+                            }));
+
                     if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
                 } catch (Exception e) {
+                    SWITCHING.remove(playerUuid);
                     e.printStackTrace();
                     if (callback != null) callback.accept("Could not switch profile. Check console/database logs.");
                 }
             });
         }).exceptionally(throwable -> {
+            SWITCHING.remove(playerUuid);
             String message = throwable.getCause() != null ? throwable.getCause().getMessage() : throwable.getMessage();
             if (message == null || message.isBlank()) message = "Could not switch profile. Check console/database logs.";
             final String finalMessage = message;
@@ -508,6 +570,58 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ps.setFloat(6, pitch);
             ps.setObject(7, profileId);
             ps.executeUpdate();
+        }
+    }
+
+    private static SavedLocationSnapshot loadSavedLocationSnapshot(Connection connection, UUID profileId) throws Exception {
+        if (connection == null || profileId == null) return null;
+        try (var ps = connection.prepareStatement("select last_dimension, last_x, last_y, last_z, last_yaw, last_pitch from player_profiles where id = ?")) {
+            ps.setObject(1, profileId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                String dimension = rs.getString("last_dimension");
+                if (dimension == null || dimension.isBlank() || ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension)) {
+                    return new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true);
+                }
+                return new SavedLocationSnapshot(
+                        dimension,
+                        rs.getDouble("last_x"),
+                        rs.getDouble("last_y"),
+                        rs.getDouble("last_z"),
+                        rs.getFloat("last_yaw"),
+                        rs.getFloat("last_pitch"),
+                        false
+                );
+            }
+        }
+    }
+
+    private static void teleportToSavedLocationSnapshot(ServerPlayer player, SavedLocationSnapshot snapshot) {
+        if (player == null || player.server == null || snapshot == null) return;
+        if (snapshot.useFallback()) {
+            teleportToFirstProfileFallback(player);
+            return;
+        }
+        try {
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
+                    net.minecraft.resources.ResourceKey.create(
+                            net.minecraft.core.registries.Registries.DIMENSION,
+                            net.minecraft.resources.ResourceLocation.parse(snapshot.dimension())
+                    );
+            net.minecraft.server.level.ServerLevel level = player.server.getLevel(key);
+            if (level == null) {
+                player.sendSystemMessage(Component.literal("Saved profile location dimension is missing: " + snapshot.dimension() + ". Sending you to spawn.").withStyle(ChatFormatting.YELLOW));
+                teleportToFirstProfileFallback(player);
+                return;
+            }
+            player.teleportTo(level, snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch());
+            player.setYRot(snapshot.yaw());
+            player.setYHeadRot(snapshot.yaw());
+            player.setXRot(snapshot.pitch());
+            player.resetFallDistance();
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to restore profile location snapshot for " + player.getGameProfile().getName());
+            e.printStackTrace();
         }
     }
 

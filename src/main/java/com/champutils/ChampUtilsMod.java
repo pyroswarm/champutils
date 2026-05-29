@@ -429,7 +429,7 @@ public class ChampUtilsMod implements ModInitializer {
                             playerName
                     );
 
-                    ChatPreferenceManager.load(
+                    ChatPreferenceManager.preloadOnJoin(
                             player
                     );
 
@@ -454,7 +454,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PlayerProfileManager.saveActiveLocation(handler.player);
                     VanillaProfileStateManager.save(handler.player);
                     CobblemonProfileStorageBridge.forceSaveActiveProfileStores(handler.player);
-                    ChatPreferenceManager.save(handler.player);
+                    ChatPreferenceManager.saveAsync(handler.player.getUUID(), ChatPreferenceManager.get(handler.player.getUUID()));
 
                     MatchmakingManager.leaveQueue(
                             handler.player

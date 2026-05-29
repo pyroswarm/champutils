@@ -126,10 +126,12 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
 
     public void save(UUID profileId, RegistryAccess registryAccess) {
         if (!canOwn(profileId)) return;
+        long start = System.currentTimeMillis();
         PlayerPartyStore party = partyCache.get(profileId);
-        PCStore pc = pcCache.get(profileId);
+        PCStore pc = pcCache.get(profileId); // null means PC was never lazy-loaded; never load it just to save.
         if (party == null && pc == null) return;
         upsert(profileId, party, pc, registryAccess);
+        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.save took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null));
     }
 
     public void saveAll(RegistryAccess registryAccess) {
@@ -139,15 +141,25 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
 
     public void saveAsync(UUID profileId, RegistryAccess registryAccess) {
         if (!canOwn(profileId)) return;
+        long start = System.currentTimeMillis();
         PlayerPartyStore party = partyCache.get(profileId);
-        PCStore pc = pcCache.get(profileId);
+        PCStore pc = pcCache.get(profileId); // dirty rule: if PC was never loaded, do not serialize or write it.
         if (party == null && pc == null) return;
 
         String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
         String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
-        DatabaseManager.executeAsync("save SQL Cobblemon profile stores", connection -> upsertSnapshot(connection, profileId, partyNbt, pcNbt));
+        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync snapshot took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null) + " pcSnapshot=" + (pcNbt != null));
+        DatabaseManager.executeAsync("save SQL Cobblemon profile stores", connection -> {
+            long sqlStart = System.currentTimeMillis();
+            upsertSnapshot(connection, profileId, partyNbt, pcNbt);
+            System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync SQL write took " + (System.currentTimeMillis() - sqlStart) + "ms for profile=" + profileId);
+        });
     }
 
+
+    public boolean isPcLoaded(UUID profileId) {
+        return profileId != null && pcCache.containsKey(profileId);
+    }
 
     public void prefetchParty(UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
         if (profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
