@@ -602,6 +602,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChampWorldBorderCommand.register();
         GlobalGameruleCommand.register();
         ProfileCommand.register();
+        GraveyardCommand.register();
 
         /*
          New custom item test command

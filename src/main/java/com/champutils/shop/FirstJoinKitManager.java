@@ -2,6 +2,7 @@ package com.champutils.shop;
 
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileGameMode;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -93,6 +94,12 @@ public final class FirstJoinKitManager {
 
         for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.entries) {
             give(player, entry);
+        }
+
+        if (PlayerProfileManager.gameMode(player) == ProfileGameMode.ISLANDER) {
+            for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.islanderEntries) {
+                give(player, entry);
+            }
         }
 
         player.sendSystemMessage(Component.literal("Welcome! This profile's starter kit has been added to your inventory.").withStyle(ChatFormatting.GREEN));

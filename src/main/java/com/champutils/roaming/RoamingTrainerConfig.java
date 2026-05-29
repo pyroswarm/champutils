@@ -26,15 +26,28 @@ public final class RoamingTrainerConfig {
 
     public static class ConfigRoot {
         public boolean enabled = true;
-        public int scanIntervalSeconds = 25;
-        public int maxTrainersPerPlayer = 2;
-        public int spawnMinDistance = 24;
-        public int spawnMaxDistance = 48;
-        public int activePlayerRadius = 64;
-        public int despawnAfterNoPlayersSeconds = 180;
+        public int scanIntervalSeconds = 300;
+        public int spawnCheckSeconds = 300;
+        public int maxTrainersPerPlayer = 1;
+        public int maxNearbyPerPlayer = 1;
+        public int maxTrainersPerWorld = 20;
+        public int maxWorldTotal = 20;
+        public double spawnChancePerScan = 0.01D;
+        public double spawnChancePerCheck = 0.01D;
+        public int spawnMinDistance = 32;
+        public int minimumDistance = 32;
+        public int spawnMaxDistance = 96;
+        public int maximumDistance = 96;
+        public int activePlayerRadius = 96;
+        public int despawnAfterNoPlayersSeconds = 900;
+        public int despawnMinutes = 15;
+        public int noPlayerNearbyDespawnSeconds = 300;
         public boolean doNotDespawnWhileInBattle = true;
         public boolean requireSolidGround = true;
         public int maxSpawnAttemptsPerPlayer = 12;
+        public int islanderSpawnMinDistance = 12;
+        public int islanderSpawnMaxDistance = 48;
+        public int islanderMaxSpawnAttemptsPerPlayer = 48;
         public List<String> blockedDimensions = new ArrayList<>();
         public boolean allowAllPokemonFromCobblemonRegistry = true;
         public List<String> blacklistedPokemon = new ArrayList<>();
@@ -52,6 +65,7 @@ public final class RoamingTrainerConfig {
         public List<String> randomTrainerSkins = new ArrayList<>();
         public List<String> maleTrainerSkins = new ArrayList<>();
         public List<String> femaleTrainerSkins = new ArrayList<>();
+        public boolean allowCompetitiveMoves = false;
     }
 
     public static class RaritySettings {
@@ -125,12 +139,32 @@ public final class RoamingTrainerConfig {
         DATA.randomTrainerSkins = cleanTrainerSkins(DATA.randomTrainerSkins);
         DATA.maleTrainerSkins = cleanTrainerSkins(DATA.maleTrainerSkins, defaultMaleTrainerSkins());
         DATA.femaleTrainerSkins = cleanTrainerSkins(DATA.femaleTrainerSkins, defaultFemaleTrainerSkins());
+        DATA.scanIntervalSeconds = DATA.spawnCheckSeconds > 0 ? DATA.spawnCheckSeconds : DATA.scanIntervalSeconds;
+        DATA.spawnCheckSeconds = DATA.scanIntervalSeconds;
+        DATA.maxTrainersPerPlayer = DATA.maxNearbyPerPlayer > 0 ? DATA.maxNearbyPerPlayer : DATA.maxTrainersPerPlayer;
+        DATA.maxNearbyPerPlayer = DATA.maxTrainersPerPlayer;
+        DATA.maxTrainersPerWorld = DATA.maxWorldTotal > 0 ? DATA.maxWorldTotal : DATA.maxTrainersPerWorld;
+        DATA.maxWorldTotal = DATA.maxTrainersPerWorld;
+        DATA.spawnChancePerScan = DATA.spawnChancePerCheck > 0.0D ? DATA.spawnChancePerCheck : DATA.spawnChancePerScan;
+        DATA.spawnChancePerCheck = DATA.spawnChancePerScan;
+        DATA.spawnMinDistance = DATA.minimumDistance > 0 ? DATA.minimumDistance : DATA.spawnMinDistance;
+        DATA.minimumDistance = DATA.spawnMinDistance;
+        DATA.spawnMaxDistance = DATA.maximumDistance > 0 ? DATA.maximumDistance : DATA.spawnMaxDistance;
+        DATA.maximumDistance = DATA.spawnMaxDistance;
+        if (DATA.despawnMinutes > 0) DATA.despawnAfterNoPlayersSeconds = DATA.despawnMinutes * 60;
+        DATA.despawnMinutes = Math.max(1, DATA.despawnAfterNoPlayersSeconds / 60);
         if (DATA.scanIntervalSeconds < 5) DATA.scanIntervalSeconds = 5;
         if (DATA.spawnMinDistance < 8) DATA.spawnMinDistance = 8;
         if (DATA.spawnMaxDistance < DATA.spawnMinDistance) DATA.spawnMaxDistance = DATA.spawnMinDistance + 12;
         if (DATA.activePlayerRadius < 16) DATA.activePlayerRadius = 16;
         if (DATA.despawnAfterNoPlayersSeconds < 30) DATA.despawnAfterNoPlayersSeconds = 30;
         if (DATA.maxSpawnAttemptsPerPlayer < 1) DATA.maxSpawnAttemptsPerPlayer = 1;
+        if (DATA.islanderSpawnMinDistance < 4) DATA.islanderSpawnMinDistance = 4;
+        if (DATA.islanderSpawnMaxDistance < DATA.islanderSpawnMinDistance) DATA.islanderSpawnMaxDistance = DATA.islanderSpawnMinDistance + 12;
+        if (DATA.islanderMaxSpawnAttemptsPerPlayer < DATA.maxSpawnAttemptsPerPlayer) DATA.islanderMaxSpawnAttemptsPerPlayer = DATA.maxSpawnAttemptsPerPlayer;
+        if (DATA.maxTrainersPerWorld < 1) DATA.maxTrainersPerWorld = 1;
+        if (DATA.spawnChancePerScan < 0.0D) DATA.spawnChancePerScan = 0.0D;
+        if (DATA.spawnChancePerScan > 1.0D) DATA.spawnChancePerScan = 1.0D;
 
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
@@ -160,9 +194,25 @@ public final class RoamingTrainerConfig {
         };
     }
 
+    public static boolean isIslanderDimension(String dimensionId) {
+        if (dimensionId == null) return false;
+        String normalized = dimensionId.toLowerCase(Locale.ROOT);
+        return normalized.equals("multiworld:islander")
+                || normalized.equals("islander")
+                || normalized.startsWith("multiworld:islander_")
+                || normalized.startsWith("islander_")
+                || normalized.contains(":islander_")
+                || normalized.contains("/islander_");
+    }
+
     public static boolean isBlockedDimension(String dimensionId) {
         if (dimensionId == null) return false;
         String normalized = dimensionId.toLowerCase(Locale.ROOT);
+
+        // Islander worlds are allowed even if the world implementation names them like a territory.
+        // This prevents the generic territory block from accidentally disabling roaming trainers there.
+        if (isIslanderDimension(normalized)) return false;
+
         if (normalized.contains("territor")) return true;
         for (String blocked : DATA.blockedDimensions) {
             if (blocked == null || blocked.isBlank()) continue;
@@ -179,6 +229,21 @@ public final class RoamingTrainerConfig {
 
     private static ConfigRoot defaultConfig() {
         ConfigRoot root = new ConfigRoot();
+        root.scanIntervalSeconds = 300;
+        root.spawnCheckSeconds = 300;
+        root.spawnChancePerScan = 0.01D;
+        root.spawnChancePerCheck = 0.01D;
+        root.maxTrainersPerPlayer = 1;
+        root.maxNearbyPerPlayer = 1;
+        root.maxTrainersPerWorld = 20;
+        root.maxWorldTotal = 20;
+        root.spawnMinDistance = 32;
+        root.minimumDistance = 32;
+        root.spawnMaxDistance = 96;
+        root.maximumDistance = 96;
+        root.despawnAfterNoPlayersSeconds = 900;
+        root.despawnMinutes = 15;
+        root.noPlayerNearbyDespawnSeconds = 300;
         root.blockedDimensions.add("spawn1");
         root.blockedDimensions.add("multiworld:spawn1");
         root.blacklistedPokemon = defaultBlacklistedPokemon();
@@ -206,27 +271,27 @@ public final class RoamingTrainerConfig {
         s.trainerNames.addAll(defaultTrainerNames(rarity));
         switch (rarity) {
             case COMMON -> {
-                s.weight = 70; s.pokemonCount = 1; s.levelOffsetMin = -3; s.levelOffsetMax = 1; s.aiSkill = 1;
+                s.weight = 85; s.pokemonCount = 1; s.levelOffsetMin = -3; s.levelOffsetMax = 1; s.aiSkill = 1;
                 s.allPokemonChance = 0.85D;
                 s.fragmentMin = 1; s.fragmentMax = 2;
                 s.rewardCommands.add("eco give %player% 100");
             }
             case UNCOMMON -> {
-                s.weight = 20; s.pokemonCount = 1; s.levelOffsetMin = -2; s.levelOffsetMax = 2; s.aiSkill = 1;
+                s.weight = 12; s.pokemonCount = 1; s.levelOffsetMin = -2; s.levelOffsetMax = 2; s.aiSkill = 1;
                 s.allPokemonChance = 0.60D;
                 s.evolvedSpeciesChance = 0.15; s.heldItemChance = 0.10; s.competitiveNatureChance = 0.15;
                 s.fragmentMin = 1; s.fragmentMax = 3;
                 s.rewardCommands.add("eco give %player% 250");
             }
             case RARE -> {
-                s.weight = 7; s.pokemonCount = 2; s.levelOffsetMin = 0; s.levelOffsetMax = 3; s.aiSkill = 2;
+                s.weight = 3; s.pokemonCount = 2; s.levelOffsetMin = 0; s.levelOffsetMax = 3; s.aiSkill = 2;
                 s.allPokemonChance = 0.35D;
                 s.evolvedSpeciesChance = 0.35; s.heldItemChance = 0.25; s.competitiveNatureChance = 0.35;
                 s.fragmentMin = 2; s.fragmentMax = 4;
                 s.rewardCommands.add("eco give %player% 750");
             }
             case EPIC -> {
-                s.weight = 2; s.pokemonCount = 2; s.levelOffsetMin = 1; s.levelOffsetMax = 4; s.aiSkill = 2;
+                s.weight = 0.0; s.pokemonCount = 2; s.levelOffsetMin = 1; s.levelOffsetMax = 4; s.aiSkill = 2;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.55; s.heldItemChance = 0.45; s.competitiveNatureChance = 0.55;
@@ -234,7 +299,7 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 2000");
             }
             case LEGENDARY -> {
-                s.weight = 0.8; s.pokemonCount = 3; s.levelOffsetMin = 2; s.levelOffsetMax = 5; s.aiSkill = 3;
+                s.weight = 0.0; s.pokemonCount = 3; s.levelOffsetMin = 2; s.levelOffsetMax = 5; s.aiSkill = 3;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 0.75; s.heldItemChance = 0.65; s.competitiveNatureChance = 0.75;
@@ -242,7 +307,7 @@ public final class RoamingTrainerConfig {
                 s.rewardCommands.add("eco give %player% 5000");
             }
             case MYTHIC -> {
-                s.weight = 0.2; s.pokemonCount = 3; s.levelOffsetMin = 3; s.levelOffsetMax = 6; s.aiSkill = 3;
+                s.weight = 0.0; s.pokemonCount = 3; s.levelOffsetMin = 3; s.levelOffsetMax = 6; s.aiSkill = 3;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 3;
                 s.evolvedSpeciesChance = 0.95; s.heldItemChance = 0.90; s.competitiveNatureChance = 0.95; s.shinyChance = 0.01;

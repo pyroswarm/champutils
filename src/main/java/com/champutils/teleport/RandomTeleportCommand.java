@@ -6,6 +6,7 @@ import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.survival.SurvivalWorldManager;
 import com.champutils.worldborder.ChampWorldBorderManager;
 import com.champutils.profile.ProfileLobbyLockManager;
+import com.champutils.profile.PlayerProfileManager;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -185,6 +186,11 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
+        if (PlayerProfileManager.isIslander(player) && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal("Islander profiles cannot use RTP. Islanders are limited to spawn and Islander worlds.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
         UUID playerId = player.getUUID();
 
         if (ACTIVE_SEARCHES.containsKey(playerId)) {
@@ -248,6 +254,16 @@ public final class RandomTeleportCommand {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
             source.sendFailure(Component.literal("Only players can use /rtp."));
+            return 0;
+        }
+
+        if (ProfileLobbyLockManager.isLocked(player) && !ProfileLobbyLockManager.hasBypass(player)) {
+            player.sendSystemMessage(Component.literal("Select a profile before using RTP.").withStyle(ChatFormatting.YELLOW));
+            return 0;
+        }
+
+        if (PlayerProfileManager.isIslander(player) && !player.hasPermissions(4)) {
+            player.sendSystemMessage(Component.literal("Islander profiles cannot use RTP. Islanders are limited to spawn and Islander worlds.").withStyle(ChatFormatting.RED));
             return 0;
         }
 

@@ -95,6 +95,8 @@ public final class PlayerProfileManager {
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
                         "max_profiles integer not null default 2, instant_delete boolean not null default false, " +
                         "source text not null default 'DEFAULT', updated_at timestamptz not null default now())");
+                statement.executeUpdate("alter table player_profile_limits add column if not exists fast_delete boolean not null default false");
+                statement.executeUpdate("alter table player_profile_limits add column if not exists deletion_delay_minutes integer not null default 30");
                 statement.executeUpdate("create table if not exists player_profiles (" +
                         "id uuid primary key default gen_random_uuid(), player_uuid uuid not null references players(uuid) on delete cascade, " +
                         "name text not null, mode text not null check (mode in ('NORMAL','IRONMAN','MONOTYPE','ISLANDER','NUZLOCKE')), monotype text, " +
@@ -241,22 +243,27 @@ public static void unload(UUID playerUuid) {
     }
 
     public static ProfileLimit limitBlocking(ServerPlayer player) {
-        if (player == null || !DatabaseManager.isEnabled()) return new ProfileLimit(DEFAULT_MAX_PROFILES, false);
+        if (player == null || !DatabaseManager.isEnabled()) return new ProfileLimit(DEFAULT_MAX_PROFILES, false, false, 30);
         try {
             Connection connection = DatabaseManager.getConnection();
             ensurePlayerRow(connection, player);
             syncLimitFromLuckPerms(connection, player);
-            try (var ps = connection.prepareStatement("select max_profiles, instant_delete from player_profile_limits where player_uuid = ?")) {
+            try (var ps = connection.prepareStatement("select max_profiles, instant_delete, fast_delete, deletion_delay_minutes from player_profile_limits where player_uuid = ?")) {
                 ps.setObject(1, player.getUUID());
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) return new ProfileLimit(Math.max(DEFAULT_MAX_PROFILES, rs.getInt("max_profiles")), rs.getBoolean("instant_delete"));
+                    if (rs.next()) {
+                        boolean instant = rs.getBoolean("instant_delete");
+                        boolean fast = rs.getBoolean("fast_delete");
+                        int delay = instant ? 0 : Math.max(1, rs.getInt("deletion_delay_minutes"));
+                        return new ProfileLimit(Math.max(DEFAULT_MAX_PROFILES, rs.getInt("max_profiles")), instant, fast, delay);
+                    }
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
-        return new ProfileLimit(DEFAULT_MAX_PROFILES, false);
+        return new ProfileLimit(DEFAULT_MAX_PROFILES, false, false, 30);
     }
 
-    public record ProfileLimit(int maxProfiles, boolean instantDelete) {}
+    public record ProfileLimit(int maxProfiles, boolean instantDelete, boolean fastDelete, int deletionDelayMinutes) {}
 
 
 public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
@@ -578,13 +585,43 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 clearProfileCache(player.getUUID());
                 return "Deleted profile " + target.profileName() + ".";
             }
-            try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = true, delete_available_at = now() + interval '30 minutes' where id = ?")) {
-                ps.setObject(1, target.profileId());
+            int delayMinutes = Math.max(1, limit.deletionDelayMinutes());
+            try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = true, delete_available_at = now() + (? * interval '1 minute') where id = ?")) {
+                ps.setInt(1, delayMinutes);
+                ps.setObject(2, target.profileId());
                 ps.executeUpdate();
                 clearProfileCache(player.getUUID());
             }
-            return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in 30 minutes.";
+            return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in " + formatMinutes(delayMinutes) + ".";
         } catch (Exception e) { e.printStackTrace(); return "Could not delete profile. Check console/database logs."; }
+    }
+
+    public static String cancelDeleteBlocking(ServerPlayer player, String name) {
+        if (player == null) return "Could not cancel profile deletion.";
+        String clean = cleanName(name);
+        if (clean == null) return "Invalid profile name.";
+        if (!DatabaseManager.isEnabled()) return "Profiles require the SQL database to be enabled.";
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            ProfileRecord target = readByName(connection, player.getUUID(), clean);
+            if (target == null) return "No profile named " + clean + ".";
+            if (!target.pendingDelete()) return "Profile " + target.profileName() + " is not queued for deletion.";
+            try (var ps = connection.prepareStatement("update player_profiles set is_pending_delete = false, delete_available_at = null where id = ? and deleted_at is null")) {
+                ps.setObject(1, target.profileId());
+                ps.executeUpdate();
+            }
+            clearProfileCache(player.getUUID());
+            return "Cancelled deletion for profile " + target.profileName() + ".";
+        } catch (Exception e) { e.printStackTrace(); return "Could not cancel profile deletion. Check console/database logs."; }
+    }
+
+    private static String formatMinutes(int minutes) {
+        if (minutes <= 0) return "now";
+        if (minutes < 60) return minutes + " minute" + (minutes == 1 ? "" : "s");
+        int hours = minutes / 60;
+        int mins = minutes % 60;
+        if (mins == 0) return hours + " hour" + (hours == 1 ? "" : "s");
+        return hours + "h " + mins + "m";
     }
 
     public static String finalizePendingDeletesBlocking(ServerPlayer player) {
@@ -797,12 +834,16 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.4")) max = Math.max(max, 4);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.5")) max = Math.max(max, 5);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.6")) max = Math.max(max, 6);
+        boolean fast = LuckPermsHook.hasPermission(player, "champutils.profiles.fast_delete");
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.instant_delete")) instant = true;
-        try (var ps = connection.prepareStatement("insert into player_profile_limits (player_uuid, max_profiles, instant_delete, source, updated_at) values (?, ?, ?, 'LUCKPERMS', now()) " +
-                "on conflict (player_uuid) do update set max_profiles = excluded.max_profiles, instant_delete = excluded.instant_delete, source = excluded.source, updated_at = now()")) {
+        int delayMinutes = instant ? 0 : (fast ? 5 : 30);
+        try (var ps = connection.prepareStatement("insert into player_profile_limits (player_uuid, max_profiles, instant_delete, fast_delete, deletion_delay_minutes, source, updated_at) values (?, ?, ?, ?, ?, 'LUCKPERMS', now()) " +
+                "on conflict (player_uuid) do update set max_profiles = excluded.max_profiles, instant_delete = excluded.instant_delete, fast_delete = excluded.fast_delete, deletion_delay_minutes = excluded.deletion_delay_minutes, source = excluded.source, updated_at = now()")) {
             ps.setObject(1, player.getUUID());
             ps.setInt(2, max);
             ps.setBoolean(3, instant);
+            ps.setBoolean(4, fast);
+            ps.setInt(5, delayMinutes);
             ps.executeUpdate();
         }
     }

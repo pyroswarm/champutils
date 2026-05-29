@@ -85,20 +85,64 @@ public final class TerritoryMenus {
         gui.setTitle(Component.literal("Territory Steward"));
         fillAll(gui);
         gui.setSlot(4, territoryCard(territory, Items.GRASS_BLOCK, "No personal territory yet"));
-        gui.setSlot(10, button(Items.ENDER_PEARL, "Go Home", "Teleport to this territory home.", () -> {
+        gui.setSlot(10, button(Items.COMPARATOR, "Settings", "Toggle territory settings.", () -> openSettings(player, false)));
+        gui.setSlot(12, button(Items.NAME_TAG, "Rename Territory", "Opens rename instructions.", () -> openRenameMenu(player)));
+        gui.setSlot(14, button(Items.RED_BED, "Return to Spawn", "Teleport back to server spawn.", () -> {
             gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory home");
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
         }));
-        gui.setSlot(12, button(Items.COMPARATOR, "Settings", "Toggle territory settings.", () -> openSettings(player, false)));
-        gui.setSlot(14, button(Items.OAK_SIGN, "Set Home", "Set your territory home where you are standing.", () -> {
-            gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory sethome");
-        }));
-        gui.setSlot(16, button(Items.NAME_TAG, "Rename", "Use /territory name <name>.", () -> {
-            gui.close();
-            player.sendSystemMessage(Component.literal("Rename with: /territory name <name>").withStyle(ChatFormatting.YELLOW));
-        }));
+        gui.setSlot(16, button(Items.PLAYER_HEAD, "Trusted Players", "Manage trusted players for this territory.", () -> openTrustedPlayersMenu(player)));
         gui.setSlot(22, button(Items.BOOK, "Full Territory Menu", "Open all territory options.", () -> openPersonalManage(player)));
+        gui.open();
+    }
+
+    public static void openRenameMenu(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x1, player, false);
+        gui.setLockPlayerInventory(true);
+        gui.setTitle(Component.literal("Rename Territory"));
+        fillAll(gui);
+        gui.setSlot(4, new GuiElementBuilder(Items.NAME_TAG)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Rename Territory").withStyle(ChatFormatting.AQUA))
+                .addLoreLine(Component.literal("Use this chat command:").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("/territory name <new name>").withStyle(ChatFormatting.WHITE))
+                .addLoreLine(Component.literal("Example: /territory name Pyro Island").withStyle(ChatFormatting.DARK_GRAY)));
+        gui.setSlot(8, new GuiElementBuilder(Items.ARROW)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Back").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, actionType) -> openNpcManage(player, TerritoryRepository.cachedPersonal(player))));
+        gui.open();
+    }
+
+    public static void openTrustedPlayersMenu(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
+        gui.setLockPlayerInventory(true);
+        gui.setTitle(Component.literal("Trusted Players"));
+        fillAll(gui);
+        gui.setSlot(10, new GuiElementBuilder(Items.LIME_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Trust Player").withStyle(ChatFormatting.GREEN))
+                .addLoreLine(Component.literal("Use: /territory trust <player>").withStyle(ChatFormatting.WHITE))
+                .addLoreLine(Component.literal("Managers can manage more settings:").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("/territory trust <player> manager").withStyle(ChatFormatting.DARK_GRAY)));
+        gui.setSlot(12, new GuiElementBuilder(Items.RED_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Remove Trust").withStyle(ChatFormatting.RED))
+                .addLoreLine(Component.literal("Use: /territory untrust <player>").withStyle(ChatFormatting.WHITE)));
+        gui.setSlot(14, new GuiElementBuilder(Items.BARRIER)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Ban Player").withStyle(ChatFormatting.DARK_RED))
+                .addLoreLine(Component.literal("Use: /territory ban <player>").withStyle(ChatFormatting.WHITE))
+                .addLoreLine(Component.literal("Undo with: /territory unban <player>").withStyle(ChatFormatting.GRAY)));
+        gui.setSlot(16, new GuiElementBuilder(Items.ENDER_PEARL)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Visit Trusted Territories").withStyle(ChatFormatting.AQUA))
+                .addLoreLine(Component.literal("Use: /territory trusted").withStyle(ChatFormatting.WHITE))
+                .addLoreLine(Component.literal("Then /territory visit <name>").withStyle(ChatFormatting.GRAY)));
+        gui.setSlot(22, new GuiElementBuilder(Items.ARROW)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Back").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, actionType) -> openNpcManage(player, TerritoryRepository.cachedPersonal(player))));
         gui.open();
     }
 

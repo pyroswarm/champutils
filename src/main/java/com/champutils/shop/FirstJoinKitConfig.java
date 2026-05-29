@@ -23,6 +23,7 @@ public final class FirstJoinKitConfig {
     public static final class KitRoot {
         public boolean enabled = true;
         public List<KitEntry> entries = new ArrayList<>();
+        public List<KitEntry> islanderEntries = new ArrayList<>();
     }
 
     public static final class KitEntry {
@@ -72,7 +73,17 @@ public final class FirstJoinKitConfig {
     private static void sanitize() {
         if (CONFIG == null) CONFIG = createDefault();
         if (CONFIG.entries == null) CONFIG.entries = new ArrayList<>();
+        if (CONFIG.islanderEntries == null) CONFIG.islanderEntries = new ArrayList<>();
+        ensureIslanderBonusEntries(CONFIG.islanderEntries);
         for (KitEntry entry : CONFIG.entries) {
+            if (entry.type == null || entry.type.isBlank()) entry.type = "item";
+            if (entry.id == null) entry.id = "";
+            if (entry.amount <= 0) entry.amount = 1;
+            if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
+            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
+            if (entry.commands == null) entry.commands = new ArrayList<>();
+        }
+        for (KitEntry entry : CONFIG.islanderEntries) {
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
             if (entry.id == null) entry.id = "";
             if (entry.amount <= 0) entry.amount = 1;
@@ -90,7 +101,34 @@ public final class FirstJoinKitConfig {
         root.entries.add(tool("hoe"));
         root.entries.add(item("cobblemon:poke_ball", 16));
         root.entries.add(item("minecraft:cooked_beef", 16));
+        root.islanderEntries.addAll(createDefaultIslanderEntries());
         return root;
+    }
+
+    private static void ensureIslanderBonusEntries(List<KitEntry> entries) {
+        ensureItem(entries, "minecraft:oak_sapling", 16);
+        ensureItem(entries, "minecraft:lava_bucket", 1);
+        ensureItem(entries, "minecraft:water_bucket", 2);
+        ensureItem(entries, "minecraft:dirt", 64);
+    }
+
+    private static void ensureItem(List<KitEntry> entries, String id, int amount) {
+        for (KitEntry entry : entries) {
+            if (entry != null && "item".equalsIgnoreCase(entry.type) && id.equalsIgnoreCase(entry.id)) {
+                entry.amount = Math.max(entry.amount, amount);
+                return;
+            }
+        }
+        entries.add(item(id, amount));
+    }
+
+    private static List<KitEntry> createDefaultIslanderEntries() {
+        List<KitEntry> entries = new ArrayList<>();
+        entries.add(item("minecraft:oak_sapling", 16));
+        entries.add(item("minecraft:lava_bucket", 1));
+        entries.add(item("minecraft:water_bucket", 2));
+        entries.add(item("minecraft:dirt", 64));
+        return entries;
     }
 
     private static KitEntry item(String id, int amount) {

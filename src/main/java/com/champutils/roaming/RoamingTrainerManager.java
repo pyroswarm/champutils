@@ -3,6 +3,7 @@ package com.champutils.roaming;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -49,6 +50,7 @@ public final class RoamingTrainerManager {
         public RoamingTrainerRarity rarity;
         public int targetLevel;
         public long lastNearbyPlayerMillis;
+        public long spawnedMillis;
         public boolean rewardsClaimed;
         public String displayName;
         public UUID currentChallengerUuid;
@@ -57,6 +59,7 @@ public final class RoamingTrainerManager {
         public double spawnY;
         public double spawnZ;
         public float spawnYaw;
+        public TrainerTier tier = TrainerTier.ROOKIE;
     }
 
     public static void tick(MinecraftServer server) {
@@ -195,7 +198,9 @@ public final class RoamingTrainerManager {
         String dimensionId = level.dimension().location().toString();
         if (RoamingTrainerConfig.isBlockedDimension(dimensionId)) return;
         if (countNearbyRoamingTrainers(level, player.position(), RoamingTrainerConfig.DATA.activePlayerRadius) >= RoamingTrainerConfig.DATA.maxTrainersPerPlayer) return;
-        spawnNearPlayer(player, chooseRarity(), false);
+        if (countWorldRoamingTrainers(level) >= RoamingTrainerConfig.DATA.maxTrainersPerWorld) return;
+        if (RANDOM.nextDouble() > RoamingTrainerConfig.DATA.spawnChancePerScan) return;
+        spawnNearPlayer(player, chooseRarityFor(player), false);
     }
 
     private static boolean spawnNearPlayer(ServerPlayer player, RoamingTrainerRarity rarity, boolean force) {
@@ -218,8 +223,10 @@ public final class RoamingTrainerManager {
         data.npcUuid = result.npc.getUUID();
         data.ownerPlayerUuid = player.getUUID();
         data.rarity = rarity;
+        data.tier = tierFor(player);
         data.targetLevel = targetLevel;
         data.lastNearbyPlayerMillis = System.currentTimeMillis();
+        data.spawnedMillis = data.lastNearbyPlayerMillis;
         data.displayName = displayName;
         data.spawnX = pos.x;
         data.spawnY = pos.y;
@@ -238,9 +245,20 @@ public final class RoamingTrainerManager {
     }
 
     private static Vec3 findSpawnPosition(ServerLevel level, Vec3 origin) {
-        int min = Math.max(8, RoamingTrainerConfig.DATA.spawnMinDistance);
-        int max = Math.max(min, RoamingTrainerConfig.DATA.spawnMaxDistance);
-        for (int i = 0; i < RoamingTrainerConfig.DATA.maxSpawnAttemptsPerPlayer; i++) {
+        String dimensionId = level.dimension().location().toString();
+        boolean islanderWorld = RoamingTrainerConfig.isIslanderDimension(dimensionId);
+
+        int min = islanderWorld
+                ? Math.max(4, RoamingTrainerConfig.DATA.islanderSpawnMinDistance)
+                : Math.max(8, RoamingTrainerConfig.DATA.spawnMinDistance);
+        int max = islanderWorld
+                ? Math.max(min, RoamingTrainerConfig.DATA.islanderSpawnMaxDistance)
+                : Math.max(min, RoamingTrainerConfig.DATA.spawnMaxDistance);
+        int attempts = islanderWorld
+                ? Math.max(RoamingTrainerConfig.DATA.maxSpawnAttemptsPerPlayer, RoamingTrainerConfig.DATA.islanderMaxSpawnAttemptsPerPlayer)
+                : RoamingTrainerConfig.DATA.maxSpawnAttemptsPerPlayer;
+
+        for (int i = 0; i < attempts; i++) {
             double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
             double distance = min + RANDOM.nextDouble() * (max - min);
             int x = (int)Math.floor(origin.x + Math.cos(angle) * distance);
@@ -276,8 +294,17 @@ public final class RoamingTrainerManager {
             applyRoamingProtections(npc, data);
             cleanupStaleChallengeLock(npc, data, now);
 
+            long lifetimeLimit = Math.max(60, RoamingTrainerConfig.DATA.despawnMinutes * 60) * 1000L;
+            if (!isNpcInBattle(npc) && data.spawnedMillis > 0L && now - data.spawnedMillis >= lifetimeLimit) {
+                iterator.remove();
+                cancelBattleForRemovedTrainer(server, data, "The roaming trainer despawned, so the battle was canceled.");
+                removeNpc(npc);
+                continue;
+            }
+
             boolean playerNearby = hasPlayerNearby((ServerLevel) npc.level(), npc.position(), RoamingTrainerConfig.DATA.activePlayerRadius);
             if (playerNearby) {
+                // Keep this updated only for battle protection; lifetime despawn still removes idle trainers.
                 data.lastNearbyPlayerMillis = now;
                 continue;
             }
@@ -288,7 +315,7 @@ public final class RoamingTrainerManager {
             }
 
             long elapsed = now - data.lastNearbyPlayerMillis;
-            if (elapsed >= Math.max(30, RoamingTrainerConfig.DATA.despawnAfterNoPlayersSeconds) * 1000L) {
+            if (elapsed >= Math.max(30, RoamingTrainerConfig.DATA.noPlayerNearbyDespawnSeconds) * 1000L) {
                 iterator.remove();
                 cancelBattleForRemovedTrainer(server, data, "The roaming trainer despawned, so the battle was canceled.");
                 removeNpc(npc);
@@ -367,6 +394,7 @@ public final class RoamingTrainerManager {
 
     private static void applyRoamingProtections(NPCEntity npc, RoamingTrainerData data) {
         if (npc == null) return;
+        try { npc.addTag("champutils_roaming_trainer"); } catch (Exception ignored) {}
         try { npc.setInvulnerable(true); } catch (Exception ignored) {}
         try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
         try { npc.setNoAi(true); } catch (Exception ignored) {}
@@ -416,6 +444,15 @@ public final class RoamingTrainerManager {
         return count;
     }
 
+    private static int countWorldRoamingTrainers(ServerLevel level) {
+        int count = 0;
+        if (level == null) return 0;
+        for (RoamingTrainerData data : TRAINERS.values()) {
+            if (findNpc(level, data.npcUuid) != null) count++;
+        }
+        return count;
+    }
+
     private static boolean hasPlayerNearby(ServerLevel level, Vec3 center, double radius) {
         return !level.getEntitiesOfClass(ServerPlayer.class, box(center, radius), p -> !p.isSpectator()).isEmpty();
     }
@@ -439,11 +476,44 @@ public final class RoamingTrainerManager {
             }
         } catch (Exception ignored) {}
 
-        // Roaming trainer scaling is intentionally simple and predictable:
-        // every trainer Pokemon is exactly five levels above the player's highest party Pokemon.
-        // If the player somehow has no readable party, use level 15 instead of failing the spawn.
-        if (highest <= 0) return 15;
-        return Math.max(1, Math.min(100, highest + 5));
+        // Roaming trainer level scaling is intentionally simple and always based only on the
+        // challenger's current party ace: highest current party Pokemon level + 5.
+        // Do not clamp by playtime tier here; tiers may affect rarity/moves, but not level.
+        return clamp(highest <= 0 ? 15 : highest + 5, 1, 100);
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static TrainerTier tierFor(ServerPlayer player) {
+        long hours = ProfilePlaytimeManager.getCachedPlaytimeSeconds(player) / 3600L;
+        if (hours < 10L) return TrainerTier.ROOKIE;
+        if (hours < 25L) return TrainerTier.VETERAN;
+        return TrainerTier.ACE;
+    }
+
+    private static RoamingTrainerRarity chooseRarityFor(ServerPlayer player) {
+        TrainerTier tier = tierFor(player);
+        Map<RoamingTrainerRarity, Double> weights = new LinkedHashMap<>();
+        switch (tier) {
+            case ROOKIE -> { weights.put(RoamingTrainerRarity.COMMON, 85.0D); weights.put(RoamingTrainerRarity.UNCOMMON, 15.0D); }
+            case VETERAN -> { weights.put(RoamingTrainerRarity.COMMON, 45.0D); weights.put(RoamingTrainerRarity.UNCOMMON, 45.0D); weights.put(RoamingTrainerRarity.RARE, 10.0D); }
+            case ACE -> { weights.put(RoamingTrainerRarity.UNCOMMON, 30.0D); weights.put(RoamingTrainerRarity.RARE, 60.0D); weights.put(RoamingTrainerRarity.EPIC, 10.0D); }
+            case CHAMPION -> { weights.put(RoamingTrainerRarity.RARE, 75.0D); weights.put(RoamingTrainerRarity.EPIC, 25.0D); }
+        }
+        return rollWeighted(weights);
+    }
+
+    private static RoamingTrainerRarity rollWeighted(Map<RoamingTrainerRarity, Double> weights) {
+        double total = weights.values().stream().mapToDouble(v -> Math.max(0.0D, v)).sum();
+        if (total <= 0.0D) return RoamingTrainerRarity.COMMON;
+        double roll = RANDOM.nextDouble() * total;
+        for (Map.Entry<RoamingTrainerRarity, Double> entry : weights.entrySet()) {
+            roll -= Math.max(0.0D, entry.getValue());
+            if (roll <= 0.0D) return entry.getKey();
+        }
+        return RoamingTrainerRarity.COMMON;
     }
 
     private static RoamingTrainerRarity chooseRarity() {

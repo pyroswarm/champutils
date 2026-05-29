@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.hunt.PokemonHuntReflection;
 import com.cobblemon.mod.common.api.storage.PokemonStore;
 import com.cobblemon.mod.common.api.storage.StorePosition;
 import com.cobblemon.mod.common.api.storage.factory.PokemonStoreFactory;
@@ -17,7 +18,9 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Map;
 import java.util.UUID;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import java.util.concurrent.ConcurrentHashMap;
+import java.lang.reflect.Method;
 
 /**
  * SQL-backed Cobblemon party/PC factory for ChampUtils profiles.
@@ -200,8 +203,70 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcCache.remove(profileId);
     }
 
+
+    public boolean removePokemonFromCachedStores(UUID profileId, UUID pokemonUuid, Object pokemonObject) {
+        if (profileId == null && pokemonUuid == null && !(pokemonObject instanceof Pokemon)) return false;
+        boolean removed = false;
+        PlayerPartyStore party = partyCache.get(profileId);
+        if (party != null) removed |= removeFromStore(party, pokemonUuid, pokemonObject);
+        PCStore pc = pcCache.get(profileId);
+        if (pc != null) removed |= removeFromStore(pc, pokemonUuid, pokemonObject);
+        return removed;
+    }
+
+    private static boolean removeFromStore(Iterable<Pokemon> store, UUID pokemonUuid, Object pokemonObject) {
+        if (store == null) return false;
+        try {
+            for (Pokemon pokemon : store) {
+                if (pokemon == null) continue;
+                boolean same = pokemonObject instanceof Pokemon p && pokemon == p;
+                if (!same && pokemonUuid != null) {
+                    try { same = pokemonUuid.equals(pokemon.getUuid()); } catch (Throwable ignored) {}
+                }
+                if (!same) continue;
+
+                try {
+                    var coordinates = pokemon.getStoreCoordinates().get();
+                    if (coordinates != null && coordinates.remove()) return true;
+                } catch (Throwable ignored) {}
+
+                for (Method method : store.getClass().getMethods()) {
+                    if (!method.getName().equals("remove") || method.getParameterCount() != 1) continue;
+                    Class<?> parameter = method.getParameterTypes()[0];
+                    if (!parameter.isAssignableFrom(pokemon.getClass())) continue;
+                    method.setAccessible(true);
+                    Object result = method.invoke(store, pokemon);
+                    return !(result instanceof Boolean) || (Boolean) result;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public boolean hasCachedStores(UUID profileId) {
         return profileId != null && (partyCache.containsKey(profileId) || pcCache.containsKey(profileId));
+    }
+
+    public boolean hasSpeciesInCachedStores(UUID profileId, String species, UUID excludePokemonUuid) {
+        if (profileId == null || species == null || species.isBlank()) return false;
+        String normalized = PokemonHuntReflection.normalizeId(species);
+        PlayerPartyStore party = partyCache.get(profileId);
+        if (storeHasSpecies(party, normalized, excludePokemonUuid)) return true;
+        PCStore pc = pcCache.get(profileId);
+        return storeHasSpecies(pc, normalized, excludePokemonUuid);
+    }
+
+    private static boolean storeHasSpecies(Iterable<Pokemon> store, String species, UUID excludePokemonUuid) {
+        if (store == null || species == null || species.isBlank()) return false;
+        try {
+            for (Pokemon pokemon : store) {
+                if (pokemon == null) continue;
+                if (excludePokemonUuid != null && excludePokemonUuid.equals(pokemon.getUuid())) continue;
+                String otherSpecies = PokemonHuntReflection.speciesId(pokemon);
+                if (species.equals(PokemonHuntReflection.normalizeId(otherSpecies))) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     private boolean canOwn(UUID uuid) {

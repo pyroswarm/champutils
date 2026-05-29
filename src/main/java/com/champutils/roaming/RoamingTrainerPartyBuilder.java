@@ -5,8 +5,10 @@ import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.moves.Moves;
+import com.cobblemon.mod.common.api.moves.MoveTemplate;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
+import com.cobblemon.mod.common.api.types.ElementalType;
 import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -50,8 +52,8 @@ public final class RoamingTrainerPartyBuilder {
 
             party.initialize();
             npc.setParty(party);
-            // Roaming trainers should be real competitive PvE threats now. The AI wrapper prevents bad switch loops.
-            try { npc.setSkill(Math.max(3, Math.min(5, settings.aiSkill))); } catch (Exception ignored) {}
+            // Roaming trainers should be weaker than gym leaders. Champion-tier AI is reserved for gyms, E4, bosses, and events.
+            try { npc.setSkill(Math.max(0, Math.min(2, settings.aiSkill))); } catch (Exception ignored) {}
             try { npc.setCustomName(Component.literal(data.displayName).withStyle(data.rarity.color)); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
@@ -71,7 +73,7 @@ public final class RoamingTrainerPartyBuilder {
 
             applyBestIVs(pokemon);
             applyBestEVs(pokemon);
-            applyCompetitiveMoves(pokemon, species);
+            applyTierLegalMoves(pokemon, species, level, rarity);
 
             if (RANDOM.nextDouble() < Math.max(0.0D, settings.shinyChance)) {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
@@ -131,19 +133,9 @@ public final class RoamingTrainerPartyBuilder {
     private static String forcedSpeciesForSlot(RoamingTrainerRarity rarity, int slot) {
         return switch (rarity) {
             // Epic: exactly 1 legendary, then strong/elite regular Pokemon.
-            case EPIC -> slot == 0 ? pick(RoamingTrainerConfig.DATA.legendarySpeciesPool) : null;
-            // Legendary: exactly 1 legendary + 1 ultra beast/paradox, then strong regular Pokemon.
-            case LEGENDARY -> {
-                if (slot == 0) yield pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
-                if (slot == 1) yield pickSpecialNonLegendaryBossSlot(false);
-                yield null;
-            }
-            // Mythic rarity trainer: 3 legendary + 1 mythic/paradox, then strong regular Pokemon.
-            case MYTHIC -> {
-                if (slot >= 0 && slot <= 2) yield pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
-                if (slot == 3) yield pickSpecialNonLegendaryBossSlot(true);
-                yield null;
-            }
+            case EPIC -> null;
+            case LEGENDARY -> null;
+            case MYTHIC -> null;
             default -> null;
         };
     }
@@ -226,6 +218,125 @@ public final class RoamingTrainerPartyBuilder {
         return false;
     }
 
+    private static void applyTierLegalMoves(Pokemon pokemon, String speciesName, int level, RoamingTrainerRarity rarity) {
+        if (pokemon == null) return;
+        String species = sanitize(speciesName);
+        List<String> candidates = legalMoveCandidates(species, level, rarity);
+        List<String> selected = selectSmartMoves(pokemon, candidates);
+        if (selected.isEmpty()) return;
+        try {
+            pokemon.getMoveSet().clear();
+            int learned = 0;
+            for (String move : selected) {
+                if (learned >= 4) break;
+                try {
+                    MoveTemplate template = Moves.getByName(sanitizeMove(move));
+                    if (template == null) continue;
+                    pokemon.getMoveSet().add(template.create());
+                    learned++;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static List<String> legalMoveCandidates(String species, int level, RoamingTrainerRarity rarity) {
+        List<String> moves = new ArrayList<>();
+        moves.addAll(levelUpMoves(species, level));
+        if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.UNCOMMON.ordinal()) moves.addAll(tmStyleMoves(species));
+        if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.RARE.ordinal()) moves.addAll(eggStyleMoves(species));
+        if (moves.isEmpty()) moves.addAll(List.of("tackle", "quickattack", "growl", "leer"));
+        return moves;
+    }
+
+    private static List<String> selectSmartMoves(Pokemon pokemon, List<String> candidates) {
+        List<String> clean = new ArrayList<>();
+        for (String move : candidates) {
+            String m = sanitizeMove(move);
+            if (!m.isBlank() && !clean.contains(m) && Moves.getByName(m) != null) clean.add(m);
+        }
+        List<String> selected = new ArrayList<>();
+        // 1 STAB if possible. Pokemon#getTypes() returns Iterable, not Collection, in Cobblemon 1.7.3.
+        for (String m : clean) {
+            MoveTemplate t = Moves.getByName(m);
+            try {
+                if (t == null) continue;
+                ElementalType moveType = t.getEffectiveElementalType(pokemon);
+                for (ElementalType pokemonType : pokemon.getTypes()) {
+                    if (pokemonType != null && pokemonType.equals(moveType)) {
+                        selected.add(m);
+                        break;
+                    }
+                }
+                if (!selected.isEmpty() && selected.get(selected.size() - 1).equals(m)) break;
+            } catch (Exception ignored) {}
+        }
+        // Strong/simple damaging moves.
+        clean.stream().filter(m -> !selected.contains(m)).filter(RoamingTrainerPartyBuilder::isDamagingMove).limit(2).forEach(selected::add);
+        // One utility/status max.
+        clean.stream().filter(m -> !selected.contains(m)).filter(m -> !isDamagingMove(m)).limit(1).forEach(selected::add);
+        // Fill remaining with damage/neutral.
+        clean.stream().filter(m -> !selected.contains(m)).limit(4 - selected.size()).forEach(selected::add);
+        return selected.size() > 4 ? selected.subList(0, 4) : selected;
+    }
+
+    private static boolean isDamagingMove(String move) {
+        try {
+            MoveTemplate t = Moves.getByName(sanitizeMove(move));
+            return t != null && t.getPower() > 0;
+        } catch (Exception ignored) { return true; }
+    }
+
+    private static List<String> levelUpMoves(String species, int level) {
+        return switch (species) {
+            case "charmander" -> level < 10 ? List.of("scratch", "growl", "ember") : level < 20 ? List.of("scratch", "ember", "smokescreen", "dragonbreath") : List.of("ember", "firefang", "slash", "dragonbreath");
+            case "charmeleon", "charizard" -> List.of("flamethrower", "slash", "dragonbreath", "smokescreen");
+            case "bulbasaur" -> level < 10 ? List.of("tackle", "growl", "vinewhip") : List.of("vinewhip", "razorleaf", "sleeppowder", "takedown");
+            case "ivysaur", "venusaur" -> List.of("razorleaf", "sleeppowder", "seedbomb", "growth");
+            case "squirtle" -> level < 10 ? List.of("tackle", "tailwhip", "watergun") : List.of("watergun", "bite", "rapidspin", "protect");
+            case "wartortle", "blastoise" -> List.of("waterpulse", "bite", "aquatail", "protect");
+            case "pikachu", "raichu" -> List.of("thundershock", "quickattack", "thunderwave", level >= 26 ? "thunderbolt" : "spark");
+            case "eevee" -> List.of("tackle", "quickattack", "swift", "sandattack");
+            case "vaporeon" -> List.of("watergun", "aurorabeam", "quickattack", "babydolleyes");
+            case "jolteon" -> List.of("thundershock", "quickattack", "doublekick", "thunderwave");
+            case "flareon" -> List.of("ember", "quickattack", "bite", "firespin");
+            case "pidgey", "pidgeotto" -> List.of("gust", "quickattack", "sandattack", "wingattack");
+            case "spearow", "fearow" -> List.of("peck", "leer", "furyattack", "aerialace");
+            case "zubat", "golbat" -> List.of("absorb", "bite", "wingattack", "confuseray");
+            case "geodude", "golem" -> List.of("tackle", "rockthrow", "bulldoze", "defensecurl");
+            case "gastly", "haunter", "gengar" -> List.of("lick", "hypnosis", "nightshade", "shadowpunch");
+            case "machop", "machoke", "machamp" -> List.of("karatechop", "lowkick", "seismictoss", "leer");
+            case "psyduck", "golduck" -> List.of("watergun", "confusion", "furyswipes", "disable");
+            default -> fallbackByLevel(level);
+        };
+    }
+
+    private static List<String> fallbackByLevel(int level) {
+        if (level <= 10) return List.of("tackle", "growl", "quickattack");
+        if (level <= 20) return List.of("tackle", "quickattack", "bite", "leer");
+        if (level <= 50) return List.of("quickattack", "bite", "slash", "protect");
+        return List.of("slash", "crunch", "protect", "quickattack");
+    }
+
+    private static List<String> tmStyleMoves(String species) {
+        return switch (species) {
+            case "pikachu", "raichu" -> List.of("thunderbolt", "voltswitch");
+            case "charmeleon", "charizard" -> List.of("flamecharge", "aerialace");
+            case "wartortle", "blastoise", "vaporeon", "psyduck", "golduck" -> List.of("waterpulse", "icywind");
+            case "ivysaur", "venusaur" -> List.of("magicalleaf", "venoshock");
+            case "geodude", "golem" -> List.of("rocktomb", "bulldoze");
+            default -> List.of("protect", "facade");
+        };
+    }
+
+    private static List<String> eggStyleMoves(String species) {
+        return switch (species) {
+            case "charmander", "charmeleon", "charizard" -> List.of("dragonrush", "ancientpower");
+            case "pikachu", "raichu" -> List.of("fakeout");
+            case "eevee" -> List.of("wish", "yawn");
+            default -> List.of();
+        };
+    }
+
 
     private static void applyCompetitiveMoves(Pokemon pokemon, String speciesName) {
         if (pokemon == null) return;
@@ -282,12 +393,12 @@ public final class RoamingTrainerPartyBuilder {
             var evs = pokemon.getEvs();
             // 510 total EVs, spread evenly so every randomly selected Pokemon is battle-ready
             // even when we do not know whether it is a physical, special, mixed, or bulky set.
-            evs.set(Stats.HP, 85);
-            evs.set(Stats.ATTACK, 85);
-            evs.set(Stats.DEFENCE, 85);
-            evs.set(Stats.SPECIAL_ATTACK, 85);
-            evs.set(Stats.SPECIAL_DEFENCE, 85);
-            evs.set(Stats.SPEED, 85);
+            evs.set(Stats.HP, 32);
+            evs.set(Stats.ATTACK, 32);
+            evs.set(Stats.DEFENCE, 32);
+            evs.set(Stats.SPECIAL_ATTACK, 32);
+            evs.set(Stats.SPECIAL_DEFENCE, 32);
+            evs.set(Stats.SPEED, 32);
         } catch (Exception ignored) {}
     }
 

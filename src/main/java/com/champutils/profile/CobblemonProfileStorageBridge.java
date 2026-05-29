@@ -98,6 +98,15 @@ public final class CobblemonProfileStorageBridge {
         if (sqlFactory != null) sqlFactory.evict(profileId);
     }
 
+
+    public static boolean removePokemonFromCachedStores(UUID profileId, UUID pokemonUuid, Object pokemon) {
+        return sqlFactory != null && sqlFactory.removePokemonFromCachedStores(profileId, pokemonUuid, pokemon);
+    }
+
+    public static boolean activeCachedStoresHaveSpecies(UUID profileId, String species, UUID excludePokemonUuid) {
+        return sqlFactory != null && sqlFactory.hasSpeciesInCachedStores(profileId, species, excludePokemonUuid);
+    }
+
     public static boolean hasSqlCachedStores(UUID profileId) {
         return sqlFactory != null && sqlFactory.hasCachedStores(profileId);
     }

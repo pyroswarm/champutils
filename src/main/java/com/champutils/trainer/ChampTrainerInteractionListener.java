@@ -90,7 +90,11 @@ public final class ChampTrainerInteractionListener {
                     }
                     try {
                         BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.NPC);
-                        BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                        Object result = BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                        if (result == null) {
+                            serverPlayer.sendSystemMessage(Component.literal("§cThat roaming trainer could not start a battle. Try again in a few seconds."));
+                            RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());
+                        }
                     } catch (Exception battleStartError) {
                         RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());
                         throw battleStartError;

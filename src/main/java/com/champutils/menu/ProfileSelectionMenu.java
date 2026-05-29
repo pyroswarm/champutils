@@ -12,7 +12,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
-import java.time.format.DateTimeFormatter;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -113,10 +114,12 @@ public final class ProfileSelectionMenu {
                     .setName(Component.literal((profile.active() ? "★ " : "") + profile.profileName()).withStyle(profile.active() ? ChatFormatting.GREEN : ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Mode: " + profile.gameMode().displayName() + PlayerProfileManager.modeSuffix(profile)).withStyle(ChatFormatting.GRAY));
             if (profile.pendingDelete()) {
-                item.addLoreLine(Component.literal("Pending deletion").withStyle(ChatFormatting.RED));
+                item.addLoreLine(Component.literal("⚠ DELETION QUEUED").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                item.addLoreLine(Component.literal("This profile cannot be loaded right now.").withStyle(ChatFormatting.DARK_RED));
                 if (profile.deleteAvailableAt() != null) {
-                    item.addLoreLine(Component.literal("Frees at: " + DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(profile.deleteAvailableAt())).withStyle(ChatFormatting.DARK_RED));
+                    item.addLoreLine(Component.literal("Deletes in: " + formatRemaining(profile.deleteAvailableAt())).withStyle(ChatFormatting.GOLD));
                 }
+                item.addLoreLine(Component.literal("Open Delete Profiles to cancel it.").withStyle(ChatFormatting.YELLOW));
             } else if (profile.active()) {
                 item.addLoreLine(Component.literal("Currently loaded").withStyle(ChatFormatting.GREEN));
             } else {
@@ -160,7 +163,7 @@ public final class ProfileSelectionMenu {
         gui.setSlot(26, new GuiElementBuilder(Items.BARRIER)
                 .hideDefaultTooltip()
                 .setName(Component.literal("Delete Profiles").withStyle(ChatFormatting.RED))
-                .addLoreLine(Component.literal(limit.instantDelete() ? "VIP instant deletion active." : "Normal deletion has a 24 hour cooldown.").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal(deletePerkText(limit)).withStyle(ChatFormatting.GRAY))
                 .addLoreLine(Component.literal("Click to choose a profile.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
 
@@ -278,13 +281,26 @@ public final class ProfileSelectionMenu {
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
             var profile = profiles.get(i);
-            boolean disabled = profile.pendingDelete() || profile.active();
-            GuiElementBuilder builder = new GuiElementBuilder(disabled ? Items.GRAY_DYE : Items.BARRIER)
-                    .hideDefaultTooltip()
-                    .setName(Component.literal(profile.profileName()).withStyle(disabled ? ChatFormatting.DARK_GRAY : ChatFormatting.RED))
-                    .addLoreLine(Component.literal(profile.active() ? "Load another profile before deleting this one." : profile.pendingDelete() ? "Already pending deletion." : "Click to review deletion confirmation.").withStyle(disabled ? ChatFormatting.GRAY : ChatFormatting.YELLOW));
-            if (!disabled) {
-                builder.setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteConfirmMenu(player, profile)));
+            GuiElementBuilder builder;
+            if (profile.active()) {
+                builder = new GuiElementBuilder(Items.GRAY_DYE)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal(profile.profileName()).withStyle(ChatFormatting.DARK_GRAY))
+                        .addLoreLine(Component.literal("Load another profile before deleting this one.").withStyle(ChatFormatting.GRAY));
+            } else if (profile.pendingDelete()) {
+                builder = new GuiElementBuilder(Items.ORANGE_DYE)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("Cancel deletion: " + profile.profileName()).withStyle(ChatFormatting.GOLD))
+                        .addLoreLine(Component.literal("⚠ This profile is queued for deletion.").withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                        .addLoreLine(Component.literal("Deletes in: " + formatRemaining(profile.deleteAvailableAt())).withStyle(ChatFormatting.GOLD))
+                        .addLoreLine(Component.literal("Click to cancel and restore it.").withStyle(ChatFormatting.YELLOW))
+                        .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openCancelDeleteConfirmMenu(player, profile)));
+            } else {
+                builder = new GuiElementBuilder(Items.BARRIER)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal(profile.profileName()).withStyle(ChatFormatting.RED))
+                        .addLoreLine(Component.literal("Click to review deletion confirmation.").withStyle(ChatFormatting.YELLOW))
+                        .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteConfirmMenu(player, profile)));
             }
             gui.setSlot(slots[i], builder);
         }
@@ -322,6 +338,54 @@ public final class ProfileSelectionMenu {
 
         MenuUtil.fillBordersForced(gui, 11, 13, 15);
         gui.open();
+    }
+
+    private static void openCancelDeleteConfirmMenu(ServerPlayer player, PlayerProfileManager.ProfileRecord profile) {
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openCancelDeleteConfirmMenu(player, profile));
+        gui.setTitle(Component.literal("Cancel Deletion?"));
+
+        gui.setSlot(13, new GuiElementBuilder(icon(profile.gameMode()))
+                .hideDefaultTooltip()
+                .setName(Component.literal("Restore " + profile.profileName() + "?").withStyle(ChatFormatting.GOLD))
+                .addLoreLine(Component.literal("This cancels the pending deletion.").withStyle(ChatFormatting.YELLOW))
+                .addLoreLine(Component.literal("The profile will become selectable again.").withStyle(ChatFormatting.GRAY)));
+
+        gui.setSlot(11, new GuiElementBuilder(Items.GREEN_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Yes, cancel deletion").withStyle(ChatFormatting.GREEN))
+                .addLoreLine(Component.literal("Restore this profile.").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> {
+                    String result = PlayerProfileManager.cancelDeleteBlocking(player, profile.profileName());
+                    invalidateSnapshot(player);
+                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Cancelled") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    navigate(player, () -> open(player));
+                }));
+
+        gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
+                .hideDefaultTooltip()
+                .setName(Component.literal("No, keep deletion queued").withStyle(ChatFormatting.RED))
+                .addLoreLine(Component.literal("Go back without changing it.").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
+
+        MenuUtil.fillBordersForced(gui, 11, 13, 15);
+        gui.open();
+    }
+
+    private static String deletePerkText(PlayerProfileManager.ProfileLimit limit) {
+        if (limit.instantDelete()) return "VIP instant deletion active.";
+        if (limit.fastDelete()) return "VIP fast deletion active: " + limit.deletionDelayMinutes() + " minutes.";
+        return "Deletion delay: " + limit.deletionDelayMinutes() + " minutes. VIP can be faster.";
+    }
+
+    private static String formatRemaining(OffsetDateTime deleteAvailableAt) {
+        if (deleteAvailableAt == null) return "soon";
+        long seconds = Duration.between(OffsetDateTime.now(), deleteAvailableAt).getSeconds();
+        if (seconds <= 0) return "ready now";
+        long minutes = (seconds + 59L) / 60L;
+        if (minutes < 60) return minutes + "m";
+        long hours = minutes / 60L;
+        long mins = minutes % 60L;
+        return mins == 0 ? hours + "h" : hours + "h " + mins + "m";
     }
 
     /**
