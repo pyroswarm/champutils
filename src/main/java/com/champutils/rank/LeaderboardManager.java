@@ -1,6 +1,7 @@
 package com.champutils.rank;
 
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.leaderboard.ProfileLeaderboardRepository;
 
 import net.minecraft.server.MinecraftServer;
 
@@ -33,7 +34,17 @@ public class LeaderboardManager {
     public static void refresh(MinecraftServer server) {
         TOP.clear();
 
-        for (PlayerDataManager.OfflinePlayerEntry player : PlayerDataManager.getAllPlayers()) {
+        var profileRows = ProfileLeaderboardRepository.top(ProfileLeaderboardRepository.Board.RANKED, 100);
+        if (!profileRows.isEmpty()) {
+            for (var row : profileRows) {
+                String displayName = row.profileName() + " (" + row.playerName() + ")";
+                TOP.add(new Entry(displayName, row.profileId(), row.rp()));
+            }
+            TOP.sort(Comparator.comparingInt((Entry e) -> e.rp).reversed());
+            return;
+        }
+
+        for (PlayerDataManager.OfflinePlayerEntry player : PlayerDataManager.getAllProfilePlayers()) {
             if (player == null || player.data == null || player.name == null) {
                 continue;
             }

@@ -23,12 +23,18 @@ public final class ChatTagResolver {
         }
 
         ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
-        if (profileMode == ProfileGameMode.IRONMAN) {
-            result.append(Component.literal("[Ironman]").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
+        if (profileMode == ProfileGameMode.NORMAL) {
+            result.append(Component.literal("🌿 [Normal]").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.IRONMAN) {
+            result.append(Component.literal("⚒ [Ironman]").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
         } else if (profileMode == ProfileGameMode.MONOTYPE) {
             String type = PlayerProfileManager.monotypeType(player);
             if (type == null || type.isBlank()) type = "Unknown";
-            result.append(Component.literal("[Monotype: " + prettyType(type) + "]").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal(typeEmoji(type) + " [Monotype: " + prettyType(type) + "]").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.NUZLOCKE) {
+            result.append(Component.literal("☠ [Nuzlocke]").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.ISLANDER) {
+            result.append(Component.literal("🏝 [Islander]").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)).append(Component.literal(" "));
         }
 
         List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
@@ -52,6 +58,17 @@ public final class ChatTagResolver {
         }
 
         return result;
+    }
+
+    private static String typeEmoji(String raw) {
+        if (raw == null) return "🔹";
+        return switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "fire" -> "🔥"; case "water" -> "💧"; case "grass" -> "🍃"; case "electric" -> "⚡";
+            case "ice" -> "❄"; case "fighting" -> "🥊"; case "poison" -> "☠"; case "ground" -> "⛰";
+            case "flying" -> "🪽"; case "psychic" -> "🔮"; case "bug" -> "🐛"; case "rock" -> "🪨";
+            case "ghost" -> "👻"; case "dragon" -> "🐉"; case "dark" -> "🌑"; case "steel" -> "⚙";
+            case "fairy" -> "✨"; case "normal" -> "⭐"; default -> "🔹";
+        };
     }
 
     private static String prettyType(String raw) {

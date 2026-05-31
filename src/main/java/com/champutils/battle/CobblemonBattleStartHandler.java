@@ -58,12 +58,8 @@ public class CobblemonBattleStartHandler {
                         return;
                     }
 
-                    // IMPORTANT:
-                    // mark any battle (wild/gym/pvp)
-                    BattleStateManager.setInBattle(
-                            player,
-                            true
-                    );
+                    // Do not mark battle state here. Profile/rules validation below can still cancel
+                    // the battle, and marking early leaves players stuck in a false battle state.
                 }
             }
 
@@ -80,13 +76,18 @@ public class CobblemonBattleStartHandler {
                 String profileError = validateProfileBattleRules(player);
                 if (profileError != null) {
                     e.cancel();
-                    BattleStateManager.setInBattle(player, false);
+                    for (ServerPlayer p : players) {
+                        BattleStateManager.clearAll(p);
+                    }
                     player.sendSystemMessage(Component.literal("§c" + profileError));
                     return;
                 }
             }
 
 
+            for (ServerPlayer player : players) {
+                BattleStateManager.setInBattle(player, true);
+            }
 
             // =========================
             // ONLY RUN RANKED PVP LOGIC

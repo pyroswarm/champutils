@@ -108,15 +108,16 @@ public final class ChampBattleAIConfig {
     }
 
     public static final class AntiSpam {
-        public int protectRepeatPenaltyTurns = 3;
+        public int protectRepeatPenaltyTurns = 5;
         public int sameMoveSoftLimit = 3;
         public boolean preventProtectSpam = true;
+        public boolean preventLowValueProtect = true;
         public boolean preventSameMoveLoops = true;
 
         static AntiSpam defaults() { return new AntiSpam(); }
 
         void normalize() {
-            if (protectRepeatPenaltyTurns < 1) protectRepeatPenaltyTurns = 3;
+            if (protectRepeatPenaltyTurns < 1) protectRepeatPenaltyTurns = 5;
             if (sameMoveSoftLimit < 1) sameMoveSoftLimit = 3;
         }
     }

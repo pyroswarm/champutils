@@ -324,13 +324,67 @@ public class PlayerDataManager {
 
 
 
+    private static File profilesDir(){
+        File dir = new File(playerDir(), "profiles");
+        if(!dir.exists()){
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+
+
+    public static void saveProfileDataById(UUID profileId, PlayerData data){
+        if(profileId==null || data==null){
+            return;
+        }
+
+        data.uuid = profileId.toString();
+
+        try(FileWriter w = new FileWriter(new File(profilesDir(), profileId.toString()+".json"))){
+            GSON.toJson(data, w);
+            PlayerDatabaseRepository.sync(data);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
+    public static List<OfflinePlayerEntry> getAllProfilePlayers(){
+        List<OfflinePlayerEntry> players = new ArrayList<>();
+
+        File[] files = profilesDir().listFiles((d,n)-> n.endsWith(".json"));
+
+        if(files==null){
+            return players;
+        }
+
+        for(File f : files){
+            try(FileReader r = new FileReader(f)){
+                PlayerData d = GSON.fromJson(r, PlayerData.class);
+                if(d!=null){
+                    String profileId = f.getName().replace(".json", "");
+                    if(d.uuid==null || d.uuid.isBlank()){
+                        d.uuid = profileId;
+                    }
+                    players.add(new OfflinePlayerEntry(profileId, d.name, d));
+                }
+            }catch(Exception ignored){}
+        }
+
+        return players;
+    }
+
+
+
     public static Map<String,Integer> getAllRatings(){
 
         Map<String,Integer> map=
                 new HashMap<>();
 
         File[] files=
-                playerDir().listFiles(
+                profilesDir().listFiles(
                         (d,n)->
                                 n.endsWith(".json")
                 );
@@ -372,51 +426,7 @@ public class PlayerDataManager {
 
 
     public static List<OfflinePlayerEntry> getAllPlayers(){
-
-        List<OfflinePlayerEntry> players=
-                new ArrayList<>();
-
-        File[] files=
-                playerDir().listFiles(
-                        (d,n)->
-                                n.endsWith(".json")
-                );
-
-        if(files==null){
-            return players;
-        }
-
-        for(
-                File f :
-                files
-        ){
-
-            try(
-                    FileReader r=
-                            new FileReader(f)
-            ){
-
-                PlayerData d=
-                        GSON.fromJson(
-                                r,
-                                PlayerData.class
-                        );
-
-                if(d!=null){
-
-                    players.add(
-                            new OfflinePlayerEntry(
-                                    d.uuid,
-                                    d.name,
-                                    d
-                            )
-                    );
-                }
-
-            }catch(Exception ignored){}
-        }
-
-        return players;
+        return getAllProfilePlayers();
     }
 
 

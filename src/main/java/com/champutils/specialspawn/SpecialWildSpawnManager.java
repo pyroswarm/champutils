@@ -1,9 +1,9 @@
 package com.champutils.specialspawn;
 
-import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.profile.IslanderProfileManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfilePlaytimeManager;
+import com.champutils.territory.TerritoryRepository;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -17,6 +17,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.level.Level;
+import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -119,16 +123,29 @@ public final class SpecialWildSpawnManager {
 
 
     public static boolean forceSpawnFor(ServerPlayer player) {
-        if (player == null || !SpecialWildSpawnConfig.DATA.enabled) return false;
+        return forceSpawnForResult(player).success;
+    }
+
+    public static ForceSpawnResult forceSpawnForResult(ServerPlayer player) {
+        if (player == null) return ForceSpawnResult.fail("No player was found.");
+        if (!SpecialWildSpawnConfig.DATA.enabled) return ForceSpawnResult.fail("Special wild spawns are disabled in the config.");
+        if (player.serverLevel() == null) return ForceSpawnResult.fail("Player has no loaded world.");
+
         boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
-        if (!isEligibleSpecialSpawnPlayer(player, islanderRoll)) return false;
+        String eligibilityReason = eligibilityFailureReason(player, islanderRoll);
+        if (eligibilityReason != null) return ForceSpawnResult.fail(eligibilityReason);
+
         SpawnBucket bucket = pickBucket(islanderRoll);
-        if (bucket == null) return false;
+        if (bucket == null) return ForceSpawnResult.fail("No valid special spawn bucket exists for this world/profile type.");
+
         SpawnResult result = trySpawnFor(player, bucket);
-        if (result == null) return false;
+        if (result == null) {
+            return ForceSpawnResult.fail("No safe spawn position was found nearby, or the selected Pokémon failed to spawn. Try a flatter/open area, then check the server log for direct spawn errors.");
+        }
+
         markSpawned(result.type, result.species, false, islanderRoll);
         announce(player.getServer(), result.type, result.species, result.level, result.pos);
-        return true;
+        return ForceSpawnResult.ok(result.type, result.species, result.pos);
     }
 
     private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players, boolean islanderRoll) {
@@ -254,12 +271,32 @@ public final class SpecialWildSpawnManager {
     }
 
     public static long getLastSpawnEpochMillis() {
+        return getLastNormalSpawnEpochMillis();
+    }
+
+    public static long getLastNormalSpawnEpochMillis() {
         ensureStateLoaded();
         return Math.max(0L, state.lastSpawnEpochMillis);
     }
 
+    public static long getLastIslanderSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.islanderLastSpawnEpochMillis);
+    }
+
     public static String formatLastSpawnAgo() {
-        long last = getLastSpawnEpochMillis();
+        return formatLastNormalSpawnAgo();
+    }
+
+    public static String formatLastNormalSpawnAgo() {
+        return formatAgo(getLastNormalSpawnEpochMillis());
+    }
+
+    public static String formatLastIslanderSpawnAgo() {
+        return formatAgo(getLastIslanderSpawnEpochMillis());
+    }
+
+    private static String formatAgo(long last) {
         if (last <= 0L) return "Never";
         long elapsedMillis = Math.max(0L, System.currentTimeMillis() - last);
         long totalMinutes = elapsedMillis / 60000L;
@@ -328,6 +365,7 @@ public final class SpecialWildSpawnManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) continue;
+            if (!isAllowedSpawnPosition(player, level, pos)) continue;
 
             List<SpecialWildSpawnConfig.SpawnEntry> valid = matchingEntries(level, bucket.entries);
             if (valid.isEmpty()) continue;
@@ -372,16 +410,49 @@ public final class SpecialWildSpawnManager {
     private static BlockPos randomSpawnPos(ServerLevel level, BlockPos origin) {
         int min = Math.max(8, SpecialWildSpawnConfig.DATA.minDistanceFromPlayer);
         int max = Math.max(min + 1, SpecialWildSpawnConfig.DATA.maxDistanceFromPlayer);
-        double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
-        int dist = min + RANDOM.nextInt(Math.max(1, max - min));
-        int x = origin.getX() + (int)Math.round(Math.cos(angle) * dist);
-        int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
-        BlockPos top = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, origin.getY(), z));
-        if (!level.hasChunk(new ChunkPos(top).x, new ChunkPos(top).z)) return null;
-        if (!level.getWorldBorder().isWithinBounds(top)) return null;
-        if (!level.getBlockState(top.below()).isSolid()) return null;
-        if (!level.getBlockState(top).isAir() || !level.getBlockState(top.above()).isAir()) return null;
-        return top;
+
+        // Try a few Y strategies because forests/snowy forests often fail MOTION_BLOCKING_NO_LEAVES
+        // when the first top position is leaves, snow layers, or an awkward tree canopy.
+        for (int scan = 0; scan < 4; scan++) {
+            double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
+            int dist = min + RANDOM.nextInt(Math.max(1, max - min));
+            int x = origin.getX() + (int)Math.round(Math.cos(angle) * dist);
+            int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
+
+            BlockPos base = new BlockPos(x, origin.getY(), z);
+            BlockPos top = switch (scan) {
+                case 0 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, base);
+                case 1 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, base);
+                default -> findOpenGroundNearY(level, base, 48);
+            };
+
+            if (top == null) continue;
+            if (!level.hasChunk(new ChunkPos(top).x, new ChunkPos(top).z)) continue;
+            if (!level.getWorldBorder().isWithinBounds(top)) continue;
+            if (!isSafeSpawnSpace(level, top)) continue;
+            return top;
+        }
+
+        return null;
+    }
+
+    private static BlockPos findOpenGroundNearY(ServerLevel level, BlockPos base, int radiusY) {
+        int minY = Math.max(level.getMinBuildHeight() + 1, base.getY() - radiusY);
+        int maxY = Math.min(level.getMaxBuildHeight() - 3, base.getY() + radiusY);
+        for (int y = maxY; y >= minY; y--) {
+            BlockPos pos = new BlockPos(base.getX(), y, base.getZ());
+            if (isSafeSpawnSpace(level, pos)) return pos;
+        }
+        return null;
+    }
+
+    private static boolean isSafeSpawnSpace(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        if (!Level.isInSpawnableBounds(pos)) return false;
+        if (!level.getBlockState(pos.below()).isSolid()) return false;
+        if (!level.getFluidState(pos).isEmpty() || !level.getFluidState(pos.above()).isEmpty()) return false;
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()
+                && level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty();
     }
 
     private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntries(ServerLevel level, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
@@ -426,30 +497,36 @@ public final class SpecialWildSpawnManager {
 
     private static boolean spawnDirectlyIgnoringNearbyLimit(ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
         try {
+            if (level == null || pos == null || species == null || species.isBlank()) return false;
+            if (!Level.isInSpawnableBounds(pos)) return false;
+
             String clean = sanitize(species);
-            String properties = "species=\"cobblemon:" + clean + "\" level=" + pokemonLevel;
+            String propertiesText = clean + " lvl=" + Math.max(1, Math.min(100, pokemonLevel));
 
-            Class<?> propertiesClass = Class.forName("com.cobblemon.mod.common.api.pokemon.PokemonProperties");
-            Object companion = propertiesClass.getField("Companion").get(null);
-            Object parsed = companion.getClass().getMethod("parse", String.class).invoke(companion, properties);
-            Object pokemon = parsed.getClass().getMethod("create").invoke(parsed);
-
-            Vec3 spawnVec = new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
-            Object spawnedEntity = invokePokemonSendOut(pokemon, level, spawnVec);
-
-            if (spawnedEntity instanceof Entity entity) {
-                long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
-                markSpecialSpawnEntity(entity, expiresAt);
-                return true;
+            PokemonProperties properties = PokemonProperties.Companion.parse(propertiesText);
+            if (properties.getSpecies() == null) {
+                propertiesText = "species=cobblemon:" + clean + " lvl=" + Math.max(1, Math.min(100, pokemonLevel));
+                properties = PokemonProperties.Companion.parse(propertiesText);
             }
+            if (properties.getSpecies() == null) return false;
 
-            return false;
-        } catch (Exception ignored) {
-            // Keep this silent because command fallback below is expected to cover minor Cobblemon API differences.
+            PokemonEntity entity = properties.createEntity(level, null);
+            entity.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, entity.getYRot(), entity.getXRot());
+            entity.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.COMMAND, null);
+
+            if (!level.addFreshEntity(entity)) return false;
+
+            long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
+            markSpecialSpawnEntity(entity, expiresAt);
+            return true;
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Direct special wild spawn failed for " + species + " level " + pokemonLevel + ". Falling back to command spawn.");
+            e.printStackTrace();
             return false;
         }
     }
 
+    @Deprecated
     private static Object invokePokemonSendOut(Object pokemon, ServerLevel level, Vec3 spawnVec) throws Exception {
         for (Method method : pokemon.getClass().getMethods()) {
             if (!method.getName().equals("sendOut")) continue;
@@ -590,19 +667,54 @@ public final class SpecialWildSpawnManager {
     }
 
     private static boolean isEligibleSpecialSpawnPlayer(ServerPlayer player, boolean islanderRoll) {
-        if (player == null || player.serverLevel() == null) return false;
+        return eligibilityFailureReason(player, islanderRoll) == null;
+    }
+
+    private static String eligibilityFailureReason(ServerPlayer player, boolean islanderRoll) {
+        if (player == null) return "No player was found.";
+        if (player.serverLevel() == null) return "Player has no loaded world.";
         ServerLevel level = player.serverLevel();
-        if (isDisabledDimension(level)) return false;
+        String dimensionId = level.dimension().location().toString();
+        if (isDisabledDimension(level)) return "This dimension is disabled for special spawns: " + dimensionId;
 
         boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
+        boolean playerIsIslander = PlayerProfileManager.isIslander(player);
+
         if (islanderRoll) {
-            return islanderLevel
-                    && SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled
-                    && PlayerProfileManager.isIslander(player)
-                    && ProfilePlaytimeManager.hasAtLeastPlaytime(player, SpecialWildSpawnConfig.DATA.islanderMinimumProfilePlaytimeSeconds);
+            if (!islanderLevel) return "Islander special spawns can only roll in islander worlds.";
+            if (!SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled) return "Islander special spawns are disabled in special_wild_spawns.json.";
+            if (!playerIsIslander) return "Only Islander profiles can force Islander special spawns.";
+            long required = Math.max(0L, SpecialWildSpawnConfig.DATA.islanderMinimumProfilePlaytimeSeconds);
+            if (!ProfilePlaytimeManager.hasAtLeastPlaytime(player, required)) return "This Islander profile needs more profile playtime before Islander special spawns unlock.";
+            return null;
         }
 
-        return !islanderLevel && ExplorationWorldManager.isOverworldGameplayLevel(level) && !PlayerProfileManager.isIslander(player);
+        if (islanderLevel) return "Normal special spawns cannot spawn in Islander worlds.";
+        if (playerIsIslander) return "Islander profiles use the separate Islander special spawn timer/pool.";
+
+        // Do not require the world to be registered as an ExplorationWorldManager world. Some normal
+        // gameplay worlds are Multiworld dimensions that are not active RTP entries. Territory checks
+        // still prevent normal special spawns from landing inside player/guild territories.
+        return null;
+    }
+
+    private static boolean isAllowedSpawnPosition(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null) return false;
+
+        TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, pos);
+        boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
+
+        if (islanderLevel) {
+            // Islander special spawns are the only special spawns allowed inside territories,
+            // and they must land inside an Islander-owned territory.
+            return PlayerProfileManager.isIslander(player)
+                    && territory != null
+                    && IslanderProfileManager.isIslanderTerritory(territory);
+        }
+
+        // Normal special spawns are allowed in normal non-Islander gameplay worlds, but never
+        // inside any territory. Islander territory spawning is handled by the islander branch above.
+        return territory == null;
     }
 
     private static boolean isIslanderSpecialSpawnLevel(ServerLevel level) {
@@ -660,6 +772,24 @@ public final class SpecialWildSpawnManager {
             sb.append(Character.toUpperCase(p.charAt(0))).append(p.length() > 1 ? p.substring(1) : "");
         }
         return sb.toString();
+    }
+
+    public static final class ForceSpawnResult {
+        public final boolean success;
+        public final String message;
+
+        private ForceSpawnResult(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+
+        public static ForceSpawnResult ok(String type, String species, BlockPos pos) {
+            return new ForceSpawnResult(true, "Forced a " + (type == null ? "special" : type) + " wild spawn: " + pretty(species) + " near X " + pos.getX() + ", Y " + pos.getY() + ", Z " + pos.getZ() + ".");
+        }
+
+        public static ForceSpawnResult fail(String reason) {
+            return new ForceSpawnResult(false, "Could not force a special wild spawn here: " + reason);
+        }
     }
 
     private record SpawnBucket(String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {}

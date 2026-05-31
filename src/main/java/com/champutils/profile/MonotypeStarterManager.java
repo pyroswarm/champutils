@@ -164,7 +164,7 @@ public final class MonotypeStarterManager {
                     .setName(Component.literal(choice.display()).withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Level 5 " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to choose this Pokémon.").withStyle(ChatFormatting.YELLOW))
-                    .setCallback((index, clickType, action, gui1) -> gui.claim(choice));
+                    .setCallback((index, clickType, action, gui1) -> { gui.claim(choice); gui1.setSlot(index, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("Processing...").withStyle(ChatFormatting.YELLOW))); });
             gui.setSlot(slots[i], builder);
         }
 
@@ -300,16 +300,16 @@ public final class MonotypeStarterManager {
         @Override
         public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
             // Hard-cancel every click action, including pickup, shift-click, hotbar swap,
-            // clone, throw, quick-craft, and pickup-all. SGUI still runs element callbacks,
-            // but the virtual inventory is never allowed to move items to the player.
-            return false;
+            // clone, throw, quick-craft, and pickup-all. Returning true consumes the click
+            // before Minecraft can transfer the virtual sprite/item stack to the player.
+            return true;
         }
 
         @Override
         public boolean onClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action, GuiElementInterface element) {
-            // Return false so SGUI performs its normal safe sync after the callback.
-            // The actual movement permission is denied by onAnyClick above.
-            return false;
+            // Also consume element clicks; starter selection is handled by the element callback
+            // and the GUI is immediately resynced. No inventory movement is permitted.
+            return true;
         }
 
         @Override

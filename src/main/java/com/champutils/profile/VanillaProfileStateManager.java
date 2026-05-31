@@ -60,6 +60,7 @@ public final class VanillaProfileStateManager {
 
     public static void saveSnapshotAsync(UUID profileId, UUID playerUuid, String playerName, String snbt) {
         if (profileId == null || playerUuid == null || snbt == null || snbt.isBlank() || !DatabaseManager.isEnabled()) return;
+        PlayerProfileManager.cacheVanillaState(profileId, snbt);
         DatabaseManager.executeAsync("save vanilla profile state snapshot", connection -> {
             try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
                     "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
@@ -112,11 +113,13 @@ public final class VanillaProfileStateManager {
             CompoundTag tag = new CompoundTag();
             player.saveWithoutId(tag);
             scrubAccountOnlyFields(tag, player);
+            String snbt = tag.toString();
+            PlayerProfileManager.cacheVanillaState(profileId, snbt);
             try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
                     "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
                 ps.setObject(1, profileId);
                 ps.setObject(2, player.getUUID());
-                ps.setString(3, tag.toString());
+                ps.setString(3, snbt);
                 ps.executeUpdate();
             }
         } catch (Exception e) {
@@ -137,6 +140,7 @@ public final class VanillaProfileStateManager {
         player.saveWithoutId(tag);
         scrubAccountOnlyFields(tag, player);
         String snbt = tag.toString();
+        PlayerProfileManager.cacheVanillaState(profileId, snbt);
 
         DatabaseManager.executeAsync("save vanilla profile state", connection -> {
             try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +

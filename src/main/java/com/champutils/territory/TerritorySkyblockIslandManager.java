@@ -103,6 +103,7 @@ public final class TerritorySkyblockIslandManager {
 
         clearStarterVolume(level, centerX, baseY, centerZ, radius + 8);
         buildIsland(level, centerX, baseY, centerZ, radius);
+        seedStarterOres(level, centerX, baseY, centerZ);
         buildTree(level, centerX + 4, baseY + 1, centerZ + 3);
         buildSpawnPad(level, centerX, baseY + 1, centerZ);
 
@@ -164,6 +165,25 @@ public final class TerritorySkyblockIslandManager {
         }
     }
 
+
+    private static void seedStarterOres(ServerLevel level, int cx, int baseY, int cz) {
+        // Islander territories are intentionally isolated from normal exploration worlds,
+        // so give the starter island a small renewable-feeling ore pocket to begin progression.
+        setIfStoneOrDirt(level, cx - 3, baseY - 3, cz - 2, Blocks.COAL_ORE.defaultBlockState());
+        setIfStoneOrDirt(level, cx + 3, baseY - 3, cz + 1, Blocks.COAL_ORE.defaultBlockState());
+        setIfStoneOrDirt(level, cx - 1, baseY - 3, cz + 3, Blocks.COPPER_ORE.defaultBlockState());
+        setIfStoneOrDirt(level, cx + 2, baseY - 3, cz - 3, Blocks.IRON_ORE.defaultBlockState());
+        setIfStoneOrDirt(level, cx, baseY - 4, cz + 2, Blocks.IRON_ORE.defaultBlockState());
+    }
+
+    private static void setIfStoneOrDirt(ServerLevel level, int x, int y, int z, BlockState state) {
+        BlockPos pos = new BlockPos(x, y, z);
+        BlockState current = level.getBlockState(pos);
+        if (current.is(Blocks.STONE) || current.is(Blocks.DIRT) || current.is(Blocks.GRASS_BLOCK)) {
+            level.setBlock(pos, state, 3);
+        }
+    }
+
     private static void buildSpawnPad(ServerLevel level, int cx, int y, int cz) {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
@@ -180,7 +200,7 @@ public final class TerritorySkyblockIslandManager {
             level.setBlock(new BlockPos(x, y + i, z), Blocks.OAK_LOG.defaultBlockState(), 3);
         }
 
-        BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true);
+        BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, false);
         for (int dy = 3; dy <= 6; dy++) {
             int radius = dy >= 5 ? 1 : 2;
             for (int dx = -radius; dx <= radius; dx++) {

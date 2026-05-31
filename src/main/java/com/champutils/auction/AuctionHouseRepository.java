@@ -31,19 +31,26 @@ public final class AuctionHouseRepository {
 
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "insert into auction_listings " +
-                        "(seller_uuid, seller_username, listing_kind, title, description, unit_price, quantity, payload, status, created_at, updated_at, expires_at) " +
-                        "values (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', now(), now(), now() + (? * interval '1 day')) " +
+                        "(seller_profile_id, seller_player_uuid, seller_name, listing_type, price, " +
+                        "seller_uuid, seller_username, listing_kind, title, description, unit_price, quantity, payload, status, created_at, updated_at, expires_at) " +
+                        "values (?, (select player_uuid from player_profiles where id = ?), ?, ?, ?, " +
+                        "?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', now(), now(), now() + (? * interval '1 day')) " +
                         "returning id"
         )) {
-            statement.setString(1, sellerUuid.toString());
-            statement.setString(2, safe(sellerUsername, sellerUuid.toString()));
-            statement.setString(3, kind);
-            statement.setString(4, safe(title, "Auction Listing"));
-            statement.setString(5, description == null ? "" : description);
-            statement.setLong(6, price);
-            statement.setInt(7, Math.max(1, quantity));
-            statement.setObject(8, jsonb(payload));
-            statement.setInt(9, Math.max(1, Math.min(365, listingDurationDays)));
+            statement.setObject(1, sellerUuid);
+            statement.setObject(2, sellerUuid);
+            statement.setString(3, safe(sellerUsername, sellerUuid.toString()));
+            statement.setString(4, kind);
+            statement.setLong(5, price);
+            statement.setString(6, sellerUuid.toString());
+            statement.setString(7, safe(sellerUsername, sellerUuid.toString()));
+            statement.setString(8, kind);
+            statement.setString(9, safe(title, "Auction Listing"));
+            statement.setString(10, description == null ? "" : description);
+            statement.setLong(11, price);
+            statement.setInt(12, Math.max(1, quantity));
+            statement.setObject(13, jsonb(payload));
+            statement.setInt(14, Math.max(1, Math.min(365, listingDurationDays)));
 
             try (ResultSet rs = statement.executeQuery()) {
                 if (rs.next()) return UUID.fromString(rs.getString("id"));
@@ -152,9 +159,10 @@ public final class AuctionHouseRepository {
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "update auction_listings set status = 'SOLD', updated_at = now() where id = ? and status = 'ACTIVE'"
+                    "update auction_listings set status = 'SOLD', buyer_profile_id = ?, sold_at = now(), updated_at = now() where id = ? and status = 'ACTIVE'"
             )) {
-                statement.setObject(1, listing.id);
+                statement.setObject(1, buyerUuid);
+                statement.setObject(2, listing.id);
                 if (statement.executeUpdate() != 1) {
                     connection.rollback();
                     return null;
@@ -305,6 +313,13 @@ public final class AuctionHouseRepository {
                 "alter table auction_listings add column if not exists payload jsonb not null default '{}'::jsonb",
                 "alter table auction_listings add column if not exists status text not null default 'ACTIVE'",
                 "alter table auction_listings add column if not exists updated_at timestamptz not null default now()",
+                "alter table auction_listings add column if not exists seller_profile_id uuid",
+                "alter table auction_listings add column if not exists seller_player_uuid uuid",
+                "alter table auction_listings add column if not exists seller_name text not null default ''",
+                "alter table auction_listings add column if not exists listing_type text not null default 'ITEM'",
+                "alter table auction_listings add column if not exists price numeric not null default 1",
+                "alter table auction_listings add column if not exists sold_at timestamptz",
+                "alter table auction_listings add column if not exists buyer_profile_id uuid",
                 "alter table auction_listings add column if not exists expires_at timestamptz not null default (now() + interval '7 days')"
         };
         for (String sql : listingColumns) {

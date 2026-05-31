@@ -66,11 +66,7 @@ public final class TerritoryBorderDisplayManager {
     }
 
     private static TerritoryRepository.Territory findById(UUID id) {
-        if (id == null) return null;
-        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
-            if (id.equals(territory.id)) return territory;
-        }
-        return null;
+        return TerritoryRepository.get(id);
     }
 
     private static void drawForPlayer(ServerPlayer player, TerritoryRepository.Territory territory) {

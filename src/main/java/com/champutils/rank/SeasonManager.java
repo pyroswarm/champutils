@@ -7,6 +7,8 @@ import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.PlayerDataManager.PlayerData;
 import com.champutils.database.SeasonDatabaseRepository;
 import com.champutils.database.RankedFormatDatabaseRepository;
+import com.champutils.database.SeasonProfileDatabaseRepository;
+import com.champutils.leaderboard.ProfileLeaderboardRepository;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -177,14 +179,28 @@ public class SeasonManager {
         ArrayList<SeasonArchiveManager.LadderEntry> top =
                 new ArrayList<>();
 
-        for (var e : LeaderboardManager.getTop(100)) {
-            top.add(
-                    new SeasonArchiveManager.LadderEntry(
-                            e.playerName,
-                            e.rp,
-                            RankManager.getRank(e.rp).name
-                    )
-            );
+        var profileTop = ProfileLeaderboardRepository.top(ProfileLeaderboardRepository.Board.RANKED, 100);
+        if (!profileTop.isEmpty()) {
+            for (var e : profileTop) {
+                String displayName = e.profileName() + " (" + e.playerName() + ")";
+                top.add(
+                        new SeasonArchiveManager.LadderEntry(
+                                displayName,
+                                e.rp(),
+                                RankManager.getRank(e.rp()).name
+                        )
+                );
+            }
+        } else {
+            for (var e : LeaderboardManager.getTop(100)) {
+                top.add(
+                        new SeasonArchiveManager.LadderEntry(
+                                e.playerName,
+                                e.rp,
+                                RankManager.getRank(e.rp).name
+                        )
+                );
+            }
         }
 
         SeasonArchiveManager.saveTop100Snapshot(
@@ -259,28 +275,37 @@ public class SeasonManager {
             MinecraftServer server,
             String name
     ) {
-        for (ServerPlayer p :
-                server.getPlayerList().getPlayers()) {
+        int oldSeason = CURRENT_SEASON;
+        int newSeason = CURRENT_SEASON + 1;
+        String safeName = name == null || name.isBlank() ? "Season " + newSeason : name;
+
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             archivePlayer(p);
-            resetPlayer(p);
         }
 
-        for (var entry :
-                PlayerDataManager.getAllPlayers()) {
+        CURRENT_SEASON = newSeason;
+        CURRENT_NAME = safeName;
+        saveState();
 
-            boolean online =
-                    server.getPlayerList()
-                            .getPlayerByName(
-                                    entry.name
-                            ) != null;
+        SeasonProfileDatabaseRepository.rolloverToNewSeason(
+                oldSeason,
+                CURRENT_SEASON,
+                CURRENT_NAME,
+                RESET_FLOOR,
+                RESET_PERCENT
+        );
+        SeasonDatabaseRepository.setActiveSeason(
+                CURRENT_SEASON,
+                CURRENT_NAME
+        );
+        RankedFormatDatabaseRepository.syncCurrentFormats();
 
-            if (online) {
+        for (var entry : PlayerDataManager.getAllProfilePlayers()) {
+            if (entry == null || entry.data == null || entry.uuid == null || entry.uuid.isBlank()) {
                 continue;
             }
 
             PlayerData d = entry.data;
-
-            archiveOfflinePlayer(d);
 
             d.rp = softReset(d.rp);
             d.peakRp = d.rp;
@@ -291,27 +316,17 @@ public class SeasonManager {
             d.upsetWins = 0;
             d.seasonsPlayed++;
 
-            PlayerDataManager.save(
-                    UUID.fromString(d.uuid),
-                    d
-            );
+            try {
+                PlayerDataManager.saveProfileDataById(UUID.fromString(entry.uuid), d);
+            } catch (Exception ignored) {}
         }
 
-        CURRENT_SEASON++;
-        CURRENT_NAME = name;
-
-        saveState();
-        SeasonDatabaseRepository.setActiveSeason(
-                CURRENT_SEASON,
-                CURRENT_NAME
-        );
-        RankedFormatDatabaseRepository.syncCurrentFormats();
         LeaderboardManager.refresh(server);
 
-        for (
-                ServerPlayer p :
-                server.getPlayerList().getPlayers()
-        ) {
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            PlayerData d = PlayerDataManager.load(p.getUUID(), p.getName().getString());
+            ProfileManager.setElo(p, d.rp);
+
             p.connection.send(
                     new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
                             Component.literal(
@@ -502,7 +517,7 @@ public class SeasonManager {
             state.seasonName = CURRENT_NAME;
 
             for (var entry :
-                    PlayerDataManager.getAllPlayers()) {
+                    PlayerDataManager.getAllProfilePlayers()) {
 
                 PlayerData d = entry.data;
 
@@ -532,7 +547,7 @@ public class SeasonManager {
                 d.rp = ProfileManager.getCurrentRp(player);
 
                 state.players.put(
-                        player.getUUID().toString(),
+                        d.uuid,
                         snapshotOf(d)
                 );
             }
@@ -608,20 +623,18 @@ public class SeasonManager {
                 UUID uuid = UUID.fromString(snapshot.uuid);
                 PlayerData d = dataFromSnapshot(snapshot);
 
-                PlayerDataManager.save(
+                PlayerDataManager.saveProfileDataById(
                         uuid,
                         d
                 );
 
-                ServerPlayer online =
-                        server.getPlayerList()
-                                .getPlayer(uuid);
-
-                if (online != null) {
-                    ProfileManager.setElo(
-                            online,
-                            d.rp
-                    );
+                for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                    if (com.champutils.profile.PlayerProfileManager.activeProfileId(online).equals(uuid)) {
+                        ProfileManager.setElo(
+                                online,
+                                d.rp
+                        );
+                    }
                 }
             }
 
@@ -665,6 +678,7 @@ public class SeasonManager {
             );
 
             saveState();
+            SeasonProfileDatabaseRepository.rollbackActiveSeason(CURRENT_SEASON, CURRENT_NAME);
             LeaderboardManager.refresh(server);
 
             server.getPlayerList()

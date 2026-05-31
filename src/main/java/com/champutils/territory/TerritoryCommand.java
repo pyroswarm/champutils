@@ -461,6 +461,10 @@ public final class TerritoryCommand {
             owner.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
+        if (owner.getUUID().equals(target.getUUID()) || territory.ownerId.equalsIgnoreCase(owner.getUUID().toString()) || territory.ownerId.equalsIgnoreCase(target.getUUID().toString())) {
+            owner.sendSystemMessage(Component.literal("You cannot change trust for the owner of their own territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         TerritoryRepository.setTrust(territory, target.getUUID(), target.getGameProfile().getName(), level, (success, message) -> owner.server.execute(() -> owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
         return 1;
     }
@@ -473,6 +477,10 @@ public final class TerritoryCommand {
         }
         if (!TerritoryRepository.canManage(owner, territory)) {
             owner.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (owner.getUUID().equals(target.getUUID()) || territory.ownerId.equalsIgnoreCase(owner.getUUID().toString()) || territory.ownerId.equalsIgnoreCase(target.getUUID().toString())) {
+            owner.sendSystemMessage(Component.literal("You cannot untrust the owner from their own territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
         TerritoryRepository.removeTrust(territory, target.getUUID(), target.getGameProfile().getName(), (success, message) -> owner.server.execute(() -> owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));

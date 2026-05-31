@@ -119,7 +119,7 @@ public final class SeasonDatabaseRepository {
     public static void syncAllRankedPlayersForCurrentSeason() {
         syncCurrentSeason();
 
-        for (PlayerDataManager.OfflinePlayerEntry entry : PlayerDataManager.getAllPlayers()) {
+        for (PlayerDataManager.OfflinePlayerEntry entry : PlayerDataManager.getAllProfilePlayers()) {
             if (entry == null || entry.data == null) {
                 continue;
             }

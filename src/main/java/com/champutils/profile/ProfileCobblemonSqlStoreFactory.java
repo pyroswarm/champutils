@@ -161,6 +161,8 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         PCStore pc = pcCache.get(profileId); // dirty rule: if PC was never loaded, do not serialize or write it.
         if (party == null && pc == null) return;
 
+        if (party != null) dedupeStore(party);
+        if (pc != null) dedupeStore(pc);
         String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
         String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
         System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync snapshot took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null) + " pcSnapshot=" + (pcNbt != null));
@@ -299,6 +301,8 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private void upsert(UUID profileId, PlayerPartyStore party, PCStore pc, RegistryAccess registryAccess) {
         if (!DatabaseManager.isEnabled()) return;
         try {
+            if (party != null) dedupeStore(party);
+            if (pc != null) dedupeStore(pc);
             String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
             String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
             upsertSnapshot(DatabaseManager.getConnection(), profileId, partyNbt, pcNbt);
@@ -306,6 +310,35 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             System.err.println("[ChampUtils] Failed to save SQL Cobblemon stores for profile " + profileId + ".");
             e.printStackTrace();
         }
+    }
+
+
+    private static void dedupeStore(Iterable<Pokemon> store) {
+        if (store == null) return;
+        java.util.Set<UUID> seen = new java.util.HashSet<>();
+        java.util.List<Pokemon> duplicates = new java.util.ArrayList<>();
+        try {
+            for (Pokemon pokemon : store) {
+                if (pokemon == null) continue;
+                UUID id;
+                try { id = pokemon.getUuid(); } catch (Throwable t) { continue; }
+                if (id == null) continue;
+                if (!seen.add(id)) duplicates.add(pokemon);
+            }
+            for (Pokemon duplicate : duplicates) {
+                try {
+                    var coordinates = duplicate.getStoreCoordinates().get();
+                    if (coordinates != null && coordinates.remove()) continue;
+                } catch (Throwable ignored) {}
+                for (Method method : store.getClass().getMethods()) {
+                    if (!method.getName().equals("remove") || method.getParameterCount() != 1) continue;
+                    if (!method.getParameterTypes()[0].isAssignableFrom(duplicate.getClass())) continue;
+                    method.setAccessible(true);
+                    method.invoke(store, duplicate);
+                    break;
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static String safeStoreNbt(PokemonStore<?> store, RegistryAccess registryAccess) {

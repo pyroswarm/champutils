@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class ProfilePlaytimeManager {
     private static final Map<UUID, AtomicLong> PROFILE_SECONDS = new ConcurrentHashMap<>();
     private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> LOADED_FROM_DB = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> LOADING_FROM_DB = ConcurrentHashMap.newKeySet();
     private static final long DEFAULT_INCREMENT_SECONDS = 60L;
 
     private ProfilePlaytimeManager() {}
@@ -50,33 +52,43 @@ public final class ProfilePlaytimeManager {
 
     public static long getCachedPlaytimeSeconds(UUID profileId) {
         if (profileId == null) return 0L;
+        warmCacheAsync(profileId);
         AtomicLong cached = PROFILE_SECONDS.get(profileId);
         if (cached != null) return Math.max(0L, cached.get());
         return 0L;
     }
 
     public static boolean hasAtLeastPlaytime(ServerPlayer player, long requiredSeconds) {
-        return getCachedPlaytimeSeconds(player) >= Math.max(0L, requiredSeconds);
+        long required = Math.max(0L, requiredSeconds);
+        if (required <= 0L) return true;
+        return getCachedPlaytimeSeconds(player) >= required;
     }
 
     public static void warmCacheAsync(UUID profileId) {
-        if (profileId == null || PROFILE_SECONDS.containsKey(profileId) || !DatabaseManager.isEnabled()) return;
+        if (profileId == null || !DatabaseManager.isEnabled()) return;
+        if (LOADED_FROM_DB.contains(profileId)) return;
+        if (!LOADING_FROM_DB.add(profileId)) return;
 
         DatabaseManager.executeAsync("warm profile playtime cache", connection -> {
-            ensureSchema(connection);
-            long loaded = 0L;
-            try (var ps = connection.prepareStatement("select playtime_seconds from profile_player_stats where profile_id = ?")) {
-                ps.setObject(1, profileId);
-                try (var rs = ps.executeQuery()) {
-                    if (rs.next()) loaded = Math.max(0L, rs.getLong("playtime_seconds"));
+            try {
+                ensureSchema(connection);
+                long loaded = 0L;
+                try (var ps = connection.prepareStatement("select playtime_seconds from profile_player_stats where profile_id = ?")) {
+                    ps.setObject(1, profileId);
+                    try (var rs = ps.executeQuery()) {
+                        if (rs.next()) loaded = Math.max(0L, rs.getLong("playtime_seconds"));
+                    }
                 }
+                long finalLoaded = loaded;
+                PROFILE_SECONDS.compute(profileId, (id, existing) -> {
+                    if (existing == null) return new AtomicLong(finalLoaded);
+                    existing.set(Math.max(existing.get(), finalLoaded));
+                    return existing;
+                });
+                LOADED_FROM_DB.add(profileId);
+            } finally {
+                LOADING_FROM_DB.remove(profileId);
             }
-            long finalLoaded = loaded;
-            PROFILE_SECONDS.compute(profileId, (id, existing) -> {
-                if (existing == null) return new AtomicLong(finalLoaded);
-                existing.set(Math.max(existing.get(), finalLoaded));
-                return existing;
-            });
         });
     }
 

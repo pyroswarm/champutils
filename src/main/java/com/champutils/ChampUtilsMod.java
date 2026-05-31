@@ -180,9 +180,11 @@ public class ChampUtilsMod implements ModInitializer {
         HomeCommand.load();
         CrateConfig.load();
         CrateCreditManager.load();
+        CrateKeyCraftingConfig.load();
         DailyLoginManager.load();
         ChampWorldBorderConfig.load();
         IslanderSpawningManager.load();
+        IslanderMineManager.load();
         GlobalGameruleConfig.load();
 
         /*
@@ -348,6 +350,9 @@ public class ChampUtilsMod implements ModInitializer {
                     DailyLoginManager.save();
                     TitleManager.save();
                     WorldFirstManager.save();
+                    for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+                        PlayerProfileManager.saveActiveLocation(onlinePlayer);
+                    }
                     com.champutils.profile.ProfilePlaytimeManager.flushBlockingBestEffort();
                     DatabaseManager.shutdown();
 
@@ -602,6 +607,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChampWorldBorderCommand.register();
         GlobalGameruleCommand.register();
         ProfileCommand.register();
+        IslanderMineCommand.register();
         GraveyardCommand.register();
 
         /*
@@ -691,6 +697,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DailyLoginManager.tick(server);
                     ChampWorldBorderManager.tick(server);
                     IslanderProfileManager.tick(server);
+                    IslanderMineManager.tick(server);
 
                     /*
                      Leaderboard refresh

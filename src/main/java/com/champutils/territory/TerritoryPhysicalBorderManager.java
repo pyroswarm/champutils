@@ -16,6 +16,7 @@ public final class TerritoryPhysicalBorderManager {
     private static final Set<String> QUEUED = new HashSet<>();
     private static final Set<UUID> SCHEDULED_TERRITORIES = new HashSet<>();
     private static final BlockState BARRIER = Blocks.BARRIER.defaultBlockState();
+    private static final int SCHEDULE_SCAN_EVERY_TICKS = 200;
 
     private TerritoryPhysicalBorderManager() {}
 
@@ -24,8 +25,10 @@ public final class TerritoryPhysicalBorderManager {
         TerritoryConfig.Data config = TerritoryConfig.get();
         if (!config.enabled || !config.physicalBarrierBorders) return;
 
-        scheduleMissingBorders(server);
-        buildQueuedColumns(server, config.barrierColumnsPerTick);
+        if (server.getTickCount() % SCHEDULE_SCAN_EVERY_TICKS == 0) {
+            scheduleMissingBorders(server);
+        }
+        buildQueuedColumns(server, Math.max(1, config.barrierColumnsPerTick));
     }
 
     private static void scheduleMissingBorders(MinecraftServer server) {

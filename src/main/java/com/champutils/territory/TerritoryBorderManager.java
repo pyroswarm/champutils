@@ -91,24 +91,20 @@ public final class TerritoryBorderManager {
     private static TerritoryRepository.Territory lastAllowedTerritory(ServerPlayer player) {
         UUID territoryId = LAST_ALLOWED_TERRITORY.get(player.getUUID());
         if (territoryId == null) return null;
-        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
-            if (!territory.id.equals(territoryId)) continue;
-            if (!territory.worldName.equalsIgnoreCase(player.serverLevel().dimension().location().toString())) return null;
-            if (!TerritoryRepository.canEnter(player, territory)) return null;
-            return territory;
-        }
-        return null;
+        TerritoryRepository.Territory territory = TerritoryRepository.get(territoryId);
+        if (territory == null) return null;
+        if (!territory.worldName.equalsIgnoreCase(player.serverLevel().dimension().location().toString())) return null;
+        if (!TerritoryRepository.canEnter(player, territory)) return null;
+        return territory;
     }
 
     private static TerritoryRepository.Territory nearestEnterableLockedTerritory(ServerLevel level, ServerPlayer player) {
         if (level == null || player == null) return null;
-        String worldName = level.dimension().location().toString();
         double bestDistanceSq = Double.MAX_VALUE;
         TerritoryRepository.Territory best = null;
 
-        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
+        for (TerritoryRepository.Territory territory : TerritoryRepository.cachedInWorld(level)) {
             if (!territory.lockBorder) continue;
-            if (!territory.worldName.equalsIgnoreCase(worldName)) continue;
             if (!TerritoryRepository.canEnter(player, territory)) continue;
 
             double clampedX = Math.max(territory.minX, Math.min(territory.maxX, player.getX()));

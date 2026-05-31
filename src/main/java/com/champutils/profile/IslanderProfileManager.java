@@ -77,10 +77,13 @@ public final class IslanderProfileManager {
         TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, player.blockPosition());
 
         if (playerIsIslander) {
-            // Spawn is always allowed. In islander_* worlds, Islanders must be inside an Islander territory.
+            // Spawn is always allowed. In islander_* worlds, Islanders must be inside an Islander territory
+            // OR inside the managed Islander mine region. The mine is still in an islander_* world,
+            // so it does not weaken the no-normal-worlds rule.
             if (spawnWorld) return;
+            if (islanderWorld && IslanderMineManager.isMineLocation(level, player.blockPosition())) return;
             if (territory == null || !isIslanderTerritory(territory)) {
-                denyAndSendToSpawn(player, "Islanders can only access Islander territories and spawn.");
+                denyAndSendToSpawn(player, "Islanders can only access Islander territories, Islander mines, and spawn.");
                 return;
             }
         } else if (territory == null) {

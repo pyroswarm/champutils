@@ -32,6 +32,7 @@ public final class ProfileSelectionMenu {
     private static final ConcurrentMap<UUID, Long> LAST_FINALIZE_CHECK = new ConcurrentHashMap<>();
     private static final ConcurrentMap<UUID, Runnable> FORCED_REOPENERS = new ConcurrentHashMap<>();
     private static final Set<UUID> SUPPRESS_NEXT_CLOSE_REOPEN = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> PROFILE_CREATION_IN_PROGRESS = ConcurrentHashMap.newKeySet();
 
     private record MenuSnapshot(
             List<PlayerProfileManager.ProfileRecord> profiles,
@@ -201,6 +202,11 @@ public final class ProfileSelectionMenu {
     }
 
     private static void openColorMenu(ServerPlayer player, ProfileGameMode mode, String monotype) {
+        if (player != null && PROFILE_CREATION_IN_PROGRESS.contains(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("Profile creation is already in progress. Please wait for it to finish.").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+
         if (mode == ProfileGameMode.MONOTYPE && (monotype == null || monotype.isBlank())) {
             openMonotypeMenu(player);
             return;
@@ -221,14 +227,24 @@ public final class ProfileSelectionMenu {
                     .addLoreLine(Component.literal("Mode: " + mode.displayName() + (monotype == null ? "" : ": " + monotype)).withStyle(ChatFormatting.GRAY));
             if (!taken) {
                 builder.setCallback((index, clickType, action, gui1) -> {
+                    UUID playerId = player.getUUID();
+                    if (!PROFILE_CREATION_IN_PROGRESS.add(playerId)) {
+                        player.sendSystemMessage(Component.literal("Profile creation is already in progress. Please wait for it to finish.").withStyle(ChatFormatting.YELLOW));
+                        return;
+                    }
+
+                    invalidateSnapshot(player);
                     gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
                             .hideDefaultTooltip()
                             .setName(Component.literal("Creating profile...").withStyle(ChatFormatting.YELLOW))
-                            .addLoreLine(Component.literal("SQL work is running off the server thread.").withStyle(ChatFormatting.GRAY)));
+                            .addLoreLine(Component.literal("Please wait. Extra clicks are ignored.").withStyle(ChatFormatting.GRAY)));
                     player.sendSystemMessage(Component.literal("Creating profile " + color.name() + "...").withStyle(ChatFormatting.YELLOW));
+
                     CompletableFuture
                             .supplyAsync(() -> PlayerProfileManager.createBlocking(player, color.name(), mode, monotype))
                             .whenComplete((result, error) -> player.server.execute(() -> {
+                                PROFILE_CREATION_IN_PROGRESS.remove(playerId);
+
                                 String finalResult = result;
                                 if (error != null) {
                                     error.printStackTrace();

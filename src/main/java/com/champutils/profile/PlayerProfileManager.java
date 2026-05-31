@@ -31,6 +31,7 @@ public final class PlayerProfileManager {
     private static final Map<UUID, Map<String, ProfileRecord>> PROFILE_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, String> VANILLA_STATE_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, SavedLocationSnapshot> SAVED_LOCATION_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Object> CREATE_LOCKS = new ConcurrentHashMap<>();
 
     private PlayerProfileManager() {}
 
@@ -74,6 +75,19 @@ public final class PlayerProfileManager {
 
     private static void clearProfileCache(UUID playerUuid) {
         if (playerUuid != null) PROFILE_CACHE.remove(playerUuid);
+    }
+
+    static void cacheVanillaState(UUID profileId, String snbt) {
+        if (profileId == null) return;
+        if (snbt == null || snbt.isBlank()) {
+            VANILLA_STATE_CACHE.remove(profileId);
+            return;
+        }
+        VANILLA_STATE_CACHE.put(profileId, snbt);
+    }
+
+    static void invalidateVanillaStateCache(UUID profileId) {
+        if (profileId != null) VANILLA_STATE_CACHE.remove(profileId);
     }
 
     private static ProfileRecord cachedProfileByName(UUID playerUuid, String name) {
@@ -299,6 +313,14 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
     public static String createBlocking(ServerPlayer player, String name, ProfileGameMode mode, String monotypeType) {
         if (player == null) return "Could not create profile.";
+
+        Object createLock = CREATE_LOCKS.computeIfAbsent(player.getUUID(), ignored -> new Object());
+        synchronized (createLock) {
+            return createBlockingLocked(player, name, mode, monotypeType);
+        }
+    }
+
+    private static String createBlockingLocked(ServerPlayer player, String name, ProfileGameMode mode, String monotypeType) {
         String clean = cleanName(name);
         if (clean == null) return "Profile names must be 3-16 letters/numbers/underscore.";
         if (mode == ProfileGameMode.MONOTYPE && (monotypeType == null || monotypeType.isBlank())) return "Monotype profiles need a type, example: /profiles create FireRun monotype fire";
@@ -341,7 +363,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
             long defaultCacheStart = System.currentTimeMillis();
             cacheProfile(created);
-            VANILLA_STATE_CACHE.put(created.profileId(), "{}");
+            // Do not cache an empty vanilla state here. A newly created profile may receive
+            // starter items or player-earned items later in the same server session, and a
+            // stale "{}" cache entry would make future switches clear the live inventory
+            // instead of reading the saved profile_vanilla_state row from SQL.
+            VANILLA_STATE_CACHE.remove(created.profileId());
             SAVED_LOCATION_CACHE.put(created.profileId(), new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true));
             System.out.println("[PROFILE-TIMING] createBlocking.default profile cache took " + (System.currentTimeMillis() - defaultCacheStart) + "ms");
             System.out.println("[PROFILE-TIMING] createBlocking total took " + (System.currentTimeMillis() - createTotalStart) + "ms");
@@ -647,16 +673,22 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             return;
         }
 
+        double x = player.getX();
+        double y = player.getY();
+        double z = player.getZ();
+        float yaw = player.getYRot();
+        float pitch = player.getXRot();
         saveLocationSnapshotBlocking(
                 player.getGameProfile().getName(),
                 profileId,
                 dimension,
-                player.getX(),
-                player.getY(),
-                player.getZ(),
-                player.getYRot(),
-                player.getXRot()
+                x,
+                y,
+                z,
+                yaw,
+                pitch
         );
+        SAVED_LOCATION_CACHE.put(profileId, new SavedLocationSnapshot(dimension, x, y, z, yaw, pitch, false));
     }
 
     public static void saveActiveLocationAsync(ServerPlayer player) {
@@ -675,6 +707,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         double z = player.getZ();
         float yaw = player.getYRot();
         float pitch = player.getXRot();
+        SAVED_LOCATION_CACHE.put(profileId, new SavedLocationSnapshot(dimension, x, y, z, yaw, pitch, false));
         DatabaseManager.executeAsync("save active profile location", connection -> saveLocationSnapshot(connection, playerName, profileId, dimension, x, y, z, yaw, pitch));
     }
 

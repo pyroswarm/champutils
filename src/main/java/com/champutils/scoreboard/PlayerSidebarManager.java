@@ -5,6 +5,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.rank.RankManager;
 import com.champutils.config.Rank;
@@ -168,7 +169,11 @@ public final class PlayerSidebarManager {
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
         lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getCachedPlaytimeSeconds(player)));
-        lines.add("§6Last Special §f" + SpecialWildSpawnManager.formatLastSpawnAgo());
+        if (PlayerProfileManager.isIslander(player)) {
+            lines.add("§6Island Special §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
+        } else {
+            lines.add("§6Last Special §f" + SpecialWildSpawnManager.formatLastNormalSpawnAgo());
+        }
         lines.add("§5Last Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         lines.add("§8§m----------------");
         lines.add(professionLine("§cBattling", player, ProfessionType.BATTLING));

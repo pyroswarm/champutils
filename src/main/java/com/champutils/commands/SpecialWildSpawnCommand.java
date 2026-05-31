@@ -26,9 +26,9 @@ public final class SpecialWildSpawnCommand {
                 }))
                 .then(literal("force").executes(ctx -> {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();
-                    boolean spawned = SpecialWildSpawnManager.forceSpawnFor(player);
-                    ctx.getSource().sendSuccess(() -> Component.literal(spawned ? "Forced a special wild spawn near you." : "Could not force a special wild spawn here. Check world/profile/config."), false);
-                    return spawned ? 1 : 0;
+                    SpecialWildSpawnManager.ForceSpawnResult result = SpecialWildSpawnManager.forceSpawnForResult(player);
+                    ctx.getSource().sendSuccess(() -> Component.literal(result.message), false);
+                    return result.success ? 1 : 0;
                 }))
         ));
     }

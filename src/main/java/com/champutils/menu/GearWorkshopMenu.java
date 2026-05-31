@@ -53,10 +53,22 @@ public final class GearWorkshopMenu {
                         .setCallback((i, c, t) -> FragmentCraftingMenu.open(player, GearWorkshopMenu::open))
         );
 
+        gui.setSlot(
+                7,
+                new GuiElementBuilder(Items.TRIPWIRE_HOOK)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("§6Crate Key Crafting"))
+                        .addLoreLine(Component.literal("§7Craft regular crate keys."))
+                        .addLoreLine(Component.literal("§7Costs fragments, ores, Cobblemon items,"))
+                        .addLoreLine(Component.literal("§7and netherite at high tiers."))
+                        .addLoreLine(Component.literal("§eClick to open"))
+                        .setCallback((i, c, t) -> CrateKeyCraftingMenu.open(player, GearWorkshopMenu::open))
+        );
+
         addCommandButton(
                 gui,
                 player,
-                7,
+                8,
                 Items.PRISMARINE_SHARD,
                 "§6Fragment Storage",
                 "§7View your stored fragment balances.",

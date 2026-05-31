@@ -16,9 +16,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -93,6 +95,11 @@ public final class TerritoryRepository {
     private static final Map<String, UUID> OWNER_INDEX = new ConcurrentHashMap<>();
     private static final Map<String, TrustLevel> TRUST = new ConcurrentHashMap<>();
 
+    // Hot-path indexes. These prevent per-tick and per-interaction territory checks from scanning every territory.
+    private static final Map<String, Map<Long, List<Territory>>> TERRITORIES_BY_WORLD_CHUNK = new ConcurrentHashMap<>();
+    private static final Map<String, List<Territory>> TERRITORIES_BY_WORLD = new ConcurrentHashMap<>();
+    private static final Set<String> TERRITORY_WORLD_KEYS = ConcurrentHashMap.newKeySet();
+
     private static final String ISLANDER_WORLD_PREFIX = "multiworld:islander";
     private static final int ISLANDER_TERRITORIES_PER_WORLD = 100;
 
@@ -133,6 +140,7 @@ public final class TerritoryRepository {
             OWNER_INDEX.putAll(owners);
             TRUST.clear();
             TRUST.putAll(trust);
+            rebuildSpatialIndexes();
 
             System.out.println("[ChampUtils] Loaded " + TERRITORIES.size() + " territories from the database.");
         });
@@ -155,22 +163,74 @@ public final class TerritoryRepository {
 
     public static boolean isTerritoryWorld(ServerLevel level) {
         if (level == null) return false;
-        String worldName = level.dimension().location().toString();
-        String serverId = NetworkServerConfig.serverId();
-        for (Territory territory : TERRITORIES.values()) {
-            if (territory.isTerritoryWorld(serverId, worldName)) return true;
-        }
-        return false;
+        return TERRITORY_WORLD_KEYS.contains(worldKey(NetworkServerConfig.serverId(), level.dimension().location().toString()));
     }
 
     public static Territory findAt(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return null;
-        String worldName = level.dimension().location().toString();
         String serverId = NetworkServerConfig.serverId();
-        for (Territory territory : TERRITORIES.values()) {
+        String worldName = level.dimension().location().toString();
+        Map<Long, List<Territory>> chunks = TERRITORIES_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
+        if (chunks == null || chunks.isEmpty()) return null;
+
+        List<Territory> candidates = chunks.get(chunkKey(pos.getX() >> 4, pos.getZ() >> 4));
+        if (candidates == null || candidates.isEmpty()) return null;
+
+        for (Territory territory : candidates) {
             if (territory.contains(serverId, worldName, pos)) return territory;
         }
         return null;
+    }
+
+    public static List<Territory> cachedInWorld(ServerLevel level) {
+        if (level == null) return Collections.emptyList();
+        return cachedInWorld(NetworkServerConfig.serverId(), level.dimension().location().toString());
+    }
+
+    public static List<Territory> cachedInWorld(String serverId, String worldName) {
+        List<Territory> territories = TERRITORIES_BY_WORLD.get(worldKey(serverId, worldName));
+        return territories == null ? Collections.emptyList() : territories;
+    }
+
+
+    private static void rebuildSpatialIndexes() {
+        Map<String, Map<Long, List<Territory>>> chunkIndex = new ConcurrentHashMap<>();
+        Map<String, List<Territory>> worldIndex = new ConcurrentHashMap<>();
+        Set<String> worldKeys = ConcurrentHashMap.newKeySet();
+
+        for (Territory territory : TERRITORIES.values()) {
+            if (territory == null || territory.serverId == null || territory.worldName == null) continue;
+            normalizeBounds(territory);
+            String key = worldKey(territory.serverId, territory.worldName);
+            worldKeys.add(key);
+            worldIndex.computeIfAbsent(key, ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
+
+            int minChunkX = territory.minX >> 4;
+            int maxChunkX = territory.maxX >> 4;
+            int minChunkZ = territory.minZ >> 4;
+            int maxChunkZ = territory.maxZ >> 4;
+            Map<Long, List<Territory>> chunks = chunkIndex.computeIfAbsent(key, ignored -> new ConcurrentHashMap<>());
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                    chunks.computeIfAbsent(chunkKey(chunkX, chunkZ), ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
+                }
+            }
+        }
+
+        TERRITORIES_BY_WORLD_CHUNK.clear();
+        TERRITORIES_BY_WORLD_CHUNK.putAll(chunkIndex);
+        TERRITORIES_BY_WORLD.clear();
+        TERRITORIES_BY_WORLD.putAll(worldIndex);
+        TERRITORY_WORLD_KEYS.clear();
+        TERRITORY_WORLD_KEYS.addAll(worldKeys);
+    }
+
+    private static long chunkKey(int chunkX, int chunkZ) {
+        return (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL);
+    }
+
+    private static String worldKey(String serverId, String worldName) {
+        return (serverId == null ? "" : serverId.toLowerCase(Locale.ROOT)) + "|" + (worldName == null ? "" : worldName.toLowerCase(Locale.ROOT));
     }
 
     public static Territory cachedForOwner(OwnerType ownerType, String ownerId) {
@@ -185,6 +245,7 @@ public final class TerritoryRepository {
         }
         TERRITORIES.remove(territoryId);
         TRUST.keySet().removeIf(key -> key.startsWith(territoryId.toString() + ":"));
+        rebuildSpatialIndexes();
     }
 
     public static Territory cachedPersonal(ServerPlayer player) {
@@ -250,7 +311,8 @@ public final class TerritoryRepository {
         if (player.hasPermissions(4)) return true;
         if (isBanned(player, territory)) return false;
         if (territory.ownerType == OwnerType.PLAYER) {
-            if (territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(player).toString())) return true;
+            java.util.UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
+            if (activeProfileId != null && territory.ownerId.equalsIgnoreCase(activeProfileId.toString())) return true;
             TrustLevel trust = getTrust(territory.id, player.getUUID());
             if (trust == TrustLevel.TRUSTED || trust == TrustLevel.MANAGER) return true;
             return territory.allowVisitors && territory.visitorsCanBuild;
@@ -618,6 +680,7 @@ public final class TerritoryRepository {
             TERRITORIES.remove(territory.id);
             OWNER_INDEX.remove(ownerKey(territory.ownerType, territory.ownerId));
             TRUST.keySet().removeIf(key -> key.startsWith(territory.id.toString() + ":"));
+            rebuildSpatialIndexes();
             int minutes = TerritoryConfig.get().recreateCooldownMinutes;
             callback.done(true, "Territory deleted. You can create another after the cooldown ends.");
         });
@@ -673,6 +736,7 @@ public final class TerritoryRepository {
             }
             TERRITORIES.put(territory.id, territory);
             OWNER_INDEX.put(ownerKey(territory.ownerType, territory.ownerId), territory.id);
+            rebuildSpatialIndexes();
             callback.done(true, "Territory saved.");
         });
     }

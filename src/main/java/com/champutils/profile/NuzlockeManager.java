@@ -56,6 +56,7 @@ public final class NuzlockeManager {
         registered = true;
         registerCaptureListener();
         registerFaintListener();
+        registerReleaseListener();
     }
 
     public static String completeActiveRun(ServerPlayer player, String championId) {
@@ -160,6 +161,34 @@ public final class NuzlockeManager {
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
+            });
+        } catch (Throwable ignored) {}
+    }
+
+
+    private static void registerReleaseListener() {
+        try {
+            Class<?> eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents");
+            Object observable = findObservableExact(eventsClass, "POKEMON_RELEASED");
+            if (observable == null) observable = findObservable(eventsClass, "release");
+            if (observable == null) return;
+            CobblemonEventReflection.subscribe(observable, event -> {
+                try {
+                    ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
+                    if (player == null) player = playerFromCaptureEvent(event);
+                    Object pokemon = PokemonHuntReflection.extractPokemon(event);
+                    if (pokemon == null) pokemon = pokemonFromCaptureEvent(event);
+                    if (player == null || pokemon == null || !PlayerProfileManager.isNuzlocke(player)) return;
+                    UUID profileId = PlayerProfileManager.activeProfileId(player);
+                    if (profileId == null) return;
+
+                    // A released Nuzlocke Pokémon is treated as dead/removed from the run.
+                    // Record it before Cobblemon fully removes it so /graveyard can restore it after
+                    // completion/conversion, and so releasing cannot bypass Nuzlocke consequences.
+                    recordDeath(profileId, player, pokemon, "released");
+                    try { CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player); } catch (Throwable ignored) {}
+                    player.sendSystemMessage(Component.literal("Nuzlocke: released Pokémon was added to your locked Graveyard.").withStyle(ChatFormatting.RED));
+                } catch (Throwable t) { t.printStackTrace(); }
             });
         } catch (Throwable ignored) {}
     }

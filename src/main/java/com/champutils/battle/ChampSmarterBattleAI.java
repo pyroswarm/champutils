@@ -43,6 +43,10 @@ public final class ChampSmarterBattleAI implements BattleAI {
             "synthesis", "morningsun", "moonlight", "lifedew", "strengthsap"
     );
 
+    private static final Set<String> COMMON_CHIP_STATUSES = Set.of(
+            "brn", "burn", "psn", "tox", "badlypoisoned", "poison", "poisonbadly"
+    );
+
     /**
      * Cobblemon's StrongBattleAI can occasionally value Recover/Roost too early.
      * This wrapper only allows direct self-healing once the Pokémon is meaningfully damaged.
@@ -95,24 +99,29 @@ public final class ChampSmarterBattleAI implements BattleAI {
             UUID pokemonId = pokemonKey(activeBattlePokemon);
             Memory memory = memoryByPokemon.computeIfAbsent(pokemonId, ignored -> new Memory());
             String normalized = normalize(chosenMove);
+            double hpFraction = readHpFraction(activeBattlePokemon);
 
+            boolean protectMove = PROTECT_MOVES.contains(normalized);
             boolean protectSpam = ChampBattleAIConfig.DATA.antiSpam.preventProtectSpam
-                    && PROTECT_MOVES.contains(normalized)
-                    && memory.protectCooldown > 0;
+                    && protectMove
+                    && (memory.protectCooldown > 0 || normalized.equals(memory.lastMove));
+
+            boolean lowValueProtect = ChampBattleAIConfig.DATA.antiSpam.preventLowValueProtect
+                    && protectMove
+                    && !hasStrategicProtectReason(activeBattlePokemon, aiSide, hpFraction);
 
             boolean sameMoveLoop = competitiveLayer
                     && ChampBattleAIConfig.DATA.antiSpam.preventSameMoveLoops
                     && normalized.equals(memory.lastMove)
                     && memory.sameMoveCount >= ChampBattleAIConfig.DATA.antiSpam.sameMoveSoftLimit;
 
-            double hpFraction = readHpFraction(activeBattlePokemon);
             boolean wastefulRecovery = SELF_RECOVERY_MOVES.contains(normalized)
                     && hpFraction >= SELF_RECOVERY_MAX_HP_FRACTION;
             boolean badAbsorbMove = isMoveIntoKnownAbsorbAbility(normalized, activeBattlePokemon, aiSide);
             boolean redundantStatusMove = STATUS_MOVES.contains(normalized) && opponentAlreadyHasStatus(activeBattlePokemon, aiSide);
 
-            if (protectSpam || sameMoveLoop || wastefulRecovery || badAbsorbMove || redundantStatusMove || badSwitch) {
-                InBattleMove replacement = findReplacementMove(moveset, normalized, protectSpam || wastefulRecovery || badAbsorbMove || redundantStatusMove || badSwitch, hpFraction);
+            if (protectSpam || lowValueProtect || sameMoveLoop || wastefulRecovery || badAbsorbMove || redundantStatusMove || badSwitch) {
+                InBattleMove replacement = findReplacementMove(moveset, normalized, protectSpam || lowValueProtect || wastefulRecovery || badAbsorbMove || redundantStatusMove || badSwitch, hpFraction);
                 if (replacement != null) {
                     if (badSwitch) {
                         BattleAIDifficultyManager.debug("AntiSwitch: blocked unnecessary switch pokemon=" + pokemonId);
@@ -123,6 +132,9 @@ public final class ChampSmarterBattleAI implements BattleAI {
                     } else if (protectSpam) {
                         BattleAIDifficultyManager.debug("AntiSpam: blocked repeated Protect from pokemon=" + pokemonId
                                 + " lastMove=" + memory.lastMove + " repeatCount=" + memory.sameMoveCount);
+                    } else if (lowValueProtect) {
+                        BattleAIDifficultyManager.debug("AntiWaste: blocked low-value Protect from pokemon=" + pokemonId
+                                + " hp=" + Math.round(hpFraction * 100.0D) + "%");
                     } else if (wastefulRecovery) {
                         BattleAIDifficultyManager.debug("AntiWaste: blocked early recovery pokemon=" + pokemonId
                                 + " move=" + normalized + " hp=" + Math.round(hpFraction * 100.0D) + "%");
@@ -204,6 +216,31 @@ public final class ChampSmarterBattleAI implements BattleAI {
         return firstDamaging != null ? firstDamaging : firstUsable;
     }
 
+
+    private boolean hasStrategicProtectReason(ActiveBattlePokemon active, BattleSide aiSide, double hpFraction) {
+        // Protect should feel smart, not random. Allow it mainly when it buys real value:
+        // poison/burn chip, scouting at low HP, or stalling enemy screens/tailwind/weather-like pressure.
+        if (hpFraction <= 0.25D) return true;
+
+        String ownStatus = readStatus(active);
+        if (COMMON_CHIP_STATUSES.contains(ownStatus)) return true;
+
+        for (Object opponent : opponentActives(active, aiSide)) {
+            String status = readStatus(opponent);
+            if (COMMON_CHIP_STATUSES.contains(status)) return true;
+        }
+
+        try {
+            Object opposite = aiSide.getClass().getMethod("getOppositeSide").invoke(aiSide);
+            String screen = normalize(String.valueOf(readObject(opposite, "getScreenCondition")));
+            String tailwind = normalize(String.valueOf(readObject(opposite, "getTailwindCondition")));
+            if (!screen.isBlank() && !screen.equals("null")) return true;
+            if (!tailwind.isBlank() && !tailwind.equals("null")) return true;
+        } catch (Throwable ignored) {
+        }
+
+        return false;
+    }
 
     private boolean isSwitchResponse(ShowdownActionResponse response) {
         return response != null && response.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("switch");
