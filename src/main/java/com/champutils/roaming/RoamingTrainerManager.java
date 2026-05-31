@@ -40,6 +40,7 @@ public final class RoamingTrainerManager {
 
     private static final Random RANDOM = new Random();
     private static final Map<UUID, RoamingTrainerData> TRAINERS = new ConcurrentHashMap<>();
+    private static final String ROAMING_TRAINER_TAG = "champutils_roaming_trainer";
     private static int ticksUntilScan = 20;
 
     private RoamingTrainerManager() {}
@@ -132,26 +133,40 @@ public final class RoamingTrainerManager {
     }
 
     public static int despawnAll(MinecraftServer server) {
+        if (server == null) return 0;
         int count = 0;
-        for (ServerLevel level : server.getAllLevels()) {
-            for (RoamingTrainerData data : new ArrayList<>(TRAINERS.values())) {
-                NPCEntity npc = findNpc(level, data.npcUuid);
-                TRAINERS.remove(data.npcUuid);
-                if (npc != null) {
-                    cancelBattleForRemovedTrainer(server, data, "The roaming trainer disappeared, so the battle was canceled.");
-                    removeNpc(npc);
-                    count++;
-                }
+
+        // Remove all currently-tracked trainers first.
+        for (RoamingTrainerData data : new ArrayList<>(TRAINERS.values())) {
+            NPCEntity npc = findNpc(server, data.npcUuid);
+            TRAINERS.remove(data.npcUuid);
+            cancelBattleForRemovedTrainer(server, data, "The roaming trainer disappeared, so the battle was canceled.");
+            if (npc != null) {
+                removeNpc(npc);
+                count++;
             }
         }
+
+        // Also remove orphaned roaming trainer NPCs that still have our tag but are no longer in memory.
+        // This is the part that makes /roamingtrainer despawn all work after /reload or server restart.
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof NPCEntity npc)) continue;
+                if (!hasRoamingTrainerTag(npc)) continue;
+                if (TRAINERS.containsKey(npc.getUUID())) continue;
+                removeNpc(npc);
+                count++;
+            }
+        }
+
         return count;
     }
 
     public static int despawnNearby(ServerLevel level, Vec3 center, double radius) {
         if (level == null || center == null) return 0;
         int count = 0;
-        for (NPCEntity npc : level.getEntitiesOfClass(NPCEntity.class, box(center, radius))) {
-            if (!isRoamingTrainer(npc.getUUID())) continue;
+        for (NPCEntity npc : new ArrayList<>(level.getEntitiesOfClass(NPCEntity.class, box(center, radius)))) {
+            if (!isRoamingTrainerEntity(npc)) continue;
             RoamingTrainerData data = TRAINERS.remove(npc.getUUID());
             cancelBattleForRemovedTrainer(level.getServer(), data, "The roaming trainer disappeared, so the battle was canceled.");
             removeNpc(npc);
@@ -278,6 +293,7 @@ public final class RoamingTrainerManager {
     }
 
     private static void cleanupAndDespawn(MinecraftServer server) {
+        cleanupOrphanedTaggedTrainers(server);
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, RoamingTrainerData>> iterator = TRAINERS.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -394,7 +410,7 @@ public final class RoamingTrainerManager {
 
     private static void applyRoamingProtections(NPCEntity npc, RoamingTrainerData data) {
         if (npc == null) return;
-        try { npc.addTag("champutils_roaming_trainer"); } catch (Exception ignored) {}
+        try { npc.addTag(ROAMING_TRAINER_TAG); } catch (Exception ignored) {}
         try { npc.setInvulnerable(true); } catch (Exception ignored) {}
         try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
         try { npc.setNoAi(true); } catch (Exception ignored) {}
@@ -421,6 +437,27 @@ public final class RoamingTrainerManager {
         try { return npc.isInBattle(); } catch (Exception ignored) { return false; }
     }
 
+    private static boolean hasRoamingTrainerTag(NPCEntity npc) {
+        try { return npc != null && npc.getTags().contains(ROAMING_TRAINER_TAG); } catch (Exception ignored) { return false; }
+    }
+
+    private static boolean isRoamingTrainerEntity(NPCEntity npc) {
+        return npc != null && (isRoamingTrainer(npc.getUUID()) || hasRoamingTrainerTag(npc));
+    }
+
+    private static void cleanupOrphanedTaggedTrainers(MinecraftServer server) {
+        if (server == null) return;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof NPCEntity npc)) continue;
+                if (!hasRoamingTrainerTag(npc)) continue;
+                if (TRAINERS.containsKey(npc.getUUID())) continue;
+                if (isNpcInBattle(npc)) continue;
+                removeNpc(npc);
+            }
+        }
+    }
+
     private static NPCEntity findNpc(MinecraftServer server, UUID uuid) {
         if (server == null || uuid == null) return null;
         for (ServerLevel level : server.getAllLevels()) {
@@ -439,7 +476,7 @@ public final class RoamingTrainerManager {
     private static int countNearbyRoamingTrainers(ServerLevel level, Vec3 center, double radius) {
         int count = 0;
         for (NPCEntity npc : level.getEntitiesOfClass(NPCEntity.class, box(center, radius))) {
-            if (isRoamingTrainer(npc.getUUID())) count++;
+            if (isRoamingTrainerEntity(npc)) count++;
         }
         return count;
     }

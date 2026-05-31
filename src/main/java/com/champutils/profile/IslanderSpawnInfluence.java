@@ -42,6 +42,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         if (!IslanderSpawningConfig.CONFIG.enabled || bucket == null || spawnablePosition == null) return null;
 
         ServerLevel level = spawnablePosition.getWorld();
+        if (IslanderMineManager.isMineWorld(level)) return java.util.Collections.emptyList();
         if (!IslanderProfileManager.isIslanderWorld(level)) return null;
 
         SpawnablePositionType<?> type = SpawnablePosition.Companion.getByClass(spawnablePosition);

@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.sql.Connection;
 
 public final class TerritoryRepository {
 
@@ -663,16 +664,24 @@ public final class TerritoryRepository {
     public static void finishDelete(Territory territory, Callback callback) {
         if (territory == null) { callback.done(false, "No territory found."); return; }
         DatabaseManager.executeAsync("delete territory " + territory.id, connection -> {
+            try (PreparedStatement trust = connection.prepareStatement("delete from territory_trust where territory_id = ?")) {
+                trust.setObject(1, territory.id);
+                trust.executeUpdate();
+            }
             try (PreparedStatement cleanup = connection.prepareStatement("delete from territory_delete_cooldowns where owner_type = ? and owner_id = ?")) {
                 cleanup.setString(1, territory.ownerType.name());
                 cleanup.setString(2, territory.ownerId);
                 cleanup.executeUpdate();
             }
-            try (PreparedStatement cooldown = connection.prepareStatement("insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now())")) {
-                cooldown.setString(1, territory.ownerType.name());
-                cooldown.setString(2, territory.ownerId);
-                cooldown.executeUpdate();
+            int minutes = TerritoryConfig.get().recreateCooldownMinutes;
+            if (minutes > 0) {
+                try (PreparedStatement cooldown = connection.prepareStatement("insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now())")) {
+                    cooldown.setString(1, territory.ownerType.name());
+                    cooldown.setString(2, territory.ownerId);
+                    cooldown.executeUpdate();
+                }
             }
+            tryDeleteIslanderMineRecord(connection, territory);
             try (PreparedStatement statement = connection.prepareStatement("delete from territories where id = ?")) {
                 statement.setObject(1, territory.id);
                 statement.executeUpdate();
@@ -681,9 +690,18 @@ public final class TerritoryRepository {
             OWNER_INDEX.remove(ownerKey(territory.ownerType, territory.ownerId));
             TRUST.keySet().removeIf(key -> key.startsWith(territory.id.toString() + ":"));
             rebuildSpatialIndexes();
-            int minutes = TerritoryConfig.get().recreateCooldownMinutes;
-            callback.done(true, "Territory deleted. You can create another after the cooldown ends.");
+            callback.done(true, "Territory deleted. You can create another territory now.");
         });
+    }
+
+    private static void tryDeleteIslanderMineRecord(Connection connection, Territory territory) {
+        if (connection == null || territory == null || territory.ownerId == null || territory.ownerId.isBlank()) return;
+        try (PreparedStatement mine = connection.prepareStatement("delete from islander_mines where profile_id::text = ?")) {
+            mine.setString(1, territory.ownerId);
+            mine.executeUpdate();
+        } catch (Exception ignored) {
+            // Older databases may not have islander_mines yet. Territory deletion must still succeed.
+        }
     }
 
     public static void save(Territory territory, Callback callback) {

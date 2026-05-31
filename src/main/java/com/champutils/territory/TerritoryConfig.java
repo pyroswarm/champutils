@@ -127,10 +127,16 @@ public final class TerritoryConfig {
         public int barrierColumnsPerTick = 12;
 
         /** Minutes a player/guild must wait after deleting a territory before creating another. */
-        public int recreateCooldownMinutes = 30;
+        public int recreateCooldownMinutes = 0;
 
         /** How many blocks a territory deletion wipe may clear per tick. Raise carefully; big values can lag. */
-        public int territoryWipeBlocksPerTick = 4096;
+        public int territoryWipeBlocksPerTick = 262144;
+
+        /** Maximum chunk columns a territory deletion may touch per tick. This prevents chunk-load spikes. */
+        public int territoryWipeChunksPerTick = 32;
+
+        /** Maximum milliseconds per tick spent deleting territory blocks. This keeps deletion from causing TPS drops. */
+        public int territoryWipeMaxMillisecondsPerTick = 8;
 
         /**
          * Territories no longer wait on Chunky pregeneration. New territories are marked READY once the
@@ -206,9 +212,13 @@ public final class TerritoryConfig {
             if (borderWarningCooldownSeconds < 1) borderWarningCooldownSeconds = 5;
             if (barrierColumnsPerTick < 1) barrierColumnsPerTick = 12;
             if (barrierColumnsPerTick > 128) barrierColumnsPerTick = 128;
-            if (recreateCooldownMinutes < 0) recreateCooldownMinutes = 30;
-            if (territoryWipeBlocksPerTick < 256) territoryWipeBlocksPerTick = 4096;
-            if (territoryWipeBlocksPerTick > 65536) territoryWipeBlocksPerTick = 65536;
+            if (recreateCooldownMinutes < 0) recreateCooldownMinutes = 0;
+            if (territoryWipeBlocksPerTick < 4096) territoryWipeBlocksPerTick = 262144;
+            if (territoryWipeBlocksPerTick > 1048576) territoryWipeBlocksPerTick = 1048576;
+            if (territoryWipeChunksPerTick < 1) territoryWipeChunksPerTick = 32;
+            if (territoryWipeChunksPerTick > 128) territoryWipeChunksPerTick = 128;
+            if (territoryWipeMaxMillisecondsPerTick < 1) territoryWipeMaxMillisecondsPerTick = 8;
+            if (territoryWipeMaxMillisecondsPerTick > 25) territoryWipeMaxMillisecondsPerTick = 25;
             if (allowedBiomePreferences == null || allowedBiomePreferences.isEmpty()) {
                 allowedBiomePreferences = new ArrayList<>(defaultOverworldBiomes());
             } else {

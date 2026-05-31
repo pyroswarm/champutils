@@ -9,6 +9,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayDeque;
@@ -33,7 +35,6 @@ public final class TerritoryRegionWipeManager {
             return;
         }
 
-        // Force the player out first through the server's normal spawn command path.
         try {
             player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
         } catch (Exception e) {
@@ -41,7 +42,7 @@ public final class TerritoryRegionWipeManager {
             return;
         }
 
-        player.sendSystemMessage(Component.literal("Territory deletion started. You were sent to spawn.").withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("Territory deletion started. You were sent to spawn. The full territory area will be cleared safely.").withStyle(ChatFormatting.GREEN));
 
         TerritoryRepository.beginDelete(territory, (success, message) -> player.server.execute(() -> {
             if (!success) {
@@ -85,23 +86,20 @@ public final class TerritoryRegionWipeManager {
         }
         task.worldLoadAttempts = 0;
 
-        // Wipe by loaded chunk columns instead of single blocks. The old per-block scan was far too slow for
-        // 1000-block territory borders and could leave territories stuck in DELETING for hours/days. getChunk()
-        // intentionally loads the chunk even when no player is nearby, so deletion keeps progressing offline.
-        int budget = Math.max(4096, TerritoryConfig.get().territoryWipeBlocksPerTick);
-        int used = 0;
+        TerritoryConfig.Data config = TerritoryConfig.get();
+        int blockBudget = Math.max(4096, config.territoryWipeBlocksPerTick);
+        int chunkBudget = Math.max(1, config.territoryWipeChunksPerTick);
+        long maxNanos = Math.max(1L, config.territoryWipeMaxMillisecondsPerTick) * 1_000_000L;
+        long deadline = System.nanoTime() + maxNanos;
 
         if (!task.entitiesCleared) {
             clearEntities(level, task.territory);
             task.entitiesCleared = true;
         }
 
-        while (used < budget && !task.done(level)) {
-            used += task.wipeCurrentChunk(level);
-            task.advanceChunk();
-        }
+        task.step(level, blockBudget, chunkBudget, deadline);
 
-        if (task.done(level)) {
+        if (task.done()) {
             QUEUE.removeFirst();
             TerritoryRepository.finishDelete(task.territory, (success, message) -> server.execute(() -> {
                 QUEUED_TERRITORIES.remove(task.territory.id);
@@ -109,7 +107,7 @@ public final class TerritoryRegionWipeManager {
                     System.err.println("[ChampUtils] Failed to finish deleting territory " + task.territory.id + ": " + message);
                     return;
                 }
-                notifyDeletionFinished(server, task, "Territory deletion finished. You can create another territory after the cooldown ends.");
+                notifyDeletionFinished(server, task, "Territory deletion finished. A new territory can be created now.");
             }));
         }
     }
@@ -139,13 +137,12 @@ public final class TerritoryRegionWipeManager {
         }
     }
 
-
     private static void enqueueWipe(TerritoryRepository.Territory territory, UUID requesterId) {
         if (territory == null || territory.id == null || QUEUED_TERRITORIES.contains(territory.id)) return;
         WipeTask task = new WipeTask(copyOf(territory), requesterId);
         QUEUE.addLast(task);
         QUEUED_TERRITORIES.add(territory.id);
-        System.out.println("[ChampUtils] Queued territory wipe for " + territory.id + " in " + territory.worldName + " slot " + territory.slotIndex + ".");
+        System.out.println("[ChampUtils] Queued full safe territory wipe for " + territory.id + " in " + territory.worldName + " slot " + territory.slotIndex + ".");
     }
 
     private static void resumeDeletingTerritories() {
@@ -212,6 +209,7 @@ public final class TerritoryRegionWipeManager {
         private final int maxChunkZ;
         private int chunkX;
         private int chunkZ;
+        private int sectionIndex;
         private boolean entitiesCleared;
         private int worldLoadAttempts;
 
@@ -224,28 +222,63 @@ public final class TerritoryRegionWipeManager {
             this.maxChunkZ = Math.floorDiv(territory.maxZ, 16);
             this.chunkX = minChunkX;
             this.chunkZ = minChunkZ;
+            this.sectionIndex = 0;
         }
 
-        private boolean done(ServerLevel level) {
+        private boolean done() {
             return chunkX > maxChunkX;
         }
 
-        private int wipeCurrentChunk(ServerLevel level) {
-            // Force-load the chunk so deletion does not depend on players keeping the area loaded.
-            level.getChunk(chunkX, chunkZ);
+        private void step(ServerLevel level, int blockBudget, int chunkBudget, long deadlineNanos) {
+            int blocksExamined = 0;
+            int chunksTouched = 0;
+            int lastChunkX = Integer.MIN_VALUE;
+            int lastChunkZ = Integer.MIN_VALUE;
 
-            int minY = level.getMinBuildHeight();
-            int maxY = level.getMaxBuildHeight() - 1;
-            int minX = Math.max(territory.minX, chunkX << 4);
-            int maxX = Math.min(territory.maxX, (chunkX << 4) + 15);
-            int minZ = Math.max(territory.minZ, chunkZ << 4);
-            int maxZ = Math.min(territory.maxZ, (chunkZ << 4) + 15);
+            while (!done() && blocksExamined < blockBudget && chunksTouched < chunkBudget && System.nanoTime() < deadlineNanos) {
+                if (chunkX != lastChunkX || chunkZ != lastChunkZ) {
+                    chunksTouched++;
+                    lastChunkX = chunkX;
+                    lastChunkZ = chunkZ;
+                }
+
+                LevelChunk chunk = level.getChunk(chunkX, chunkZ);
+                LevelChunkSection[] sections = chunk.getSections();
+                if (sectionIndex >= sections.length) {
+                    advanceChunk();
+                    continue;
+                }
+
+                LevelChunkSection section = sections[sectionIndex];
+                int sectionY = level.getMinSection() + sectionIndex;
+                int minY = sectionY << 4;
+                int maxY = minY + 15;
+
+                if (maxY < level.getMinBuildHeight() || minY >= level.getMaxBuildHeight() || section.hasOnlyAir()) {
+                    sectionIndex++;
+                    continue;
+                }
+
+                blocksExamined += wipeSection(level, minY, maxY);
+                sectionIndex++;
+            }
+        }
+
+        private int wipeSection(ServerLevel level, int sectionMinY, int sectionMaxY) {
+            int chunkMinX = chunkX << 4;
+            int chunkMinZ = chunkZ << 4;
+            int minX = Math.max(territory.minX, chunkMinX);
+            int maxX = Math.min(territory.maxX, chunkMinX + 15);
+            int minZ = Math.max(territory.minZ, chunkMinZ);
+            int maxZ = Math.min(territory.maxZ, chunkMinZ + 15);
+            int minY = Math.max(level.getMinBuildHeight(), sectionMinY);
+            int maxY = Math.min(level.getMaxBuildHeight() - 1, sectionMaxY);
             int examined = 0;
 
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-            for (int x = minX; x <= maxX; x++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    for (int y = minY; y <= maxY; y++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
                         pos.set(x, y, z);
                         if (!level.getBlockState(pos).isAir()) {
                             level.setBlock(pos, AIR, 2);
@@ -258,6 +291,7 @@ public final class TerritoryRegionWipeManager {
         }
 
         private void advanceChunk() {
+            sectionIndex = 0;
             chunkZ++;
             if (chunkZ <= maxChunkZ) return;
             chunkZ = minChunkZ;

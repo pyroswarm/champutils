@@ -609,6 +609,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfileCommand.register();
         IslanderMineCommand.register();
         GraveyardCommand.register();
+        ClearWildPokemonCommand.register();
 
         /*
          New custom item test command
@@ -649,6 +650,7 @@ public class ChampUtilsMod implements ModInitializer {
         XrayDetectionManager.register();
         CashShopBoostItemManager.register();
         IslanderSpawningManager.register();
+        IslanderMineProtectionListener.register();
 
         /*
          =========================

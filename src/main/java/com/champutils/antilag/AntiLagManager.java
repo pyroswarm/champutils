@@ -84,9 +84,27 @@ public final class AntiLagManager {
     private static boolean hasTpsSpike(){ return tickHistoryMs.stream().anyMatch(v->v>=AntiLagConfig.DATA.tpsSpikeMsThreshold); }
     private static double avgMs(){ return tickHistoryMs.stream().mapToLong(Long::longValue).average().orElse(50.0); }
 
-    public static CleanupResult cleanupEntities(MinecraftServer server, boolean notifyAdmins){ CleanupResult result=new CleanupResult(); int max=Math.max(1,AntiLagConfig.DATA.maxRemovalsPerScan); for(ServerLevel level:server.getAllLevels()){ if(isDisabled(level)) continue; List<Entity> entities = new ArrayList<>(); for(Entity entitySnapshot:level.getAllEntities()) entities.add(entitySnapshot); for(Entity e:entities){ if(result.totalRemoved()>=max) break; if(e==null||!e.isAlive()) continue; if(isWhitelistedArea(level,e)) continue; if(AntiLagConfig.DATA.cleanupDroppedItems && e instanceof ItemEntity){ e.discard(); result.droppedItems++; continue;} if(AntiLagConfig.DATA.cleanupWildPokemon && isSafeWildPokemonToWipe(e)){ e.discard(); result.wildPokemon++; } } } if(notifyAdmins){ String summary = "Cleared " + result.wildPokemon + " wild Pokémon and " + result.droppedItems + " dropped items across " + server.getAllLevels().spliterator().getExactSizeIfKnown() + " worlds";
-            System.out.println("[ChampUtils] " + summary);
-            if(result.totalRemoved()>0) alertAdmins(server,"§7" + summary + "."); else alertAdmins(server,"§7Entity cleanup checked all loaded worlds, but found no safe dropped items or natural wild Pokémon to remove."); } return result; }
+    public static CleanupResult cleanupEntities(MinecraftServer server, boolean notifyAdmins){
+        WildPokemonCleanupManager.Options options = new WildPokemonCleanupManager.Options();
+        options.clearDroppedItems = AntiLagConfig.DATA.cleanupDroppedItems;
+        options.clearWildPokemon = AntiLagConfig.DATA.cleanupWildPokemon;
+        options.protectCustomNames = AntiLagConfig.DATA.protectPokemonWithCustomName;
+        options.minWildPokemonAgeTicks = 20 * 60;
+        options.maxRemovals = Math.max(1, AntiLagConfig.DATA.maxRemovalsPerScan);
+        options.disabledDimensions = AntiLagConfig.DATA.disabledDimensions == null ? Set.of() : new HashSet<>(AntiLagConfig.DATA.disabledDimensions);
+
+        WildPokemonCleanupManager.CleanupResult cleaned = WildPokemonCleanupManager.cleanup(server, options);
+        CleanupResult result = new CleanupResult();
+        result.droppedItems = cleaned.droppedItems;
+        result.wildPokemon = cleaned.wildPokemon;
+
+        if(notifyAdmins){
+            String summary = "Cleared " + result.wildPokemon + " wild Pokémon and " + result.droppedItems + " dropped items across " + server.getAllLevels().spliterator().getExactSizeIfKnown() + " worlds";
+            System.out.println("[ChampUtils] " + summary + " (checkedWild=" + cleaned.checkedWildPokemon + ", protectedWild=" + cleaned.protectedWildPokemon + ", reasons=" + cleaned.protectedReasonSummary() + ")");
+            if(result.totalRemoved()>0) alertAdmins(server,"§7" + summary + "."); else alertAdmins(server,"§7Entity cleanup checked all loaded worlds, but found no safe dropped items or ordinary natural wild Pokémon to remove. Checked wild Pokémon: " + cleaned.checkedWildPokemon + ", protected: " + cleaned.protectedWildPokemon + ". Reasons: " + cleaned.protectedReasonSummary() + ".");
+        }
+        return result;
+    }
     private static void scanForLagMachines(MinecraftServer server){ expireSnowballWindows(); int punished=0; for(ServerLevel level:server.getAllLevels()){ if(isDisabled(level)) continue; List<Entity> minecarts=new ArrayList<>(), snowballs=new ArrayList<>(), generic=new ArrayList<>(); for(Entity e:level.getAllEntities()){ if(isWhitelistedArea(level,e)) continue; if(e instanceof AbstractMinecart) minecarts.add(e); if(e instanceof Snowball){ snowballs.add(e); trackSnowballThrow(e);} if(!(e instanceof ServerPlayer)&&!(e instanceof ItemEntity)&&!isPokemonEntity(e)&&!isNpcEntity(e)) generic.add(e); }
         if(AntiLagConfig.DATA.minecartDetectionEnabled) punished+=detectMinecartGrid(server,level,minecarts,punished); if(punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) return;
         if(AntiLagConfig.DATA.snowballDetectionEnabled) punished+=detectProjectileVelocitySpam(server,level,snowballs,punished); if(punished>=AntiLagConfig.DATA.maxPunishmentsPerScan) return;
@@ -136,33 +154,7 @@ public final class AntiLagManager {
     private static ServerPlayer nearestPlayer(ServerLevel level,Entity e,int radius){ double r2=radius*radius,best=Double.MAX_VALUE; ServerPlayer out=null; for(ServerPlayer p:level.players()){ if(p.isSpectator()) continue; double d=p.distanceToSqr(e); if(d<=r2&&d<best){best=d;out=p;}} return out; }
 
     private static boolean isSafeWildPokemonToWipe(Entity e){
-        if(!isPokemonEntity(e)||hasProtectedTag(e)) return false;
-        if(AntiLagConfig.DATA.protectPokemonWithCustomName&&e.hasCustomName()) return false;
-
-        // Extra safety: never wipe freshly spawned Pokémon. Player throw-out, NPC send-out,
-        // and battle send-out all create short-lived PokemonEntity instances that may not
-        // have every ownership/state field populated during the same tick they appear.
-        // Timed cleanup is only for old natural wild spawns, so a minimum age is safe.
-        if(e.tickCount < 20 * 60) return false;
-
-        if(AntiLagConfig.DATA.protectPokemonInBattle&&isPokemonInAnyBattle(e)) return false;
-
-        Object pokemon=firstValue(e,"pokemon","getPokemon");
-
-        // Absolutely never wipe player/NPC-owned Cobblemon entities. Profile-backed
-        // parties can make ownership look different from normal account UUID storage,
-        // so check entity owner, Pokemon owner, store ownership, and active sent-out state.
-        if(isOwnedOrActivePokemonEntity(e, pokemon)) return false;
-
-        if(pokemon!=null&&(booleanValue(pokemon,"getShiny","isShiny")||booleanField(pokemon,"shiny"))) return false;
-        if(isShinyOrSpecialPokemon(e, pokemon)) return false;
-        if(AntiLagConfig.DATA.protectPokemonWithOwnerOrStorage&&(hasEntityOwner(e)||hasOwnerOrStorage(pokemon))) return false;
-
-        // Do NOT reject every Mob#isPersistenceRequired() Pokémon here. Cobblemon can mark ordinary
-        // natural wild Pokémon persistent while they are loaded, which made the timed cleanup skip all wilds.
-        // Also do NOT treat Cobblemon storeCoordinates/storeCoordinate as proof of player ownership.
-        // Wild Pokémon can have world/storage coordinates while still being ordinary natural spawns.
-        return true;
+        return WildPokemonCleanupManager.isSafeNaturalWildPokemon(e, 20 * 60, AntiLagConfig.DATA.protectPokemonWithCustomName);
     }
 
 

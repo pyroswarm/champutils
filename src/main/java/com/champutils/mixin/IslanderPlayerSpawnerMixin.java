@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.profile.IslanderProfileManager;
+import com.champutils.profile.IslanderMineManager;
 import com.champutils.profile.IslanderSpawningConfig;
 import com.cobblemon.mod.common.api.spawning.SpawnCause;
 import com.cobblemon.mod.common.api.spawning.spawner.PlayerSpawner;
@@ -36,6 +37,10 @@ public abstract class IslanderPlayerSpawnerMixin {
         if (!IslanderSpawningConfig.CONFIG.enabled || !IslanderSpawningConfig.CONFIG.closeSpawnerEnabled) return;
         if (cause == null || !(cause.getEntity() instanceof ServerPlayer player)) return;
         if (!player.getUUID().equals(getUuid())) return;
+        if (IslanderMineManager.isMineWorld(player.serverLevel())) {
+            cir.setReturnValue(null);
+            return;
+        }
         if (!IslanderProfileManager.isIslanderWorld((ServerLevel) player.level())) return;
         if (!IslanderProfileManager.isIslanderWorld(player.serverLevel())) return;
 
