@@ -22,7 +22,7 @@ public final class ExplorationWorldCommand {
                 .executes(context -> list(context.getSource().getPlayerOrException()))
                 .then(Commands.literal("list").executes(context -> list(context.getSource().getPlayerOrException())))
                 .then(Commands.literal("admin")
-                        .requires(source -> source.hasPermission(4))
+                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                         .then(Commands.literal("go")
                                 .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> go(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "world")))))
@@ -40,7 +40,7 @@ public final class ExplorationWorldCommand {
             ChatFormatting color = entry.activeForRtp ? ("READY".equalsIgnoreCase(entry.status) ? ChatFormatting.GREEN : ChatFormatting.YELLOW) : ChatFormatting.DARK_GRAY;
             player.sendSystemMessage(Component.literal("#" + entry.index + " [" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + (entry.activeForRtp ? "ACTIVE" : "LOCKED") + " - " + entry.status + " - next wipe: " + TIME.format(Instant.ofEpochMilli(entry.nextWipeAtMillis))).withStyle(color));
         }
-        player.sendSystemMessage(Component.literal("Player travel: /rtp exploration overworld|nether|end. Admin: /exploration admin ready <world>, /exploration admin wipe <number>. RTP locks: /rtpworlds list.").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Exploration worlds are no longer used by RTP. Admin: /exploration admin ready <world>, /exploration admin wipe <number>. Survival RTP locks: /rtpworlds list.").withStyle(ChatFormatting.GRAY));
         return 1;
     }
 

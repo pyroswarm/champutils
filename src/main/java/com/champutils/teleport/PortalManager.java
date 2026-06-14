@@ -59,7 +59,7 @@ public final class PortalManager {
             return false;
         }
 
-        boolean validCategory = parts[1].equals("survival") || parts[1].equals("exploration");
+        boolean validCategory = parts[1].equals("survival");
         boolean validType = parts[2].equals("overworld") || parts[2].equals("nether") || parts[2].equals("end");
         return validCategory && validType;
     }

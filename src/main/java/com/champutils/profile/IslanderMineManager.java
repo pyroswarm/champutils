@@ -23,6 +23,7 @@ public final class IslanderMineManager {
     private static final Set<String> READY_DIMENSIONS = new HashSet<>();
     private static long nextAutoResetAtMs = 0L;
     private static long lastDailyResetKeyMs = Long.MIN_VALUE;
+    private static long lastAccessCheckAtMs = 0L;
 
     private IslanderMineManager() {}
 
@@ -37,6 +38,10 @@ public final class IslanderMineManager {
         removePokemonFromMineWorlds(server);
 
         long now = System.currentTimeMillis();
+        if (now - lastAccessCheckAtMs >= 5_000L) {
+            lastAccessCheckAtMs = now;
+            teleportInvalidProfilesOut(server);
+        }
         IslanderMineConfig.Data cfg = IslanderMineConfig.get();
         if (isDailyMode(cfg)) {
             long currentKey = DailyResetManager.currentResetKeyMillis();
@@ -72,7 +77,7 @@ public final class IslanderMineManager {
         }
 
         ensureMineQueued(level, false);
-        SafeTeleportManager.teleportUncheckedNoBack(player, level, cfg.centerX + 0.5D, cfg.centerY + cfg.height - 7.0D, cfg.centerZ + 0.5D, player.getYRot(), player.getXRot());
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, cfg.centerX + 0.5D, mineSpawnY(cfg), cfg.centerZ + 0.5D, player.getYRot(), player.getXRot());
         player.resetFallDistance();
         player.sendSystemMessage(Component.literal("Entered " + level.dimension().location().getPath() + ". This shared mine resets every " + cfg.resetHours + " hours and is capped at " + cfg.maxPlayersPerWorld + " players.").withStyle(ChatFormatting.GREEN));
         return true;
@@ -120,7 +125,7 @@ public final class IslanderMineManager {
     public static boolean isBreakProtected(ServerLevel level, BlockPos pos) {
         if (!isMineLocation(level, pos)) return false;
         BlockState state = level.getBlockState(pos);
-        return state.is(Blocks.BEDROCK) || isProtectedSpawn(level, pos);
+        return state.is(Blocks.BEDROCK);
     }
 
     private static boolean isDailyMode(IslanderMineConfig.Data cfg) {
@@ -168,6 +173,7 @@ public final class IslanderMineManager {
         int queued = 0;
         for (ServerLevel level : server.getAllLevels()) {
             if (!isMineWorld(level)) continue;
+            teleportMinePlayersToSpawn(level);
             ensureMineQueued(level, true);
             queued++;
         }
@@ -202,10 +208,51 @@ public final class IslanderMineManager {
         }
         if (task.done(cfg)) {
             buildEntrance(level, cfg);
+            teleportMinePlayersToSpawn(level);
             READY_DIMENSIONS.add(task.dimension);
             TASKS.poll();
             System.out.println("[ChampUtils] Shared Islander mine ready in " + task.dimension + " with randomized ore pockets.");
         }
+    }
+
+
+    private static void teleportInvalidProfilesOut(MinecraftServer server) {
+        if (server == null) return;
+        ServerLevel fallback = server.overworld();
+        BlockPos spawn = fallback.getSharedSpawnPos();
+        for (ServerLevel level : server.getAllLevels()) {
+            if (!isMineWorld(level)) continue;
+            for (ServerPlayer player : new ArrayList<>(level.players())) {
+                if (PlayerProfileManager.isIslander(player) || player.hasPermissions(4)) continue;
+                SafeTeleportManager.teleportUncheckedNoBack(
+                        player,
+                        fallback,
+                        spawn.getX() + 0.5D,
+                        spawn.getY() + 1.0D,
+                        spawn.getZ() + 0.5D,
+                        player.getYRot(),
+                        player.getXRot()
+                );
+                player.resetFallDistance();
+                player.sendSystemMessage(Component.literal("Only Islander profiles can stay in Islander mines.").withStyle(ChatFormatting.RED));
+            }
+        }
+    }
+
+    private static void teleportMinePlayersToSpawn(ServerLevel level) {
+        if (level == null || !isMineWorld(level)) return;
+        IslanderMineConfig.Data cfg = IslanderMineConfig.get();
+        double x = cfg.centerX + 0.5D;
+        double y = mineSpawnY(cfg);
+        double z = cfg.centerZ + 0.5D;
+        for (ServerPlayer player : new ArrayList<>(level.players())) {
+            SafeTeleportManager.teleportUncheckedNoBack(player, level, x, y, z, player.getYRot(), player.getXRot());
+            player.resetFallDistance();
+        }
+    }
+
+    private static double mineSpawnY(IslanderMineConfig.Data cfg) {
+        return cfg.centerY + cfg.height - 7.0D;
     }
 
     private static void placeMineBlock(ServerLevel level, BlockPos pos, IslanderMineConfig.Data cfg, MineTask task) {
@@ -247,7 +294,8 @@ public final class IslanderMineManager {
         long cellSeed = task.seed ^ (((long)(dx >> 2)) * 341873128712L) ^ (((long)(dy >> 2)) * 132897987541L) ^ (((long)(dz >> 2)) * 42317861L);
         Random startRandom = new Random(cellSeed);
         int chance = startRandom.nextInt(10_000);
-        if (chance > 86) return null;
+        int startChance = Math.max(1, Math.min(1000, cfg.orePocketStartChancePer10000));
+        if (chance >= startChance) return null;
 
         IslanderMineConfig.OreRule rule = chooseOreRule(startRandom, cfg, dy);
         if (rule == null) return null;
@@ -255,7 +303,9 @@ public final class IslanderMineManager {
         if (block == Blocks.AIR) return null;
 
         if (rule.singleOnly) {
-            return chance <= Math.max(1, rule.weight) ? block.defaultBlockState() : null;
+            // Single-only ores, especially ancient debris, remain rare even when the global mine density is raised.
+            int singleChance = Math.max(1, Math.min(startChance, Math.max(1, rule.weight) * 8));
+            return chance < singleChance ? block.defaultBlockState() : null;
         }
 
         int size = rule.minPocketSize + startRandom.nextInt(Math.max(1, rule.maxPocketSize - rule.minPocketSize + 1));

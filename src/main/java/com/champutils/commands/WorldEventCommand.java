@@ -43,10 +43,10 @@ public final class WorldEventCommand {
                         .then(Commands.literal("list")
                                 .executes(ctx -> list(ctx.getSource())))
                         .then(Commands.literal("bindings")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .executes(ctx -> bindings(ctx.getSource())))
                         .then(Commands.literal("bind")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
@@ -57,7 +57,7 @@ public final class WorldEventCommand {
                                                 StringArgumentType.getString(ctx, "eventId")
                                         ))))
                         .then(Commands.literal("unbind")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (String id : WorldEventBindingRegistry.getAll().keySet()) builder.suggest(id);
@@ -68,7 +68,7 @@ public final class WorldEventCommand {
                                                 StringArgumentType.getString(ctx, "eventId")
                                         ))))
                         .then(Commands.literal("start")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
@@ -81,7 +81,7 @@ public final class WorldEventCommand {
                                 .then(Commands.literal("random")
                                         .executes(ctx -> startRandom(ctx.getSource()))))
                         .then(Commands.literal("stop")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (WorldEventManager.ActiveEvent active : WorldEventManager.getActiveEvents()) builder.suggest(active.eventId);
@@ -95,7 +95,7 @@ public final class WorldEventCommand {
                                         .executes(ctx -> stopAll(ctx.getSource()))))
 
                         .then(Commands.literal("skin")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
@@ -112,7 +112,7 @@ public final class WorldEventCommand {
                                                         StringArgumentType.getString(ctx, "playerName")
                                                 )))))
                         .then(Commands.literal("clearskin")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("eventId", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
@@ -123,7 +123,7 @@ public final class WorldEventCommand {
                                                 StringArgumentType.getString(ctx, "eventId")
                                         ))))
                         .then(Commands.literal("reload")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .executes(ctx -> reload(ctx.getSource())))
         ));
     }

@@ -106,6 +106,7 @@ public final class IslanderSpawningConfig {
         if (c.closeSpawnerMinDistance < 1) c.closeSpawnerMinDistance = d.closeSpawnerMinDistance;
         if (c.closeSpawnerMaxDistance < c.closeSpawnerMinDistance) c.closeSpawnerMaxDistance = d.closeSpawnerMaxDistance;
         if (c.closeSpawnerZoneDiameter < 8) c.closeSpawnerZoneDiameter = d.closeSpawnerZoneDiameter;
+        if (c.islanderMaxNearbyPokemon <= 0) c.islanderMaxNearbyPokemon = d.islanderMaxNearbyPokemon;
         if (c.closeSpawnerZoneHeight < 8) c.closeSpawnerZoneHeight = d.closeSpawnerZoneHeight;
         if (c.progressionTiers == null || c.progressionTiers.isEmpty()) c.progressionTiers = d.progressionTiers;
         for (Tier tier : c.progressionTiers) {
@@ -132,9 +133,10 @@ public final class IslanderSpawningConfig {
         c.excludeParadox = true;
         c.weight = 10.0F;
         c.closeSpawnerEnabled = true;
-        c.closeSpawnerMinDistance = 10;
-        c.closeSpawnerMaxDistance = 28;
+        c.closeSpawnerMinDistance = 1;
+        c.closeSpawnerMaxDistance = 32;
         c.closeSpawnerZoneDiameter = 32;
+        c.islanderMaxNearbyPokemon = 16;
         c.closeSpawnerZoneHeight = 24;
         c.spawnablePositionTypes = set("grounded", "surface", "submerged", "seafloor");
         c.progressionTiers = new ArrayList<>();
@@ -185,6 +187,7 @@ public final class IslanderSpawningConfig {
         public int closeSpawnerMaxDistance;
         public int closeSpawnerZoneDiameter;
         public int closeSpawnerZoneHeight;
+        public int islanderMaxNearbyPokemon;
         public Set<String> spawnablePositionTypes = new LinkedHashSet<>();
         public List<Tier> progressionTiers = new ArrayList<>();
         public Set<String> legendarySpecies = new LinkedHashSet<>();

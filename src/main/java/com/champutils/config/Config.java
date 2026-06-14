@@ -24,6 +24,8 @@ public class Config {
 
     public static List<ArenaManager.Arena> arenas;
 
+    public static ProfileConversion profileConversion = new ProfileConversion();
+
 
 
 /* =========================
@@ -88,6 +90,9 @@ public class Config {
 
             arenas =
                     data.arenas;
+
+            profileConversion = data.profileConversion != null ? data.profileConversion : new ProfileConversion();
+            profileConversion.normalize();
 
             ensureDefaultArenas();
             ensureDefaultBattleRules();
@@ -309,6 +314,9 @@ public class Config {
             wrapper.matchmaking = matchmaking;
             wrapper.ranks = ranks;
             wrapper.arenas = arenas;
+            if (profileConversion == null) profileConversion = new ProfileConversion();
+            profileConversion.normalize();
+            wrapper.profileConversion = profileConversion;
             wrapper.evTrainingWarp = evTrainingWarp;
             wrapper.eliteFourWarp = eliteFourWarp;
 
@@ -369,6 +377,8 @@ public class Config {
 
         public List<ArenaManager.Arena> arenas;
 
+        public ProfileConversion profileConversion;
+
 
 
         /* NEW */
@@ -378,6 +388,25 @@ public class Config {
 
     }
 
+
+
+/* =========================
+ PROFILE CONVERSION CONFIG
+========================= */
+
+    public static class ProfileConversion {
+        /**
+         * Special profiles must be this many full days old before players can convert them to Normal.
+         * Set to 0 to disable the age gate. Default: 3 days.
+         */
+        public int minAgeDaysBeforeNormal = 3;
+
+        public void normalize(){
+            if(minAgeDaysBeforeNormal < 0){
+                minAgeDaysBeforeNormal = 0;
+            }
+        }
+    }
 
 
 /* =========================

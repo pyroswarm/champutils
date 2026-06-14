@@ -7,7 +7,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public final class FirstJoinKitConfig {
 
@@ -75,6 +79,7 @@ public final class FirstJoinKitConfig {
         if (CONFIG.entries == null) CONFIG.entries = new ArrayList<>();
         if (CONFIG.islanderEntries == null) CONFIG.islanderEntries = new ArrayList<>();
         ensureIslanderBonusEntries(CONFIG.islanderEntries);
+        normalizeStarterToolEntries(CONFIG.entries);
         for (KitEntry entry : CONFIG.entries) {
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
             if (entry.id == null) entry.id = "";
@@ -91,6 +96,50 @@ public final class FirstJoinKitConfig {
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
             if (entry.commands == null) entry.commands = new ArrayList<>();
         }
+    }
+
+    private static void normalizeStarterToolEntries(List<KitEntry> entries) {
+        if (entries == null) return;
+
+        boolean hasHoe = false;
+        for (KitEntry entry : entries) {
+            if (entry != null && "tool".equalsIgnoreCase(entry.type) && "hoe".equals(normalizeToolType(entry.toolType))) {
+                hasHoe = true;
+                break;
+            }
+        }
+
+        for (KitEntry entry : entries) {
+            if (entry == null || !"tool".equalsIgnoreCase(entry.type)) continue;
+            String type = normalizeToolType(entry.toolType);
+            if ("shovel".equals(type) && !hasHoe) {
+                entry.toolType = "hoe";
+                hasHoe = true;
+            } else {
+                entry.toolType = type.isBlank() ? "pickaxe" : type;
+            }
+        }
+
+        Set<String> seen = new LinkedHashSet<>();
+        Iterator<KitEntry> iterator = entries.iterator();
+        while (iterator.hasNext()) {
+            KitEntry entry = iterator.next();
+            if (entry == null || !"tool".equalsIgnoreCase(entry.type)) continue;
+            String key = normalizeToolType(entry.toolType);
+            if (!seen.add(key)) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private static String normalizeToolType(String toolType) {
+        if (toolType == null) return "";
+        String normalized = toolType.trim().toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        if (normalized.equals("pick") || normalized.equals("pickaxes")) return "pickaxe";
+        if (normalized.equals("axes")) return "axe";
+        if (normalized.equals("hoes")) return "hoe";
+        if (normalized.equals("shovels") || normalized.equals("spade")) return "shovel";
+        return normalized;
     }
 
     private static KitRoot createDefault() {

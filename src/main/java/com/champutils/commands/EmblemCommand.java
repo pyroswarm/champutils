@@ -29,7 +29,7 @@ public final class EmblemCommand {
                                         .suggests((context, builder) -> { for (String id : EmblemConfig.CONFIG.emblems.keySet()) builder.suggest(id); return builder.buildFuture(); })
                                         .executes(context -> craft(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "emblem")))))
                         .then(Commands.literal("give")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("emblem", StringArgumentType.word())
                                         .suggests((context, builder) -> { for (String id : EmblemConfig.CONFIG.emblems.keySet()) builder.suggest(id); return builder.buildFuture(); })
                                         .executes(context -> give(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "emblem"), 1))

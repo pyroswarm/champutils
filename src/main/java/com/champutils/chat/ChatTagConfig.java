@@ -42,6 +42,7 @@ public final class ChatTagConfig {
                 ChatTagConfig loaded = GSON.fromJson(reader, ChatTagConfig.class);
                 INSTANCE = loaded == null ? defaults() : loaded;
                 if (INSTANCE.tags == null) INSTANCE.tags = new ArrayList<>();
+                INSTANCE.tags.removeIf(tag -> tag != null && tag.id != null && (tag.id.equalsIgnoreCase("helper") || tag.id.equalsIgnoreCase("champion") || tag.id.equalsIgnoreCase("vip")));
             }
         } catch (Exception e) {
             INSTANCE = defaults();
@@ -66,9 +67,7 @@ public final class ChatTagConfig {
 
     private static ChatTagConfig defaults() {
         ChatTagConfig config = new ChatTagConfig();
-        config.tags.add(tag("vip", "&6[VIP]", "champutils.chat.tag.vip", 100));
-        config.tags.add(tag("champion", "&d[Champion]", "champutils.chat.tag.champion", 200));
-        config.tags.add(tag("helper", "&b[Helper]", "champutils.chat.tag.helper", 300));
+        // Staff/VIP group tags are handled by LuckPerms prefixes only. No default cosmetic tags.
         return config;
     }
 

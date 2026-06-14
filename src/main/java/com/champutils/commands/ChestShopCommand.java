@@ -70,7 +70,7 @@ public final class ChestShopCommand {
                             .then(literal("remove")
                                     .executes(context -> remove(context.getSource().getPlayerOrException(), false)))
                             .then(literal("adminremove")
-                                    .requires(source -> source.hasPermission(4))
+                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                     .executes(context -> remove(context.getSource().getPlayerOrException(), true)))
             );
 

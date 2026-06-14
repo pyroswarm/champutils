@@ -18,7 +18,7 @@ public class DatabaseTestCommand {
                 (dispatcher, registryAccess, environment) ->
                         dispatcher.register(
                                 Commands.literal("dbtest")
-                                        .requires(source -> source.hasPermission(4))
+                                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                         .executes(context -> run(
                                                 context.getSource().getPlayerOrException(),
                                                 context.getSource().getServer()

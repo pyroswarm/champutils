@@ -21,6 +21,7 @@ public final class CashShopMenu {
                     .addLoreLine(Component.literal("§7Duration: §f15 minutes"))
                     .addLoreLine(Component.literal("§8Buy this from your real-money store")));
         }
+        MenuUtil.addBackButton(gui, 18, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }
 }

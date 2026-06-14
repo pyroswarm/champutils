@@ -8,6 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -20,6 +21,7 @@ public final class TerritoryTeleportUtil {
         ServerLevel level = resolveLevel(player.server, territory.worldName);
         if (level == null) return false;
 
+        ensureDefaultSpawnAnchor(level, territory);
         SafeSpot spot = findSafeSpot(level, territory.spawnX, territory.spawnY, territory.spawnZ);
         return SafeTeleportManager.teleport(player, level, spot.x, spot.y, spot.z, territory.spawnYaw, territory.spawnPitch);
     }
@@ -38,6 +40,26 @@ public final class TerritoryTeleportUtil {
         double z = Math.max(minZ, Math.min(maxZ, player.getZ()));
         SafeSpot spot = findSafeSpot(level, x, player.getY(), z);
         return SafeTeleportManager.teleportNoBack(player, level, spot.x, spot.y, spot.z, player.getYRot(), player.getXRot());
+    }
+
+
+    /**
+     * Keeps every territory from becoming a softlock. The original/default home column gets
+     * an unbreakable bedrock anchor under the stored spawn point. If the owner builds over it,
+     * findSafeSpot will naturally place them on the highest safe block above this column.
+     */
+    public static void ensureDefaultSpawnAnchor(ServerLevel level, TerritoryRepository.Territory territory) {
+        if (level == null || territory == null) return;
+        int x = (int) Math.floor(territory.spawnX);
+        int z = (int) Math.floor(territory.spawnZ);
+        int y = Math.max(level.getMinBuildHeight(), Math.min(level.getMaxBuildHeight() - 1, (int) Math.floor(territory.spawnY) - 2));
+        forceChunk(level, x, z);
+        BlockPos anchor = new BlockPos(x, y, z);
+        if (!level.getBlockState(anchor).is(Blocks.BEDROCK)) {
+            if (level.getBlockEntity(anchor) != null) level.removeBlockEntity(anchor);
+            level.setBlock(anchor, Blocks.BEDROCK.defaultBlockState(), 3);
+            if (level.getBlockEntity(anchor) != null) level.removeBlockEntity(anchor);
+        }
     }
 
     public static ServerLevel resolveLevel(MinecraftServer server, String worldName) {

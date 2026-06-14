@@ -18,7 +18,7 @@ public final class PortalCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("portal")
-                        .requires(source -> source.hasPermission(4))
+                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                         .then(literal("pos1")
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(ctx -> setPos1(ctx.getSource(), StringArgumentType.getString(ctx, "id")))))
@@ -72,7 +72,7 @@ public final class PortalCommand {
         }
 
         if (!PortalManager.isAllowedPortalCommand(cleaned)) {
-            source.sendFailure(Component.literal("Portal commands are limited to: rtp, rtp survival overworld|nether|end, rtp exploration overworld|nether|end, spawn, warp <name>").withStyle(ChatFormatting.RED));
+            source.sendFailure(Component.literal("Portal commands are limited to: rtp, rtp survival overworld|nether|end, spawn, warp <name>").withStyle(ChatFormatting.RED));
             return 0;
         }
 

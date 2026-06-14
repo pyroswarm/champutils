@@ -88,13 +88,13 @@ public final class AuctionHouseCommand {
                                     return 1;
                                 }))
                         .then(literal("bind")
-                                .requires(source -> source.hasPermission(4))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(context -> {
                                     AuctionHouseBindInteractionListener.beginBind(context.getSource().getPlayerOrException());
                                     return 1;
                                 }))
                         .then(literal("bindcancel")
-                                .requires(source -> source.hasPermission(4))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(context -> {
                                     boolean cancelled = AuctionHouseBindInteractionListener.cancelBind(context.getSource().getPlayerOrException());
                                     if (cancelled) {
@@ -105,7 +105,7 @@ public final class AuctionHouseCommand {
                                     return cancelled ? 1 : 0;
                                 }))
                         .then(literal("unbind")
-                                .requires(source -> source.hasPermission(4))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(context -> {
                                     AuctionHouseNpcBindingRegistry.unbind();
                                     context.getSource().sendSuccess(() -> Component.literal("Unbound the Auction NPC.").withStyle(ChatFormatting.GREEN), true);

@@ -276,7 +276,7 @@ public class GymCommand {
 
                     dispatcher.register(
                             literal("gymcooldown")
-                                    .requires(source -> source.hasPermission(4))
+                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                     .executes(ctx -> showCooldown(ctx.getSource()))
                                     .then(
                                             argument("seconds", IntegerArgumentType.integer(0))

@@ -75,11 +75,14 @@ public final class MenuNpcInteractionListener {
         switch (MenuNpcBindingRegistry.normalize(menu)) {
             case "gearworkshop" -> GearWorkshopMenu.open(player);
             case "gearappraiser" -> GearAppraiserMenu.open(player);
+            case "tmcrafter", "tms" -> TMCrafterMenu.open(player);
             case "battles", "pvp" -> BattleMenu.open(player);
             case "auction" -> AuctionHouseGui.openMain(player);
             case "shop", "essentials" -> NpcShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
-            case "territories", "territory" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.ALL, "", 0);
+            case "quests", "quest" -> QuestMenu.open(player);
+            case "territorycreation", "territorycreate" -> TerritoryMenus.openCreationNpcMenu(player);
+            case "territories", "territory" -> TerritoryMenus.openHub(player);
             case "pterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.PERSONAL, "", 0);
             case "gterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.GUILD, "", 0);
             case "guild", "guilds" -> GuildMenu.open(player);

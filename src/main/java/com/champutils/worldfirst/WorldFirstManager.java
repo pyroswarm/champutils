@@ -21,31 +21,58 @@ public final class WorldFirstManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/world_firsts.json");
     private static State state = new State();
-    private static final List<WorldFirstDef> DEFS = defaults();
+    private static List<WorldFirstDef> DEFS = new ArrayList<>();
 
     private WorldFirstManager() {}
 
     public static void load() {
-        try {
-            if (!FILE.exists()) { save(); return; }
-            try (FileReader r = new FileReader(FILE)) {
-                State loaded = GSON.fromJson(r, State.class);
-                state = loaded == null ? new State() : loaded;
-                if (state.claims == null) state.claims = new ConcurrentHashMap<>();
-            }
-        } catch (Exception e) { state = new State(); e.printStackTrace(); }
+        loadDefinitions();
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            state = new State();
+            state.claims = WorldFirstDatabaseRepository.loadClaims();
+            return;
+        }
+        state = new State();
     }
     public static void save() {
+        // World first claims are SQL-backed when the database is enabled. Definitions live in config/champutils/world_firsts.json.
+    }
+
+    private static synchronized void loadDefinitions() {
         try {
-            File p = FILE.getParentFile(); if (p != null && !p.exists()) p.mkdirs();
-            try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(state, w); }
-        } catch (Exception e) { e.printStackTrace(); }
+            FILE.getParentFile().mkdirs();
+            if (!FILE.exists()) {
+                DEFS = defaults();
+                saveDefinitions();
+                return;
+            }
+            try (FileReader reader = new FileReader(FILE)) {
+                WorldFirstConfig config = GSON.fromJson(reader, WorldFirstConfig.class);
+                DEFS = config == null || config.worldFirsts == null || config.worldFirsts.isEmpty() ? defaults() : config.worldFirsts;
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load world first definitions. Using defaults.");
+            e.printStackTrace();
+            DEFS = defaults();
+        }
+    }
+
+    private static synchronized void saveDefinitions() {
+        try {
+            FILE.getParentFile().mkdirs();
+            WorldFirstConfig config = new WorldFirstConfig();
+            config.worldFirsts = DEFS;
+            try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(config, writer); }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to save world first definitions.");
+            e.printStackTrace();
+        }
     }
 
     public static List<WorldFirstDef> definitions() { return DEFS; }
     public static Claim claim(String id) { return state.claims.get(id); }
     public static String titleDisplay(String titleId) {
-        for (WorldFirstDef def : DEFS) if (def.titleId.equals(titleId)) return def.titleDisplay;
+        for (WorldFirstDef def : DEFS) if (def != null && def.titleId != null && def.titleId.equals(titleId)) return def.titleDisplay;
         return null;
     }
 
@@ -73,9 +100,18 @@ public final class WorldFirstManager {
         if (player == null || id == null || id.isBlank() || state.claims.containsKey(id)) return false;
         WorldFirstDef def = DEFS.stream().filter(d -> d.id.equals(id)).findFirst().orElse(null);
         if (def == null) return false;
+        String playerName = player.getName().getString();
+        boolean inserted = true;
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            inserted = WorldFirstDatabaseRepository.claim(id, player.getUUID(), playerName);
+            if (!inserted) {
+                state.claims.putAll(WorldFirstDatabaseRepository.loadClaims());
+                return false;
+            }
+        }
         Claim claim = new Claim();
         claim.playerUuid = player.getUUID().toString();
-        claim.playerName = player.getName().getString();
+        claim.playerName = playerName;
         claim.claimedAt = Instant.now().toString();
         state.claims.put(id, claim);
         save();
@@ -134,6 +170,7 @@ public final class WorldFirstManager {
     private static void add(List<WorldFirstDef> list, String id, String name, String title, String reward, int xp) { WorldFirstDef d = new WorldFirstDef(); d.id=id; d.name=name; d.titleId="wf_"+id; d.titleDisplay=title; d.rewardText=reward; d.xpReward=xp; list.add(d); }
 
     public static final class State { Map<String, Claim> claims = new ConcurrentHashMap<>(); }
+    public static final class WorldFirstConfig { public List<WorldFirstDef> worldFirsts = new ArrayList<>(); }
     public static final class Claim { public String playerUuid; public String playerName; public String claimedAt; }
     public static final class WorldFirstDef { public String id; public String name; public String titleId; public String titleDisplay; public String rewardText; public int xpReward; }
 }

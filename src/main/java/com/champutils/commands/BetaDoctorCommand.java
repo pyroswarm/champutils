@@ -27,7 +27,7 @@ public final class BetaDoctorCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("champutils")
                         .then(literal("doctor")
-                                .requires(source -> source.hasPermission(4))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(context -> run(context.getSource())))
         ));
     }

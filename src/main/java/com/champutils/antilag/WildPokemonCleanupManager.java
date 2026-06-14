@@ -2,7 +2,7 @@ package com.champutils.antilag;
 
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
-import com.cobblemon.mod.common.pokemon.activestate.SentOutState;
+import com.cobblemon.mod.common.pokemon.activestate.ActivePokemonState;
 import com.cobblemon.mod.common.pokemon.activestate.ShoulderedState;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -90,11 +90,47 @@ public final class WildPokemonCleanupManager {
         if (pokemon == null) return Safety.protectedBecause("missing pokemon data");
         if (!pokemon.isWild()) return Safety.protectedBecause("not wild");
         if (pokemon.isPlayerOwned() || pokemon.isNPCOwned() || pokemon.getOwnerUUID() != null) return Safety.protectedBecause("owned pokemon");
-        if (pokemon.getState() instanceof SentOutState || pokemon.getState() instanceof ShoulderedState) return Safety.protectedBecause("active pokemon state");
+        String activeStateProtection = activeStateProtectionReason(entity, pokemon);
+        if (activeStateProtection != null) return Safety.protectedBecause(activeStateProtection);
         if (pokemon.getShiny()) return Safety.protectedBecause("shiny");
         if (isSpecialPokemon(entity, pokemon)) return Safety.protectedBecause("special pokemon");
 
         return Safety.SAFE;
+    }
+
+    /**
+     * Cobblemon marks a Pokemon that has a live entity as an ActivePokemonState.
+     * That is true for player sent-out Pokemon, but it is also true for ordinary wild Pokemon
+     * because the wild Pokemon itself is currently an entity in the world.
+     *
+     * The old cleaner protected every Active/SentOut state, which made normal wild Pokemon
+     * show up as protected with reason "active pokemon state" and prevented cleanup.
+     *
+     * We only protect active state when it is clearly not this same ordinary wild entity.
+     */
+    private static String activeStateProtectionReason(PokemonEntity entity, Pokemon pokemon) {
+        if (pokemon.getState() instanceof ShoulderedState) {
+            return "shouldered pokemon";
+        }
+
+        if (pokemon.getState() instanceof ActivePokemonState activeState) {
+            PokemonEntity activeEntity = activeState.getEntity();
+
+            // If Cobblemon points the state at another entity, do not delete this one.
+            if (activeEntity != null && activeEntity.getId() != entity.getId()) {
+                return "different active pokemon entity";
+            }
+
+            // Owned active Pokemon should already be caught by owner checks, but keep this as a hard backup.
+            if (pokemon.isPlayerOwned() || pokemon.isNPCOwned() || pokemon.getOwnerUUID() != null || entity.getOwnerUUID() != null) {
+                return "owned active pokemon";
+            }
+
+            // Important: a wild PokemonEntity whose active state points to itself is just a normal wild spawn.
+            // Do not protect it here. The battle/tether/owner/shiny/special checks above and below still protect valuables.
+        }
+
+        return null;
     }
 
     private static boolean hasProtectedEntityTag(Entity entity) {

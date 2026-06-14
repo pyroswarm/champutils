@@ -19,7 +19,7 @@ public class BattleExitCommand {
                 Commands.literal("battleexit")
                         .executes(ctx -> exitSelf(ctx.getSource(), false))
                         .then(Commands.literal("force")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .executes(ctx -> exitSelf(ctx.getSource(), true))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> exitOther(

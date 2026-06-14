@@ -120,9 +120,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("preview")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
                                                     .executes(ctx->{
 
@@ -216,9 +214,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("start")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
                                                     .then(
                                                             argument(
@@ -256,9 +252,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("rollback")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
                                                     .executes(ctx->{
 
                                                         armConfirm(
@@ -282,9 +276,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("removeLast")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
                                                     .executes(ctx->{
 
                                                         armConfirm(
@@ -308,9 +300,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("remove")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
                                                     .then(
                                                             argument(
@@ -357,9 +347,7 @@ public class SeasonCommand {
 
                                     .then(
                                             literal("confirm")
-                                                    .requires(
-                                                            s->s.hasPermission(4)
-                                                    )
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
                                                     .executes(ctx->{
 

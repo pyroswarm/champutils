@@ -15,70 +15,186 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class TitleManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final File FILE = new File("config/champutils/player_titles.json");
+    private static final File SELECTED_FILE = new File("config/champutils/title_selections.json");
+
     private static State state = new State();
+
+    /** SQL ownership cache keyed by active profile id. Keeps chat/menu paths off the database. */
+    private static final Map<UUID, Set<String>> sqlUnlockedCache = new ConcurrentHashMap<>();
+    private static final Set<UUID> sqlLoadedProfiles = ConcurrentHashMap.newKeySet();
+
+    /** Equipped title is local/cache-backed so SQL only stores ownership. Keyed by profile id, not account uuid. */
+    private static final Map<String, String> selectedByProfile = new ConcurrentHashMap<>();
 
     private TitleManager() {}
 
-    public static void load() {
-        try {
-            if (!FILE.exists()) { save(); return; }
-            try (FileReader r = new FileReader(FILE)) {
-                State loaded = GSON.fromJson(r, State.class);
-                state = loaded == null ? new State() : loaded;
-                if (state.players == null) state.players = new ConcurrentHashMap<>();
-            }
-        } catch (Exception e) { state = new State(); e.printStackTrace(); }
+    public static synchronized void load() {
+        TitleConfig.load();
+        state = new State();
+        sqlUnlockedCache.clear();
+        sqlLoadedProfiles.clear();
+        loadSelections();
     }
 
-    public static void save() {
-        try {
-            File parent = FILE.getParentFile();
-            if (parent != null && !parent.exists()) parent.mkdirs();
-            try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(state, w); }
-        } catch (Exception e) { e.printStackTrace(); }
+    public static synchronized void save() {
+        saveSelections();
     }
 
-    public static boolean unlock(ServerPlayer player, String id, String display) {
+    public static boolean unlock(ServerPlayer player, String id) {
+        return unlock(player, id, null);
+    }
+
+    public static boolean unlock(ServerPlayer player, String id, String ignoredDisplay) {
         if (player == null || id == null || id.isBlank()) return false;
-        PlayerTitles data = data(player.getUUID());
-        if (!data.unlocked.add(id)) return false;
-        if (data.selected == null || data.selected.isBlank()) data.selected = id;
-        save();
-        player.sendSystemMessage(Component.literal("Unlocked title: ").withStyle(ChatFormatting.GOLD).append(com.champutils.chat.ChatTagResolver.legacy(display)));
+        String normalizedId = id.trim();
+        String display = TitleConfig.display(normalizedId);
+        if (display == null || display.isBlank()) display = ignoredDisplay;
+        if (display == null || display.isBlank()) display = "&7[" + normalizedId + "]";
+
+        UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
+        boolean changed;
+
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            Set<String> owned = cachedSqlTitles(profileId);
+            if (owned.contains(normalizedId)) {
+                return false;
+            }
+            changed = TitleDatabaseRepository.unlock(profileId, normalizedId);
+            if (changed) {
+                owned.add(normalizedId);
+                if (selectedForProfile(profileId).isBlank()) {
+                    selectedByProfile.put(profileId.toString(), normalizedId);
+                    saveSelections();
+                }
+            }
+        } else {
+            PlayerTitles data = data(player.getUUID());
+            changed = data.unlocked.add(normalizedId);
+            if (changed && (data.selected == null || data.selected.isBlank())) data.selected = normalizedId;
+        }
+
+        if (!changed) return false;
+        Component title = com.champutils.chat.ChatTagResolver.legacy(display);
+        player.server.getPlayerList().broadcastSystemMessage(Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA))
+                .append(Component.literal(" unlocked ").withStyle(ChatFormatting.GRAY))
+                .append(title)
+                .append(Component.literal("!").withStyle(ChatFormatting.GRAY)), false);
         return true;
     }
 
-    public static Set<String> unlocked(UUID uuid) { return new TreeSet<>(data(uuid).unlocked); }
-    public static String selected(UUID uuid) { return data(uuid).selected; }
+    public static Set<String> unlocked(UUID uuid) {
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            return new TreeSet<>(cachedSqlTitles(profileId));
+        }
+        return new TreeSet<>(data(uuid).unlocked);
+    }
+
+    public static String selected(UUID uuid) {
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            String selected = selectedForProfile(profileId);
+            return cachedSqlTitles(profileId).contains(selected) ? selected : "";
+        }
+        return data(uuid).selected;
+    }
+
     public static void select(ServerPlayer player, String id) {
-        PlayerTitles data = data(player.getUUID());
+        UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
+        Set<String> unlocked = unlocked(player.getUUID());
         if (id == null || id.equalsIgnoreCase("none")) {
-            data.selected = "";
-            save();
+            if (com.champutils.database.DatabaseManager.isEnabled()) {
+                selectedByProfile.put(profileId.toString(), "");
+                saveSelections();
+            } else {
+                data(player.getUUID()).selected = "";
+            }
             player.sendSystemMessage(Component.literal("Title hidden.").withStyle(ChatFormatting.GRAY));
             return;
         }
-        if (!data.unlocked.contains(id)) {
+
+        String normalizedId = id.trim();
+        if (!unlocked.contains(normalizedId)) {
             player.sendSystemMessage(Component.literal("You have not unlocked that title.").withStyle(ChatFormatting.RED));
             return;
         }
-        data.selected = id;
-        save();
-        player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(id))));
+
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            selectedByProfile.put(profileId.toString(), normalizedId);
+            saveSelections();
+        } else {
+            data(player.getUUID()).selected = normalizedId;
+        }
+        player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
     }
 
     public static String displayFor(String id) {
+        return displayFor(null, id);
+    }
+
+    public static String displayFor(UUID uuid, String id) {
         if (id == null || id.isBlank()) return "";
         String wf = com.champutils.worldfirst.WorldFirstManager.titleDisplay(id);
         if (wf != null) return wf;
+        String config = TitleConfig.display(id);
+        if (config != null && !config.isBlank()) return config;
+        String builtIn = TitleRegistry.defaultDisplay(id);
+        if (builtIn != null) return builtIn;
         return "&7[" + id + "]";
+    }
+
+    private static Set<String> cachedSqlTitles(UUID profileId) {
+        if (profileId == null) return new TreeSet<>();
+        Set<String> existing = sqlUnlockedCache.computeIfAbsent(profileId, ignored -> ConcurrentHashMap.newKeySet());
+        if (sqlLoadedProfiles.add(profileId)) {
+            existing.clear();
+            existing.addAll(TitleDatabaseRepository.unlocked(profileId));
+        }
+        return existing;
+    }
+
+    private static String selectedForProfile(UUID profileId) {
+        if (profileId == null) return "";
+        return selectedByProfile.getOrDefault(profileId.toString(), "");
     }
 
     private static PlayerTitles data(UUID uuid) {
         return state.players.computeIfAbsent(PlayerProfileManager.activeProfileId(uuid).toString(), k -> new PlayerTitles());
     }
 
+    private static synchronized void loadSelections() {
+        selectedByProfile.clear();
+        try {
+            SELECTED_FILE.getParentFile().mkdirs();
+            if (!SELECTED_FILE.exists()) return;
+            try (FileReader reader = new FileReader(SELECTED_FILE)) {
+                SelectionState loaded = GSON.fromJson(reader, SelectionState.class);
+                if (loaded != null && loaded.selectedByProfile != null) {
+                    selectedByProfile.putAll(loaded.selectedByProfile);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load title selections.");
+            e.printStackTrace();
+        }
+    }
+
+    private static synchronized void saveSelections() {
+        try {
+            SELECTED_FILE.getParentFile().mkdirs();
+            SelectionState out = new SelectionState();
+            out.selectedByProfile.putAll(selectedByProfile);
+            try (FileWriter writer = new FileWriter(SELECTED_FILE)) {
+                GSON.toJson(out, writer);
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to save title selections.");
+            e.printStackTrace();
+        }
+    }
+
     private static final class State { Map<String, PlayerTitles> players = new ConcurrentHashMap<>(); }
     private static final class PlayerTitles { Set<String> unlocked = new TreeSet<>(); String selected = ""; }
+    private static final class SelectionState { Map<String, String> selectedByProfile = new TreeMap<>(); }
 }

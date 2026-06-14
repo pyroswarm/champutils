@@ -21,7 +21,9 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class IronmanItemOwnership {
     public static final String ROOT = "champutils_ironman";
@@ -32,6 +34,8 @@ public final class IronmanItemOwnership {
 
     private static boolean registered = false;
     private static int tickCounter = 0;
+    private static final long DENY_COOLDOWN_MS = 5000L;
+    private static final Map<UUID, Long> LAST_DENY_MS = new ConcurrentHashMap<>();
 
     private IronmanItemOwnership() {}
 
@@ -97,29 +101,43 @@ public final class IronmanItemOwnership {
         UUID itemOwner = ownerProfile(entity.getItem());
         UUID dropper = dropperProfile(entity);
 
-        if (PlayerProfileManager.isIronman(player) && !player.hasPermissions(4)) {
+        if (isRestricted(player)) {
             if (itemOwner != null && !itemOwner.equals(activeProfile)) {
                 deny(player, "That item came from another player.");
                 return false;
             }
 
             if (dropper != null && !dropper.equals(activeProfile)) {
-                deny(player, "Ironman profiles cannot pick up items dropped by other players.");
+                deny(player, "Ironman/Nuzlocke profiles cannot pick up items dropped by other players.");
                 return false;
             }
         }
 
-        if (itemOwner == null) stampOwned(player, entity.getItem(), dropper == null ? "world_pickup" : "own_drop_pickup");
+        if (itemOwner == null && isRestricted(player)) stampOwned(player, entity.getItem(), dropper == null ? "world_pickup" : "own_drop_pickup");
         return true;
+    }
+
+    public static boolean isRestricted(ServerPlayer player) {
+        return player != null && (PlayerProfileManager.isIronman(player) || PlayerProfileManager.isNuzlocke(player)) && !player.hasPermissions(4);
+    }
+
+    public static boolean canMoveStackIntoRestrictedInventory(ServerPlayer player, ItemStack stack) {
+        return !denyForeignUse(player, stack);
+    }
+
+    public static void stampContainerDeposit(ServerPlayer player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) return;
+        if (!isRestricted(player)) return;
+        if (!denyForeignUse(player, stack)) stampIfIronmanOwned(player, stack, "container_deposit");
     }
 
     public static boolean denyForeignUse(ServerPlayer player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) return false;
-        if (!PlayerProfileManager.isIronman(player) || player.hasPermissions(4)) return false;
+        if (!isRestricted(player)) return false;
         UUID owner = ownerProfile(stack);
         UUID active = PlayerProfileManager.activeProfileId(player);
         if (owner != null && !owner.equals(active)) {
-            deny(player, "Ironman profiles cannot use items that came from another player.");
+            deny(player, "Ironman/Nuzlocke profiles cannot use items that came from another player.");
             return true;
         }
         return false;
@@ -172,11 +190,16 @@ public final class IronmanItemOwnership {
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack stack = inv.getItem(i);
             if (stack == null || stack.isEmpty()) continue;
-            if (!denyForeignUse(player, stack)) stampIfIronmanOwned(player, stack, "inventory_scan");
+            if (!denyForeignUse(player, stack) && isRestricted(player)) stampIfIronmanOwned(player, stack, "inventory_scan");
         }
     }
 
     private static void deny(ServerPlayer player, String message) {
+        if (player == null) return;
+        long now = System.currentTimeMillis();
+        Long last = LAST_DENY_MS.get(player.getUUID());
+        if (last != null && now - last < DENY_COOLDOWN_MS) return;
+        LAST_DENY_MS.put(player.getUUID(), now);
         player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
     }
 }

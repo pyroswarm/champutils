@@ -22,6 +22,7 @@ public final class TitleMenu {
         int slot = 9;
         for (String id : titles) {
             if (slot >= 54) break;
+            if (slot == 45) slot++;
             boolean active = id.equals(selected);
             gui.setSlot(slot++, new GuiElementBuilder(active ? Items.NAME_TAG : Items.PAPER)
                     .hideDefaultTooltip()
@@ -29,6 +30,7 @@ public final class TitleMenu {
                     .addLoreLine(Component.literal("§eClick to select"))
                     .setCallback((i,c,t) -> { TitleManager.select(player, id); open(player); }));
         }
+        MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }
 }

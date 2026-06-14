@@ -44,6 +44,11 @@ public class BattleListener {
                 battleType
         );
 
+        com.champutils.cosmetic.TitleRegistry.handleBattleWin(
+                winner,
+                battleType
+        );
+
         awardBattleProfessionXp(
                 winner,
                 battleType

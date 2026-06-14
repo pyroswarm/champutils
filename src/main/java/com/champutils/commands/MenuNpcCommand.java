@@ -21,13 +21,14 @@ public final class MenuNpcCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("menunpc")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                         .executes(context -> help(context.getSource()))
                         .then(Commands.literal("bind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
+                                            builder.suggest("tmcrafter");
                                             builder.suggest("pvp");
                                             builder.suggest("pvp");
                                             builder.suggest("pvp");
@@ -51,6 +52,7 @@ public final class MenuNpcCommand {
                                         .suggests((context, builder) -> {
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
+                                            builder.suggest("tmcrafter");
                                             builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
@@ -75,6 +77,7 @@ public final class MenuNpcCommand {
         return switch (menu.toLowerCase()) {
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";
+            case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
             default -> menu.toLowerCase();
         };
     }

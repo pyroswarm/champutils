@@ -116,7 +116,7 @@ public final class GuildCommand {
                                             StringArgumentType.getString(context, "message")
                                     ))))
                     .then(Commands.literal("admin")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .then(Commands.literal("setcreatecooldown")
                                     .then(Commands.argument("minutes", LongArgumentType.longArg(0L))
                                             .executes(context -> setCreateCooldown(
@@ -130,7 +130,7 @@ public final class GuildCommand {
                                                     LongArgumentType.getLong(context, "credits")
                                             )))))
                     .then(Commands.literal("debugreload")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .executes(context -> {
                                 ServerPlayer player = context.getSource().getPlayerOrException();
                                 GuildConfig.load();

@@ -179,7 +179,7 @@ public class SeasonManager {
         ArrayList<SeasonArchiveManager.LadderEntry> top =
                 new ArrayList<>();
 
-        var profileTop = ProfileLeaderboardRepository.top(ProfileLeaderboardRepository.Board.RANKED, 100);
+        var profileTop = ProfileLeaderboardRepository.topFresh(ProfileLeaderboardRepository.Board.RANKED, 100);
         if (!profileTop.isEmpty()) {
             for (var e : profileTop) {
                 String displayName = e.profileName() + " (" + e.playerName() + ")";
@@ -321,7 +321,7 @@ public class SeasonManager {
             } catch (Exception ignored) {}
         }
 
-        LeaderboardManager.refresh(server);
+        LeaderboardManager.refreshNow(server);
 
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             PlayerData d = PlayerDataManager.load(p.getUUID(), p.getName().getString());
@@ -679,7 +679,7 @@ public class SeasonManager {
 
             saveState();
             SeasonProfileDatabaseRepository.rollbackActiveSeason(CURRENT_SEASON, CURRENT_NAME);
-            LeaderboardManager.refresh(server);
+            LeaderboardManager.refreshNow(server);
 
             server.getPlayerList()
                     .broadcastSystemMessage(

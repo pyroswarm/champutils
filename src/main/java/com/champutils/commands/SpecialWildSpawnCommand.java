@@ -13,7 +13,7 @@ public final class SpecialWildSpawnCommand {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(literal("specialspawns")
-                .requires(source -> source.hasPermission(2))
+                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                 .then(literal("reload").executes(ctx -> {
                     SpecialWildSpawnConfig.load();
                     ctx.getSource().sendSuccess(() -> Component.literal("Reloaded special wild spawn config."), false);

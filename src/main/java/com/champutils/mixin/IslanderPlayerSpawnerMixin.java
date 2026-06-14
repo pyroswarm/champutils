@@ -45,6 +45,8 @@ public abstract class IslanderPlayerSpawnerMixin {
         if (!IslanderProfileManager.isIslanderWorld(player.serverLevel())) return;
 
         int zoneDiameter = Math.max(8, IslanderSpawningConfig.CONFIG.closeSpawnerZoneDiameter);
+        int nearbyCap = Math.max(1, IslanderSpawningConfig.CONFIG.islanderMaxNearbyPokemon);
+        ((PlayerSpawner) (Object) this).setMaxPokemonPerChunk(nearbyCap / 9.0F);
         int zoneHeight = Math.max(8, IslanderSpawningConfig.CONFIG.closeSpawnerZoneHeight);
         double minDistance = Math.max(1, IslanderSpawningConfig.CONFIG.closeSpawnerMinDistance);
         double maxDistance = Math.max(minDistance, IslanderSpawningConfig.CONFIG.closeSpawnerMaxDistance);

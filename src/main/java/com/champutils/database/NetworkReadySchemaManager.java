@@ -356,6 +356,9 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("create index if not exists boss_attempts_player_index on boss_attempts (player_uuid)");
                 statement.executeUpdate("create index if not exists boss_attempts_reset_index on boss_attempts (reset_key_millis)");
 
+                com.champutils.cosmetic.TitleDatabaseRepository.ensureSchema(connection);
+                com.champutils.worldfirst.WorldFirstDatabaseRepository.ensureSchema(connection);
+
                 statement.executeUpdate(
                         "create table if not exists player_settings (" +
                                 "player_uuid uuid not null, " +

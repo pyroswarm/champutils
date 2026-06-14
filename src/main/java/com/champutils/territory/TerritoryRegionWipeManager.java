@@ -35,14 +35,13 @@ public final class TerritoryRegionWipeManager {
             return;
         }
 
-        try {
-            player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
-        } catch (Exception e) {
-            player.sendSystemMessage(Component.literal("Tried to run /spawn before deletion, but the command failed. Territory was not deleted.").withStyle(ChatFormatting.RED));
+        if (!evacuateRequester(player, territory)) {
+            player.sendSystemMessage(Component.literal("Could not move you out of the territory safely, so deletion was cancelled.").withStyle(ChatFormatting.RED));
             return;
         }
 
-        player.sendSystemMessage(Component.literal("Territory deletion started. You were sent to spawn. The full territory area will be cleared safely.").withStyle(ChatFormatting.GREEN));
+        TerritoryRepository.Territory wipeCopy = copyOf(territory);
+        player.sendSystemMessage(Component.literal("Territory deletion started. You were moved out of the territory. You may create a new territory immediately; the old slot will be wiped in the background.").withStyle(ChatFormatting.GREEN));
 
         TerritoryRepository.beginDelete(territory, (success, message) -> player.server.execute(() -> {
             if (!success) {
@@ -51,8 +50,51 @@ public final class TerritoryRegionWipeManager {
                 System.err.println("[ChampUtils] Failed to mark territory " + territory.id + " as DELETING: " + message);
                 return;
             }
-            enqueueWipe(copyOf(territory), player.getUUID());
+            enqueueWipe(wipeCopy, player.getUUID());
         }));
+    }
+
+    public static void enqueueDeleteForDeletedProfile(MinecraftServer server, UUID profileId, UUID requesterId) {
+        if (server == null || profileId == null) return;
+
+        TerritoryRepository.Territory territory = TerritoryRepository.cachedForOwner(TerritoryRepository.OwnerType.PLAYER, profileId.toString());
+        if (territory == null) return;
+
+        if (QUEUED_TERRITORIES.contains(territory.id) || TerritoryRepository.isDeleting(territory)) {
+            return;
+        }
+
+        TerritoryRepository.Territory wipeCopy = copyOf(territory);
+        TerritoryRepository.beginDelete(territory, (success, message) -> server.execute(() -> {
+            if (!success) {
+                System.err.println("[ChampUtils] Failed to mark profile territory " + territory.id + " as DELETING during profile deletion: " + message);
+                return;
+            }
+            enqueueWipe(wipeCopy, requesterId);
+        }));
+    }
+
+
+    private static boolean evacuateRequester(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (player == null || player.server == null) return false;
+
+        // Do not rely on /spawn. Some servers do not have that command, permissions can block it,
+        // and command failure used to prevent /territory delete confirm from doing anything.
+        try {
+            ServerLevel overworld = player.server.overworld();
+            BlockPos spawn = overworld.getSharedSpawnPos();
+            player.teleportTo(overworld, spawn.getX() + 0.5D, spawn.getY() + 1.0D, spawn.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            return true;
+        } catch (Exception directTeleportFailed) {
+            try {
+                player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
+                return true;
+            } catch (Exception commandFailed) {
+                System.err.println("[ChampUtils] Failed to evacuate player before deleting territory " + (territory == null ? "unknown" : territory.id) + ".");
+                commandFailed.printStackTrace();
+                return false;
+            }
+        }
     }
 
     public static void tick(MinecraftServer server) {

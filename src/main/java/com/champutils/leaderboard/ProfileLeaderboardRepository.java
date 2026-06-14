@@ -3,14 +3,23 @@ package com.champutils.leaderboard;
 import com.champutils.database.DatabaseManager;
 import com.champutils.rank.SeasonManager;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ProfileLeaderboardRepository {
     private ProfileLeaderboardRepository() {}
+
+    private static final long CACHE_TTL_MILLIS = 60_000L;
+    private static final Map<Board, List<Entry>> CACHE = new EnumMap<>(Board.class);
+    private static volatile long lastRefreshAtMillis = 0L;
+    private static final AtomicBoolean REFRESH_IN_PROGRESS = new AtomicBoolean(false);
 
     public enum Board {
         RANKED("leaderboard_ranked_profiles", "rp", "RP"),
@@ -53,26 +62,73 @@ public final class ProfileLeaderboardRepository {
     ) {}
 
     public static List<Entry> top(Board board, int limit) {
-        if (!DatabaseManager.isEnabled()) return List.of();
+        refreshAllAsync(false);
+        int safeLimit = Math.max(1, Math.min(100, limit));
+        List<Entry> cached;
+        synchronized (CACHE) {
+            cached = CACHE.getOrDefault(board, List.of());
+        }
+        if (cached.size() <= safeLimit) return new ArrayList<>(cached);
+        return new ArrayList<>(cached.subList(0, safeLimit));
+    }
+
+    public static void refreshAllAsync() {
+        refreshAllAsync(false);
+    }
+
+    public static void refreshAllAsync(boolean force) {
+        if (!DatabaseManager.isEnabled()) return;
+        long now = System.currentTimeMillis();
+        if (!force && now - lastRefreshAtMillis < CACHE_TTL_MILLIS) return;
+        if (!REFRESH_IN_PROGRESS.compareAndSet(false, true)) return;
+
+        DatabaseManager.executeAsync("refresh leaderboard cache", connection -> {
+            try {
+                Map<Board, List<Entry>> next = new EnumMap<>(Board.class);
+                for (Board board : Board.values()) {
+                    next.put(board, loadFresh(connection, board, 100));
+                }
+                synchronized (CACHE) {
+                    CACHE.clear();
+                    CACHE.putAll(next);
+                }
+                lastRefreshAtMillis = System.currentTimeMillis();
+            } finally {
+                REFRESH_IN_PROGRESS.set(false);
+            }
+        });
+    }
+
+    public static List<Entry> topFresh(Board board, int limit) {
+        if (!DatabaseManager.isEnabled()) return top(board, limit);
         int safeLimit = Math.max(1, Math.min(100, limit));
         try {
-            return switch (board) {
-                case RANKED -> ranked(safeLimit);
-                case GUILDS -> guilds(safeLimit);
-                default -> generic(board, safeLimit);
-            };
+            List<Entry> rows = loadFresh(DatabaseManager.getConnection(), board, safeLimit);
+            synchronized (CACHE) {
+                CACHE.put(board, List.copyOf(rows));
+            }
+            lastRefreshAtMillis = System.currentTimeMillis();
+            return rows;
         } catch (Exception e) {
-            System.err.println("[ChampUtils] Failed to load " + board + " leaderboard: " + e.getMessage());
-            return List.of();
+            System.err.println("[ChampUtils] Failed to load fresh " + board + " leaderboard: " + e.getMessage());
+            return top(board, safeLimit);
         }
     }
 
-    private static List<Entry> ranked(int limit) throws Exception {
+    private static List<Entry> loadFresh(Connection connection, Board board, int limit) throws Exception {
+        return switch (board) {
+            case RANKED -> ranked(connection, limit);
+            case GUILDS -> guilds(connection, limit);
+            default -> generic(connection, board, limit);
+        };
+    }
+
+    private static List<Entry> ranked(Connection connection, int limit) throws Exception {
         String seasonId = "season_" + Math.max(1, SeasonManager.CURRENT_SEASON);
         String sql = "select profile_id, player_uuid, username, profile_name, mode, rp, wins, losses " +
                 "from leaderboard_ranked_profiles where season_id = ? order by rp desc, wins desc, losses asc limit ?";
         List<Entry> rows = new ArrayList<>();
-        try (PreparedStatement ps = DatabaseManager.getConnection().prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, seasonId);
             ps.setInt(2, limit);
             try (ResultSet rs = ps.executeQuery()) {
@@ -89,11 +145,11 @@ public final class ProfileLeaderboardRepository {
         return rows;
     }
 
-    private static List<Entry> generic(Board board, int limit) throws Exception {
+    private static List<Entry> generic(Connection connection, Board board, int limit) throws Exception {
         String sql = "select profile_id, player_uuid, username, profile_name, mode, " + board.valueColumn + " as value " +
                 "from " + board.view + " order by " + board.valueColumn + " desc limit ?";
         List<Entry> rows = new ArrayList<>();
-        try (PreparedStatement ps = DatabaseManager.getConnection().prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -109,10 +165,10 @@ public final class ProfileLeaderboardRepository {
         return rows;
     }
 
-    private static List<Entry> guilds(int limit) throws Exception {
+    private static List<Entry> guilds(Connection connection, int limit) throws Exception {
         String sql = "select guild_id, guild_name, owner_name, level, xp, members from leaderboard_guilds order by xp desc, level desc, members desc limit ?";
         List<Entry> rows = new ArrayList<>();
-        try (PreparedStatement ps = DatabaseManager.getConnection().prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

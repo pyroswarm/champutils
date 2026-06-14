@@ -43,7 +43,7 @@ public final class EconomyCommand {
 
             dispatcher.register(
                     literal("eco")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .then(literal("balance")
                                     .then(argument("player", EntityArgument.player())
                                             .executes(context -> showBalance(

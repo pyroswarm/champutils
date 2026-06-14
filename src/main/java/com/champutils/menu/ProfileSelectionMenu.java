@@ -275,7 +275,7 @@ public final class ProfileSelectionMenu {
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x6, player, () -> openMonotypeMenu(player));
         gui.setTitle(Component.literal("Choose Monotype Type"));
         String[] types = {"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"};
-        Item[] icons = {Items.WHITE_WOOL, Items.BLAZE_POWDER, Items.WATER_BUCKET, Items.OAK_SAPLING, Items.REDSTONE_TORCH, Items.ICE, Items.IRON_SWORD, Items.SPIDER_EYE, Items.DIRT, Items.FEATHER, Items.ENDER_PEARL, Items.STRING, Items.COBBLESTONE, Items.SOUL_LANTERN, Items.DRAGON_BREATH, Items.BLACK_DYE, Items.IRON_INGOT, Items.PINK_DYE};
+        Item[] icons = {Items.WHITE_WOOL, Items.BLAZE_POWDER, Items.WATER_BUCKET, Items.OAK_SAPLING, Items.REDSTONE_TORCH, Items.ICE, Items.IRON_SWORD, Items.SPIDER_EYE, Items.DIRT, Items.ELYTRA, Items.ENDER_PEARL, Items.STRING, Items.COBBLESTONE, Items.SOUL_LANTERN, Items.DRAGON_BREATH, Items.BLACK_DYE, Items.IRON_INGOT, Items.PINK_DYE};
         int[] slots = {9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26};
         for (int i = 0; i < types.length; i++) {
             String type = types[i];

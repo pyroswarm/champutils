@@ -35,6 +35,7 @@ public final class MonotypeStarterManager {
     private static final int[] MANY_SLOTS = {10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34};
     private static final int[] THREE_SLOTS = {11,13,15};
     private static final Set<UUID> CLAIMING = ConcurrentHashMap.newKeySet();
+    private static final int STARTER_LEVEL = 10;
 
     private static final Map<String, StarterChoice[]> STARTERS = Map.ofEntries(
             Map.entry("fire", choices("charmander", "cyndaquil", "torchic", "chimchar", "tepig", "fennekin", "litten", "scorbunny", "fuecoco")),
@@ -162,7 +163,7 @@ public final class MonotypeStarterManager {
             GuiElementBuilder builder = new GuiElementBuilder(icon)
                     .hideDefaultTooltip()
                     .setName(Component.literal(choice.display()).withStyle(ChatFormatting.AQUA))
-                    .addLoreLine(Component.literal("Level 5 " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
+                    .addLoreLine(Component.literal("Level " + STARTER_LEVEL + " " + cap(type) + " starter").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to choose this Pokémon.").withStyle(ChatFormatting.YELLOW))
                     .setCallback((index, clickType, action, gui1) -> { gui.claim(choice); gui1.setSlot(index, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("Processing...").withStyle(ChatFormatting.YELLOW))); });
             gui.setSlot(slots[i], builder);
@@ -195,7 +196,7 @@ public final class MonotypeStarterManager {
                 player.sendSystemMessage(Component.literal("That starter is not valid for your " + required + " monotype profile.").withStyle(ChatFormatting.RED));
                 return;
             }
-            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + choice.species() + "\" level=5").create();
+            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + choice.species() + "\" level=" + STARTER_LEVEL).create();
             // The starter menu itself is the source of truth for the first pick. Do not
             // reject a configured starter just because Cobblemon's generated Pokemon/form
             // type reflection is not ready yet. Battle/catch enforcement still uses
@@ -299,17 +300,34 @@ public final class MonotypeStarterManager {
 
         @Override
         public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
-            // Hard-cancel every click action, including pickup, shift-click, hotbar swap,
-            // clone, throw, quick-craft, and pickup-all. Returning true consumes the click
-            // before Minecraft can transfer the virtual sprite/item stack to the player.
-            return true;
+            // Defense-in-depth for SGUI/client desync exploits: every click path is treated
+            // as virtual only. Returning false lets SGUI do its normal cancellation/sync,
+            // while this extra pass clears the cursor and resends the GUI on the next
+            // server tick so pickup, shift-click, hotbar swap, drop, clone, quick-craft,
+            // and pickup-all cannot leave menu display stacks in the player's inventory.
+            sanitizeInteraction();
+            return false;
         }
 
         @Override
         public boolean onClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action, GuiElementInterface element) {
-            // Also consume element clicks; starter selection is handled by the element callback
-            // and the GUI is immediately resynced. No inventory movement is permitted.
-            return true;
+            sanitizeInteraction();
+            return false;
+        }
+
+        private void sanitizeInteraction() {
+            if (owner == null || owner.server == null) return;
+            owner.containerMenu.setCarried(ItemStack.EMPTY);
+            this.sendGui();
+            owner.containerMenu.broadcastChanges();
+            owner.inventoryMenu.broadcastChanges();
+            owner.server.execute(() -> {
+                if (owner.isRemoved() || owner.hasDisconnected()) return;
+                owner.containerMenu.setCarried(ItemStack.EMPTY);
+                this.sendGui();
+                owner.containerMenu.broadcastChanges();
+                owner.inventoryMenu.broadcastChanges();
+            });
         }
 
         @Override

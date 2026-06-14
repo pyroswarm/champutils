@@ -19,22 +19,25 @@ public final class ChatTagResolver {
 
         if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
             String prefix = luckPermsMeta(player, "getPrefix");
-            if (prefix != null && !prefix.isBlank()) result.append(legacy(prefix)).append(Component.literal(" "));
+            if (prefix != null && !prefix.isBlank()) {
+                prefix = removeDeprecatedRankTags(prefix);
+                if (!prefix.isBlank()) result.append(legacy(prefix)).append(Component.literal(" "));
+            }
         }
 
         ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
         if (profileMode == ProfileGameMode.NORMAL) {
-            result.append(Component.literal("🌿 [Normal]").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal("🌿").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)).append(Component.literal(" "));
         } else if (profileMode == ProfileGameMode.IRONMAN) {
-            result.append(Component.literal("⚒ [Ironman]").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal("⚒").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
         } else if (profileMode == ProfileGameMode.MONOTYPE) {
             String type = PlayerProfileManager.monotypeType(player);
             if (type == null || type.isBlank()) type = "Unknown";
-            result.append(Component.literal(typeEmoji(type) + " [Monotype: " + prettyType(type) + "]").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal(typeEmoji(type)).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
         } else if (profileMode == ProfileGameMode.NUZLOCKE) {
-            result.append(Component.literal("☠ [Nuzlocke]").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal("☠").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)).append(Component.literal(" "));
         } else if (profileMode == ProfileGameMode.ISLANDER) {
-            result.append(Component.literal("🏝 [Islander]").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)).append(Component.literal(" "));
+            result.append(Component.literal("🏝").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)).append(Component.literal(" "));
         }
 
         List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
@@ -46,7 +49,7 @@ public final class ChatTagResolver {
 
         String selectedTitle = com.champutils.cosmetic.TitleManager.selected(player.getUUID());
         if (selectedTitle != null && !selectedTitle.isBlank()) {
-            String titleDisplay = com.champutils.cosmetic.TitleManager.displayFor(selectedTitle);
+            String titleDisplay = com.champutils.cosmetic.TitleManager.displayFor(player.getUUID(), selectedTitle);
             if (titleDisplay != null && !titleDisplay.isBlank()) {
                 result.append(legacy(titleDisplay)).append(Component.literal(" "));
             }
@@ -58,6 +61,14 @@ public final class ChatTagResolver {
         }
 
         return result;
+    }
+
+    private static String removeDeprecatedRankTags(String raw) {
+        if (raw == null) return "";
+        return raw.replaceAll("(?i)&[0-9a-fk-or]?\\[(helper|champion|vip)\\]", "")
+                .replaceAll("(?i)§[0-9a-fk-or]?\\[(helper|champion|vip)\\]", "")
+                .replaceAll("(?i)\\[(helper|champion|vip)\\]", "")
+                .trim();
     }
 
     private static String typeEmoji(String raw) {

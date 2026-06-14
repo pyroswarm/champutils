@@ -23,9 +23,7 @@ public class ProfessionAdminCommand {
 
                     dispatcher.register(
                             Commands.literal("professionlevel")
-                                    .requires(source ->
-                                            source.hasPermission(4)
-                                    )
+                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
 
                                     .then(
                                             Commands.literal("set")

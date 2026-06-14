@@ -844,13 +844,38 @@ public final class NpcShopService {
             if (data == null) continue;
             if (!normalize(data.rarity).equals(wantedRarity)) continue;
 
-            String base = data.baseItem == null ? "" : data.baseItem.toLowerCase(Locale.ROOT);
-            if (base.contains(wantedType)) {
+            if (matchesToolType(mapEntry.getKey(), data, wantedType)) {
                 candidates.add(mapEntry.getKey());
             }
         }
 
         return candidates;
+    }
+
+    private static boolean matchesToolType(String toolId, ProfessionToolConfig.ToolData data, String wantedType) {
+        String normalized = normalizeToolType(wantedType);
+        String base = data == null || data.baseItem == null ? "" : data.baseItem.toLowerCase(Locale.ROOT);
+        String id = toolId == null ? "" : toolId.toLowerCase(Locale.ROOT);
+        String haystack = base + " " + id;
+
+        return switch (normalized) {
+            case "pickaxe" -> base.endsWith("_pickaxe") || base.endsWith(":pickaxe") || haystack.contains("pickaxe");
+            case "axe" -> !haystack.contains("pickaxe") && (base.endsWith("_axe") || base.endsWith(":axe") || id.endsWith("_axe") || id.contains("_axe_"));
+            case "hoe" -> base.endsWith("_hoe") || base.endsWith(":hoe") || id.endsWith("_hoe") || id.contains("_hoe_");
+            case "shovel" -> base.endsWith("_shovel") || base.endsWith(":shovel") || id.endsWith("_shovel") || id.contains("_shovel_");
+            case "sword" -> base.endsWith("_sword") || base.endsWith(":sword") || id.endsWith("_sword") || id.contains("_sword_");
+            default -> haystack.contains(normalized);
+        };
+    }
+
+    private static String normalizeToolType(String toolType) {
+        String normalized = normalize(toolType).replace('-', '_').replace(' ', '_');
+        if (normalized.equals("pick") || normalized.equals("pickaxes")) return "pickaxe";
+        if (normalized.equals("axes")) return "axe";
+        if (normalized.equals("hoes")) return "hoe";
+        if (normalized.equals("shovels") || normalized.equals("spade")) return "shovel";
+        if (normalized.equals("swords")) return "sword";
+        return normalized;
     }
 
     public static Item resolveItem(String itemId) {

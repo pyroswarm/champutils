@@ -655,10 +655,35 @@ public final class TerritoryRepository {
 
     public static void beginDelete(Territory territory, Callback callback) {
         if (territory == null) { callback.done(false, "No territory found."); return; }
-        territory.generationState = "DELETING";
-        territory.isPublic = false;
-        territory.allowVisitors = false;
-        save(territory, (success, message) -> callback.done(success, success ? "Territory deletion started." : message));
+
+        String originalOwnerId = territory.ownerId;
+        String deletingOwnerId = deletingOwnerId(territory);
+
+        DatabaseManager.executeAsync("begin territory delete " + territory.id, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "update territories set owner_id = ?, generation_state = 'DELETING', is_public = false, allow_visitors = false, updated_at = now() where id = ?"
+            )) {
+                statement.setString(1, deletingOwnerId);
+                statement.setObject(2, territory.id);
+                int changed = statement.executeUpdate();
+                if (changed <= 0) {
+                    callback.done(false, "Territory not found.");
+                    return;
+                }
+            }
+
+            OWNER_INDEX.remove(ownerKey(territory.ownerType, originalOwnerId));
+            territory.ownerId = deletingOwnerId;
+            territory.generationState = "DELETING";
+            territory.isPublic = false;
+            territory.allowVisitors = false;
+            rebuildSpatialIndexes();
+            callback.done(true, "Territory deletion started. You can create another territory now while the old slot wipes in the background.");
+        });
+    }
+
+    private static String deletingOwnerId(Territory territory) {
+        return "__deleting__" + (territory == null || territory.id == null ? UUID.randomUUID() : territory.id);
     }
 
     public static void finishDelete(Territory territory, Callback callback) {

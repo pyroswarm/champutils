@@ -25,7 +25,7 @@ public class RpAdminCommand {
 
                     dispatcher.register(
                             literal("setrp")
-                                    .requires(src -> src.hasPermission(4))
+                                    .requires(src -> com.champutils.permissions.PermissionUtil.has(src, "champutils.admin"))
                                     .then(
                                             argument(
                                                     "target",
@@ -71,7 +71,7 @@ public class RpAdminCommand {
 
                     dispatcher.register(
                             literal("addrp")
-                                    .requires(src -> src.hasPermission(4))
+                                    .requires(src -> com.champutils.permissions.PermissionUtil.has(src, "champutils.admin"))
                                     .then(
                                             argument(
                                                     "target",
@@ -110,7 +110,7 @@ public class RpAdminCommand {
 
                     dispatcher.register(
                             literal("removerp")
-                                    .requires(src -> src.hasPermission(4))
+                                    .requires(src -> com.champutils.permissions.PermissionUtil.has(src, "champutils.admin"))
                                     .then(
                                             argument(
                                                     "target",

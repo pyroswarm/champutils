@@ -101,7 +101,7 @@ public final class AntiLagManager {
         if(notifyAdmins){
             String summary = "Cleared " + result.wildPokemon + " wild Pokémon and " + result.droppedItems + " dropped items across " + server.getAllLevels().spliterator().getExactSizeIfKnown() + " worlds";
             System.out.println("[ChampUtils] " + summary + " (checkedWild=" + cleaned.checkedWildPokemon + ", protectedWild=" + cleaned.protectedWildPokemon + ", reasons=" + cleaned.protectedReasonSummary() + ")");
-            if(result.totalRemoved()>0) alertAdmins(server,"§7" + summary + "."); else alertAdmins(server,"§7Entity cleanup checked all loaded worlds, but found no safe dropped items or ordinary natural wild Pokémon to remove. Checked wild Pokémon: " + cleaned.checkedWildPokemon + ", protected: " + cleaned.protectedWildPokemon + ". Reasons: " + cleaned.protectedReasonSummary() + ".");
+            if(result.totalRemoved()>0) alertAdmins(server,"§7" + summary + ".");
         }
         return result;
     }

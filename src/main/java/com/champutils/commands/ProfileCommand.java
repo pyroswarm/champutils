@@ -30,7 +30,7 @@ public final class ProfileCommand {
                     .then(literal("current").executes(context -> current(context.getSource().getPlayerOrException())))
                     .then(literal("converttonormal").executes(context -> convertToNormal(context.getSource().getPlayerOrException())))
                     .then(literal("nuzlockecomplete")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .executes(context -> nuzlockeComplete(context.getSource().getPlayerOrException(), "champion"))
                             .then(argument("champion", StringArgumentType.word())
                                     .executes(context -> nuzlockeComplete(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "champion")))))

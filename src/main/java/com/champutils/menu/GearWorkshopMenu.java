@@ -42,6 +42,18 @@ public final class GearWorkshopMenu {
                 true
         );
 
+
+        gui.setSlot(
+                4,
+                new GuiElementBuilder(Items.MUSIC_DISC_CAT)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("§bTM Crafter"))
+                        .addLoreLine(Component.literal("§7Craft random TMs by tier."))
+                        .addLoreLine(Component.literal("§7Pick exact TMs for 2x the random cost."))
+                        .addLoreLine(Component.literal("§eClick to open"))
+                        .setCallback((i, c, t) -> TMCrafterMenu.open(player, GearWorkshopMenu::open))
+        );
+
         gui.setSlot(
                 5,
                 new GuiElementBuilder(Items.EMERALD)

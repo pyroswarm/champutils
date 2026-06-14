@@ -54,6 +54,26 @@ public final class TerritoryWorldGenerationManager {
 
     public static void requestGeneration(MinecraftServer server, ServerPlayer initiator, TerritoryRepository.Territory territory) {
         if (territory == null || territory.id == null) return;
+
+        // READY territories are live player land. Generation/preparation code must never run on
+        // them again, especially after server restarts when runtime-only tracking sets are empty.
+        // The only safe automatic maintenance here is the non-destructive spawn anchor.
+        if (territory.isReady()) {
+            MinecraftServer readyServer = server != null ? server : (initiator == null ? null : initiator.server);
+            if (readyServer != null) {
+                if (!readyServer.isSameThread()) {
+                    readyServer.execute(() -> requestGeneration(readyServer, initiator, territory));
+                    return;
+                }
+                ServerLevel readyLevel = getLoadedLevel(readyServer, territory.worldName);
+                if (readyLevel != null) {
+                    TerritoryTeleportUtil.ensureDefaultSpawnAnchor(readyLevel, territory);
+                    TerritoryNpcManager.spawnOnceWhenReady(readyServer, territory);
+                }
+            }
+            return;
+        }
+
         if (initiator != null) READY_INITIATORS.putIfAbsent(territory.id, initiator.getUUID());
         boolean deleting = TerritoryRepository.isDeleting(territory);
 
@@ -124,6 +144,7 @@ public final class TerritoryWorldGenerationManager {
                 alignCenterToBiome(loadedLevel, territory);
             }
 
+            TerritoryTeleportUtil.ensureDefaultSpawnAnchor(loadedLevel, territory);
             territory.generationState = "READY";
             TerritoryRepository.save(territory, (success, message) -> {});
             TerritoryNpcManager.spawnOnceWhenReady(finalServer, territory);

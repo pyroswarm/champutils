@@ -16,6 +16,7 @@ public final class WorldFirstMenu {
         int slot = 0;
         for (WorldFirstManager.WorldFirstDef def : WorldFirstManager.definitions()) {
             if (slot >= 54) break;
+            if (slot == 45) slot++;
             WorldFirstManager.Claim claim = WorldFirstManager.claim(def.id);
             boolean found = claim != null;
             gui.setSlot(slot++, new GuiElementBuilder(found ? Items.NETHER_STAR : Items.GRAY_DYE)
@@ -25,6 +26,7 @@ public final class WorldFirstMenu {
                     .addLoreLine(Component.literal(found ? "§7Unlocked: §f" + claim.claimedAt : "§7Rewards are hidden until discovered."))
                     .addLoreLine(Component.literal(found ? "§7Title: " + def.titleDisplay.replace('&','§') : "§8???")));
         }
+        MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }
 }

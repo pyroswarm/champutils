@@ -1,7 +1,7 @@
 package com.champutils.territory;
 
 import com.champutils.guild.GuildRepository;
-import com.champutils.menu.MainMenu;
+import com.champutils.profile.PlayerProfileManager;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
@@ -69,14 +69,29 @@ public final class TerritoryMenus {
                 .addLoreLine(Component.literal("/territories search <name>").withStyle(ChatFormatting.WHITE))
                 .addLoreLine(Component.literal("Example: /territories search Pyro").withStyle(ChatFormatting.DARK_GRAY)));
 
-        gui.setSlot(22, new GuiElementBuilder(Items.ARROW)
-                .hideDefaultTooltip()
-                .setName(Component.literal("Back").withStyle(ChatFormatting.YELLOW))
-                .setCallback((index, clickType, actionType) -> MainMenu.open(player)));
 
         gui.open();
     }
 
+
+    public static void openCreationNpcMenu(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
+        gui.setLockPlayerInventory(true);
+        gui.setTitle(Component.literal("Territory Creation"));
+        fillAll(gui);
+
+        gui.setSlot(10, button(Items.EMERALD_BLOCK, "Create Personal Territory", "Runs /territory create.", () -> {
+            gui.close();
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "territory create");
+        }));
+        gui.setSlot(12, button(Items.GRASS_BLOCK, "Personal Territories", "Browse public personal territories.", () -> openBrowser(player, BrowserType.PERSONAL, "", 0)));
+        gui.setSlot(14, button(Items.EMERALD_BLOCK, "Create Guild Territory", "Runs /gterritory create.", () -> {
+            gui.close();
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "gterritory create");
+        }));
+        gui.setSlot(16, button(Items.BELL, "Guild Territories", "Browse public guild territories.", () -> openBrowser(player, BrowserType.GUILD, "", 0)));
+        gui.open();
+    }
 
     public static void openNpcManage(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (territory == null) territory = TerritoryRepository.cachedPersonal(player);
@@ -87,12 +102,22 @@ public final class TerritoryMenus {
         gui.setSlot(4, territoryCard(territory, Items.GRASS_BLOCK, "No personal territory yet"));
         gui.setSlot(10, button(Items.COMPARATOR, "Settings", "Toggle territory settings.", () -> openSettings(player, false)));
         gui.setSlot(12, button(Items.NAME_TAG, "Rename Territory", "Opens rename instructions.", () -> openRenameMenu(player)));
-        gui.setSlot(14, button(Items.RED_BED, "Return to Spawn", "Teleport back to server spawn.", () -> {
-            gui.close();
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
-        }));
+        if (PlayerProfileManager.isIslander(player)) {
+            gui.setSlot(14, button(Items.IRON_PICKAXE, "Go to Islander Mine", "Teleport to the shared Islander mining world.", () -> {
+                gui.close();
+                player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "island mine");
+            }));
+            gui.setSlot(15, button(Items.RED_BED, "Return to Spawn", "Teleport back to server spawn.", () -> {
+                gui.close();
+                player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
+            }));
+        } else {
+            gui.setSlot(14, button(Items.RED_BED, "Return to Spawn", "Teleport back to server spawn.", () -> {
+                gui.close();
+                player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn");
+            }));
+        }
         gui.setSlot(16, button(Items.PLAYER_HEAD, "Trusted Players", "Manage trusted players for this territory.", () -> openTrustedPlayersMenu(player)));
-        gui.setSlot(22, button(Items.BOOK, "Full Territory Menu", "Open all territory options.", () -> openPersonalManage(player)));
         gui.open();
     }
 
@@ -198,7 +223,6 @@ public final class TerritoryMenus {
             gui.close();
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "gterritory delete");
         }));
-        gui.setSlot(22, button(Items.ARROW, "Back", "Return to territory menu.", () -> openHub(player)));
         gui.open();
     }
 

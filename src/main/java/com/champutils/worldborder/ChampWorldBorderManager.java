@@ -1,5 +1,6 @@
 package com.champutils.worldborder;
 
+import com.champutils.territory.TerritoryRepository;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket;
@@ -37,7 +38,9 @@ public final class ChampWorldBorderManager {
         }
 
         String dimension = level.dimension().location().toString();
-        ChampWorldBorderConfig.BorderEntry entry = ChampWorldBorderConfig.get(dimension);
+        ChampWorldBorderConfig.BorderEntry configured = ChampWorldBorderConfig.get(dimension);
+        ChampWorldBorderConfig.BorderEntry territorySafe = territorySafeBorder(level);
+        ChampWorldBorderConfig.BorderEntry entry = mergeForSafety(configured, territorySafe);
         if (entry == null) {
             return false;
         }
@@ -54,14 +57,15 @@ public final class ChampWorldBorderManager {
         }
 
         String normalized = ChampWorldBorderConfig.normalizeDimension(dimension);
-        ChampWorldBorderConfig.BorderEntry entry = ChampWorldBorderConfig.get(normalized);
-        if (entry == null) {
-            return false;
-        }
+        ChampWorldBorderConfig.BorderEntry configured = ChampWorldBorderConfig.get(normalized);
 
         for (ServerLevel level : server.getAllLevels()) {
             String levelId = level.dimension().location().toString();
             if (levelId.equals(normalized)) {
+                ChampWorldBorderConfig.BorderEntry entry = mergeForSafety(configured, territorySafeBorder(level));
+                if (entry == null) {
+                    return false;
+                }
                 WorldBorder border = level.getWorldBorder();
                 applyToBorder(border, entry);
                 syncBorderToPlayers(level);
@@ -70,6 +74,69 @@ public final class ChampWorldBorderManager {
         }
 
         return false;
+    }
+
+
+    private static ChampWorldBorderConfig.BorderEntry mergeForSafety(ChampWorldBorderConfig.BorderEntry configured, ChampWorldBorderConfig.BorderEntry territorySafe) {
+        if (configured == null) return territorySafe;
+        if (territorySafe == null) return configured;
+
+        double configuredMinX = configured.centerX - configured.radius;
+        double configuredMaxX = configured.centerX + configured.radius;
+        double configuredMinZ = configured.centerZ - configured.radius;
+        double configuredMaxZ = configured.centerZ + configured.radius;
+        double safeMinX = territorySafe.centerX - territorySafe.radius;
+        double safeMaxX = territorySafe.centerX + territorySafe.radius;
+        double safeMinZ = territorySafe.centerZ - territorySafe.radius;
+        double safeMaxZ = territorySafe.centerZ + territorySafe.radius;
+
+        if (configuredMinX <= safeMinX && configuredMaxX >= safeMaxX && configuredMinZ <= safeMinZ && configuredMaxZ >= safeMaxZ) {
+            return configured;
+        }
+
+        ChampWorldBorderConfig.BorderEntry merged = new ChampWorldBorderConfig.BorderEntry();
+        double minX = Math.min(configuredMinX, safeMinX);
+        double maxX = Math.max(configuredMaxX, safeMaxX);
+        double minZ = Math.min(configuredMinZ, safeMinZ);
+        double maxZ = Math.max(configuredMaxZ, safeMaxZ);
+        merged.centerX = (minX + maxX) / 2.0D;
+        merged.centerZ = (minZ + maxZ) / 2.0D;
+        merged.radius = Math.max((maxX - minX) / 2.0D, (maxZ - minZ) / 2.0D);
+        return merged;
+    }
+
+    private static ChampWorldBorderConfig.BorderEntry territorySafeBorder(ServerLevel level) {
+        if (level == null || !TerritoryRepository.isTerritoryWorld(level)) {
+            return null;
+        }
+
+        java.util.List<TerritoryRepository.Territory> territories = TerritoryRepository.cachedInWorld(level);
+        if (territories.isEmpty()) {
+            return null;
+        }
+
+        int minX = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        boolean found = false;
+        for (TerritoryRepository.Territory territory : territories) {
+            if (territory == null || TerritoryRepository.isDeleting(territory)) continue;
+            minX = Math.min(minX, territory.minX - 32);
+            maxX = Math.max(maxX, territory.maxX + 32);
+            minZ = Math.min(minZ, territory.minZ - 32);
+            maxZ = Math.max(maxZ, territory.maxZ + 32);
+            found = true;
+        }
+        if (!found) {
+            return null;
+        }
+
+        ChampWorldBorderConfig.BorderEntry entry = new ChampWorldBorderConfig.BorderEntry();
+        entry.centerX = (minX + maxX) / 2.0D;
+        entry.centerZ = (minZ + maxZ) / 2.0D;
+        entry.radius = Math.max(1024.0D, Math.max((maxX - minX) / 2.0D, (maxZ - minZ) / 2.0D));
+        return entry;
     }
 
     private static void applyToBorder(WorldBorder border, ChampWorldBorderConfig.BorderEntry entry) {

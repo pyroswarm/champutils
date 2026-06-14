@@ -1,12 +1,14 @@
 package com.champutils.profile;
 
 import com.champutils.chat.ChatPreferenceManager;
+import com.champutils.config.Config;
 import com.champutils.database.DatabaseManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.teleport.TeleportConfig;
 import com.champutils.teleport.TeleportLocation;
 import com.champutils.menu.ProfileSelectionMenu;
 import com.champutils.permissions.LuckPermsHook;
+import com.champutils.territory.TerritoryRegionWipeManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,6 +17,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -402,6 +405,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             VanillaProfileStateManager.load(player);
             CobblemonProfileStorageBridge.loadActiveProfileStores(player);
             ProfileSessionLoader.load(player);
+            com.champutils.cosmetic.TitleRegistry.unlockProfileStarter(player);
             teleportToSavedLocation(player);
             return "Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].";
         }
@@ -552,6 +556,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbtFinal));
                     timing("server.execute.loadActiveProfileStores", () -> CobblemonProfileStorageBridge.loadActiveProfileStores(player));
                     timing("server.execute.ProfileSessionLoader.loadCritical", () -> ProfileSessionLoader.loadCritical(player));
+                    com.champutils.cosmetic.TitleRegistry.unlockProfileStarter(player);
                     timing("server.execute.teleportToSavedLocation", () -> teleportToSavedLocationSnapshot(player, savedLocationSnapshotFinal));
 
                     System.out.println("[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
@@ -607,6 +612,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     ps.setObject(1, target.profileId());
                     ps.executeUpdate();
                 }
+                deletePersonalTerritoryForProfile(player, target.profileId());
                 if (target.active()) ACTIVE.remove(player.getUUID());
                 clearProfileCache(player.getUUID());
                 return "Deleted profile " + target.profileName() + ".";
@@ -654,12 +660,36 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         if (player == null || !DatabaseManager.isEnabled()) return "";
         try {
             Connection connection = DatabaseManager.getConnection();
-            try (var ps = connection.prepareStatement("update player_profiles set deleted_at = now(), is_pending_delete = false where player_uuid = ? and is_pending_delete = true and delete_available_at <= now()")) {
-            ps.setObject(1, player.getUUID());
-            int rows = ps.executeUpdate();
-            return rows > 0 ? "Finalized " + rows + " queued profile deletion(s)." : "";
+            List<UUID> finalizedProfileIds = new ArrayList<>();
+            try (var select = connection.prepareStatement("select id from player_profiles where player_uuid = ? and is_pending_delete = true and delete_available_at <= now() and deleted_at is null")) {
+                select.setObject(1, player.getUUID());
+                try (ResultSet rs = select.executeQuery()) {
+                    while (rs.next()) {
+                        UUID profileId = (UUID) rs.getObject("id");
+                        if (profileId != null) finalizedProfileIds.add(profileId);
+                    }
+                }
+            }
+            if (finalizedProfileIds.isEmpty()) return "";
+            try (var ps = connection.prepareStatement("update player_profiles set deleted_at = now(), is_pending_delete = false where player_uuid = ? and is_pending_delete = true and delete_available_at <= now() and deleted_at is null")) {
+                ps.setObject(1, player.getUUID());
+                int rows = ps.executeUpdate();
+                for (UUID profileId : finalizedProfileIds) {
+                    deletePersonalTerritoryForProfile(player, profileId);
+                }
+                return rows > 0 ? "Finalized " + rows + " queued profile deletion(s)." : "";
             }
         } catch (Exception e) { e.printStackTrace(); return ""; }
+    }
+
+    private static void deletePersonalTerritoryForProfile(ServerPlayer player, UUID profileId) {
+        if (player == null || player.server == null || profileId == null) return;
+        try {
+            TerritoryRegionWipeManager.enqueueDeleteForDeletedProfile(player.server, profileId, player.getUUID());
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to enqueue territory deletion for deleted profile " + profileId + ".");
+            e.printStackTrace();
+        }
     }
 
 
@@ -955,12 +985,44 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         if (player == null || record == null) return "No active profile loaded.";
         if (record.gameMode() == ProfileGameMode.NORMAL) return "This profile is already Normal.";
         if (!DatabaseManager.isEnabled()) return "Profiles require SQL.";
-        try (var ps = DatabaseManager.getConnection().prepareStatement("update player_profiles set mode = 'NORMAL', monotype = null, metadata = metadata || jsonb_build_object('converted_to_normal_at', now()::text, 'converted_from_mode', ?) where id = ?")) {
-            ps.setString(1, record.gameMode().name());
-            ps.setObject(2, record.profileId());
-            ps.executeUpdate();
-            ACTIVE.put(player.getUUID(), new ProfileRecord(record.profileId(), record.playerUuid(), record.profileName(), ProfileGameMode.NORMAL, null, true, false, null));
-            return "Converted " + record.profileName() + " to Normal. This cannot be changed back into a special profile.";
+
+        int requiredDays = Config.profileConversion == null ? 3 : Config.profileConversion.minAgeDaysBeforeNormal;
+        if (requiredDays < 0) requiredDays = 0;
+
+        try (Connection connection = DatabaseManager.getConnection()) {
+            if (requiredDays > 0) {
+                try (var agePs = connection.prepareStatement("select created_at from player_profiles where id = ? and deleted_at is null limit 1")) {
+                    agePs.setObject(1, record.profileId());
+                    try (ResultSet rs = agePs.executeQuery()) {
+                        if (!rs.next()) return "Could not find this profile in SQL.";
+
+                        OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
+                        if (createdAt == null) return "Could not verify this profile's age. Conversion blocked for safety.";
+
+                        OffsetDateTime now = OffsetDateTime.now(createdAt.getOffset());
+                        OffsetDateTime eligibleAt = createdAt.plusDays(requiredDays);
+                        if (now.isBefore(eligibleAt)) {
+                            long hoursLeft = Math.max(1, ChronoUnit.HOURS.between(now, eligibleAt));
+                            long daysLeft = hoursLeft / 24;
+                            long remainderHours = hoursLeft % 24;
+                            String remaining = daysLeft > 0
+                                    ? daysLeft + "d " + remainderHours + "h"
+                                    : hoursLeft + "h";
+                            return "This " + record.gameMode().displayName() + " profile is too new to convert. It must exist for at least " + requiredDays + " day" + (requiredDays == 1 ? "" : "s") + ". Try again in about " + remaining + ".";
+                        }
+                    }
+                }
+            }
+
+            try (var ps = connection.prepareStatement("update player_profiles set mode = 'NORMAL', monotype = null, metadata = metadata || jsonb_build_object('converted_to_normal_at', now()::text, 'converted_from_mode', ?, 'conversion_min_age_days', ?) where id = ?")) {
+                ps.setString(1, record.gameMode().name());
+                ps.setInt(2, requiredDays);
+                ps.setObject(3, record.profileId());
+                ps.executeUpdate();
+                ACTIVE.put(player.getUUID(), new ProfileRecord(record.profileId(), record.playerUuid(), record.profileName(), ProfileGameMode.NORMAL, null, true, false, null));
+                clearProfileCache(player.getUUID());
+                return "Converted " + record.profileName() + " to Normal. This cannot be changed back into a special profile.";
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return "Could not convert profile. Check console/database logs.";

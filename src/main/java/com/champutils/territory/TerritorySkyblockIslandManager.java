@@ -36,6 +36,17 @@ public final class TerritorySkyblockIslandManager {
         TerritoryConfig.Data cfg = TerritoryConfig.get();
         if (!cfg.skyblockTerritoryWorlds) return true;
 
+        // CRITICAL SAFETY GUARD:
+        // This method is allowed to clear blocks while preparing a BRAND NEW territory only.
+        // After a restart, runtime-only prepared flags are empty. If a READY territory is passed
+        // through generation again, the old code queued another starter-area clear and visibly
+        // wiped the player's built island/territory as they loaded in. READY territories must
+        // never be re-prepared, re-cleared, or have the starter island rebuilt automatically.
+        if (territory.isReady()) {
+            PREPARED_THIS_RUNTIME.add(territory.id);
+            return true;
+        }
+
         if (!cfg.clearSkyblockStarterArea) {
             ensureStarterIsland(level, territory);
             PREPARED_THIS_RUNTIME.add(territory.id);
@@ -43,7 +54,8 @@ public final class TerritorySkyblockIslandManager {
         }
 
         if (PREPARED_THIS_RUNTIME.contains(territory.id)) {
-            ensureStarterIsland(level, territory);
+            // The starter island was already prepared during this runtime. Do not rebuild it;
+            // rebuilding calls clearStarterVolume and can destroy player changes.
             return true;
         }
 
@@ -95,6 +107,10 @@ public final class TerritorySkyblockIslandManager {
         if (level == null || territory == null) return;
         TerritoryConfig.Data cfg = TerritoryConfig.get();
         if (!cfg.skyblockTerritoryWorlds || !cfg.createSkyblockStarterIsland) return;
+
+        // Never rebuild the starter island for a territory that is already live. This method is
+        // intentionally destructive for new-slot preparation because it clears the starter volume.
+        if (territory.isReady()) return;
 
         int centerX = territory.centerX;
         int centerZ = territory.centerZ;
@@ -192,7 +208,8 @@ public final class TerritorySkyblockIslandManager {
                 level.setBlock(new BlockPos(cx + dx, y + 1, cz + dz), Blocks.AIR.defaultBlockState(), 3);
             }
         }
-        level.setBlock(new BlockPos(cx, y - 1, cz), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+        level.setBlock(new BlockPos(cx, y - 1, cz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+        level.setBlock(new BlockPos(cx, y - 2, cz), Blocks.BEDROCK.defaultBlockState(), 3);
     }
 
     private static void buildTree(ServerLevel level, int x, int y, int z) {

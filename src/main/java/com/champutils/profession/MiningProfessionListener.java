@@ -285,11 +285,17 @@ public class MiningProfessionListener {
                         .miningXp
                         .get(blockId);
 
-        if (xp != null && xp > 0) {
+        if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(player, player.getMainHandItem(), ProfessionType.MINING)) {
             ProfessionManager.addXp(
                     player,
                     ProfessionType.MINING,
                     xp
+            );
+
+            com.champutils.quest.QuestManager.recordBlock(
+                    player,
+                    ProfessionType.MINING,
+                    blockId
             );
 
             ProfessionLootManager.rollReward(
@@ -694,6 +700,12 @@ public class MiningProfessionListener {
                     xp
             );
 
+            com.champutils.quest.QuestManager.recordBlock(
+                    player,
+                    ProfessionType.MINING,
+                    targetBlockId
+            );
+
             ProfessionLootManager.rollReward(
                     player,
                     ProfessionType.MINING
@@ -1074,6 +1086,23 @@ public class MiningProfessionListener {
                         target,
                         targetBlockId
                 );
+
+                Integer xp =
+                        ProfessionConfig
+                                .SETTINGS
+                                .miningXp
+                                .get(targetBlockId);
+
+                if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(
+                        player,
+                        player.getMainHandItem(),
+                        ProfessionType.MINING
+                )) {
+                    ProfessionManager.addXp(player, ProfessionType.MINING, xp);
+                    com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
+                    ProfessionLootManager.rollReward(player, ProfessionType.MINING);
+                    ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.MINING);
+                }
 
                 if (ActiveEffectManager.hasAutoSmelt(
                         player,

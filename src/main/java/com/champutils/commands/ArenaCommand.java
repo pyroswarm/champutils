@@ -27,7 +27,7 @@ public final class ArenaCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("arena")
-                        .requires(source -> source.hasPermission(4))
+                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                         .then(Commands.literal("list")
                                 .executes(context -> list(context.getSource())))
                         .then(Commands.literal("create")

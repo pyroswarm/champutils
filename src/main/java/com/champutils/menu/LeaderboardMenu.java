@@ -20,10 +20,13 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ResolvableProfile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class LeaderboardMenu {
+    private static final Map<UUID, GameProfile> TEXTURE_PROFILE_CACHE = new ConcurrentHashMap<>();
 
     public static void open(ServerPlayer player) {
         open(player, Board.RANKED);
@@ -57,12 +60,14 @@ public class LeaderboardMenu {
         tab(gui, player, 2, Items.DIAMOND_PICKAXE, "§bMining", board, Board.PROFESSIONS_MINING);
         tab(gui, player, 3, Items.DIAMOND_AXE, "§bForestry", board, Board.PROFESSIONS_FORESTRY);
         tab(gui, player, 4, Items.DIAMOND_HOE, "§bFarming", board, Board.PROFESSIONS_FARMING);
-        tab(gui, player, 5, Items.CLOCK, "§ePlaytime", board, Board.PLAYTIME);
-        tab(gui, player, 6, Items.BOOK, "§dPokédex", board, Board.POKEDEX);
-        tab(gui, player, 7, Items.SHIELD, "§cGyms", board, Board.GYMS);
-        tab(gui, player, 8, Items.DRAGON_HEAD, "§5Nuzlocke", board, Board.NUZLOCKE);
-        tab(gui, player, 45, Items.GRASS_BLOCK, "§2Islander", board, Board.ISLANDER);
-        tab(gui, player, 46, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
+        tab(gui, player, 5, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
+
+        // Profile-specific leaderboards live together in the lower-right corner.
+        tab(gui, player, 48, Items.CLOCK, "§ePlaytime", board, Board.PLAYTIME);
+        tab(gui, player, 49, Items.BOOK, "§dPokédex", board, Board.POKEDEX);
+        tab(gui, player, 50, Items.SHIELD, "§cGyms", board, Board.GYMS);
+        tab(gui, player, 51, Items.DRAGON_HEAD, "§5Nuzlocke", board, Board.NUZLOCKE);
+        tab(gui, player, 52, Items.GRASS_BLOCK, "§2Islander", board, Board.ISLANDER);
 
         List<Entry> rows = ProfileLeaderboardRepository.top(board, 28);
         int[] slots = contentSlots();
@@ -77,7 +82,7 @@ public class LeaderboardMenu {
                     .addLoreLine(Component.literal("§7Run the SQL views first, then let data sync.")));
         }
 
-        MenuUtil.addBackButton(gui, 49, () -> MainMenu.open(player));
+        MenuUtil.addBackButton(gui, 45, () -> MainMenu.open(player));
         gui.open();
     }
 
@@ -123,13 +128,33 @@ public class LeaderboardMenu {
 
     private static void applyProfile(ServerPlayer viewer, ItemStack head, UUID uuid, String playerName) {
         try {
-            if (uuid != null) {
-                head.set(DataComponents.PROFILE, new ResolvableProfile(new GameProfile(uuid, playerName)));
-                return;
+            GameProfile profile = resolveProfile(viewer, uuid, playerName);
+            if (profile != null) {
+                head.set(DataComponents.PROFILE, new ResolvableProfile(profile));
             }
-            Optional<GameProfile> cached = viewer.server.getProfileCache().get(playerName);
-            cached.ifPresent(profile -> head.set(DataComponents.PROFILE, new ResolvableProfile(profile)));
         } catch (Exception ignored) {}
+    }
+
+    private static GameProfile resolveProfile(ServerPlayer viewer, UUID uuid, String playerName) {
+        if (uuid != null) {
+            GameProfile cached = TEXTURE_PROFILE_CACHE.get(uuid);
+            if (cached != null) return cached;
+
+            try {
+                GameProfile fetched = viewer.server.getSessionService().fetchProfile(uuid, true).profile();
+                if (fetched != null) {
+                    TEXTURE_PROFILE_CACHE.put(uuid, fetched);
+                    return fetched;
+                }
+            } catch (Exception ignored) {}
+
+            GameProfile fallback = new GameProfile(uuid, playerName);
+            TEXTURE_PROFILE_CACHE.putIfAbsent(uuid, fallback);
+            return fallback;
+        }
+
+        Optional<GameProfile> cachedByName = viewer.server.getProfileCache().get(playerName);
+        return cachedByName.orElse(playerName == null || playerName.isBlank() ? null : new GameProfile(null, playerName));
     }
 
     private static String title(Board board) {

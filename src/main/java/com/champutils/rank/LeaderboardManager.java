@@ -32,15 +32,29 @@ public class LeaderboardManager {
     private static final List<Entry> TOP = new ArrayList<>();
 
     public static void refresh(MinecraftServer server) {
-        TOP.clear();
+        ProfileLeaderboardRepository.refreshAllAsync();
+        rebuildFromCacheOrLocal();
+    }
+
+    public static void refreshNow(MinecraftServer server) {
+        ProfileLeaderboardRepository.refreshAllAsync(true);
+        rebuildFromCacheOrLocal();
+    }
+
+    private static void rebuildFromCacheOrLocal() {
+        List<Entry> next = new ArrayList<>();
 
         var profileRows = ProfileLeaderboardRepository.top(ProfileLeaderboardRepository.Board.RANKED, 100);
         if (!profileRows.isEmpty()) {
             for (var row : profileRows) {
                 String displayName = row.profileName() + " (" + row.playerName() + ")";
-                TOP.add(new Entry(displayName, row.profileId(), row.rp()));
+                next.add(new Entry(displayName, row.profileId(), row.rp()));
             }
-            TOP.sort(Comparator.comparingInt((Entry e) -> e.rp).reversed());
+            next.sort(Comparator.comparingInt((Entry e) -> e.rp).reversed());
+            synchronized (TOP) {
+                TOP.clear();
+                TOP.addAll(next);
+            }
             return;
         }
 
@@ -56,24 +70,31 @@ public class LeaderboardManager {
                 }
             } catch (Exception ignored) {}
 
-            TOP.add(new Entry(player.name, uuid, player.data.rp));
+            next.add(new Entry(player.name, uuid, player.data.rp));
         }
 
-        TOP.sort(Comparator.comparingInt((Entry e) -> e.rp).reversed());
+        next.sort(Comparator.comparingInt((Entry e) -> e.rp).reversed());
+        synchronized (TOP) {
+            TOP.clear();
+            TOP.addAll(next);
+        }
     }
 
     public static List<Entry> getTop(int amount) {
-        if (amount >= TOP.size()) {
-            return new ArrayList<>(TOP);
+        synchronized (TOP) {
+            if (amount >= TOP.size()) {
+                return new ArrayList<>(TOP);
+            }
+            return new ArrayList<>(TOP.subList(0, amount));
         }
-
-        return new ArrayList<>(TOP.subList(0, amount));
     }
 
     public static int getRankPosition(String playerName) {
-        for (int i = 0; i < TOP.size(); i++) {
-            if (TOP.get(i).playerName.equalsIgnoreCase(playerName)) {
-                return i + 1;
+        synchronized (TOP) {
+            for (int i = 0; i < TOP.size(); i++) {
+                if (TOP.get(i).playerName.equalsIgnoreCase(playerName)) {
+                    return i + 1;
+                }
             }
         }
 

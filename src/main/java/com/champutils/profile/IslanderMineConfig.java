@@ -65,6 +65,13 @@ public final class IslanderMineConfig {
         public int height = 96;
         public int blocksPerTick = 5000;
 
+        /**
+         * Ore pocket start chance per scanned block, out of 10,000.
+         * Higher = denser mines. Vanilla-feeling dense stripmine value is around 160-240.
+         * This still creates pockets, not random single-block ore confetti.
+         */
+        public int orePocketStartChancePer10000 = 340;
+
         /** Shared mine dimensions are named like islander_mine_1, islander_mine_2, etc. */
         public String worldPrefix = "islander_mine_";
         public int maxPlayersPerWorld = 25;
@@ -85,20 +92,20 @@ public final class IslanderMineConfig {
 
         public static Data defaults() {
             Data d = new Data();
-            d.ores.put("minecraft:coal_ore", new OreRule(34, 5, 12, 18, 95, false));
-            d.ores.put("minecraft:copper_ore", new OreRule(26, 4, 10, 28, 90, false));
-            d.ores.put("minecraft:iron_ore", new OreRule(30, 4, 9, 8, 84, false));
-            d.ores.put("minecraft:gold_ore", new OreRule(13, 3, 8, 0, 44, false));
-            d.ores.put("minecraft:redstone_ore", new OreRule(15, 4, 8, 0, 36, false));
-            d.ores.put("minecraft:lapis_ore", new OreRule(8, 3, 7, 0, 42, false));
-            d.ores.put("minecraft:diamond_ore", new OreRule(5, 1, 5, 0, 28, false));
-            d.ores.put("minecraft:emerald_ore", new OreRule(2, 1, 3, 0, 24, false));
-            d.ores.put("minecraft:quartz_ore", new OreRule(9, 2, 6, 0, 42, false));
-            d.ores.put("minecraft:ancient_debris", new OreRule(1, 1, 1, 0, 18, true));
-            d.ores.put("cobblemon:fire_stone_ore", new OreRule(2, 1, 4, 0, 34, false));
-            d.ores.put("cobblemon:water_stone_ore", new OreRule(2, 1, 4, 0, 34, false));
-            d.ores.put("cobblemon:thunder_stone_ore", new OreRule(2, 1, 4, 0, 34, false));
-            d.ores.put("cobblemon:moon_stone_ore", new OreRule(2, 1, 4, 0, 28, false));
+            d.ores.put("minecraft:coal_ore", new OreRule(54, 8, 18, 18, 95, false));
+            d.ores.put("minecraft:copper_ore", new OreRule(44, 7, 16, 28, 90, false));
+            d.ores.put("minecraft:iron_ore", new OreRule(52, 7, 15, 8, 84, false));
+            d.ores.put("minecraft:gold_ore", new OreRule(24, 5, 11, 0, 44, false));
+            d.ores.put("minecraft:redstone_ore", new OreRule(28, 6, 12, 0, 36, false));
+            d.ores.put("minecraft:lapis_ore", new OreRule(16, 4, 10, 0, 42, false));
+            d.ores.put("minecraft:diamond_ore", new OreRule(10, 3, 7, 0, 28, false));
+            d.ores.put("minecraft:emerald_ore", new OreRule(5, 1, 5, 0, 24, false));
+            d.ores.put("minecraft:quartz_ore", new OreRule(24, 4, 10, 0, 42, false));
+            d.ores.put("minecraft:ancient_debris", new OreRule(2, 1, 1, 0, 18, true));
+            d.ores.put("cobblemon:fire_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
+            d.ores.put("cobblemon:water_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
+            d.ores.put("cobblemon:thunder_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
+            d.ores.put("cobblemon:moon_stone_ore", new OreRule(7, 2, 6, 0, 28, false));
             return d;
         }
 
@@ -111,6 +118,10 @@ public final class IslanderMineConfig {
             if (centerY + height > 319) height = Math.max(32, 319 - centerY);
             if (blocksPerTick < 512) blocksPerTick = 512;
             if (blocksPerTick > 25000) blocksPerTick = 25000;
+            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 340;
+            if (orePocketStartChancePer10000 <= 220) orePocketStartChancePer10000 = 340;
+            if (orePocketStartChancePer10000 < 25) orePocketStartChancePer10000 = 25;
+            if (orePocketStartChancePer10000 > 1000) orePocketStartChancePer10000 = 1000;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "islander_mine_";
             worldPrefix = worldPrefix.trim().toLowerCase(Locale.ROOT);
             if (maxPlayersPerWorld < 1) maxPlayersPerWorld = 1;

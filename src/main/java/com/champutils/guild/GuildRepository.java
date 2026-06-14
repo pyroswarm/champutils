@@ -808,6 +808,10 @@ public final class GuildRepository {
             statement.executeUpdate("alter table guilds add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("alter table guilds alter column owner_profile_id drop not null");
             statement.executeUpdate("alter table guilds alter column owner_player_uuid drop not null");
+            // Guilds are account-based, not profile-based. Older profile-era rows may have stored
+            // owner_profile_id/profile_id values; translate those through player_profiles.player_uuid
+            // before falling back to raw UUIDs.
+            statement.executeUpdate("do $$ begin if to_regclass('public.player_profiles') is not null then execute 'update guilds g set owner_uuid = p.player_uuid, owner_player_uuid = p.player_uuid from player_profiles p where g.owner_profile_id = p.id and (g.owner_uuid is null or g.owner_uuid = g.owner_profile_id or g.owner_player_uuid is null or g.owner_player_uuid = g.owner_profile_id)'; end if; end $$");
             statement.executeUpdate("update guilds set owner_uuid = coalesce(owner_uuid, owner_player_uuid, owner_profile_id) where owner_uuid is null");
             statement.executeUpdate("update guilds set owner_player_uuid = coalesce(owner_player_uuid, owner_uuid) where owner_player_uuid is null");
 
@@ -829,6 +833,7 @@ public final class GuildRepository {
             statement.executeUpdate("alter table guild_members add column if not exists role text not null default 'RECRUIT'");
             statement.executeUpdate("alter table guild_members add column if not exists joined_at timestamptz not null default now()");
             statement.executeUpdate("alter table guild_members alter column profile_id drop not null");
+            statement.executeUpdate("do $$ begin if to_regclass('public.player_profiles') is not null then execute 'update guild_members gm set player_uuid = p.player_uuid from player_profiles p where gm.profile_id = p.id and (gm.player_uuid is null or gm.player_uuid = gm.profile_id)'; end if; end $$");
             statement.executeUpdate("update guild_members set player_uuid = profile_id where player_uuid is null");
             statement.executeUpdate("delete from guild_members where player_uuid is null");
             statement.executeUpdate("update guild_members set role = 'LEADER' where upper(role) = 'OWNER'");

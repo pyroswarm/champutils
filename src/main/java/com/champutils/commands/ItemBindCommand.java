@@ -27,7 +27,7 @@ public final class ItemBindCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("itembind")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                         .then(Commands.literal("cancel")
                                 .executes(ItemBindCommand::cancel))
                         .then(Commands.literal("list")

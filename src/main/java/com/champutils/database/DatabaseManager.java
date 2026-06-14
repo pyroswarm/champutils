@@ -18,8 +18,11 @@ public final class DatabaseManager {
 
     private static final int ASYNC_DATABASE_THREADS = 4;
 
+    private static final long CONNECTION_VALIDATION_INTERVAL_MILLIS = 30_000L;
     private static Connection connection;
+    private static long lastConnectionValidationAtMillis = 0L;
     private static final ThreadLocal<Connection> asyncConnection = new ThreadLocal<>();
+    private static final ThreadLocal<Long> asyncConnectionLastValidationAtMillis = ThreadLocal.withInitial(() -> 0L);
     private static DatabaseConfig config;
     private static boolean enabled = false;
     private static ExecutorService executor;
@@ -71,7 +74,7 @@ public final class DatabaseManager {
         try {
             Class.forName("org.postgresql.Driver");
 
-            if (connection != null && !connection.isClosed() && connection.isValid(2)) {
+            if (connection != null && isConnectionUsable(connection, false)) {
                 enabled = true;
                 lastStatus = "Connected to Supabase/Postgres successfully.";
                 return;
@@ -114,7 +117,7 @@ public final class DatabaseManager {
             throw new SQLException(lastStatus);
         }
 
-        if (connection == null || connection.isClosed() || !connection.isValid(2)) {
+        if (connection == null || !isConnectionUsable(connection, false)) {
             connect();
         }
 
@@ -135,11 +138,27 @@ public final class DatabaseManager {
         }
 
         Connection existing = asyncConnection.get();
-        if (existing == null || existing.isClosed() || !existing.isValid(2)) {
+        if (existing == null || !isConnectionUsable(existing, true)) {
             existing = openConnection();
             asyncConnection.set(existing);
+            asyncConnectionLastValidationAtMillis.set(System.currentTimeMillis());
         }
         return existing;
+    }
+
+    private static boolean isConnectionUsable(Connection candidate, boolean async) throws SQLException {
+        if (candidate == null || candidate.isClosed()) return false;
+
+        long now = System.currentTimeMillis();
+        long lastValidation = async ? asyncConnectionLastValidationAtMillis.get() : lastConnectionValidationAtMillis;
+        if (now - lastValidation < CONNECTION_VALIDATION_INTERVAL_MILLIS) return true;
+
+        boolean valid = candidate.isValid(2);
+        if (valid) {
+            if (async) asyncConnectionLastValidationAtMillis.set(now);
+            else lastConnectionValidationAtMillis = now;
+        }
+        return valid;
     }
 
     public static void executeAsync(String description, SqlTask task) {

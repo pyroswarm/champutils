@@ -32,14 +32,24 @@ public final class GuildBossManager {
     private static final Map<UUID, RewardDrop> WORLD_REWARDS = new ConcurrentHashMap<>();
     private static final Random RANDOM = new Random();
 
+    private static final String WORLD_BOSS_ENTITY_TAG = "champutils_world_boss";
+    private static final String GUILD_BOSS_ENTITY_TAG = "champutils_guild_boss";
+    private static boolean startupBossCleanupDone = false;
+
     private static ActiveWorldBoss activeWorldBoss = null;
     private static long nextWorldBossAtMillis = 0L;
 
     private GuildBossManager() {}
 
     public static void tick(MinecraftServer server) {
-        if (server == null || server.getTickCount() % 20 != 0) return;
+        if (server == null) return;
+        if (!startupBossCleanupDone) {
+            startupBossCleanupDone = true;
+            cleanupBossesFromPreviousServerSession(server);
+        }
+        if (server.getTickCount() % 20 != 0) return;
         long now = System.currentTimeMillis();
+        cleanupOrphanedWorldBossNpcs(server, now);
         long currentResetKey = DailyResetManager.currentResetKeyMillis();
         BossAttemptDatabaseRepository.pruneBeforeResetAsync(currentResetKey);
         if (nextWorldBossAtMillis <= 0L) scheduleNextWorldBoss(now);
@@ -79,6 +89,9 @@ public final class GuildBossManager {
         double x = territory.centerX + 0.5D, y = territory.spawnY - 1.0D, z = territory.centerZ + 0.5D;
         String displayName = guildBossDisplayName(theme);
         NPCEntity npc = spawnBossTrainer(level, team, BossConfig.DATA.guildBoss, x, y, z, 180.0F, displayName, "swordtap");
+        if (npc != null) {
+            tagBossNpc(npc, GUILD_BOSS_ENTITY_TAG);
+        }
         if (npc == null) {
             msg(player, "Could not spawn the guild boss trainer. Check bosses.json and console.", ChatFormatting.RED);
             return;
@@ -210,6 +223,7 @@ public final class GuildBossManager {
         if (winner == null) return;
         recordGuildVictory(winner);
         recordWorldVictory(winner);
+        com.champutils.cosmetic.TitleRegistry.handleBoss(winner);
     }
 
     private static void recordGuildVictory(ServerPlayer winner) {
@@ -259,6 +273,7 @@ public final class GuildBossManager {
             }
             NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, theme.displayName, "dmitibr");
             if (npc != null) {
+                tagBossNpc(npc, WORLD_BOSS_ENTITY_TAG);
                 boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z, npc.getUUID()));
             }
         }
@@ -320,6 +335,87 @@ public final class GuildBossManager {
         msg(player, "Claimed your " + label + " reward!", ChatFormatting.GREEN);
     }
 
+
+
+    private static void tagBossNpc(NPCEntity npc, String tag) {
+        if (npc == null || tag == null || tag.isBlank()) return;
+        try { npc.addTag(tag); } catch (Exception ignored) {}
+    }
+
+    private static void cleanupBossesFromPreviousServerSession(MinecraftServer server) {
+        // Runtime timers do not survive a server restart. Any saved world/guild boss NPC from a
+        // previous JVM session is stale by definition, so remove it before new bosses can spawn.
+        int removed = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            removed += removeMatchingBossNpcs(level, true);
+        }
+        activeWorldBoss = null;
+        ACTIVE_GUILD.clear();
+        if (removed > 0) {
+            System.out.println("[ChampUtils] Removed " + removed + " stale boss NPC(s) from a previous server session.");
+        }
+    }
+
+    private static void cleanupOrphanedWorldBossNpcs(MinecraftServer server, long now) {
+        // Defense in depth: if the active record is gone or expired but a persistent boss NPC remains, delete it.
+        if (activeWorldBoss != null && now < activeWorldBoss.despawnAtMillis) return;
+        for (ServerLevel level : server.getAllLevels()) {
+            removeMatchingBossNpcs(level, false);
+        }
+        if (activeWorldBoss != null && now >= activeWorldBoss.despawnAtMillis) {
+            finishWorldBoss(server, activeWorldBoss);
+        }
+    }
+
+    private static int removeMatchingBossNpcs(ServerLevel level, boolean includeConfiguredSpawnFallback) {
+        if (level == null) return 0;
+        int removed = 0;
+        List<Entity> toRemove = new ArrayList<>();
+        try {
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof NPCEntity npc)) continue;
+                if (isKnownBossNpc(npc) || (includeConfiguredSpawnFallback && looksLikeConfiguredWorldBossNpc(level, npc))) {
+                    toRemove.add(entity);
+                }
+            }
+        } catch (Exception ignored) {
+            return 0;
+        }
+        for (Entity entity : toRemove) {
+            try {
+                entity.remove(Entity.RemovalReason.DISCARDED);
+                removed++;
+            } catch (Exception ignored) {}
+        }
+        return removed;
+    }
+
+    private static boolean isKnownBossNpc(NPCEntity npc) {
+        try {
+            return npc.getTags().contains(WORLD_BOSS_ENTITY_TAG) || npc.getTags().contains(GUILD_BOSS_ENTITY_TAG);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean looksLikeConfiguredWorldBossNpc(ServerLevel level, NPCEntity npc) {
+        // Compatibility cleanup for bosses spawned before boss entity tags existed.
+        BossConfig.WorldBossSettings settings = BossConfig.DATA.worldBoss;
+        if (settings == null || settings.spawnLocation == null || settings.spawnDimensions == null) return false;
+        String dimension = level.dimension().location().toString();
+        if (!settings.spawnDimensions.contains(dimension)) return false;
+        BossConfig.SpawnLocation loc = settings.spawnLocation;
+        double dx = npc.getX() - loc.x, dy = npc.getY() - loc.y, dz = npc.getZ() - loc.z;
+        if (dx * dx + dy * dy + dz * dz > 16.0D * 16.0D) return false;
+        String name = npc.getCustomName() == null ? "" : npc.getCustomName().getString();
+        if (name.isBlank()) return false;
+        if (settings.themes != null) {
+            for (BossConfig.WorldBossTheme theme : settings.themes) {
+                if (theme != null && theme.displayName != null && name.equals(theme.displayName)) return true;
+            }
+        }
+        return name.toLowerCase(Locale.ROOT).contains("world boss") || name.toLowerCase(Locale.ROOT).contains("titan");
+    }
 
     private static NPCEntity spawnBossTrainer(ServerLevel level, List<BossConfig.BossPokemon> team, BossConfig.BossSettings settings, double x, double y, double z, float yaw, String name, String skinUsername) {
         try {

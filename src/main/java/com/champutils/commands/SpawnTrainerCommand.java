@@ -36,7 +36,7 @@ public final class SpawnTrainerCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(
                     Commands.literal("spawntrainer")
-                            .requires(source -> source.hasPermission(2))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                             .then(Commands.argument("trainerId", StringArgumentType.word())
                                     .suggests((context, builder) -> {
                                         suggestIds(builder);
@@ -60,7 +60,7 @@ public final class SpawnTrainerCommand {
 
             dispatcher.register(
                     Commands.literal("despawntrainer")
-                            .requires(source -> source.hasPermission(2))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                             .executes(ctx -> despawnNearest(ctx.getSource(), 8.0D))
                             .then(Commands.literal("nearest")
                                     .executes(ctx -> despawnNearest(ctx.getSource(), 8.0D))

@@ -72,7 +72,7 @@ public final class TerritoryCommand {
                             .then(Commands.literal("confirm")
                                     .executes(context -> deletePersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("admin")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .then(Commands.literal("ready")
                                     .then(Commands.argument("territoryId", StringArgumentType.word())
                                             .executes(context -> markReady(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "territoryId")))))
@@ -83,7 +83,7 @@ public final class TerritoryCommand {
                                     .then(Commands.argument("minutes", IntegerArgumentType.integer(0, 10080))
                                             .executes(context -> setRecreateCooldown(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "minutes"))))))
                     .then(Commands.literal("reloadcache")
-                            .requires(source -> source.hasPermission(4))
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .executes(context -> {
                                 TerritoryConfig.load();
                                 TerritoryRepository.refreshAll();

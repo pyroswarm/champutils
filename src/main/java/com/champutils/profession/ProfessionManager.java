@@ -107,6 +107,12 @@ public class ProfessionManager {
                     profession,
                     currentLevel
             );
+
+            com.champutils.cosmetic.TitleRegistry.handleProfessionLevel(
+                    player,
+                    profession,
+                    currentLevel
+            );
         }
 
         data.xp.put(

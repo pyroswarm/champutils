@@ -37,7 +37,6 @@ public final class IslanderMineProtectionListener {
             if (serverPlayer.hasPermissions(4) && serverPlayer.isCreative()) return true;
 
             if (IslanderMineManager.isBreakProtected(level, pos)) {
-                deny(serverPlayer, "The Islander mine spawn and bedrock shell are protected.");
                 return false;
             }
             return true;
@@ -51,15 +50,9 @@ public final class IslanderMineProtectionListener {
 
             ItemStack stack = serverPlayer.getItemInHand(hand);
             if (stack.getItem() instanceof BlockItem || stack.getItem() instanceof BucketItem) {
-                deny(serverPlayer, "You can only break blocks in Islander mine worlds. Placing blocks is disabled here.");
                 return InteractionResult.FAIL;
             }
 
-            BlockPos target = hitResult.getBlockPos();
-            if (IslanderMineManager.isProtectedSpawn(level, target)) {
-                deny(serverPlayer, "The Islander mine spawn area is protected.");
-                return InteractionResult.FAIL;
-            }
             return InteractionResult.PASS;
         });
     }

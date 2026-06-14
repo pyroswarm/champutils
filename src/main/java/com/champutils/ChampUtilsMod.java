@@ -55,6 +55,7 @@ import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
 import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
+import com.champutils.tm.*;
 
 /*
  =========================
@@ -125,8 +126,6 @@ public class ChampUtilsMod implements ModInitializer {
         ChampBattleAIConfig.load();
         TerritoryConfig.load();
         ChatTagConfig.load();
-        TitleManager.load();
-        WorldFirstManager.load();
 
         /*
          =========================
@@ -135,6 +134,8 @@ public class ChampUtilsMod implements ModInitializer {
          */
         DatabaseManager.init();
         NetworkReadySchemaManager.ensureAsync();
+        TitleManager.load();
+        WorldFirstManager.load();
         PlayerProfileManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStorageBridge.ensureSchemaAsync();
@@ -145,6 +146,7 @@ public class ChampUtilsMod implements ModInitializer {
         MonotypeStarterManager.register();
         NuzlockeManager.register();
         IronmanItemOwnership.register();
+        IronmanBlockOwnership.register();
         IronmanTradeBlocker.register();
         EconomyManager.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
@@ -203,8 +205,10 @@ public class ChampUtilsMod implements ModInitializer {
         PassiveRegistry.registerDefaults();
         ProfessionFragmentManager.registerFragments();
         EmblemManager.registerEmblems();
+        TMManager.registerTMs();
         ProfessionFragmentUseListener.register();
         EmblemUseListener.register();
+        TMUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
@@ -267,7 +271,7 @@ public class ChampUtilsMod implements ModInitializer {
                     ServerLifecycleBridge.setServer(server);
                     CobblemonProfileStorageBridge.registerSqlFactory(server);
 
-                    LeaderboardManager.refresh(server);
+                    LeaderboardManager.refreshNow(server);
                     ServerStatusDatabaseRepository.sync(server);
                     ChampWorldBorderManager.applyAll(server);
                     GlobalGameruleManager.applyAll(server);
@@ -610,6 +614,7 @@ public class ChampUtilsMod implements ModInitializer {
         IslanderMineCommand.register();
         GraveyardCommand.register();
         ClearWildPokemonCommand.register();
+        TMCommand.register();
 
         /*
          New custom item test command
@@ -706,7 +711,7 @@ public class ChampUtilsMod implements ModInitializer {
                      */
                     if (
                             server.getTickCount() > 0 &&
-                                    server.getTickCount() % 600 == 0
+                                    server.getTickCount() % 1200 == 0
                     ) {
                         LeaderboardManager.refresh(
                                 server
