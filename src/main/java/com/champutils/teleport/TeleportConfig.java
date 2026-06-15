@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -218,16 +220,59 @@ public final class TeleportConfig {
             return null;
         }
 
-        try {
-            ResourceKey<Level> key = ResourceKey.create(
-                    Registries.DIMENSION,
-                    ResourceLocation.parse(normalizeDimension(dimension))
-            );
+        for (String candidate : dimensionCandidates(dimension)) {
+            try {
+                ResourceKey<Level> key = ResourceKey.create(
+                        Registries.DIMENSION,
+                        ResourceLocation.parse(candidate)
+                );
 
-            return server.getLevel(key);
-        } catch (Exception ignored) {
-            return null;
+                ServerLevel level = server.getLevel(key);
+                if (level != null) {
+                    return level;
+                }
+            } catch (Exception ignored) {
+            }
         }
+
+        String requestedPath = pathOnly(dimension);
+        for (ServerLevel level : server.getAllLevels()) {
+            String loaded = level.dimension().location().toString();
+            if (loaded.equalsIgnoreCase(dimension)
+                    || loaded.equalsIgnoreCase(normalizeDimension(dimension))
+                    || pathOnly(loaded).equalsIgnoreCase(requestedPath)) {
+                return level;
+            }
+        }
+
+        return null;
+    }
+
+    private static List<String> dimensionCandidates(String dimension) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String normalized = normalizeDimension(dimension);
+        if (dimension != null && !dimension.isBlank()) {
+            candidates.add(dimension.trim());
+        }
+        candidates.add(normalized);
+
+        String path = pathOnly(normalized);
+        if (!path.isBlank()) {
+            candidates.add("multiworld:" + path);
+            candidates.add("minecraft:" + path);
+            candidates.add(path);
+        }
+
+        return new ArrayList<>(candidates);
+    }
+
+    private static String pathOnly(String dimension) {
+        if (dimension == null || dimension.isBlank()) {
+            return "overworld";
+        }
+        String trimmed = dimension.trim();
+        int colon = trimmed.indexOf(':');
+        return colon >= 0 ? trimmed.substring(colon + 1) : trimmed;
     }
 
     public static String normalizeDimension(String dimension) {

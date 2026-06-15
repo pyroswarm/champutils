@@ -58,9 +58,12 @@ public final class MegaBossConfig {
     }
 
     private static void sanitizeRuntimeDefaults(Data defaultData) {
+        if (DATA.checkIntervalTicks == 600) DATA.checkIntervalTicks = 300;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = defaultData.checkIntervalTicks;
+        if (DATA.maxAliveMegaBossesPerNearbyPlayer == 2) DATA.maxAliveMegaBossesPerNearbyPlayer = 3;
         if (DATA.maxAliveMegaBossesPerNearbyPlayer <= 0) DATA.maxAliveMegaBossesPerNearbyPlayer = defaultData.maxAliveMegaBossesPerNearbyPlayer;
         if (DATA.nearbyPlayerBossRadius <= 0) DATA.nearbyPlayerBossRadius = defaultData.nearbyPlayerBossRadius;
+        if (DATA.maxSpawnedPlayersPerCheck == 5) DATA.maxSpawnedPlayersPerCheck = 8;
         if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
@@ -140,7 +143,7 @@ public final class MegaBossConfig {
     public static final class Data {
         public int configVersion = 4;
         public boolean enabled = true;
-        public int checkIntervalTicks = 600;
+        public int checkIntervalTicks = 300;
         /**
          * Soft safety cap. Set high enough that megabosses can behave like roaming trainers across the server.
          * The real spawn limiter is maxAliveMegaBossesPerNearbyPlayer below.
@@ -150,7 +153,7 @@ public final class MegaBossConfig {
         /**
          * Roaming-trainer-style density cap: each player can only have this many megabosses near them.
          */
-        public int maxAliveMegaBossesPerNearbyPlayer = 2;
+        public int maxAliveMegaBossesPerNearbyPlayer = 3;
 
         /**
          * Radius used for the nearby-player megaboss cap.
@@ -161,7 +164,7 @@ public final class MegaBossConfig {
          * Prevents one server tick from spawning around every online player at once.
          * Raise this if you want bigger worlds to fill faster.
          */
-        public int maxSpawnedPlayersPerCheck = 5;
+        public int maxSpawnedPlayersPerCheck = 8;
 
         public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;

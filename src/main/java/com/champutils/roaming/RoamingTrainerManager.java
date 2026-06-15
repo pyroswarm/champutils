@@ -60,6 +60,7 @@ public final class RoamingTrainerManager {
         public double spawnY;
         public double spawnZ;
         public float spawnYaw;
+        public long nextWanderMillis;
         public TrainerTier tier = TrainerTier.ROOKIE;
     }
 
@@ -249,6 +250,8 @@ public final class RoamingTrainerManager {
         data.spawnYaw = player.getYRot() + 180.0F;
         TRAINERS.put(data.npcUuid, data);
 
+        scheduleNextWander(data, data.spawnedMillis);
+
         applyRoamingProtections(result.npc, data);
 
         RoamingTrainerPartyBuilder.apply(result.npc, data);
@@ -309,6 +312,7 @@ public final class RoamingTrainerManager {
 
             applyRoamingProtections(npc, data);
             cleanupStaleChallengeLock(npc, data, now);
+            updateRoamingMovement(npc, data, now);
 
             long lifetimeLimit = Math.max(60, RoamingTrainerConfig.DATA.despawnMinutes * 60) * 1000L;
             if (!isNpcInBattle(npc) && data.spawnedMillis > 0L && now - data.spawnedMillis >= lifetimeLimit) {
@@ -410,17 +414,20 @@ public final class RoamingTrainerManager {
 
     private static void applyRoamingProtections(NPCEntity npc, RoamingTrainerData data) {
         if (npc == null) return;
+        boolean movementEnabled = RoamingTrainerConfig.DATA.movementEnabled;
         try { npc.addTag(ROAMING_TRAINER_TAG); } catch (Exception ignored) {}
         try { npc.setInvulnerable(true); } catch (Exception ignored) {}
         try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
-        try { npc.setNoAi(true); } catch (Exception ignored) {}
-        try { npc.setMovable(false); } catch (Exception ignored) {}
+        try { npc.setNoAi(!movementEnabled); } catch (Exception ignored) {}
+        try { npc.setMovable(movementEnabled); } catch (Exception ignored) {}
         try { npc.setLeashable(false); } catch (Exception ignored) {}
         try { npc.setAllowProjectileHits(false); } catch (Exception ignored) {}
         try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
-        try { npc.setDeltaMovement(Vec3.ZERO); } catch (Exception ignored) {}
+        if (!movementEnabled) {
+            try { npc.setDeltaMovement(Vec3.ZERO); } catch (Exception ignored) {}
+        }
 
-        if (data != null) {
+        if (data != null && !movementEnabled) {
             try {
                 Vec3 spawn = new Vec3(data.spawnX, data.spawnY, data.spawnZ);
                 if (npc.position().distanceToSqr(spawn) > 0.04D) {
@@ -431,6 +438,51 @@ public final class RoamingTrainerManager {
                 npc.setYBodyRot(data.spawnYaw);
             } catch (Exception ignored) {}
         }
+    }
+
+    private static void updateRoamingMovement(NPCEntity npc, RoamingTrainerData data, long now) {
+        if (npc == null || data == null || !RoamingTrainerConfig.DATA.movementEnabled) return;
+        if (isNpcInBattle(npc)) return;
+        if (data.nextWanderMillis <= 0L) scheduleNextWander(data, now);
+        if (now < data.nextWanderMillis) return;
+
+        Vec3 target = findWanderPosition((ServerLevel) npc.level(), data);
+        if (target != null) {
+            try {
+                npc.getNavigation().moveTo(target.x, target.y, target.z, RoamingTrainerConfig.DATA.wanderSpeed);
+            } catch (Exception ignored) {}
+        }
+        scheduleNextWander(data, now);
+    }
+
+    private static void scheduleNextWander(RoamingTrainerData data, long now) {
+        if (data == null) return;
+        int min = Math.max(3, RoamingTrainerConfig.DATA.wanderEverySecondsMin);
+        int max = Math.max(min, RoamingTrainerConfig.DATA.wanderEverySecondsMax);
+        int delay = min + RANDOM.nextInt((max - min) + 1);
+        data.nextWanderMillis = now + delay * 1000L;
+    }
+
+    private static Vec3 findWanderPosition(ServerLevel level, RoamingTrainerData data) {
+        if (level == null || data == null) return null;
+        int radius = Math.max(4, RoamingTrainerConfig.DATA.wanderRadiusBlocks);
+        for (int i = 0; i < 10; i++) {
+            double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
+            double distance = 3.0D + RANDOM.nextDouble() * Math.max(1.0D, radius - 3.0D);
+            int x = (int)Math.floor(data.spawnX + Math.cos(angle) * distance);
+            int z = (int)Math.floor(data.spawnZ + Math.sin(angle) * distance);
+            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            if (y <= level.getMinBuildHeight() || y >= level.getMaxBuildHeight() - 2) continue;
+            net.minecraft.core.BlockPos feet = new net.minecraft.core.BlockPos(x, y, z);
+            net.minecraft.core.BlockPos ground = feet.below();
+            if (level.getBlockState(ground).isAir()) continue;
+            if (!level.getBlockState(feet).isAir()) continue;
+            if (!level.getBlockState(feet.above()).isAir()) continue;
+            if (level.getBlockState(ground).is(Blocks.WATER)) continue;
+            if (level.getBlockState(ground).is(Blocks.LAVA)) continue;
+            return new Vec3(x + 0.5D, y, z + 0.5D);
+        }
+        return null;
     }
 
     private static boolean isNpcInBattle(NPCEntity npc) {

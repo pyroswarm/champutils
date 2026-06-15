@@ -369,6 +369,80 @@ public class SeasonCommand {
 
 
                                     .then(
+                                            literal("preseason")
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
+                                                    .executes(ctx->{
+
+                                                        armConfirm(
+                                                                "preseason",
+                                                                "Preseason",
+                                                                0
+                                                        );
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§cRun /season confirm to set the active season to Season 0 Preseason without resetting players."
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        return 1;
+                                                    })
+                                    )
+
+
+                                    .then(
+                                            literal("set")
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
+                                                    .then(
+                                                            argument(
+                                                                    "number",
+                                                                    IntegerArgumentType.integer(0)
+                                                            )
+                                                                    .then(
+                                                                            argument(
+                                                                                    "name",
+                                                                                    StringArgumentType.greedyString()
+                                                                            )
+                                                                                    .executes(ctx->{
+
+                                                                                        int season=
+                                                                                                IntegerArgumentType.getInteger(
+                                                                                                        ctx,
+                                                                                                        "number"
+                                                                                                );
+
+                                                                                        String name=
+                                                                                                StringArgumentType.getString(
+                                                                                                        ctx,
+                                                                                                        "name"
+                                                                                                );
+
+                                                                                        armConfirm(
+                                                                                                "set",
+                                                                                                name,
+                                                                                                season
+                                                                                        );
+
+                                                                                        ctx.getSource().sendSuccess(
+                                                                                                ()->Component.literal(
+                                                                                                        "§cRun /season confirm to set the active season to Season "
+                                                                                                                +season
+                                                                                                                +" "
+                                                                                                                +name
+                                                                                                                +" without resetting players."
+                                                                                                ),
+                                                                                                false
+                                                                                        );
+
+                                                                                        return 1;
+                                                                                    })
+                                                                    )
+                                                    )
+                                    )
+
+
+                                    .then(
                                             literal("confirm")
                                                     .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
@@ -424,6 +498,28 @@ public class SeasonCommand {
                                                                 SeasonManager.resetToSeasonZero(
                                                                         ctx.getSource()
                                                                                 .getServer()
+                                                                );
+                                                                break;
+
+
+
+                                                            case "preseason":
+
+                                                                SeasonManager.startPreseason(
+                                                                        ctx.getSource()
+                                                                                .getServer()
+                                                                );
+                                                                break;
+
+
+
+                                                            case "set":
+
+                                                                SeasonManager.setCurrentSeason(
+                                                                        ctx.getSource()
+                                                                                .getServer(),
+                                                                        pendingSeasonRemove,
+                                                                        pendingSeasonName
                                                                 );
                                                                 break;
 

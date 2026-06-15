@@ -42,23 +42,20 @@ public final class SeasonDatabaseRepository {
                 : displayName;
 
         DatabaseManager.executeAsync("set active season " + seasonId, connection -> {
-            try (PreparedStatement schema = connection.prepareStatement(
-                    "alter table seasons add column if not exists active boolean not null default false"
-            )) {
-                schema.executeUpdate();
-            }
+            ensureSeasonColumns(connection);
 
             try (PreparedStatement deactivate = connection.prepareStatement(
-                    "update seasons set active = false"
+                    "update seasons set active = false, is_active = false"
             )) {
                 deactivate.executeUpdate();
             }
 
             try (PreparedStatement upsert = connection.prepareStatement(
-                    "insert into seasons (id, display_name, starts_at, active) values (?, ?, now(), true) " +
+                    "insert into seasons (id, display_name, starts_at, active, is_active) values (?, ?, now(), true, true) " +
                             "on conflict (id) do update set " +
                             "display_name = excluded.display_name, " +
-                            "active = true"
+                            "active = true, " +
+                            "is_active = true"
             )) {
                 upsert.setString(1, seasonId);
                 upsert.setString(2, safeDisplayName);
@@ -86,15 +83,11 @@ public final class SeasonDatabaseRepository {
                 : displayName;
 
         DatabaseManager.executeAsync("sync season " + seasonId, connection -> {
-            try (PreparedStatement schema = connection.prepareStatement(
-                    "alter table seasons add column if not exists active boolean not null default false"
-            )) {
-                schema.executeUpdate();
-            }
+            ensureSeasonColumns(connection);
 
             if (active) {
                 try (PreparedStatement deactivateStatement = connection.prepareStatement(
-                        "update seasons set active = false where id <> ?"
+                        "update seasons set active = false, is_active = false where id <> ?"
                 )) {
                     deactivateStatement.setString(1, seasonId);
                     deactivateStatement.executeUpdate();
@@ -102,18 +95,34 @@ public final class SeasonDatabaseRepository {
             }
 
             try (PreparedStatement upsertStatement = connection.prepareStatement(
-                    "insert into seasons (id, display_name, starts_at, active) " +
-                            "values (?, ?, now(), ?) " +
+                    "insert into seasons (id, display_name, starts_at, active, is_active) " +
+                            "values (?, ?, now(), ?, ?) " +
                             "on conflict (id) do update set " +
                             "display_name = excluded.display_name, " +
-                            "active = excluded.active"
+                            "active = excluded.active, " +
+                            "is_active = excluded.is_active"
             )) {
                 upsertStatement.setString(1, seasonId);
                 upsertStatement.setString(2, safeName);
                 upsertStatement.setBoolean(3, active);
+                upsertStatement.setBoolean(4, active);
                 upsertStatement.executeUpdate();
             }
         });
+    }
+
+    private static void ensureSeasonColumns(java.sql.Connection connection) throws Exception {
+        try (PreparedStatement activeColumn = connection.prepareStatement(
+                "alter table seasons add column if not exists active boolean not null default false"
+        )) {
+            activeColumn.executeUpdate();
+        }
+
+        try (PreparedStatement isActiveColumn = connection.prepareStatement(
+                "alter table seasons add column if not exists is_active boolean not null default false"
+        )) {
+            isActiveColumn.executeUpdate();
+        }
     }
 
     public static void syncAllRankedPlayersForCurrentSeason() {

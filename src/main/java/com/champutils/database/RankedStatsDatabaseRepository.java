@@ -24,32 +24,32 @@ public final class RankedStatsDatabaseRepository {
         int streak = Math.max(0, data.currentStreak);
 
         DatabaseManager.executeAsync("sync profile ranked stats " + profileId, connection -> {
-            try (PreparedStatement deactivateStatement = connection.prepareStatement("update seasons set is_active = false where id <> ?")) {
+            try (PreparedStatement activeColumn = connection.prepareStatement(
+                    "alter table seasons add column if not exists active boolean not null default false"
+            )) {
+                activeColumn.executeUpdate();
+            }
+
+            try (PreparedStatement isActiveColumn = connection.prepareStatement(
+                    "alter table seasons add column if not exists is_active boolean not null default false"
+            )) {
+                isActiveColumn.executeUpdate();
+            }
+
+            try (PreparedStatement deactivateStatement = connection.prepareStatement(
+                    "update seasons set active = false, is_active = false where id <> ?"
+            )) {
                 deactivateStatement.setString(1, seasonId);
                 deactivateStatement.executeUpdate();
-            } catch (Exception ignored) {
-                try (PreparedStatement fallback = connection.prepareStatement("update seasons set active = false where id <> ?")) {
-                    fallback.setString(1, seasonId);
-                    fallback.executeUpdate();
-                }
             }
 
             try (PreparedStatement seasonStatement = connection.prepareStatement(
-                    "insert into seasons (id, display_name, starts_at, is_active) values (?, ?, now(), true) " +
-                            "on conflict (id) do update set display_name = excluded.display_name, is_active = true"
+                    "insert into seasons (id, display_name, starts_at, active, is_active) values (?, ?, now(), true, true) " +
+                            "on conflict (id) do update set display_name = excluded.display_name, active = true, is_active = true"
             )) {
                 seasonStatement.setString(1, seasonId);
                 seasonStatement.setString(2, seasonName);
                 seasonStatement.executeUpdate();
-            } catch (Exception ignored) {
-                try (PreparedStatement fallback = connection.prepareStatement(
-                        "insert into seasons (id, display_name, starts_at, active) values (?, ?, now(), true) " +
-                                "on conflict (id) do update set display_name = excluded.display_name, active = true"
-                )) {
-                    fallback.setString(1, seasonId);
-                    fallback.setString(2, seasonName);
-                    fallback.executeUpdate();
-                }
             }
 
             try (PreparedStatement rankedStatement = connection.prepareStatement(

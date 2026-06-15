@@ -16,7 +16,10 @@ import net.minecraft.world.level.Level;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -332,28 +335,82 @@ public final class ServerLocationManager {
             return null;
         }
 
-        String normalized =
-                normalizeWorldId(
-                        worldId
-                );
+        for (String candidate : worldCandidates(worldId)) {
+            try {
 
-        try {
+                ResourceKey<Level> key =
+                        ResourceKey.create(
+                                Registries.DIMENSION,
+                                ResourceLocation.parse(
+                                        candidate
+                                )
+                        );
 
-            ResourceKey<Level> key =
-                    ResourceKey.create(
-                            Registries.DIMENSION,
-                            ResourceLocation.parse(
-                                    normalized
-                            )
-                    );
+                ServerLevel level = server.getLevel(key);
 
-            return server.getLevel(
-                    key
-            );
+                if (
+                        level != null
+                ) {
+                    return level;
+                }
+            }
+            catch (Exception ignored) {
+            }
         }
-        catch (Exception ignored) {
-            return null;
+
+        String requestedPath = pathOnly(worldId);
+        for (ServerLevel level : server.getAllLevels()) {
+            String loaded = level.dimension().location().toString();
+            if (
+                    loaded.equalsIgnoreCase(worldId) ||
+                            loaded.equalsIgnoreCase(normalizeWorldId(worldId)) ||
+                            pathOnly(loaded).equalsIgnoreCase(requestedPath)
+            ) {
+                return level;
+            }
         }
+
+        return null;
+    }
+
+    private static List<String> worldCandidates(String worldId) {
+
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String normalized = normalizeWorldId(worldId);
+
+        if (
+                worldId != null &&
+                        !worldId.isBlank()
+        ) {
+            candidates.add(worldId.trim());
+        }
+
+        candidates.add(normalized);
+
+        String path = pathOnly(normalized);
+        if (
+                !path.isBlank()
+        ) {
+            candidates.add("multiworld:" + path);
+            candidates.add("minecraft:" + path);
+            candidates.add(path);
+        }
+
+        return new ArrayList<>(candidates);
+    }
+
+    private static String pathOnly(String worldId) {
+
+        if (
+                worldId == null ||
+                        worldId.isBlank()
+        ) {
+            return "overworld";
+        }
+
+        String trimmed = worldId.trim();
+        int colon = trimmed.indexOf(':');
+        return colon >= 0 ? trimmed.substring(colon + 1) : trimmed;
     }
 
     public static String normalizeWorldId(

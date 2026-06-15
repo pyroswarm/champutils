@@ -104,7 +104,10 @@ public final class ChampUtilsHelpCommand {
         section(source, "Admin Progression");
         line(source, "/setrp <player> <amount>", "Admin: set ranked RP.");
         line(source, "/professionlevel set <player> <profession> <level>", "Admin: set profession level.");
-        line(source, "/season start", "Admin: start a season transition.");
+        line(source, "/season info", "View the current active season.");
+        line(source, "/season preseason", "Admin: set Season 0 Preseason without resetting players.");
+        line(source, "/season set <number> <name>", "Admin: directly set the active season without resetting players.");
+        line(source, "/season start <name>", "Admin: end current season and start the next season.");
         section(source, "Admin NPCs + Events");
         line(source, "/gym bind <gymId>", "Admin: bind nearest NPC to a gym.");
         line(source, "/worldevent start <eventId>", "Admin: start a world event.");

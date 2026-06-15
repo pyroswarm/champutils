@@ -569,22 +569,39 @@ public class SeasonManager {
         }
     }
 
-    public static void resetToSeasonZero(MinecraftServer server) {
+    /**
+     * Directly sets the active season without archiving ladders, resetting RP, or granting rewards.
+     * This is intended for preseason/offseason/admin correction flows only.
+     */
+    public static void setCurrentSeason(MinecraftServer server, int seasonNumber, String seasonName) {
         pendingSeasonReset = false;
         resetTickCountdown = 0;
         pendingSeasonName = null;
-        CURRENT_SEASON = 0;
-        CURRENT_NAME = "Offseason";
+
+        CURRENT_SEASON = Math.max(0, seasonNumber);
+        CURRENT_NAME = seasonName == null || seasonName.isBlank()
+                ? (CURRENT_SEASON == 0 ? "Preseason" : "Season " + CURRENT_SEASON)
+                : seasonName;
+
         saveState();
-        SeasonDatabaseRepository.setActiveSeason(0, CURRENT_NAME);
+        SeasonDatabaseRepository.setActiveSeason(CURRENT_SEASON, CURRENT_NAME);
         RankedFormatDatabaseRepository.syncCurrentFormats();
+
         if (server != null) {
             LeaderboardManager.refreshNow(server);
             server.getPlayerList().broadcastSystemMessage(
-                    Component.literal("§7Season state reset to §fSeason 0 §7Offseason."),
+                    Component.literal("§7Active season set to §fSeason " + CURRENT_SEASON + " §7" + CURRENT_NAME + "."),
                     false
             );
         }
+    }
+
+    public static void resetToSeasonZero(MinecraftServer server) {
+        setCurrentSeason(server, 0, "Offseason");
+    }
+
+    public static void startPreseason(MinecraftServer server) {
+        setCurrentSeason(server, 0, "Preseason");
     }
 
     public static void rollbackSeason(

@@ -75,11 +75,13 @@ public final class LandClaimConfig {
     private static void sanitize() {
         if (data.costPerBlockCents < 0L) data.costPerBlockCents = 100L;
         if (data.minArea < 1) data.minArea = 1;
-        if (data.maxArea < data.minArea) data.maxArea = Math.max(data.minArea, 1000);
+        if (data.maxArea == 1000 || data.maxArea == 2500) data.maxArea = 5000;
+        if (data.maxTotalClaimBlocksPerProfile == 1000 || data.maxTotalClaimBlocksPerProfile == 2500) data.maxTotalClaimBlocksPerProfile = 5000;
+        if (data.maxArea < data.minArea) data.maxArea = Math.max(data.minArea, 5000);
         if (data.maxClaimsPerProfile < 1) data.maxClaimsPerProfile = 3;
         if (data.permissionClaimCaps == null) data.permissionClaimCaps = new LinkedHashMap<>();
         data.permissionClaimCaps.entrySet().removeIf(entry -> entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null || entry.getValue() < 1);
-        if (data.maxTotalClaimBlocksPerProfile < 1) data.maxTotalClaimBlocksPerProfile = 1000;
+        if (data.maxTotalClaimBlocksPerProfile < 1) data.maxTotalClaimBlocksPerProfile = 5000;
         if (data.maxArea > data.maxTotalClaimBlocksPerProfile) data.maxArea = data.maxTotalClaimBlocksPerProfile;
         if (data.borderViewDistanceBlocks < 8) data.borderViewDistanceBlocks = 48;
         if (data.borderParticleStepBlocks < 3) data.borderParticleStepBlocks = 4;
@@ -89,9 +91,9 @@ public final class LandClaimConfig {
         boolean enabled = true;
         long costPerBlockCents = 100L;
         int minArea = 25;
-        int maxArea = 1000;
+        int maxArea = 5000;
         int maxClaimsPerProfile = 3;
-        int maxTotalClaimBlocksPerProfile = 1000;
+        int maxTotalClaimBlocksPerProfile = 5000;
         int borderViewDistanceBlocks = 48;
         int borderParticleStepBlocks = 4;
         Map<String, Integer> permissionClaimCaps = new LinkedHashMap<>() {{

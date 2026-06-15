@@ -34,6 +34,11 @@ public final class RoamingTrainerConfig {
         public int maxWorldTotal = 35;
         public double spawnChancePerScan = 0.08D;
         public double spawnChancePerCheck = 0.08D;
+        public boolean movementEnabled = true;
+        public int wanderRadiusBlocks = 18;
+        public int wanderEverySecondsMin = 8;
+        public int wanderEverySecondsMax = 20;
+        public double wanderSpeed = 0.8D;
         public int spawnMinDistance = 32;
         public int minimumDistance = 32;
         public int spawnMaxDistance = 96;
@@ -140,22 +145,34 @@ public final class RoamingTrainerConfig {
         DATA.maleTrainerSkins = cleanTrainerSkins(DATA.maleTrainerSkins, defaultMaleTrainerSkins());
         DATA.femaleTrainerSkins = cleanTrainerSkins(DATA.femaleTrainerSkins, defaultFemaleTrainerSkins());
         if (DATA.scanIntervalSeconds == 300 && DATA.spawnCheckSeconds == 300) {
-            DATA.scanIntervalSeconds = 120;
-            DATA.spawnCheckSeconds = 120;
+            DATA.scanIntervalSeconds = 60;
+            DATA.spawnCheckSeconds = 60;
+        }
+        if (DATA.scanIntervalSeconds == 120 && DATA.spawnCheckSeconds == 120) {
+            DATA.scanIntervalSeconds = 60;
+            DATA.spawnCheckSeconds = 60;
         }
         DATA.scanIntervalSeconds = DATA.spawnCheckSeconds > 0 ? DATA.spawnCheckSeconds : DATA.scanIntervalSeconds;
         DATA.spawnCheckSeconds = DATA.scanIntervalSeconds;
         DATA.maxTrainersPerPlayer = DATA.maxNearbyPerPlayer > 0 ? DATA.maxNearbyPerPlayer : DATA.maxTrainersPerPlayer;
         DATA.maxNearbyPerPlayer = DATA.maxTrainersPerPlayer;
         if (DATA.maxTrainersPerWorld == 20 && DATA.maxWorldTotal == 20) {
-            DATA.maxTrainersPerWorld = 35;
-            DATA.maxWorldTotal = 35;
+            DATA.maxTrainersPerWorld = 50;
+            DATA.maxWorldTotal = 50;
+        }
+        if (DATA.maxTrainersPerWorld == 35 && DATA.maxWorldTotal == 35) {
+            DATA.maxTrainersPerWorld = 50;
+            DATA.maxWorldTotal = 50;
         }
         DATA.maxTrainersPerWorld = DATA.maxWorldTotal > 0 ? DATA.maxWorldTotal : DATA.maxTrainersPerWorld;
         DATA.maxWorldTotal = DATA.maxTrainersPerWorld;
         if (DATA.spawnChancePerScan == 0.01D && DATA.spawnChancePerCheck == 0.01D) {
-            DATA.spawnChancePerScan = 0.08D;
-            DATA.spawnChancePerCheck = 0.08D;
+            DATA.spawnChancePerScan = 0.16D;
+            DATA.spawnChancePerCheck = 0.16D;
+        }
+        if (DATA.spawnChancePerScan == 0.08D && DATA.spawnChancePerCheck == 0.08D) {
+            DATA.spawnChancePerScan = 0.16D;
+            DATA.spawnChancePerCheck = 0.16D;
         }
         DATA.spawnChancePerScan = DATA.spawnChancePerCheck > 0.0D ? DATA.spawnChancePerCheck : DATA.spawnChancePerScan;
         DATA.spawnChancePerCheck = DATA.spawnChancePerScan;
@@ -181,6 +198,12 @@ public final class RoamingTrainerConfig {
         if (DATA.maxTrainersPerWorld < 1) DATA.maxTrainersPerWorld = 1;
         if (DATA.spawnChancePerScan < 0.0D) DATA.spawnChancePerScan = 0.0D;
         if (DATA.spawnChancePerScan > 1.0D) DATA.spawnChancePerScan = 1.0D;
+        if (DATA.wanderRadiusBlocks < 4) DATA.wanderRadiusBlocks = 4;
+        if (DATA.wanderRadiusBlocks > 64) DATA.wanderRadiusBlocks = 64;
+        if (DATA.wanderEverySecondsMin < 3) DATA.wanderEverySecondsMin = 3;
+        if (DATA.wanderEverySecondsMax < DATA.wanderEverySecondsMin) DATA.wanderEverySecondsMax = DATA.wanderEverySecondsMin + 5;
+        if (DATA.wanderSpeed <= 0.0D) DATA.wanderSpeed = 0.8D;
+        if (DATA.wanderSpeed > 1.5D) DATA.wanderSpeed = 1.5D;
 
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
@@ -245,21 +268,26 @@ public final class RoamingTrainerConfig {
 
     private static ConfigRoot defaultConfig() {
         ConfigRoot root = new ConfigRoot();
-        root.scanIntervalSeconds = 300;
-        root.spawnCheckSeconds = 300;
-        root.spawnChancePerScan = 0.01D;
-        root.spawnChancePerCheck = 0.01D;
-        root.maxTrainersPerPlayer = 1;
-        root.maxNearbyPerPlayer = 1;
-        root.maxTrainersPerWorld = 20;
-        root.maxWorldTotal = 20;
+        root.scanIntervalSeconds = 60;
+        root.spawnCheckSeconds = 60;
+        root.spawnChancePerScan = 0.16D;
+        root.spawnChancePerCheck = 0.16D;
+        root.maxTrainersPerPlayer = 2;
+        root.maxNearbyPerPlayer = 2;
+        root.maxTrainersPerWorld = 50;
+        root.maxWorldTotal = 50;
         root.spawnMinDistance = 32;
         root.minimumDistance = 32;
         root.spawnMaxDistance = 96;
         root.maximumDistance = 96;
         root.despawnAfterNoPlayersSeconds = 900;
-        root.despawnMinutes = 15;
+        root.despawnMinutes = 20;
         root.noPlayerNearbyDespawnSeconds = 300;
+        root.movementEnabled = true;
+        root.wanderRadiusBlocks = 18;
+        root.wanderEverySecondsMin = 8;
+        root.wanderEverySecondsMax = 20;
+        root.wanderSpeed = 0.8D;
         root.blockedDimensions.add("spawn1");
         root.blockedDimensions.add("multiworld:spawn1");
         root.blacklistedPokemon = defaultBlacklistedPokemon();
