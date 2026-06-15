@@ -19,9 +19,9 @@ public final class WonderTradeCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("wondertrade")
                         .executes(context -> {
-                            context.getSource().sendSuccess(() -> Component.literal("Use /wondertrade <party slot 1-6> to trade a Pokémon.").withStyle(ChatFormatting.AQUA), false);
-                            context.getSource().sendSuccess(() -> Component.literal("Use /wondertrade claim if a trade was interrupted.").withStyle(ChatFormatting.GRAY), false);
-                            context.getSource().sendSuccess(() -> Component.literal("Example: /wondertrade 3").withStyle(ChatFormatting.GRAY), false);
+                            context.getSource().sendSuccess(() -> Component.literal("Visit the Wonder Trade NPC at spawn to trade a Pokémon.").withStyle(ChatFormatting.AQUA), false);
+                            context.getSource().sendSuccess(() -> Component.literal("Use the Wonder Trade NPC claim button if a trade was interrupted.").withStyle(ChatFormatting.GRAY), false);
+                            context.getSource().sendSuccess(() -> Component.literal("Admins may still use /wondertrade <slot> for testing.").withStyle(ChatFormatting.GRAY), false);
                             return 1;
                         })
                         .then(literal("claim")

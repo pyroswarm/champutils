@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds" -> true;
+            case "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, opencrates, quests, territorycreation, territories, pterritories, gterritories, guilds";
+        return "gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {

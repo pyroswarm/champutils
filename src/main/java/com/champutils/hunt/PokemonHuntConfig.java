@@ -57,6 +57,8 @@ public final class PokemonHuntConfig {
         if (DATA.targetPool == null || DATA.targetPool.isEmpty()) DATA.targetPool = defaults().targetPool;
         if (DATA.settings.huntsPerCycle <= 0) DATA.settings.huntsPerCycle = 6;
         if (DATA.settings.refreshHours <= 0.0) DATA.settings.refreshHours = 1.0;
+        if (DATA.settings.crateCreditChancePercent < 0) DATA.settings.crateCreditChancePercent = 0;
+        if (DATA.settings.crateCreditChancePercent > 100) DATA.settings.crateCreditChancePercent = 100;
         for (HuntTarget target : DATA.targetPool) sanitizeTarget(target);
     }
 
@@ -79,6 +81,7 @@ public final class PokemonHuntConfig {
         root.settings.announceNewHunts = true;
         root.settings.announceWinners = true;
         root.settings.allowAlreadyWonHuntsToStayVisible = true;
+        root.settings.crateCreditChancePercent = 33;
 
         add(root, "pikachu", 12, "COMMON", 650, 1,
                 list("jolly", "timid", "hasty"), list("male", "female"), list("static"),
@@ -167,6 +170,7 @@ public final class PokemonHuntConfig {
         public boolean announceNewHunts = true;
         public boolean announceWinners = true;
         public boolean allowAlreadyWonHuntsToStayVisible = true;
+        public int crateCreditChancePercent = 33;
     }
 
     public static class HuntTarget {

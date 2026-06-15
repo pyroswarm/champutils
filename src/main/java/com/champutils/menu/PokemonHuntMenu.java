@@ -45,7 +45,7 @@ public final class PokemonHuntMenu {
                     .addLoreLine(Component.literal("§7Ability: §f" + PokemonHuntManager.prettyAbility(hunt.ability)))
                     .addLoreLine(Component.literal("§7Difficulty: §f" + (hunt.difficulty == null ? "Common" : hunt.difficulty)))
                     .addLoreLine(Component.literal("§6Rewards:"));
-            addRewardLore(builder, hunt.rewards);
+            addRewardLore(builder, hunt.rewards, hunt.difficulty);
             builder.addLoreLine(Component.literal(" "));
 
             if (done) {
@@ -73,29 +73,25 @@ public final class PokemonHuntMenu {
         gui.open();
     }
 
-    private static void addRewardLore(GuiElementBuilder builder, PokemonHuntConfig.Rewards rewards) {
+    private static void addRewardLore(GuiElementBuilder builder, PokemonHuntConfig.Rewards rewards, String difficulty) {
         if (builder == null) return;
         if (rewards == null) {
             builder.addLoreLine(Component.literal("§7- §fRewards vary by target."));
             return;
         }
         if (rewards.credits > 0L) {
-            builder.addLoreLine(Component.literal("§7- Credits: §6" + EconomyManager.format(rewards.credits)));
-        }
-        if (rewards.rewardRolls > 0) {
-            builder.addLoreLine(Component.literal("§7- Item rolls: §f" + rewards.rewardRolls));
+            builder.addLoreLine(Component.literal("§7- §6" + EconomyManager.formatWholeCredits(rewards.credits)));
         }
         if (rewards.items != null && !rewards.items.isEmpty()) {
             int shown = 0;
             for (PokemonHuntConfig.RewardItem item : rewards.items) {
                 if (item == null || item.item == null || item.item.isBlank()) continue;
-                builder.addLoreLine(Component.literal("§8- §f" + item.item + " x" + item.min + "-" + item.max));
-                if (++shown >= 4) {
-                    builder.addLoreLine(Component.literal("§8- §7More possible rewards..."));
-                    break;
-                }
+                int amount = Math.max(1, item.min);
+                builder.addLoreLine(Component.literal("§7- " + PokemonHuntManager.prettyItemId(item.item) + " ×" + amount));
+                if (++shown >= 6) break;
             }
         }
+        builder.addLoreLine(Component.literal("§7- §e" + PokemonHuntConfig.DATA.settings.crateCreditChancePercent + "% chance for 1 " + PokemonHuntManager.displayCrateForDifficulty(difficulty)));
     }
 
     private static String formatDuration(long millis) {

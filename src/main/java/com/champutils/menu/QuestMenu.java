@@ -25,17 +25,16 @@ public class QuestMenu {
 
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal("Quests"));
-        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 22, 23, 24, 28, 29, 30, 31, 32, 33, 34, 40, 49);
+        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 22, 23, 24, 31, 40, 49);
 
         gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Quests, Contracts & Guild Weeklies"))
+                .setName(Component.literal("§6Quests & Guild Weeklies"))
                 .addLoreLine(Component.literal("§7Daily period: §f" + QuestManager.dailyPeriodKey()))
-                .addLoreLine(Component.literal("§7Weekly period: §f" + QuestManager.weeklyPeriodKey()))
-                .addLoreLine(Component.literal("§7Every quest now shows its rewards before claiming.")));
+                .addLoreLine(Component.literal("§7Weekly period: §f" + QuestManager.weeklyPeriodKey())));
 
-        setSet(gui, 10, data.daily, "§bDaily Quests", "§e/quest daily complete", true);
-        setSet(gui, 14, data.weekly, "§dWeekly Quests", "§e/quest weekly complete", false);
+        setSet(gui, 10, data.daily, "§bDaily Quests", "", true);
+        setSet(gui, 14, data.weekly, "§dWeekly Quests", "", false);
         setGuildWeekly(gui, 19, player, guildData);
 
         GuiElementBuilder dailyClaim = new GuiElementBuilder(Items.EMERALD)
@@ -78,15 +77,12 @@ public class QuestMenu {
         });
         gui.setSlot(24, guildClaim);
 
-        setActiveContract(gui, 28, player, data);
-        setAvailableContracts(gui, 37, player);
-
         gui.setSlot(49, new GuiElementBuilder(Items.CHEST)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Contract Commands"))
-                .addLoreLine(Component.literal("§e/quest contract buy <id>"))
-                .addLoreLine(Component.literal("§e/quest contract complete"))
-                .addLoreLine(Component.literal("§e/quest contract abandon")));
+                .setName(Component.literal("§6Open Contracts"))
+                .addLoreLine(Component.literal("§7Contracts have their own spawn NPC and menu."))
+                .addLoreLine(Component.literal("§eClick to open contracts"))
+                .setCallback((index, click, action) -> ContractMenu.open(player)));
 
         gui.open();
     }
@@ -96,7 +92,6 @@ public class QuestMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal(title))
                 .addLoreLine(Component.literal("§7Status: " + (set != null && set.completed ? "§aClaimed" : QuestManager.isReady(set) ? "§6Ready" : "§fIn Progress")))
-                .addLoreLine(Component.literal("§7Claim: " + claimCommand))
                 .addLoreLine(Component.literal("§6Rewards:"));
         addLore(main, QuestManager.rewardLore(daily));
         gui.setSlot(start, main);
@@ -171,7 +166,7 @@ public class QuestMenu {
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(c.progress, c.required) + "§7/§f" + c.required))
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
-            addLore(item, QuestManager.contractRewardLore(c.rewardCommands));
+            addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
             item.addLoreLine(Component.literal(done ? "§eClick to claim" : "§7Complete before it expires."));
             item.setCallback((index, click, action) -> {
                 QuestManager.completeContract(player);
@@ -201,7 +196,7 @@ public class QuestMenu {
                     .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
                     .addLoreLine(Component.literal("§7Profession: §f" + c.profession))
                     .addLoreLine(Component.literal("§6Rewards:"));
-            addLore(item, QuestManager.contractRewardLore(c.rewardCommands));
+            addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
             item.addLoreLine(Component.literal("§eClick to buy"));
             item.setCallback((index, click, action) -> {
                 QuestManager.buyContract(player, c.id);

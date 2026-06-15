@@ -279,7 +279,8 @@ public final class EconomyManager {
     }
 
     public static String formatWholeCredits(long credits) {
-        return format(wholeCreditsToCents(credits));
+        long safe = Math.max(0L, credits);
+        return FORMAT.format(safe) + " " + (safe == 1L ? CURRENCY_NAME_SINGULAR : CURRENCY_NAME);
     }
 
     public static long creditsToCents(double credits) {

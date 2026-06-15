@@ -1,6 +1,7 @@
 package com.champutils.hunt;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.crate.CrateCreditManager;
 import com.champutils.shop.NpcShopService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -308,12 +309,43 @@ public final class PokemonHuntManager {
             player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits)).withStyle(ChatFormatting.GOLD));
         }
 
-        int rolls = Math.max(1, rewards.rewardRolls);
-        for (int i = 0; i < rolls; i++) {
-            PokemonHuntConfig.RewardItem reward = pickReward(rewards.items);
-            if (reward == null) continue;
-            giveRewardItem(player, reward);
+        maybeAwardCrateCredit(player, hunt.difficulty);
+
+        if (rewards.items != null) {
+            for (PokemonHuntConfig.RewardItem reward : rewards.items) {
+                if (reward == null) continue;
+                giveRewardItem(player, reward);
+            }
         }
+    }
+
+    private static void maybeAwardCrateCredit(ServerPlayer player, String difficulty) {
+        int chance = Math.max(0, Math.min(100, PokemonHuntConfig.DATA.settings.crateCreditChancePercent));
+        if (player == null || chance <= 0 || RANDOM.nextInt(100) >= chance) return;
+        CrateCreditManager.addCredits(player, crateIdForDifficulty(difficulty), 1);
+    }
+
+    public static String crateIdForDifficulty(String difficulty) {
+        String value = difficulty == null ? "" : difficulty.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        return switch (value) {
+            case "uncommon" -> "uncommon";
+            case "rare" -> "rare";
+            case "epic" -> "epic";
+            case "legendary" -> "legendary";
+            case "mythic" -> "mythic";
+            default -> "common";
+        };
+    }
+
+    public static String displayCrateForDifficulty(String difficulty) {
+        return title(crateIdForDifficulty(difficulty)) + " Crate Credit";
+    }
+
+    public static String prettyItemId(String itemId) {
+        String value = itemId == null ? "" : itemId.trim();
+        int idx = value.indexOf(':');
+        if (idx >= 0 && idx + 1 < value.length()) value = value.substring(idx + 1);
+        return title(value.replace('_', ' ').replace('-', ' '));
     }
 
     private static PokemonHuntConfig.RewardItem pickReward(List<PokemonHuntConfig.RewardItem> items) {
@@ -337,9 +369,7 @@ public final class PokemonHuntManager {
         try {
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(reward.item));
             if (item == null || item == Items.AIR) return;
-            int min = Math.max(1, reward.min);
-            int max = Math.max(min, reward.max);
-            int amount = min + RANDOM.nextInt(max - min + 1);
+            int amount = Math.max(1, reward.min);
             int remaining = amount;
             int stackMax = Math.max(1, item.getDefaultMaxStackSize());
             while (remaining > 0) {
@@ -347,7 +377,7 @@ public final class PokemonHuntManager {
                 NpcShopService.giveOrDrop(player, new ItemStack(item, give));
                 remaining -= give;
             }
-            player.sendSystemMessage(Component.literal("+" + amount + "x " + reward.item).withStyle(ChatFormatting.AQUA));
+            player.sendSystemMessage(Component.literal("+" + amount + "x " + prettyItemId(reward.item)).withStyle(ChatFormatting.AQUA));
         } catch (Exception ignored) {
         }
     }

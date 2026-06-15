@@ -53,6 +53,7 @@ public class QuestDataManager {
         public long purchasedAtMillis;
         public long expiresAtMillis;
         public int creditCost;
+        public int rewardCredits;
         public String difficulty;
         public boolean completed;
         public ArrayList<String> rewardCommands = new ArrayList<>();

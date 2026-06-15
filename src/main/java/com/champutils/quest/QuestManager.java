@@ -2,6 +2,7 @@ package com.champutils.quest;
 
 import com.champutils.battle.BattleContextManager;
 import com.champutils.economy.EconomyManager;
+import com.champutils.crate.CrateCreditManager;
 import com.champutils.guild.GuildRepository;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionType;
@@ -342,56 +343,132 @@ public class QuestManager {
         List<Component> lore = new ArrayList<>();
         int credits = daily ? QuestConfig.SETTINGS.dailyCompletionCredits : QuestConfig.SETTINGS.weeklyCompletionCredits;
         int xp = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
-        if (credits > 0) lore.add(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(credits)));
-        if (xp > 0) lore.add(Component.literal("§7Profession XP: §a" + xp + " per objective"));
+        if (credits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(credits)));
+        if (xp > 0) lore.add(Component.literal("§7• §a" + xp + " Profession XP per objective"));
         addCommandRewardLore(lore, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
+        String crateId = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
+        lore.add(Component.literal("§7• §e" + crateChance() + "% chance for 1 " + displayCrateId(crateId) + " Crate Credit"));
         return lore;
     }
 
     public static List<Component> guildRewardLore() {
         List<Component> lore = new ArrayList<>();
-        if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(QuestConfig.SETTINGS.guildWeeklyCompletionCredits)));
+        if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(QuestConfig.SETTINGS.guildWeeklyCompletionCredits)));
         addCommandRewardLore(lore, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
+        if (lore.stream().noneMatch(c -> c.getString().toLowerCase(Locale.ROOT).contains("guild crate credit"))) {
+            lore.add(Component.literal("§7• §fGuild Crate Credit ×1"));
+        }
         return lore;
     }
 
     public static List<Component> contractRewardLore(List<String> commands) {
+        return contractRewardLore(commands, 0, "common");
+    }
+
+    public static List<Component> contractRewardLore(List<String> commands, int rewardCredits, String difficulty) {
         List<Component> lore = new ArrayList<>();
+        if (rewardCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(rewardCredits)));
         addCommandRewardLore(lore, commands);
+        lore.add(Component.literal("§7• §e" + crateChance() + "% chance for 1 " + displayCrateId(crateIdForDifficulty(difficulty)) + " Crate Credit"));
         return lore;
     }
 
     private static void addCommandRewardLore(List<Component> lore, List<String> commands) {
-        if (commands == null || commands.isEmpty()) {
-            lore.add(Component.literal("§7Extra Rewards: §fNone"));
-            return;
-        }
-        lore.add(Component.literal("§7Extra Rewards:"));
+        if (commands == null || commands.isEmpty()) return;
+        int shown = 0;
         for (String raw : commands) {
             if (raw == null || raw.isBlank()) continue;
-            lore.add(Component.literal("§8- §f" + friendlyReward(raw)));
-            if (lore.size() >= 8) {
-                lore.add(Component.literal("§8- §7More rewards..."));
-                break;
-            }
+            String friendly = friendlyReward(raw);
+            if (friendly.isBlank()) continue;
+            lore.add(Component.literal("§7• §f" + friendly));
+            if (++shown >= 8) break;
         }
     }
 
     private static String friendlyReward(String raw) {
-        String value = raw.replace("%player%", "you").replace("%uuid%", "your UUID").trim();
-        if (value.startsWith("give you ")) {
-            String[] parts = value.split(" ");
-            if (parts.length >= 4) return parts[3] + " x" + (parts.length >= 5 ? parts[4] : "1");
+        String original = raw == null ? "" : raw.trim();
+        if (original.isBlank()) return "";
+
+        String normalized = original.replaceAll("\\s+", " ");
+        String[] rawParts = normalized.split(" ");
+
+        if (rawParts.length >= 3 && rawParts[0].equalsIgnoreCase("give")) {
+            String itemId = rawParts[2];
+            String amount = rawParts.length >= 4 ? rawParts[3] : "1";
+            return prettyItemId(itemId) + " ×" + safeAmount(amount);
         }
-        if (value.startsWith("opencrates givekey you ")) {
-            String[] parts = value.split(" ");
-            if (parts.length >= 5) return parts[3] + " crate key x" + (parts.length >= 5 ? parts[4] : "1");
+
+        if (rawParts.length >= 4
+                && rawParts[0].equalsIgnoreCase("opencrates")
+                && rawParts[1].equalsIgnoreCase("givekey")) {
+            String crateId = rawParts[3];
+            String amount = rawParts.length >= 5 ? rawParts[4] : "1";
+            return displayCrateId(crateId) + " Crate Credit ×" + safeAmount(amount);
         }
+
+        String value = normalized.replace("%player%", "you").replace("%uuid%", "your UUID").trim();
         return value;
     }
 
+    private static String safeAmount(String value) {
+        if (value == null || value.isBlank()) return "1";
+        String cleaned = value.trim();
+        try {
+            return String.valueOf(Math.max(1, Integer.parseInt(cleaned)));
+        } catch (Exception ignored) {
+            return cleaned;
+        }
+    }
+
+    private static int crateChance() {
+        return Math.max(0, Math.min(100, QuestConfig.SETTINGS.crateCreditChancePercent));
+    }
+
+    private static void maybeAwardCrateCredit(ServerPlayer player, String crateId) {
+        int chance = crateChance();
+        if (player == null || chance <= 0 || RANDOM.nextInt(100) >= chance) return;
+        CrateCreditManager.addCredits(player, crateIdForDifficulty(crateId), 1);
+    }
+
+    private static String crateIdForDifficulty(String difficulty) {
+        String value = safe(difficulty).toLowerCase(Locale.ROOT).replace(' ', '_');
+        return switch (value) {
+            case "uncommon" -> "uncommon";
+            case "rare" -> "rare";
+            case "epic" -> "epic";
+            case "legendary" -> "legendary";
+            case "mythic" -> "mythic";
+            case "guild" -> "guild";
+            default -> "common";
+        };
+    }
+
+    private static String displayCrateId(String crateId) {
+        return titleWords(crateIdForDifficulty(crateId).replace('_', ' '));
+    }
+
+    private static String prettyItemId(String itemId) {
+        String value = safe(itemId);
+        int idx = value.indexOf(':');
+        if (idx >= 0 && idx + 1 < value.length()) value = value.substring(idx + 1);
+        return titleWords(value.replace('_', ' ').replace('-', ' '));
+    }
+
+    private static String titleWords(String value) {
+        if (value == null || value.isBlank()) return "Unknown";
+        String[] parts = value.trim().split("\\s+");
+        StringBuilder out = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(part.substring(0, 1).toUpperCase(Locale.ROOT));
+            if (part.length() > 1) out.append(part.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return out.toString();
+    }
+
     private static void notifyReady(ServerPlayer player, String label) {
-        player.sendSystemMessage(Component.literal(label + " quests complete! Run /quest " + label.toLowerCase(Locale.ROOT) + " complete to claim your rewards.").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal(label + " quests complete! Visit the Quests NPC to claim your rewards.").withStyle(ChatFormatting.GOLD));
     }
 
     public static boolean complete(ServerPlayer player, boolean daily) {
@@ -417,6 +494,7 @@ public class QuestManager {
             }
         }
         runRewardCommands(player, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
+        maybeAwardCrateCredit(player, daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId);
         if (daily) com.champutils.cosmetic.TitleManager.unlock(player, "questing_soul");
         markDirty(player);
         savePlayer(player);
@@ -451,7 +529,7 @@ public class QuestManager {
         if (data == null || data.contracts == null) return;
         for (QuestDataManager.Contract c : data.contracts) {
             if (c != null && !c.completed && c.progress >= c.required && System.currentTimeMillis() < c.expiresAtMillis) {
-                player.sendSystemMessage(Component.literal("Contract complete! Run /quest contract complete to claim your reward.").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("Contract complete! Visit the Contracts NPC to claim your reward.").withStyle(ChatFormatting.GOLD));
                 return;
             }
         }
@@ -520,7 +598,8 @@ public class QuestManager {
         c.required = Math.max(1, t.amount);
         c.progress = 0;
         c.creditCost = Math.max(0, t.creditCost);
-        c.difficulty = t.difficulty == null ? "NORMAL" : t.difficulty;
+        c.rewardCredits = Math.max(0, t.rewardCredits);
+        c.difficulty = t.difficulty == null ? "COMMON" : t.difficulty;
         c.purchasedAtMillis = System.currentTimeMillis();
         c.expiresAtMillis = c.purchasedAtMillis + Math.max(1, t.durationHours) * 60L * 60L * 1000L;
         c.rewardCommands = new ArrayList<>();
@@ -544,7 +623,9 @@ public class QuestManager {
             if (c == null || c.completed || now >= c.expiresAtMillis) continue;
             if (c.progress < c.required) continue;
             c.completed = true;
+            if (c.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(c.rewardCredits), "quest_contract_complete:" + c.id);
             runRewardCommands(player, c.rewardCommands);
+            maybeAwardCrateCredit(player, crateIdForDifficulty(c.difficulty));
             com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);
             if (profession != null) ProfessionManager.addXp(player, profession, Math.max(100, c.required / 2));

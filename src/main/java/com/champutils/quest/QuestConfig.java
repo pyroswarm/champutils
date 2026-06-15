@@ -27,6 +27,9 @@ public class QuestConfig {
         public int weeklyCompletionCredits = 1500;
         public int dailyProfessionXpPerObjective = 75;
         public int weeklyProfessionXpPerObjective = 350;
+        public int crateCreditChancePercent = 33;
+        public String dailyCrateCreditId = "common";
+        public String weeklyCrateCreditId = "rare";
         public int guildWeeklyObjectiveCount = 3;
         public int guildWeeklyRequiredPlayers = 10;
         public int guildWeeklyCompletionCredits = 1000;
@@ -53,6 +56,7 @@ public class QuestConfig {
 
     public static class ContractTemplate extends Template {
         public int creditCost;
+        public int rewardCredits;
         public int durationHours;
         public String difficulty;
         public List<String> rewardCommands = new ArrayList<>();
@@ -86,13 +90,62 @@ public class QuestConfig {
         if (SETTINGS.guildWeeklyObjectiveCount <= 0) SETTINGS.guildWeeklyObjectiveCount = 3;
         if (SETTINGS.guildWeeklyRewardCommands.isEmpty()) {
             SETTINGS.guildWeeklyRewardCommands.add("opencrates givekey %player% guild 1");
-            SETTINGS.guildWeeklyRewardCommands.add("give %player% minecraft:emerald 8");
+            // Guild quests always give the guild crate credit. Keep other rewards optional in config.
         }
         if (SETTINGS.guildWeeklyTemplates.isEmpty()) addDefaultGuildWeeklyTemplates(SETTINGS);
         if (SETTINGS.dailyRewardCommands == null) SETTINGS.dailyRewardCommands = new ArrayList<>();
         if (SETTINGS.weeklyRewardCommands == null) SETTINGS.weeklyRewardCommands = new ArrayList<>();
-        for (ContractTemplate c : SETTINGS.contractTemplates) if (c.rewardCommands == null) c.rewardCommands = new ArrayList<>();
+        for (ContractTemplate c : SETTINGS.contractTemplates) {
+            if (c == null) continue;
+            if (c.rewardCommands == null) c.rewardCommands = new ArrayList<>();
+            normalizeContractEconomy(c);
+        }
         if (SETTINGS.maxActiveContracts <= 0) SETTINGS.maxActiveContracts = 1;
+    }
+
+    private static void normalizeContractEconomy(ContractTemplate c) {
+        c.difficulty = normalizeDifficulty(c.difficulty);
+        int cost = switch (c.difficulty) {
+            case "UNCOMMON" -> 50;
+            case "RARE" -> 75;
+            case "EPIC" -> 125;
+            case "LEGENDARY" -> 175;
+            case "MYTHIC" -> 250;
+            default -> 25;
+        };
+        int rewardCredits = switch (c.difficulty) {
+            case "UNCOMMON" -> 150;
+            case "RARE" -> 350;
+            case "EPIC" -> 800;
+            case "LEGENDARY" -> 1500;
+            case "MYTHIC" -> 3000;
+            default -> 75;
+        };
+        int hours = switch (c.difficulty) {
+            case "UNCOMMON" -> 7;
+            case "RARE" -> 8;
+            case "EPIC" -> 10;
+            case "LEGENDARY" -> 11;
+            case "MYTHIC" -> 12;
+            default -> 6;
+        };
+
+        // Keep contracts short enough for normal play sessions. Existing configs with
+        // old 24-240h durations are corrected on load before beta.
+        c.creditCost = cost;
+        if (c.rewardCredits <= 0) c.rewardCredits = rewardCredits;
+        c.durationHours = hours;
+    }
+
+    private static String normalizeDifficulty(String difficulty) {
+        String value = difficulty == null ? "" : difficulty.trim().toUpperCase();
+        return switch (value) {
+            case "MEDIUM" -> "UNCOMMON";
+            case "HARD" -> "RARE";
+            case "EXPERT" -> "EPIC";
+            case "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC" -> value;
+            default -> "COMMON";
+        };
     }
 
     private static void createDefault(File file) {
@@ -101,7 +154,7 @@ public class QuestConfig {
             s.dailyRewardCommands.add("give %player% cobblemon:poke_ball 8");
             s.weeklyRewardCommands.add("give %player% cobblemon:great_ball 12");
             s.guildWeeklyRewardCommands.add("opencrates givekey %player% guild 1");
-            s.guildWeeklyRewardCommands.add("give %player% minecraft:emerald 8");
+            // Guild quests always give the guild crate credit. Keep other rewards optional in config.
 
             // Daily pool: intentionally wide so players don't see the same quests constantly.
             daily(s, "daily_mine_coal", "Mine 96 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 96, 1, 10);
@@ -163,20 +216,30 @@ public class QuestConfig {
             guildWeekly(s, "guild_weekly_npc_wins", "Guild members win 40 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 40, 1, 8);
             guildWeekly(s, "guild_weekly_defeat_dragons", "Guild members defeat 60 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 60, 25, 4);
 
-            // Purchasable single-objective contracts. Durations scale by difficulty.
-            contract(s, "contract_diamond_rush", "Mine 24 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 24, 10, 10, 750, 6, "HARD", "give %player% cobblemon:great_ball 8", "give %player% cobblemon:fire_stone 1");
-            contract(s, "contract_ancient_debris", "Mine 12 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 12, 35, 5, 1250, 8, "EXPERT", "give %player% cobblemon:ultra_ball 6", "give %player% cobblemon:dusk_stone 1");
-            contract(s, "contract_evo_ores", "Mine 50 Cobblemon evolution stone ores", "MINE_BLOCK_CONTAINS", ProfessionType.MINING, "stone_ore", 50, 10, 8, 950, 8, "HARD", "give %player% cobblemon:thunder_stone 1", "give %player% cobblemon:water_stone 1");
-            contract(s, "contract_grove_clear", "Chop 600 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 600, 1, 10, 600, 5, "MEDIUM", "give %player% cobblemon:miracle_seed 1", "give %player% cobblemon:friend_ball 4");
-            contract(s, "contract_apricorn_grove", "Chop 200 apricorn logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "apricorn", 200, 10, 7, 900, 7, "HARD", "give %player% cobblemon:level_ball 4", "give %player% cobblemon:lure_ball 4");
-            contract(s, "contract_dark_forest", "Chop 350 dark oak logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "dark_oak_log", 350, 5, 8, 750, 6, "HARD", "give %player% cobblemon:dusk_ball 6", "give %player% cobblemon:big_root 1");
-            contract(s, "contract_harvest_feast", "Harvest 700 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 700, 1, 10, 600, 5, "MEDIUM", "give %player% cobblemon:sitrus_berry 8", "give %player% cobblemon:heal_ball 6");
-            contract(s, "contract_wheat_surge", "Harvest 500 wheat", "HARVEST_CROP", ProfessionType.FARMING, "minecraft:wheat", 500, 1, 9, 500, 4, "MEDIUM", "give %player% cobblemon:oran_berry 12", "give %player% cobblemon:poke_ball 12");
-            contract(s, "contract_golden_crop", "Harvest 400 carrots", "HARVEST_CROP", ProfessionType.FARMING, "minecraft:carrots", 400, 10, 7, 800, 6, "HARD", "give %player% minecraft:golden_carrot 16", "give %player% cobblemon:luxury_ball 3");
-            contract(s, "contract_fire_hunter", "Defeat 80 Fire-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "fire", 80, 1, 8, 700, 6, "HARD", "give %player% cobblemon:water_stone 1", "give %player% cobblemon:dive_ball 6");
-            contract(s, "contract_dragon_hunter", "Defeat 45 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 45, 25, 4, 1500, 10, "EXPERT", "give %player% cobblemon:ultra_ball 12", "give %player% cobblemon:dragon_fang 1");
-            contract(s, "contract_ranked_push", "Win 10 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 10, 15, 5, 1200, 8, "EXPERT", "give %player% cobblemon:quick_ball 8", "give %player% cobblemon:focus_sash 1");
-            contract(s, "contract_trainer_sweep", "Win 30 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 30, 1, 8, 650, 6, "MEDIUM", "give %player% cobblemon:great_ball 10", "give %player% cobblemon:revive 4");
+            // Purchasable single-objective contracts. Only auto-trackable objectives are used.
+            // Crate credits are awarded separately at a 33% chance, matching the contract rarity.
+            contract(s, "contract_coal_shift", "Mine 160 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 160, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");
+            contract(s, "contract_log_shift", "Chop 220 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:oran_berry 8");
+            contract(s, "contract_crop_shift", "Harvest 220 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");
+            contract(s, "contract_trainer_shift", "Win 12 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 12, 1, 8, 25, 100, 6, "COMMON", "give %player% cobblemon:potion 6");
+
+            contract(s, "contract_iron_run", "Mine 180 iron ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:iron_ore", 180, 1, 9, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:great_ball 8");
+            contract(s, "contract_apricorn_run", "Chop 140 apricorn logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "apricorn", 140, 5, 7, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:friend_ball 4");
+            contract(s, "contract_harvest_run", "Harvest 400 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 400, 1, 9, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:sitrus_berry 8");
+            contract(s, "contract_type_run", "Defeat 45 Fire-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "fire", 45, 1, 7, 50, 175, 7, "UNCOMMON", "give %player% cobblemon:dive_ball 6");
+
+            contract(s, "contract_diamond_rush", "Mine 36 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 36, 10, 8, 75, 350, 8, "RARE", "give %player% cobblemon:ultra_ball 6");
+            contract(s, "contract_evo_ores", "Mine 70 Cobblemon evolution stone ores", "MINE_BLOCK_CONTAINS", ProfessionType.MINING, "stone_ore", 70, 10, 8, 75, 350, 8, "RARE", "give %player% cobblemon:thunder_stone 1", "give %player% cobblemon:water_stone 1");
+            contract(s, "contract_dark_forest", "Chop 500 dark oak logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "dark_oak_log", 500, 5, 8, 75, 350, 8, "RARE", "give %player% cobblemon:dusk_ball 8");
+            contract(s, "contract_ranked_push", "Win 8 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 8, 15, 5, 75, 400, 8, "RARE", "give %player% cobblemon:quick_ball 8");
+
+            contract(s, "contract_ancient_debris", "Mine 20 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 20, 35, 5, 125, 800, 10, "EPIC", "give %player% cobblemon:ultra_ball 10");
+            contract(s, "contract_dragon_hunter", "Defeat 75 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 75, 25, 4, 125, 800, 10, "EPIC", "give %player% cobblemon:dragon_fang 1");
+
+            contract(s, "contract_ranked_marathon", "Win 20 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 20, 20, 3, 175, 1500, 11, "LEGENDARY", "give %player% cobblemon:focus_sash 1");
+            contract(s, "contract_trainer_marathon", "Win 120 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 120, 1, 4, 175, 1500, 11, "LEGENDARY", "give %player% cobblemon:revive 12");
+
+            contract(s, "contract_master_grind", "Defeat 300 wild Pokémon by type quests", "DEFEAT_TYPE", ProfessionType.BATTLING, "any", 300, 30, 1, 250, 3000, 12, "MYTHIC", "give %player% cobblemon:rare_candy 2");
 
             try (FileWriter writer = new FileWriter(file)) { GSON.toJson(s, writer); }
         } catch (Exception e) {
@@ -220,7 +283,7 @@ public class QuestConfig {
         return t;
     }
 
-    private static void contract(Settings s, String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight, int cost, int hours, String difficulty, String... rewards) {
+    private static void contract(Settings s, String id, String desc, String type, ProfessionType profession, String target, int amount, int minLevel, int weight, int cost, int rewardCredits, int hours, String difficulty, String... rewards) {
         ContractTemplate t = new ContractTemplate();
         t.id = id;
         t.description = desc;
@@ -231,6 +294,7 @@ public class QuestConfig {
         t.minLevel = minLevel;
         t.weight = weight;
         t.creditCost = cost;
+        t.rewardCredits = rewardCredits;
         t.durationHours = hours;
         t.difficulty = difficulty;
         for (String r : rewards) t.rewardCommands.add(r);

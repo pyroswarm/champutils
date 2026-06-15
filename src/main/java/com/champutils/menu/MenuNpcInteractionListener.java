@@ -81,6 +81,8 @@ public final class MenuNpcInteractionListener {
             case "shop", "essentials" -> NpcShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
             case "quests", "quest" -> QuestMenu.open(player);
+            case "contracts", "contract" -> ContractMenu.open(player);
+            case "wondertrade", "wonder" -> WonderTradeMenu.open(player);
             case "territorycreation", "territorycreate" -> TerritoryMenus.openCreationNpcMenu(player);
             case "territories", "territory" -> TerritoryMenus.openHub(player);
             case "pterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.PERSONAL, "", 0);

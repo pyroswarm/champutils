@@ -202,12 +202,12 @@ public final class WonderTradeService {
                 PokemonOriginManager.markOrigin(received, PokemonOriginManager.ORIGIN_WONDERTRADE);
                 boolean added = AuctionPokemonSerializer.addToFirstOpenPartySlot(onlinePlayer, received);
                 if (!added) {
-                    onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but your party was full. Use /wondertrade claim after freeing a slot.").withStyle(ChatFormatting.YELLOW));
+                    onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but your party was full. Free a party slot, then use the Wonder Trade NPC claim button.").withStyle(ChatFormatting.YELLOW));
                     return;
                 }
                 deletePendingAsync(playerUuid);
             } catch (Exception e) {
-                onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but claim safety triggered. Free a party slot and use /wondertrade claim.").withStyle(ChatFormatting.YELLOW));
+                onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but claim safety triggered. Free a party slot, then use the Wonder Trade NPC claim button.").withStyle(ChatFormatting.YELLOW));
                 e.printStackTrace();
                 return;
             }
@@ -428,7 +428,7 @@ public final class WonderTradeService {
         }
 
         static TradeCheck pendingClaim() {
-            return new TradeCheck(false, Component.literal("You have a pending Wondertrade Pokémon. Use /wondertrade claim before trading again.").withStyle(ChatFormatting.YELLOW));
+            return new TradeCheck(false, Component.literal("You have a pending Wondertrade Pokémon. Use the Wonder Trade NPC claim button before trading again.").withStyle(ChatFormatting.YELLOW));
         }
 
         static TradeCheck cooldown(long remainingSeconds) {
