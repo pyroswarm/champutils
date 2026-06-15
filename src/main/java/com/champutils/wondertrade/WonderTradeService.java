@@ -21,11 +21,15 @@ import java.util.concurrent.Executors;
 public final class WonderTradeService {
 
     private static final Set<UUID> TRADING = ConcurrentHashMap.newKeySet();
-    private static final ExecutorService DB_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+    private static final ExecutorService DB_EXECUTOR = Executors.newFixedThreadPool(2, runnable -> {
         Thread thread = new Thread(runnable, "ChampUtils-WonderTrade-DB");
         thread.setDaemon(true);
         return thread;
     });
+
+    private static volatile WonderTradeRepository.StatusSnapshot cachedStatus;
+    private static volatile long cachedStatusAtMillis = 0L;
+    private static final long STATUS_CACHE_MILLIS = 10_000L;
 
     private WonderTradeService() {}
 
@@ -56,12 +60,12 @@ public final class WonderTradeService {
 
         CompletableFuture.supplyAsync(() -> {
             try {
-                if (WonderTradeRepository.hasPendingClaim(playerUuid)) {
+                WonderTradeRepository.TradeGate gate = WonderTradeRepository.getTradeGate(playerUuid);
+                if (gate.hasPendingClaim()) {
                     return TradeCheck.pendingClaim();
                 }
-                long remaining = WonderTradeRepository.getCooldownRemainingSeconds(playerUuid);
-                if (remaining > 0) {
-                    return TradeCheck.cooldown(remaining);
+                if (gate.cooldownRemainingSeconds() > 0) {
+                    return TradeCheck.cooldown(gate.cooldownRemainingSeconds());
                 }
                 return TradeCheck.ok();
             } catch (Exception e) {
@@ -72,6 +76,8 @@ public final class WonderTradeService {
             if (onlinePlayer == null) {
                 TRADING.remove(playerUuid);
                 deletePendingAsync(playerUuid);
+                cachedStatus = null;
+                cachedStatusAtMillis = 0L;
                 return;
             }
 
@@ -321,6 +327,8 @@ public final class WonderTradeService {
                 error.printStackTrace();
                 return;
             }
+            cachedStatus = null;
+            cachedStatusAtMillis = 0L;
             onlinePlayer.sendSystemMessage(Component.literal("Wondertrade cooldown set to " + minutes + " minutes.").withStyle(ChatFormatting.GREEN));
         }));
     }
@@ -337,13 +345,15 @@ public final class WonderTradeService {
         MinecraftServer server = player.server;
         CompletableFuture.supplyAsync(() -> {
             try {
-                WonderTradeRepository.ensureSchema();
-                return new int[] {
-                        WonderTradeRepository.poolSize(),
-                        WonderTradeRepository.shinyCount(),
-                        WonderTradeRepository.legendaryCount(),
-                        WonderTradeRepository.getCooldownMinutes()
-                };
+                long now = System.currentTimeMillis();
+                WonderTradeRepository.StatusSnapshot snapshot = cachedStatus;
+                if (snapshot != null && now - cachedStatusAtMillis <= STATUS_CACHE_MILLIS) {
+                    return snapshot;
+                }
+                snapshot = WonderTradeRepository.getStatusSnapshot();
+                cachedStatus = snapshot;
+                cachedStatusAtMillis = now;
+                return snapshot;
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -355,7 +365,7 @@ public final class WonderTradeService {
                 error.printStackTrace();
                 return;
             }
-            onlinePlayer.sendSystemMessage(Component.literal("Wondertrade Pool: " + stats[0] + " Pokémon | Shinies: " + stats[1] + " | Legendaries: " + stats[2] + " | Cooldown: " + stats[3] + "m").withStyle(ChatFormatting.AQUA));
+            onlinePlayer.sendSystemMessage(Component.literal("Wondertrade Pool: " + stats.poolSize() + " Pokémon | Shinies: " + stats.shinyCount() + " | Legendaries: " + stats.legendaryCount() + " | Cooldown: " + stats.cooldownMinutes() + "m").withStyle(ChatFormatting.AQUA));
         }));
     }
 

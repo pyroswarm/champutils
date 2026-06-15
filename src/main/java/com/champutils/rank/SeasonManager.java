@@ -31,8 +31,8 @@ import java.util.UUID;
 
 public class SeasonManager {
 
-    public static int CURRENT_SEASON = 1;
-    public static String CURRENT_NAME = "Indigo Cup";
+    public static int CURRENT_SEASON = 0;
+    public static String CURRENT_NAME = "Offseason";
 
     public static int RESET_FLOOR = 300;
     public static double RESET_PERCENT = .50;
@@ -47,8 +47,8 @@ public class SeasonManager {
     private static String pendingSeasonName = null;
 
     public static class SeasonState {
-        public int currentSeason = 1;
-        public String currentName = "Indigo Cup";
+        public int currentSeason = 0;
+        public String currentName = "Offseason";
     }
 
     public static class PlayerSnapshot {
@@ -278,6 +278,8 @@ public class SeasonManager {
         int oldSeason = CURRENT_SEASON;
         int newSeason = CURRENT_SEASON + 1;
         String safeName = name == null || name.isBlank() ? "Season " + newSeason : name;
+
+        SeasonRewardManager.prepareClaimableRewards(server, oldSeason);
 
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             archivePlayer(p);
@@ -564,6 +566,24 @@ public class SeasonManager {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void resetToSeasonZero(MinecraftServer server) {
+        pendingSeasonReset = false;
+        resetTickCountdown = 0;
+        pendingSeasonName = null;
+        CURRENT_SEASON = 0;
+        CURRENT_NAME = "Offseason";
+        saveState();
+        SeasonDatabaseRepository.setActiveSeason(0, CURRENT_NAME);
+        RankedFormatDatabaseRepository.syncCurrentFormats();
+        if (server != null) {
+            LeaderboardManager.refreshNow(server);
+            server.getPlayerList().broadcastSystemMessage(
+                    Component.literal("§7Season state reset to §fSeason 0 §7Offseason."),
+                    false
+            );
         }
     }
 

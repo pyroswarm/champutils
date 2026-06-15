@@ -124,7 +124,7 @@ public final class ProfileLeaderboardRepository {
     }
 
     private static List<Entry> ranked(Connection connection, int limit) throws Exception {
-        String seasonId = "season_" + Math.max(1, SeasonManager.CURRENT_SEASON);
+        String seasonId = "season_" + Math.max(0, SeasonManager.CURRENT_SEASON);
         String sql = "select profile_id, player_uuid, username, profile_name, mode, rp, wins, losses " +
                 "from leaderboard_ranked_profiles where season_id = ? order by rp desc, wins desc, losses asc limit ?";
         List<Entry> rows = new ArrayList<>();

@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public final class AuctionHouseGui {
 
@@ -135,22 +136,28 @@ public final class AuctionHouseGui {
                 return;
             }
 
+            UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
             for (int i = 0; i < Math.min(45, listings.size()); i++) {
+                int slot = i;
                 AuctionHouseRepository.AuctionListingSummary listing = listings.get(i);
-                List<Component> lore = listingLore(listing);
-                lore.add(Component.literal(""));
-                if (PlayerProfileManager.activeProfileId(player).toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
-                    lore.add(Component.literal("§eThis is your listing."));
-                    lore.add(Component.literal("§7Click to inspect."));
-                } else {
-                    lore.add(Component.literal("§aClick to inspect and buy."));
-                }
+                long delayMillis = (slot / 9L) * 50L;
+                CompletableFuture.runAsync(() -> {}, CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
+                        .thenRun(() -> player.server.execute(() -> {
+                            List<Component> lore = listingLore(listing);
+                            lore.add(Component.literal(""));
+                            if (activeProfileId.toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
+                                lore.add(Component.literal("§eThis is your listing."));
+                                lore.add(Component.literal("§7Click to inspect."));
+                            } else {
+                                lore.add(Component.literal("§aClick to inspect and buy."));
+                            }
 
-                GuiElementBuilder builder = iconFor(player, listing)
-                        .setName(Component.literal("§f" + listing.title))
-                        .setLore(lore)
-                        .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "browse"));
-                gui.setSlot(i, builder);
+                            GuiElementBuilder builder = iconFor(player, listing)
+                                    .setName(Component.literal("§f" + listing.title))
+                                    .setLore(lore)
+                                    .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "browse"));
+                            gui.setSlot(slot, builder);
+                        }));
             }
         }));
     }
@@ -182,16 +189,21 @@ public final class AuctionHouseGui {
             }
 
             for (int i = 0; i < Math.min(45, listings.size()); i++) {
+                int slot = i;
                 AuctionHouseRepository.AuctionListingSummary listing = listings.get(i);
-                List<Component> lore = listingLore(listing);
-                lore.add(Component.literal(""));
-                lore.add(Component.literal("§eClick to inspect."));
-                lore.add(Component.literal("§cCancel button is inside inspect."));
+                long delayMillis = (slot / 9L) * 50L;
+                CompletableFuture.runAsync(() -> {}, CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
+                        .thenRun(() -> player.server.execute(() -> {
+                            List<Component> lore = listingLore(listing);
+                            lore.add(Component.literal(""));
+                            lore.add(Component.literal("§eClick to inspect."));
+                            lore.add(Component.literal("§cCancel button is inside inspect."));
 
-                gui.setSlot(i, iconFor(player, listing)
-                        .setName(Component.literal("§f" + listing.title))
-                        .setLore(lore)
-                        .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "mine")));
+                            gui.setSlot(slot, iconFor(player, listing)
+                                    .setName(Component.literal("§f" + listing.title))
+                                    .setLore(lore)
+                                    .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "mine")));
+                        }));
             }
         }));
     }

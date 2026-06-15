@@ -39,7 +39,7 @@ public final class RankedFormatDatabaseRepository {
             return;
         }
 
-        int seasonNumber = Math.max(1, SeasonManager.CURRENT_SEASON);
+        int seasonNumber = Math.max(0, SeasonManager.CURRENT_SEASON);
         String seasonName = SeasonManager.CURRENT_NAME == null || SeasonManager.CURRENT_NAME.isBlank()
                 ? "Season " + seasonNumber
                 : SeasonManager.CURRENT_NAME;

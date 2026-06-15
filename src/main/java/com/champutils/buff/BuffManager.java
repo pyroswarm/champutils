@@ -82,6 +82,15 @@ public final class BuffManager {
         return lines;
     }
 
+
+    /**
+     * Framework hook for future capture-rate integrations.
+     * Returns decimal bonus from active providers, e.g. 0.10D = +10% catch chance.
+     */
+    public static double getCatchChanceBonus(ServerPlayer player, Pokemon pokemon) {
+        return getTotalBuff(BuffContext.trueWildCatch(player, pokemon), BuffType.CATCH_CHANCE);
+    }
+
     public static void applyCatchBuffs(ServerPlayer player, Pokemon pokemon) {
         applyCatchBuffs(BuffContext.trueWildCatch(player, pokemon));
     }

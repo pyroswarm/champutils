@@ -93,52 +93,79 @@ public final class AuctionHouseService {
 
         AuctionHouseConfig config = AuctionHouseConfig.get();
         int maxSlots = config.safeMaxActiveListingsPerPlayer();
-        ItemStack currentHeld = player.getItemInHand(InteractionHand.MAIN_HAND);
+        UUID playerUuid = player.getUUID();
+        UUID sellerProfileId = PlayerProfileManager.activeProfileId(player);
+        String sellerName = player.getName().getString();
 
+        ItemStack currentHeld = player.getItemInHand(InteractionHand.MAIN_HAND);
         if (currentHeld == null || currentHeld.isEmpty() || !ItemStack.isSameItemSameComponents(currentHeld, action.itemSnapshot) || currentHeld.getCount() < action.itemSnapshot.getCount()) {
-            LISTING.remove(player.getUUID());
+            LISTING.remove(playerUuid);
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Listing canceled because the held item changed before confirmation.").withStyle(ChatFormatting.RED));
             return;
         }
 
-        try {
-            int activeListings = AuctionHouseRepository.countActiveListings(PlayerProfileManager.activeProfileId(player));
-            if (activeListings >= maxSlots) {
-                LISTING.remove(player.getUUID());
-                player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + activeListings + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
-                return;
-            }
-        } catch (Exception e) {
-            LISTING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Could not verify your auction slot limit. Try again later.").withStyle(ChatFormatting.RED));
-            e.printStackTrace();
-            return;
-        }
-
-        ItemStack listedStack = action.itemSnapshot.copy();
-        currentHeld.shrink(listedStack.getCount());
-        if (currentHeld.isEmpty()) player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        AuctionPendingActionManager.remove(player);
-        player.sendSystemMessage(Component.literal("Creating auction listing...").withStyle(ChatFormatting.GRAY));
-
+        player.sendSystemMessage(Component.literal("Checking auction slot limit...").withStyle(ChatFormatting.GRAY));
         CompletableFuture.supplyAsync(() -> {
-            try {
-                JsonObject payload = AuctionItemSerializer.toPayload(player, listedStack);
-                return AuctionHouseRepository.createItemListing(PlayerProfileManager.activeProfileId(player), player.getName().getString(), listedStack.getHoverName().getString(), "Listed in-game by " + player.getName().getString(), action.price, listedStack.getCount(), payload, config.safeListingDurationDays());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).whenComplete((listingId, error) -> player.server.execute(() -> {
-            LISTING.remove(player.getUUID());
-            if (error != null) {
-                giveOrDrop(player, listedStack);
-                player.sendSystemMessage(Component.literal("Auction listing failed. Your item was returned.").withStyle(ChatFormatting.RED));
-                error.printStackTrace();
+            try { return AuctionHouseRepository.countActiveListings(sellerProfileId); }
+            catch (Exception e) { throw new RuntimeException(e); }
+        }).whenComplete((activeListings, slotError) -> player.server.execute(() -> {
+            if (slotError != null) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Could not verify your auction slot limit. Try again later.").withStyle(ChatFormatting.RED));
+                slotError.printStackTrace();
                 return;
             }
-            player.sendSystemMessage(Component.literal("Listed " + listedStack.getHoverName().getString() + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
-            player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+            int active = activeListings == null ? 0 : activeListings;
+            if (active >= maxSlots) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + active + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
+                return;
+            }
+
+            ItemStack heldNow = player.getItemInHand(InteractionHand.MAIN_HAND);
+            if (heldNow == null || heldNow.isEmpty() || !ItemStack.isSameItemSameComponents(heldNow, action.itemSnapshot) || heldNow.getCount() < action.itemSnapshot.getCount()) {
+                LISTING.remove(playerUuid);
+                AuctionPendingActionManager.remove(player);
+                player.sendSystemMessage(Component.literal("Listing canceled because the held item changed before confirmation.").withStyle(ChatFormatting.RED));
+                return;
+            }
+
+            ItemStack listedStack = action.itemSnapshot.copy();
+            JsonObject payload;
+            String title = listedStack.getHoverName().getString();
+            try {
+                // NBT/component serialization stays on the server thread; only SQL is moved off-thread.
+                payload = AuctionItemSerializer.toPayload(player, listedStack);
+            } catch (Exception e) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Could not safely serialize that item. Nothing was listed.").withStyle(ChatFormatting.RED));
+                e.printStackTrace();
+                return;
+            }
+
+            heldNow.shrink(listedStack.getCount());
+            if (heldNow.isEmpty()) player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            AuctionPendingActionManager.remove(player);
+            player.sendSystemMessage(Component.literal("Creating auction listing...").withStyle(ChatFormatting.GRAY));
+
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return AuctionHouseRepository.createItemListing(sellerProfileId, sellerName, title, "Listed in-game by " + sellerName, action.price, listedStack.getCount(), payload, config.safeListingDurationDays());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).whenComplete((listingId, error) -> player.server.execute(() -> {
+                LISTING.remove(playerUuid);
+                if (error != null) {
+                    giveOrDrop(player, listedStack);
+                    player.sendSystemMessage(Component.literal("Auction listing failed. Your item was returned.").withStyle(ChatFormatting.RED));
+                    error.printStackTrace();
+                    return;
+                }
+                player.sendSystemMessage(Component.literal("Listed " + title + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
+                player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+            }));
         }));
     }
 
@@ -150,84 +177,107 @@ public final class AuctionHouseService {
 
         AuctionHouseConfig config = AuctionHouseConfig.get();
         int maxSlots = config.safeMaxActiveListingsPerPlayer();
+        UUID playerUuid = player.getUUID();
+        UUID sellerProfileId = PlayerProfileManager.activeProfileId(player);
+        String sellerName = player.getName().getString();
 
         Pokemon pokemon;
         try {
             pokemon = AuctionPokemonSerializer.getPartyPokemon(player, action.partySlotIndex);
         } catch (Exception e) {
-            LISTING.remove(player.getUUID());
+            LISTING.remove(playerUuid);
             player.sendSystemMessage(Component.literal("Could not read your Pokémon before listing. Check console.").withStyle(ChatFormatting.RED));
             e.printStackTrace();
             return;
         }
 
         if (pokemon == null || !pokemon.getDisplayName(true).getString().equals(action.pokemonName)) {
-            LISTING.remove(player.getUUID());
+            LISTING.remove(playerUuid);
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
             return;
         }
 
-        try {
-            int activeListings = AuctionHouseRepository.countActiveListings(PlayerProfileManager.activeProfileId(player));
-            if (activeListings >= maxSlots) {
-                LISTING.remove(player.getUUID());
-                player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + activeListings + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
-                return;
-            }
-        } catch (Exception e) {
-            LISTING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Could not verify your auction slot limit. Try again later.").withStyle(ChatFormatting.RED));
-            e.printStackTrace();
-            return;
-        }
-
-        JsonObject payload;
-        String title = pokemon.getDisplayName(true).getString();
-        try {
-            payload = AuctionPokemonSerializer.toPayload(player, pokemon);
-            AuctionPokemonSerializer.clearPartySlot(player, action.partySlotIndex);
-        } catch (Exception e) {
-            LISTING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Could not safely serialize/remove that Pokémon. Nothing was listed.").withStyle(ChatFormatting.RED));
-            e.printStackTrace();
-            return;
-        }
-
-        AuctionPendingActionManager.remove(player);
-        player.sendSystemMessage(Component.literal("Creating Pokémon auction listing...").withStyle(ChatFormatting.GRAY));
-
+        player.sendSystemMessage(Component.literal("Checking auction slot limit...").withStyle(ChatFormatting.GRAY));
         CompletableFuture.supplyAsync(() -> {
-            try {
-                return AuctionHouseRepository.createPokemonListing(PlayerProfileManager.activeProfileId(player), player.getName().getString(), title, "Pokémon listed in-game by " + player.getName().getString(), action.price, payload, config.safeListingDurationDays());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).whenComplete((listingId, error) -> player.server.execute(() -> {
-            LISTING.remove(player.getUUID());
-            if (error != null) {
-                try {
-                    Pokemon restored = AuctionPokemonSerializer.fromPayload(player, payload);
-                    AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, restored);
-                    if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
-                        player.sendSystemMessage(Component.literal("Listing failed and your Pokémon could not be returned to your party or PC. Contact an admin before relogging.").withStyle(ChatFormatting.RED));
-                    } else if (delivery == AuctionPokemonSerializer.DeliveryResult.PC) {
-                        player.sendSystemMessage(Component.literal("Listing failed. Your party was full, so your Pokémon was returned to your PC.").withStyle(ChatFormatting.RED));
-                    } else {
-                        player.sendSystemMessage(Component.literal("Listing failed. Your Pokémon was returned to your party.").withStyle(ChatFormatting.RED));
-                    }
-                } catch (Exception restoreError) {
-                    player.sendSystemMessage(Component.literal("Listing failed and Pokémon restore failed. Contact an admin immediately.").withStyle(ChatFormatting.RED));
-                    restoreError.printStackTrace();
-                }
-                error.printStackTrace();
+            try { return AuctionHouseRepository.countActiveListings(sellerProfileId); }
+            catch (Exception e) { throw new RuntimeException(e); }
+        }).whenComplete((activeListings, slotError) -> player.server.execute(() -> {
+            if (slotError != null) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Could not verify your auction slot limit. Try again later.").withStyle(ChatFormatting.RED));
+                slotError.printStackTrace();
                 return;
             }
-            player.sendSystemMessage(Component.literal("Listed " + title + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
-            player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+            int active = activeListings == null ? 0 : activeListings;
+            if (active >= maxSlots) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("You have reached your auction slot limit: " + active + "/" + maxSlots + ".").withStyle(ChatFormatting.RED));
+                return;
+            }
+
+            Pokemon latest;
+            try {
+                latest = AuctionPokemonSerializer.getPartyPokemon(player, action.partySlotIndex);
+            } catch (Exception e) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Could not read your Pokémon before listing. Check console.").withStyle(ChatFormatting.RED));
+                e.printStackTrace();
+                return;
+            }
+            if (latest == null || !latest.getDisplayName(true).getString().equals(action.pokemonName)) {
+                LISTING.remove(playerUuid);
+                AuctionPendingActionManager.remove(player);
+                player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
+                return;
+            }
+
+            JsonObject payload;
+            String title = latest.getDisplayName(true).getString();
+            try {
+                payload = AuctionPokemonSerializer.toPayload(player, latest);
+                AuctionPokemonSerializer.clearPartySlot(player, action.partySlotIndex);
+            } catch (Exception e) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Could not safely serialize/remove that Pokémon. Nothing was listed.").withStyle(ChatFormatting.RED));
+                e.printStackTrace();
+                return;
+            }
+
+            AuctionPendingActionManager.remove(player);
+            player.sendSystemMessage(Component.literal("Creating Pokémon auction listing...").withStyle(ChatFormatting.GRAY));
+
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return AuctionHouseRepository.createPokemonListing(sellerProfileId, sellerName, title, "Pokémon listed in-game by " + sellerName, action.price, payload, config.safeListingDurationDays());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).whenComplete((listingId, error) -> player.server.execute(() -> {
+                LISTING.remove(playerUuid);
+                if (error != null) {
+                    try {
+                        Pokemon restored = AuctionPokemonSerializer.fromPayload(player, payload);
+                        AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, restored);
+                        if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                            player.sendSystemMessage(Component.literal("Listing failed and your Pokémon could not be returned to your party or PC. Contact an admin before relogging.").withStyle(ChatFormatting.RED));
+                        } else if (delivery == AuctionPokemonSerializer.DeliveryResult.PC) {
+                            player.sendSystemMessage(Component.literal("Listing failed. Your party was full, so your Pokémon was returned to your PC.").withStyle(ChatFormatting.RED));
+                        } else {
+                            player.sendSystemMessage(Component.literal("Listing failed. Your Pokémon was returned to your party.").withStyle(ChatFormatting.RED));
+                        }
+                    } catch (Exception restoreError) {
+                        player.sendSystemMessage(Component.literal("Listing failed and Pokémon restore failed. Contact an admin immediately.").withStyle(ChatFormatting.RED));
+                        restoreError.printStackTrace();
+                    }
+                    error.printStackTrace();
+                    return;
+                }
+                player.sendSystemMessage(Component.literal("Listed " + title + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
+                player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+            }));
         }));
     }
-
 
 
 

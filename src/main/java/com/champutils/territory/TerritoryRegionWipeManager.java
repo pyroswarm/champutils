@@ -129,9 +129,14 @@ public final class TerritoryRegionWipeManager {
         task.worldLoadAttempts = 0;
 
         TerritoryConfig.Data config = TerritoryConfig.get();
-        int blockBudget = Math.max(4096, config.territoryWipeBlocksPerTick);
-        int chunkBudget = Math.max(1, config.territoryWipeChunksPerTick);
-        long maxNanos = Math.max(1L, config.territoryWipeMaxMillisecondsPerTick) * 1_000_000L;
+        // Keep territory wipes extremely conservative. A previous version allowed huge
+        // per-tick budgets and used ServerLevel#getChunk, which can synchronously load
+        // chunk columns on the server thread. If storage is slow, that can trip the
+        // watchdog. Clamp here as a final safety net even if an old config still has
+        // aggressive values.
+        int blockBudget = Math.max(512, Math.min(config.territoryWipeBlocksPerTick, 8192));
+        int chunkBudget = Math.max(1, Math.min(config.territoryWipeChunksPerTick, 2));
+        long maxNanos = Math.max(1L, Math.min(config.territoryWipeMaxMillisecondsPerTick, 2)) * 1_000_000L;
         long deadline = System.nanoTime() + maxNanos;
 
         if (!task.entitiesCleared) {
@@ -284,7 +289,17 @@ public final class TerritoryRegionWipeManager {
                     lastChunkZ = chunkZ;
                 }
 
-                LevelChunk chunk = level.getChunk(chunkX, chunkZ);
+                // Do NOT call level.getChunk(chunkX, chunkZ) here. That method may
+                // synchronously load/generate chunks and block the main server thread,
+                // which is exactly what caused the watchdog crash during territory
+                // deletion. Only wipe chunks that are already loaded; unloaded chunks
+                // are skipped instead of force-loaded.
+                LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
+                if (chunk == null) {
+                    advanceChunk();
+                    continue;
+                }
+
                 LevelChunkSection[] sections = chunk.getSections();
                 if (sectionIndex >= sections.length) {
                     advanceChunk();

@@ -346,6 +346,29 @@ public class SeasonCommand {
 
 
                                     .then(
+                                            literal("reset0")
+                                                    .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
+                                                    .executes(ctx->{
+
+                                                        armConfirm(
+                                                                "reset0",
+                                                                null,
+                                                                -1
+                                                        );
+
+                                                        ctx.getSource().sendSuccess(
+                                                                ()->Component.literal(
+                                                                        "§cRun /season confirm to reset the active season back to Season 0 Offseason."
+                                                                ),
+                                                                false
+                                                        );
+
+                                                        return 1;
+                                                    })
+                                    )
+
+
+                                    .then(
                                             literal("confirm")
                                                     .requires(s -> com.champutils.permissions.PermissionUtil.has(s, "champutils.admin"))
 
@@ -389,6 +412,16 @@ public class SeasonCommand {
                                                             case "rollback":
 
                                                                 SeasonManager.rollbackSeason(
+                                                                        ctx.getSource()
+                                                                                .getServer()
+                                                                );
+                                                                break;
+
+
+
+                                                            case "reset0":
+
+                                                                SeasonManager.resetToSeasonZero(
                                                                         ctx.getSource()
                                                                                 .getServer()
                                                                 );

@@ -145,10 +145,10 @@ public final class ChestShopCommand {
 
     private static Component claimFailureMessage(ChestShopClaimCompat.ClaimCheckResult result) {
         String message = switch (result) {
-            case NO_CLAIM_MOD -> "Chest shops require Flan claims to be installed/enabled.";
+            case NO_CLAIM_MOD -> "Chest shops require ChampUtils land claims to be enabled.";
             case UNCLAIMED -> "Chest shops can only be created inside claimed land.";
             case NOT_TRUSTED -> "You can only create chest shops in claims where you are trusted to build.";
-            case CHECK_FAILED -> "Could not verify this claim. Ask an admin to check Flan/ChampUtils compatibility.";
+            case CHECK_FAILED -> "Could not verify this claim. Ask an admin to check ChampUtils land claims.";
             default -> "You cannot create a chest shop here.";
         };
         return Component.literal(message).withStyle(ChatFormatting.RED);

@@ -2,6 +2,8 @@ package com.champutils.cosmetic;
 
 import com.champutils.battle.BattleContextManager;
 import com.champutils.profession.ProfessionType;
+import com.champutils.buff.BuffType;
+import com.champutils.buff.BuffManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.server.level.ServerPlayer;
@@ -61,6 +63,8 @@ public final class TitleConfig {
         for (TitleDef def : CONFIG.titles) {
             if (def == null || def.id == null || def.id.isBlank()) continue;
             if (def.display == null || def.display.isBlank()) def.display = formatDisplay(def);
+            if (def.unlock == null) def.unlock = new UnlockCondition();
+            if (def.buffs == null) def.buffs = new ArrayList<>();
             BY_ID.put(def.id, def);
         }
     }
@@ -70,6 +74,127 @@ public final class TitleConfig {
     public static String display(String id) {
         TitleDef def = get(id);
         return def == null ? null : def.display;
+    }
+
+
+    public static synchronized TitleDef createManualTitle(String id, String name) {
+        if (id == null || id.isBlank()) return null;
+        String normalizedId = normalizeId(id);
+        TitleDef existing = get(normalizedId);
+        if (existing != null) return existing;
+        if (CONFIG.titles == null) CONFIG.titles = new ArrayList<>();
+        TitleDef def = new TitleDef();
+        def.id = normalizedId;
+        def.name = (name == null || name.isBlank()) ? pretty(normalizedId) : name.trim();
+        def.color = "&7";
+        def.icon = "";
+        def.description = "Manual admin title.";
+        def.unlock = new UnlockCondition();
+        def.unlock.type = "manual";
+        def.buffs = new ArrayList<>();
+        def.display = formatDisplay(def);
+        def.passiveDescription = buffText(def);
+        CONFIG.titles.add(def);
+        rebuildIndex();
+        save();
+        return def;
+    }
+
+    public static synchronized boolean updateManualTitle(String id, String name, String color, String icon, String description) {
+        TitleDef def = get(normalizeId(id));
+        if (def == null) return false;
+        if (name != null) def.name = name.trim();
+        if (color != null) def.color = color.trim();
+        if (icon != null) def.icon = icon.trim();
+        if (description != null) def.description = description.trim();
+        def.display = formatDisplay(def);
+        def.passiveDescription = buffText(def);
+        rebuildIndex();
+        save();
+        return true;
+    }
+
+    public static synchronized boolean setBuff(String id, String buff, double amount) {
+        TitleDef def = get(normalizeId(id));
+        BuffType type = parseBuffType(buff);
+        if (def == null || type == null) return false;
+        if (def.buffs == null) def.buffs = new ArrayList<>();
+        double safeAmount = Math.max(0.0D, amount);
+        boolean found = false;
+        for (TitleBuff titleBuff : def.buffs) {
+            if (titleBuff != null && titleBuff.type != null && titleBuff.type.equalsIgnoreCase(type.name())) {
+                titleBuff.amount = safeAmount;
+                found = true;
+            }
+        }
+        if (!found) {
+            TitleBuff titleBuff = new TitleBuff();
+            titleBuff.type = type.name();
+            titleBuff.amount = safeAmount;
+            def.buffs.add(titleBuff);
+        }
+        def.passiveDescription = buffText(def);
+        rebuildIndex();
+        save();
+        return true;
+    }
+
+    public static synchronized boolean removeBuff(String id, String buff) {
+        TitleDef def = get(normalizeId(id));
+        BuffType type = parseBuffType(buff);
+        if (def == null || type == null || def.buffs == null) return false;
+        boolean changed = def.buffs.removeIf(titleBuff -> titleBuff != null && titleBuff.type != null && titleBuff.type.equalsIgnoreCase(type.name()));
+        if (changed) {
+            def.passiveDescription = buffText(def);
+            rebuildIndex();
+            save();
+        }
+        return changed;
+    }
+
+    public static double activeBuff(ServerPlayer player, BuffType type) {
+        if (player == null || type == null) return 0.0D;
+        TitleDef def = get(TitleManager.selected(player.getUUID()));
+        if (def == null || def.buffs == null) return 0.0D;
+        double total = 0.0D;
+        for (TitleBuff titleBuff : def.buffs) {
+            BuffType configured = parseBuffType(titleBuff == null ? null : titleBuff.type);
+            if (configured == type) total += Math.max(0.0D, titleBuff.amount);
+        }
+        return total;
+    }
+
+    public static String buffText(TitleDef def) {
+        List<String> parts = new ArrayList<>();
+        if (def != null && def.passive != null && def.passive.professionXpBonus > 0.0D) {
+            String prof = def.passive.profession == null || def.passive.profession.isBlank() ? "Profession" : pretty(def.passive.profession);
+            parts.add("+" + formatPercent(def.passive.professionXpBonus) + " " + prof + " XP");
+        }
+        if (def != null && def.buffs != null) {
+            for (TitleBuff titleBuff : def.buffs) {
+                BuffType type = parseBuffType(titleBuff == null ? null : titleBuff.type);
+                if (type == null || titleBuff.amount <= 0.0D) continue;
+                parts.add("+" + formatPercent(titleBuff.amount) + " " + type.displayName);
+            }
+        }
+        return parts.isEmpty() ? "No passive bonus." : String.join(", ", parts) + " while equipped.";
+    }
+
+    public static BuffType parseBuffType(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String normalized = raw.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        if (normalized.equals("BATTLE_XP") || normalized.equals("BATTLEXP") || normalized.equals("BATTLING")) normalized = "BATTLING_XP";
+        if (normalized.equals("SHINY") || normalized.equals("SHINY_RATE")) normalized = "SHINY_CHANCE";
+        if (normalized.equals("CATCH") || normalized.equals("CATCHING") || normalized.equals("CAPTURE_CHANCE")) normalized = "CATCH_CHANCE";
+        try { return BuffType.valueOf(normalized); } catch (Exception ignored) { return null; }
+    }
+
+    private static String normalizeId(String id) {
+        return id == null ? "" : id.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "_");
+    }
+
+    private static String formatPercent(double value) {
+        return String.format(Locale.US, "%.3f", Math.max(0.0D, value) * 100.0D).replaceAll("0+$", "").replaceAll("\\.$", "") + "%";
     }
 
     public static void handleBattleWin(ServerPlayer player, BattleContextManager.BattleType type) {
@@ -198,7 +323,13 @@ public final class TitleConfig {
         public String description;
         public String passiveDescription;
         public PassiveBonus passive;
+        public List<TitleBuff> buffs = new ArrayList<>();
         public UnlockCondition unlock;
+    }
+    public static final class TitleBuff {
+        public String type;
+        /** Decimal amount. Example: 0.05 = +5%. */
+        public double amount;
     }
     public static final class PassiveBonus {
         public String profession;

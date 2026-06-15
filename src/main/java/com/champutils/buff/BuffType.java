@@ -17,6 +17,7 @@ public enum BuffType {
     BATTLING_XP("Battling Profession XP", "Increases Battling profession XP earned from legitimate gameplay.", ChatFormatting.RED, ProfessionType.BATTLING),
 
     SHINY_CHANCE("Shiny Catch Chance", "Tiny chance for a legitimate wild catch to become shiny.", ChatFormatting.LIGHT_PURPLE, null),
+    CATCH_CHANCE("Catch Chance", "Future hook for increasing legitimate wild capture chance.", ChatFormatting.GREEN, null),
     PERFECT_IV_CHANCE("Perfect IV Chance", "Tiny chance for one random IV on a legitimate wild catch to become 31.", ChatFormatting.AQUA, null),
 
     WORLD_EVENT_REWARDS("World Event Rewards", "Future hook for extra legitimate world event rewards.", ChatFormatting.GOLD, null),
@@ -39,7 +40,7 @@ public enum BuffType {
     }
 
     public boolean isCatchBuff() {
-        return this == SHINY_CHANCE || this == PERFECT_IV_CHANCE;
+        return this == SHINY_CHANCE || this == CATCH_CHANCE || this == PERFECT_IV_CHANCE;
     }
 
     public static BuffType fromProfession(ProfessionType profession) {

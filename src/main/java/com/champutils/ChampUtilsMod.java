@@ -56,6 +56,7 @@ import com.champutils.cashshop.*;
 import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
 import com.champutils.tm.*;
+import com.champutils.claims.*;
 
 /*
  =========================
@@ -188,6 +189,9 @@ public class ChampUtilsMod implements ModInitializer {
         IslanderSpawningManager.load();
         IslanderMineManager.load();
         GlobalGameruleConfig.load();
+        LandClaimConfig.load();
+        LandClaimRepository.ensureSchemaAsync();
+        LandClaimRepository.refreshAll();
 
         /*
          =========================
@@ -465,6 +469,7 @@ public class ChampUtilsMod implements ModInitializer {
                     DailyLoginManager.handleJoin(
                             player
                     );
+
                 }
         );
 
@@ -554,6 +559,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChampAICommand.register();
         MenuCommand.register();
         SeasonCommand.register();
+        com.champutils.rank.SeasonRewardManager.registerCommand();
         LeaderboardCommand.register();
         GymCommand.register();
         EVTrainingCommand.register();
@@ -616,6 +622,7 @@ public class ChampUtilsMod implements ModInitializer {
         GraveyardCommand.register();
         ClearWildPokemonCommand.register();
         TMCommand.register();
+        LandClaimCommand.register();
 
         /*
          New custom item test command
@@ -651,6 +658,7 @@ public class ChampUtilsMod implements ModInitializer {
         TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
+        LandClaimProtectionListener.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();
@@ -706,6 +714,7 @@ public class ChampUtilsMod implements ModInitializer {
                     ChampWorldBorderManager.tick(server);
                     IslanderProfileManager.tick(server);
                     IslanderMineManager.tick(server);
+                    LandClaimProtectionListener.tick(server);
 
                     /*
                      Leaderboard refresh
@@ -756,6 +765,7 @@ public class ChampUtilsMod implements ModInitializer {
                      */
                     if (server.getTickCount() > 0 && server.getTickCount() % 12000 == 0) {
                         TerritoryRepository.refreshAll();
+                        LandClaimRepository.refreshAll();
                     }
 
                     /*

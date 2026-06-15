@@ -16,11 +16,11 @@ public final class WorldEventConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static boolean ENABLED = true;
-    public static int CHECK_INTERVAL_MINUTES = 25;
-    public static double EVENT_CHANCE = 0.35D;
+    public static int CHECK_INTERVAL_MINUTES = 30;
+    public static double EVENT_CHANCE = 0.08333333333333333D;
     public static int MAX_ACTIVE_EVENTS = 5;
     public static boolean OVERWORLD_ONLY = true;
-    public static boolean REQUIRE_FLAN_UNCLAIMED = true;
+    public static boolean REQUIRE_LAND_CLAIM_UNCLAIMED = true;
     public static boolean ANNOUNCE_TELEPORT_BUTTON = true;
     public static int BLOCK_PROTECTION_RADIUS = 24;
     public static double REPEAT_EVENT_WEIGHT_MULTIPLIER = 0.15D;
@@ -30,11 +30,11 @@ public final class WorldEventConfig {
 
     public static class Root {
         public boolean enabled = true;
-        public int checkIntervalMinutes = 25;
-        public double eventChance = 0.35D;
+        public int checkIntervalMinutes = 30;
+        public double eventChance = 0.08333333333333333D;
         public int maxActiveEvents = 5;
         public boolean overworldOnly = true;
-        public boolean requireFlanUnclaimed = true;
+        public boolean requireLandClaimUnclaimed = true;
         public boolean announceTeleportButton = true;
         public int blockProtectionRadius = 24;
         public double repeatEventWeightMultiplier = 0.15D;
@@ -108,12 +108,18 @@ public final class WorldEventConfig {
             try (FileReader reader = new FileReader(file)) {
                 Root root = GSON.fromJson(reader, Root.class);
                 if (root == null) root = defaultRoot();
+                boolean upgradedSpawnCadence = root.checkIntervalMinutes == 25 && Math.abs(root.eventChance - 0.35D) < 0.0000001D;
+                if (upgradedSpawnCadence) {
+                    root.checkIntervalMinutes = 30;
+                    root.eventChance = 0.08333333333333333D;
+                }
+
                 ENABLED = root.enabled;
                 CHECK_INTERVAL_MINUTES = Math.max(1, root.checkIntervalMinutes);
                 EVENT_CHANCE = Math.max(0D, Math.min(1D, root.eventChance));
                 MAX_ACTIVE_EVENTS = Math.max(1, root.maxActiveEvents);
                 OVERWORLD_ONLY = root.overworldOnly;
-                REQUIRE_FLAN_UNCLAIMED = root.requireFlanUnclaimed;
+                REQUIRE_LAND_CLAIM_UNCLAIMED = root.requireLandClaimUnclaimed;
                 ANNOUNCE_TELEPORT_BUTTON = root.announceTeleportButton;
                 BLOCK_PROTECTION_RADIUS = Math.max(0, root.blockProtectionRadius);
                 REPEAT_EVENT_WEIGHT_MULTIPLIER = Math.max(0D, Math.min(1D, root.repeatEventWeightMultiplier));
@@ -122,6 +128,9 @@ public final class WorldEventConfig {
                 for (Map.Entry<String, EventDefinition> entry : defaults.events.entrySet()) root.events.putIfAbsent(entry.getKey(), entry.getValue());
                 EVENTS = root.events;
                 normalizeTieredEvents();
+                if (upgradedSpawnCadence) {
+                    try (FileWriter writer = new FileWriter(file)) { GSON.toJson(root, writer); }
+                }
             }
             System.out.println("[ChampUtils] Loaded " + EVENTS.size() + " world event definitions.");
         } catch (Exception e) {

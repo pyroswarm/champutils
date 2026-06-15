@@ -517,6 +517,68 @@ public class ProfessionToolManager {
     }
 
 
+
+    public static ItemStack createUnidentifiedPreviewStack(
+            String toolId,
+            String displayName
+    ) {
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        if (toolData == null || toolData.baseItem == null || toolData.baseItem.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+
+        Item item;
+        try {
+            item = BuiltInRegistries.ITEM.get(
+                    ResourceLocation.parse(
+                            toolData.baseItem
+                    )
+            );
+        } catch (Exception ignored) {
+            return ItemStack.EMPTY;
+        }
+
+        if (item == null || item == Items.AIR) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack stack =
+                new ItemStack(
+                        item
+                );
+
+        applyUnidentifiedCustomModelData(
+                stack,
+                toolData
+        );
+
+        stack.remove(
+                DataComponents.LORE
+        );
+
+        stack.remove(
+                DataComponents.ENCHANTMENT_GLINT_OVERRIDE
+        );
+
+        stack.set(
+                DataComponents.CUSTOM_NAME,
+                Component.literal(
+                        displayName == null || displayName.isBlank()
+                                ? "Unidentified Tool"
+                                : displayName
+                ).withStyle(
+                        ChatFormatting.LIGHT_PURPLE
+                )
+        );
+
+        return stack;
+    }
+
     private static boolean shouldRollAscendedUnidentified(
             ProfessionToolConfig.ToolData toolData
     ) {

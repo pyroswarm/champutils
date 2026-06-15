@@ -153,6 +153,6 @@ public final class WorldEventSpawnFinder {
             if (!state.isAir() && !state.getCollisionShape(level, check).isEmpty()) return false;
         }
 
-        return !WorldEventConfig.REQUIRE_FLAN_UNCLAIMED || FlanClaimCompat.isAreaUnclaimed(level, pos, event.avoidClaimRadius);
+        return !WorldEventConfig.REQUIRE_LAND_CLAIM_UNCLAIMED || LandClaimCompat.isAreaUnclaimed(level, pos, event.avoidClaimRadius);
     }
 }

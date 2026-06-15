@@ -12,9 +12,9 @@ public final class SeasonProfileDatabaseRepository {
             return;
         }
 
-        String oldSeasonId = "season_" + Math.max(1, oldSeason);
-        String newSeasonId = "season_" + Math.max(1, newSeason);
-        String safeName = newSeasonName == null || newSeasonName.isBlank() ? "Season " + Math.max(1, newSeason) : newSeasonName;
+        String oldSeasonId = "season_" + Math.max(0, oldSeason);
+        String newSeasonId = "season_" + Math.max(0, newSeason);
+        String safeName = newSeasonName == null || newSeasonName.isBlank() ? "Season " + Math.max(0, newSeason) : newSeasonName;
 
         DatabaseManager.executeAsync("profile season rollover " + oldSeasonId + " -> " + newSeasonId, connection -> {
             try (PreparedStatement schema = connection.prepareStatement(
@@ -72,6 +72,6 @@ public final class SeasonProfileDatabaseRepository {
 
     public static void rollbackActiveSeason(int season, String seasonName) {
         if (!DatabaseManager.isEnabled()) return;
-        SeasonDatabaseRepository.setActiveSeason(Math.max(1, season), seasonName);
+        SeasonDatabaseRepository.setActiveSeason(Math.max(0, season), seasonName);
     }
 }

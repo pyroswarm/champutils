@@ -158,10 +158,13 @@ public final class PlayerProfileManager {
                         "profile_id uuid not null references player_profiles(id) on delete cascade, gym_id text not null, defeated boolean not null default false, " +
                         "defeated_at timestamptz, attempts integer not null default 0, wins integer not null default 0, losses integer not null default 0, " +
                         "best_time_seconds integer, data jsonb not null default '{}'::jsonb, primary key(profile_id, gym_id))");
-                statement.executeUpdate("create table if not exists profile_flan_claims (" +
+                statement.executeUpdate("create table if not exists profile_land_claims (" +
                         "id uuid primary key default gen_random_uuid(), profile_id uuid not null references player_profiles(id) on delete cascade, " +
-                        "player_uuid uuid not null references players(uuid) on delete cascade, flan_claim_id text not null, server_id text not null, world_name text not null, " +
-                        "claim_data jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(profile_id, flan_claim_id))");
+                        "player_uuid uuid not null references players(uuid) on delete cascade, owner_name text not null, server_id text not null, world_name text not null, world_key text not null, " +
+                        "min_x integer not null, max_x integer not null, min_z integer not null, max_z integer not null, settings jsonb not null default '{}'::jsonb, " +
+                        "created_at timestamptz not null default now(), updated_at timestamptz not null default now())");
+                statement.executeUpdate("create index if not exists idx_profile_land_claims_profile on profile_land_claims(profile_id)");
+                statement.executeUpdate("create index if not exists idx_profile_land_claims_world_bounds on profile_land_claims(server_id, world_name, min_x, max_x, min_z, max_z)");
             }
         });
     }

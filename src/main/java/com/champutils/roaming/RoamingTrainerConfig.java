@@ -26,21 +26,21 @@ public final class RoamingTrainerConfig {
 
     public static class ConfigRoot {
         public boolean enabled = true;
-        public int scanIntervalSeconds = 300;
-        public int spawnCheckSeconds = 300;
+        public int scanIntervalSeconds = 120;
+        public int spawnCheckSeconds = 120;
         public int maxTrainersPerPlayer = 1;
         public int maxNearbyPerPlayer = 1;
-        public int maxTrainersPerWorld = 20;
-        public int maxWorldTotal = 20;
-        public double spawnChancePerScan = 0.01D;
-        public double spawnChancePerCheck = 0.01D;
+        public int maxTrainersPerWorld = 35;
+        public int maxWorldTotal = 35;
+        public double spawnChancePerScan = 0.08D;
+        public double spawnChancePerCheck = 0.08D;
         public int spawnMinDistance = 32;
         public int minimumDistance = 32;
         public int spawnMaxDistance = 96;
         public int maximumDistance = 96;
         public int activePlayerRadius = 96;
-        public int despawnAfterNoPlayersSeconds = 900;
-        public int despawnMinutes = 15;
+        public int despawnAfterNoPlayersSeconds = 1200;
+        public int despawnMinutes = 20;
         public int noPlayerNearbyDespawnSeconds = 300;
         public boolean doNotDespawnWhileInBattle = true;
         public boolean requireSolidGround = true;
@@ -139,18 +139,34 @@ public final class RoamingTrainerConfig {
         DATA.randomTrainerSkins = cleanTrainerSkins(DATA.randomTrainerSkins);
         DATA.maleTrainerSkins = cleanTrainerSkins(DATA.maleTrainerSkins, defaultMaleTrainerSkins());
         DATA.femaleTrainerSkins = cleanTrainerSkins(DATA.femaleTrainerSkins, defaultFemaleTrainerSkins());
+        if (DATA.scanIntervalSeconds == 300 && DATA.spawnCheckSeconds == 300) {
+            DATA.scanIntervalSeconds = 120;
+            DATA.spawnCheckSeconds = 120;
+        }
         DATA.scanIntervalSeconds = DATA.spawnCheckSeconds > 0 ? DATA.spawnCheckSeconds : DATA.scanIntervalSeconds;
         DATA.spawnCheckSeconds = DATA.scanIntervalSeconds;
         DATA.maxTrainersPerPlayer = DATA.maxNearbyPerPlayer > 0 ? DATA.maxNearbyPerPlayer : DATA.maxTrainersPerPlayer;
         DATA.maxNearbyPerPlayer = DATA.maxTrainersPerPlayer;
+        if (DATA.maxTrainersPerWorld == 20 && DATA.maxWorldTotal == 20) {
+            DATA.maxTrainersPerWorld = 35;
+            DATA.maxWorldTotal = 35;
+        }
         DATA.maxTrainersPerWorld = DATA.maxWorldTotal > 0 ? DATA.maxWorldTotal : DATA.maxTrainersPerWorld;
         DATA.maxWorldTotal = DATA.maxTrainersPerWorld;
+        if (DATA.spawnChancePerScan == 0.01D && DATA.spawnChancePerCheck == 0.01D) {
+            DATA.spawnChancePerScan = 0.08D;
+            DATA.spawnChancePerCheck = 0.08D;
+        }
         DATA.spawnChancePerScan = DATA.spawnChancePerCheck > 0.0D ? DATA.spawnChancePerCheck : DATA.spawnChancePerScan;
         DATA.spawnChancePerCheck = DATA.spawnChancePerScan;
         DATA.spawnMinDistance = DATA.minimumDistance > 0 ? DATA.minimumDistance : DATA.spawnMinDistance;
         DATA.minimumDistance = DATA.spawnMinDistance;
         DATA.spawnMaxDistance = DATA.maximumDistance > 0 ? DATA.maximumDistance : DATA.spawnMaxDistance;
         DATA.maximumDistance = DATA.spawnMaxDistance;
+        if (DATA.despawnAfterNoPlayersSeconds == 900 && DATA.despawnMinutes == 15) {
+            DATA.despawnAfterNoPlayersSeconds = 1200;
+            DATA.despawnMinutes = 20;
+        }
         if (DATA.despawnMinutes > 0) DATA.despawnAfterNoPlayersSeconds = DATA.despawnMinutes * 60;
         DATA.despawnMinutes = Math.max(1, DATA.despawnAfterNoPlayersSeconds / 60);
         if (DATA.scanIntervalSeconds < 5) DATA.scanIntervalSeconds = 5;

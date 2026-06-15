@@ -14,7 +14,7 @@ public final class PlayerDatabaseRepository {
     private PlayerDatabaseRepository() {}
 
     private static String getCurrentSeasonId() {
-        return "season_" + Math.max(1, com.champutils.rank.SeasonManager.CURRENT_SEASON);
+        return "season_" + Math.max(0, com.champutils.rank.SeasonManager.CURRENT_SEASON);
     }
 
     private static void ensureSchema(java.sql.Connection connection) throws Exception {

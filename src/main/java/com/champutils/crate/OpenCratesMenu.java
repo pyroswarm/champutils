@@ -3,7 +3,9 @@ package com.champutils.crate;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionToolManager;
+import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.shop.NpcShopService;
+import com.champutils.tm.TMManager;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.item.PokemonItem;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -29,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,7 +50,7 @@ public final class OpenCratesMenu {
 
     private OpenCratesMenu() {}
 
-    private enum RewardType { POKEMON, ITEM, TOOL, SHARDS }
+    private enum RewardType { POKEMON, ITEM, TOOL, SHARDS, TM }
 
     private static final class RewardPlan {
         RewardType type = RewardType.SHARDS;
@@ -57,6 +60,7 @@ public final class OpenCratesMenu {
         boolean shiny;
         NpcShopService.PokemonCratePool pool = NpcShopService.PokemonCratePool.REGULAR;
         String itemId;
+        String tmRarity;
         int amount;
         String toolId;
         String shardRarity;
@@ -105,6 +109,7 @@ public final class OpenCratesMenu {
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Credits: " + credits).withStyle(credits > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
             lore.add(Component.literal("Guaranteed: " + crate.guaranteedShardMin + "-" + crate.guaranteedShardMax + " " + ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity) + " shards").withStyle(ChatFormatting.GRAY));
+            if ("mythic".equals(id)) lore.add(Component.literal("Mythic Pokémon have a 10% shiny chance.").withStyle(ChatFormatting.LIGHT_PURPLE));
             lore.add(Component.literal("Roulette opening animation.").withStyle(ChatFormatting.DARK_GRAY));
             lore.add(Component.literal("Click to open.").withStyle(ChatFormatting.YELLOW));
             GuiElementBuilder b = new GuiElementBuilder(icon).setName(Component.literal(crate.displayName).withStyle(colorFor(id)));
@@ -137,7 +142,7 @@ public final class OpenCratesMenu {
             return;
         }
 
-        List<PreviewEntry> entries = buildPreviewEntries(crate);
+        List<PreviewEntry> entries = buildPreviewEntries(crate, id);
         int pageSize = 36;
         int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) pageSize));
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
@@ -146,9 +151,7 @@ public final class OpenCratesMenu {
         gui.setTitle(Component.literal(crate.displayName + " Preview " + (safePage + 1) + "/" + totalPages));
         for (int i = 0; i < gui.getSize(); i++) gui.setSlot(i, filler());
 
-        double pokemonTotal = totalWeight(crate.pokemon);
-        double itemTotal = totalWeight(crate.items);
-        double toolTotal = totalWeight(crate.tools);
+        double totalRewardWeight = totalMainRewardWeight(crate, id);
 
 
         int startIndex = safePage * pageSize;
@@ -156,13 +159,7 @@ public final class OpenCratesMenu {
         int slot = 9;
         for (int i = startIndex; i < endIndex && slot < 45; i++) {
             PreviewEntry entry = entries.get(i);
-            double sectionTotal = switch (entry.section) {
-                case "Pokémon" -> pokemonTotal;
-                case "Items" -> itemTotal;
-                case "Tools" -> toolTotal;
-                default -> 1.0D;
-            };
-            gui.setSlot(slot++, previewElement(entry.reward, entry.fallbackIcon, sectionTotal));
+            gui.setSlot(slot++, previewElement(entry.reward, entry.fallbackIcon, entry.effectiveWeight, totalRewardWeight));
         }
 
         if (safePage > 0) {
@@ -184,43 +181,52 @@ public final class OpenCratesMenu {
         gui.open();
     }
 
-    private record PreviewEntry(String section, Object reward, Item fallbackIcon) {}
+    private record PreviewEntry(String section, Object reward, Item fallbackIcon, double effectiveWeight) {}
     private record PreviewToolEntry(String toolId, String displayName, int weight) {}
 
-    private static List<PreviewEntry> buildPreviewEntries(CrateConfig.CrateDefinition crate) {
+    private static List<PreviewEntry> buildPreviewEntries(CrateConfig.CrateDefinition crate, String crateId) {
         List<PreviewEntry> entries = new ArrayList<>();
+        int pokemonCategoryWeight = pokemonCategoryWeight(crateId);
+        int itemCategoryWeight = itemCategoryWeight(crateId);
+        double pokemonTotal = totalWeight(crate.pokemon);
+        double itemTotal = totalWeight(crate.items);
+
         if (crate.pokemon != null) {
             for (CrateConfig.WeightedPokemon p : crate.pokemon) {
-                entries.add(new PreviewEntry("Pokémon", p, Items.EGG));
+                double effectiveWeight = pokemonCategoryWeight * (Math.max(0, p.weight) / Math.max(1.0D, pokemonTotal));
+                entries.add(new PreviewEntry("Pokémon", p, Items.EGG, effectiveWeight));
             }
         }
         if (crate.items != null) {
             for (CrateConfig.WeightedItem i : crate.items) {
-                entries.add(new PreviewEntry("Items", i, Items.CHEST));
+                double effectiveWeight = itemCategoryWeight * (Math.max(0, i.weight) / Math.max(1.0D, itemTotal));
+                entries.add(new PreviewEntry("Items", i, Items.CHEST, effectiveWeight));
             }
         }
 
-        addCondensedToolPreview(entries, crate, "pickaxe");
-        addCondensedToolPreview(entries, crate, "axe");
-        addCondensedToolPreview(entries, crate, "hoe");
+        Map<String, List<CrateConfig.WeightedTool>> toolsByType = eligibleToolsByType(crate);
+        addCondensedToolPreview(entries, crate, toolsByType, "pickaxe");
+        addCondensedToolPreview(entries, crate, toolsByType, "axe");
+        addCondensedToolPreview(entries, crate, toolsByType, "hoe");
 
         return entries;
     }
 
-    private static void addCondensedToolPreview(List<PreviewEntry> entries, CrateConfig.CrateDefinition crate, String type) {
-        if (crate == null || crate.tools == null || crate.tools.isEmpty()) return;
-        int weight = 0;
+    private static void addCondensedToolPreview(List<PreviewEntry> entries, CrateConfig.CrateDefinition crate, Map<String, List<CrateConfig.WeightedTool>> toolsByType, String type) {
+        if (crate == null || toolsByType == null || toolsByType.isEmpty()) return;
+        List<CrateConfig.WeightedTool> tools = toolsByType.get(type);
+        if (tools == null || tools.isEmpty()) return;
+        int typeWeight = 0;
         String sampleToolId = null;
-        for (CrateConfig.WeightedTool tool : crate.tools) {
-            if (tool == null || tool.toolId == null) continue;
-            if (toolType(tool.toolId).equals(type)) {
-                weight += Math.max(0, tool.weight);
-                if (sampleToolId == null) sampleToolId = tool.toolId;
-            }
+        for (CrateConfig.WeightedTool tool : tools) {
+            int weight = Math.max(0, tool.weight);
+            typeWeight += weight;
+            if (sampleToolId == null) sampleToolId = tool.toolId;
         }
-        if (weight <= 0 || sampleToolId == null) return;
+        if (typeWeight <= 0 || sampleToolId == null) return;
         String rarity = ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
-        entries.add(new PreviewEntry("Tools", new PreviewToolEntry(sampleToolId, "Unidentified " + rarity + " " + type, weight), toolFallback(type)));
+        double effectiveWeight = toolCategoryWeight(crate) / Math.max(1.0D, (double) toolsByType.size());
+        entries.add(new PreviewEntry("Tools", new PreviewToolEntry(sampleToolId, "Unidentified " + rarity + " " + displayToolType(type), typeWeight), toolFallback(type), effectiveWeight));
     }
 
     private static Item toolFallback(String type) {
@@ -238,36 +244,45 @@ public final class OpenCratesMenu {
         return total <= 0.0D ? 1.0D : total;
     }
 
-    private static GuiElementBuilder previewElement(Object entry, Item fallbackIcon, double totalWeight) {
+    private static GuiElementBuilder previewElement(Object entry, Item fallbackIcon, double effectiveWeight, double totalWeight) {
         if (entry instanceof CrateConfig.WeightedPokemon p) {
             NpcShopService.PokemonCratePool pool = pool(p.pool, p.species);
-            ItemStack icon = createPokemonIcon(p.species, 70, false, pool);
-            double percent = (Math.max(0, p.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            NpcShopService.PlannedPokemonCrateReward reward = NpcShopService.restorePlannedPokemonCrateReward(p.species, 70, false, pool);
+            ItemStack icon = reward == null || reward.icon() == null || reward.icon().isEmpty() ? createPokemonIcon(p.species, 70, false, pool) : reward.icon().copy();
+            String displayName = reward == null || reward.title() == null ? prettyName(p.species) : reward.title().getString();
+            double percent = (Math.max(0.0D, effectiveWeight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
-                    .setName(Component.literal(prettyName(p.species)).withStyle(poolColor(pool)))
+                    .setName(Component.literal(displayName).withStyle(poolColor(pool)))
                     .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         if (entry instanceof CrateConfig.WeightedItem i) {
+            double percent = (Math.max(0.0D, effectiveWeight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            String tmRarity = tmRarityFromItemId(i.itemId);
+            if (tmRarity != null) {
+                return new GuiElementBuilder(Items.MUSIC_DISC_CAT)
+                        .setName(Component.literal(TMManager.prettyRarity(tmRarity) + " TM").withStyle(ChatFormatting.AQUA))
+                        .addLoreLine(Component.literal("Chance: " + formatPercent(percent) + " for a " + TMManager.prettyRarity(tmRarity) + " TM").withStyle(ChatFormatting.GOLD));
+            }
             Item icon = resolveItem(i.itemId);
             if (icon == Items.AIR) icon = fallbackIcon;
-            double percent = (Math.max(0, i.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
                     .setName(Component.literal(prettyItem(i.itemId)).withStyle(ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         if (entry instanceof PreviewToolEntry t) {
             ItemStack icon = cleanUnidentifiedToolPreview(t.toolId, t.displayName);
-            double percent = (Math.max(0, t.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            double percent = (Math.max(0.0D, effectiveWeight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
                     .setName(Component.literal(t.displayName).withStyle(ChatFormatting.LIGHT_PURPLE))
                     .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         if (entry instanceof CrateConfig.WeightedTool t) {
             String type = toolType(t.toolId);
-            ItemStack icon = cleanUnidentifiedToolPreview(t.toolId, "Unidentified " + type);
-            double percent = (Math.max(0, t.weight) / Math.max(1.0D, totalWeight)) * 100.0D;
+            String displayName = "Unidentified " + displayToolType(type);
+            ItemStack icon = cleanUnidentifiedToolPreview(t.toolId, displayName);
+            double percent = (Math.max(0.0D, effectiveWeight) / Math.max(1.0D, totalWeight)) * 100.0D;
             return new GuiElementBuilder(icon)
-                    .setName(Component.literal("Unidentified " + type).withStyle(ChatFormatting.LIGHT_PURPLE))
+                    .setName(Component.literal(displayName).withStyle(ChatFormatting.LIGHT_PURPLE))
                     .addLoreLine(Component.literal("Chance: " + formatPercent(percent)).withStyle(ChatFormatting.GOLD));
         }
         return new GuiElementBuilder(fallbackIcon).setName(Component.literal("Unknown reward"));
@@ -326,6 +341,9 @@ public final class OpenCratesMenu {
                 String actualMainReward = grantReward(player, opening.mainReward);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
+                if ("mythic".equals(opening.crateId) && opening.mainReward != null && opening.mainReward.type == RewardType.POKEMON) {
+                    player.sendSystemMessage(Component.literal("Mythic crate Pokémon roll included a 10% shiny chance" + (opening.mainReward.shiny ? " — it became shiny!" : ".")).withStyle(opening.mainReward.shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE));
+                }
                 playLocalSound(player, isSpecial(opening.mainReward) ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.experience_orb.pickup", 0.8F, isSpecial(opening.mainReward) ? 1.0F : 1.25F);
                 open(player);
             }
@@ -344,10 +362,33 @@ public final class OpenCratesMenu {
         return plan;
     }
 
+    private static int pokemonCategoryWeight(String crateId) {
+        return crateId.equals("mythic") ? 48 : crateId.equals("legendary") || crateId.equals("world_boss") ? 42 : 35;
+    }
+
+    private static int itemCategoryWeight(String crateId) {
+        return 50;
+    }
+
+    private static int toolCategoryWeight(CrateConfig.CrateDefinition crate) {
+        if (crate == null || crate.tools == null || crate.tools.isEmpty()) return 0;
+        int weight = 0;
+        for (CrateConfig.WeightedTool tool : crate.tools) {
+            if (isEligibleToolForCrate(crate, tool)) {
+                weight += Math.max(0, tool.weight);
+            }
+        }
+        return Math.max(0, weight);
+    }
+
+    private static double totalMainRewardWeight(CrateConfig.CrateDefinition crate, String crateId) {
+        return Math.max(1.0D, pokemonCategoryWeight(crateId) + itemCategoryWeight(crateId) + toolCategoryWeight(crate));
+    }
+
     private static RewardPlan rollMainReward(CrateConfig.CrateDefinition crate, String crateId) {
-        int pokemonWeight = crateId.equals("mythic") ? 48 : crateId.equals("legendary") || crateId.equals("world_boss") ? 42 : 35;
-        int itemWeight = 50;
-        int toolWeight = Math.max(1, crate.tools == null ? 0 : crate.tools.stream().mapToInt(t -> Math.max(0, t.weight)).sum());
+        int pokemonWeight = pokemonCategoryWeight(crateId);
+        int itemWeight = itemCategoryWeight(crateId);
+        int toolWeight = toolCategoryWeight(crate);
         int total = pokemonWeight + itemWeight + toolWeight;
         int roll = RANDOM.nextInt(Math.max(1, total));
         if ((roll -= pokemonWeight) < 0) return planPokemon(crate, crateId);
@@ -378,6 +419,8 @@ public final class OpenCratesMenu {
     private static RewardPlan planItem(CrateConfig.CrateDefinition crate) {
         CrateConfig.WeightedItem wi = weighted(crate.items);
         if (wi == null) return planBonusShard(crate);
+        String tmRarity = tmRarityFromItemId(wi.itemId);
+        if (tmRarity != null) { RewardPlan tm = planTm(tmRarity); return tm == null ? planBonusShard(crate) : tm; }
         Item item = resolveItem(wi.itemId);
         if (item == Items.AIR) return planBonusShard(crate);
         int min = Math.max(1, Math.min(wi.amountMin, wi.amountMax)); int max = Math.max(min, Math.max(wi.amountMin, wi.amountMax));
@@ -391,11 +434,20 @@ public final class OpenCratesMenu {
         return plan;
     }
 
+    private static RewardPlan planTm(String rarity) {
+        ItemStack stack = TMManager.createRandomTMStack(rarity, 1);
+        if (stack.isEmpty()) return null;
+        RewardPlan plan = new RewardPlan();
+        plan.type = RewardType.TM;
+        plan.tmRarity = TMManager.prettyRarity(rarity);
+        plan.summary = plan.tmRarity + " TM";
+        plan.icon = stack;
+        return plan;
+    }
+
     private static RewardPlan planTool(CrateConfig.CrateDefinition crate) {
-        CrateConfig.WeightedTool wt = weighted(crate.tools);
+        CrateConfig.WeightedTool wt = rollEqualChanceToolType(crate);
         if (wt == null) return planItem(crate);
-        ItemStack stack = ProfessionToolManager.createLootTool(wt.toolId, false);
-        if (stack.isEmpty()) return planItem(crate);
         RewardPlan plan = new RewardPlan();
         plan.type = RewardType.TOOL;
         plan.toolId = wt.toolId;
@@ -446,6 +498,12 @@ public final class OpenCratesMenu {
                 player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.35F);
                 return stack.getHoverName().getString();
             }
+            case TM -> {
+                ItemStack stack = plan.icon == null ? ItemStack.EMPTY : plan.icon.copy();
+                if (stack.isEmpty()) return cleanRewardSummary(plan);
+                if (!player.getInventory().add(stack)) player.drop(stack, false);
+                return stack.getHoverName().getString();
+            }
         }
         return cleanRewardSummary(plan);
     }
@@ -482,6 +540,7 @@ public final class OpenCratesMenu {
         if (reward == null) return "§7Unknown";
         if (reward.shiny) return "§6§lSHINY";
         if (reward.type == RewardType.TOOL) return "§d§lTOOL";
+        if (reward.type == RewardType.TM) return "§b§lTM";
         if (reward.type == RewardType.ITEM) return reward.itemId != null && reward.itemId.toLowerCase(Locale.ROOT).contains("master_ball") ? "§6§lRARE ITEM" : "§bITEM";
         if (reward.type == RewardType.SHARDS) return "§dSHARDS";
         return switch (reward.pool) {
@@ -497,6 +556,7 @@ public final class OpenCratesMenu {
         if (reward == null) return Items.GRAY_STAINED_GLASS_PANE;
         if (reward.shiny) return Items.YELLOW_STAINED_GLASS_PANE;
         if (reward.type == RewardType.TOOL) return Items.PURPLE_STAINED_GLASS_PANE;
+        if (reward.type == RewardType.TM) return Items.LIGHT_BLUE_STAINED_GLASS_PANE;
         if (reward.type == RewardType.ITEM) return Items.CYAN_STAINED_GLASS_PANE;
         if (reward.type == RewardType.SHARDS) return Items.MAGENTA_STAINED_GLASS_PANE;
         return switch (reward.pool) {
@@ -552,6 +612,9 @@ public final class OpenCratesMenu {
 
     private static String cleanRewardSummary(RewardPlan reward) {
         if (reward == null) return "Unknown Reward";
+        if (reward.type == RewardType.TM) {
+            return reward.summary == null || reward.summary.isBlank() ? "Random TM" : reward.summary;
+        }
         if (reward.type == RewardType.ITEM && reward.itemId != null) {
             return Math.max(1, reward.amount) + "x " + prettyItem(reward.itemId);
         }
@@ -569,11 +632,18 @@ public final class OpenCratesMenu {
 
     private static String unidentifiedToolRewardName(CrateConfig.CrateDefinition crate, String toolId) {
         String rarity = crate == null ? "" : ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
-        String type = prettyName(toolType(toolId));
+        String type = displayToolType(toolType(toolId));
         if (rarity == null || rarity.isBlank()) {
             return "Unidentified " + type;
         }
         return "Unidentified " + rarity + " " + type;
+    }
+
+    private static String tmRarityFromItemId(String itemId) {
+        if (itemId == null) return null;
+        String normalized = itemId.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith("champutils:random_tm_")) return null;
+        return normalized.substring("champutils:random_tm_".length()).toUpperCase(Locale.ROOT);
     }
 
     private static String formatPercent(double value) {
@@ -601,33 +671,43 @@ public final class OpenCratesMenu {
     }
 
     private static ItemStack unidentifiedToolIcon(String toolId, Item fallbackIcon) {
-        return cleanUnidentifiedToolPreview(toolId, "Unidentified " + toolType(toolId));
+        return cleanUnidentifiedToolPreview(toolId, "Unidentified " + displayToolType(toolType(toolId)));
     }
 
     private static ItemStack cleanUnidentifiedToolPreview(String toolId, String displayName) {
         ItemStack stack;
         try {
-            stack = ProfessionToolManager.createTool(toolId, false);
+            stack = ProfessionToolManager.createUnidentifiedPreviewStack(toolId, displayName);
         } catch (Throwable ignored) {
             stack = ItemStack.EMPTY;
         }
         if (stack == null || stack.isEmpty()) {
             stack = new ItemStack(toolFallback(toolType(toolId)));
-        }
-
-        try {
-            stack.remove(DataComponents.LORE);
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(displayName).withStyle(ChatFormatting.LIGHT_PURPLE));
-        } catch (Throwable ignored) {
+            try {
+                stack.remove(DataComponents.LORE);
+                stack.set(DataComponents.CUSTOM_NAME, Component.literal(displayName).withStyle(ChatFormatting.LIGHT_PURPLE));
+            } catch (Throwable ignored) {
+            }
         }
         return stack;
     }
 
     private static String toolType(String toolId) {
+        ProfessionToolConfig.ToolData data = toolId == null ? null : ProfessionToolConfig.TOOLS.get(toolId);
+        String base = data == null || data.baseItem == null ? "" : data.baseItem.toLowerCase(Locale.ROOT);
         String lower = toolId == null ? "" : toolId.toLowerCase(Locale.ROOT);
-        if (lower.contains("axe") || lower.contains("cleaver") || lower.contains("worldtree") || lower.contains("wood")) return "axe";
-        if (lower.contains("hoe") || lower.contains("gaias") || lower.contains("gaia") || lower.contains("blessing")) return "hoe";
+        String combined = base + " " + lower;
+        if (combined.contains("hoe") || combined.contains("gaias") || combined.contains("gaia") || combined.contains("blessing")) return "hoe";
+        if (combined.contains("axe") || combined.contains("cleaver") || combined.contains("worldtree") || combined.contains("wood")) return "axe";
         return "pickaxe";
+    }
+
+    private static String displayToolType(String type) {
+        return switch (type == null ? "" : type.toLowerCase(Locale.ROOT)) {
+            case "axe" -> "Axe";
+            case "hoe" -> "Hoe";
+            default -> "Pickaxe";
+        };
     }
 
     private static ItemStack createPokemonIcon(String species, int level, boolean shiny, NpcShopService.PokemonCratePool pool) {
@@ -643,7 +723,53 @@ public final class OpenCratesMenu {
         }
     }
 
-    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic") && isHighValuePokemon(species)) return 1.0D; return Math.max(0D, crate.shinyChance); }
+    private static List<CrateConfig.WeightedTool> eligibleTools(CrateConfig.CrateDefinition crate) {
+        List<CrateConfig.WeightedTool> eligible = new ArrayList<>();
+        if (crate == null || crate.tools == null) return eligible;
+        for (CrateConfig.WeightedTool tool : crate.tools) {
+            if (isEligibleToolForCrate(crate, tool)) eligible.add(tool);
+        }
+        return eligible;
+    }
+
+    private static Map<String, List<CrateConfig.WeightedTool>> eligibleToolsByType(CrateConfig.CrateDefinition crate) {
+        Map<String, List<CrateConfig.WeightedTool>> byType = new LinkedHashMap<>();
+        byType.put("pickaxe", new ArrayList<>());
+        byType.put("axe", new ArrayList<>());
+        byType.put("hoe", new ArrayList<>());
+        for (CrateConfig.WeightedTool tool : eligibleTools(crate)) {
+            byType.computeIfAbsent(toolType(tool.toolId), ignored -> new ArrayList<>()).add(tool);
+        }
+        byType.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue().isEmpty());
+        return byType;
+    }
+
+    private static CrateConfig.WeightedTool rollEqualChanceToolType(CrateConfig.CrateDefinition crate) {
+        Map<String, List<CrateConfig.WeightedTool>> byType = eligibleToolsByType(crate);
+        if (byType.isEmpty()) return null;
+        List<String> types = new ArrayList<>(byType.keySet());
+        String type = types.get(RANDOM.nextInt(types.size()));
+        return weighted(byType.get(type));
+    }
+
+    private static boolean isEligibleToolForCrate(CrateConfig.CrateDefinition crate, CrateConfig.WeightedTool tool) {
+        if (crate == null || tool == null || tool.toolId == null || tool.toolId.isBlank() || tool.weight <= 0) return false;
+        ProfessionToolConfig.ToolData data = ProfessionToolConfig.TOOLS.get(tool.toolId);
+        if (data == null) {
+            // Keep older configs from going empty if the server has custom tools that load later.
+            return true;
+        }
+        String crateRarity = normalizeRarity(crate.guaranteedShardRarity);
+        String toolRarity = normalizeRarity(data.rarity);
+        return crateRarity.equals(toolRarity);
+    }
+
+    private static String normalizeRarity(String rarity) {
+        if (rarity == null || rarity.isBlank()) return "COMMON";
+        return rarity.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic")) return 10.0D; return Math.max(0D, crate.shinyChance); }
     private static <T> T weighted(List<T> list) { if (list == null || list.isEmpty()) return null; int total = 0; for (T t : list) total += Math.max(0, weightOf(t)); if (total <= 0) return list.get(RANDOM.nextInt(list.size())); int roll = RANDOM.nextInt(total); for (T t : list) { roll -= Math.max(0, weightOf(t)); if (roll < 0) return t; } return list.get(0); }
     private static int weightOf(Object o) { if (o instanceof CrateConfig.WeightedPokemon p) return p.weight; if (o instanceof CrateConfig.WeightedItem i) return i.weight; if (o instanceof CrateConfig.WeightedTool t) return t.weight; return 1; }
     private static Item crateIconItem(String crateId, CrateConfig.CrateDefinition crate) {

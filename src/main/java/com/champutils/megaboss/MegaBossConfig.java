@@ -37,6 +37,8 @@ public final class MegaBossConfig {
                 DATA.nearbyPlayerBossRadius = defaultData.nearbyPlayerBossRadius;
                 DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
                 DATA.nameTagFormat = defaultData.nameTagFormat;
+                DATA.checkIntervalTicks = defaultData.checkIntervalTicks;
+                DATA.despawnMinutes = defaultData.despawnMinutes;
                 DATA.configVersion = defaultData.configVersion;
             }
             sanitizeRuntimeDefaults(defaultData);
@@ -136,9 +138,9 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 3;
+        public int configVersion = 4;
         public boolean enabled = true;
-        public int checkIntervalTicks = 1200;
+        public int checkIntervalTicks = 600;
         /**
          * Soft safety cap. Set high enough that megabosses can behave like roaming trainers across the server.
          * The real spawn limiter is maxAliveMegaBossesPerNearbyPlayer below.
@@ -148,7 +150,7 @@ public final class MegaBossConfig {
         /**
          * Roaming-trainer-style density cap: each player can only have this many megabosses near them.
          */
-        public int maxAliveMegaBossesPerNearbyPlayer = 1;
+        public int maxAliveMegaBossesPerNearbyPlayer = 2;
 
         /**
          * Radius used for the nearby-player megaboss cap.
@@ -159,14 +161,14 @@ public final class MegaBossConfig {
          * Prevents one server tick from spawning around every online player at once.
          * Raise this if you want bigger worlds to fill faster.
          */
-        public int maxSpawnedPlayersPerCheck = 3;
+        public int maxSpawnedPlayersPerCheck = 5;
 
         public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;
         public int maxDistanceFromPlayer = 96;
         public int levelsAbovePlayerHighest = 5;
         public double scaleModifier = 1.7D;
-        public long despawnMinutes = 20L;
+        public long despawnMinutes = 30L;
         public int battlingXpReward = 350;
         public int fragmentMin = 2;
         public int fragmentMax = 4;

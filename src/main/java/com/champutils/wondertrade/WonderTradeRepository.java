@@ -506,9 +506,73 @@ public final class WonderTradeRepository {
     }
 
 
+
+    public static TradeGate getTradeGate(UUID playerUuid) throws Exception {
+        Connection connection = DatabaseManager.getConnection();
+        ensureSchema(connection);
+
+        boolean pending;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select 1 from wondertrade_pending_claims where player_uuid = ? limit 1"
+        )) {
+            statement.setString(1, playerUuid.toString());
+            try (ResultSet rs = statement.executeQuery()) {
+                pending = rs.next();
+            }
+        }
+        if (pending) {
+            return new TradeGate(true, 0L);
+        }
+
+        int cooldownMinutes = getCooldownMinutes(connection);
+        if (cooldownMinutes <= 0) {
+            return new TradeGate(false, 0L);
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select last_trade_at from wondertrade_cooldowns where player_uuid = ?"
+        )) {
+            statement.setString(1, playerUuid.toString());
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) return new TradeGate(false, 0L);
+                Instant last = rs.getTimestamp(1).toInstant();
+                long elapsed = Duration.between(last, Instant.now()).getSeconds();
+                long cooldown = cooldownMinutes * 60L;
+                return new TradeGate(false, Math.max(0L, cooldown - elapsed));
+            }
+        }
+    }
+
+    public static StatusSnapshot getStatusSnapshot() throws Exception {
+        Connection connection = DatabaseManager.getConnection();
+        ensureSchema(connection);
+        int pool = 0;
+        int shinies = 0;
+        int legendaries = 0;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select count(*)::int as pool_size, " +
+                        "count(*) filter (where shiny)::int as shiny_count, " +
+                        "count(*) filter (where legendary)::int as legendary_count " +
+                        "from wondertrade_pool"
+        )) {
+            try (ResultSet rs = statement.executeQuery()) {
+                if (rs.next()) {
+                    pool = rs.getInt("pool_size");
+                    shinies = rs.getInt("shiny_count");
+                    legendaries = rs.getInt("legendary_count");
+                }
+            }
+        }
+        return new StatusSnapshot(pool, shinies, legendaries, getCooldownMinutes(connection));
+    }
+
     public static int getCooldownMinutes() throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
+        return getCooldownMinutes(connection);
+    }
+
+    private static int getCooldownMinutes(Connection connection) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "select setting_value from wondertrade_settings where setting_key = 'cooldown_minutes'"
         )) {
@@ -622,6 +686,10 @@ public final class WonderTradeRepository {
             statement.executeUpdate();
         }
     }
+
+    public record TradeGate(boolean hasPendingClaim, long cooldownRemainingSeconds) {}
+
+    public record StatusSnapshot(int poolSize, int shinyCount, int legendaryCount, int cooldownMinutes) {}
 
     public record PendingClaim(String claimType, JsonObject payload, String displayName) {}
 

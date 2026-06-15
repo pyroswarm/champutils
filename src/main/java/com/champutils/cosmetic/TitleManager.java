@@ -30,6 +30,14 @@ public final class TitleManager {
 
     public static synchronized void load() {
         TitleConfig.load();
+        com.champutils.buff.BuffManager.registerProvider(new com.champutils.buff.BuffProvider() {
+            @Override public String id() { return "active_title"; }
+            @Override public int priority() { return 45; }
+            @Override public double getBuff(com.champutils.buff.BuffContext context, com.champutils.buff.BuffType type) {
+                if (context == null || context.player == null || type == null) return 0.0D;
+                return TitleConfig.activeBuff(context.player, type);
+            }
+        });
         com.champutils.profession.ProfessionXpBoostManager.registerSource(new com.champutils.profession.ProfessionXpBoostManager.ProfessionXpBoostSource() {
             @Override public String id() { return "active_title"; }
             @Override public int priority() { return 50; }

@@ -11,13 +11,13 @@ public final class SeasonDatabaseRepository {
     }
 
     public static String currentSeasonId() {
-        int season = Math.max(1, SeasonManager.CURRENT_SEASON);
+        int season = Math.max(0, SeasonManager.CURRENT_SEASON);
         return "season_" + season;
     }
 
     public static String currentSeasonName() {
         if (SeasonManager.CURRENT_NAME == null || SeasonManager.CURRENT_NAME.isBlank()) {
-            return "Season " + Math.max(1, SeasonManager.CURRENT_SEASON);
+            return "Season " + Math.max(0, SeasonManager.CURRENT_SEASON);
         }
         return SeasonManager.CURRENT_NAME;
     }
@@ -27,7 +27,7 @@ public final class SeasonDatabaseRepository {
      * Ensures Supabase has exactly one active season row using the existing `active` column.
      */
     public static void syncCurrentSeason() {
-        setActiveSeason(Math.max(1, SeasonManager.CURRENT_SEASON), currentSeasonName());
+        setActiveSeason(Math.max(0, SeasonManager.CURRENT_SEASON), currentSeasonName());
     }
 
     /**
@@ -35,7 +35,7 @@ public final class SeasonDatabaseRepository {
      * This marks every old season inactive, then upserts the new current season as active.
      */
     public static void setActiveSeason(int seasonNumber, String displayName) {
-        int safeSeasonNumber = Math.max(1, seasonNumber);
+        int safeSeasonNumber = Math.max(0, seasonNumber);
         String seasonId = "season_" + safeSeasonNumber;
         String safeDisplayName = displayName == null || displayName.isBlank()
                 ? "Season " + safeSeasonNumber
@@ -68,7 +68,7 @@ public final class SeasonDatabaseRepository {
     }
 
     public static void syncSeason(int seasonNumber, String displayName, boolean active) {
-        int safeSeason = Math.max(1, seasonNumber);
+        int safeSeason = Math.max(0, seasonNumber);
         String safeName = displayName == null || displayName.isBlank()
                 ? "Season " + safeSeason
                 : displayName;

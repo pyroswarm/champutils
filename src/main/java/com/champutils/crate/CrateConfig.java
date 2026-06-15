@@ -98,9 +98,11 @@ public final class CrateConfig {
                     }
                     upgradeNewCrates(root.crates, defaults);
                     applyGildedChestIcons(root.crates);
+                    applySeasonCrateBalance(root.crates);
                     CRATES = root.crates;
                 }
                 applyGildedChestIcons(CRATES);
+                applySeasonCrateBalance(CRATES);
                 // Event crate was removed. World events now award regular crate credits by event tier.
                 CRATES.remove("event");
                 Root saved = new Root();
@@ -223,7 +225,70 @@ public final class CrateConfig {
                 ),
                 listI("cobblemon:master_ball:1:1:5","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18","cobblemon:exp_candy_xl:2:6:16","cobblemon:ability_patch:1:2:10","cobblemon:leftovers:1:1:8","cobblemon:life_orb:1:1:8","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6"),
                 listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2","titanbreaker:2","worldtree_axe:3","gaias_blessing:3"));
+        applySeasonCrateBalance(root.crates);
         return root;
+    }
+
+    private static void applySeasonCrateBalance(Map<String, CrateDefinition> crates) {
+        if (crates == null) return;
+        addTierTm(crates.get("common"), "COMMON", 10);
+        addTierTm(crates.get("uncommon"), "UNCOMMON", 10);
+        addTierTm(crates.get("rare"), "RARE", 10);
+        addTierTm(crates.get("epic"), "EPIC", 10);
+        addTierTm(crates.get("legendary"), "LEGENDARY", 14);
+        CrateDefinition legendary = crates.get("legendary");
+        if (legendary != null) {
+            addItemOnce(legendary, "cobblemon:ability_patch", 1, 2, 16);
+            addItemOnce(legendary, "cobblemon:master_ball", 1, 1, 6);
+        }
+        CrateDefinition mythic = crates.get("mythic");
+        if (mythic != null) {
+            mythic.shinyChance = 10.0D;
+            mythic.items = new ArrayList<>();
+            mythic.items.add(new WeightedItem("cobblemon:ability_patch", 1, 3, 35));
+            mythic.items.add(new WeightedItem("cobblemon:master_ball", 1, 2, 25));
+            mythic.items.add(new WeightedItem("champutils:random_tm_mythic", 1, 1, 40));
+
+            // Keep Mythic tools rare, but make the preview/reward pool cover all three
+            // profession tool types instead of only pickaxe-looking mystery tools.
+            mythic.tools = new ArrayList<>();
+            addToolOnce(mythic, "starfall", 2);
+            addToolOnce(mythic, "void_rift", 2);
+            addToolOnce(mythic, "infernal_core", 2);
+            addToolOnce(mythic, "vein_reaper", 1);
+            addToolOnce(mythic, "titanbreaker", 2);
+            addToolOnce(mythic, "worldtree_axe", 2);
+            addToolOnce(mythic, "gaias_blessing", 2);
+        }
+    }
+
+
+    private static void addToolOnce(CrateDefinition crate, String toolId, int weight) {
+        if (crate == null || toolId == null || toolId.isBlank() || weight <= 0) return;
+        if (crate.tools == null) crate.tools = new ArrayList<>();
+        for (WeightedTool tool : crate.tools) {
+            if (tool != null && toolId.equalsIgnoreCase(tool.toolId)) {
+                tool.weight = Math.max(tool.weight, weight);
+                return;
+            }
+        }
+        crate.tools.add(new WeightedTool(toolId, weight));
+    }
+
+    private static void addTierTm(CrateDefinition crate, String rarity, int weight) {
+        if (crate == null) return;
+        addItemOnce(crate, "champutils:random_tm_" + rarity.toLowerCase(), 1, 1, weight);
+    }
+
+    private static void addItemOnce(CrateDefinition crate, String itemId, int min, int max, int weight) {
+        if (crate.items == null) crate.items = new ArrayList<>();
+        for (WeightedItem item : crate.items) {
+            if (item != null && itemId.equalsIgnoreCase(item.itemId)) {
+                item.amountMin = min; item.amountMax = max; item.weight = Math.max(item.weight, weight);
+                return;
+            }
+        }
+        crate.items.add(new WeightedItem(itemId, min, max, weight));
     }
 
     private static void add(Root r,String id,String name,String icon,String shard,int sMin,int sMax,int lMin,int lMax,double shiny,List<WeightedPokemon> p,List<WeightedItem> i,List<WeightedTool> t){

@@ -134,7 +134,7 @@ public final class WorldEventManager {
 
         BlockPos spawnPos = WorldEventSpawnFinder.find(level, event);
         if (spawnPos == null) {
-            lastStartFailure = "No safe ground spawn was found. Check spawnRadiusMin/spawnRadiusMax, ocean-heavy maps, world border, and Flan claims.";
+            lastStartFailure = "No safe ground spawn was found. Check spawnRadiusMin/spawnRadiusMax, ocean-heavy maps, world border, and land claims.";
             System.out.println("[ChampUtils] Could not find safe world event spawn for " + eventId + ". " + lastStartFailure);
             return false;
         }
