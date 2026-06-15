@@ -15,8 +15,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,6 +41,7 @@ public final class LandClaimRepository {
         public boolean visitorsCanOpenContainers = false;
         public boolean visitorsCanInteractEntities = false;
         public boolean visitorsCanUseRedstone = false;
+        public Set<UUID> memberProfileIds = ConcurrentHashMap.newKeySet();
 
         public boolean contains(String serverId, String worldName, BlockPos pos) {
             if (pos == null) return false;
@@ -77,6 +81,8 @@ public final class LandClaimRepository {
         try (PreparedStatement statement = connection.prepareStatement("create index if not exists idx_profile_land_claims_profile on profile_land_claims(profile_id)")) { statement.executeUpdate(); }
         try (PreparedStatement statement = connection.prepareStatement("create index if not exists idx_profile_land_claims_world_bounds on profile_land_claims(server_id, world_name, min_x, max_x, min_z, max_z)")) { statement.executeUpdate(); }
         try (PreparedStatement statement = connection.prepareStatement("create index if not exists idx_profile_land_claims_world_key on profile_land_claims(world_key)")) { statement.executeUpdate(); }
+        try (PreparedStatement statement = connection.prepareStatement("create table if not exists profile_land_claim_members (claim_id uuid not null references profile_land_claims(id) on delete cascade, profile_id uuid not null references player_profiles(id) on delete cascade, added_by_profile_id uuid references player_profiles(id) on delete set null, added_at timestamptz not null default now(), primary key(claim_id, profile_id))")) { statement.executeUpdate(); }
+        try (PreparedStatement statement = connection.prepareStatement("create index if not exists idx_profile_land_claim_members_profile on profile_land_claim_members(profile_id)")) { statement.executeUpdate(); }
     }
 
     public static void refreshAll() {
@@ -92,6 +98,7 @@ public final class LandClaimRepository {
                     }
                 }
             }
+            loadMembers(connection, fresh);
             CLAIMS.clear();
             CLAIMS.putAll(fresh);
             rebuildIndexes();
@@ -105,6 +112,25 @@ public final class LandClaimRepository {
         if (profileId == null) return Collections.emptyList();
         List<Claim> claims = CLAIMS_BY_PROFILE.get(profileId);
         return claims == null ? Collections.emptyList() : claims;
+    }
+
+    public static List<Claim> numberedClaimsForProfile(UUID profileId) {
+        List<Claim> claims = new ArrayList<>(cachedForProfile(profileId));
+        claims.sort(Comparator
+                .comparing((Claim claim) -> claim.worldName == null ? "" : claim.worldName)
+                .thenComparingInt(claim -> claim.minX)
+                .thenComparingInt(claim -> claim.minZ)
+                .thenComparing(claim -> claim.id == null ? new UUID(0L, 0L) : claim.id));
+        return claims;
+    }
+
+    public static int numberForClaim(Claim claim) {
+        if (claim == null) return -1;
+        List<Claim> claims = numberedClaimsForProfile(claim.profileId);
+        for (int i = 0; i < claims.size(); i++) {
+            if (claim.id != null && claim.id.equals(claims.get(i).id)) return i + 1;
+        }
+        return -1;
     }
 
     public static Claim findAt(ServerLevel level, BlockPos pos) {
@@ -124,14 +150,21 @@ public final class LandClaimRepository {
     public static boolean isOwner(ServerPlayer player, Claim claim) {
         if (player == null || claim == null) return false;
         if (player.hasPermissions(4)) return true;
-        return PlayerProfileManager.activeProfileId(player).equals(claim.profileId);
+        UUID activeProfile = PlayerProfileManager.activeProfileId(player);
+        return activeProfile != null && activeProfile.equals(claim.profileId);
     }
 
-    public static boolean canEnter(ServerPlayer player, Claim claim) { return isOwner(player, claim) || claim.allowVisitors; }
-    public static boolean canBuild(ServerPlayer player, Claim claim) { return isOwner(player, claim) || claim.visitorsCanBuild; }
-    public static boolean canOpenContainers(ServerPlayer player, Claim claim) { return isOwner(player, claim) || claim.visitorsCanOpenContainers; }
-    public static boolean canInteractEntities(ServerPlayer player, Claim claim) { return isOwner(player, claim) || claim.visitorsCanInteractEntities; }
-    public static boolean canUseRedstone(ServerPlayer player, Claim claim) { return isOwner(player, claim) || claim.visitorsCanUseRedstone; }
+    public static boolean isMember(ServerPlayer player, Claim claim) {
+        if (player == null || claim == null) return false;
+        UUID activeProfile = PlayerProfileManager.activeProfileId(player);
+        return activeProfile != null && claim.memberProfileIds.contains(activeProfile);
+    }
+
+    public static boolean canEnter(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.allowVisitors; }
+    public static boolean canBuild(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanBuild; }
+    public static boolean canOpenContainers(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanOpenContainers; }
+    public static boolean canInteractEntities(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanInteractEntities; }
+    public static boolean canUseRedstone(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanUseRedstone; }
 
     public static boolean overlapsCached(ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
         if (level == null) return false;
@@ -161,7 +194,8 @@ public final class LandClaimRepository {
         int area = (Math.abs(maxX - minX) + 1) * (Math.abs(maxZ - minZ) + 1);
         if (area < LandClaimConfig.minArea()) return CreateResult.fail("Claim is too small. Minimum area is " + LandClaimConfig.minArea() + " blocks.");
         if (area > LandClaimConfig.maxArea()) return CreateResult.fail("Claim is too large. Maximum area is " + LandClaimConfig.maxArea() + " blocks.");
-        if (cachedForProfile(profileId).size() >= LandClaimConfig.maxClaimsPerProfile()) return CreateResult.fail("This profile already has the maximum number of claims.");
+        if (totalAreaCached(profileId) + area > LandClaimConfig.maxTotalClaimBlocksPerProfile()) return CreateResult.fail("This profile can only claim " + LandClaimConfig.maxTotalClaimBlocksPerProfile() + " total blocks.");
+        if (cachedForProfile(profileId).size() >= LandClaimConfig.maxClaimsPerProfile(player)) return CreateResult.fail("This profile already has the maximum number of claims.");
         if (overlapsCached(level, minX, maxX, minZ, maxZ)) return CreateResult.fail("That area overlaps an existing claim.");
 
         try {
@@ -182,8 +216,16 @@ public final class LandClaimRepository {
             try (PreparedStatement count = connection.prepareStatement("select count(*) from profile_land_claims where profile_id = ?")) {
                 count.setObject(1, profileId, Types.OTHER);
                 try (ResultSet rs = count.executeQuery()) {
-                    if (rs.next() && rs.getInt(1) >= LandClaimConfig.maxClaimsPerProfile()) {
+                    if (rs.next() && rs.getInt(1) >= LandClaimConfig.maxClaimsPerProfile(player)) {
                         return CreateResult.fail("This profile already has the maximum number of claims.");
+                    }
+                }
+            }
+            try (PreparedStatement total = connection.prepareStatement("select coalesce(sum((abs(max_x - min_x) + 1) * (abs(max_z - min_z) + 1)), 0) from profile_land_claims where profile_id = ?")) {
+                total.setObject(1, profileId, Types.OTHER);
+                try (ResultSet rs = total.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) + area > LandClaimConfig.maxTotalClaimBlocksPerProfile()) {
+                        return CreateResult.fail("This profile can only claim " + LandClaimConfig.maxTotalClaimBlocksPerProfile() + " total blocks.");
                     }
                 }
             }
@@ -212,6 +254,118 @@ public final class LandClaimRepository {
         } catch (Exception e) {
             e.printStackTrace();
             return CreateResult.fail("Could not save claim to SQL.");
+        }
+    }
+
+
+    public static int totalAreaCached(UUID profileId) {
+        int total = 0;
+        for (Claim claim : cachedForProfile(profileId)) total += claim.area();
+        return total;
+    }
+
+    public static CreateResult resize(ServerPlayer player, Claim claim, int minX, int maxX, int minZ, int maxZ) {
+        if (!isOwner(player, claim) || !DatabaseManager.isEnabled()) return CreateResult.fail("You do not own this claim on your active profile.");
+        int oldArea = claim.area();
+        int newArea = (Math.abs(maxX - minX) + 1) * (Math.abs(maxZ - minZ) + 1);
+        if (newArea < LandClaimConfig.minArea()) return CreateResult.fail("Claim is too small. Minimum area is " + LandClaimConfig.minArea() + " blocks.");
+        if (newArea > LandClaimConfig.maxArea()) return CreateResult.fail("Claim is too large. Maximum area is " + LandClaimConfig.maxArea() + " blocks.");
+        if (totalAreaCached(claim.profileId) - oldArea + newArea > LandClaimConfig.maxTotalClaimBlocksPerProfile()) return CreateResult.fail("This profile can only claim " + LandClaimConfig.maxTotalClaimBlocksPerProfile() + " total blocks.");
+        if (overlapsCachedExcept(player.serverLevel(), claim.id, minX, maxX, minZ, maxZ)) return CreateResult.fail("That resized area overlaps another claim.");
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            ensureSchema(connection);
+            try (PreparedStatement overlap = connection.prepareStatement("select id from profile_land_claims where id <> ? and server_id = ? and world_name = ? and max_x >= ? and min_x <= ? and max_z >= ? and min_z <= ? limit 1")) {
+                overlap.setObject(1, claim.id, Types.OTHER);
+                overlap.setString(2, NetworkServerConfig.serverId());
+                overlap.setString(3, player.serverLevel().dimension().location().toString());
+                overlap.setInt(4, minX); overlap.setInt(5, maxX); overlap.setInt(6, minZ); overlap.setInt(7, maxZ);
+                try (ResultSet rs = overlap.executeQuery()) { if (rs.next()) return CreateResult.fail("That resized area overlaps another claim."); }
+            }
+            try (PreparedStatement statement = connection.prepareStatement("update profile_land_claims set min_x = ?, max_x = ?, min_z = ?, max_z = ?, updated_at = now() where id = ? and profile_id = ?")) {
+                statement.setInt(1, minX); statement.setInt(2, maxX); statement.setInt(3, minZ); statement.setInt(4, maxZ);
+                statement.setObject(5, claim.id, Types.OTHER); statement.setObject(6, claim.profileId, Types.OTHER);
+                if (statement.executeUpdate() <= 0) return CreateResult.fail("Could not resize claim.");
+            }
+            claim.minX = minX; claim.maxX = maxX; claim.minZ = minZ; claim.maxZ = maxZ;
+            rebuildIndexes();
+            return CreateResult.success(claim);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return CreateResult.fail("Could not resize claim in SQL.");
+        }
+    }
+
+    public static boolean addMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
+        if (!isOwner(owner, claim) || friend == null || !DatabaseManager.isEnabled()) return false;
+        UUID friendProfile = PlayerProfileManager.activeProfileId(friend);
+        if (friendProfile == null || friendProfile.equals(claim.profileId)) return false;
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("insert into profile_land_claim_members(claim_id, profile_id, added_by_profile_id) values (?, ?, ?) on conflict do nothing")) {
+                ps.setObject(1, claim.id, Types.OTHER);
+                ps.setObject(2, friendProfile, Types.OTHER);
+                ps.setObject(3, claim.profileId, Types.OTHER);
+                ps.executeUpdate();
+            }
+            claim.memberProfileIds.add(friendProfile);
+            return true;
+        } catch (Exception e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean removeMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
+        if (!isOwner(owner, claim) || friend == null || !DatabaseManager.isEnabled()) return false;
+        UUID friendProfile = PlayerProfileManager.activeProfileId(friend);
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("delete from profile_land_claim_members where claim_id = ? and profile_id = ?")) {
+                ps.setObject(1, claim.id, Types.OTHER);
+                ps.setObject(2, friendProfile, Types.OTHER);
+                ps.executeUpdate();
+            }
+            claim.memberProfileIds.remove(friendProfile);
+            return true;
+        } catch (Exception e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean overlapsCachedExcept(ServerLevel level, UUID exceptClaimId, int minX, int maxX, int minZ, int maxZ) {
+        if (level == null) return false;
+        String key = worldKey(NetworkServerConfig.serverId(), level.dimension().location().toString());
+        Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(key);
+        if (chunks == null) return false;
+        for (int cx = minX >> 4; cx <= maxX >> 4; cx++) {
+            for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++) {
+                List<Claim> list = chunks.get(chunkKey(cx, cz));
+                if (list == null) continue;
+                for (Claim claim : list) {
+                    if (claim.id.equals(exceptClaimId)) continue;
+                    if (claim.maxX >= minX && claim.minX <= maxX && claim.maxZ >= minZ && claim.minZ <= maxZ) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static int deleteForProfileBlocking(UUID profileId) {
+        if (profileId == null || !DatabaseManager.isEnabled()) return 0;
+        try {
+            Connection connection = DatabaseManager.getConnection();
+            ensureSchema(connection);
+            int changed;
+            try (PreparedStatement statement = connection.prepareStatement("delete from profile_land_claims where profile_id = ?")) {
+                statement.setObject(1, profileId, Types.OTHER);
+                changed = statement.executeUpdate();
+            }
+            if (changed > 0) {
+                CLAIMS.entrySet().removeIf(entry -> profileId.equals(entry.getValue().profileId));
+                rebuildIndexes();
+            }
+            return changed;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
     }
 
@@ -263,6 +417,21 @@ public final class LandClaimRepository {
                 statement.executeUpdate();
             }
         });
+    }
+
+
+    private static void loadMembers(Connection connection, Map<UUID, Claim> claims) throws Exception {
+        for (Claim claim : claims.values()) claim.memberProfileIds.clear();
+        try (PreparedStatement statement = connection.prepareStatement("select claim_id, profile_id from profile_land_claim_members")) {
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    UUID claimId = (UUID) rs.getObject("claim_id");
+                    UUID profileId = (UUID) rs.getObject("profile_id");
+                    Claim claim = claims.get(claimId);
+                    if (claim != null && profileId != null) claim.memberProfileIds.add(profileId);
+                }
+            }
+        }
     }
 
     private static Claim read(ResultSet rs) throws Exception {

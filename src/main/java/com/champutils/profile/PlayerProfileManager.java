@@ -2,6 +2,7 @@ package com.champutils.profile;
 
 import com.champutils.chat.ChatPreferenceManager;
 import com.champutils.config.Config;
+import com.champutils.claims.LandClaimRepository;
 import com.champutils.database.DatabaseManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.teleport.TeleportConfig;
@@ -9,6 +10,7 @@ import com.champutils.teleport.TeleportLocation;
 import com.champutils.menu.ProfileSelectionMenu;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.territory.TerritoryRegionWipeManager;
+import com.champutils.leaderboard.ProfileLeaderboardRepository;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -165,6 +167,11 @@ public final class PlayerProfileManager {
                         "created_at timestamptz not null default now(), updated_at timestamptz not null default now())");
                 statement.executeUpdate("create index if not exists idx_profile_land_claims_profile on profile_land_claims(profile_id)");
                 statement.executeUpdate("create index if not exists idx_profile_land_claims_world_bounds on profile_land_claims(server_id, world_name, min_x, max_x, min_z, max_z)");
+
+                // Deleted profiles are intentionally hard-deleted so their cascaded data,
+                // land claims, and leaderboard rows are fully removed instead of lingering
+                // behind a soft-delete flag.
+                statement.executeUpdate("delete from player_profiles where deleted_at is not null");
             }
         });
     }
@@ -611,13 +618,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (target == null) return "No profile named " + clean + ".";
             ProfileLimit limit = limitBlocking(player);
             if (limit.instantDelete()) {
-                try (var ps = connection.prepareStatement("update player_profiles set deleted_at = now(), is_pending_delete = false where id = ?")) {
-                    ps.setObject(1, target.profileId());
-                    ps.executeUpdate();
-                }
-                deletePersonalTerritoryForProfile(player, target.profileId());
+                hardDeleteProfile(connection, player, target.profileId());
                 if (target.active()) ACTIVE.remove(player.getUUID());
                 clearProfileCache(player.getUUID());
+                ProfileLeaderboardRepository.invalidateCache();
                 return "Deleted profile " + target.profileName() + ".";
             }
             int delayMinutes = Math.max(1, limit.deletionDelayMinutes());
@@ -674,15 +678,28 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 }
             }
             if (finalizedProfileIds.isEmpty()) return "";
-            try (var ps = connection.prepareStatement("update player_profiles set deleted_at = now(), is_pending_delete = false where player_uuid = ? and is_pending_delete = true and delete_available_at <= now() and deleted_at is null")) {
-                ps.setObject(1, player.getUUID());
-                int rows = ps.executeUpdate();
-                for (UUID profileId : finalizedProfileIds) {
-                    deletePersonalTerritoryForProfile(player, profileId);
-                }
-                return rows > 0 ? "Finalized " + rows + " queued profile deletion(s)." : "";
+            int rows = 0;
+            for (UUID profileId : finalizedProfileIds) {
+                if (hardDeleteProfile(connection, player, profileId)) rows++;
             }
+            clearProfileCache(player.getUUID());
+            ProfileLeaderboardRepository.invalidateCache();
+            return rows > 0 ? "Finalized " + rows + " queued profile deletion(s)." : "";
         } catch (Exception e) { e.printStackTrace(); return ""; }
+    }
+
+    private static boolean hardDeleteProfile(Connection connection, ServerPlayer player, UUID profileId) throws Exception {
+        if (profileId == null) return false;
+
+        // Remove territory files/regions tied to this profile and remove SQL land claims
+        // immediately so protection caches cannot keep ghost claims alive until refresh.
+        deletePersonalTerritoryForProfile(player, profileId);
+        LandClaimRepository.deleteForProfileBlocking(profileId);
+
+        try (var ps = connection.prepareStatement("delete from player_profiles where id = ?")) {
+            ps.setObject(1, profileId);
+            return ps.executeUpdate() > 0;
+        }
     }
 
     private static void deletePersonalTerritoryForProfile(ServerPlayer player, UUID profileId) {

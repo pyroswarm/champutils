@@ -61,6 +61,13 @@ public final class ProfileLeaderboardRepository {
             long secondaryValue
     ) {}
 
+    public static void invalidateCache() {
+        synchronized (CACHE) {
+            CACHE.clear();
+        }
+        lastRefreshAtMillis = 0L;
+    }
+
     public static List<Entry> top(Board board, int limit) {
         refreshAllAsync(false);
         int safeLimit = Math.max(1, Math.min(100, limit));
@@ -125,8 +132,9 @@ public final class ProfileLeaderboardRepository {
 
     private static List<Entry> ranked(Connection connection, int limit) throws Exception {
         String seasonId = "season_" + Math.max(0, SeasonManager.CURRENT_SEASON);
-        String sql = "select profile_id, player_uuid, username, profile_name, mode, rp, wins, losses " +
-                "from leaderboard_ranked_profiles where season_id = ? order by rp desc, wins desc, losses asc limit ?";
+        String sql = "select lb.profile_id, lb.player_uuid, lb.username, lb.profile_name, lb.mode, lb.rp, lb.wins, lb.losses " +
+                "from leaderboard_ranked_profiles lb join player_profiles p on p.id = lb.profile_id " +
+                "where lb.season_id = ? and p.deleted_at is null order by lb.rp desc, lb.wins desc, lb.losses asc limit ?";
         List<Entry> rows = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, seasonId);
@@ -146,8 +154,9 @@ public final class ProfileLeaderboardRepository {
     }
 
     private static List<Entry> generic(Connection connection, Board board, int limit) throws Exception {
-        String sql = "select profile_id, player_uuid, username, profile_name, mode, " + board.valueColumn + " as value " +
-                "from " + board.view + " order by " + board.valueColumn + " desc limit ?";
+        String sql = "select lb.profile_id, lb.player_uuid, lb.username, lb.profile_name, lb.mode, lb." + board.valueColumn + " as value " +
+                "from " + board.view + " lb join player_profiles p on p.id = lb.profile_id " +
+                "where p.deleted_at is null order by lb." + board.valueColumn + " desc limit ?";
         List<Entry> rows = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, limit);

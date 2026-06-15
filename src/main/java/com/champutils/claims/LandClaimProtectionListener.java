@@ -1,31 +1,38 @@
 package com.champutils.claims;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.vehicle.MinecartHopper;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.DropperBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
@@ -34,10 +41,72 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public final class LandClaimProtectionListener {
+    private static final Set<UUID> BORDER_VIEWERS = ConcurrentHashMap.newKeySet();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File BORDER_PREF_FILE = new File("config/champutils/claim_border_viewers.json");
+
     private LandClaimProtectionListener() {}
 
+    public static synchronized boolean toggleBorder(ServerPlayer player) {
+        if (player == null) return false;
+        loadBorderPrefs();
+        UUID uuid = player.getUUID();
+        boolean enabled;
+        if (BORDER_VIEWERS.remove(uuid)) {
+            enabled = false;
+        } else {
+            BORDER_VIEWERS.add(uuid);
+            enabled = true;
+        }
+        saveBorderPrefs();
+        return enabled;
+    }
+
+    public static synchronized void loadBorderPrefs() {
+        try {
+            if (!BORDER_PREF_FILE.exists()) return;
+            try (FileReader reader = new FileReader(BORDER_PREF_FILE)) {
+                String[] values = GSON.fromJson(reader, String[].class);
+                BORDER_VIEWERS.clear();
+                if (values != null) {
+                    for (String value : values) {
+                        try { BORDER_VIEWERS.add(UUID.fromString(value)); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static synchronized void saveBorderPrefs() {
+        try {
+            File parent = BORDER_PREF_FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            Set<String> values = new HashSet<>();
+            for (UUID uuid : BORDER_VIEWERS) values.add(uuid.toString());
+            try (FileWriter writer = new FileWriter(BORDER_PREF_FILE)) {
+                GSON.toJson(values, writer);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void register() {
+        loadBorderPrefs();
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return true;
             LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, pos);
@@ -67,6 +136,11 @@ public final class LandClaimProtectionListener {
 
             if (isDangerousTransportItem(stack) && !LandClaimRepository.canBuild(serverPlayer, claim)) {
                 deny(serverPlayer, "You cannot place item-transfer blocks or hopper minecarts into " + claim.ownerName + "'s claim.");
+                return InteractionResult.FAIL;
+            }
+
+            if ((stack.getItem() instanceof BucketItem || stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE)) && !LandClaimRepository.canBuild(serverPlayer, claim)) {
+                deny(serverPlayer, "You cannot place fluids or fire in " + claim.ownerName + "'s claim.");
                 return InteractionResult.FAIL;
             }
 
@@ -106,33 +180,111 @@ public final class LandClaimProtectionListener {
 
         ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
             if (!(world instanceof ServerLevel level)) return;
-            if (isHopperMinecart(entity) && LandClaimRepository.findAt(level, entity.blockPosition()) != null) {
+            if (isDangerousEntity(entity) && LandClaimRepository.findAt(level, entity.blockPosition()) != null) {
                 entity.discard();
             }
         });
     }
 
     public static void tick(MinecraftServer server) {
-        if (server == null || server.getTickCount() % 20 != 0) return;
+        if (server == null) return;
+        if (server.getTickCount() % 20 == 0) renderBorders(server);
+        if (server.getTickCount() % 20 != 0) return;
         for (ServerLevel level : server.getAllLevels()) {
             String worldName = level.dimension().location().toString();
             for (LandClaimRepository.Claim claim : LandClaimRepository.allCached()) {
                 if (claim == null || !claim.worldName.equalsIgnoreCase(worldName)) continue;
-                AABB box = new AABB(claim.minX, level.getMinBuildHeight(), claim.minZ, claim.maxX + 1.0D, level.getMaxBuildHeight(), claim.maxZ + 1.0D);
-                for (Entity entity : level.getEntities((Entity) null, box, LandClaimProtectionListener::isHopperMinecart)) {
-                    entity.discard();
+                AABB box = new AABB(claim.minX - 1, level.getMinBuildHeight(), claim.minZ - 1, claim.maxX + 2.0D, level.getMaxBuildHeight(), claim.maxZ + 2.0D);
+                for (Entity entity : level.getEntities((Entity) null, box, LandClaimProtectionListener::isDangerousEntity)) {
+                    if (LandClaimRepository.findAt(level, entity.blockPosition()) != null || isNearClaimBoundary(claim, entity.blockPosition())) entity.discard();
                 }
+                sealBorderAgainstGrief(level, claim);
             }
         }
     }
 
-    private static boolean isDangerousTransportItem(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return false;
-        return stack.is(Items.HOPPER_MINECART) || stack.is(Items.HOPPER) || stack.is(Items.DISPENSER) || stack.is(Items.DROPPER);
+    private static void renderBorders(MinecraftServer server) {
+        int view = LandClaimConfig.borderViewDistanceBlocks();
+        int step = LandClaimConfig.borderParticleStepBlocks();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!BORDER_VIEWERS.contains(player.getUUID())) continue;
+            ServerLevel level = player.serverLevel();
+            int y = Math.max(level.getMinBuildHeight() + 1, Math.min(level.getMaxBuildHeight() - 1, player.blockPosition().getY() + 1));
+            for (LandClaimRepository.Claim claim : LandClaimRepository.allCached()) {
+                if (claim == null || !claim.worldName.equalsIgnoreCase(level.dimension().location().toString())) continue;
+                if (!LandClaimRepository.isOwner(player, claim) && !LandClaimRepository.isMember(player, claim)) continue;
+                if (!isClaimNearPlayer(player, claim, view)) continue;
+                for (int x = claim.minX; x <= claim.maxX; x += step) {
+                    spawnBorderParticle(player, x, y, claim.minZ, view);
+                    spawnBorderParticle(player, x, y, claim.maxZ, view);
+                }
+                spawnBorderParticle(player, claim.maxX, y, claim.minZ, view);
+                spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view);
+                for (int z = claim.minZ; z <= claim.maxZ; z += step) {
+                    spawnBorderParticle(player, claim.minX, y, z, view);
+                    spawnBorderParticle(player, claim.maxX, y, z, view);
+                }
+                spawnBorderParticle(player, claim.minX, y, claim.maxZ, view);
+                spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view);
+            }
+        }
     }
 
-    private static boolean isHopperMinecart(Entity entity) {
-        return entity instanceof MinecartHopper || entity.getType() == EntityType.HOPPER_MINECART;
+    private static boolean isClaimNearPlayer(ServerPlayer player, LandClaimRepository.Claim claim, int view) {
+        int px = player.blockPosition().getX();
+        int pz = player.blockPosition().getZ();
+        int nearestX = Math.max(claim.minX, Math.min(px, claim.maxX));
+        int nearestZ = Math.max(claim.minZ, Math.min(pz, claim.maxZ));
+        long dx = (long) px - nearestX;
+        long dz = (long) pz - nearestZ;
+        return dx * dx + dz * dz <= (long) view * view;
+    }
+
+    private static void spawnBorderParticle(ServerPlayer player, int x, int y, int z, int view) {
+        if (player.distanceToSqr(x + 0.5D, y + 0.5D, z + 0.5D) > (double) view * view) return;
+        player.serverLevel().sendParticles(player, ParticleTypes.HAPPY_VILLAGER, true, x + 0.5D, y + 0.2D, z + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+    }
+
+    private static void sealBorderAgainstGrief(ServerLevel level, LandClaimRepository.Claim claim) {
+        int minY = level.getMinBuildHeight();
+        int maxY = level.getMaxBuildHeight() - 1;
+        for (int x = claim.minX; x <= claim.maxX; x++) {
+            cleanColumnIfOutsideThreat(level, claim, new BlockPos(x, minY, claim.minZ), 0, -1, minY, maxY);
+            cleanColumnIfOutsideThreat(level, claim, new BlockPos(x, minY, claim.maxZ), 0, 1, minY, maxY);
+        }
+        for (int z = claim.minZ; z <= claim.maxZ; z++) {
+            cleanColumnIfOutsideThreat(level, claim, new BlockPos(claim.minX, minY, z), -1, 0, minY, maxY);
+            cleanColumnIfOutsideThreat(level, claim, new BlockPos(claim.maxX, minY, z), 1, 0, minY, maxY);
+        }
+    }
+
+    private static void cleanColumnIfOutsideThreat(ServerLevel level, LandClaimRepository.Claim claim, BlockPos base, int dx, int dz, int minY, int maxY) {
+        for (int y = minY; y <= maxY; y++) {
+            BlockPos inside = new BlockPos(base.getX(), y, base.getZ());
+            BlockPos outside = inside.offset(dx, 0, dz);
+            BlockState insideState = level.getBlockState(inside);
+            BlockState outsideState = level.getBlockState(outside);
+            boolean outsideThreat = outsideState.getFluidState().is(FluidTags.LAVA) || outsideState.getFluidState().is(FluidTags.WATER) || outsideState.getBlock() instanceof FireBlock;
+            boolean insideThreat = insideState.getFluidState().is(FluidTags.LAVA) || insideState.getFluidState().is(FluidTags.WATER) || insideState.getBlock() instanceof FireBlock;
+            if (outsideThreat && insideThreat) level.setBlock(inside, Blocks.AIR.defaultBlockState(), 3);
+        }
+    }
+
+    private static boolean isNearClaimBoundary(LandClaimRepository.Claim claim, BlockPos pos) {
+        if (claim == null || pos == null) return false;
+        return pos.getX() >= claim.minX - 1 && pos.getX() <= claim.maxX + 1 && pos.getZ() >= claim.minZ - 1 && pos.getZ() <= claim.maxZ + 1;
+    }
+
+    private static boolean isDangerousTransportItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        return stack.is(Items.HOPPER_MINECART) || stack.is(Items.HOPPER) || stack.is(Items.DISPENSER) || stack.is(Items.DROPPER)
+                || stack.is(Items.TNT) || stack.is(Items.TNT_MINECART) || stack.is(Items.LAVA_BUCKET) || stack.is(Items.WATER_BUCKET);
+    }
+
+    private static boolean isDangerousEntity(Entity entity) {
+        return entity instanceof MinecartHopper || entity.getType() == EntityType.HOPPER_MINECART
+                || entity instanceof PrimedTnt || entity.getType() == EntityType.TNT_MINECART
+                || entity instanceof AbstractHurtingProjectile;
     }
 
     private static boolean isContainer(ServerLevel level, BlockPos pos, BlockState state) {
