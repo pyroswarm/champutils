@@ -593,6 +593,7 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonWikiCommand.register();
         BattleExitCommand.register();
         BattleSpectateCommand.register();
+        QueueCommand.register();
         ItemBindCommand.register();
         OpenCratesCommand.register();
         ExplorationWorldCommand.register();

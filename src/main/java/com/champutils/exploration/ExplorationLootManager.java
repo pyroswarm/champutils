@@ -173,18 +173,26 @@ public final class ExplorationLootManager {
 
         String id = blockId(level, pos);
         if (id.isBlank()) return false;
-
-        for (String exact : ExplorationLootConfig.get().lootContainerBlockIds) {
-            if (exact != null && id.equalsIgnoreCase(exact.trim())) return true;
-        }
         String lower = id.toLowerCase(Locale.ROOT);
-        for (String contains : ExplorationLootConfig.get().lootContainerIdContains) {
-            if (contains != null && !contains.isBlank() && lower.contains(contains.toLowerCase(Locale.ROOT))) return true;
-        }
+
+        boolean allowedBlock = lower.equals("minecraft:chest")
+                || lower.equals("minecraft:barrel")
+                || lower.contains("gilded_chest");
+        if (!allowedBlock) return false;
 
         BlockEntity entity = level.getBlockEntity(pos);
-        return entity instanceof net.minecraft.world.Container
-                && (lower.contains("chest") || lower.contains("barrel") || lower.contains("loot"));
+        if (!(entity instanceof net.minecraft.world.Container)) return false;
+
+        // Cobblemon gilded chests are generated loot containers even when they do not expose
+        // the vanilla LootTable tag the same way vanilla chests/barrels do.
+        if (lower.contains("gilded_chest")) return true;
+
+        try {
+            var nbt = entity.saveWithFullMetadata(level.registryAccess());
+            return nbt != null && nbt.contains("LootTable");
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static String blockId(ServerLevel level, BlockPos pos) {

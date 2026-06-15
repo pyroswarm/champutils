@@ -111,6 +111,21 @@ public final class TitleConfig {
         }
     }
 
+    public static double activeProfessionXpBonus(ServerPlayer player, ProfessionType profession) {
+        if (player == null || profession == null) return 0.0D;
+        String selected = TitleManager.selected(player.getUUID());
+        TitleDef def = get(selected);
+        if (def == null || def.passive == null) return 0.0D;
+        if (def.passive.profession != null && !def.passive.profession.isBlank() && !def.passive.profession.equalsIgnoreCase(profession.name())) return 0.0D;
+        return Math.max(0.0D, def.passive.professionXpBonus);
+    }
+
+    private static String passiveText(TitleDef def) {
+        if (def == null || def.passive == null || def.passive.professionXpBonus <= 0.0D) return "No passive bonus.";
+        String prof = def.passive.profession == null || def.passive.profession.isBlank() ? "Profession" : pretty(def.passive.profession);
+        return "+" + String.format(Locale.US, "%.2f", def.passive.professionXpBonus * 100.0D).replaceAll("0+$", "").replaceAll("\\.$", "") + "% " + prof + " XP while equipped.";
+    }
+
     private static String formatDisplay(TitleDef def) {
         String color = (def.color == null || def.color.isBlank()) ? "&7" : def.color;
         String icon = def.icon == null ? "" : def.icon.trim();
@@ -125,6 +140,13 @@ public final class TitleConfig {
         add(c, "ranked_winner", "Ranked Winner", "&6", "🏆", "battle_win", "RANKED", null, 0, "Win a ranked battle.");
         add(c, "boss_slayer", "Boss Slayer", "&c", "★", "boss_win", null, null, 0, "Defeat a boss.");
         add(c, "collector", "Collector", "&b", "◇", "catch", null, null, 0, "Catch a Pokémon.");
+        add(c, "casual_scrapper", "Casual Scrapper", "&a", "⚔", "battle_win", "CASUAL", null, 0, "Win a casual PvP battle.");
+        add(c, "ranked_contender", "Ranked Contender", "&e", "⚔", "battle_win", "RANKED", null, 0, "Win your first ranked PvP battle.");
+        add(c, "arena_regular", "Arena Regular", "&b", "✧", "manual", null, null, 0, "Win 10 PvP battles.");
+        add(c, "champion_spark", "Champion Spark", "&6", "✦", "manual", null, null, 0, "Earn your first gym badge.");
+        add(c, "hunt_helper", "Hunt Helper", "&a", "◎", "manual", null, null, 0, "Complete a Pokémon hunt.");
+        add(c, "questing_soul", "Questing Soul", "&d", "◆", "manual", null, null, 0, "Complete a daily quest set.");
+        add(c, "contractor", "Contractor", "&6", "$", "manual", null, null, 0, "Complete a paid contract.");
         for (ProfessionType type : ProfessionType.values()) {
             String p = pretty(type.name());
             add(c, type.name().toLowerCase(Locale.ROOT) + "_apprentice", p + " Apprentice", "&b", "✦", "profession_level", null, type.name(), 10, "Reach " + p + " level 10.");
@@ -146,6 +168,12 @@ public final class TitleConfig {
         d.unlock.battleType = battleType;
         d.unlock.profession = profession;
         d.unlock.level = level;
+        if ("profession_level".equalsIgnoreCase(type) && profession != null) {
+            d.passive = new PassiveBonus();
+            d.passive.profession = profession;
+            d.passive.professionXpBonus = level >= 50 ? 0.02D : 0.01D;
+            d.passiveDescription = passiveText(d);
+        }
         c.titles.add(d);
     }
 
@@ -168,7 +196,13 @@ public final class TitleConfig {
         public String icon;
         public String display;
         public String description;
+        public String passiveDescription;
+        public PassiveBonus passive;
         public UnlockCondition unlock;
+    }
+    public static final class PassiveBonus {
+        public String profession;
+        public double professionXpBonus;
     }
     public static final class UnlockCondition {
         /** battle_win, catch, boss_win, profession_level, manual */

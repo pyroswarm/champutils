@@ -40,14 +40,14 @@ public final class ChestShopCommand {
                                             .executes(context -> create(
                                                     context.getSource().getPlayerOrException(),
                                                     ChestShopRegistry.ShopMode.SELL,
-                                                    LongArgumentType.getLong(context, "price"),
+                                                    EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price")),
                                                     1
                                             ))
                                             .then(argument("amount", IntegerArgumentType.integer(1, 3456))
                                                     .executes(context -> create(
                                                             context.getSource().getPlayerOrException(),
                                                             ChestShopRegistry.ShopMode.SELL,
-                                                            LongArgumentType.getLong(context, "price"),
+                                                            EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price")),
                                                             IntegerArgumentType.getInteger(context, "amount")
                                                     )))))
                             .then(literal("buy")
@@ -55,14 +55,14 @@ public final class ChestShopCommand {
                                             .executes(context -> create(
                                                     context.getSource().getPlayerOrException(),
                                                     ChestShopRegistry.ShopMode.BUY,
-                                                    LongArgumentType.getLong(context, "price"),
+                                                    EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price")),
                                                     1
                                             ))
                                             .then(argument("amount", IntegerArgumentType.integer(1, 3456))
                                                     .executes(context -> create(
                                                             context.getSource().getPlayerOrException(),
                                                             ChestShopRegistry.ShopMode.BUY,
-                                                            LongArgumentType.getLong(context, "price"),
+                                                            EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price")),
                                                             IntegerArgumentType.getInteger(context, "amount")
                                                     )))))
                             .then(literal("info")

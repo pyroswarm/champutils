@@ -146,7 +146,6 @@ public final class ExplorationLootConfig {
          */
         public List<String> lootContainerBlockIds = new ArrayList<>(List.of(
                 "minecraft:chest",
-                "minecraft:trapped_chest",
                 "minecraft:barrel",
                 "cobblemon:gilded_chest",
                 "cobblemon:black_gilded_chest",
@@ -181,8 +180,7 @@ public final class ExplorationLootConfig {
             if (lootContainerBlockIds == null || lootContainerBlockIds.isEmpty()) {
                 lootContainerBlockIds = new ArrayList<>(List.of(
                         "minecraft:chest",
-                        "minecraft:trapped_chest",
-                        "minecraft:barrel",
+                                "minecraft:barrel",
                         "cobblemon:gilded_chest",
                         "cobblemon:black_gilded_chest",
                         "cobblemon:blue_gilded_chest",

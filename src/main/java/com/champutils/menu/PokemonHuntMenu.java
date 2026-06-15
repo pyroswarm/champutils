@@ -3,6 +3,8 @@ package com.champutils.menu;
 import com.champutils.matchmaking.PokemonIconUtil;
 import com.champutils.hunt.PokemonHuntManager;
 import com.champutils.hunt.PokemonHuntState;
+import com.champutils.economy.EconomyManager;
+import com.champutils.hunt.PokemonHuntConfig;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -42,7 +44,9 @@ public final class PokemonHuntMenu {
                     .addLoreLine(Component.literal("§7Gender: §f" + PokemonHuntManager.prettyGender(hunt.gender)))
                     .addLoreLine(Component.literal("§7Ability: §f" + PokemonHuntManager.prettyAbility(hunt.ability)))
                     .addLoreLine(Component.literal("§7Difficulty: §f" + (hunt.difficulty == null ? "Common" : hunt.difficulty)))
-                    .addLoreLine(Component.literal(" "));
+                    .addLoreLine(Component.literal("§6Rewards:"));
+            addRewardLore(builder, hunt.rewards);
+            builder.addLoreLine(Component.literal(" "));
 
             if (done) {
                 builder.addLoreLine(Component.literal("§aCompleted by §f" + hunt.winnerName));
@@ -67,6 +71,31 @@ public final class PokemonHuntMenu {
         );
 
         gui.open();
+    }
+
+    private static void addRewardLore(GuiElementBuilder builder, PokemonHuntConfig.Rewards rewards) {
+        if (builder == null) return;
+        if (rewards == null) {
+            builder.addLoreLine(Component.literal("§7- §fRewards vary by target."));
+            return;
+        }
+        if (rewards.credits > 0L) {
+            builder.addLoreLine(Component.literal("§7- Credits: §6" + EconomyManager.format(rewards.credits)));
+        }
+        if (rewards.rewardRolls > 0) {
+            builder.addLoreLine(Component.literal("§7- Item rolls: §f" + rewards.rewardRolls));
+        }
+        if (rewards.items != null && !rewards.items.isEmpty()) {
+            int shown = 0;
+            for (PokemonHuntConfig.RewardItem item : rewards.items) {
+                if (item == null || item.item == null || item.item.isBlank()) continue;
+                builder.addLoreLine(Component.literal("§8- §f" + item.item + " x" + item.min + "-" + item.max));
+                if (++shown >= 4) {
+                    builder.addLoreLine(Component.literal("§8- §7More possible rewards..."));
+                    break;
+                }
+            }
+        }
     }
 
     private static String formatDuration(long millis) {

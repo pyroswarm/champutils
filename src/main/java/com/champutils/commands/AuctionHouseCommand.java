@@ -5,6 +5,7 @@ import com.champutils.auction.AuctionHouseBindInteractionListener;
 import com.champutils.auction.AuctionHouseGui;
 import com.champutils.auction.AuctionHouseNpcBindingRegistry;
 import com.champutils.auction.AuctionHouseService;
+import com.champutils.economy.EconomyManager;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -39,7 +40,7 @@ public final class AuctionHouseCommand {
                                                     if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
                                                     AuctionHouseService.beginHeldItemListing(
                                                     player,
-                                                    LongArgumentType.getLong(context, "price")
+                                                    EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price"))
                                             );
                                             return 1;
                                         })))
@@ -52,7 +53,7 @@ public final class AuctionHouseCommand {
                                                             AuctionHouseService.beginPokemonListing(
                                                             player,
                                                             IntegerArgumentType.getInteger(context, "slot"),
-                                                            LongArgumentType.getLong(context, "price")
+                                                            EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price"))
                                                     );
                                                     return 1;
                                                 }))))

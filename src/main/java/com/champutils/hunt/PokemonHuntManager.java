@@ -300,11 +300,12 @@ public final class PokemonHuntManager {
     }
 
     private static void grantRewards(ServerPlayer player, PokemonHuntState.HuntEntry hunt) {
+        com.champutils.cosmetic.TitleManager.unlock(player, "hunt_helper");
         PokemonHuntConfig.Rewards rewards = hunt.rewards == null ? new PokemonHuntConfig.Rewards() : hunt.rewards;
         long credits = Math.max(0L, rewards.credits);
         if (credits > 0L) {
             EconomyManager.deposit(player, credits, "Pokémon hunt reward: " + hunt.species);
-            player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits) + " Credits").withStyle(ChatFormatting.GOLD));
+            player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits)).withStyle(ChatFormatting.GOLD));
         }
 
         int rolls = Math.max(1, rewards.rewardRolls);

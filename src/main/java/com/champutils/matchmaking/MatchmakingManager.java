@@ -13,6 +13,7 @@ import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.validation.TeamValidator;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
@@ -51,6 +52,35 @@ public class MatchmakingManager {
 
     private static final Set<UUID> PENDING_MATCH =
             new HashSet<>();
+
+    private static final Map<UUID, PendingAcceptance> ACCEPTANCE =
+            new HashMap<>();
+
+    private static final Set<UUID> ACCEPTED_MATCH =
+            new HashSet<>();
+
+    private static final int ACCEPT_TIMEOUT_TICKS = 30 * 20;
+
+    private static class PendingAcceptance {
+        final ServerPlayer p1;
+        final ServerPlayer p2;
+        final String type;
+        final List<ServerPlayer> queue;
+        int ticksLeft = ACCEPT_TIMEOUT_TICKS;
+        boolean launched = false;
+
+        PendingAcceptance(ServerPlayer p1, ServerPlayer p2, String type, List<ServerPlayer> queue) {
+            this.p1 = p1;
+            this.p2 = p2;
+            this.type = type;
+            this.queue = queue;
+        }
+
+        ServerPlayer other(ServerPlayer player) {
+            if (player == null) return null;
+            return player.getUUID().equals(p1.getUUID()) ? p2 : p1;
+        }
+    }
 
     private static class DelayedTask {
         int ticks;
@@ -167,6 +197,8 @@ public class MatchmakingManager {
         PENDING_MATCH.remove(
                 player.getUUID()
         );
+
+        clearAcceptance(player);
     }
 
     public static boolean isRankedMatch(
@@ -232,6 +264,7 @@ public class MatchmakingManager {
         PENDING_MATCH.remove(
                 player.getUUID()
         );
+        clearAcceptance(player);
     }
 
     private static boolean rankedType(
@@ -273,6 +306,7 @@ public class MatchmakingManager {
 
     public static void tick() {
         tickTasks();
+        tickAcceptance();
         tickQueues();
         tickRecentMatches();
     }
@@ -621,6 +655,23 @@ public class MatchmakingManager {
         QUEUE_TIME.remove(p1.getUUID());
         QUEUE_TIME.remove(p2.getUUID());
 
+        PendingAcceptance pending = new PendingAcceptance(p1, p2, type, queue);
+        ACCEPTANCE.put(p1.getUUID(), pending);
+        ACCEPTANCE.put(p2.getUUID(), pending);
+        ACCEPTED_MATCH.remove(p1.getUUID());
+        ACCEPTED_MATCH.remove(p2.getUUID());
+
+        sendMatchAcceptPrompt(p1, p2, type);
+        sendMatchAcceptPrompt(p2, p1, type);
+    }
+
+    private static void beginAcceptedMatch(
+            ServerPlayer p1,
+            ServerPlayer p2,
+            String type,
+            List<ServerPlayer> queue
+    ) {
+
         ArenaManager.Arena arena =
                 ArenaManager.reserveArena(
                         p1,
@@ -760,6 +811,95 @@ public class MatchmakingManager {
 
         PENDING_MATCH.remove(p1.getUUID());
         PENDING_MATCH.remove(p2.getUUID());
+    }
+
+    public static boolean acceptMatch(ServerPlayer player) {
+        if (player == null) return false;
+        PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
+        if (pending == null || pending.launched) {
+            player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
+            return false;
+        }
+        ACCEPTED_MATCH.add(player.getUUID());
+        ServerPlayer other = pending.other(player);
+        player.sendSystemMessage(Component.literal("§aMatch accepted. Waiting for opponent..."));
+        if (other != null) {
+            other.sendSystemMessage(Component.literal("§e" + player.getName().getString() + " accepted the match."));
+        }
+        if (ACCEPTED_MATCH.contains(pending.p1.getUUID()) && ACCEPTED_MATCH.contains(pending.p2.getUUID())) {
+            pending.launched = true;
+            ACCEPTANCE.remove(pending.p1.getUUID());
+            ACCEPTANCE.remove(pending.p2.getUUID());
+            ACCEPTED_MATCH.remove(pending.p1.getUUID());
+            ACCEPTED_MATCH.remove(pending.p2.getUUID());
+            beginAcceptedMatch(pending.p1, pending.p2, pending.type, pending.queue);
+        }
+        return true;
+    }
+
+    public static boolean declineMatch(ServerPlayer player) {
+        if (player == null) return false;
+        PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
+        if (pending == null || pending.launched) {
+            player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
+            return false;
+        }
+        handleAcceptanceFailure(pending, player, "declined");
+        return true;
+    }
+
+    private static void tickAcceptance() {
+        Set<PendingAcceptance> pendingSet = new HashSet<>(ACCEPTANCE.values());
+        for (PendingAcceptance pending : pendingSet) {
+            if (pending == null || pending.launched) continue;
+            pending.ticksLeft--;
+            if (pending.ticksLeft <= 0) {
+                ServerPlayer failed = !ACCEPTED_MATCH.contains(pending.p1.getUUID()) ? pending.p1 : pending.p2;
+                handleAcceptanceFailure(pending, failed, "did not accept in time");
+            }
+        }
+    }
+
+    private static void handleAcceptanceFailure(PendingAcceptance pending, ServerPlayer failed, String reason) {
+        if (pending == null || pending.launched) return;
+        pending.launched = true;
+        ServerPlayer other = pending.other(failed);
+        ACCEPTANCE.remove(pending.p1.getUUID());
+        ACCEPTANCE.remove(pending.p2.getUUID());
+        ACCEPTED_MATCH.remove(pending.p1.getUUID());
+        ACCEPTED_MATCH.remove(pending.p2.getUUID());
+        PENDING_MATCH.remove(pending.p1.getUUID());
+        PENDING_MATCH.remove(pending.p2.getUUID());
+        clearMatch(pending.p1);
+        clearMatch(pending.p2);
+        if (failed != null) {
+            failed.sendSystemMessage(Component.literal("§cMatch canceled because you " + reason + ". You were removed from queue."));
+        }
+        if (other != null && other.getServer() != null && other.isAlive() && !BattleStateManager.isInBattle(other)) {
+            pending.queue.add(other);
+            QUEUE_TIME.put(other.getUUID(), 0);
+            QueueBossBarManager.start(other, pending.type);
+            other.sendSystemMessage(Component.literal("§eOpponent " + reason + ". You accepted, so you are still searching."));
+        }
+    }
+
+    private static void clearAcceptance(ServerPlayer player) {
+        if (player == null) return;
+        PendingAcceptance pending = ACCEPTANCE.remove(player.getUUID());
+        ACCEPTED_MATCH.remove(player.getUUID());
+        if (pending != null) {
+            ServerPlayer other = pending.other(player);
+            if (other != null) ACCEPTANCE.remove(other.getUUID());
+        }
+    }
+
+    private static void sendMatchAcceptPrompt(ServerPlayer player, ServerPlayer opponent, String type) {
+        if (player == null) return;
+        sendTitle(player, "§aMatch Found!", "§eAccept within 30 seconds");
+        ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
+        Component accept = Component.literal("§a[ACCEPT]").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/queue accept")));
+        Component deny = Component.literal("§c[DENY]").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/queue deny")));
+        player.sendSystemMessage(Component.literal("§aMatch found against §f" + opponent.getName().getString() + "§a. ").append(accept).append(Component.literal(" ")).append(deny));
     }
 
     private static void sendMatchFound(

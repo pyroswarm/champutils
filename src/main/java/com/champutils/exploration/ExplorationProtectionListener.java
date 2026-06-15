@@ -1,5 +1,7 @@
 package com.champutils.exploration;
 
+import com.champutils.shop.ChestShopClaimCompat;
+
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.ChatFormatting;
@@ -23,10 +25,13 @@ public final class ExplorationProtectionListener {
     public static void register() {
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return true;
-            if (!ExplorationWorldManager.isExplorationLevel(level)) return true;
             if (serverPlayer.hasPermissions(4) && serverPlayer.isCreative()) return true;
 
-            if (isLootContainer(level, pos, state) || ExplorationLootState.isProtected(level, pos)) {
+            if (isLootContainer(level, pos, state) && ChestShopClaimCompat.canCreateShop(serverPlayer, level, pos) != ChestShopClaimCompat.ClaimCheckResult.ALLOWED) {
+                deny(serverPlayer, "Natural loot containers are protected until this land is claimed.");
+                return false;
+            }
+            if (ExplorationWorldManager.isExplorationLevel(level) && ExplorationLootState.isProtected(level, pos)) {
                 deny(serverPlayer, "Exploration structures are protected.");
                 return false;
             }
@@ -36,18 +41,16 @@ public final class ExplorationProtectionListener {
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
-            if (!ExplorationWorldManager.isExplorationLevel(level)) return InteractionResult.PASS;
-
             BlockPos targetPos = hitResult.getBlockPos();
             BlockState state = level.getBlockState(targetPos);
-            if (isLootContainer(level, targetPos, state)) {
+            if (isLootContainer(level, targetPos, state) && ChestShopClaimCompat.canCreateShop(serverPlayer, level, targetPos) != ChestShopClaimCompat.ClaimCheckResult.ALLOWED) {
                 ExplorationLootManager.open(serverPlayer, level, targetPos);
                 return InteractionResult.SUCCESS;
             }
 
             ItemStack stack = serverPlayer.getItemInHand(hand);
             BlockPos placedPos = targetPos.relative(hitResult.getDirection());
-            if (stack.getItem() instanceof BlockItem && ExplorationLootState.isProtected(level, placedPos) && !(serverPlayer.hasPermissions(4) && serverPlayer.isCreative())) {
+            if (ExplorationWorldManager.isExplorationLevel(level) && stack.getItem() instanceof BlockItem && ExplorationLootState.isProtected(level, placedPos) && !(serverPlayer.hasPermissions(4) && serverPlayer.isCreative())) {
                 deny(serverPlayer, "You cannot place blocks inside protected exploration structures.");
                 return InteractionResult.FAIL;
             }
@@ -57,12 +60,22 @@ public final class ExplorationProtectionListener {
     }
 
     private static boolean isLootContainer(ServerLevel level, BlockPos pos, BlockState state) {
-        if (ExplorationLootManager.isInstancedLootContainer(level, pos)) return true;
+        if (!isAllowedLootBlock(level, pos, state)) return false;
         BlockEntity entity = level.getBlockEntity(pos);
-        if (entity instanceof net.minecraft.world.Container) {
-            return state.getBlock() instanceof ChestBlock || state.getBlock() instanceof BarrelBlock || state.getBlock() instanceof ShulkerBoxBlock;
-        }
-        return state.getBlock() instanceof ChestBlock || state.getBlock() instanceof BarrelBlock || state.getBlock() instanceof ShulkerBoxBlock;
+        if (!(entity instanceof net.minecraft.world.Container)) return false;
+        // Only natural/generated loot containers should become instanced. Player-placed empty containers
+        // do not carry a vanilla LootTable tag and remain normal unless discovered by an actual loot table.
+        try {
+            var nbt = entity.saveWithFullMetadata(level.registryAccess());
+            if (nbt != null && nbt.contains("LootTable")) return true;
+        } catch (Throwable ignored) {}
+        String blockId = level.getBlockState(pos).getBlock().builtInRegistryHolder().key().location().toString().toLowerCase(java.util.Locale.ROOT);
+        return blockId.contains("gilded_chest");
+    }
+
+    private static boolean isAllowedLootBlock(ServerLevel level, BlockPos pos, BlockState state) {
+        String blockId = level.getBlockState(pos).getBlock().builtInRegistryHolder().key().location().toString().toLowerCase(java.util.Locale.ROOT);
+        return blockId.equals("minecraft:chest") || blockId.equals("minecraft:barrel") || blockId.contains("gilded_chest");
     }
 
     private static void deny(ServerPlayer player, String message) {

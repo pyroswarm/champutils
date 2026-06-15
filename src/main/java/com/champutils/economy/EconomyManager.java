@@ -28,7 +28,7 @@ public final class EconomyManager {
     private static final long MAX_BALANCE = 9_000_000_000_000_000L;
     // Stored as cents so the economy can support values like 1.32 Credits.
     private static final long CURRENCY_SCALE = 100L;
-    private static final long STARTING_BALANCE = 5_000L;
+    private static final long STARTING_BALANCE = 25_000L;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final NumberFormat FORMAT = NumberFormat.getInstance(Locale.US);
@@ -270,6 +270,16 @@ public final class EconomyManager {
         }
 
         return getBalance(player) >= amount;
+    }
+
+    public static long wholeCreditsToCents(long credits) {
+        if (credits <= 0L) return 0L;
+        if (credits >= MAX_BALANCE / CURRENCY_SCALE) return MAX_BALANCE;
+        return credits * CURRENCY_SCALE;
+    }
+
+    public static String formatWholeCredits(long credits) {
+        return format(wholeCreditsToCents(credits));
     }
 
     public static long creditsToCents(double credits) {

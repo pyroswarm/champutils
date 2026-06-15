@@ -30,6 +30,13 @@ public final class TitleManager {
 
     public static synchronized void load() {
         TitleConfig.load();
+        com.champutils.profession.ProfessionXpBoostManager.registerSource(new com.champutils.profession.ProfessionXpBoostManager.ProfessionXpBoostSource() {
+            @Override public String id() { return "active_title"; }
+            @Override public int priority() { return 50; }
+            @Override public double getBonus(ServerPlayer player, com.champutils.profession.ProfessionType profession) {
+                return TitleConfig.activeProfessionXpBonus(player, profession);
+            }
+        });
         state = new State();
         sqlUnlockedCache.clear();
         sqlLoadedProfiles.clear();
@@ -64,6 +71,7 @@ public final class TitleManager {
                 owned.add(normalizedId);
                 if (selectedForProfile(profileId).isBlank()) {
                     selectedByProfile.put(profileId.toString(), normalizedId);
+                    TitleDatabaseRepository.select(profileId, normalizedId);
                     saveSelections();
                 }
             }
@@ -106,6 +114,7 @@ public final class TitleManager {
         if (id == null || id.equalsIgnoreCase("none")) {
             if (com.champutils.database.DatabaseManager.isEnabled()) {
                 selectedByProfile.put(profileId.toString(), "");
+                TitleDatabaseRepository.select(profileId, "");
                 saveSelections();
             } else {
                 data(player.getUUID()).selected = "";
@@ -115,6 +124,10 @@ public final class TitleManager {
         }
 
         String normalizedId = id.trim();
+        if (com.champutils.worldfirst.WorldFirstManager.titleDisplay(normalizedId) != null) {
+            player.sendSystemMessage(Component.literal("World First titles are trophies and cannot be equipped with regular titles.").withStyle(ChatFormatting.RED));
+            return;
+        }
         if (!unlocked.contains(normalizedId)) {
             player.sendSystemMessage(Component.literal("You have not unlocked that title.").withStyle(ChatFormatting.RED));
             return;
@@ -122,6 +135,7 @@ public final class TitleManager {
 
         if (com.champutils.database.DatabaseManager.isEnabled()) {
             selectedByProfile.put(profileId.toString(), normalizedId);
+            TitleDatabaseRepository.select(profileId, normalizedId);
             saveSelections();
         } else {
             data(player.getUUID()).selected = normalizedId;
@@ -156,7 +170,11 @@ public final class TitleManager {
 
     private static String selectedForProfile(UUID profileId) {
         if (profileId == null) return "";
-        return selectedByProfile.getOrDefault(profileId.toString(), "");
+        String key = profileId.toString();
+        if (!selectedByProfile.containsKey(key) && com.champutils.database.DatabaseManager.isEnabled()) {
+            selectedByProfile.put(key, TitleDatabaseRepository.selected(profileId));
+        }
+        return selectedByProfile.getOrDefault(key, "");
     }
 
     private static PlayerTitles data(UUID uuid) {

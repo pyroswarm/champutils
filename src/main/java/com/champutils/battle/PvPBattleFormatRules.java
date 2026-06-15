@@ -183,22 +183,9 @@ public final class PvPBattleFormatRules {
             return;
         }
 
-        try {
-            Field field = BattleFormat.class.getField("adjustLevel");
-            field.setInt(battleFormat, configured.level_cap);
-            return;
-        }
-        catch (Throwable ignored) {
-            // Try setter below.
-        }
-
-        try {
-            Method method = BattleFormat.class.getMethod("setAdjustLevel", int.class);
-            method.invoke(battleFormat, configured.level_cap);
-        }
-        catch (Throwable ignored) {
-            // Level cap is still enforced by ChampUtils validation/prep; do not block the battle over this.
-        }
+        // Do not set Cobblemon adjustLevel here. In Cobblemon this normalizes every party member
+        // to the supplied level. For ranked/casual we want level_cap to mean maximum allowed level only.
+        // ChampUtils TeamValidator/BattlePrep enforce the cap before the battle starts.
     }
 
     private static BattleFormat applyRules(BattleFormat battleFormat, Set<String> rules) {

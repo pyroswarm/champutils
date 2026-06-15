@@ -1,5 +1,7 @@
 package com.champutils.menu;
 
+import com.champutils.economy.EconomyManager;
+
 import com.champutils.quest.QuestConfig;
 import com.champutils.quest.QuestDataManager;
 import com.champutils.quest.QuestManager;
@@ -194,7 +196,7 @@ public class QuestMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal("§e" + c.description))
                     .addLoreLine(Component.literal("§7ID: §f" + c.id))
-                    .addLoreLine(Component.literal("§7Cost: §6" + c.creditCost + " Credits"))
+                    .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.formatWholeCredits(c.creditCost)))
                     .addLoreLine(Component.literal("§7Time: §f" + c.durationHours + "h"))
                     .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
                     .addLoreLine(Component.literal("§7Profession: §f" + c.profession))

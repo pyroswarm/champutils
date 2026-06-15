@@ -330,7 +330,7 @@ public class QuestManager {
         }
         data.claimedWeekly.add(playerKey);
         int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
-        if (credits > 0) EconomyManager.deposit(player, credits, "guild_weekly_quest");
+        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
         runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         markGuildDirty(guild.id);
         saveGuild(guild.id);
@@ -342,7 +342,7 @@ public class QuestManager {
         List<Component> lore = new ArrayList<>();
         int credits = daily ? QuestConfig.SETTINGS.dailyCompletionCredits : QuestConfig.SETTINGS.weeklyCompletionCredits;
         int xp = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
-        if (credits > 0) lore.add(Component.literal("§7Credits: §6" + credits));
+        if (credits > 0) lore.add(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(credits)));
         if (xp > 0) lore.add(Component.literal("§7Profession XP: §a" + xp + " per objective"));
         addCommandRewardLore(lore, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
         return lore;
@@ -350,7 +350,7 @@ public class QuestManager {
 
     public static List<Component> guildRewardLore() {
         List<Component> lore = new ArrayList<>();
-        if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7Credits: §6" + QuestConfig.SETTINGS.guildWeeklyCompletionCredits));
+        if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(QuestConfig.SETTINGS.guildWeeklyCompletionCredits)));
         addCommandRewardLore(lore, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         return lore;
     }
@@ -408,7 +408,7 @@ public class QuestManager {
         }
         set.completed = true;
         int credits = daily ? QuestConfig.SETTINGS.dailyCompletionCredits : QuestConfig.SETTINGS.weeklyCompletionCredits;
-        if (credits > 0) EconomyManager.deposit(player, credits, daily ? "daily_quest" : "weekly_quest");
+        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), daily ? "daily_quest" : "weekly_quest");
         int xpEach = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
         if (xpEach > 0) {
             for (QuestDataManager.Objective o : set.objectives) {
@@ -417,6 +417,7 @@ public class QuestManager {
             }
         }
         runRewardCommands(player, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
+        if (daily) com.champutils.cosmetic.TitleManager.unlock(player, "questing_soul");
         markDirty(player);
         savePlayer(player);
         player.sendSystemMessage(Component.literal((daily ? "Daily" : "Weekly") + " quest rewards claimed!").withStyle(ChatFormatting.GREEN));
@@ -501,7 +502,7 @@ public class QuestManager {
             player.sendSystemMessage(Component.literal("You need " + t.profession + " level " + t.minLevel + " for that contract.").withStyle(ChatFormatting.RED));
             return false;
         }
-        long cost = Math.max(0, t.creditCost);
+        long cost = EconomyManager.wholeCreditsToCents(Math.max(0, t.creditCost));
         if (cost > 0) {
             EconomyManager.TransactionResult result = EconomyManager.withdraw(player, cost, "quest_contract_buy:" + t.id);
             if (!result.success) {
@@ -544,6 +545,7 @@ public class QuestManager {
             if (c.progress < c.required) continue;
             c.completed = true;
             runRewardCommands(player, c.rewardCommands);
+            com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);
             if (profession != null) ProfessionManager.addXp(player, profession, Math.max(100, c.required / 2));
             markDirty(player);

@@ -26,6 +26,7 @@ public final class TitleRegistry {
 
     public static void handleBattleWin(ServerPlayer player, BattleContextManager.BattleType type) {
         TitleConfig.handleBattleWin(player, type);
+        com.champutils.worldfirst.WorldFirstManager.handleBattleWin(player, type);
     }
 
     public static void handleCatch(ServerPlayer player) {

@@ -92,8 +92,17 @@ public final class WorldFirstManager {
 
     public static void handleProfessionLevel(ServerPlayer player, ProfessionType type, int level) {
         if (player == null || type == null) return;
+        if (level >= 25) award(player, "first_" + type.name().toLowerCase(Locale.ROOT) + "_25");
         if (level >= 50) award(player, "first_" + type.name().toLowerCase(Locale.ROOT) + "_50");
+        if (level >= 75) award(player, "first_" + type.name().toLowerCase(Locale.ROOT) + "_75");
         if (level >= 100) award(player, "first_" + type.name().toLowerCase(Locale.ROOT) + "_100");
+    }
+
+    public static void handleBattleWin(ServerPlayer player, com.champutils.battle.BattleContextManager.BattleType type) {
+        if (player == null || type == null) return;
+        award(player, "first_any_battle_win");
+        if (type == com.champutils.battle.BattleContextManager.BattleType.RANKED) award(player, "first_ranked_win");
+        if (type == com.champutils.battle.BattleContextManager.BattleType.CASUAL) award(player, "first_casual_win");
     }
 
     public static synchronized boolean award(ServerPlayer player, String id) {
@@ -163,7 +172,10 @@ public final class WorldFirstManager {
         add(list,"first_ditto_catch","First Ditto Catch","&d[Copycat]","exclusive title and 250 XP",250);
         add(list,"first_magikarp_catch","First Magikarp Catch","&6[Karp King]","exclusive title and 100 XP",100);
         add(list,"first_level_100_catch","First Level 100 Catch","&c[Apex Hunter]","exclusive title and 1000 XP",1000);
-        for (ProfessionType t : ProfessionType.values()) { String k = t.name().toLowerCase(Locale.ROOT); add(list,"first_"+k+"_50","First " + pretty(k) + " Level 50","&b["+pretty(k)+" Pro]","exclusive title and 500 XP",500); add(list,"first_"+k+"_100","First " + pretty(k) + " Level 100","&6["+pretty(k)+" Master]","exclusive title and 1000 XP",1000); }
+        add(list,"first_any_battle_win","First Battle Win","&a[First Blood]","exclusive title and 250 XP",250);
+        add(list,"first_casual_win","First Casual PvP Win","&b[Casual Victor]","exclusive title and 250 XP",250);
+        add(list,"first_ranked_win","First Ranked PvP Win","&6[Ranked Pioneer]","exclusive title and 500 XP",500);
+        for (ProfessionType t : ProfessionType.values()) { String k = t.name().toLowerCase(Locale.ROOT); add(list,"first_"+k+"_25","First " + pretty(k) + " Level 25","&a["+pretty(k)+" Trailblazer]","exclusive title and 250 XP",250); add(list,"first_"+k+"_50","First " + pretty(k) + " Level 50","&b["+pretty(k)+" Pro]","exclusive title and 500 XP",500); add(list,"first_"+k+"_75","First " + pretty(k) + " Level 75","&d["+pretty(k)+" Elite]","exclusive title and 750 XP",750); add(list,"first_"+k+"_100","First " + pretty(k) + " Level 100","&6["+pretty(k)+" Master]","exclusive title and 1000 XP",1000); }
         return list;
     }
     private static String pretty(String s) { return s.substring(0,1).toUpperCase(Locale.ROOT)+s.substring(1).toLowerCase(Locale.ROOT); }

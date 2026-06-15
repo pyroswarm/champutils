@@ -16,19 +16,26 @@ public final class TitleMenu {
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal("Titles"));
-        List<String> titles = new ArrayList<>(TitleManager.unlocked(player.getUUID()));
+        java.util.Set<String> owned = TitleManager.unlocked(player.getUUID());
+        List<TitleConfig.TitleDef> titles = new ArrayList<>(TitleConfig.titles());
+        titles.sort(java.util.Comparator.comparing(t -> t.name == null ? t.id : t.name));
         String selected = TitleManager.selected(player.getUUID());
         gui.setSlot(0, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("§7Hide Title")).setCallback((i,c,t) -> { TitleManager.select(player, "none"); open(player); }));
         int slot = 9;
-        for (String id : titles) {
+        for (TitleConfig.TitleDef def : titles) {
+            if (def == null || def.id == null) continue;
             if (slot >= 54) break;
             if (slot == 45) slot++;
-            boolean active = id.equals(selected);
-            gui.setSlot(slot++, new GuiElementBuilder(active ? Items.NAME_TAG : Items.PAPER)
+            boolean unlocked = owned.contains(def.id);
+            boolean active = def.id.equals(selected);
+            GuiElementBuilder b = new GuiElementBuilder(active ? Items.NAME_TAG : unlocked ? Items.PAPER : Items.GRAY_DYE)
                     .hideDefaultTooltip()
-                    .setName(Component.literal((active ? "§aSelected §r" : "") + TitleManager.displayFor(id).replace('&','§')))
-                    .addLoreLine(Component.literal("§eClick to select"))
-                    .setCallback((i,c,t) -> { TitleManager.select(player, id); open(player); }));
+                    .setName(Component.literal((active ? "§aSelected §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(def.id).replace('&','§')))
+                    .addLoreLine(Component.literal("§7Objective: §f" + (def.description == null ? "Unknown" : def.description)))
+                    .addLoreLine(Component.literal("§7Passive: §a" + (def.passiveDescription == null ? "No passive bonus." : def.passiveDescription)))
+                    .addLoreLine(Component.literal(unlocked ? "§eClick to select" : "§8Locked"));
+            if (unlocked) b.setCallback((i,c,t) -> { TitleManager.select(player, def.id); open(player); });
+            gui.setSlot(slot++, b);
         }
         MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
