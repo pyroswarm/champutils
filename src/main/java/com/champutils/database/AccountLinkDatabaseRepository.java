@@ -45,6 +45,7 @@ public final class AccountLinkDatabaseRepository {
 
             try {
                 connection.setAutoCommit(false);
+                ensureSchema(connection);
 
                 LinkRequest request = findPendingRequest(connection, code);
 
@@ -62,7 +63,7 @@ public final class AccountLinkDatabaseRepository {
                     return;
                 }
 
-                ExistingLink uuidLink = findByMinecraftUuid(connection, playerUuid.toString());
+                ExistingLink uuidLink = findByMinecraftUuid(connection, playerUuid);
                 if (uuidLink != null && !uuidLink.websiteUserId.equals(request.websiteUserId)) {
                     connection.rollback();
                     send(server, player, "§cThis Minecraft account is already linked to another website account.");
@@ -78,9 +79,9 @@ public final class AccountLinkDatabaseRepository {
                     return;
                 }
 
-                upsertPlayerAccount(connection, request.websiteUserId, playerUuid.toString(), playerName);
-                markRequestVerified(connection, request.id, playerUuid.toString(), playerName);
-                touchPlayer(connection, playerUuid.toString(), playerName);
+                upsertPlayerAccount(connection, request.websiteUserId, playerUuid, playerName);
+                markRequestVerified(connection, request.id, playerUuid, playerName);
+                touchPlayer(connection, playerUuid, playerName);
 
                 connection.commit();
 
@@ -105,6 +106,53 @@ public final class AccountLinkDatabaseRepository {
                 }
             }
         });
+    }
+
+    public static void ensureSchema(Connection connection) throws Exception {
+        try (java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "create table if not exists account_links (" +
+                            "id uuid primary key default gen_random_uuid(), " +
+                            "website_user_id uuid not null, " +
+                            "minecraft_username text not null, " +
+                            "verification_code text not null, " +
+                            "verified boolean not null default false, " +
+                            "minecraft_uuid uuid, " +
+                            "verified_at timestamptz, " +
+                            "created_at timestamptz not null default now(), " +
+                            "expires_at timestamptz not null default (now() + interval '15 minutes')" +
+                            ")"
+            );
+            statement.executeUpdate("alter table account_links add column if not exists website_user_id uuid");
+            statement.executeUpdate("alter table account_links add column if not exists minecraft_username text not null default ''");
+            statement.executeUpdate("alter table account_links add column if not exists verification_code text");
+            statement.executeUpdate("alter table account_links add column if not exists verified boolean not null default false");
+            statement.executeUpdate("alter table account_links add column if not exists minecraft_uuid uuid");
+            statement.executeUpdate("alter table account_links add column if not exists verified_at timestamptz");
+            statement.executeUpdate("alter table account_links add column if not exists created_at timestamptz not null default now()");
+            statement.executeUpdate("alter table account_links add column if not exists expires_at timestamptz not null default (now() + interval '15 minutes')");
+            statement.executeUpdate("update account_links set expires_at = created_at + interval '15 minutes' where expires_at is null");
+            statement.executeUpdate("create index if not exists account_links_code_pending_index on account_links (upper(verification_code), verified, expires_at)");
+            statement.executeUpdate("create index if not exists account_links_website_user_index on account_links (website_user_id)");
+
+            statement.executeUpdate(
+                    "create table if not exists player_accounts (" +
+                            "website_user_id uuid not null, " +
+                            "minecraft_uuid uuid primary key, " +
+                            "minecraft_username text not null, " +
+                            "linked_at timestamptz not null default now(), " +
+                            "updated_at timestamptz not null default now()" +
+                            ")"
+            );
+            statement.executeUpdate("alter table player_accounts add column if not exists website_user_id uuid");
+            statement.executeUpdate("alter table player_accounts add column if not exists minecraft_uuid uuid");
+            statement.executeUpdate("alter table player_accounts add column if not exists minecraft_username text not null default ''");
+            statement.executeUpdate("alter table player_accounts add column if not exists linked_at timestamptz not null default now()");
+            statement.executeUpdate("alter table player_accounts add column if not exists updated_at timestamptz not null default now()");
+            statement.executeUpdate("delete from player_accounts where minecraft_uuid is null or website_user_id is null");
+            statement.executeUpdate("create unique index if not exists player_accounts_minecraft_uuid_unique on player_accounts (minecraft_uuid)");
+            statement.executeUpdate("create unique index if not exists player_accounts_website_user_unique on player_accounts (website_user_id)");
+        }
     }
 
     private static LinkRequest findPendingRequest(Connection connection, String code) throws Exception {
@@ -134,11 +182,11 @@ public final class AccountLinkDatabaseRepository {
         }
     }
 
-    private static ExistingLink findByMinecraftUuid(Connection connection, String minecraftUuid) throws Exception {
+    private static ExistingLink findByMinecraftUuid(Connection connection, UUID minecraftUuid) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "select website_user_id, minecraft_uuid from player_accounts where minecraft_uuid = ? limit 1"
+                "select website_user_id, minecraft_uuid from player_accounts where minecraft_uuid = cast(? as uuid) limit 1"
         )) {
-            statement.setString(1, minecraftUuid);
+            statement.setString(1, minecraftUuid.toString());
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
@@ -155,9 +203,9 @@ public final class AccountLinkDatabaseRepository {
 
     private static ExistingLink findByWebsiteUser(Connection connection, String websiteUserId) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "select website_user_id, minecraft_uuid from player_accounts where website_user_id = ? limit 1"
+                "select website_user_id, minecraft_uuid from player_accounts where website_user_id = cast(? as uuid) limit 1"
         )) {
-            statement.setObject(1, UUID.fromString(websiteUserId));
+            statement.setString(1, websiteUserId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
@@ -172,40 +220,40 @@ public final class AccountLinkDatabaseRepository {
         }
     }
 
-    private static void upsertPlayerAccount(Connection connection, String websiteUserId, String minecraftUuid, String minecraftUsername) throws Exception {
+    private static void upsertPlayerAccount(Connection connection, String websiteUserId, UUID minecraftUuid, String minecraftUsername) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "insert into player_accounts (website_user_id, minecraft_uuid, minecraft_username, linked_at, updated_at) " +
-                        "values (?, ?, ?, now(), now()) " +
+                        "values (cast(? as uuid), cast(? as uuid), ?, now(), now()) " +
                         "on conflict (minecraft_uuid) do update set " +
                         "minecraft_username = excluded.minecraft_username, " +
                         "updated_at = now()"
         )) {
-            statement.setObject(1, UUID.fromString(websiteUserId));
-            statement.setString(2, minecraftUuid);
+            statement.setString(1, websiteUserId);
+            statement.setString(2, minecraftUuid.toString());
             statement.setString(3, minecraftUsername);
             statement.executeUpdate();
         }
     }
 
-    private static void markRequestVerified(Connection connection, String requestId, String minecraftUuid, String minecraftUsername) throws Exception {
+    private static void markRequestVerified(Connection connection, String requestId, UUID minecraftUuid, String minecraftUsername) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "update account_links " +
-                        "set verified = true, minecraft_uuid = ?, minecraft_username = ?, verified_at = now() " +
-                        "where id = ?"
+                        "set verified = true, minecraft_uuid = cast(? as uuid), minecraft_username = ?, verified_at = now() " +
+                        "where id = cast(? as uuid)"
         )) {
-            statement.setString(1, minecraftUuid);
+            statement.setString(1, minecraftUuid.toString());
             statement.setString(2, minecraftUsername);
-            statement.setObject(3, UUID.fromString(requestId));
+            statement.setString(3, requestId);
             statement.executeUpdate();
         }
     }
 
-    private static void touchPlayer(Connection connection, String minecraftUuid, String minecraftUsername) throws Exception {
+    private static void touchPlayer(Connection connection, UUID minecraftUuid, String minecraftUsername) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "insert into players (uuid, username, last_seen) values (?, ?, now()) " +
+                "insert into players (uuid, username, last_seen) values (cast(? as uuid), ?, now()) " +
                         "on conflict (uuid) do update set username = excluded.username, last_seen = now()"
         )) {
-            statement.setString(1, minecraftUuid);
+            statement.setString(1, minecraftUuid.toString());
             statement.setString(2, minecraftUsername);
             statement.executeUpdate();
         }

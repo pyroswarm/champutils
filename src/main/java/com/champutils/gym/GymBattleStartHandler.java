@@ -142,8 +142,13 @@ NPCBattleActor gymNpc = null;
                 return;
             }
 
-            // Rebuild the gym party for every new battle so pool-based gyms actually randomize per challenge.
-            GymNpcPartyBuilder.applyGymTeam(gymNpc.getNpc(), badge);
+            /*
+             * Do not rebuild the NPC party here. Cobblemon has already created the
+             * NPCBattleActor by the time BATTLE_STARTED_PRE fires, so changing the
+             * NPC's stored party at this point can affect the next challenge instead
+             * of the current one. ChampTrainerInteractionListener rebuilds the gym
+             * team immediately before BattleBuilder.pvn(), which is the correct time.
+             */
 
 
             String requiredGroup =

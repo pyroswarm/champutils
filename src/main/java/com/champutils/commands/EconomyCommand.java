@@ -1,7 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.economy.EconomyManager;
-import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -33,11 +33,11 @@ public final class EconomyCommand {
             dispatcher.register(
                     literal("pay")
                             .then(argument("player", EntityArgument.player())
-                                    .then(argument("amount", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
+                                    .then(argument("amount", DoubleArgumentType.doubleArg(0.01D, 90_000_000_000_000D))
                                             .executes(context -> pay(
                                                     context.getSource().getPlayerOrException(),
                                                     EntityArgument.getPlayer(context, "player"),
-                                                    LongArgumentType.getLong(context, "amount")
+                                                    EconomyManager.creditsToCents(DoubleArgumentType.getDouble(context, "amount"))
                                             ))))
             );
 
@@ -52,27 +52,27 @@ public final class EconomyCommand {
                                             ))))
                             .then(literal("give")
                                     .then(argument("player", EntityArgument.player())
-                                            .then(argument("amount", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
+                                            .then(argument("amount", DoubleArgumentType.doubleArg(0.01D, 90_000_000_000_000D))
                                                     .executes(context -> adminGive(
                                                             context.getSource(),
                                                             EntityArgument.getPlayer(context, "player"),
-                                                            LongArgumentType.getLong(context, "amount")
+                                                            EconomyManager.creditsToCents(DoubleArgumentType.getDouble(context, "amount"))
                                                     )))))
                             .then(literal("take")
                                     .then(argument("player", EntityArgument.player())
-                                            .then(argument("amount", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
+                                            .then(argument("amount", DoubleArgumentType.doubleArg(0.01D, 90_000_000_000_000D))
                                                     .executes(context -> adminTake(
                                                             context.getSource(),
                                                             EntityArgument.getPlayer(context, "player"),
-                                                            LongArgumentType.getLong(context, "amount")
+                                                            EconomyManager.creditsToCents(DoubleArgumentType.getDouble(context, "amount"))
                                                     )))))
                             .then(literal("set")
                                     .then(argument("player", EntityArgument.player())
-                                            .then(argument("amount", LongArgumentType.longArg(0L, 9_000_000_000_000_000L))
+                                            .then(argument("amount", DoubleArgumentType.doubleArg(0.0D, 90_000_000_000_000D))
                                                     .executes(context -> adminSet(
                                                             context.getSource(),
                                                             EntityArgument.getPlayer(context, "player"),
-                                                            LongArgumentType.getLong(context, "amount")
+                                                            EconomyManager.creditsToCents(DoubleArgumentType.getDouble(context, "amount"))
                                                     )))))
                             .then(literal("reset")
                                     .then(argument("player", EntityArgument.player())

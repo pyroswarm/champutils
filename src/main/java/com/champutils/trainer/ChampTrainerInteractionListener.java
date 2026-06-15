@@ -117,9 +117,22 @@ public final class ChampTrainerInteractionListener {
                     return InteractionResult.SUCCESS;
                 }
 
-                GymNpcPartyBuilder.applyGymTeam(npc, badge);
+                if (!GymNpcPartyBuilder.applyGymTeam(npc, badge)) {
+                    GymNpcPartyBuilder.clearStoredGymTeam(npc);
+                    serverPlayer.sendSystemMessage(Component.literal("§cThis gym could not build a battle team. Check gyms.json."));
+                    return InteractionResult.SUCCESS;
+                }
+
                 BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
-                BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                Object gymBattleResult = BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+
+                // BattleBuilder has already copied the NPCPartyStore into the NPCBattleActor.
+                // Clear the entity's saved party immediately so the bound NPC never persists a static team.
+                GymNpcPartyBuilder.clearStoredGymTeam(npc);
+
+                if (gymBattleResult == null) {
+                    serverPlayer.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
+                }
                 return InteractionResult.SUCCESS;
             } catch (Exception e) {
                 e.printStackTrace();

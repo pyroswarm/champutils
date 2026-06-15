@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.economy.EconomyManager;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -19,13 +21,14 @@ public class WildBattleRewardManager {
             return;
         }
 
-        double chance = Math.max(0.0D, BattleProfessionLootConfig.wildBattleRewardChance);
+        int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
+        awardMoneyReward(player, battlingLevel);
 
+        double chance = Math.max(0.0D, BattleProfessionLootConfig.wildBattleRewardChance);
         if (chance <= 0.0D || RANDOM.nextDouble() >= chance) {
             return;
         }
 
-        int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         boolean playedSuperRareSound = false;
 
         BattleProfessionLootConfig.LootEntry reward = getWeightedReward(battlingLevel);
@@ -37,7 +40,45 @@ public class WildBattleRewardManager {
             playedSuperRareSound = giveItemReward(player, reward.itemId, amount, playedSuperRareSound);
         }
 
-        playedSuperRareSound = rollFragmentJackpot(player, battlingLevel, playedSuperRareSound);
+        rollFragmentJackpot(player, battlingLevel, playedSuperRareSound);
+    }
+
+    private static void awardMoneyReward(ServerPlayer player, int battlingLevel) {
+        BattleProfessionLootConfig.MoneyRewardSettings settings = BattleProfessionLootConfig.moneyRewards;
+        if (settings == null || !settings.enabled) {
+            return;
+        }
+
+        double baseMin = Math.max(0.0D, settings.baseMin);
+        double baseMax = Math.max(baseMin, settings.baseMax);
+        double perLevelMin = Math.max(0.0D, settings.perBattlingLevelMin);
+        double perLevelMax = Math.max(perLevelMin, settings.perBattlingLevelMax);
+
+        double base = baseMin + (RANDOM.nextDouble() * (baseMax - baseMin));
+        double perLevel = perLevelMin + (RANDOM.nextDouble() * (perLevelMax - perLevelMin));
+        double reward = base + (perLevel * Math.max(0, battlingLevel - 1));
+
+        if (settings.maxReward > 0.0D) {
+            reward = Math.min(reward, settings.maxReward);
+        }
+
+        int decimals = Math.max(0, Math.min(4, settings.roundToDecimals));
+        double scale = Math.pow(10.0D, decimals);
+        reward = Math.round(reward * scale) / scale;
+
+        long cents = EconomyManager.creditsToCents(reward);
+        if (cents <= 0L) {
+            return;
+        }
+
+        EconomyManager.TransactionResult result = EconomyManager.deposit(player, cents, "wild_battle_win");
+        if (!result.success) {
+            return;
+        }
+
+        if (settings.message != null && !settings.message.isBlank() && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.sendSystemMessage(Component.literal(settings.message.replace("%amount%", EconomyManager.format(cents).replace(" Credits", "").replace(" Credit", ""))));
+        }
     }
 
     private static BattleProfessionLootConfig.LootEntry getWeightedReward(int battlingLevel) {

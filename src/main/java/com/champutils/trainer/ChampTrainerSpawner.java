@@ -100,7 +100,7 @@ public final class ChampTrainerSpawner {
         if (npc == null) return SpawnResult.fail("Could not create NPC for " + trainerId + ".");
 
         GymRegistry.bindGym(npc.getUUID(), badge);
-        GymNpcPartyBuilder.applyGymTeam(npc, badge);
+        GymNpcPartyBuilder.clearStoredGymTeam(npc);
         ChampTrainerProtectionManager.track(npc, trainerId, TrainerKind.GYM, pos, yaw);
 
         return SpawnResult.ok("Spawned and auto-bound gym trainer " + trainerId + " -> " + badge.name(), npc, TrainerKind.GYM);

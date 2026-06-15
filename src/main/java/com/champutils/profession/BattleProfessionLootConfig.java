@@ -27,6 +27,7 @@ public final class BattleProfessionLootConfig {
     public static boolean announceRewards = true;
     public static double wildBattleRewardChance = 0.20D;
     public static Set<String> superRareItemIds = new LinkedHashSet<>();
+    public static MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
 
     public static FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
     public static List<LootEntry> rewards = new ArrayList<>();
@@ -67,6 +68,7 @@ public final class BattleProfessionLootConfig {
             maxRolls = loaded.maxRolls;
             announceRewards = loaded.announceRewards;
             wildBattleRewardChance = loaded.wildBattleRewardChance;
+            moneyRewards = loaded.moneyRewards != null ? loaded.moneyRewards : new MoneyRewardSettings();
             superRareItemIds = normalizeItemIds(loaded.superRareItemIds);
             if (superRareItemIds.isEmpty()) {
                 superRareItemIds = defaultSuperRareItemIds();
@@ -101,6 +103,7 @@ public final class BattleProfessionLootConfig {
         public boolean announceRewards = true;
         public double wildBattleRewardChance = 0.20D;
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
+        public MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
         public List<LootEntry> rewards = new ArrayList<>();
     }
@@ -113,6 +116,20 @@ public final class BattleProfessionLootConfig {
         public int weight = 1;
         public int weightPerLevelAboveUnlock = 0;
         public boolean enabled = true;
+    }
+
+
+    public static class MoneyRewardSettings {
+        public boolean enabled = true;
+        public boolean wildBattlesOnly = true;
+        public boolean guaranteedOnWildBattleWin = true;
+        public double baseMin = 0.85D;
+        public double baseMax = 1.15D;
+        public double perBattlingLevelMin = 0.035D;
+        public double perBattlingLevelMax = 0.055D;
+        public double maxReward = 7.5D;
+        public int roundToDecimals = 2;
+        public String message = "§a+$%amount% §7for winning a wild battle.";
     }
 
     public static class FragmentJackpotSettings {

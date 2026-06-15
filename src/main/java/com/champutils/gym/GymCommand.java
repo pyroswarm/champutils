@@ -83,6 +83,12 @@ public class GymCommand {
                                                                     "badge",
                                                                     StringArgumentType.word()
                                                             )
+                                                                    .suggests((ctx,builder)->
+                                                                            net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                                                                    java.util.Arrays.stream(BadgeType.values()).map(BadgeType::name),
+                                                                                    builder
+                                                                            )
+                                                                    )
                                                                     .executes(ctx->{
 
                                                                         BadgeType badge =
@@ -130,6 +136,12 @@ public class GymCommand {
                                                                     "badge",
                                                                     StringArgumentType.word()
                                                             )
+                                                                    .suggests((ctx,builder)->
+                                                                            net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                                                                    java.util.Arrays.stream(BadgeType.values()).map(BadgeType::name),
+                                                                                    builder
+                                                                            )
+                                                                    )
                                                                     .executes(ctx->{
 
                                                                         ServerPlayer player =
@@ -214,56 +226,29 @@ public class GymCommand {
 
 
 /* =========================
- APPLY CONFIG TEAM
+ CLEAR STATIC NPC PARTY
 ========================= */
-
-                                                                        boolean applied = false;
 
                                                                         if(
                                                                                 nearestNpc instanceof NPCEntity npc
                                                                         ){
-
-                                                                            System.out.println(
-                                                                                    "[ChampUtils] Running applyGymTeam..."
-                                                                            );
-
-                                                                            applied =
-                                                                                    GymNpcPartyBuilder.applyGymTeam(
-                                                                                            npc,
-                                                                                            badge
-                                                                                    );
+                                                                            // Gym binding must only store metadata.
+                                                                            // The battle party is generated fresh immediately before each challenge.
+                                                                            GymNpcPartyBuilder.clearStoredGymTeam(npc);
                                                                         }
 
 
 
                                                                         /* Feedback */
 
-                                                                        if(
-                                                                                applied
-                                                                        ){
-
-                                                                            ctx.getSource().sendSuccess(
-                                                                                    ()->Component.literal(
-                                                                                            "§aBound "
-                                                                                                    + badge.name()
-                                                                                                    + " and applied config team."
-                                                                                    ),
-                                                                                    false
-                                                                            );
-
-                                                                        }
-                                                                        else{
-
-                                                                            ctx.getSource().sendSuccess(
-                                                                                    ()->Component.literal(
-                                                                                            "§eBound "
-                                                                                                    + badge.name()
-                                                                                                    + " (team apply failed)"
-                                                                                    ),
-                                                                                    false
-                                                                            );
-
-                                                                        }
+                                                                        ctx.getSource().sendSuccess(
+                                                                                ()->Component.literal(
+                                                                                        "§aBound "
+                                                                                                + badge.name()
+                                                                                                + " as a dynamic gym. Team will be generated on each battle start."
+                                                                                ),
+                                                                                false
+                                                                        );
 
                                                                         return 1;
 

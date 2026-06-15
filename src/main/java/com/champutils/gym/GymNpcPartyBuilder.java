@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Builds gym NPC parties.
@@ -36,20 +39,30 @@ import java.util.Set;
 public class GymNpcPartyBuilder {
     private static final Random RANDOM = new Random();
     private static final int MAX_MOVES = 4;
+    private static final Map<BadgeType, String> LAST_TEAM_SIGNATURES = new ConcurrentHashMap<>();
 
     private static final List<String> SAFE_FALLBACK_MOVES = List.of(
             "earthquake", "thunderbolt", "flamethrower", "icebeam",
             "shadowball", "closecombat", "psychic", "dragonpulse"
     );
 
+    public static void clearStoredGymTeam(NPCEntity npc) {
+        if (npc == null) return;
+        try { npc.setParty(null); } catch (Exception ignored) {}
+        try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
+    }
+
     public static boolean applyGymTeam(NPCEntity npc, BadgeType badge) {
         try {
             GymConfig.GymDefinition gym = GymConfig.getGym(badge);
-            if (gym == null || gym.party == null || gym.party.isEmpty()) return false;
+            if (gym == null) return false;
+
+            PoolSelection configured = configuredPool(gym);
+            if (configured.pool.isEmpty()) return false;
 
             boolean debug = gym.debug;
             int level = Math.max(1, Math.min(100, gym.levelCap <= 0 ? 50 : gym.levelCap));
-            int partySize = Math.max(1, Math.min(6, gym.partySize <= 0 ? Math.min(6, gym.party.size()) : gym.partySize));
+            int partySize = Math.max(1, Math.min(6, gym.partySize <= 0 ? Math.min(6, configured.pool.size()) : gym.partySize));
 
             if (debug) {
                 System.out.println("===========================");
@@ -59,7 +72,7 @@ public class GymNpcPartyBuilder {
             npc.initialize(level);
 
             NPCPartyStore party = new NPCPartyStore(npc);
-            List<GymConfig.PokemonSet> team = selectCompetitiveTeam(gym, partySize);
+            List<GymConfig.PokemonSet> team = selectCompetitiveTeam(badge, gym, partySize);
 
             int slot = 0;
             for (GymConfig.PokemonSet set : team) {
@@ -106,17 +119,62 @@ public class GymNpcPartyBuilder {
         }
     }
 
-    private static List<GymConfig.PokemonSet> selectCompetitiveTeam(GymConfig.GymDefinition gym, int partySize) {
-        List<GymConfig.PokemonSet> pool = new ArrayList<>();
-        for (GymConfig.PokemonSet set : gym.party) if (set != null && set.species != null && !set.species.isBlank()) pool.add(set);
+    private static List<GymConfig.PokemonSet> selectCompetitiveTeam(BadgeType badge, GymConfig.GymDefinition gym, int partySize) {
+        PoolSelection selection = configuredPool(gym);
+        List<GymConfig.PokemonSet> pool = selection.pool;
         if (pool.isEmpty()) return pool;
 
         boolean hasRoleData = pool.stream().anyMatch(p ->
                 (p.role != null && !p.role.isBlank()) || (p.tags != null && !p.tags.isEmpty()) || p.weight > 1
         );
-        boolean randomize = gym.randomizeCompetitiveTeam != null ? gym.randomizeCompetitiveTeam : (pool.size() > partySize || hasRoleData);
+        boolean randomize = gym.randomizeCompetitiveTeam != null
+                ? gym.randomizeCompetitiveTeam
+                : (selection.explicitPool || pool.size() > partySize || hasRoleData);
         if (!randomize) return pool.subList(0, Math.min(partySize, pool.size()));
 
+        List<GymConfig.PokemonSet> best = List.of();
+        String previousSignature = LAST_TEAM_SIGNATURES.get(badge);
+        int maxAttempts = canBuildDifferentTeams(pool, partySize) ? 8 : 1;
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            List<GymConfig.PokemonSet> candidate = buildRandomTeam(pool, partySize);
+            best = candidate;
+            String signature = teamSignature(candidate);
+            if (previousSignature == null || !previousSignature.equals(signature)) {
+                LAST_TEAM_SIGNATURES.put(badge, signature);
+                return candidate;
+            }
+        }
+
+        LAST_TEAM_SIGNATURES.put(badge, teamSignature(best));
+        return best;
+    }
+
+    private static PoolSelection configuredPool(GymConfig.GymDefinition gym) {
+        List<GymConfig.PokemonSet> source = null;
+        boolean explicitPool = false;
+
+        if (gym.teamPool != null && !gym.teamPool.isEmpty()) {
+            source = gym.teamPool;
+            explicitPool = true;
+        } else if (gym.pool != null && !gym.pool.isEmpty()) {
+            source = gym.pool;
+            explicitPool = true;
+        } else {
+            source = gym.party;
+        }
+
+        List<GymConfig.PokemonSet> pool = new ArrayList<>();
+        if (source != null) {
+            for (GymConfig.PokemonSet set : source) {
+                if (set != null && set.species != null && !set.species.isBlank()) pool.add(set);
+            }
+        }
+        return new PoolSelection(pool, explicitPool);
+    }
+
+    private static List<GymConfig.PokemonSet> buildRandomTeam(List<GymConfig.PokemonSet> sourcePool, int partySize) {
+        List<GymConfig.PokemonSet> pool = new ArrayList<>(sourcePool);
         List<GymConfig.PokemonSet> team = new ArrayList<>();
 
         // Boss-style pacing: utility pressure first, bulky final answer last.
@@ -153,8 +211,21 @@ public class GymNpcPartyBuilder {
         int anchorIndex = indexOfRole(team, "anchor");
         if (anchorIndex >= 0 && anchorIndex != team.size() - 1) Collections.swap(team, anchorIndex, team.size() - 1);
 
-        return team.subList(0, Math.min(partySize, team.size()));
+        return new ArrayList<>(team.subList(0, Math.min(partySize, team.size())));
     }
+
+    private static boolean canBuildDifferentTeams(List<GymConfig.PokemonSet> pool, int partySize) {
+        return pool != null && pool.size() > Math.max(1, partySize);
+    }
+
+    private static String teamSignature(List<GymConfig.PokemonSet> team) {
+        if (team == null || team.isEmpty()) return "";
+        return team.stream()
+                .map(p -> normalizeSpecies(p.species) + ":" + cleanMoveKey(p.ability) + ":" + cleanMoveKey(p.heldItem))
+                .collect(Collectors.joining("|"));
+    }
+
+    private record PoolSelection(List<GymConfig.PokemonSet> pool, boolean explicitPool) {}
 
     private static void addRolePick(List<GymConfig.PokemonSet> team, List<GymConfig.PokemonSet> pool, String role) {
         GymConfig.PokemonSet pick = weightedPick(filterByRole(pool, role), team);

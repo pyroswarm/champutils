@@ -183,7 +183,8 @@ public class GymConfig {
 
         /**
          * If true, this gym builds a fresh role-balanced team from the configured pool every time.
-         * Defaults to true whenever the pool has more Pokemon than partySize or any Pokemon has a role/tag.
+         * Defaults to true whenever an explicit pool/teamPool exists, the pool has more Pokemon
+         * than partySize, or any Pokemon has a role/tag/weight.
          */
         public Boolean randomizeCompetitiveTeam;
 
@@ -191,7 +192,21 @@ public class GymConfig {
 
         public int rewardMoney;
 
+        /**
+         * Legacy static team field. If no pool/teamPool is configured, this is also treated as the pool.
+         */
         public List<PokemonSet> party;
+
+        /**
+         * Preferred random gym pool. Put the full 32 built Pokemon here.
+         * The battle team is freshly selected from this list every challenge.
+         */
+        public List<PokemonSet> pool;
+
+        /**
+         * Alias for pool, supported for readability in configs.
+         */
+        public List<PokemonSet> teamPool;
 
     }
 

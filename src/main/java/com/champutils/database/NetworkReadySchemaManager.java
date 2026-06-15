@@ -61,6 +61,8 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table server_status add column if not exists motd text not null default ''");
                 statement.executeUpdate("alter table server_status add column if not exists last_heartbeat timestamptz not null default now()");
 
+                AccountLinkDatabaseRepository.ensureSchema(connection);
+
                 statement.executeUpdate(
                         "create table if not exists guilds (" +
                                 "id uuid primary key, " +

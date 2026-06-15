@@ -199,18 +199,17 @@ public class GymBattleHandler {
 
 
 /* =========================
- ALWAYS RESET NPC TEAM
+ DISCARD TEMP GYM TEAM
 ========================= */
 
             try{
 
-                GymNpcPartyBuilder.applyGymTeam(
-                        gymNpc.getEntity(),
-                        badge
+                GymNpcPartyBuilder.clearStoredGymTeam(
+                        gymNpc.getEntity()
                 );
 
                 System.out.println(
-                        "[ChampUtils] Gym NPC healed/reset after battle."
+                        "[ChampUtils] Gym NPC temporary team cleared after battle."
                 );
 
             }
