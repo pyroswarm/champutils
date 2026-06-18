@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.ChunkPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,57 @@ public final class WildPokemonCleanupManager {
                     } else {
                         result.protectedWildPokemon++;
                         result.protectedReasons.merge(safety.reason(), 1, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+    public static CleanupResult cleanupOverloadedChunks(MinecraftServer server, Options options, int chunkEntityThreshold) {
+        CleanupResult result = new CleanupResult();
+        if (server == null || options == null || options.maxRemovals <= 0) return result;
+        int threshold = Math.max(50, chunkEntityThreshold);
+
+        for (ServerLevel level : server.getAllLevels()) {
+            if (result.totalRemoved() >= options.maxRemovals) break;
+            ResourceLocation dimension = level.dimension().location();
+            if (options.disabledDimensions.contains(dimension.toString())) continue;
+
+            Map<Long, List<Entity>> byChunk = new TreeMap<>();
+            for (Entity entity : level.getAllEntities()) {
+                if (entity == null || !entity.isAlive()) continue;
+                ChunkPos pos = entity.chunkPosition();
+                byChunk.computeIfAbsent(pos.toLong(), ignored -> new ArrayList<>()).add(entity);
+            }
+
+            for (Map.Entry<Long, List<Entity>> entry : byChunk.entrySet()) {
+                if (result.totalRemoved() >= options.maxRemovals) break;
+                List<Entity> entities = entry.getValue();
+                if (entities.size() < threshold) continue;
+
+                for (Entity entity : new ArrayList<>(entities)) {
+                    if (result.totalRemoved() >= options.maxRemovals) break;
+                    if (entity == null || !entity.isAlive()) continue;
+
+                    if (options.clearDroppedItems && entity instanceof ItemEntity) {
+                        entity.remove(RemovalReason.DISCARDED);
+                        result.droppedItems++;
+                        continue;
+                    }
+
+                    if (options.clearWildPokemon && entity instanceof PokemonEntity pokemonEntity) {
+                        Safety safety = classify(pokemonEntity, options.minWildPokemonAgeTicks, options.protectCustomNames);
+                        result.checkedWildPokemon++;
+                        if (safety.safe()) {
+                            pokemonEntity.remove(RemovalReason.DISCARDED);
+                            result.wildPokemon++;
+                        } else {
+                            result.protectedWildPokemon++;
+                            result.protectedReasons.merge(safety.reason(), 1, Integer::sum);
+                        }
                     }
                 }
             }

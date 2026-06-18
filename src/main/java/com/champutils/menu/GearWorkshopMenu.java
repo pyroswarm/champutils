@@ -45,13 +45,13 @@ public final class GearWorkshopMenu {
 
         gui.setSlot(
                 4,
-                new GuiElementBuilder(Items.MUSIC_DISC_CAT)
+                new GuiElementBuilder(Items.NETHER_STAR)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§bTM Crafter"))
-                        .addLoreLine(Component.literal("§7Craft random TMs by tier."))
-                        .addLoreLine(Component.literal("§7Pick exact TMs for 2x the random cost."))
+                        .setName(Component.literal("§dEmblem Crafting"))
+                        .addLoreLine(Component.literal("§7Craft shiny and Mega emblems."))
+                        .addLoreLine(Component.literal("§7Uses fragments and clear item costs."))
                         .addLoreLine(Component.literal("§eClick to open"))
-                        .setCallback((i, c, t) -> TMCrafterMenu.open(player, GearWorkshopMenu::open))
+                        .setCallback((i, c, t) -> EmblemMenu.open(player))
         );
 
         gui.setSlot(

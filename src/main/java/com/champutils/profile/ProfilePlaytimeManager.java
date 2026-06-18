@@ -26,23 +26,41 @@ public final class ProfilePlaytimeManager {
     private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> LOADED_FROM_DB = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> LOADING_FROM_DB = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, SessionMark> SESSION_MARKS = new ConcurrentHashMap<>();
     private static final long DEFAULT_INCREMENT_SECONDS = 60L;
 
     private ProfilePlaytimeManager() {}
 
     public static void addOnlineMinute(MinecraftServer server) {
         if (server == null || server.getPlayerList() == null) return;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) recordCurrentSession(player);
+        flushAsync();
+    }
 
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player == null || player.isSpectator() || !PlayerProfileManager.hasActiveProfile(player)) continue;
-
-            UUID profileId = PlayerProfileManager.activeProfileId(player);
-            if (profileId == null || profileId.equals(player.getUUID())) continue;
-
-            PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(0L))
-                    .addAndGet(DEFAULT_INCREMENT_SECONDS);
-            DIRTY.add(profileId);
+    public static void recordCurrentSession(ServerPlayer player) {
+        if (player == null || player.isSpectator() || !PlayerProfileManager.hasActiveProfile(player)) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+        long now = System.currentTimeMillis();
+        SessionMark previous = SESSION_MARKS.put(player.getUUID(), new SessionMark(profileId, now));
+        if (previous == null || !profileId.equals(previous.profileId)) {
+            warmCacheAsync(profileId);
+            return;
         }
+        long elapsedSeconds = Math.max(0L, (now - previous.markedAtMillis) / 1000L);
+        if (elapsedSeconds <= 0L) return;
+        PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(0L)).addAndGet(elapsedSeconds);
+        DIRTY.add(profileId);
+    }
+
+    public static void flushPlayerBlockingBestEffort(ServerPlayer player) {
+        if (player == null) return;
+        recordCurrentSession(player);
+        flushBlockingBestEffort();
+    }
+
+    public static void clearSession(ServerPlayer player) {
+        if (player != null) SESSION_MARKS.remove(player.getUUID());
     }
 
     public static long getCachedPlaytimeSeconds(ServerPlayer player) {
@@ -69,7 +87,7 @@ public final class ProfilePlaytimeManager {
         if (LOADED_FROM_DB.contains(profileId)) return;
         if (!LOADING_FROM_DB.add(profileId)) return;
 
-        DatabaseManager.executeAsync("warm profile playtime cache", connection -> {
+        DatabaseManager.executeCoalescedAsync("warm-playtime:" + profileId, "warm profile playtime cache", connection -> {
             try {
                 ensureSchema(connection);
                 long loaded = 0L;
@@ -141,6 +159,8 @@ public final class ProfilePlaytimeManager {
             e.printStackTrace();
         }
     }
+
+    private record SessionMark(UUID profileId, long markedAtMillis) {}
 
     private static void ensureSchema(Connection connection) throws Exception {
         try (var statement = connection.createStatement()) {

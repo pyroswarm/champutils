@@ -35,7 +35,19 @@ public final class CashShopCommand {
                                                         target.getInventory().add(stack);
                                                         ctx.getSource().sendSuccess(() -> Component.literal("Gave " + count + "x " + id + " boost item(s) to " + target.getName().getString() + "."), true);
                                                         return 1;
-                                                    }))))));
+                                                    })))))
+                    .then(Commands.literal("givecredits")
+                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .then(Commands.argument("player", EntityArgument.player())
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(1, 999))
+                                            .executes(ctx -> {
+                                                ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                                int amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                BoosterCreditManager.addCredits(target.getUUID(), amount);
+                                                target.sendSystemMessage(Component.literal("You received " + amount + " booster credit(s)."));
+                                                ctx.getSource().sendSuccess(() -> Component.literal("Gave " + amount + " booster credit(s) to " + target.getName().getString() + "."), true);
+                                                return 1;
+                                            })))));
         });
     }
 }

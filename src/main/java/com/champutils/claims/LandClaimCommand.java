@@ -3,6 +3,7 @@ package com.champutils.claims;
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.EconomyManager.TransactionResult;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.teleport.SafeTeleportManager;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -38,6 +39,7 @@ public final class LandClaimCommand {
                     .then(literal("cancel").executes(context -> cancel(context.getSource().getPlayerOrException())))
                     .then(literal("info").executes(context -> info(context.getSource().getPlayerOrException())))
                     .then(literal("list").executes(context -> listClaims(context.getSource().getPlayerOrException())))
+                    .then(literal("tp").then(argument("number", IntegerArgumentType.integer(1)).executes(context -> home(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "number")))))
                     .then(literal("settings").executes(context -> { LandClaimSettingsMenu.open(context.getSource().getPlayerOrException()); return 1; }))
                     .then(literal("border").executes(context -> toggleBorder(context.getSource().getPlayerOrException())))
                     .then(literal("friend")
@@ -140,7 +142,7 @@ public final class LandClaimCommand {
         player.sendSystemMessage(Component.literal("Claim #" + (claimNumber > 0 ? claimNumber : "?") + " owner: " + claim.ownerName).withStyle(ChatFormatting.AQUA));
         player.sendSystemMessage(Component.literal("Area: " + claim.area() + " blocks | X " + claim.minX + " to " + claim.maxX + ", Z " + claim.minZ + " to " + claim.maxZ).withStyle(ChatFormatting.GRAY));
         if (claimNumber > 0 && LandClaimRepository.isOwner(player, claim)) {
-            player.sendSystemMessage(Component.literal("Home command: /claim home " + claimNumber).withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Home command: /claims tp " + claimNumber).withStyle(ChatFormatting.YELLOW));
         }
         player.sendSystemMessage(Component.literal("Members: " + claim.memberProfileIds.size() + " profile(s). /claims border toggles a visible border.").withStyle(ChatFormatting.GRAY));
         if (LandClaimRepository.isOwner(player, claim)) {
@@ -158,7 +160,7 @@ public final class LandClaimCommand {
         player.sendSystemMessage(Component.literal("Your claims:").withStyle(ChatFormatting.AQUA));
         for (int i = 0; i < claims.size(); i++) {
             LandClaimRepository.Claim claim = claims.get(i);
-            player.sendSystemMessage(Component.literal("#" + (i + 1) + " " + claim.worldName + " X " + claim.minX + " to " + claim.maxX + ", Z " + claim.minZ + " to " + claim.maxZ + " | " + claim.area() + " blocks | /claim home " + (i + 1)).withStyle(ChatFormatting.GRAY));
+            player.sendSystemMessage(Component.literal("#" + (i + 1) + " " + claim.worldName + " X " + claim.minX + " to " + claim.maxX + ", Z " + claim.minZ + " to " + claim.maxZ + " | " + claim.area() + " blocks | /claims tp " + (i + 1)).withStyle(ChatFormatting.GRAY));
         }
         player.sendSystemMessage(Component.literal("Total: " + LandClaimRepository.totalAreaCached(PlayerProfileManager.activeProfileId(player)) + "/" + LandClaimConfig.maxTotalClaimBlocksPerProfile() + " blocks, " + claims.size() + "/" + LandClaimConfig.maxClaimsPerProfile(player) + " claims.").withStyle(ChatFormatting.YELLOW));
         return 1;
@@ -269,7 +271,7 @@ public final class LandClaimCommand {
         double tx = surface.getX() + 0.5D;
         double ty = Math.max(targetLevel.getMinBuildHeight() + 1, surface.getY() + 1);
         double tz = surface.getZ() + 0.5D;
-        player.teleportTo(targetLevel, tx, ty, tz, player.getYRot(), player.getXRot());
+        if (!SafeTeleportManager.teleport(player, targetLevel, tx, ty, tz, player.getYRot(), player.getXRot())) return 0;
         player.sendSystemMessage(Component.literal("Teleported to claim #" + number + ".").withStyle(ChatFormatting.GREEN));
         return 1;
     }

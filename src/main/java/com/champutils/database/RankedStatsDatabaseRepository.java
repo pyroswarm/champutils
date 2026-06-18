@@ -8,7 +8,25 @@ import java.util.UUID;
 
 public final class RankedStatsDatabaseRepository {
 
+    private static volatile boolean seasonColumnsEnsured = false;
+
     private RankedStatsDatabaseRepository() {}
+
+    private static void ensureSeasonColumns(java.sql.Connection connection) throws Exception {
+        if (seasonColumnsEnsured) return;
+        try (PreparedStatement activeColumn = connection.prepareStatement(
+                "alter table seasons add column if not exists active boolean not null default false"
+        )) {
+            activeColumn.executeUpdate();
+        }
+
+        try (PreparedStatement isActiveColumn = connection.prepareStatement(
+                "alter table seasons add column if not exists is_active boolean not null default false"
+        )) {
+            isActiveColumn.executeUpdate();
+        }
+        seasonColumnsEnsured = true;
+    }
 
     public static void syncPlayer(UUID uuid, String username, PlayerDataManager.PlayerData data) {
         if (uuid == null || username == null || username.isBlank() || data == null) return;
@@ -23,18 +41,8 @@ public final class RankedStatsDatabaseRepository {
         int losses = Math.max(0, data.rankedLosses);
         int streak = Math.max(0, data.currentStreak);
 
-        DatabaseManager.executeAsync("sync profile ranked stats " + profileId, connection -> {
-            try (PreparedStatement activeColumn = connection.prepareStatement(
-                    "alter table seasons add column if not exists active boolean not null default false"
-            )) {
-                activeColumn.executeUpdate();
-            }
-
-            try (PreparedStatement isActiveColumn = connection.prepareStatement(
-                    "alter table seasons add column if not exists is_active boolean not null default false"
-            )) {
-                isActiveColumn.executeUpdate();
-            }
+        DatabaseManager.executeCoalescedAsync("ranked-stats:" + profileId + ":" + seasonId, "sync profile ranked stats " + profileId, connection -> {
+            ensureSeasonColumns(connection);
 
             try (PreparedStatement deactivateStatement = connection.prepareStatement(
                     "update seasons set active = false, is_active = false where id <> ?"

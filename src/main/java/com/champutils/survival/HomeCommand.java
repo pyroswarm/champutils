@@ -181,7 +181,15 @@ public final class HomeCommand {
     }
 
     private static int maxHomes(ServerPlayer player) {
-        return SurvivalWorldConfig.get().defaultMaxHomes;
+        int best = Math.max(3, SurvivalWorldConfig.get().defaultMaxHomes);
+        // Rank/website perks can grant more homes without changing vanilla command permissions.
+        int[] caps = {4, 5, 6, 8, 10, 15, 20};
+        for (int cap : caps) {
+            if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.sethome." + cap)) {
+                best = Math.max(best, cap);
+            }
+        }
+        return best;
     }
 
     private static String normalizeName(String name) {

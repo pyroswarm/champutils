@@ -12,6 +12,13 @@ import net.minecraft.world.item.ItemStack;
 public final class ProfessionToolAnnouncementManager {
 
     private static int tickCounter = 0;
+    private static int nextPlayerIndex = 0;
+
+    /**
+     * Discovery announcements are nice polish, but scanning every online player's full
+     * inventory every second showed up in spark. Scan one player every 5 seconds instead.
+     */
+    private static final int SCAN_INTERVAL_TICKS = 100;
 
     private ProfessionToolAnnouncementManager() {
     }
@@ -22,13 +29,13 @@ public final class ProfessionToolAnnouncementManager {
 
             tickCounter++;
 
-            if (tickCounter < 20) {
+            if (tickCounter < SCAN_INTERVAL_TICKS) {
                 return;
             }
 
             tickCounter = 0;
 
-            scanInventoriesForDiscoveryAnnouncements(server);
+            scanNextInventoryForDiscoveryAnnouncements(server);
         });
     }
 
@@ -75,7 +82,7 @@ public final class ProfessionToolAnnouncementManager {
         );
     }
 
-    private static void scanInventoriesForDiscoveryAnnouncements(
+    private static void scanNextInventoryForDiscoveryAnnouncements(
             MinecraftServer server
     ) {
 
@@ -83,28 +90,29 @@ public final class ProfessionToolAnnouncementManager {
             return;
         }
 
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+        java.util.List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) {
+            nextPlayerIndex = 0;
+            return;
+        }
 
-            for (ItemStack stack : player.getInventory().items) {
-                announceDiscoveryIfNeeded(
-                        player,
-                        stack
-                );
-            }
+        if (nextPlayerIndex >= players.size()) {
+            nextPlayerIndex = 0;
+        }
 
-            for (ItemStack stack : player.getInventory().armor) {
-                announceDiscoveryIfNeeded(
-                        player,
-                        stack
-                );
-            }
+        ServerPlayer player = players.get(nextPlayerIndex);
+        nextPlayerIndex = (nextPlayerIndex + 1) % players.size();
 
-            for (ItemStack stack : player.getInventory().offhand) {
-                announceDiscoveryIfNeeded(
-                        player,
-                        stack
-                );
-            }
+        for (ItemStack stack : player.getInventory().items) {
+            announceDiscoveryIfNeeded(player, stack);
+        }
+
+        for (ItemStack stack : player.getInventory().armor) {
+            announceDiscoveryIfNeeded(player, stack);
+        }
+
+        for (ItemStack stack : player.getInventory().offhand) {
+            announceDiscoveryIfNeeded(player, stack);
         }
     }
 

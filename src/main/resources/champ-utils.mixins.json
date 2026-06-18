@@ -8,7 +8,8 @@
     "CobblemonPokemonStoreManagerMixin",
     "IronmanItemEntityMixin",
     "IronmanPlayerDropMixin",
-    "IslanderPlayerSpawnerMixin"
+    "IslanderPlayerSpawnerMixin",
+    "FluidBlockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

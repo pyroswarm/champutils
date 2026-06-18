@@ -620,7 +620,7 @@ public final class GuildBossManager {
 
     private static boolean isBossNotificationAdmin(ServerPlayer player) {
         if (player == null) return false;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         return LuckPermsHook.hasPermission(player, BOSS_ADMIN_PERMISSION) || LuckPermsHook.hasPermission(player, GUILD_BOSS_MONITOR_PERMISSION);
     }
 

@@ -370,7 +370,7 @@ public final class TerritoryMenus {
                 .setName(Component.literal(territory.publicName()).withStyle(ChatFormatting.GOLD))
                 .setLore(lore)
                 .setCallback((index, clickType, actionType) -> {
-                    if (!territory.isReady() && !player.hasPermissions(4)) {
+                    if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
                         player.sendSystemMessage(Component.literal("That territory is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
                         return;
                     }

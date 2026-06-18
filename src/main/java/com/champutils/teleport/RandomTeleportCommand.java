@@ -205,7 +205,7 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        if (PlayerProfileManager.isIslander(player) && !player.hasPermissions(4)) {
+        if (PlayerProfileManager.isIslander(player) && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
             player.sendSystemMessage(Component.literal("Islander profiles cannot use RTP. Islanders are limited to spawn and Islander worlds.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -217,7 +217,7 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        if (ACTIVE_SEARCHES.size() >= MAX_ACTIVE_RTP_SEARCHES && !player.hasPermissions(4)) {
+        if (ACTIVE_SEARCHES.size() >= MAX_ACTIVE_RTP_SEARCHES && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
             player.sendSystemMessage(Component.literal("RTP is busy right now. Try again in a few seconds.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
@@ -227,7 +227,7 @@ public final class RandomTeleportCommand {
         long last = LAST_USE_MS.getOrDefault(playerId, 0L);
         long waitMs = (cooldown * 1000L) - (now - last);
 
-        if (!player.hasPermissions(4) && waitMs > 0) {
+        if (!com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin") && waitMs > 0) {
             long waitSeconds = Math.max(1L, (waitMs + 999L) / 1000L);
             player.sendSystemMessage(Component.literal("You can use /rtp again in " + waitSeconds + "s.").withStyle(ChatFormatting.RED));
             return 0;

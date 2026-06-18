@@ -9,24 +9,32 @@ import java.util.UUID;
 
 public final class ProfessionDatabaseRepository {
 
+    private static volatile boolean schemaEnsured = false;
+
     private ProfessionDatabaseRepository() {}
+
+    private static void ensureSchema(java.sql.Connection connection) throws Exception {
+        if (schemaEnsured) return;
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create table if not exists profile_professions (" +
+                        "profile_id uuid not null references player_profiles(id) on delete cascade, profession text not null, " +
+                        "level integer not null default 1, xp bigint not null default 0, data jsonb not null default '{}'::jsonb, " +
+                        "updated_at timestamptz not null default now(), primary key(profile_id, profession))"
+        )) { ensure.executeUpdate(); }
+
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create table if not exists profile_fragments (" +
+                        "profile_id uuid not null references player_profiles(id) on delete cascade, fragment_id text not null, amount integer not null default 0, " +
+                        "updated_at timestamptz not null default now(), primary key(profile_id, fragment_id))"
+        )) { ensure.executeUpdate(); }
+        schemaEnsured = true;
+    }
 
     public static void sync(ProfessionDataManager.ProfessionData data) {
         if (data == null || data.uuid == null || data.uuid.isBlank()) return;
 
-        DatabaseManager.executeAsync("sync profile professions " + data.uuid, connection -> {
-            try (PreparedStatement ensure = connection.prepareStatement(
-                    "create table if not exists profile_professions (" +
-                            "profile_id uuid not null references player_profiles(id) on delete cascade, profession text not null, " +
-                            "level integer not null default 1, xp bigint not null default 0, data jsonb not null default '{}'::jsonb, " +
-                            "updated_at timestamptz not null default now(), primary key(profile_id, profession))"
-            )) { ensure.executeUpdate(); }
-
-            try (PreparedStatement ensure = connection.prepareStatement(
-                    "create table if not exists profile_fragments (" +
-                            "profile_id uuid not null references player_profiles(id) on delete cascade, fragment_id text not null, amount integer not null default 0, " +
-                            "updated_at timestamptz not null default now(), primary key(profile_id, fragment_id))"
-            )) { ensure.executeUpdate(); }
+        DatabaseManager.executeCoalescedAsync("profession:" + data.uuid, "sync profile professions " + data.uuid, connection -> {
+            ensureSchema(connection);
 
             UUID profileId = UUID.fromString(data.uuid);
             try (PreparedStatement professionStatement = connection.prepareStatement(

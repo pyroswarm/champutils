@@ -21,7 +21,7 @@ public final class ServerStatusDatabaseRepository {
         String serverId = NetworkServerConfig.serverId();
         String serverRole = NetworkServerConfig.serverRole().name();
 
-        DatabaseManager.executeAsync("sync server status", connection -> {
+        DatabaseManager.executeCoalescedAsync("server-status:" + serverId, "sync server status", connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into server_status (id, online_players, max_players, motd, last_heartbeat) values (?, ?, ?, ?, now()) " +
                             "on conflict (id) do update set online_players = excluded.online_players, max_players = excluded.max_players, motd = excluded.motd, last_heartbeat = now()"
@@ -53,7 +53,7 @@ public final class ServerStatusDatabaseRepository {
         String serverId = NetworkServerConfig.serverId();
         String serverRole = NetworkServerConfig.serverRole().name();
 
-        DatabaseManager.executeAsync("mark server offline", connection -> {
+        DatabaseManager.executeCoalescedAsync("server-status:" + serverId, "mark server offline", connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into server_status (id, online_players, max_players, motd, last_heartbeat) values (?, 0, ?, ?, now()) " +
                             "on conflict (id) do update set online_players = 0, max_players = excluded.max_players, motd = excluded.motd, last_heartbeat = now()"

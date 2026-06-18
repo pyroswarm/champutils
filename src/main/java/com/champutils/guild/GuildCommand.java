@@ -155,7 +155,7 @@ public final class GuildCommand {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory yet.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        if (!territory.isReady() && !player.hasPermissions(4)) {
+        if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
             player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That guild territory is being deleted." : "Your guild territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }

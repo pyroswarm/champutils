@@ -166,17 +166,6 @@ public final class WorldBossCommand {
     }
 
     private static boolean hasBossPermission(CommandSourceStack source, String permission) {
-        if (source == null) {
-            return false;
-        }
-        if (source.hasPermission(4)) {
-            return true;
-        }
-        try {
-            ServerPlayer player = source.getPlayer();
-            return LuckPermsHook.hasPermission(player, permission);
-        } catch (Exception ignored) {
-            return false;
-        }
+        return com.champutils.permissions.PermissionUtil.has(source, permission);
     }
 }

@@ -173,6 +173,7 @@ public class ChampUtilsMod implements ModInitializer {
         MegaBossConfig.load();
         AntiLagConfig.load();
         ModerationConfig.load();
+        ModerationActionRepository.ensureSchemaAsync();
         ItemBindRegistry.load();
         ExplorationWorldConfig.load();
         ExplorationLootConfig.load();
@@ -181,6 +182,7 @@ public class ChampUtilsMod implements ModInitializer {
         SurvivalWorldConfig.load();
         SurvivalWorldManager.load();
         HomeCommand.load();
+        BoosterCreditManager.load();
         CrateConfig.load();
         CrateCreditManager.load();
         CrateKeyCraftingConfig.load();
@@ -359,6 +361,7 @@ public class ChampUtilsMod implements ModInitializer {
                     TitleManager.save();
                     WorldFirstManager.save();
                     for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+                        com.champutils.profile.ProfilePlaytimeManager.recordCurrentSession(onlinePlayer);
                         PlayerProfileManager.saveActiveLocation(onlinePlayer);
                     }
                     com.champutils.profile.ProfilePlaytimeManager.flushBlockingBestEffort();
@@ -481,6 +484,8 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
 
+                    com.champutils.profile.ProfilePlaytimeManager.flushPlayerBlockingBestEffort(handler.player);
+                    com.champutils.profile.ProfilePlaytimeManager.clearSession(handler.player);
                     PlayerProfileManager.saveActiveLocation(handler.player);
                     VanillaProfileStateManager.save(handler.player);
                     CobblemonProfileStorageBridge.forceSaveActiveProfileStores(handler.player);
@@ -659,10 +664,13 @@ public class ChampUtilsMod implements ModInitializer {
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
         LandClaimProtectionListener.register();
+        DeathBackListener.register();
+        com.champutils.protection.SpawnRealmProtectionListener.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();
         CashShopBoostItemManager.register();
+        BoosterCreditManager.register();
         IslanderSpawningManager.register();
         IslanderMineProtectionListener.register();
 
@@ -709,6 +717,7 @@ public class ChampUtilsMod implements ModInitializer {
                     VanillaPortalBlocker.tick(server);
                     PartyManager.tick(server);
                     AntiLagManager.tick(server);
+                    com.champutils.antilag.OversizedChunkEntityGuard.tick(server);
                     ModerationManager.tick(server);
                     DailyLoginManager.tick(server);
                     ChampWorldBorderManager.tick(server);

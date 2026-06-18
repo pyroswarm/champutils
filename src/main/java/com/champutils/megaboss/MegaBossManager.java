@@ -1,6 +1,5 @@
 package com.champutils.megaboss;
 
-import com.champutils.exploration.ExplorationWorldManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 
@@ -62,7 +61,7 @@ public final class MegaBossManager {
         if (TRACKED.size() >= globalSafetyCap) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
-        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()) || !ExplorationWorldManager.isOverworldGameplayLevel(p.serverLevel()));
+        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()));
         if (players.isEmpty()) return;
 
         Collections.shuffle(players, RANDOM);
@@ -73,6 +72,7 @@ public final class MegaBossManager {
             if (spawnedThisCheck >= maxSpawnedThisCheck) return;
             if (countMegaBossesNear(player.serverLevel(), player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) continue;
 
+            if (RANDOM.nextDouble() > MegaBossConfig.DATA.spawnChancePerPlayerCheck) continue;
             MegaBossConfig.BossEntry boss = pickBoss();
             if (boss == null) continue;
             if (trySpawnFor(player, boss)) spawnedThisCheck++;
@@ -120,7 +120,7 @@ public final class MegaBossManager {
                 continue;
             }
             markBoss(entity, boss, pokemonLevel);
-            announce(player.getServer(), boss, level, pos, pokemonLevel);
+            announce(player, boss, level, pos, pokemonLevel);
             return true;
         }
         return false;
@@ -364,10 +364,10 @@ public final class MegaBossManager {
         return false;
     }
 
-    private static void announce(MinecraftServer server, MegaBossConfig.BossEntry boss, ServerLevel level, BlockPos pos, int pokemonLevel) {
-        if (!MegaBossConfig.DATA.broadcastSpawns) return;
+    private static void announce(ServerPlayer player, MegaBossConfig.BossEntry boss, ServerLevel level, BlockPos pos, int pokemonLevel) {
+        if (!MegaBossConfig.DATA.broadcastSpawns || player == null) return;
         String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
-        server.getPlayerList().broadcastSystemMessage(Component.literal("§5§lMega Boss Spawned! §d" + pretty(boss.species) + " §7[" + normalizeRarity(boss.rarity) + "] §fappeared in §e" + biome + " §7Lv." + pokemonLevel + " §eX:" + pos.getX() + " Y:" + pos.getY() + " Z:" + pos.getZ() + " §cCannot be caught."), false);
+        player.sendSystemMessage(Component.literal("§5§lMega Boss Spawned! §d" + pretty(boss.species) + " §7[" + normalizeRarity(boss.rarity) + "] §fappeared near you in §e" + biome + " §7Lv." + pokemonLevel + " §eX:" + pos.getX() + " Y:" + pos.getY() + " Z:" + pos.getZ() + " §cCannot be caught."));
     }
 
     private static String normalizeRarity(String rarity) {

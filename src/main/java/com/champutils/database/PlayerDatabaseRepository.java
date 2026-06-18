@@ -38,7 +38,7 @@ public final class PlayerDatabaseRepository {
     public static void sync(PlayerDataManager.PlayerData data) {
         if (data == null || data.uuid == null || data.uuid.isBlank()) return;
 
-        DatabaseManager.executeAsync("sync profile player " + data.uuid, connection -> {
+        DatabaseManager.executeCoalescedAsync("player-stats:" + data.uuid, "sync profile player " + data.uuid, connection -> {
             ensureSchema(connection);
 
             UUID profileId = UUID.fromString(data.uuid);
@@ -93,7 +93,7 @@ public final class PlayerDatabaseRepository {
 
     public static void touchPlayer(UUID uuid, String name) {
         if (uuid == null) return;
-        DatabaseManager.executeAsync("touch player " + uuid, connection -> {
+        DatabaseManager.executeCoalescedAsync("touch-player:" + uuid, "touch player " + uuid, connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into players (uuid, username, last_seen, last_server_id) values (?, ?, now(), ?) " +
                             "on conflict (uuid) do update set username = excluded.username, last_seen = now(), last_server_id = excluded.last_server_id"

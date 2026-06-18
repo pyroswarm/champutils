@@ -25,7 +25,9 @@ public final class MegaBossCaptureBlocker {
         if (registered) return;
         registered = true;
         try {
-            Class<?> eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents");
+            Class<?> eventsClass;
+            try { eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents"); }
+            catch (Throwable ignored) { eventsClass = Class.forName("com.cobblemon.mod.common.CobblemonEvents"); }
             int count = 0;
             for (Object observable : captureObservables(eventsClass)) {
                 boolean subscribed = CobblemonEventReflection.subscribe(observable, event -> {
@@ -43,8 +45,8 @@ public final class MegaBossCaptureBlocker {
         List<Object> observables = new ArrayList<>();
         for (Field field : eventsClass.getFields()) {
             String lower = field.getName().toLowerCase(Locale.ROOT);
-            if (!(lower.contains("capture") || lower.contains("catch"))) continue;
-            if (lower.contains("post") || lower.contains("success") || lower.contains("fail")) continue;
+            if (!(lower.contains("capture") || lower.contains("catch") || lower.contains("caught") || lower.contains("pokeball"))) continue;
+            if (lower.contains("fail")) continue;
             try {
                 Object value = field.get(null);
                 if (value != null && !observables.contains(value)) observables.add(value);
@@ -59,7 +61,8 @@ public final class MegaBossCaptureBlocker {
         setReason(event, Component.literal("Mega Boss Pokémon cannot be caught."));
         cancel(event);
         ServerPlayer player = firstPlayer(event);
-        if (player != null) player.sendSystemMessage(Component.literal("§cMega Boss Pokémon cannot be caught."));
+        if (player != null) player.sendSystemMessage(Component.literal("§cMega Boss Pokémon cannot be caught. Defeat them for rewards instead."));
+        if (entity != null && entity.isRemoved()) return;
     }
 
     private static Entity firstEntity(Object source) {
@@ -70,7 +73,7 @@ public final class MegaBossCaptureBlocker {
     }
 
     private static ServerPlayer firstPlayer(Object source) {
-        Object value = firstValue(source, "player", "getPlayer", "thrower", "getThrower");
+        Object value = firstValue(source, "player", "getPlayer", "thrower", "getThrower", "capturer", "getCapturer", "catcher", "getCatcher");
         return value instanceof ServerPlayer p ? p : null;
     }
 
@@ -108,10 +111,18 @@ public final class MegaBossCaptureBlocker {
                 } catch (Throwable ignored) {}
             }
         }
-        try {
-            Field cancelled = findField(event.getClass(), "cancelled");
-            if (cancelled != null) { cancelled.setAccessible(true); cancelled.setBoolean(event, true); }
-        } catch (Throwable ignored) {}
+        for (String fieldName : List.of("cancelled", "canceled")) {
+            try {
+                Field cancelled = findField(event.getClass(), fieldName);
+                if (cancelled != null) { cancelled.setAccessible(true); cancelled.setBoolean(event, true); }
+            } catch (Throwable ignored) {}
+        }
+        for (String name : List.of("setShouldCapture", "setSuccessful", "setSuccess")) {
+            for (Method method : event.getClass().getMethods()) {
+                if (!method.getName().equals(name)) continue;
+                try { if (method.getParameterCount() == 1 && method.getParameterTypes()[0] == boolean.class) method.invoke(event, false); } catch (Throwable ignored) {}
+            }
+        }
     }
 
     private static void setReason(Object event, Component reason) {

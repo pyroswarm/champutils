@@ -16,14 +16,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TerritoryBorderManager {
     private static final Map<UUID, Long> LAST_WARN = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> LAST_ALLOWED_TERRITORY = new ConcurrentHashMap<>();
+    private static int tickCounter = 0;
 
     private TerritoryBorderManager() {}
 
     public static void tick(MinecraftServer server) {
         if (server == null || !TerritoryConfig.get().enabled) return;
 
+        tickCounter++;
+        if (tickCounter < 5) return;
+        tickCounter = 0;
+
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player.hasPermissions(4)) continue;
+            if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) continue;
 
             ServerLevel level = player.serverLevel();
             if (!TerritoryRepository.isTerritoryWorld(level)) {

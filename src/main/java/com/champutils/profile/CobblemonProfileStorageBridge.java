@@ -94,6 +94,11 @@ public final class CobblemonProfileStorageBridge {
         sqlFactory.prefetchParty(profileId, accountUuid, registryAccess);
     }
 
+    public static void prefetchProfileStores(java.sql.Connection connection, UUID profileId, UUID accountUuid, net.minecraft.core.RegistryAccess registryAccess) {
+        if (connection == null || profileId == null || accountUuid == null || registryAccess == null || sqlFactory == null) return;
+        sqlFactory.prefetchParty(connection, profileId, accountUuid, registryAccess);
+    }
+
     public static void evictProfileStores(UUID profileId) {
         if (sqlFactory != null) sqlFactory.evict(profileId);
     }

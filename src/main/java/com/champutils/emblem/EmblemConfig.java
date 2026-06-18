@@ -69,20 +69,20 @@ public final class EmblemConfig {
         Root root = new Root();
         root.emblems.put("regular_shiny", emblem(
                 "regular_shiny", "Regular Shiny Emblem", "REGULAR_SHINY", "minecraft:nether_star", 9101,
-                "Turns one regular Pokémon shiny.", "RARE", 250,
-                item("cobblemon:shiny_stone", 3), item("minecraft:diamond", 8)));
+                "Turns one regular Pokémon shiny.", "RARE", 120,
+                item("cobblemon:shiny_stone", 2), item("minecraft:diamond", 4)));
         root.emblems.put("ultra_paradox_shiny", emblem(
                 "ultra_paradox_shiny", "Ultra/Paradox Shiny Emblem", "ULTRA_PARADOX_SHINY", "minecraft:nether_star", 9102,
-                "Turns one Ultra Beast or Paradox Pokémon shiny.", "EPIC", 400,
-                item("cobblemon:shiny_stone", 8), item("minecraft:netherite_ingot", 2)));
+                "Turns one Ultra Beast or Paradox Pokémon shiny.", "EPIC", 200,
+                item("cobblemon:shiny_stone", 4), item("minecraft:netherite_ingot", 1)));
         root.emblems.put("legendary_shiny", emblem(
                 "legendary_shiny", "Legendary Shiny Emblem", "LEGENDARY_SHINY", "minecraft:nether_star", 9103,
-                "Turns one Legendary Pokémon shiny.", "LEGENDARY", 500,
-                item("cobblemon:shiny_stone", 16), item("minecraft:netherite_block", 1)));
+                "Turns one Legendary Pokémon shiny.", "LEGENDARY", 300,
+                item("cobblemon:shiny_stone", 8), item("minecraft:netherite_ingot", 4)));
         root.emblems.put("megastone", emblem(
                 "megastone", "Megastone Emblem", "MEGASTONE", "minecraft:amethyst_shard", 9104,
-                "Right-click a Pokémon that has a Mega Evolution to receive its Mega Stone.", "EPIC", 300,
-                item("minecraft:diamond_block", 2), item("minecraft:emerald_block", 2)));
+                "Right-click a Pokémon that has a Mega Evolution to receive its Mega Stone.", "EPIC", 150,
+                item("minecraft:diamond", 16), item("minecraft:emerald", 16)));
 
         root.ultraBeastSpecies = set("nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon");
         root.paradoxSpecies = set("great_tusk","greattusk","scream_tail","screamtail","brute_bonnet","brutebonnet","flutter_mane","fluttermane","slither_wing","slitherwing","sandy_shocks","sandyshocks","roaring_moon","roaringmoon","walking_wake","walkingwake","gouging_fire","gougingfire","raging_bolt","ragingbolt","iron_treads","irontreads","iron_bundle","ironbundle","iron_hands","ironhands","iron_jugulis","ironjugulis","iron_moth","ironmoth","iron_thorns","ironthorns","iron_valiant","ironvaliant","iron_leaves","ironleaves","iron_boulder","ironboulder","iron_crown","ironcrown");

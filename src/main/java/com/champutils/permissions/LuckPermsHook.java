@@ -162,4 +162,25 @@ public class LuckPermsHook {
         }
     }
 
+
+    public static boolean hasExactPermissionNode(
+            ServerPlayer player,
+            String permission
+    ){
+        if (player == null || permission == null || permission.isBlank()) return false;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUUID());
+            if (user == null) user = lp.getUserManager().loadUser(player.getUUID()).join();
+            String wanted = permission.trim().toLowerCase(java.util.Locale.ROOT);
+            return user.resolveInheritedNodes(user.getQueryOptions()).stream().anyMatch(node ->
+                    node.getKey() != null
+                            && node.getKey().equalsIgnoreCase(wanted)
+                            && node.getValue()
+            );
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
 }

@@ -14,6 +14,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -38,6 +39,7 @@ public final class ModerationManager {
     private static final Map<TrackKey, Record> records = new HashMap<>();
     private static final Map<UUID, TempBan> tempBans = new HashMap<>();
     private static final Map<UUID, ChatWindow> chatWindows = new HashMap<>();
+    private static final Map<UUID, Integer> staffWarningCounts = new HashMap<>();
     private static long resetKey = DailyResetManager.currentResetKeyMillis();
 
     private ModerationManager() {}
@@ -48,6 +50,7 @@ public final class ModerationManager {
             records.clear();
             tempBans.clear();
             chatWindows.clear();
+            staffWarningCounts.clear();
             XrayDetectionManager.dailyReset();
             resetKey = key;
             alertAdmins(server, "§a[AutoMod] Daily moderation stages wiped at " + DailyResetManager.formatResetTime() + ". Chat, Xray, and AntiLag tracks were reset separately.");
@@ -58,6 +61,12 @@ public final class ModerationManager {
     public static void handleJoin(ServerPlayer player) {
         if (player == null) return;
         tick(player.server);
+        ModerationActionRepository.ActivePunishment dbBan = ModerationActionRepository.findActive(player.getUUID(), player.getGameProfile().getName(), ModerationActionRepository.ActionType.BAN);
+        if (dbBan != null) {
+            String duration = dbBan.expiresAt() == null ? "permanently" : "for " + format(Math.max(1, dbBan.expiresAt().toEpochMilli() - System.currentTimeMillis()));
+            player.connection.disconnect(Component.literal("You are banned " + duration + ". Reason: " + dbBan.reason()));
+            return;
+        }
         TempBan ban = tempBans.get(player.getUUID());
         long now = System.currentTimeMillis();
         if (ban != null) {
@@ -72,6 +81,12 @@ public final class ModerationManager {
     public static boolean allowChat(ServerPlayer player, String message) {
         if (player == null) return false;
         tick(player.server);
+        ModerationActionRepository.ActivePunishment dbMute = ModerationActionRepository.findActive(player.getUUID(), player.getGameProfile().getName(), ModerationActionRepository.ActionType.MUTE);
+        if (dbMute != null) {
+            String duration = dbMute.expiresAt() == null ? "permanently" : "for " + format(Math.max(1, dbMute.expiresAt().toEpochMilli() - System.currentTimeMillis()));
+            player.sendSystemMessage(Component.literal("You are muted " + duration + ". Reason: " + dbMute.reason()).withStyle(ChatFormatting.RED));
+            return false;
+        }
         Record r = record(player.getUUID(), ModerationTrack.CHAT);
         long now = System.currentTimeMillis();
         if (r.mutedUntil > now) {
@@ -114,6 +129,10 @@ public final class ModerationManager {
 
         Record r = record(target.getUUID(), ModerationTrack.CHAT);
         r.mutedUntil = until;
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draftOffline(null, target.getGameProfile().getName(), target.getUUID(), ModerationActionRepository.ActionType.MUTE, finalReason);
+        draft.moderatorName = staffName;
+        draft.expiresAt = Instant.ofEpochMilli(until);
+        ModerationActionRepository.insert(draft);
 
         target.sendSystemMessage(Component.literal("You were muted by staff for " + format(duration.toMillis()) + ". Reason: " + finalReason).withStyle(ChatFormatting.RED));
         alertAdmins(target.server, "§c[Staff Mute] §f" + staffName + " §7muted §f" + target.getGameProfile().getName() + " §7for §e" + format(duration.toMillis()) + "§7. Reason: §c" + finalReason);
@@ -134,6 +153,11 @@ public final class ModerationManager {
 
         String staffName = (actorName == null || actorName.isBlank()) ? "Console" : actorName;
         if (wasMuted) {
+            ModerationActionRepository.revokeActive(target.getUUID(), target.getGameProfile().getName(), ModerationActionRepository.ActionType.MUTE, null, "Legacy staff unmute", staffName);
+            ModerationActionRepository.ActionDraft reversal = ModerationActionRepository.draftOffline(null, target.getGameProfile().getName(), target.getUUID(), ModerationActionRepository.ActionType.UNMUTE, "Legacy staff unmute");
+            reversal.moderatorName = staffName;
+            reversal.active = false;
+            ModerationActionRepository.insert(reversal);
             target.sendSystemMessage(Component.literal("You have been unmuted by staff.").withStyle(ChatFormatting.GREEN));
             alertAdmins(target.server, "§a[Staff Unmute] §f" + staffName + " §7unmuted §f" + target.getGameProfile().getName() + "§7.");
             webhook("Staff unmute: actor=" + staffName + " | player=" + target.getGameProfile().getName());
@@ -215,6 +239,11 @@ public final class ModerationManager {
         long until = System.currentTimeMillis() + duration.toMillis();
         String durationText = format(duration.toMillis());
         tempBans.put(player.getUUID(), new TempBan(until, reason));
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draftOffline(null, player.getGameProfile().getName(), player.getUUID(), ModerationActionRepository.ActionType.BAN, reason);
+        draft.moderatorName = system;
+        draft.expiresAt = Instant.ofEpochMilli(until);
+        draft.metadataJson = "{\"source\":\"automod_escalation\",\"stage\":" + stage + "}";
+        ModerationActionRepository.insert(draft);
         player.connection.disconnect(Component.literal("You are temporarily banned for " + durationText + " by " + system + ". Reason: " + reason));
         alertAction(player, system, durationText + " temporary ban", stage, reason);
     }
@@ -228,6 +257,120 @@ public final class ModerationManager {
         String msg = "§6[" + system + "] §7Caught §f" + player.getGameProfile().getName() + "§7. " + reason + "§7. actionEligible=" + actionEligible;
         alertAdmins(player.server, msg);
         webhook(system + " caught: player=" + player.getGameProfile().getName() + " | actionEligible=" + actionEligible + " | " + reason);
+    }
+
+    public static void staffWarn(ServerPlayer actor, ServerPlayer target, String reason) {
+        if (target == null) return;
+        tick(target.server);
+
+        String finalReason = cleanReason(reason, "Staff warning");
+        int warningCount = currentStaffWarningCount(target);
+
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.WARN, finalReason);
+        draft.metadataJson = "{\"daily_warning_count\":" + warningCount + ",\"reset_key_millis\":" + resetKey + "}";
+        ModerationActionRepository.insert(draft);
+
+        target.sendSystemMessage(Component.literal("You received a staff warning (" + warningCount + "/5). Reason: " + finalReason).withStyle(ChatFormatting.YELLOW));
+        String staffName = actorName(actor);
+        alertAdmins(target.server, "§e[Staff Warn] §f" + staffName + " §7warned §f" + target.getGameProfile().getName() + "§7. Daily warnings: §e" + warningCount + "/5§7. Reason: §c" + finalReason);
+        webhook("Staff warn: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | daily_warnings=" + warningCount + " | reason=" + finalReason);
+
+        applyStaffWarningThreshold(actor, target, warningCount, finalReason);
+    }
+
+    private static int currentStaffWarningCount(ServerPlayer target) {
+        int databaseCount = ModerationActionRepository.warningCountSince(target.getUUID(), target.getGameProfile().getName(), Instant.ofEpochMilli(resetKey));
+        int next = Math.max(staffWarningCounts.getOrDefault(target.getUUID(), 0), databaseCount) + 1;
+        staffWarningCounts.put(target.getUUID(), next);
+        return next;
+    }
+
+    private static void applyStaffWarningThreshold(ServerPlayer actor, ServerPlayer target, int warningCount, String latestReason) {
+        if (warningCount == 3) {
+            staffMute(actor, target, Duration.ofHours(1), "Reached 3 staff warnings before the daily AutoMod reset. Latest warning: " + latestReason);
+        } else if (warningCount == 4) {
+            staffBan(actor, target, Duration.ofHours(1), false, "Reached 4 staff warnings before the daily AutoMod reset. Latest warning: " + latestReason);
+        } else if (warningCount >= 5) {
+            staffBan(actor, target, Duration.ofHours(24), false, "Reached 5 staff warnings before the daily AutoMod reset. Latest warning: " + latestReason);
+        }
+    }
+
+    public static void staffKick(ServerPlayer actor, ServerPlayer target, String reason) {
+        if (target == null) return;
+        String finalReason = cleanReason(reason, "Staff kick");
+        ModerationActionRepository.insert(ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.KICK, finalReason));
+        String staffName = actorName(actor);
+        alertAdmins(target.server, "§c[Staff Kick] §f" + staffName + " §7kicked §f" + target.getGameProfile().getName() + "§7. Reason: §c" + finalReason);
+        webhook("Staff kick: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | reason=" + finalReason);
+        target.connection.disconnect(Component.literal("Kicked from Cobble Champs. Reason: " + finalReason));
+    }
+
+    public static void staffMute(ServerPlayer actor, ServerPlayer target, Duration duration, String reason) {
+        if (target == null || duration == null) return;
+        String finalReason = cleanReason(reason, "Staff mute");
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.MUTE, finalReason);
+        draft.expiresAt = Instant.now().plus(duration);
+        ModerationActionRepository.insert(draft);
+        Record r = record(target.getUUID(), ModerationTrack.CHAT);
+        r.mutedUntil = System.currentTimeMillis() + duration.toMillis();
+        String staffName = actorName(actor);
+        target.sendSystemMessage(Component.literal("You were muted for " + format(duration.toMillis()) + ". Reason: " + finalReason).withStyle(ChatFormatting.RED));
+        alertAdmins(target.server, "§c[Staff Mute] §f" + staffName + " §7muted §f" + target.getGameProfile().getName() + " §7for §e" + format(duration.toMillis()) + "§7. Reason: §c" + finalReason);
+        webhook("Staff mute: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | duration=" + format(duration.toMillis()) + " | reason=" + finalReason);
+    }
+
+    public static void staffBan(ServerPlayer actor, ServerPlayer target, Duration duration, boolean permanent, String reason) {
+        if (target == null) return;
+        String finalReason = cleanReason(reason, "Staff ban");
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.BAN, finalReason);
+        if (!permanent && duration != null) draft.expiresAt = Instant.now().plus(duration);
+        ModerationActionRepository.insert(draft);
+        String staffName = actorName(actor);
+        String durationText = permanent ? "permanently" : "for " + format(duration.toMillis());
+        alertAdmins(target.server, "§4[Staff Ban] §f" + staffName + " §7banned §f" + target.getGameProfile().getName() + " §7" + durationText + "§7. Reason: §c" + finalReason);
+        webhook("Staff ban: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | duration=" + durationText + " | reason=" + finalReason);
+        target.connection.disconnect(Component.literal("You are banned " + durationText + ". Reason: " + finalReason));
+    }
+
+    public static boolean staffUnmute(ServerPlayer actor, ServerPlayer target, String targetName, String reason) {
+        UUID targetUuid = target == null ? null : target.getUUID();
+        String name = target == null ? targetName : target.getGameProfile().getName();
+        boolean changed = ModerationActionRepository.revokeActive(targetUuid, name, ModerationActionRepository.ActionType.MUTE, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unmute"), actorName(actor));
+        ModerationActionRepository.ActionDraft reversal = target == null
+                ? ModerationActionRepository.draftOffline(actor, name, targetUuid, ModerationActionRepository.ActionType.UNMUTE, cleanReason(reason, "Staff unmute"))
+                : ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.UNMUTE, cleanReason(reason, "Staff unmute"));
+        reversal.active = false;
+        ModerationActionRepository.insert(reversal);
+        if (target != null) {
+            Record r = record(target.getUUID(), ModerationTrack.CHAT);
+            r.mutedUntil = 0L;
+            target.sendSystemMessage(Component.literal("You have been unmuted. Reason: " + cleanReason(reason, "Staff unmute")).withStyle(ChatFormatting.GREEN));
+            alertAdmins(target.server, "§a[Staff Unmute] §f" + actorName(actor) + " §7unmuted §f" + target.getGameProfile().getName() + "§7. Reason: §e" + cleanReason(reason, "Staff unmute"));
+        }
+        webhook("Staff unmute: actor=" + actorName(actor) + " | player=" + name + " | changed=" + changed + " | reason=" + cleanReason(reason, "Staff unmute"));
+        return changed;
+    }
+
+    public static boolean staffUnban(ServerPlayer actor, String targetName, UUID targetUuid, MinecraftServer server, String reason) {
+        boolean changed = ModerationActionRepository.revokeActive(targetUuid, targetName, ModerationActionRepository.ActionType.BAN, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unban"), actorName(actor));
+        ModerationActionRepository.ActionDraft reversal = ModerationActionRepository.draftOffline(actor, targetName, targetUuid, ModerationActionRepository.ActionType.UNBAN, cleanReason(reason, "Staff unban"));
+        reversal.active = false;
+        ModerationActionRepository.insert(reversal);
+        if (server != null) alertAdmins(server, "§a[Staff Unban] §f" + actorName(actor) + " §7unbanned §f" + targetName + "§7. Reason: §e" + cleanReason(reason, "Staff unban"));
+        webhook("Staff unban: actor=" + actorName(actor) + " | player=" + targetName + " | changed=" + changed + " | reason=" + cleanReason(reason, "Staff unban"));
+        return changed;
+    }
+
+    public static java.util.List<ModerationActionRepository.ActionRecord> staffHistory(UUID targetUuid, String targetName) {
+        return ModerationActionRepository.history(targetUuid, targetName);
+    }
+
+    private static String actorName(ServerPlayer actor) {
+        return actor == null ? "Console" : actor.getGameProfile().getName();
+    }
+
+    private static String cleanReason(String reason, String fallback) {
+        return reason == null || reason.isBlank() ? fallback : reason.trim();
     }
 
     private static Record record(UUID playerId, ModerationTrack track) {

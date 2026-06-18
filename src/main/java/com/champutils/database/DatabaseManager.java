@@ -8,6 +8,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.Map;
 
 public final class DatabaseManager {
 
@@ -17,6 +22,7 @@ public final class DatabaseManager {
     }
 
     private static final int ASYNC_DATABASE_THREADS = 4;
+    private static final int ASYNC_DATABASE_QUEUE_LIMIT = 4096;
 
     private static final long CONNECTION_VALIDATION_INTERVAL_MILLIS = 30_000L;
     private static Connection connection;
@@ -26,6 +32,7 @@ public final class DatabaseManager {
     private static DatabaseConfig config;
     private static boolean enabled = false;
     private static ExecutorService executor;
+    private static final Map<String, AtomicLong> COALESCED_TASK_GENERATIONS = new ConcurrentHashMap<>();
     private static String lastStatus = "Database has not initialized yet.";
 
     private DatabaseManager() {
@@ -54,11 +61,24 @@ public final class DatabaseManager {
         }
 
         if (executor == null || executor.isShutdown()) {
-            executor = Executors.newFixedThreadPool(ASYNC_DATABASE_THREADS, runnable -> {
-                Thread thread = new Thread(runnable, "ChampUtils-Database");
-                thread.setDaemon(true);
-                return thread;
-            });
+            executor = new ThreadPoolExecutor(
+                    ASYNC_DATABASE_THREADS,
+                    ASYNC_DATABASE_THREADS,
+                    30L,
+                    TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>(ASYNC_DATABASE_QUEUE_LIMIT),
+                    runnable -> {
+                        Thread thread = new Thread(runnable, "ChampUtils-Database");
+                        thread.setDaemon(true);
+                        return thread;
+                    },
+                    (runnable, pool) -> {
+                        System.err.println("[ChampUtils] Database queue is full; spilling one database task to an overflow thread to protect the server tick.");
+                        Thread overflow = new Thread(runnable, "ChampUtils-Database-Overflow");
+                        overflow.setDaemon(true);
+                        overflow.start();
+                    }
+            );
         }
 
         connect();
@@ -186,6 +206,31 @@ public final class DatabaseManager {
         });
     }
 
+    /**
+     * Queues a database task that only needs the newest value for a key.
+     *
+     * This is intended for hot sync paths such as playtime, money, profession XP, ranked stats,
+     * and server heartbeats. If 20 updates for the same profile are queued during a lag spike,
+     * the executor will skip the 19 stale copies and only write the newest snapshot. This keeps
+     * the main server thread smooth with high player counts while still persisting final state.
+     */
+    public static void executeCoalescedAsync(String coalesceKey, String description, SqlTask task) {
+        if (coalesceKey == null || coalesceKey.isBlank()) {
+            executeAsync(description, task);
+            return;
+        }
+
+        AtomicLong generation = COALESCED_TASK_GENERATIONS.computeIfAbsent(coalesceKey, ignored -> new AtomicLong());
+        long myGeneration = generation.incrementAndGet();
+
+        executeAsync(description, connection -> {
+            if (generation.get() != myGeneration) {
+                return;
+            }
+            task.run(connection);
+        });
+    }
+
 
     public static CompletableFuture<Void> runAsync(String description, SqlTask task) {
         if (task == null) {
@@ -243,6 +288,8 @@ public final class DatabaseManager {
 
             executor = null;
         }
+
+        COALESCED_TASK_GENERATIONS.clear();
 
         closeQuietly(asyncConnection.get());
         asyncConnection.remove();

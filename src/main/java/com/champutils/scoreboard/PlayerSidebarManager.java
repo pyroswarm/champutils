@@ -1,5 +1,7 @@
 package com.champutils.scoreboard;
 
+import com.champutils.buff.ServerBuffManager;
+
 import com.champutils.dex.DexProgressManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
@@ -40,6 +42,9 @@ public final class PlayerSidebarManager {
 
     private static final Map<UUID, List<String>> LAST_LINES = new HashMap<>();
     private static final Map<UUID, Boolean> CREATED = new HashMap<>();
+    private static final Map<UUID, Long> LAST_BUILD_MILLIS = new HashMap<>();
+
+    private static final long BUILD_COOLDOWN_MILLIS = 5000L;
 
     private PlayerSidebarManager() {
     }
@@ -73,12 +78,21 @@ public final class PlayerSidebarManager {
                 player.connection.send(new ClientboundSetObjectivePacket(objective, 0));
                 player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
                 CREATED.put(player.getUUID(), true);
-            } else {
-                player.connection.send(new ClientboundSetObjectivePacket(objective, 2));
+            }
+
+            UUID uuid = player.getUUID();
+            long now = System.currentTimeMillis();
+            List<String> oldLines = LAST_LINES.getOrDefault(uuid, List.of());
+            if (!oldLines.isEmpty() && now - LAST_BUILD_MILLIS.getOrDefault(uuid, 0L) < BUILD_COOLDOWN_MILLIS) {
+                return;
             }
 
             List<String> newLines = buildLines(player);
-            List<String> oldLines = LAST_LINES.getOrDefault(player.getUUID(), List.of());
+            LAST_BUILD_MILLIS.put(uuid, now);
+
+            if (!oldLines.isEmpty() && oldLines.equals(newLines)) {
+                return;
+            }
 
             /*
              * Recreate the objective when line content changes so old lines do not linger.
@@ -128,6 +142,7 @@ public final class PlayerSidebarManager {
 
         CREATED.remove(uuid);
         LAST_LINES.remove(uuid);
+        LAST_BUILD_MILLIS.remove(uuid);
     }
 
     private static Objective createPacketObjective(String objectiveName) {
@@ -169,6 +184,12 @@ public final class PlayerSidebarManager {
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
         lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getCachedPlaytimeSeconds(player)));
+        ServerBuffManager.ActiveBoostView activeBoost = ServerBuffManager.activeBoostView();
+        if (activeBoost != null) {
+            lines.add("§6Server Boost:");
+            lines.add("§f" + activeBoost.displayName() + " §7(+" + com.champutils.buff.BuffManager.percent(activeBoost.amount()) + ")");
+            lines.add("§f" + ServerBuffManager.formatDuration(activeBoost.remainingMillis()) + " remaining");
+        }
         if (PlayerProfileManager.isIslander(player)) {
             lines.add("§6Island Special §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
         } else {

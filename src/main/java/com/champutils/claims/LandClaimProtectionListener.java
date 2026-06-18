@@ -54,6 +54,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class LandClaimProtectionListener {
     private static final Set<UUID> BORDER_VIEWERS = ConcurrentHashMap.newKeySet();
+    private static final ConcurrentHashMap<UUID, Long> LAST_DENY_MESSAGE_MS = new ConcurrentHashMap<>();
+    private static final long DENY_MESSAGE_COOLDOWN_MS = 5_000L;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File BORDER_PREF_FILE = new File("config/champutils/claim_border_viewers.json");
 
@@ -203,6 +205,17 @@ public final class LandClaimProtectionListener {
         }
     }
 
+    /**
+     * Used by the fluid-flow mixin to stop lava/water at claim borders before it enters.
+     */
+    public static boolean shouldBlockFluidFlow(ServerLevel level, BlockPos fromPos, BlockPos toPos) {
+        if (level == null || fromPos == null || toPos == null) return false;
+        LandClaimRepository.Claim targetClaim = LandClaimRepository.findAt(level, toPos);
+        if (targetClaim == null) return false;
+        LandClaimRepository.Claim sourceClaim = LandClaimRepository.findAt(level, fromPos);
+        return sourceClaim == null || sourceClaim.id == null || !sourceClaim.id.equals(targetClaim.id);
+    }
+
     private static void renderBorders(MinecraftServer server) {
         int view = LandClaimConfig.borderViewDistanceBlocks();
         int step = LandClaimConfig.borderParticleStepBlocks();
@@ -266,7 +279,9 @@ public final class LandClaimProtectionListener {
             BlockState outsideState = level.getBlockState(outside);
             boolean outsideThreat = outsideState.getFluidState().is(FluidTags.LAVA) || outsideState.getFluidState().is(FluidTags.WATER) || outsideState.getBlock() instanceof FireBlock;
             boolean insideThreat = insideState.getFluidState().is(FluidTags.LAVA) || insideState.getFluidState().is(FluidTags.WATER) || insideState.getBlock() instanceof FireBlock;
-            if (outsideThreat && insideThreat) level.setBlock(inside, Blocks.AIR.defaultBlockState(), 3);
+            if (insideThreat && (outsideThreat || shouldBlockFluidFlow(level, outside, inside))) {
+                level.setBlock(inside, Blocks.AIR.defaultBlockState(), 3);
+            }
         }
     }
 
@@ -310,6 +325,13 @@ public final class LandClaimProtectionListener {
     }
 
     private static void deny(ServerPlayer player, String message) {
+        if (player == null) return;
+        long now = System.currentTimeMillis();
+        Long last = LAST_DENY_MESSAGE_MS.get(player.getUUID());
+        if (last != null && now - last < DENY_MESSAGE_COOLDOWN_MS) {
+            return;
+        }
+        LAST_DENY_MESSAGE_MS.put(player.getUUID(), now);
         player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
     }
 }

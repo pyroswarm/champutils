@@ -25,6 +25,7 @@ import java.util.*;
 public final class AntiLagManager {
     private static int ticksUntilScan=20;
     private static int ticksUntilCleanup=-1;
+    private static int ticksUntilOverloadedChunkCleanup=20*30;
     private static boolean cleanupWarningSent=false;
     private static long lastTickNanos=System.nanoTime();
     private static final ArrayDeque<Long> tickHistoryMs=new ArrayDeque<>(); private static final Map<UUID,ThrowWindow> snowballThrows=new HashMap<>(); private static final Map<UUID,Violation> violations=new HashMap<>(); private static long resetKey= DailyResetManager.currentResetKeyMillis();
@@ -52,6 +53,14 @@ public final class AntiLagManager {
             if(AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);
         }
 
+        // Emergency guard for chunks that start writing external entity files every autosave.
+        // This runs much more often than the normal cleanup, but only touches overloaded chunks
+        // and only removes safe dropped items / ordinary natural wild Pokemon.
+        if(--ticksUntilOverloadedChunkCleanup<=0){
+            ticksUntilOverloadedChunkCleanup=20*30;
+            cleanupOverloadedChunks(server);
+        }
+
         // Destructive entity cleanup must never run from the frequent lag-machine scan path.
         // It is intentionally isolated behind the long cleanup scheduler. Default is 15 minutes = 18,000 ticks.
         if(ticksUntilCleanup<0){
@@ -73,6 +82,23 @@ public final class AntiLagManager {
             ticksUntilCleanup=cleanupIntervalTicks();
             cleanupWarningSent=false;
             cleanupEntities(server,true);
+        }
+    }
+
+
+    private static void cleanupOverloadedChunks(MinecraftServer server){
+        WildPokemonCleanupManager.Options options = new WildPokemonCleanupManager.Options();
+        options.clearDroppedItems = AntiLagConfig.DATA.cleanupDroppedItems;
+        options.clearWildPokemon = AntiLagConfig.DATA.cleanupWildPokemon;
+        options.protectCustomNames = AntiLagConfig.DATA.protectPokemonWithCustomName;
+        options.minWildPokemonAgeTicks = 20 * 30;
+        options.maxRemovals = Math.max(1000, AntiLagConfig.DATA.maxRemovalsPerScan);
+        options.disabledDimensions = AntiLagConfig.DATA.disabledDimensions == null ? Set.of() : new HashSet<>(AntiLagConfig.DATA.disabledDimensions);
+        WildPokemonCleanupManager.CleanupResult result = WildPokemonCleanupManager.cleanupOverloadedChunks(server, options, 300);
+        if(result.totalRemoved()>0){
+            String summary = "Emergency overloaded-chunk cleanup removed " + result.wildPokemon + " wild Pokémon and " + result.droppedItems + " dropped items";
+            System.out.println("[ChampUtils] " + summary + ".");
+            alertAdmins(server,"§6[AntiLag] §e" + summary + ".");
         }
     }
 

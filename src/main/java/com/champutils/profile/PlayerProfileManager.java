@@ -401,6 +401,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (target.pendingDelete()) return "That profile is pending deletion and cannot be loaded.";
             UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
             if (hasActiveProfile(player)) {
+                ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
                 saveActiveLocation(player);
                 VanillaProfileStateManager.saveAsync(player);
                 CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
@@ -411,6 +412,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             setActive(connection, player.getUUID(), target.profileId());
             ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
             ACTIVE.put(player.getUUID(), active);
+            ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+            ProfilePlaytimeManager.recordCurrentSession(player);
             ProfileLobbyManager.leaveLobby(player);
             VanillaProfileStateManager.load(player);
             CobblemonProfileStorageBridge.loadActiveProfileStores(player);
@@ -459,6 +462,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
 
         if (hadActiveProfile) {
+            ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
             long snapshotStart = System.currentTimeMillis();
             saveDimension = player.serverLevel().dimension().location().toString();
             saveX = player.getX();
@@ -541,7 +545,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             System.out.println("[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
 
             long partyPrefetchStart = System.currentTimeMillis();
-            CobblemonProfileStorageBridge.prefetchProfileStores(target.profileId(), playerUuid, registryAccess);
+            CobblemonProfileStorageBridge.prefetchProfileStores(connection, target.profileId(), playerUuid, registryAccess);
             System.out.println("[PROFILE-TIMING] party prefetch took " + (System.currentTimeMillis() - partyPrefetchStart) + "ms");
 
             final String targetSnbtFinal = targetSnbt;
@@ -562,6 +566,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     ACTIVE.put(playerUuid, active);
                     cacheProfile(active);
                     ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+                    ProfilePlaytimeManager.recordCurrentSession(player);
                     timing("server.execute.ProfileLobbyManager.leaveLobby", () -> ProfileLobbyManager.leaveLobby(player));
                     timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbtFinal));
                     timing("server.execute.loadActiveProfileStores", () -> CobblemonProfileStorageBridge.loadActiveProfileStores(player));
@@ -618,6 +623,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (target == null) return "No profile named " + clean + ".";
             ProfileLimit limit = limitBlocking(player);
             if (limit.instantDelete()) {
+                if (target.active()) ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
                 hardDeleteProfile(connection, player, target.profileId());
                 if (target.active()) ACTIVE.remove(player.getUUID());
                 clearProfileCache(player.getUUID());
@@ -679,6 +685,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             }
             if (finalizedProfileIds.isEmpty()) return "";
             int rows = 0;
+            ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
             for (UUID profileId : finalizedProfileIds) {
                 if (hardDeleteProfile(connection, player, profileId)) rows++;
             }
@@ -913,12 +920,14 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     private static void syncLimitFromLuckPerms(Connection connection, ServerPlayer player) throws Exception {
         int max = DEFAULT_MAX_PROFILES;
         boolean instant = false;
+        if (LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) max = Math.max(max, 3);
+        if (LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")) max = Math.max(max, 4);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.3")) max = Math.max(max, 3);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.4")) max = Math.max(max, 4);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.5")) max = Math.max(max, 5);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.6")) max = Math.max(max, 6);
         boolean fast = LuckPermsHook.hasPermission(player, "champutils.profiles.fast_delete");
-        if (LuckPermsHook.hasPermission(player, "champutils.profiles.instant_delete")) instant = true;
+        if (LuckPermsHook.hasPermission(player, "champutils.profiles.vip") || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus") || LuckPermsHook.hasPermission(player, "champutils.profiles.instant_delete")) instant = true;
         int delayMinutes = instant ? 0 : (fast ? 5 : 30);
         try (var ps = connection.prepareStatement("insert into player_profile_limits (player_uuid, max_profiles, instant_delete, fast_delete, deletion_delay_minutes, source, updated_at) values (?, ?, ?, ?, ?, 'LUCKPERMS', now()) " +
                 "on conflict (player_uuid) do update set max_profiles = excluded.max_profiles, instant_delete = excluded.instant_delete, fast_delete = excluded.fast_delete, deletion_delay_minutes = excluded.deletion_delay_minutes, source = excluded.source, updated_at = now()")) {

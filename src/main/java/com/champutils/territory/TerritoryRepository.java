@@ -269,7 +269,7 @@ public final class TerritoryRepository {
     }
 
     public static boolean isBanned(ServerPlayer player, Territory territory) {
-        if (player == null || territory == null || player.hasPermissions(4)) return false;
+        if (player == null || territory == null || com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return false;
         if (territory.ownerType == OwnerType.PLAYER && territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(player).toString())) return false;
         return getTrust(territory.id, player.getUUID()) == TrustLevel.BANNED;
     }
@@ -283,7 +283,7 @@ public final class TerritoryRepository {
 
     public static boolean canManage(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return false;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         UUID playerId = player.getUUID();
         if (territory.ownerType == OwnerType.PLAYER) {
             if (territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(playerId).toString())) return true;
@@ -297,8 +297,8 @@ public final class TerritoryRepository {
 
     public static boolean canEnter(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
-        if (player.hasPermissions(4)) return true;
-        if (!territory.isReady()) return player.hasPermissions(4);
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
+        if (!territory.isReady()) return com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin");
         if (!IslanderProfileManager.canEnterTerritory(player, territory)) return false;
         if (isBanned(player, territory)) return false;
         if (isOwnerOrGuildMember(player, territory)) return true;
@@ -309,7 +309,7 @@ public final class TerritoryRepository {
 
     public static boolean canBuild(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         if (isBanned(player, territory)) return false;
         if (territory.ownerType == OwnerType.PLAYER) {
             java.util.UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
@@ -327,7 +327,7 @@ public final class TerritoryRepository {
 
     public static boolean canOpenContainers(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         if (isBanned(player, territory)) return false;
         if (isOwnerOrGuildMember(player, territory)) return true;
         TrustLevel trust = getTrust(territory.id, player.getUUID());
@@ -337,7 +337,7 @@ public final class TerritoryRepository {
 
     public static boolean canInteractEntities(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         if (isBanned(player, territory)) return false;
         if (isOwnerOrGuildMember(player, territory)) return true;
         TrustLevel trust = getTrust(territory.id, player.getUUID());
@@ -347,7 +347,7 @@ public final class TerritoryRepository {
 
     public static boolean canUseRedstone(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
-        if (player.hasPermissions(4)) return true;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
         if (isBanned(player, territory)) return false;
         if (isOwnerOrGuildMember(player, territory)) return true;
         TrustLevel trust = getTrust(territory.id, player.getUUID());

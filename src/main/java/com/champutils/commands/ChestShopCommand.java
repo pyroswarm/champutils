@@ -99,7 +99,7 @@ public final class ChestShopCommand {
         }
 
         ChestShopRegistry.ChestShop existing = ChestShopRegistry.getAt(target.level, target.pos);
-        if (existing != null && !existing.isOwner(player.getUUID()) && !player.hasPermissions(4)) {
+        if (existing != null && !existing.isOwner(player.getUUID()) && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
             player.sendSystemMessage(Component.literal("That chest is already someone else's shop.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -178,7 +178,7 @@ public final class ChestShopCommand {
             return 0;
         }
 
-        boolean removed = ChestShopRegistry.remove(target.level, target.pos, player.getUUID(), admin || player.hasPermissions(4));
+        boolean removed = ChestShopRegistry.remove(target.level, target.pos, player.getUUID(), admin || com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin"));
         if (!removed) {
             player.sendSystemMessage(Component.literal("Could not remove that shop. You must be the owner or an admin.").withStyle(ChatFormatting.RED));
             return 0;

@@ -1,10 +1,11 @@
 package com.champutils.commands;
 
 import com.champutils.teleport.SafeTeleportManager;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -21,17 +22,16 @@ public final class TpaCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("tpa")
-                    .then(Commands.argument("player", StringArgumentType.word())
-                            .executes(context -> request(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))));
+                    .then(Commands.argument("player", EntityArgument.player())
+                            .executes(context -> request(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))));
             dispatcher.register(Commands.literal("tpaccept").executes(context -> accept(context.getSource().getPlayerOrException())));
             dispatcher.register(Commands.literal("tpdeny").executes(context -> deny(context.getSource().getPlayerOrException())));
         });
     }
 
-    private static int request(ServerPlayer requester, String targetName) {
-        ServerPlayer target = requester.server.getPlayerList().getPlayerByName(targetName);
+    private static int request(ServerPlayer requester, ServerPlayer target) {
         if (target == null) {
-            requester.sendSystemMessage(Component.literal("Player not found: " + targetName).withStyle(ChatFormatting.RED));
+            requester.sendSystemMessage(Component.literal("Player not found.").withStyle(ChatFormatting.RED));
             return 0;
         }
         if (target.getUUID().equals(requester.getUUID())) {
@@ -41,7 +41,9 @@ public final class TpaCommand {
         REQUESTS_BY_TARGET.put(target.getUUID(), new Request(requester.getUUID(), System.currentTimeMillis() + EXPIRE_MS));
         requester.sendSystemMessage(Component.literal("TPA request sent to " + target.getGameProfile().getName() + ".").withStyle(ChatFormatting.GREEN));
         target.sendSystemMessage(Component.literal(requester.getGameProfile().getName() + " wants to teleport to you.").withStyle(ChatFormatting.AQUA));
-        target.sendSystemMessage(Component.literal("Use /tpaccept or /tpdeny. Expires in 60 seconds.").withStyle(ChatFormatting.GRAY));
+        Component accept = Component.literal("[ACCEPT]").withStyle(style -> style.withColor(ChatFormatting.GREEN).withBold(true).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept")));
+        Component deny = Component.literal("[DENY]").withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny")));
+        target.sendSystemMessage(Component.literal("Click ").withStyle(ChatFormatting.GRAY).append(accept).append(Component.literal(" or ").withStyle(ChatFormatting.GRAY)).append(deny).append(Component.literal(". Expires in 60 seconds.").withStyle(ChatFormatting.GRAY)));
         return 1;
     }
 

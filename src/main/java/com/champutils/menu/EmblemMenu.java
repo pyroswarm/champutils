@@ -34,7 +34,7 @@ public final class EmblemMenu {
             addButton(gui, player, slot++, entry.getKey(), entry.getValue());
         }
 
-        MenuUtil.addBackButton(gui, 22, () -> ItemsMenu.open(player));
+        MenuUtil.addBackButton(gui, 22, () -> GearWorkshopMenu.open(player));
         gui.open();
     }
 
@@ -53,7 +53,7 @@ public final class EmblemMenu {
         builder.addLoreLine(Component.literal("§7You have: §e" + available));
         if (data.itemCosts != null && !data.itemCosts.isEmpty()) {
             builder.addLoreLine(Component.literal("§7Rare Item Costs:"));
-            for (EmblemConfig.ItemCost cost : data.itemCosts) builder.addLoreLine(Component.literal("§8- §f" + Math.max(0, cost.amount) + "x " + cost.item));
+            for (EmblemConfig.ItemCost cost : data.itemCosts) builder.addLoreLine(Component.literal("§8- §f" + Math.max(0, cost.amount) + "x " + itemName(cost.item)));
         }
         builder.addLoreLine(Component.literal(canCraft ? "§eClick to craft" : "§cNot enough shards/items"));
         builder.setCallback((i, c, t) -> {
@@ -61,6 +61,19 @@ public final class EmblemMenu {
             player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "emblems craft " + id);
         });
         gui.setSlot(slot, builder);
+    }
+
+    private static String itemName(String id) {
+        if (id == null || id.isBlank()) return "Unknown Item";
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        String[] parts = path.split("_");
+        StringBuilder out = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return out.length() == 0 ? id : out.toString();
     }
 
     private static Item resolveItem(String id) {

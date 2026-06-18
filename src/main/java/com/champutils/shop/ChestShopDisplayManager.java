@@ -22,6 +22,9 @@ import java.util.UUID;
 public final class ChestShopDisplayManager {
 
     private static final String DISPLAY_TAG = "champutils_chestshop_display";
+    private static int nextShopIndex = 0;
+    private static final int SYNC_INTERVAL_TICKS = 200;
+    private static final int MAX_SHOPS_PER_SYNC = 10;
 
     private ChestShopDisplayManager() {
     }
@@ -44,10 +47,39 @@ public final class ChestShopDisplayManager {
     }
 
     public static void tick(MinecraftServer server) {
-        if (server == null || server.getTickCount() % 100 != 0) {
+        if (server == null || server.getTickCount() % SYNC_INTERVAL_TICKS != 0) {
             return;
         }
-        syncAll(server);
+        syncBatch(server);
+    }
+
+    private static void syncBatch(MinecraftServer server) {
+        java.util.List<ChestShopRegistry.ChestShop> shops = new java.util.ArrayList<>(ChestShopRegistry.getAll());
+        if (shops.isEmpty()) {
+            nextShopIndex = 0;
+            return;
+        }
+
+        int checked = 0;
+        int total = shops.size();
+        while (checked < Math.min(MAX_SHOPS_PER_SYNC, total)) {
+            if (nextShopIndex >= total) {
+                nextShopIndex = 0;
+            }
+
+            ChestShopRegistry.ChestShop shop = shops.get(nextShopIndex);
+            nextShopIndex = (nextShopIndex + 1) % total;
+            checked++;
+
+            ServerLevel level = levelFor(server, shop);
+            if (level == null) {
+                continue;
+            }
+            if (!ChestShopRegistry.isValidShopContainer(level, shop.pos())) {
+                continue;
+            }
+            updateShop(level, shop);
+        }
     }
 
     public static void updateShop(ServerLevel level, ChestShopRegistry.ChestShop shop) {

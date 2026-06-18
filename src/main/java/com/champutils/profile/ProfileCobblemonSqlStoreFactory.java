@@ -184,6 +184,21 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
 
     public void prefetchParty(UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
         if (profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
+        try {
+            prefetchParty(DatabaseManager.getConnection(), profileId, accountUuid, registryAccess);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to prefetch SQL Cobblemon party for profile " + profileId + ".");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Prefetch using the caller's already-open database connection. Profile switching calls this
+     * from the database executor; using that executor connection avoids touching the shared
+     * synchronous JDBC connection during the profile switch hot path.
+     */
+    public void prefetchParty(Connection connection, UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
+        if (connection == null || profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
         if (partyCache.containsKey(profileId)) {
             System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took 0ms for profile=" + profileId + " cacheHit=true");
             return;
@@ -191,7 +206,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         partyCache.computeIfAbsent(profileId, uuid -> {
             long start = System.currentTimeMillis();
             PlayerPartyStore store = new PlayerPartyStore(accountUuid);
-            loadStore(uuid, true, store, registryAccess);
+            loadStore(connection, uuid, true, store, registryAccess);
             store.initialize();
             long elapsed = System.currentTimeMillis() - start;
             System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId + " cacheHit=false");
@@ -278,7 +293,16 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private void loadStore(UUID profileId, boolean party, PokemonStore<?> store, RegistryAccess registryAccess) {
         if (!DatabaseManager.isEnabled()) return;
         try {
-            Connection connection = DatabaseManager.getConnection();
+            loadStore(DatabaseManager.getConnection(), profileId, party, store, registryAccess);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load SQL Cobblemon " + (party ? "party" : "PC") + " store for profile " + profileId + ". Empty live store will be used.");
+            e.printStackTrace();
+        }
+    }
+
+    private void loadStore(Connection connection, UUID profileId, boolean party, PokemonStore<?> store, RegistryAccess registryAccess) {
+        if (!DatabaseManager.isEnabled() || connection == null) return;
+        try {
             String column = party ? "party_nbt" : "pc_nbt";
             // Do not SELECT the PC blob when loading the party. Large pc_nbt values were making
             // party-only profile activation behave like a partial PC load.

@@ -13,13 +13,27 @@ public final class CashShopMenu {
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Server Boosters"));
+        gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
+                .setName(Component.literal("§aBooster Credits: §f" + BoosterCreditManager.credits(player)))
+                .addLoreLine(Component.literal("§7VIP+ receives 1 credit each day."))
+                .addLoreLine(Component.literal("§7Credits may also be granted from store purchases.")));
         int slot = 10;
         for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
             gui.setSlot(slot++, new GuiElementBuilder(Items.NETHER_STAR).hideDefaultTooltip()
                     .setName(Component.literal(def.name))
                     .addLoreLine(Component.literal("§7" + def.lore))
                     .addLoreLine(Component.literal("§7Duration: §f15 minutes"))
-                    .addLoreLine(Component.literal("§8Buy this from your real-money store")));
+                    .addLoreLine(Component.literal("§7Cost: §f1 Booster Credit"))
+                    .addLoreLine(Component.literal("§eClick to activate for the whole server"))
+                    .setCallback((i, c, t) -> {
+                        if (BoosterCreditManager.credits(player) < 1) {
+                            player.sendSystemMessage(Component.literal("You need 1 booster credit to activate this.").withStyle(net.minecraft.ChatFormatting.RED));
+                            return;
+                        }
+                        if (!CashShopBoostItemManager.activateFromCredit(player, def.id)) return;
+                        BoosterCreditManager.spend(player, 1);
+                        open(player);
+                    }));
         }
         MenuUtil.addBackButton(gui, 18, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();

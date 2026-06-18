@@ -60,6 +60,15 @@ public class MatchmakingManager {
             new HashSet<>();
 
     private static final int ACCEPT_TIMEOUT_TICKS = 30 * 20;
+    private static final int MATCHMAKING_FAILURE_WINDOW_TICKS = 30 * 60 * 20;
+    private static final int MATCHMAKING_BLOCK_TICKS = 30 * 60 * 20;
+    private static final int MATCHMAKING_FAILURE_LIMIT = 3;
+
+    private static final Map<UUID, List<Integer>> MATCHMAKING_FAILURES =
+            new HashMap<>();
+
+    private static final Map<UUID, Integer> MATCHMAKING_BLOCKS =
+            new HashMap<>();
 
     private static class PendingAcceptance {
         final ServerPlayer p1;
@@ -109,6 +118,15 @@ public class MatchmakingManager {
         type = normalizeType(type);
 
         if (ProfileRestrictions.blockPvp(player, "PvP queues")) {
+            return;
+        }
+
+        if (isMatchmakingBlocked(player)) {
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§cYou are blocked from matchmaking for " + formatRemainingBlock(player) + "."
+                    )
+            );
             return;
         }
 
@@ -309,6 +327,7 @@ public class MatchmakingManager {
         tickAcceptance();
         tickQueues();
         tickRecentMatches();
+        tickMatchmakingPenalties();
     }
 
     private static void tickTasks() {
@@ -661,8 +680,8 @@ public class MatchmakingManager {
         ACCEPTED_MATCH.remove(p1.getUUID());
         ACCEPTED_MATCH.remove(p2.getUUID());
 
-        sendMatchAcceptPrompt(p1, p2, type);
-        sendMatchAcceptPrompt(p2, p1, type);
+        sendMatchAcceptPrompt(p1, type);
+        sendMatchAcceptPrompt(p2, type);
     }
 
     private static void beginAcceptedMatch(
@@ -820,11 +839,20 @@ public class MatchmakingManager {
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
             return false;
         }
+        if (rankedType(pending.type)) {
+            String error = TeamValidator.validate(player, pending.type);
+            if (error != null) {
+                recordMatchmakingFailure(player);
+                handleAcceptanceFailure(pending, player, "had an illegal team: " + error);
+                return true;
+            }
+        }
+
         ACCEPTED_MATCH.add(player.getUUID());
         ServerPlayer other = pending.other(player);
         player.sendSystemMessage(Component.literal("§aMatch accepted. Waiting for opponent..."));
         if (other != null) {
-            other.sendSystemMessage(Component.literal("§e" + player.getName().getString() + " accepted the match."));
+            other.sendSystemMessage(Component.literal("§eOpponent accepted the match."));
         }
         if (ACCEPTED_MATCH.contains(pending.p1.getUUID()) && ACCEPTED_MATCH.contains(pending.p2.getUUID())) {
             pending.launched = true;
@@ -844,6 +872,7 @@ public class MatchmakingManager {
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
             return false;
         }
+        recordMatchmakingFailure(player);
         handleAcceptanceFailure(pending, player, "declined");
         return true;
     }
@@ -855,6 +884,7 @@ public class MatchmakingManager {
             pending.ticksLeft--;
             if (pending.ticksLeft <= 0) {
                 ServerPlayer failed = !ACCEPTED_MATCH.contains(pending.p1.getUUID()) ? pending.p1 : pending.p2;
+                recordMatchmakingFailure(failed);
                 handleAcceptanceFailure(pending, failed, "did not accept in time");
             }
         }
@@ -874,12 +904,17 @@ public class MatchmakingManager {
         clearMatch(pending.p2);
         if (failed != null) {
             failed.sendSystemMessage(Component.literal("§cMatch canceled because you " + reason + ". You were removed from queue."));
+            if (isMatchmakingBlocked(failed)) {
+                failed.sendSystemMessage(Component.literal("§cYou are blocked from matchmaking for 30 minutes after too many failed accepts or illegal teams."));
+            }
         }
-        if (other != null && other.getServer() != null && other.isAlive() && !BattleStateManager.isInBattle(other)) {
-            pending.queue.add(other);
+        if (other != null && other.getServer() != null && other.isAlive() && !BattleStateManager.isInBattle(other) && !isMatchmakingBlocked(other)) {
+            if (!pending.queue.contains(other)) {
+                pending.queue.add(other);
+            }
             QUEUE_TIME.put(other.getUUID(), 0);
             QueueBossBarManager.start(other, pending.type);
-            other.sendSystemMessage(Component.literal("§eOpponent " + reason + ". You accepted, so you are still searching."));
+            other.sendSystemMessage(Component.literal("§eOpponent could not start the match. You are still searching."));
         }
     }
 
@@ -893,13 +928,69 @@ public class MatchmakingManager {
         }
     }
 
-    private static void sendMatchAcceptPrompt(ServerPlayer player, ServerPlayer opponent, String type) {
+    private static void sendMatchAcceptPrompt(ServerPlayer player, String type) {
         if (player == null) return;
         sendTitle(player, "§aMatch Found!", "§eAccept within 30 seconds");
         ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         Component accept = Component.literal("§a[ACCEPT]").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/queue accept")));
         Component deny = Component.literal("§c[DENY]").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/queue deny")));
-        player.sendSystemMessage(Component.literal("§aMatch found against §f" + opponent.getName().getString() + "§a. ").append(accept).append(Component.literal(" ")).append(deny));
+        player.sendSystemMessage(Component.literal("§aMatch found. ").append(accept).append(Component.literal(" ")).append(deny));
+    }
+
+    private static boolean isMatchmakingBlocked(ServerPlayer player) {
+        if (player == null) return false;
+        return MATCHMAKING_BLOCKS.getOrDefault(player.getUUID(), 0) > 0;
+    }
+
+    private static String formatRemainingBlock(ServerPlayer player) {
+        int ticks = player == null ? 0 : MATCHMAKING_BLOCKS.getOrDefault(player.getUUID(), 0);
+        int seconds = Math.max(1, (ticks + 19) / 20);
+        int minutes = (seconds + 59) / 60;
+        return minutes + " minute" + (minutes == 1 ? "" : "s");
+    }
+
+    private static void recordMatchmakingFailure(ServerPlayer player) {
+        if (player == null) return;
+        UUID uuid = player.getUUID();
+        List<Integer> failures = MATCHMAKING_FAILURES.computeIfAbsent(uuid, k -> new ArrayList<>());
+        failures.removeIf(ticks -> ticks <= 0);
+        failures.add(MATCHMAKING_FAILURE_WINDOW_TICKS);
+        if (failures.size() >= MATCHMAKING_FAILURE_LIMIT) {
+            failures.clear();
+            MATCHMAKING_BLOCKS.put(uuid, MATCHMAKING_BLOCK_TICKS);
+            leaveQueue(player);
+        }
+    }
+
+    private static void tickMatchmakingPenalties() {
+        Iterator<Map.Entry<UUID, List<Integer>>> failureIt = MATCHMAKING_FAILURES.entrySet().iterator();
+        while (failureIt.hasNext()) {
+            Map.Entry<UUID, List<Integer>> entry = failureIt.next();
+            List<Integer> next = new ArrayList<>();
+            for (Integer ticks : entry.getValue()) {
+                if (ticks != null && ticks > 1) {
+                    next.add(ticks - 1);
+                }
+            }
+            if (next.isEmpty()) {
+                failureIt.remove();
+            }
+            else {
+                entry.setValue(next);
+            }
+        }
+
+        Iterator<Map.Entry<UUID, Integer>> blockIt = MATCHMAKING_BLOCKS.entrySet().iterator();
+        while (blockIt.hasNext()) {
+            Map.Entry<UUID, Integer> entry = blockIt.next();
+            int next = entry.getValue() - 1;
+            if (next <= 0) {
+                blockIt.remove();
+            }
+            else {
+                entry.setValue(next);
+            }
+        }
     }
 
     private static void sendMatchFound(
