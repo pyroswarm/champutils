@@ -87,6 +87,23 @@ import java.io.FileWriter;
 
 public class ChampUtilsMod implements ModInitializer {
 
+    private static final long TICK_MANAGER_WARN_NANOS = Long.getLong("champutils.tickManagerWarnMs", 5L) * 1_000_000L;
+
+    private static void timedTick(String name, Runnable task) {
+        long start = System.nanoTime();
+        try {
+            task.run();
+        } catch (RuntimeException | Error throwable) {
+            System.err.println("[ChampUtils][TickTiming] " + name + " failed: " + throwable.getMessage());
+            throw throwable;
+        } finally {
+            long elapsed = System.nanoTime() - start;
+            if (elapsed >= TICK_MANAGER_WARN_NANOS) {
+                System.out.println("[ChampUtils][TickTiming] " + name + " took " + (elapsed / 1_000_000.0D) + " ms");
+            }
+        }
+    }
+
     @Override
     public void onInitialize() {
 
@@ -694,39 +711,39 @@ public class ChampUtilsMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
 
-                    ShopPokemonCrateOpeningGui.tick(server);
-                    OpenCratesMenu.tick(server);
-                    NotificationManager.tick(server);
-                    PokemonHuntManager.tick(server);
-                    QuestManager.tick(server);
-                    RandomTeleportCommand.tick(server);
-                    PortalManager.tick(server);
-                    RoamingTrainerManager.tick(server);
-                    SpecialWildSpawnManager.tick(server);
-                    NaturalSpecialSpawnBlocker.tick(server);
-                    MegaBossManager.tick(server);
-                    ChestShopDisplayManager.tick(server);
-                    BattleStuckCleanupManager.tick(server);
-                    TerritoryBorderManager.tick(server);
-                    TerritoryPhysicalBorderManager.tick(server);
-                    TerritoryBorderDisplayManager.tick(server);
-                    TerritoryWorldGenerationManager.tick(server);
-                    TerritorySkyblockIslandManager.tick(server);
-                    TerritoryRegionWipeManager.tick(server);
-                    TerritoryNpcManager.tick(server);
-                    GuildBossManager.tick(server);
-                    ExplorationWorldManager.tick(server);
-                    SurvivalWorldManager.tick(server);
-                    VanillaPortalBlocker.tick(server);
-                    PartyManager.tick(server);
-                    AntiLagManager.tick(server);
-                    com.champutils.antilag.OversizedChunkEntityGuard.tick(server);
-                    ModerationManager.tick(server);
-                    DailyLoginManager.tick(server);
-                    ChampWorldBorderManager.tick(server);
-                    IslanderProfileManager.tick(server);
-                    IslanderMineManager.tick(server);
-                    LandClaimProtectionListener.tick(server);
+                    timedTick("ShopPokemonCrateOpeningGui", () -> ShopPokemonCrateOpeningGui.tick(server));
+                    timedTick("OpenCratesMenu", () -> OpenCratesMenu.tick(server));
+                    timedTick("NotificationManager", () -> NotificationManager.tick(server));
+                    timedTick("PokemonHuntManager", () -> PokemonHuntManager.tick(server));
+                    timedTick("QuestManager", () -> QuestManager.tick(server));
+                    timedTick("RandomTeleportCommand", () -> RandomTeleportCommand.tick(server));
+                    timedTick("PortalManager", () -> PortalManager.tick(server));
+                    timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
+                    timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
+                    timedTick("NaturalSpecialSpawnBlocker", () -> NaturalSpecialSpawnBlocker.tick(server));
+                    timedTick("MegaBossManager", () -> MegaBossManager.tick(server));
+                    timedTick("ChestShopDisplayManager", () -> ChestShopDisplayManager.tick(server));
+                    timedTick("BattleStuckCleanupManager", () -> BattleStuckCleanupManager.tick(server));
+                    timedTick("TerritoryBorderManager", () -> TerritoryBorderManager.tick(server));
+                    timedTick("TerritoryPhysicalBorderManager", () -> TerritoryPhysicalBorderManager.tick(server));
+                    timedTick("TerritoryBorderDisplayManager", () -> TerritoryBorderDisplayManager.tick(server));
+                    timedTick("TerritoryWorldGenerationManager", () -> TerritoryWorldGenerationManager.tick(server));
+                    timedTick("TerritorySkyblockIslandManager", () -> TerritorySkyblockIslandManager.tick(server));
+                    timedTick("TerritoryRegionWipeManager", () -> TerritoryRegionWipeManager.tick(server));
+                    timedTick("TerritoryNpcManager", () -> TerritoryNpcManager.tick(server));
+                    timedTick("GuildBossManager", () -> GuildBossManager.tick(server));
+                    timedTick("ExplorationWorldManager", () -> ExplorationWorldManager.tick(server));
+                    timedTick("SurvivalWorldManager", () -> SurvivalWorldManager.tick(server));
+                    timedTick("VanillaPortalBlocker", () -> VanillaPortalBlocker.tick(server));
+                    timedTick("PartyManager", () -> PartyManager.tick(server));
+                    timedTick("AntiLagManager", () -> AntiLagManager.tick(server));
+                    timedTick("OversizedChunkEntityGuard", () -> com.champutils.antilag.OversizedChunkEntityGuard.tick(server));
+                    timedTick("ModerationManager", () -> ModerationManager.tick(server));
+                    timedTick("DailyLoginManager", () -> DailyLoginManager.tick(server));
+                    timedTick("ChampWorldBorderManager", () -> ChampWorldBorderManager.tick(server));
+                    timedTick("IslanderProfileManager", () -> IslanderProfileManager.tick(server));
+                    timedTick("IslanderMineManager", () -> IslanderMineManager.tick(server));
+                    timedTick("LandClaimProtectionListener", () -> LandClaimProtectionListener.tick(server));
 
                     /*
                      Leaderboard refresh
@@ -786,7 +803,7 @@ public class ChampUtilsMod implements ModInitializer {
                     if (
                             server.getTickCount() % 20 == 0
                     ) {
-                        com.champutils.scoreboard.PlayerSidebarManager.tick(server);
+                        timedTick("PlayerSidebarManager", () -> com.champutils.scoreboard.PlayerSidebarManager.tick(server));
 
                         for (
                                 ServerPlayer player :
@@ -802,29 +819,29 @@ public class ChampUtilsMod implements ModInitializer {
                     /*
                      Active profession abilities
                      */
-                    ActiveEffectManager.tick(server);
+                    timedTick("ActiveEffectManager", () -> ActiveEffectManager.tick(server));
 
                     /*
                      Matchmaking systems
                      */
-                    MatchmakingManager.tick();
-                    QueueBossBarManager.tick();
+                    timedTick("MatchmakingManager", MatchmakingManager::tick);
+                    timedTick("QueueBossBarManager", QueueBossBarManager::tick);
 
-                    TeamPreviewManager.tick(
+                    timedTick("TeamPreviewManager", () -> TeamPreviewManager.tick(
                             server.getPlayerList()
                                     .getPlayers()
-                    );
+                    ));
 
                     /*
                      World event systems
                      */
-                    WorldEventManager.tick(server);
-                    ChampTrainerProtectionManager.tick(server);
+                    timedTick("WorldEventManager", () -> WorldEventManager.tick(server));
+                    timedTick("ChampTrainerProtectionManager", () -> ChampTrainerProtectionManager.tick(server));
 
                     /*
                      Season systems
                      */
-                    SeasonManager.tick(server);
+                    timedTick("SeasonManager", () -> SeasonManager.tick(server));
                 }
         );
 

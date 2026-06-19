@@ -23,9 +23,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public final class AntiLagManager {
-    private static int ticksUntilScan=20;
+    private static int ticksUntilScan=20*60;
     private static int ticksUntilCleanup=-1;
-    private static int ticksUntilOverloadedChunkCleanup=20*30;
+    private static int ticksUntilOverloadedChunkCleanup=20*300;
     private static boolean cleanupWarningSent=false;
     private static long lastTickNanos=System.nanoTime();
     private static final ArrayDeque<Long> tickHistoryMs=new ArrayDeque<>(); private static final Map<UUID,ThrowWindow> snowballThrows=new HashMap<>(); private static final Map<UUID,Violation> violations=new HashMap<>(); private static long resetKey= DailyResetManager.currentResetKeyMillis();
@@ -49,7 +49,8 @@ public final class AntiLagManager {
         if(!AntiLagConfig.DATA.enabled) return;
 
         if(--ticksUntilScan<=0){
-            ticksUntilScan=Math.max(10,Math.min(AntiLagConfig.DATA.scanIntervalSeconds*20,40));
+            // This is a full loaded-entity scan. Keep it infrequent; running it every 1-2 seconds causes lag.
+            ticksUntilScan=Math.max(20*60,AntiLagConfig.DATA.scanIntervalSeconds*20);
             if(AntiLagConfig.DATA.detectLagMachines) scanForLagMachines(server);
         }
 
@@ -57,8 +58,9 @@ public final class AntiLagManager {
         // This runs much more often than the normal cleanup, but only touches overloaded chunks
         // and only removes safe dropped items / ordinary natural wild Pokemon.
         if(--ticksUntilOverloadedChunkCleanup<=0){
-            ticksUntilOverloadedChunkCleanup=20*30;
-            cleanupOverloadedChunks(server);
+            ticksUntilOverloadedChunkCleanup=20*300;
+            // This groups loaded entities by chunk, so only run it when the server is actually showing lag pressure.
+            if(hasTpsSpike() || avgMs() >= Math.max(75.0D, AntiLagConfig.DATA.tpsSpikeMsThreshold * 0.75D)) cleanupOverloadedChunks(server);
         }
 
         // Destructive entity cleanup must never run from the frequent lag-machine scan path.

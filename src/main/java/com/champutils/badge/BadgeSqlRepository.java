@@ -108,7 +108,12 @@ public final class BadgeSqlRepository {
             statement.executeUpdate("alter table profile_badges add column if not exists badge text");
             statement.executeUpdate("alter table profile_badges add column if not exists earned_at timestamptz not null default now()");
             statement.executeUpdate("alter table profile_badges add column if not exists metadata jsonb not null default '{}'::jsonb");
-            statement.executeUpdate("update profile_badges set badge = coalesce(badge, badge_id::text, name::text) where badge is null and (to_regclass('profile_badges') is not null)");
+            // Migrate older schemas safely. Some beta databases had badge_id, but not name.
+            // Never reference optional columns directly unless they exist, or Postgres fails at parse time.
+            statement.executeUpdate("do $$ begin " +
+                    "if exists (select 1 from information_schema.columns where table_name = 'profile_badges' and column_name = 'badge_id') then " +
+                    "execute 'update profile_badges set badge = coalesce(badge, badge_id::text) where badge is null'; " +
+                    "end if; end $$");
             statement.executeUpdate("delete from profile_badges where profile_id is null or badge is null or btrim(badge) = ''");
             statement.executeUpdate("alter table profile_badges alter column badge set not null");
             statement.executeUpdate("do $$ begin " +

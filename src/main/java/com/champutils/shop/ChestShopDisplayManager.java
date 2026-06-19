@@ -17,6 +17,8 @@ import net.minecraft.world.entity.Display.TextDisplay;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public final class ChestShopDisplayManager {
@@ -25,6 +27,7 @@ public final class ChestShopDisplayManager {
     private static int nextShopIndex = 0;
     private static final int SYNC_INTERVAL_TICKS = 200;
     private static final int MAX_SHOPS_PER_SYNC = 10;
+    private static final int ORPHAN_CLEANUP_INTERVAL_TICKS = 20 * 600;
 
     private ChestShopDisplayManager() {
     }
@@ -43,6 +46,8 @@ public final class ChestShopDisplayManager {
                 continue;
             }
             if (!ChestShopRegistry.isValidShopContainer(level, shop.pos())) {
+                // Container was broken/removed while the registry still existed. Remove the stale display and registry entry.
+                ChestShopRegistry.cleanupStaleShop(level, shop.pos());
                 continue;
             }
             updateShop(level, shop);
@@ -54,6 +59,10 @@ public final class ChestShopDisplayManager {
             return;
         }
         syncBatch(server);
+
+        if (server.getTickCount() > 0 && server.getTickCount() % ORPHAN_CLEANUP_INTERVAL_TICKS == 0) {
+            cleanupOrphanDisplays(server);
+        }
     }
 
     private static void syncBatch(MinecraftServer server) {
@@ -82,6 +91,8 @@ public final class ChestShopDisplayManager {
                 continue;
             }
             if (!ChestShopRegistry.isValidShopContainer(level, shop.pos())) {
+                // Container was broken/removed while the registry still existed. Remove the stale display and registry entry.
+                ChestShopRegistry.cleanupStaleShop(level, shop.pos());
                 continue;
             }
             updateShop(level, shop);
@@ -176,6 +187,43 @@ public final class ChestShopDisplayManager {
         }
 
         return selected;
+    }
+
+    /**
+     * Infrequent safety audit for the old chest-shop duplication bug. This is intentionally every 10 minutes,
+     * not every tick: it scans loaded display entities only to remove orphan/duplicate tagged shop text.
+     */
+    private static void cleanupOrphanDisplays(MinecraftServer server) {
+        Set<UUID> validDisplayIds = new HashSet<>();
+        for (ChestShopRegistry.ChestShop shop : ChestShopRegistry.getAll()) {
+            UUID id = shop.displayUuid();
+            if (id != null) {
+                validDisplayIds.add(id);
+            }
+        }
+
+        int removed = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof TextDisplay display)) {
+                    continue;
+                }
+                if (!display.getTags().contains(DISPLAY_TAG)) {
+                    continue;
+                }
+                if (validDisplayIds.contains(display.getUUID())) {
+                    continue;
+                }
+                // Any duplicate near a registered shop is handled by getExistingDisplay during normal batch sync.
+                // If it is not the saved display UUID, it is safe to discard.
+                display.discard();
+                removed++;
+            }
+        }
+
+        if (removed > 0) {
+            System.out.println("[ChampUtils] ChestShopDisplayManager removed " + removed + " orphan/duplicate chest shop displays.");
+        }
     }
 
     private static boolean isShopChunkLoaded(ServerLevel level, BlockPos pos) {
