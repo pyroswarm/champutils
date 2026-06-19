@@ -13,6 +13,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BadgeManager {
 
@@ -22,7 +23,7 @@ public class BadgeManager {
                     .create();
 
     private static final Map<UUID, BadgeData> CACHE =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     private static final File BADGE_FOLDER =
             new File(
@@ -42,6 +43,27 @@ public class BadgeManager {
 
     }
 
+    public static void initSql(){
+        BadgeSqlRepository.initAsync();
+    }
+
+    static void acceptSqlSnapshot(UUID profileId, Set<BadgeType> badges){
+        if(profileId == null || badges == null){
+            return;
+        }
+
+        BadgeData existing = CACHE.get(profileId);
+        if(badges.isEmpty() && existing != null && existing.getBadgeCount() > 0){
+            BadgeSqlRepository.saveBadgeSnapshotAsync(profileId, existing.getBadges());
+            return;
+        }
+
+        BadgeData data = new BadgeData();
+        data.setBadges(badges);
+        CACHE.put(profileId, data);
+        savePlayerByProfileId(profileId, data);
+    }
+
 
 
 /* =========================
@@ -56,14 +78,20 @@ public class BadgeManager {
             UUID uuid
     ){
 
-        UUID key = profileKey(uuid);
+        return getProfileFileById(profileKey(uuid));
+    }
+
+    private static File getProfileFileById(
+            UUID profileId
+    ){
+
         File dir = new File(BADGE_FOLDER, "profiles");
         if(!dir.exists()){
             dir.mkdirs();
         }
         return new File(
                 dir,
-                key.toString()+".json"
+                profileId.toString()+".json"
         );
     }
 
@@ -90,6 +118,8 @@ public class BadgeManager {
         }
 
 
+        BadgeSqlRepository.warmProfileAsync(key);
+
         File file =
                 getPlayerFile(
                         uuid
@@ -112,6 +142,10 @@ public class BadgeManager {
                     key,
                     data
             );
+
+            if(data.getBadgeCount() > 0){
+                BadgeSqlRepository.saveBadgeSnapshotAsync(key, data.getBadges());
+            }
 
             return data;
         }
@@ -172,6 +206,10 @@ public class BadgeManager {
                     data
             );
 
+            if(data.getBadgeCount() > 0){
+                BadgeSqlRepository.saveBadgeSnapshotAsync(key, data.getBadges());
+            }
+
             return data;
 
         }
@@ -204,12 +242,20 @@ public class BadgeManager {
     ){
 
         UUID key = profileKey(uuid);
+        savePlayerByProfileId(key, data);
+        BadgeSqlRepository.saveBadgeSnapshotAsync(key, data.getBadges());
+    }
+
+    private static void savePlayerByProfileId(
+            UUID profileId,
+            BadgeData data
+    ){
 
         try(
                 FileWriter writer =
                         new FileWriter(
-                                getPlayerFile(
-                                        key
+                                getProfileFileById(
+                                        profileId
                                 )
                         )
         ){
@@ -314,6 +360,12 @@ public class BadgeManager {
         savePlayer(
                 player.getUUID(),
                 data
+        );
+
+
+        BadgeSqlRepository.saveBadgeAwardAsync(
+                player,
+                badge
         );
 
 

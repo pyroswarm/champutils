@@ -401,7 +401,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (target.pendingDelete()) return "That profile is pending deletion and cannot be loaded.";
             UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
             if (hasActiveProfile(player)) {
-                ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
+                ProfilePlaytimeManager.flushPlayerAsyncBestEffort(player);
                 saveActiveLocation(player);
                 VanillaProfileStateManager.saveAsync(player);
                 CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
@@ -462,7 +462,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
 
         if (hadActiveProfile) {
-            ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player);
+            ProfilePlaytimeManager.flushPlayerAsyncBestEffort(player);
             long snapshotStart = System.currentTimeMillis();
             saveDimension = player.serverLevel().dimension().location().toString();
             saveX = player.getX();
@@ -543,6 +543,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             }
             System.out.println("[PROFILE-TIMING] SQL saved location load took " + (System.currentTimeMillis() - locationLoadStart) + "ms cacheHit=" + locationCacheHit);
             System.out.println("[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
+
+            long playtimeLoadStart = System.currentTimeMillis();
+            ProfilePlaytimeManager.loadCacheBlocking(connection, target.profileId());
+            System.out.println("[PROFILE-TIMING] SQL profile playtime preload took " + (System.currentTimeMillis() - playtimeLoadStart) + "ms");
 
             long partyPrefetchStart = System.currentTimeMillis();
             CobblemonProfileStorageBridge.prefetchProfileStores(connection, target.profileId(), playerUuid, registryAccess);

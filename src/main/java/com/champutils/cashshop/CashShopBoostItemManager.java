@@ -6,6 +6,7 @@ import com.champutils.buff.ServerBuffManager;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.ItemStack;
@@ -38,7 +39,7 @@ public final class CashShopBoostItemManager {
             String id = readId(stack);
             Def def = DEFS.get(id);
             if (def == null) return InteractionResultHolder.pass(stack);
-            if (!activate(sp, def)) return InteractionResultHolder.fail(stack);
+            if (!activate(sp.server, sp, def)) return InteractionResultHolder.fail(stack);
             if (!sp.getAbilities().instabuild) stack.shrink(1);
             return InteractionResultHolder.success(stack);
         });
@@ -75,13 +76,34 @@ public final class CashShopBoostItemManager {
     public static boolean activateFromCredit(ServerPlayer player, String id) {
         Def def = DEFS.get(id);
         if (def == null) return false;
-        return activate(player, def);
+        return activate(player.server, player, def);
     }
 
-    private static boolean activate(ServerPlayer player, Def def) {
-        if (!ServerBuffManager.tryBeginExclusiveBoost(player, def.id, def.name.replace("§d", "").replace("§5", "").replace("§b", "").replace("§a", ""), def.amount, DEFAULT_DURATION_MS)) return false;
+    public static boolean activateFromAdmin(MinecraftServer server, ServerPlayer sourcePlayer, String id) {
+        Def def = DEFS.get(id);
+        if (def == null || server == null) return false;
+        return activate(server, sourcePlayer, def);
+    }
+
+    public static void deactivateAdmin(String id) {
+        if (id == null || id.isBlank()) return;
+        ServerBuffManager.deactivateBoost(id);
+        ServerBuffManager.deactivate("cash_" + id);
+        if (id.equals("profession_xp_surge")) {
+            ServerBuffManager.deactivate("cash_mining_xp");
+            ServerBuffManager.deactivate("cash_forestry_xp");
+            ServerBuffManager.deactivate("cash_farming_xp");
+            ServerBuffManager.deactivate("cash_battling_xp");
+        }
+        if (id.equals("special_surge")) {
+            com.champutils.specialspawn.SpecialWildSpawnManager.deactivateCashShopBoost();
+        }
+    }
+
+    private static boolean activate(MinecraftServer server, ServerPlayer player, Def def) {
+        if (!ServerBuffManager.tryBeginExclusiveBoost(player, def.id, def.cleanName(), def.amount, DEFAULT_DURATION_MS)) return false;
         if (def.id.equals("profession_xp_surge")) {
-            ServerBuffManager.activateAndAnnounce(player.server, "cash_mining_xp", BuffType.MINING_XP, def.amount, DEFAULT_DURATION_MS);
+            ServerBuffManager.activateAndAnnounce(server, "cash_mining_xp", BuffType.MINING_XP, def.amount, DEFAULT_DURATION_MS);
             ServerBuffManager.activate("cash_forestry_xp", BuffType.FORESTRY_XP, def.amount, DEFAULT_DURATION_MS);
             ServerBuffManager.activate("cash_farming_xp", BuffType.FARMING_XP, def.amount, DEFAULT_DURATION_MS);
             ServerBuffManager.activate("cash_battling_xp", BuffType.BATTLING_XP, def.amount, DEFAULT_DURATION_MS);
@@ -89,12 +111,18 @@ public final class CashShopBoostItemManager {
         }
         if (def.id.equals("special_surge")) {
             com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            player.server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Special Spawn Chance is now active!").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+            server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Special Spawn Chance is now active!").withStyle(ChatFormatting.LIGHT_PURPLE), false);
             return true;
         }
-        ServerBuffManager.activateAndAnnounce(player.server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);
+        ServerBuffManager.activateAndAnnounce(server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);
         return true;
     }
 
-    public static final class Def { public final String id, name, lore; public final BuffType type; public final double amount; Def(String id, String name, BuffType type, double amount, String lore){this.id=id;this.name=name;this.type=type;this.amount=amount;this.lore=lore;} }
+    public static final class Def {
+        public final String id, name, lore;
+        public final BuffType type;
+        public final double amount;
+        Def(String id, String name, BuffType type, double amount, String lore){this.id=id;this.name=name;this.type=type;this.amount=amount;this.lore=lore;}
+        public String cleanName() { return name == null ? id : name.replaceAll("§.", ""); }
+    }
 }

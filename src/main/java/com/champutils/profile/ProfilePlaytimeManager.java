@@ -68,6 +68,16 @@ public final class ProfilePlaytimeManager {
         return getCachedPlaytimeSeconds(PlayerProfileManager.activeProfileId(player));
     }
 
+    /**
+     * Scoreboard-safe display value. It records the current active session first so the
+     * sidebar does not sit at 0 while waiting for the next minute flush.
+     */
+    public static long getDisplayPlaytimeSeconds(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return 0L;
+        recordCurrentSession(player);
+        return getCachedPlaytimeSeconds(PlayerProfileManager.activeProfileId(player));
+    }
+
     public static long getCachedPlaytimeSeconds(UUID profileId) {
         if (profileId == null) return 0L;
         warmCacheAsync(profileId);
@@ -91,12 +101,17 @@ public final class ProfilePlaytimeManager {
             try {
                 ensureSchema(connection);
                 long loaded = 0L;
+                if (!profileExists(connection, profileId)) {
+                    LOADED_FROM_DB.add(profileId);
+                    return;
+                }
                 try (var ps = connection.prepareStatement("select playtime_seconds from profile_player_stats where profile_id = ?")) {
                     ps.setObject(1, profileId);
                     try (var rs = ps.executeQuery()) {
                         if (rs.next()) loaded = Math.max(0L, rs.getLong("playtime_seconds"));
                     }
                 }
+                if (loaded <= 0L) loaded = loadLegacyProfilePlaytime(connection, profileId);
                 long finalLoaded = loaded;
                 PROFILE_SECONDS.compute(profileId, (id, existing) -> {
                     if (existing == null) return new AtomicLong(finalLoaded);
@@ -108,6 +123,41 @@ public final class ProfilePlaytimeManager {
                 LOADING_FROM_DB.remove(profileId);
             }
         });
+    }
+
+
+    /**
+     * Loads the persisted playtime into the in-memory cache immediately.
+     * This is meant for the async profile-switch SQL phase, not the server thread.
+     */
+    public static void loadCacheBlocking(Connection connection, UUID profileId) throws Exception {
+        if (connection == null || profileId == null) return;
+        ensureSchema(connection);
+        long loaded = 0L;
+        if (!profileExists(connection, profileId)) {
+            LOADED_FROM_DB.add(profileId);
+            return;
+        }
+        try (var ps = connection.prepareStatement("select playtime_seconds from profile_player_stats where profile_id = ?")) {
+            ps.setObject(1, profileId);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) loaded = Math.max(0L, rs.getLong("playtime_seconds"));
+            }
+        }
+        if (loaded <= 0L) loaded = loadLegacyProfilePlaytime(connection, profileId);
+        long finalLoaded = loaded;
+        PROFILE_SECONDS.compute(profileId, (id, existing) -> {
+            if (existing == null) return new AtomicLong(finalLoaded);
+            existing.set(Math.max(existing.get(), finalLoaded));
+            return existing;
+        });
+        LOADED_FROM_DB.add(profileId);
+    }
+
+    public static void flushPlayerAsyncBestEffort(ServerPlayer player) {
+        if (player == null) return;
+        recordCurrentSession(player);
+        flushAsync();
     }
 
     public static void flushAsync() {
@@ -125,11 +175,14 @@ public final class ProfilePlaytimeManager {
         DatabaseManager.executeAsync("flush profile playtime", connection -> {
             ensureSchema(connection);
             try (var ps = connection.prepareStatement(
-                    "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) values (?, ?, now()) " +
+                    "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) " +
+                            "select ?, ?, now() where exists (select 1 from player_profiles where id = ?) " +
                             "on conflict (profile_id) do update set playtime_seconds = greatest(profile_player_stats.playtime_seconds, excluded.playtime_seconds), updated_at = now()")) {
                 for (Map.Entry<UUID, Long> entry : snapshot.entrySet()) {
-                    ps.setObject(1, entry.getKey());
+                    UUID profileId = entry.getKey();
+                    ps.setObject(1, profileId);
                     ps.setLong(2, Math.max(0L, entry.getValue()));
+                    ps.setObject(3, profileId);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -143,13 +196,15 @@ public final class ProfilePlaytimeManager {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
             try (var ps = connection.prepareStatement(
-                    "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) values (?, ?, now()) " +
+                    "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) " +
+                            "select ?, ?, now() where exists (select 1 from player_profiles where id = ?) " +
                             "on conflict (profile_id) do update set playtime_seconds = greatest(profile_player_stats.playtime_seconds, excluded.playtime_seconds), updated_at = now()")) {
                 for (UUID profileId : DIRTY) {
                     AtomicLong seconds = PROFILE_SECONDS.get(profileId);
                     if (seconds == null) continue;
                     ps.setObject(1, profileId);
                     ps.setLong(2, Math.max(0L, seconds.get()));
+                    ps.setObject(3, profileId);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -161,6 +216,26 @@ public final class ProfilePlaytimeManager {
     }
 
     private record SessionMark(UUID profileId, long markedAtMillis) {}
+
+    private static long loadLegacyProfilePlaytime(Connection connection, UUID profileId) {
+        try (var ps = connection.prepareStatement("select coalesce((metadata->>'playtime_seconds')::bigint, 0) as playtime_seconds from player_profiles where id = ? and deleted_at is null limit 1")) {
+            ps.setObject(1, profileId);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) return Math.max(0L, rs.getLong("playtime_seconds"));
+            }
+        } catch (Exception ignored) {}
+        return 0L;
+    }
+
+    private static boolean profileExists(Connection connection, UUID profileId) throws Exception {
+        if (profileId == null) return false;
+        try (var ps = connection.prepareStatement("select 1 from player_profiles where id = ? and deleted_at is null limit 1")) {
+            ps.setObject(1, profileId);
+            try (var rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
 
     private static void ensureSchema(Connection connection) throws Exception {
         try (var statement = connection.createStatement()) {

@@ -183,12 +183,15 @@ public final class PlayerSidebarManager {
         lines.add("§bRP §f" + rp);
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
-        lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getCachedPlaytimeSeconds(player)));
-        ServerBuffManager.ActiveBoostView activeBoost = ServerBuffManager.activeBoostView();
-        if (activeBoost != null) {
-            lines.add("§6Server Boost:");
-            lines.add("§f" + activeBoost.displayName() + " §7(+" + com.champutils.buff.BuffManager.percent(activeBoost.amount()) + ")");
-            lines.add("§f" + ServerBuffManager.formatDuration(activeBoost.remainingMillis()) + " remaining");
+        lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
+        List<ServerBuffManager.ActiveBoostView> activeBoosts = ServerBuffManager.activeBoostViews();
+        if (activeBoosts.isEmpty()) {
+            lines.add("§6Current Booster §fNone");
+        } else {
+            lines.add("§6Current Booster");
+            for (ServerBuffManager.ActiveBoostView activeBoost : activeBoosts) {
+                lines.add("§f" + activeBoost.displayName() + " §7" + ServerBuffManager.formatDuration(activeBoost.remainingMillis()));
+            }
         }
         if (PlayerProfileManager.isIslander(player)) {
             lines.add("§6Island Special §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());

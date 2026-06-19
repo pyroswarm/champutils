@@ -48,10 +48,10 @@ public final class ExplorationWorldConfig {
     public static Data get() { return data.withDefaults(); }
 
     public static final class Data {
-        public boolean enabled = true;
-        public int worldCount = 6;
-        public int netherWorldCount = 2;
-        public int endWorldCount = 2;
+        public boolean enabled = false;
+        public int worldCount = 0;
+        public int netherWorldCount = 0;
+        public int endWorldCount = 0;
         public String worldPrefix = "multiworld:exploration";
         public String netherWorldPrefix = "multiworld:nether_exploration";
         public String endWorldPrefix = "multiworld:end_exploration";
@@ -92,9 +92,9 @@ public final class ExplorationWorldConfig {
         ));
 
         private Data withDefaults() {
-            if (worldCount < 1) worldCount = 6;
-            if (netherWorldCount < 0) netherWorldCount = 2;
-            if (endWorldCount < 0) endWorldCount = 2;
+            if (worldCount < 0) worldCount = 0;
+            if (netherWorldCount < 0) netherWorldCount = 0;
+            if (endWorldCount < 0) endWorldCount = 0;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "multiworld:exploration";
             if (netherWorldPrefix == null || netherWorldPrefix.isBlank()) netherWorldPrefix = "multiworld:nether_exploration";
             if (endWorldPrefix == null || endWorldPrefix.isBlank()) endWorldPrefix = "multiworld:end_exploration";

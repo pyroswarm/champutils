@@ -97,6 +97,7 @@ public class ChampReloadCommand {
             GuildConfig.load();
             AntiLagConfig.load();
             ModerationConfig.load();
+            com.champutils.badge.BadgeUnlockConfig.load();
             ChampWorldBorderConfig.load();
             GlobalGameruleConfig.load();
             LandClaimConfig.load();
@@ -113,7 +114,7 @@ public class ChampReloadCommand {
 
             source.sendSuccess(
                     () -> Component.literal(
-                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, tm_rarities.json, tm_costs.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json, guilds/guild_config.json, world_borders.json, global_gamerules.json, land_claims.json"
+                            "§7Reloaded: rules.json, professions.json, profession_tools.json, profession_fragments.json, profession_loot.json, tm_rarities.json, tm_costs.json, battle_profession_loot.json, world_events.json, world_event_bindings.json, profession_reward_passives.json, gyms.json, gymleaders.json, teleport.json, portals.json, default_spawn.json, server_sell_prices.json, chest_shops.json, dex_rewards.json, emblems.json, guilds/guild_config.json, world_borders.json, global_gamerules.json, land_claims.json, badge_unlocks.json"
                     ),
                     false
             );

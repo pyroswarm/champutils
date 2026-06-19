@@ -137,6 +137,10 @@ public final class WonderTradeRepository {
             statement.executeUpdate();
         }
 
+        addColumnIfMissing(connection, "wondertrade_cooldowns", "player_uuid", "text not null default 'unknown'");
+        addColumnIfMissing(connection, "wondertrade_cooldowns", "last_trade_at", "timestamptz not null default now()");
+        executeQuietly(connection, "create unique index if not exists idx_wondertrade_cooldowns_player_uuid_unique on wondertrade_cooldowns(player_uuid)");
+
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_pending_claims (" +
                         "player_uuid text primary key," +
@@ -151,12 +155,14 @@ public final class WonderTradeRepository {
             statement.executeUpdate();
         }
 
+        addColumnIfMissing(connection, "wondertrade_pending_claims", "player_uuid", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "player_username", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "claim_type", "text not null default 'RECEIVED'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "payload", "jsonb not null default '{}'::jsonb");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "display_name", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "created_at", "timestamptz not null default now()");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "updated_at", "timestamptz not null default now()");
+        executeQuietly(connection, "create unique index if not exists idx_wondertrade_pending_claims_player_uuid_unique on wondertrade_pending_claims(player_uuid)");
 
             legacyPokemonDataColumn = columnExists(connection, "wondertrade_pool", "pokemon_data");
             legacyLevelColumn = columnExists(connection, "wondertrade_pool", "level");

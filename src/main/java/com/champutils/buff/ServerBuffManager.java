@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Server-wide temporary buff source. */
 public final class ServerBuffManager {
     private static final Map<String, ActiveServerBuff> ACTIVE = new ConcurrentHashMap<>();
-    private static volatile ActiveServerBoost ACTIVE_BOOST = null;
+    private static final Map<String, ActiveServerBoost> ACTIVE_BOOSTS = new ConcurrentHashMap<>();
     private static final BuffProvider PROVIDER = new BuffProvider() {
         @Override public String id() { return "server"; }
         @Override public int priority() { return 50; }
@@ -31,20 +31,26 @@ public final class ServerBuffManager {
     private ServerBuffManager() {}
     public static void init() { BuffManager.registerProvider(PROVIDER); }
 
+    /**
+     * Starts a visible server booster. Different booster ids may run together, but the same
+     * booster id cannot be started again until its current timer ends.
+     */
     public static synchronized boolean tryBeginExclusiveBoost(ServerPlayer activator, String id, String displayName, double amount, long durationMillis) {
         clearExpired();
+        if (id == null || id.isBlank() || durationMillis <= 0L) return false;
         long now = System.currentTimeMillis();
-        if (ACTIVE_BOOST != null && ACTIVE_BOOST.expiresAt > now) {
+        String key = id.toLowerCase(Locale.ROOT);
+        ActiveServerBoost existing = ACTIVE_BOOSTS.get(key);
+        if (existing != null && existing.expiresAt > now) {
             if (activator != null) {
-                long remaining = Math.max(0L, ACTIVE_BOOST.expiresAt - now);
-                activator.sendSystemMessage(Component.literal("A server boost is already active: " + ACTIVE_BOOST.displayName + " by " + ACTIVE_BOOST.activatorName + ". Time remaining: " + formatDuration(remaining) + ".").withStyle(ChatFormatting.RED));
+                long remaining = Math.max(0L, existing.expiresAt - now);
+                activator.sendSystemMessage(Component.literal("That booster is already active: " + existing.displayName + ". Time remaining: " + formatDuration(remaining) + ".").withStyle(ChatFormatting.RED));
             }
             return false;
         }
-        if (id == null || id.isBlank() || durationMillis <= 0L) return false;
         String name = displayName == null || displayName.isBlank() ? id : displayName;
         String actor = activator == null ? "Console" : activator.getGameProfile().getName();
-        ACTIVE_BOOST = new ActiveServerBoost(id, name, actor, Math.max(0.0D, amount), now + durationMillis);
+        ACTIVE_BOOSTS.put(key, new ActiveServerBoost(id, name, actor, Math.max(0.0D, amount), now + durationMillis));
         return true;
     }
 
@@ -59,13 +65,29 @@ public final class ServerBuffManager {
         server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(amount) + " " + type.displayName + " is now active!").withStyle(ChatFormatting.GOLD), false);
     }
 
-    public static void deactivate(String id) { if (id != null && !id.isBlank()) ACTIVE.remove(id.toLowerCase(Locale.ROOT)); }
+    public static void deactivate(String id) {
+        if (id == null || id.isBlank()) return;
+        String key = id.toLowerCase(Locale.ROOT);
+        ACTIVE.remove(key);
+        ACTIVE_BOOSTS.remove(key);
+    }
+
+    public static void deactivateBoost(String boostId) {
+        if (boostId == null || boostId.isBlank()) return;
+        ACTIVE_BOOSTS.remove(boostId.toLowerCase(Locale.ROOT));
+    }
+
+    public static void clearAllBoosters() {
+        ACTIVE.clear();
+        ACTIVE_BOOSTS.clear();
+    }
 
     public static synchronized void clearExpired() {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<String, ActiveServerBuff>> iterator = ACTIVE.entrySet().iterator();
         while (iterator.hasNext()) if (iterator.next().getValue().expiresAt <= now) iterator.remove();
-        if (ACTIVE_BOOST != null && ACTIVE_BOOST.expiresAt <= now) ACTIVE_BOOST = null;
+        Iterator<Map.Entry<String, ActiveServerBoost>> boostIterator = ACTIVE_BOOSTS.entrySet().iterator();
+        while (boostIterator.hasNext()) if (boostIterator.next().getValue().expiresAt <= now) boostIterator.remove();
     }
 
     public static List<String> activeLines() {
@@ -77,10 +99,19 @@ public final class ServerBuffManager {
     }
 
     public static ActiveBoostView activeBoostView() {
+        List<ActiveBoostView> views = activeBoostViews();
+        return views.isEmpty() ? null : views.get(0);
+    }
+
+    public static List<ActiveBoostView> activeBoostViews() {
         clearExpired();
-        ActiveServerBoost boost = ACTIVE_BOOST;
-        if (boost == null) return null;
-        return new ActiveBoostView(boost.displayName, boost.activatorName, boost.amount, Math.max(0L, boost.expiresAt - System.currentTimeMillis()));
+        List<ActiveBoostView> views = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (ActiveServerBoost boost : ACTIVE_BOOSTS.values()) {
+            views.add(new ActiveBoostView(boost.id, boost.displayName, boost.activatorName, boost.amount, Math.max(0L, boost.expiresAt - now)));
+        }
+        views.sort((a, b) -> a.displayName().compareToIgnoreCase(b.displayName()));
+        return views;
     }
 
     public static String formatDuration(long millis) {
@@ -92,5 +123,5 @@ public final class ServerBuffManager {
 
     private static final class ActiveServerBuff { final String id; final BuffType type; final double amount; final long expiresAt; ActiveServerBuff(String id, BuffType type, double amount, long expiresAt){this.id=id;this.type=type;this.amount=amount;this.expiresAt=expiresAt;} boolean isExpired(){return System.currentTimeMillis() >= expiresAt;} }
     private static final class ActiveServerBoost { final String id, displayName, activatorName; final double amount; final long expiresAt; ActiveServerBoost(String id, String displayName, String activatorName, double amount, long expiresAt){this.id=id;this.displayName=displayName;this.activatorName=activatorName;this.amount=amount;this.expiresAt=expiresAt;} }
-    public record ActiveBoostView(String displayName, String activatorName, double amount, long remainingMillis) {}
+    public record ActiveBoostView(String id, String displayName, String activatorName, double amount, long remainingMillis) {}
 }

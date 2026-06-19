@@ -270,10 +270,10 @@ public final class ServerLocationManager {
     ) {
 
         return new ServerLocation(
-                player.serverLevel()
+                normalizeWorldId(player.serverLevel()
                         .dimension()
                         .location()
-                        .toString(),
+                        .toString()),
                 player.getX(),
                 player.getY(),
                 player.getZ(),
@@ -305,8 +305,9 @@ public final class ServerLocationManager {
         ) {
             player.sendSystemMessage(
                     Component.literal(
-                            "§cThat saved location uses a world that is not loaded: §f"
+                            "§cWarp dimension is missing or not loaded: §f"
                                     + location.world
+                                    + "§c. Re-set this warp while standing in the correct world with §f/setwarp <name>§c."
                     )
             );
 
@@ -454,7 +455,10 @@ public final class ServerLocationManager {
         if (
                 !trimmed.contains(":")
         ) {
-            return "minecraft:" + trimmed;
+            String lower = trimmed.toLowerCase();
+            if (lower.equals("the_nether")) return "minecraft:the_nether";
+            if (lower.equals("the_end")) return "minecraft:the_end";
+            return "multiworld:" + trimmed;
         }
 
         return trimmed;

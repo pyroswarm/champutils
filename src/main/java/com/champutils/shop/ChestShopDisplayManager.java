@@ -39,6 +39,9 @@ public final class ChestShopDisplayManager {
             if (level == null) {
                 continue;
             }
+            if (!isShopChunkLoaded(level, shop.pos())) {
+                continue;
+            }
             if (!ChestShopRegistry.isValidShopContainer(level, shop.pos())) {
                 continue;
             }
@@ -75,6 +78,9 @@ public final class ChestShopDisplayManager {
             if (level == null) {
                 continue;
             }
+            if (!isShopChunkLoaded(level, shop.pos())) {
+                continue;
+            }
             if (!ChestShopRegistry.isValidShopContainer(level, shop.pos())) {
                 continue;
             }
@@ -87,6 +93,10 @@ public final class ChestShopDisplayManager {
             return;
         }
 
+        if (!isShopChunkLoaded(level, shop.pos())) {
+            return;
+        }
+
         Vec3 position = displayPosition(level, shop.pos());
         TextDisplay display = getExistingDisplay(level, shop, position);
         if (display == null) {
@@ -94,6 +104,7 @@ public final class ChestShopDisplayManager {
             if (display == null) {
                 return;
             }
+            display.setPos(position.x, position.y, position.z);
             display.addTag(DISPLAY_TAG);
             display.setNoGravity(true);
             display.setInvulnerable(true);
@@ -143,19 +154,35 @@ public final class ChestShopDisplayManager {
 
     private static TextDisplay getExistingDisplay(ServerLevel level, ChestShopRegistry.ChestShop shop, Vec3 position) {
         UUID displayId = shop.displayUuid();
+        TextDisplay selected = null;
+
         if (displayId != null) {
             Entity entity = level.getEntity(displayId);
             if (entity instanceof TextDisplay textDisplay && entity.isAlive()) {
-                return textDisplay;
+                selected = textDisplay;
             }
         }
 
-        AABB box = AABB.ofSize(position, 2.0D, 2.0D, 2.0D);
+        AABB box = AABB.ofSize(position, 3.0D, 3.0D, 3.0D);
         for (TextDisplay display : level.getEntitiesOfClass(TextDisplay.class, box, entity -> entity.getTags().contains(DISPLAY_TAG))) {
-            return display;
+            if (selected == null) {
+                selected = display;
+                continue;
+            }
+
+            if (!display.getUUID().equals(selected.getUUID())) {
+                display.discard();
+            }
         }
 
-        return null;
+        return selected;
+    }
+
+    private static boolean isShopChunkLoaded(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) {
+            return false;
+        }
+        return level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4);
     }
 
     private static void applyDisplayOptions(ServerLevel level, TextDisplay display, BlockPos storagePos) {

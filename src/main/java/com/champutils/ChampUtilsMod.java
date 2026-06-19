@@ -617,6 +617,7 @@ public class ChampUtilsMod implements ModInitializer {
         TitleCommand.register();
         WorldFirstCommand.register();
         CashShopCommand.register();
+        BoosterCommand.register();
         PartyCommand.register();
         AutoModCommand.register();
         DailyLoginCommand.register();
@@ -665,6 +666,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryProtectionListener.register();
         LandClaimProtectionListener.register();
         DeathBackListener.register();
+        com.champutils.badge.BadgeUnlockManager.init();
         com.champutils.protection.SpawnRealmProtectionListener.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
@@ -701,6 +703,7 @@ public class ChampUtilsMod implements ModInitializer {
                     PortalManager.tick(server);
                     RoamingTrainerManager.tick(server);
                     SpecialWildSpawnManager.tick(server);
+                    NaturalSpecialSpawnBlocker.tick(server);
                     MegaBossManager.tick(server);
                     ChestShopDisplayManager.tick(server);
                     BattleStuckCleanupManager.tick(server);

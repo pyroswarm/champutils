@@ -33,34 +33,49 @@ public final class OversizedChunkEntityGuard {
         if (server == null || server.getTickCount() % SCAN_INTERVAL_TICKS != 0) return;
 
         for (ServerLevel level : server.getAllLevels()) {
-            String world = level.dimension().location().toString();
-            if (!world.contains("territor") && !world.contains("spawn") && !world.contains("world")) continue;
-
-            Map<Long, Integer> counts = new HashMap<>();
-            Set<String> seenDisplayKeys = new HashSet<>();
-            int removed = 0;
-            for (Entity entity : level.getAllEntities()) {
-                ChunkPos pos = entity.chunkPosition();
-                counts.merge(pos.toLong(), 1, Integer::sum);
-
-                String displayKey = displayDedupeKey(entity);
-                if (displayKey != null && !seenDisplayKeys.add(displayKey)) {
-                    entity.discard();
-                    removed++;
-                }
+            try {
+                scanLevel(level);
+            } catch (Throwable t) {
+                System.err.println("[ChampUtils] OversizedChunkEntityGuard skipped a scan after an unexpected error instead of crashing the server: " + t.getClass().getSimpleName() + ": " + t.getMessage());
             }
+        }
+    }
 
-            if (removed > 0) {
-                System.out.println("[ChampUtils] OversizedChunkEntityGuard removed " + removed + " duplicate ChampUtils display entities in " + world + ".");
-            }
+    private static void scanLevel(ServerLevel level) {
+        if (level == null) return;
 
-            int logged = 0;
-            for (Map.Entry<Long, Integer> entry : counts.entrySet()) {
-                if (entry.getValue() < ENTITY_COUNT_WARN_THRESHOLD) continue;
-                ChunkPos pos = new ChunkPos(entry.getKey());
-                System.err.println("[ChampUtils] Entity-heavy chunk detected in " + world + " chunk [" + pos.x + ", " + pos.z + "] with " + entry.getValue() + " entities. If vanilla logs c." + pos.x + "." + pos.z + ".mcc, inspect/remove duplicate displays or stray entities there.");
-                if (++logged >= MAX_CHUNKS_TO_LOG_PER_SCAN) break;
+        String world = level.dimension().location().toString();
+        if (!world.contains("territor") && !world.contains("spawn") && !world.contains("world")) return;
+
+        Map<Long, Integer> counts = new HashMap<>();
+        Set<String> seenDisplayKeys = new HashSet<>();
+        int removed = 0;
+        for (Entity entity : level.getAllEntities()) {
+            // Some modded entity collections can briefly expose a null entry while an
+            // entity is being removed/unloaded. Never let the anti-lag guard crash
+            // the entire server tick because of that transient state.
+            if (entity == null) continue;
+
+            ChunkPos pos = entity.chunkPosition();
+            counts.merge(pos.toLong(), 1, Integer::sum);
+
+            String displayKey = displayDedupeKey(entity);
+            if (displayKey != null && !seenDisplayKeys.add(displayKey)) {
+                entity.discard();
+                removed++;
             }
+        }
+
+        if (removed > 0) {
+            System.out.println("[ChampUtils] OversizedChunkEntityGuard removed " + removed + " duplicate ChampUtils display entities in " + world + ".");
+        }
+
+        int logged = 0;
+        for (Map.Entry<Long, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() < ENTITY_COUNT_WARN_THRESHOLD) continue;
+            ChunkPos pos = new ChunkPos(entry.getKey());
+            System.err.println("[ChampUtils] Entity-heavy chunk detected in " + world + " chunk [" + pos.x + ", " + pos.z + "] with " + entry.getValue() + " entities. If vanilla logs c." + pos.x + "." + pos.z + ".mcc, inspect/remove duplicate displays or stray entities there.");
+            if (++logged >= MAX_CHUNKS_TO_LOG_PER_SCAN) break;
         }
     }
 

@@ -1,6 +1,7 @@
 package com.champutils.moderation;
 
 import com.champutils.antilag.AntiLagConfig;
+import com.champutils.database.DatabaseManager;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.time.DailyResetManager;
 import net.minecraft.ChatFormatting;
@@ -40,6 +41,11 @@ public final class ModerationManager {
     private static final Map<UUID, TempBan> tempBans = new HashMap<>();
     private static final Map<UUID, ChatWindow> chatWindows = new HashMap<>();
     private static final Map<UUID, Integer> staffWarningCounts = new HashMap<>();
+    /**
+     * Chat is called on the server thread for every message. Never touch SQL from that path.
+     * Active mutes are hydrated asynchronously on join/manual changes and enforced from this cache.
+     */
+    private static final Map<UUID, CachedMute> activeMuteCache = new java.util.concurrent.ConcurrentHashMap<>();
     private static long resetKey = DailyResetManager.currentResetKeyMillis();
 
     private ModerationManager() {}
@@ -51,6 +57,7 @@ public final class ModerationManager {
             tempBans.clear();
             chatWindows.clear();
             staffWarningCounts.clear();
+            activeMuteCache.clear();
             XrayDetectionManager.dailyReset();
             resetKey = key;
             alertAdmins(server, "§a[AutoMod] Daily moderation stages wiped at " + DailyResetManager.formatResetTime() + ". Chat, Xray, and AntiLag tracks were reset separately.");
@@ -61,31 +68,49 @@ public final class ModerationManager {
     public static void handleJoin(ServerPlayer player) {
         if (player == null) return;
         tick(player.server);
-        ModerationActionRepository.ActivePunishment dbBan = ModerationActionRepository.findActive(player.getUUID(), player.getGameProfile().getName(), ModerationActionRepository.ActionType.BAN);
-        if (dbBan != null) {
-            String duration = dbBan.expiresAt() == null ? "permanently" : "for " + format(Math.max(1, dbBan.expiresAt().toEpochMilli() - System.currentTimeMillis()));
-            player.connection.disconnect(Component.literal("You are banned " + duration + ". Reason: " + dbBan.reason()));
-            return;
-        }
+
         TempBan ban = tempBans.get(player.getUUID());
         long now = System.currentTimeMillis();
         if (ban != null) {
             if (ban.untilMillis > now) {
                 player.connection.disconnect(Component.literal("You are temporarily banned for " + format(ban.untilMillis - now) + ". Reason: " + ban.reason));
+                return;
             } else {
                 tempBans.remove(player.getUUID());
             }
         }
+
+        UUID uuid = player.getUUID();
+        String name = player.getGameProfile().getName();
+        MinecraftServer server = player.server;
+        DatabaseManager.runAsync("active punishments check", connection -> {
+            ModerationActionRepository.ActivePunishment dbMute = ModerationActionRepository.findActive(uuid, name, ModerationActionRepository.ActionType.MUTE);
+            if (dbMute == null) activeMuteCache.remove(uuid);
+            else activeMuteCache.put(uuid, CachedMute.from(dbMute));
+
+            ModerationActionRepository.ActivePunishment dbBan = ModerationActionRepository.findActive(uuid, name, ModerationActionRepository.ActionType.BAN);
+            if (dbBan == null) return;
+            server.execute(() -> {
+                ServerPlayer online = server.getPlayerList().getPlayer(uuid);
+                if (online == null || online.hasDisconnected()) return;
+                String duration = dbBan.expiresAt() == null ? "permanently" : "for " + format(Math.max(1, dbBan.expiresAt().toEpochMilli() - System.currentTimeMillis()));
+                online.connection.disconnect(Component.literal("You are banned " + duration + ". Reason: " + dbBan.reason()));
+            });
+        });
     }
 
     public static boolean allowChat(ServerPlayer player, String message) {
         if (player == null) return false;
         tick(player.server);
-        ModerationActionRepository.ActivePunishment dbMute = ModerationActionRepository.findActive(player.getUUID(), player.getGameProfile().getName(), ModerationActionRepository.ActionType.MUTE);
+        CachedMute dbMute = activeMuteCache.get(player.getUUID());
         if (dbMute != null) {
-            String duration = dbMute.expiresAt() == null ? "permanently" : "for " + format(Math.max(1, dbMute.expiresAt().toEpochMilli() - System.currentTimeMillis()));
-            player.sendSystemMessage(Component.literal("You are muted " + duration + ". Reason: " + dbMute.reason()).withStyle(ChatFormatting.RED));
-            return false;
+            if (dbMute.isExpired()) {
+                activeMuteCache.remove(player.getUUID());
+            } else {
+                String duration = dbMute.expiresAt == null ? "permanently" : "for " + format(Math.max(1, dbMute.expiresAt.toEpochMilli() - System.currentTimeMillis()));
+                player.sendSystemMessage(Component.literal("You are muted " + duration + ". Reason: " + dbMute.reason).withStyle(ChatFormatting.RED));
+                return false;
+            }
         }
         Record r = record(player.getUUID(), ModerationTrack.CHAT);
         long now = System.currentTimeMillis();
@@ -129,6 +154,7 @@ public final class ModerationManager {
 
         Record r = record(target.getUUID(), ModerationTrack.CHAT);
         r.mutedUntil = until;
+        activeMuteCache.put(target.getUUID(), new CachedMute(finalReason, Instant.ofEpochMilli(until)));
         ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draftOffline(null, target.getGameProfile().getName(), target.getUUID(), ModerationActionRepository.ActionType.MUTE, finalReason);
         draft.moderatorName = staffName;
         draft.expiresAt = Instant.ofEpochMilli(until);
@@ -146,10 +172,11 @@ public final class ModerationManager {
         TrackKey key = new TrackKey(target.getUUID(), ModerationTrack.CHAT);
         Record r = records.get(key);
         long now = System.currentTimeMillis();
-        boolean wasMuted = r != null && r.mutedUntil > now;
+        boolean wasMuted = (r != null && r.mutedUntil > now) || activeMuteCache.containsKey(target.getUUID());
         if (r != null) {
             r.mutedUntil = 0L;
         }
+        activeMuteCache.remove(target.getUUID());
 
         String staffName = (actorName == null || actorName.isBlank()) ? "Console" : actorName;
         if (wasMuted) {
@@ -279,8 +306,10 @@ public final class ModerationManager {
     }
 
     private static int currentStaffWarningCount(ServerPlayer target) {
-        int databaseCount = ModerationActionRepository.warningCountSince(target.getUUID(), target.getGameProfile().getName(), Instant.ofEpochMilli(resetKey));
-        int next = Math.max(staffWarningCounts.getOrDefault(target.getUUID(), 0), databaseCount) + 1;
+        // Hot command path: never block the server tick on SQL. The daily warning counter is
+        // held in memory and all records are still persisted asynchronously. It resets at the
+        // existing AutoMod daily reset, matching the intended staff warning behavior.
+        int next = staffWarningCounts.getOrDefault(target.getUUID(), 0) + 1;
         staffWarningCounts.put(target.getUUID(), next);
         return next;
     }
@@ -335,7 +364,8 @@ public final class ModerationManager {
     public static boolean staffUnmute(ServerPlayer actor, ServerPlayer target, String targetName, String reason) {
         UUID targetUuid = target == null ? null : target.getUUID();
         String name = target == null ? targetName : target.getGameProfile().getName();
-        boolean changed = ModerationActionRepository.revokeActive(targetUuid, name, ModerationActionRepository.ActionType.MUTE, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unmute"), actorName(actor));
+        ModerationActionRepository.revokeActiveAsync(targetUuid, name, ModerationActionRepository.ActionType.MUTE, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unmute"), actorName(actor));
+        boolean changed = true;
         ModerationActionRepository.ActionDraft reversal = target == null
                 ? ModerationActionRepository.draftOffline(actor, name, targetUuid, ModerationActionRepository.ActionType.UNMUTE, cleanReason(reason, "Staff unmute"))
                 : ModerationActionRepository.draft(actor, target, ModerationActionRepository.ActionType.UNMUTE, cleanReason(reason, "Staff unmute"));
@@ -352,7 +382,8 @@ public final class ModerationManager {
     }
 
     public static boolean staffUnban(ServerPlayer actor, String targetName, UUID targetUuid, MinecraftServer server, String reason) {
-        boolean changed = ModerationActionRepository.revokeActive(targetUuid, targetName, ModerationActionRepository.ActionType.BAN, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unban"), actorName(actor));
+        ModerationActionRepository.revokeActiveAsync(targetUuid, targetName, ModerationActionRepository.ActionType.BAN, actor == null ? null : actor.getUUID(), cleanReason(reason, "Staff unban"), actorName(actor));
+        boolean changed = true;
         ModerationActionRepository.ActionDraft reversal = ModerationActionRepository.draftOffline(actor, targetName, targetUuid, ModerationActionRepository.ActionType.UNBAN, cleanReason(reason, "Staff unban"));
         reversal.active = false;
         ModerationActionRepository.insert(reversal);
@@ -596,6 +627,24 @@ public final class ModerationManager {
         if (s >= 3600) return (s / 3600) + "h " + ((s % 3600) / 60) + "m";
         if (s >= 60) return (s / 60) + "m " + (s % 60) + "s";
         return s + "s";
+    }
+
+    private static final class CachedMute {
+        final String reason;
+        final Instant expiresAt;
+
+        CachedMute(String reason, Instant expiresAt) {
+            this.reason = reason == null || reason.isBlank() ? "Muted" : reason;
+            this.expiresAt = expiresAt;
+        }
+
+        static CachedMute from(ModerationActionRepository.ActivePunishment punishment) {
+            return new CachedMute(punishment.reason(), punishment.expiresAt());
+        }
+
+        boolean isExpired() {
+            return expiresAt != null && expiresAt.toEpochMilli() <= System.currentTimeMillis();
+        }
     }
 
     private record TrackKey(UUID playerId, ModerationTrack track) {}

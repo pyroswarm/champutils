@@ -311,6 +311,11 @@ public final class SpecialWildSpawnManager {
         cashShopChanceBoostExpiresAt = Math.max(cashShopChanceBoostExpiresAt, System.currentTimeMillis() + Math.max(1L, durationMillis));
     }
 
+    public static void deactivateCashShopBoost() {
+        cashShopChanceBoost = 0.0D;
+        cashShopChanceBoostExpiresAt = 0L;
+    }
+
     private static double activeCashShopChanceBoost() {
         if (cashShopChanceBoostExpiresAt <= System.currentTimeMillis()) {
             cashShopChanceBoost = 0.0D;

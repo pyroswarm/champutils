@@ -126,12 +126,16 @@ public final class AutoModCommand {
                                     String targetName = StringArgumentType.getString(context, "player");
                                     ServerPlayer target = findOnline(context.getSource().getServer(), targetName);
                                     UUID uuid = target == null ? null : target.getUUID();
-                                    List<ModerationActionRepository.ActionRecord> rows = ModerationManager.staffHistory(uuid, targetName);
-                                    context.getSource().sendSuccess(() -> Component.literal("Moderation history for " + displayName(target, targetName) + " (" + rows.size() + " records):").withStyle(ChatFormatting.GOLD), false);
-                                    if (rows.isEmpty()) return 1;
-                                    for (ModerationActionRepository.ActionRecord row : rows) {
-                                        context.getSource().sendSuccess(() -> Component.literal(formatRow(row)), false);
-                                    }
+                                    CommandSourceStack source = context.getSource();
+                                    MinecraftServer server = source.getServer();
+                                    String display = displayName(target, targetName);
+                                    source.sendSuccess(() -> Component.literal("Loading moderation history for " + display + "...").withStyle(ChatFormatting.GRAY), false);
+                                    java.util.concurrent.CompletableFuture.supplyAsync(() -> ModerationManager.staffHistory(uuid, targetName)).thenAccept(rows -> server.execute(() -> {
+                                        source.sendSuccess(() -> Component.literal("Moderation history for " + display + " (" + rows.size() + " records):").withStyle(ChatFormatting.GOLD), false);
+                                        for (ModerationActionRepository.ActionRecord row : rows) {
+                                            source.sendSuccess(() -> Component.literal(formatRow(row)), false);
+                                        }
+                                    }));
                                     return 1;
                                 })))
                 .then(Commands.literal("escalate")

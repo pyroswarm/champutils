@@ -113,6 +113,7 @@ public final class NpcShopConfig {
             if (entry.price < 0L) entry.price = 0L;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
+            if ("tool".equalsIgnoreCase(entry.type) && "COMMON".equalsIgnoreCase(entry.rarity)) entry.price = 100L;
             if (entry.shinyChance < 0.0D) entry.shinyChance = 0.0D;
             if (entry.legendaryChance < 0.0D) entry.legendaryChance = 0.0D;
             if (entry.ultraBeastChance < 0.0D) entry.ultraBeastChance = 0.0D;
@@ -180,9 +181,9 @@ public final class NpcShopConfig {
         root.entries.add(item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
 
-        root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", 5000L));
-        root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", 5000L));
-        root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", 5000L));
+        root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", 100L));
+        root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", 100L));
+        root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", 100L));
 
         root.entries.add(crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
                 "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));

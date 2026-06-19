@@ -90,6 +90,7 @@ public final class TitleManager {
         }
 
         if (!changed) return false;
+        com.champutils.chat.ChatTagResolver.invalidate(player);
         Component title = com.champutils.chat.ChatTagResolver.legacy(display);
         player.server.getPlayerList().broadcastSystemMessage(Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)
                 .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA))
@@ -124,6 +125,7 @@ public final class TitleManager {
                 selectedByProfile.put(profileId.toString(), "");
                 TitleDatabaseRepository.select(profileId, "");
                 saveSelections();
+            com.champutils.chat.ChatTagResolver.invalidate(player);
             } else {
                 data(player.getUUID()).selected = "";
             }
@@ -148,6 +150,7 @@ public final class TitleManager {
         } else {
             data(player.getUUID()).selected = normalizedId;
         }
+        com.champutils.chat.ChatTagResolver.invalidate(player);
         player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
     }
 

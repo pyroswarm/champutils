@@ -43,6 +43,14 @@ public final class PlayerDatabaseRepository {
 
             UUID profileId = UUID.fromString(data.uuid);
             UUID playerUuid = resolvePlayerUuid(connection, profileId);
+            if (playerUuid == null) {
+                // The local profile cache/files can briefly contain a profile id that was deleted
+                // from Supabase/player_profiles during a beta wipe, profile deletion, or failed sync.
+                // Do NOT write child rows for missing profiles: that violates FK constraints and can
+                // spam the async DB executor forever with orphan profile_player_stats/profile_ranked_stats writes.
+                System.out.println("[ChampUtils] Skipping database sync for missing/deleted profile: " + profileId);
+                return;
+            }
             String username = safeName(data);
 
             if (playerUuid != null) {

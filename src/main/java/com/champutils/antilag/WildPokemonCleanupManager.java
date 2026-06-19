@@ -51,7 +51,10 @@ public final class WildPokemonCleanupManager {
                 if (result.totalRemoved() >= options.maxRemovals) break;
                 if (entity == null || !entity.isAlive()) continue;
 
-                if (options.clearDroppedItems && entity instanceof ItemEntity) {
+                if (options.clearDroppedItems && entity instanceof ItemEntity itemEntity) {
+                    if (isProtectedDroppedItem(itemEntity)) {
+                        continue;
+                    }
                     entity.remove(RemovalReason.DISCARDED);
                     result.droppedItems++;
                     continue;
@@ -183,6 +186,12 @@ public final class WildPokemonCleanupManager {
         }
 
         return null;
+    }
+
+    private static boolean isProtectedDroppedItem(ItemEntity itemEntity) {
+        if (itemEntity == null || itemEntity.getItem() == null || itemEntity.getItem().isEmpty()) return false;
+        String itemId = String.valueOf(itemEntity.getItem().getItem()).toLowerCase(Locale.ROOT);
+        return itemId.endsWith("shulker_box") || itemId.contains(":shulker_box") || itemId.contains("_shulker_box");
     }
 
     private static boolean hasProtectedEntityTag(Entity entity) {

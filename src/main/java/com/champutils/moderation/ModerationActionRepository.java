@@ -57,6 +57,10 @@ public final class ModerationActionRepository {
             s.executeUpdate("create index if not exists idx_moderation_actions_profile on moderation_actions(profile_id)");
             s.executeUpdate("create index if not exists idx_moderation_actions_target_lower on moderation_actions(lower(target_name))");
             s.executeUpdate("create index if not exists idx_moderation_actions_active_type on moderation_actions(action_type, active, expires_at)");
+            s.executeUpdate("create index if not exists idx_moderation_actions_active_account_type on moderation_actions(account_uuid, action_type, issued_at desc) where active = true and revoked_at is null");
+            s.executeUpdate("create index if not exists idx_moderation_actions_active_target_type on moderation_actions(lower(target_name), action_type, issued_at desc) where active = true and revoked_at is null");
+            s.executeUpdate("create index if not exists idx_moderation_actions_warn_daily_account on moderation_actions(account_uuid, issued_at desc) where action_type = 'WARN'");
+            s.executeUpdate("create index if not exists idx_moderation_actions_warn_daily_target on moderation_actions(lower(target_name), issued_at desc) where action_type = 'WARN'");
             s.executeUpdate("create index if not exists idx_moderation_actions_issued on moderation_actions(issued_at desc)");
         }
     }
@@ -144,6 +148,24 @@ public final class ModerationActionRepository {
             System.err.println("[ChampUtils] Failed to revoke active " + activeType + ": " + e.getMessage());
         }
         return changed;
+    }
+
+    public static void revokeActiveAsync(UUID accountUuid, String targetName, ActionType activeType, UUID revokedBy, String reason, String moderatorName) {
+        DatabaseManager.executeAsync("revoke active moderation action " + activeType, connection -> {
+            ensureSchema(connection);
+            String name = targetName == null ? "" : targetName.toLowerCase(Locale.ROOT);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "update moderation_actions set active = false, revoked_at = now(), revoked_by = ? " +
+                            "where action_type = ? and active = true and revoked_at is null " +
+                            "and ((?::uuid is not null and account_uuid = ?::uuid) or lower(target_name) = ?)")) {
+                ps.setObject(1, revokedBy);
+                ps.setString(2, activeType.name());
+                ps.setObject(3, accountUuid);
+                ps.setObject(4, accountUuid);
+                ps.setString(5, name);
+                ps.executeUpdate();
+            }
+        });
     }
 
     public static List<ActionRecord> history(UUID accountUuid, String targetName) {

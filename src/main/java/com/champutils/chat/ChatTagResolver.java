@@ -10,11 +10,24 @@ import com.champutils.profile.ProfileGameMode;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ChatTagResolver {
+    private static final long CACHE_TTL_MS = 30_000L;
+    private static final Map<UUID, CachedTags> TAG_CACHE = new ConcurrentHashMap<>();
+
     private ChatTagResolver() {}
 
     public static MutableComponent tagsFor(ServerPlayer player) {
+        if (player == null) return Component.empty();
+        CachedTags cached = TAG_CACHE.get(player.getUUID());
+        long now = System.currentTimeMillis();
+        if (cached != null && cached.profileId().equals(PlayerProfileManager.activeProfileId(player)) && now - cached.createdAtMillis() <= CACHE_TTL_MS) {
+            return cached.component().copy();
+        }
+
         MutableComponent result = Component.empty();
 
         if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
@@ -60,8 +73,23 @@ public final class ChatTagResolver {
             if (suffix != null && !suffix.isBlank()) result.append(legacy(suffix)).append(Component.literal(" "));
         }
 
+        TAG_CACHE.put(player.getUUID(), new CachedTags(PlayerProfileManager.activeProfileId(player), result.copy(), now));
         return result;
     }
+
+    public static void invalidate(ServerPlayer player) {
+        if (player != null) TAG_CACHE.remove(player.getUUID());
+    }
+
+    public static void invalidate(UUID uuid) {
+        if (uuid != null) TAG_CACHE.remove(uuid);
+    }
+
+    public static void clearCache() {
+        TAG_CACHE.clear();
+    }
+
+    private record CachedTags(UUID profileId, MutableComponent component, long createdAtMillis) {}
 
     private static String removeDeprecatedRankTags(String raw) {
         if (raw == null) return "";
