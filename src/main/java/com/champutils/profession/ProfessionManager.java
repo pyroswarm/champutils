@@ -182,10 +182,12 @@ public class ProfessionManager {
             return 0;
         }
 
+        String normalizedFragmentKey = ProfessionWeaponFragmentConfig.normalizeRarity(fragmentKey);
+
         return getData(player)
                 .fragments
                 .getOrDefault(
-                        fragmentKey,
+                        normalizedFragmentKey,
                         0
                 );
     }
@@ -199,17 +201,19 @@ public class ProfessionManager {
             return;
         }
 
+        String normalizedFragmentKey = ProfessionWeaponFragmentConfig.normalizeRarity(fragmentKey);
+
         ProfessionDataManager.ProfessionData data =
                 getData(player);
 
         int current =
                 data.fragments.getOrDefault(
-                        fragmentKey,
+                        normalizedFragmentKey,
                         0
                 );
 
         data.fragments.put(
-                fragmentKey,
+                normalizedFragmentKey,
                 current + amount
         );
 
@@ -227,12 +231,14 @@ public class ProfessionManager {
             return false;
         }
 
+        String normalizedFragmentKey = ProfessionWeaponFragmentConfig.normalizeRarity(fragmentKey);
+
         ProfessionDataManager.ProfessionData data =
                 getData(player);
 
         int current =
                 data.fragments.getOrDefault(
-                        fragmentKey,
+                        normalizedFragmentKey,
                         0
                 );
 
@@ -241,7 +247,7 @@ public class ProfessionManager {
         }
 
         data.fragments.put(
-                fragmentKey,
+                normalizedFragmentKey,
                 current - amount
         );
 

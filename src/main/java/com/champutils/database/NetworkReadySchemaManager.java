@@ -112,6 +112,17 @@ public final class NetworkReadySchemaManager {
                                 "disbanded_at timestamptz not null default now()" +
                                 ")"
                 );
+                statement.executeUpdate("alter table guild_members add column if not exists player_uuid uuid");
+                statement.executeUpdate("alter table guild_members add column if not exists profile_id uuid");
+                statement.executeUpdate("alter table guild_create_cooldowns add column if not exists player_uuid uuid");
+                statement.executeUpdate("alter table guild_create_cooldowns add column if not exists disbanded_at timestamptz not null default now()");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'guild_create_cooldowns' and column_name = 'profile_id') and exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'guild_members' and column_name = 'profile_id') and exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'guild_members' and column_name = 'player_uuid') then execute 'update guild_create_cooldowns c set player_uuid = gm.player_uuid from guild_members gm where c.profile_id = gm.profile_id and c.player_uuid is null and gm.player_uuid is not null'; execute 'alter table guild_create_cooldowns alter column profile_id drop not null'; end if; end $$");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'guild_create_cooldowns' and column_name = 'owner_uuid') then execute 'update guild_create_cooldowns set player_uuid = owner_uuid where player_uuid is null'; execute 'alter table guild_create_cooldowns alter column owner_uuid drop not null'; end if; end $$");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'guild_create_cooldowns' and column_name = 'owner_player_uuid') then execute 'update guild_create_cooldowns set player_uuid = owner_player_uuid where player_uuid is null'; execute 'alter table guild_create_cooldowns alter column owner_player_uuid drop not null'; end if; end $$");
+                statement.executeUpdate("delete from guild_create_cooldowns where player_uuid is null");
+                statement.executeUpdate("delete from guild_create_cooldowns a using guild_create_cooldowns b where a.ctid < b.ctid and a.player_uuid = b.player_uuid");
+                statement.executeUpdate("create unique index if not exists guild_create_cooldowns_player_uuid_unique on guild_create_cooldowns (player_uuid)");
+                statement.executeUpdate("alter table guild_create_cooldowns alter column player_uuid set not null");
 
                 statement.executeUpdate(
                         "create table if not exists guild_xp_log (" +

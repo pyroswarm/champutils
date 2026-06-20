@@ -779,9 +779,22 @@ public final class GuildRepository {
     }
 
     private static void executeQuietly(java.sql.Connection connection, String sql) {
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.executeUpdate();
+        java.sql.Savepoint savepoint = null;
+        try {
+            if (!connection.getAutoCommit()) {
+                savepoint = connection.setSavepoint();
+            }
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.executeUpdate();
+            }
         } catch (Exception ignored) {
+            if (savepoint != null) {
+                try { connection.rollback(savepoint); } catch (Exception ignoredRollback) {}
+            }
+        } finally {
+            if (savepoint != null) {
+                try { connection.releaseSavepoint(savepoint); } catch (Exception ignoredRelease) {}
+            }
         }
     }
 
@@ -899,6 +912,46 @@ public final class GuildRepository {
                             "disbanded_at timestamptz not null default now()" +
                             ")"
             );
+
+            // Existing beta databases may already have this table with only profile_id.
+            // Guilds are account/player scoped, so repair the table before any cooldown query runs.
+            // Do NOT use website/auth profiles here; game guild identity is guild_members.player_uuid.
+            statement.executeUpdate("alter table guild_create_cooldowns add column if not exists player_uuid uuid");
+            statement.executeUpdate("alter table guild_create_cooldowns add column if not exists disbanded_at timestamptz not null default now()");
+
+            if (columnExists(connection, "guild_create_cooldowns", "profile_id")) {
+                // Old beta schema used profile_id as the primary key. Rebuild the tiny cooldown table
+                // into the account/player-scoped shape instead of trying to alter primary-key columns.
+                statement.executeUpdate("create table if not exists guild_create_cooldowns_v2 (player_uuid uuid primary key, disbanded_at timestamptz not null default now())");
+                executeQuietly(connection,
+                        "insert into guild_create_cooldowns_v2(player_uuid, disbanded_at) " +
+                                "select gm.player_uuid, max(c.disbanded_at) " +
+                                "from guild_create_cooldowns c " +
+                                "join guild_members gm on gm.profile_id = c.profile_id " +
+                                "where gm.player_uuid is not null " +
+                                "group by gm.player_uuid " +
+                                "on conflict (player_uuid) do update set disbanded_at = greatest(guild_create_cooldowns_v2.disbanded_at, excluded.disbanded_at)");
+                executeQuietly(connection, "insert into guild_create_cooldowns_v2(player_uuid, disbanded_at) select player_uuid, max(disbanded_at) from guild_create_cooldowns where player_uuid is not null group by player_uuid on conflict (player_uuid) do update set disbanded_at = greatest(guild_create_cooldowns_v2.disbanded_at, excluded.disbanded_at)");
+                statement.executeUpdate("drop table guild_create_cooldowns");
+                statement.executeUpdate("alter table guild_create_cooldowns_v2 rename to guild_create_cooldowns");
+            }
+            if (columnExists(connection, "guild_create_cooldowns", "owner_uuid")) {
+                executeQuietly(connection, "update guild_create_cooldowns set player_uuid = owner_uuid where player_uuid is null");
+                // Legacy column may be constrained; do not mutate it during runtime repair.
+            }
+            if (columnExists(connection, "guild_create_cooldowns", "owner_player_uuid")) {
+                executeQuietly(connection, "update guild_create_cooldowns set player_uuid = owner_player_uuid where player_uuid is null");
+                // Legacy column may be constrained; do not mutate it during runtime repair.
+            }
+
+            statement.executeUpdate("delete from guild_create_cooldowns where player_uuid is null");
+            statement.executeUpdate(
+                    "delete from guild_create_cooldowns a using guild_create_cooldowns b " +
+                            "where a.ctid < b.ctid and a.player_uuid = b.player_uuid"
+            );
+            statement.executeUpdate("create unique index if not exists guild_create_cooldowns_player_uuid_unique on guild_create_cooldowns (player_uuid)");
+            statement.executeUpdate("alter table guild_create_cooldowns alter column player_uuid set not null");
+            validateRequiredColumns(connection, "guild_create_cooldowns", "player_uuid", "disbanded_at");
         }
     }
 

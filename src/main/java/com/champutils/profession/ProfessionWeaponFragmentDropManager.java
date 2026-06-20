@@ -7,12 +7,18 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
+import net.minecraft.world.item.ItemStack;
+
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ProfessionWeaponFragmentDropManager {
 
     private static final Random RANDOM = new Random();
+    private static final Map<String, Integer> PITY_COUNTERS = new ConcurrentHashMap<>();
 
     private ProfessionWeaponFragmentDropManager() {
     }
@@ -32,26 +38,46 @@ public final class ProfessionWeaponFragmentDropManager {
             return;
         }
 
+        ItemStack tool = findProfessionTool(player, profession);
+        String toolRarity = toolRarity(tool);
+        if (toolRarity == null || toolRarity.isBlank()) {
+            return;
+        }
+
         double chance = getChance(player, profession, settings);
+        int level = Math.max(1, ProfessionManager.getLevel(player, profession));
 
         if (chance <= 0.0D) {
             return;
         }
 
-        if (RANDOM.nextDouble() >= chance) {
+        String pityKey = pityKey(player, profession);
+        int previousMisses = PITY_COUNTERS.getOrDefault(pityKey, 0);
+        int pityActions = Math.max(0, settings.pityActions == null ? 0 : settings.pityActions);
+        boolean pityTriggered = pityActions > 0 && previousMisses + 1 >= pityActions;
+
+        double roll = RANDOM.nextDouble();
+        if (!pityTriggered && roll >= chance) {
+            PITY_COUNTERS.merge(pityKey, 1, Integer::sum);
             return;
         }
 
-        String rarity = rollRarity();
+        String rarity = rollRarity(settings.pityUsesToolRarityPool ? toolRarity : "MYTHIC");
 
         if (rarity == null || rarity.isBlank()) {
-            return;
+            // A bad/old config can leave the eligible pool empty. Never consume a successful roll without a reward.
+            rarity = fallbackRarity(toolRarity);
         }
 
-        if (!ProfessionWeaponFragmentManager.giveFragments(player, rarity, 1)) {
-            return;
+        if (rarity == null || rarity.isBlank()) {
+            // Absolute last-resort safety. COMMON is always supported by the default config and the storage layer
+            // only needs a normalized text key, so a successful roll should never become a silent miss.
+            rarity = "COMMON";
         }
 
+        rarity = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
+        PITY_COUNTERS.remove(pityKey);
+        ProfessionManager.addFragments(player, rarity, 1);
         sendMessage(player, rarity, profession, settings);
     }
 
@@ -77,10 +103,11 @@ public final class ProfessionWeaponFragmentDropManager {
         return Math.max(0.0D, chance * multiplier);
     }
 
-    private static String rollRarity() {
+    private static String rollRarity(String toolRarity) {
+        Map<String, Integer> eligibleWeights = eligibleWeights(toolRarity);
         int totalWeight = 0;
 
-        for (Integer weight : ProfessionWeaponFragmentConfig.RARITY_WEIGHTS.values()) {
+        for (Integer weight : eligibleWeights.values()) {
             if (weight != null && weight > 0) {
                 totalWeight += weight;
             }
@@ -93,7 +120,7 @@ public final class ProfessionWeaponFragmentDropManager {
         int roll = RANDOM.nextInt(totalWeight);
         int current = 0;
 
-        for (Map.Entry<String, Integer> entry : ProfessionWeaponFragmentConfig.RARITY_WEIGHTS.entrySet()) {
+        for (Map.Entry<String, Integer> entry : eligibleWeights.entrySet()) {
             if (entry.getValue() == null || entry.getValue() <= 0) {
                 continue;
             }
@@ -106,6 +133,71 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         return null;
+    }
+
+
+    private static String fallbackRarity(String toolRarity) {
+        int maxTier = Math.min(tierIndex(toolRarity) + 1, TIER_ORDER.length - 1);
+        for (int i = maxTier; i >= 0; i--) {
+            String rarity = TIER_ORDER[i];
+            if (ProfessionWeaponFragmentConfig.FRAGMENTS.containsKey(rarity)) {
+                return rarity;
+            }
+        }
+        return "COMMON";
+    }
+
+    private static String pityKey(ServerPlayer player, ProfessionType profession) {
+        UUID uuid = player.getUUID();
+        return uuid + ":" + profession.name();
+    }
+
+    private static Map<String, Integer> eligibleWeights(String toolRarity) {
+        LinkedHashMap<String, Integer> result = new LinkedHashMap<>();
+        int maxTier = Math.min(tierIndex(toolRarity) + 1, TIER_ORDER.length - 1);
+        for (int i = 0; i <= maxTier; i++) {
+            String rarity = TIER_ORDER[i];
+            Integer weight = ProfessionWeaponFragmentConfig.RARITY_WEIGHTS.get(rarity);
+            if (weight != null && weight > 0) {
+                result.put(rarity, weight);
+            }
+        }
+
+        if (!result.isEmpty()) {
+            return result;
+        }
+
+        // Config repair fallback: if rarityWeights is missing/zeroed for the eligible tool pool,
+        // recreate a sane local pool instead of making every successful roll fail as "no eligible rarity".
+        int[] defaults = new int[]{800000, 150000, 40000, 9000, 950, 50};
+        for (int i = 0; i <= maxTier; i++) {
+            result.put(TIER_ORDER[i], defaults[i]);
+        }
+        return result;
+    }
+
+    private static final String[] TIER_ORDER = new String[]{"COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"};
+
+    private static int tierIndex(String rarity) {
+        String normalized = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
+        for (int i = 0; i < TIER_ORDER.length; i++) {
+            if (TIER_ORDER[i].equals(normalized)) return i;
+        }
+        return 0;
+    }
+
+    private static ItemStack findProfessionTool(ServerPlayer player, ProfessionType profession) {
+        ItemStack main = player.getMainHandItem();
+        if (ProfessionToolUtil.isUsableProfessionTool(player, main, profession)) return main;
+        ItemStack off = player.getOffhandItem();
+        if (ProfessionToolUtil.isUsableProfessionTool(player, off, profession)) return off;
+        return ItemStack.EMPTY;
+    }
+
+    private static String toolRarity(ItemStack tool) {
+        ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(tool);
+        if (data == null || data.rarity == null || data.rarity.isBlank()) return null;
+        return ProfessionWeaponFragmentConfig.normalizeRarity(data.rarity);
     }
 
     private static void sendMessage(
@@ -124,18 +216,18 @@ public final class ProfessionWeaponFragmentDropManager {
 
         if (settings.actionBarMessage) {
             player.displayClientMessage(
-                    Component.literal("Weapon Fragment! ")
+                    Component.literal("Profession Fragment! ")
                             .withStyle(ChatFormatting.GOLD)
                             .append(Component.literal(prettyRarity + " x1").withStyle(color))
-                            .append(Component.literal(" from " + professionName).withStyle(ChatFormatting.YELLOW)),
+                            .append(Component.literal(" stored from " + professionName).withStyle(ChatFormatting.YELLOW)),
                     true
             );
         } else {
             player.sendSystemMessage(
-                    Component.literal("Weapon Fragment! ")
+                    Component.literal("Profession Fragment! ")
                             .withStyle(ChatFormatting.GOLD)
                             .append(Component.literal(prettyRarity + " x1").withStyle(color))
-                            .append(Component.literal(" from " + professionName).withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(" stored from " + professionName).withStyle(ChatFormatting.YELLOW))
             );
         }
 
@@ -188,7 +280,7 @@ public final class ProfessionWeaponFragmentDropManager {
                 server,
                 Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA)
                         .append(Component.literal(" found a ").withStyle(ChatFormatting.GRAY))
-                        .append(Component.literal(formatWords(rarity) + " Weapon Fragment").withStyle(color))
+                        .append(Component.literal(formatWords(rarity) + " Profession Fragment").withStyle(color))
                         .append(Component.literal(" while training " + formatWords(profession.name()) + "!").withStyle(ChatFormatting.GRAY))
         );
     }

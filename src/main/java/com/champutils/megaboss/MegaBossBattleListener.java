@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -35,14 +36,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class MegaBossBattleListener {
     private static final Map<UUID, UUID> ACTIVE_PLAYER_BOSS = new ConcurrentHashMap<>();
+    private static final Map<String, BossRewardSnapshot> ACTIVE_BATTLE_BOSS = new ConcurrentHashMap<>();
     private static final TagKey<Item> POKE_BALLS = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("cobblemon", "poke_balls"));
 
     private MegaBossBattleListener() {}
 
     public static void register() {
-        CobblemonEvents.BATTLE_STARTED_PRE.subscribe(event -> handleBattleStarting((BattleStartedEvent) event));
-        CobblemonEvents.BATTLE_STARTED_POST.subscribe(event -> handleBattleStarted((BattleStartedEvent) event));
-        CobblemonEvents.BATTLE_VICTORY.subscribe(event -> handleVictory((BattleVictoryEvent) event));
+        CobblemonEvents.BATTLE_STARTED_PRE.subscribe(event -> safeHandle("battle start pre", () -> handleBattleStarting((BattleStartedEvent) event)));
+        CobblemonEvents.BATTLE_STARTED_POST.subscribe(event -> safeHandle("battle start post", () -> handleBattleStarted((BattleStartedEvent) event)));
+        CobblemonEvents.BATTLE_VICTORY.subscribe(event -> safeHandle("battle victory", () -> handleVictory((BattleVictoryEvent) event)));
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return InteractionResultHolder.pass(player.getItemInHand(hand));
             ItemStack stack = player.getItemInHand(hand);
@@ -53,6 +55,15 @@ public final class MegaBossBattleListener {
         });
     }
 
+    private static void safeHandle(String phase, Runnable action) {
+        try {
+            action.run();
+        } catch (Throwable throwable) {
+            System.err.println("[ChampUtils] Mega boss " + phase + " handler failed: " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage());
+            throwable.printStackTrace();
+        }
+    }
+
     public static boolean isPlayerInMegaBossBattle(ServerPlayer player) {
         return player != null && ACTIVE_PLAYER_BOSS.containsKey(player.getUUID());
     }
@@ -60,17 +71,21 @@ public final class MegaBossBattleListener {
     private static void handleBattleStarting(BattleStartedEvent event) {
         Entity boss = findMegaBossEntity(event.getBattle().getActors());
         if (boss == null) return;
+        String battleId = readBattleId(event.getBattle());
+        ACTIVE_BATTLE_BOSS.put(battleId, BossRewardSnapshot.from(boss));
         scaleBossForBattleStart(boss, event.getBattle().getActors());
     }
 
     private static void handleBattleStarted(BattleStartedEvent event) {
         Entity boss = findMegaBossEntity(event.getBattle().getActors());
-        if (boss == null) return;
+        if (boss == null) {
+            return;
+        }
         scaleBossForBattleStart(boss, event.getBattle().getActors());
+        ACTIVE_BATTLE_BOSS.put(readBattleId(event.getBattle()), BossRewardSnapshot.from(boss));
         for (Object actor : event.getBattle().getActors()) {
             if (actor instanceof PlayerBattleActor playerActor) {
-                ServerPlayer player = (ServerPlayer) playerActor.getEntity();
-                if (player == null) continue;
+                if (!(playerActor.getEntity() instanceof ServerPlayer player)) continue;
                 ACTIVE_PLAYER_BOSS.put(player.getUUID(), boss.getUUID());
                 BattleContextManager.setContext(player.getUUID(), BattleContextManager.BattleType.MEGA_BOSS);
                 player.sendSystemMessage(Component.literal("§5§lMega Boss Challenge! §cThis Pokémon cannot be caught. Defeat it for fragments, extra Battling XP, and a chance at its Mega Stone."));
@@ -79,17 +94,45 @@ public final class MegaBossBattleListener {
     }
 
     private static void handleVictory(BattleVictoryEvent event) {
+        String battleId = readBattleId(event.getBattle());
         Entity defeatedBoss = findMegaBossEntity(event.getLosers());
+        Entity survivingBoss = findMegaBossEntity(event.getWinners());
         List<ServerPlayer> winners = playerActors(event.getWinners());
-        for (ServerPlayer player : playerActors(event.getBattle().getActors())) ACTIVE_PLAYER_BOSS.remove(player.getUUID());
-        if (defeatedBoss == null || winners.isEmpty()) return;
-        String rarity = MegaBossManager.rarity(defeatedBoss);
-        List<String> stones = MegaBossManager.megaStones(defeatedBoss);
-        for (ServerPlayer winner : winners) giveRewards(winner, defeatedBoss, rarity, stones);
+        List<ServerPlayer> allPlayers = playerActors(event.getBattle().getActors());
+
+        BossRewardSnapshot snapshot = defeatedBoss != null ? BossRewardSnapshot.from(defeatedBoss) : ACTIVE_BATTLE_BOSS.remove(battleId);
+        if (snapshot == null) {
+            snapshot = snapshotFromActivePlayers(allPlayers);
+        }
+        if (defeatedBoss == null && snapshot != null) {
+            defeatedBoss = findEntityByUuid(allPlayers, snapshot.bossUuid());
+        }
+
+        for (ServerPlayer player : allPlayers) {
+            ACTIVE_PLAYER_BOSS.remove(player.getUUID());
+            BattleContextManager.clearContext(player.getUUID());
+        }
+        ACTIVE_BATTLE_BOSS.remove(battleId);
+
+        if (snapshot == null) {
+            return;
+        }
+
+        if (winners.isEmpty() || defeatedBoss == null) {
+            for (ServerPlayer player : allPlayers) {
+                player.sendSystemMessage(Component.literal("§cMega Boss battle ended. No rewards were granted."));
+            }
+            Entity bossToRemove = defeatedBoss != null ? defeatedBoss : survivingBoss;
+            if (bossToRemove == null) bossToRemove = findEntityByUuid(allPlayers, snapshot.bossUuid());
+            if (bossToRemove != null) MegaBossManager.discardBoss(bossToRemove);
+            return;
+        }
+
+        for (ServerPlayer winner : winners) giveRewards(winner, snapshot.bossUuid(), snapshot.rarity(), snapshot.stones());
         MegaBossManager.discardBoss(defeatedBoss);
     }
 
-    private static void giveRewards(ServerPlayer player, Entity boss, String rarity, List<String> stoneItems) {
+    private static void giveRewards(ServerPlayer player, UUID bossUuid, String rarity, List<String> stoneItems) {
         int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         int xp = Math.max(0, MegaBossConfig.DATA.battlingXpReward);
         if (xp > 0) ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
@@ -101,7 +144,8 @@ public final class MegaBossBattleListener {
 
         double chance = megaStoneChance(battlingLevel);
         String stoneItem = pickStone(stoneItems);
-        boolean gotStone = stoneItem != null && !stoneItem.isBlank() && ThreadLocalRandom.current().nextDouble() < chance;
+        double roll = ThreadLocalRandom.current().nextDouble();
+        boolean gotStone = stoneItem != null && !stoneItem.isBlank() && roll < chance;
         if (gotStone) giveItem(player, stoneItem, 1);
 
         player.sendSystemMessage(Component.literal("§dMega Boss defeated! §b+" + xp + " Battling XP §7| §6" + fragments + " " + pretty(rarity) + " Fragments §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
@@ -139,6 +183,42 @@ public final class MegaBossBattleListener {
         return null;
     }
 
+    private static BossRewardSnapshot snapshotFromActivePlayers(List<ServerPlayer> players) {
+        for (ServerPlayer player : players) {
+            UUID bossUuid = ACTIVE_PLAYER_BOSS.get(player.getUUID());
+            if (bossUuid == null) continue;
+            Entity boss = findEntityByUuid(players, bossUuid);
+            if (boss != null && MegaBossManager.isMegaBoss(boss)) return BossRewardSnapshot.from(boss);
+            return new BossRewardSnapshot(bossUuid, "RARE", List.of());
+        }
+        return null;
+    }
+
+    private static Entity findEntityByUuid(List<ServerPlayer> players, UUID uuid) {
+        if (uuid == null || players == null || players.isEmpty() || players.get(0).getServer() == null) return null;
+        for (ServerLevel level : players.get(0).getServer().getAllLevels()) {
+            Entity entity = level.getEntity(uuid);
+            if (entity != null) return entity;
+        }
+        return null;
+    }
+
+    private static String readBattleId(Object battle) {
+        if (battle == null) return "unknown";
+        for (String methodName : new String[]{"getBattleId", "getId"}) {
+            try {
+                Object value = battle.getClass().getMethod(methodName).invoke(battle);
+                if (value != null) return String.valueOf(value);
+            } catch (Exception ignored) {}
+        }
+        return "unknown";
+    }
+
+    private record BossRewardSnapshot(UUID bossUuid, String rarity, List<String> stones) {
+        static BossRewardSnapshot from(Entity boss) {
+            return new BossRewardSnapshot(boss.getUUID(), MegaBossManager.rarity(boss), MegaBossManager.megaStones(boss));
+        }
+    }
 
     private static void scaleBossForBattleStart(Entity boss, Iterable<?> actors) {
         if (boss == null) return;
@@ -196,8 +276,7 @@ public final class MegaBossBattleListener {
         List<ServerPlayer> players = new ArrayList<>();
         for (Object actor : actors) {
             if (actor instanceof PlayerBattleActor playerActor) {
-                ServerPlayer player = (ServerPlayer) playerActor.getEntity();
-                if (player != null && !players.contains(player)) players.add(player);
+                if (playerActor.getEntity() instanceof ServerPlayer player && !players.contains(player)) players.add(player);
             }
         }
         return players;

@@ -32,11 +32,21 @@ public final class ProfessionWeaponFragmentConfig {
     }
 
     public static class DropSettings {
-        public double baseDropChance = 0.001D;
-        public double chancePerLevel = 0.00012D;
-        public double maxDropChance = 0.0125D;
+        public double baseDropChance = 0.005D;
+        public double chancePerLevel = 0.0005D;
+        public double maxDropChance = 0.08D;
         public boolean announceLegendaryAndMythicToServer = true;
         public boolean actionBarMessage = true;
+        /**
+         * Guarantees a fragment after this many eligible profession actions without one.
+         * Set to 0 or lower to disable pity.
+         */
+        public Integer pityActions = 60;
+        /**
+         * Pity awards from the normal eligible rarity pool for the player's tool rarity.
+         * Keeping this true prevents pity from being abused as a high-rarity-only source.
+         */
+        public boolean pityUsesToolRarityPool = true;
         public Map<String, Double> professionMultipliers = new LinkedHashMap<>();
 
         public DropSettings() {
@@ -114,13 +124,69 @@ public final class ProfessionWeaponFragmentConfig {
             DROP_SETTINGS.professionMultipliers = defaults.dropSettings.professionMultipliers;
         }
 
+        if (DROP_SETTINGS.pityActions == null) {
+            DROP_SETTINGS.pityActions = defaults.dropSettings.pityActions;
+        }
+
+        // Early beta defaults were so low that normal play could see 0 fragments after long sessions.
+        // Keep custom higher values, but lift old/too-low values to the current intended baseline.
+        if (DROP_SETTINGS.baseDropChance <= 0.001D) DROP_SETTINGS.baseDropChance = defaults.dropSettings.baseDropChance;
+        if (DROP_SETTINGS.chancePerLevel <= 0.00012D) DROP_SETTINGS.chancePerLevel = defaults.dropSettings.chancePerLevel;
+        if (DROP_SETTINGS.maxDropChance <= 0.0125D) DROP_SETTINGS.maxDropChance = defaults.dropSettings.maxDropChance;
+
         if (FRAGMENTS == null || FRAGMENTS.isEmpty()) {
             FRAGMENTS = defaults.fragments;
+        } else {
+            FRAGMENTS = normalizeFragmentMap(FRAGMENTS);
         }
 
         if (RARITY_WEIGHTS == null || RARITY_WEIGHTS.isEmpty()) {
             RARITY_WEIGHTS = defaults.rarityWeights;
+        } else {
+            RARITY_WEIGHTS = normalizeWeightMap(RARITY_WEIGHTS);
         }
+
+        // If a custom config accidentally sets all eligible weights to zero/missing, restore defaults.
+        boolean anyPositiveWeight = false;
+        for (Integer weight : RARITY_WEIGHTS.values()) {
+            if (weight != null && weight > 0) {
+                anyPositiveWeight = true;
+                break;
+            }
+        }
+        if (!anyPositiveWeight) {
+            RARITY_WEIGHTS = defaults.rarityWeights;
+        }
+    }
+
+    private static Map<String, FragmentData> normalizeFragmentMap(Map<String, FragmentData> input) {
+        LinkedHashMap<String, FragmentData> normalized = new LinkedHashMap<>();
+        if (input == null) {
+            return normalized;
+        }
+
+        for (Map.Entry<String, FragmentData> entry : input.entrySet()) {
+            if (entry.getValue() != null) {
+                normalized.put(normalizeRarity(entry.getKey()), entry.getValue());
+            }
+        }
+        return normalized;
+    }
+
+    private static Map<String, Integer> normalizeWeightMap(Map<String, Integer> input) {
+        LinkedHashMap<String, Integer> normalized = new LinkedHashMap<>();
+        if (input == null) {
+            return normalized;
+        }
+
+        for (Map.Entry<String, Integer> entry : input.entrySet()) {
+            String rarity = normalizeRarity(entry.getKey());
+            Integer weight = entry.getValue();
+            if (weight != null) {
+                normalized.put(rarity, weight);
+            }
+        }
+        return normalized;
     }
 
     private static ConfigRoot defaultRoot() {

@@ -299,11 +299,16 @@ public final class WonderTradeService {
     public static void sendCooldown(ServerPlayer player) {
         if (player == null) return;
         UUID playerUuid = player.getUUID();
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) {
+            player.sendSystemMessage(Component.literal("You must load a profile before checking Wondertrade cooldown.").withStyle(ChatFormatting.RED));
+            return;
+        }
         MinecraftServer server = player.server;
         CompletableFuture.supplyAsync(() -> {
             try {
                 int minutes = WonderTradeRepository.getCooldownMinutes();
-                long remaining = WonderTradeRepository.getCooldownRemainingSeconds(playerUuid);
+                long remaining = WonderTradeRepository.getCooldownRemainingSeconds(profileId);
                 return new CooldownInfo(minutes, remaining);
             } catch (Exception e) {
                 throw new RuntimeException(e);

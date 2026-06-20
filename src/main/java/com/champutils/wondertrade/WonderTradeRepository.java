@@ -83,7 +83,7 @@ public final class WonderTradeRepository {
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_history (" +
                         "id uuid primary key default gen_random_uuid()," +
-                        "player_uuid text not null," +
+                        "player_uuid uuid not null," +
                         "player_username text not null," +
                         "sent_species text not null," +
                         "sent_display_name text not null," +
@@ -99,7 +99,8 @@ public final class WonderTradeRepository {
             statement.executeUpdate();
         }
 
-        addColumnIfMissing(connection, "wondertrade_history", "player_uuid", "text not null default 'unknown'");
+        addColumnIfMissing(connection, "wondertrade_history", "player_uuid", "uuid not null default '00000000-0000-0000-0000-000000000000'");
+        convertPlayerUuidColumnToUuid(connection, "wondertrade_history");
         addColumnIfMissing(connection, "wondertrade_history", "player_username", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_history", "sent_species", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_history", "sent_display_name", "text not null default 'unknown'");
@@ -132,21 +133,26 @@ public final class WonderTradeRepository {
 
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_cooldowns (" +
-                        "player_uuid text primary key," +
+                        "profile_id uuid primary key," +
+                        "player_uuid uuid not null," +
                         "last_trade_at timestamptz not null default now()" +
                         ")"
         )) {
             statement.executeUpdate();
         }
 
-        addColumnIfMissing(connection, "wondertrade_cooldowns", "player_uuid", "text not null default 'unknown'");
+        addColumnIfMissing(connection, "wondertrade_cooldowns", "profile_id", "uuid");
+        addColumnIfMissing(connection, "wondertrade_cooldowns", "player_uuid", "uuid not null default '00000000-0000-0000-0000-000000000000'");
+        convertPlayerUuidColumnToUuid(connection, "wondertrade_cooldowns");
         addColumnIfMissing(connection, "wondertrade_cooldowns", "last_trade_at", "timestamptz not null default now()");
-        executeQuietly(connection, "create unique index if not exists idx_wondertrade_cooldowns_player_uuid_unique on wondertrade_cooldowns(player_uuid)");
+        repairLegacyCooldownColumns(connection);
+        validateRequiredColumns(connection, "wondertrade_cooldowns", "profile_id", "player_uuid", "last_trade_at");
+        executeQuietly(connection, "create index if not exists idx_wondertrade_cooldowns_player_uuid on wondertrade_cooldowns(player_uuid)");
 
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_pending_claims (" +
                         "profile_id uuid primary key," +
-                        "player_uuid text not null," +
+                        "player_uuid uuid not null," +
                         "player_username text not null default 'unknown'," +
                         "claim_type text not null default 'RECEIVED'," +
                         "payload jsonb not null default '{}'::jsonb," +
@@ -159,7 +165,8 @@ public final class WonderTradeRepository {
         }
 
         addColumnIfMissing(connection, "wondertrade_pending_claims", "profile_id", "uuid");
-        addColumnIfMissing(connection, "wondertrade_pending_claims", "player_uuid", "text not null default 'unknown'");
+        addColumnIfMissing(connection, "wondertrade_pending_claims", "player_uuid", "uuid not null default '00000000-0000-0000-0000-000000000000'");
+        convertPlayerUuidColumnToUuid(connection, "wondertrade_pending_claims");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "player_username", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "claim_type", "text not null default 'RECEIVED'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "payload", "jsonb not null default '{}'::jsonb");
@@ -261,23 +268,48 @@ public final class WonderTradeRepository {
         }
     }
 
+    private static void repairLegacyCooldownColumns(Connection connection) {
+        // WonderTrade cooldowns are profile-scoped in the live schema. profile_id is the primary key
+        // and must never be nullable. player_uuid is retained for audit/debug and optional account lookup.
+        try {
+            if (columnExists(connection, "wondertrade_cooldowns", "profile_id")) {
+                executeQuietly(connection, "delete from wondertrade_cooldowns where profile_id is null");
+                executeQuietly(connection, "alter table wondertrade_cooldowns alter column profile_id set not null");
+            }
+            if (columnExists(connection, "wondertrade_cooldowns", "player_uuid")) {
+                executeQuietly(connection, "update wondertrade_cooldowns set player_uuid = '00000000-0000-0000-0000-000000000000' where player_uuid is null");
+                executeQuietly(connection, "alter table wondertrade_cooldowns alter column player_uuid set not null");
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] WonderTrade cooldown schema repair failed: " + e.getMessage());
+        }
+    }
 
     private static void repairLegacyPendingClaimColumns(Connection connection) {
         // WonderTrade is profile-scoped. profile_id is the ownership key; player_uuid is retained
         // only for audit/display and account-level cooldown checks. Never make profile_id nullable.
         try {
             if (columnExists(connection, "wondertrade_pending_claims", "profile_id")) {
-                executeQuietly(connection, "update wondertrade_pending_claims set profile_id = nullif(player_uuid, 'unknown')::uuid where profile_id is null and player_uuid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'");
+                executeQuietly(connection, "update wondertrade_pending_claims set profile_id = nullif(player_uuid::text, 'unknown')::uuid where profile_id is null and player_uuid::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'");
                 executeQuietly(connection, "delete from wondertrade_pending_claims where profile_id is null");
                 executeQuietly(connection, "alter table wondertrade_pending_claims alter column profile_id set not null");
             }
             if (columnExists(connection, "wondertrade_pending_claims", "player_uuid")) {
-                executeQuietly(connection, "update wondertrade_pending_claims set player_uuid = 'unknown' where player_uuid is null or trim(player_uuid) = ''");
+                executeQuietly(connection, "update wondertrade_pending_claims set player_uuid = '00000000-0000-0000-0000-000000000000' where player_uuid is null");
                 executeQuietly(connection, "alter table wondertrade_pending_claims alter column player_uuid set not null");
             }
         } catch (Exception e) {
             System.err.println("[ChampUtils] WonderTrade pending-claim schema repair failed: " + e.getMessage());
         }
+    }
+
+    private static void convertPlayerUuidColumnToUuid(Connection connection, String table) {
+        // Older beta schemas created player_uuid as text. Current code uses UUID consistently.
+        executeQuietly(connection, "alter table " + table + " alter column player_uuid drop default");
+        executeQuietly(connection, "update " + table + " set player_uuid = '00000000-0000-0000-0000-000000000000' where player_uuid is null or trim(player_uuid::text) = '' or player_uuid::text = 'unknown'");
+        executeQuietly(connection, "alter table " + table + " alter column player_uuid type uuid using player_uuid::uuid");
+        executeQuietly(connection, "alter table " + table + " alter column player_uuid set default '00000000-0000-0000-0000-000000000000'::uuid");
+        executeQuietly(connection, "alter table " + table + " alter column player_uuid set not null");
     }
 
     private static void validateRequiredColumns(Connection connection, String table, String... columns) throws Exception {
@@ -419,7 +451,7 @@ public final class WonderTradeRepository {
                             "(player_uuid, player_username, sent_species, sent_display_name, sent_shiny, sent_legendary, received_species, received_display_name, received_shiny, received_legendary, traded_at) " +
                             "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())"
             )) {
-                statement.setString(1, playerUuid.toString());
+                statement.setObject(1, playerUuid);
                 statement.setString(2, playerUsername == null ? playerUuid.toString() : playerUsername);
                 statement.setString(3, offeredSpecies);
                 statement.setString(4, offeredName);
@@ -433,7 +465,7 @@ public final class WonderTradeRepository {
             }
 
             savePendingClaim(connection, profileId, playerUuid, playerUsername, "RECEIVED", received.payload, received.displayName);
-            markCooldown(connection, playerUuid);
+            markCooldown(connection, profileId, playerUuid);
 
             connection.commit();
             return received;
@@ -577,9 +609,9 @@ public final class WonderTradeRepository {
         }
 
         try (PreparedStatement statement = connection.prepareStatement(
-                "select last_trade_at from wondertrade_cooldowns where player_uuid = ?"
+                "select last_trade_at from wondertrade_cooldowns where profile_id = ?"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next()) return new TradeGate(false, 0L);
                 Instant last = rs.getTimestamp(1).toInstant();
@@ -647,16 +679,19 @@ public final class WonderTradeRepository {
         }
     }
 
-    public static long getCooldownRemainingSeconds(UUID playerUuid) throws Exception {
+    public static long getCooldownRemainingSeconds(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
+        if (profileId == null) {
+            throw new IllegalArgumentException("WonderTrade cooldown lookup requires a non-null profile_id.");
+        }
         int cooldownMinutes = getCooldownMinutes();
         if (cooldownMinutes <= 0) return 0;
 
         try (PreparedStatement statement = connection.prepareStatement(
-                "select last_trade_at from wondertrade_cooldowns where player_uuid = ?"
+                "select last_trade_at from wondertrade_cooldowns where profile_id = ?"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next()) return 0;
                 Instant last = rs.getTimestamp(1).toInstant();
@@ -667,18 +702,25 @@ public final class WonderTradeRepository {
         }
     }
 
-    public static void markCooldown(UUID playerUuid) throws Exception {
+    public static void markCooldown(UUID profileId, UUID playerUuid) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
-        markCooldown(connection, playerUuid);
+        markCooldown(connection, profileId, playerUuid);
     }
 
-    private static void markCooldown(Connection connection, UUID playerUuid) throws Exception {
+    private static void markCooldown(Connection connection, UUID profileId, UUID playerUuid) throws Exception {
+        if (profileId == null) {
+            throw new IllegalArgumentException("WonderTrade cooldowns require a non-null profile_id.");
+        }
+        if (playerUuid == null) {
+            throw new IllegalArgumentException("WonderTrade cooldowns require a non-null player_uuid.");
+        }
         try (PreparedStatement statement = connection.prepareStatement(
-                "insert into wondertrade_cooldowns(player_uuid, last_trade_at) values (?, now()) " +
-                        "on conflict (player_uuid) do update set last_trade_at = now()"
+                "insert into wondertrade_cooldowns(profile_id, player_uuid, last_trade_at) values (?, ?, now()) " +
+                        "on conflict (profile_id) do update set player_uuid = excluded.player_uuid, last_trade_at = now()"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
+            statement.setObject(2, playerUuid);
             statement.executeUpdate();
         }
     }
@@ -702,7 +744,7 @@ public final class WonderTradeRepository {
                         "on conflict (profile_id) do update set player_uuid = excluded.player_uuid, player_username = excluded.player_username, claim_type = excluded.claim_type, payload = excluded.payload, display_name = excluded.display_name, updated_at = now()"
         )) {
             statement.setObject(1, profileId);
-            statement.setString(2, playerUuid.toString());
+            statement.setObject(2, playerUuid);
             statement.setString(3, playerUsername == null ? playerUuid.toString() : playerUsername);
             statement.setString(4, claimType == null ? "RECEIVED" : claimType);
             statement.setObject(5, jsonb(payload));
