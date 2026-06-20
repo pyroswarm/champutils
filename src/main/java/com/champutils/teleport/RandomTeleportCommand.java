@@ -48,15 +48,15 @@ public final class RandomTeleportCommand {
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
 
-    private static final int ATTEMPTS_PER_TICK = 2;
-    private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 0;
-    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 0;
+    private static final int ATTEMPTS_PER_TICK = 8;
+    private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 1;
+    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 32;
     private static final int MAX_ACTIVE_RTP_SEARCHES = 1;
     private static final int BORDER_PADDING = 32;
     private static final int FALLBACK_RTP_BORDER_RADIUS = 4999;
     private static final int NETHER_MAX_SAFE_Y = 119;
     private static final int MIN_RTP_DISTANCE_BLOCKS = 250;
-    private static final int PREGENERATED_AREA_ATTEMPTS = 240;
+    private static final int PREGENERATED_AREA_ATTEMPTS = 40;
     private static final int MAX_RTP_SEARCH_ATTEMPTS = 900;
     private static final int MAX_RTP_SEARCH_TICKS = 600;
     private static final int MAX_BIOME_RTP_SEARCH_ATTEMPTS = 1800;

@@ -20,7 +20,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +28,10 @@ public final class IronmanItemOwnership {
     public static final String ROOT = "champutils_ironman";
     public static final String OWNER_PROFILE = "owner_profile";
     public static final String OWNER_PLAYER = "owner_player";
+    /**
+     * Legacy field. Do not write this anymore.
+     * Different source values made otherwise identical owned items refuse to stack.
+     */
     public static final String SOURCE = "source";
     public static final String DROP_TAG_PREFIX = "champutils_ironman_dropper_profile:";
 
@@ -145,7 +148,11 @@ public final class IronmanItemOwnership {
 
     public static void stampIfIronmanOwned(ServerPlayer player, ItemStack stack, String source) {
         if (player == null || stack == null || stack.isEmpty()) return;
-        if (ownerProfile(stack) != null) return;
+        UUID owner = ownerProfile(stack);
+        if (owner != null) {
+            normalizeOwnedStack(stack);
+            return;
+        }
         stampOwned(player, stack, source);
     }
 
@@ -157,9 +164,38 @@ public final class IronmanItemOwnership {
         CompoundTag root = tag.getCompound(ROOT);
         root.putString(OWNER_PROFILE, profileId.toString());
         root.putString(OWNER_PLAYER, player.getUUID().toString());
-        root.putString(SOURCE, source == null ? "unknown" : source.toLowerCase(Locale.ROOT));
+        // IMPORTANT: do not write per-action/source metadata to the item.
+        // Components must be byte-identical for Minecraft to merge stacks, so
+        // storing values like world_pickup/container_deposit/player_drop splits
+        // the same item into multiple stacks. Keep ownership stable and minimal.
+        root.remove(SOURCE);
         tag.put(ROOT, root);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    /**
+     * Migrates old owned items to the stack-friendly format. Returns true when
+     * the stack's components were changed.
+     */
+    public static boolean normalizeOwnedStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        try {
+            CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            if (!tag.contains(ROOT)) return false;
+            CompoundTag root = tag.getCompound(ROOT);
+            boolean changed = false;
+            if (root.contains(SOURCE)) {
+                root.remove(SOURCE);
+                changed = true;
+            }
+            if (changed) {
+                tag.put(ROOT, root);
+                stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            }
+            return changed;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static UUID ownerProfile(ItemStack stack) {
@@ -186,11 +222,39 @@ public final class IronmanItemOwnership {
 
     private static void sanitizeInventory(ServerPlayer player) {
         if (player == null || PlayerProfileManager.isInMainMenu(player)) return;
+        if (!isRestricted(player)) return;
         Inventory inv = player.getInventory();
+        boolean changed = false;
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack stack = inv.getItem(i);
             if (stack == null || stack.isEmpty()) continue;
-            if (!denyForeignUse(player, stack) && isRestricted(player)) stampIfIronmanOwned(player, stack, "inventory_scan");
+            if (!denyForeignUse(player, stack)) {
+                UUID before = ownerProfile(stack);
+                stampIfIronmanOwned(player, stack, "inventory_scan");
+                changed = true;
+            }
+        }
+        if (changed) compactMatchingInventoryStacks(inv);
+    }
+
+    private static void compactMatchingInventoryStacks(Inventory inv) {
+        if (inv == null) return;
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack target = inv.getItem(i);
+            if (target == null || target.isEmpty() || target.getCount() >= target.getMaxStackSize()) continue;
+            for (int j = i + 1; j < inv.getContainerSize(); j++) {
+                ItemStack source = inv.getItem(j);
+                if (source == null || source.isEmpty()) continue;
+                normalizeOwnedStack(target);
+                normalizeOwnedStack(source);
+                if (!ItemStack.isSameItemSameComponents(target, source)) continue;
+                int room = target.getMaxStackSize() - target.getCount();
+                if (room <= 0) break;
+                int move = Math.min(room, source.getCount());
+                target.grow(move);
+                source.shrink(move);
+                if (source.isEmpty()) inv.setItem(j, ItemStack.EMPTY);
+            }
         }
     }
 

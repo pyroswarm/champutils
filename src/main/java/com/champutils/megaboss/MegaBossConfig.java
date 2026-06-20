@@ -66,6 +66,8 @@ public final class MegaBossConfig {
         if (DATA.maxSpawnedPlayersPerCheck == 5 || DATA.maxSpawnedPlayersPerCheck == 8) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.spawnChancePerPlayerCheck <= 0.0D || DATA.spawnChancePerPlayerCheck > 1.0D) DATA.spawnChancePerPlayerCheck = defaultData.spawnChancePerPlayerCheck;
+        if (DATA.levelsAbovePlayerHighest < 10) DATA.levelsAbovePlayerHighest = 10;
+        if (DATA.megaStoneDropChance <= 0.0D || DATA.megaStoneDropChance > 1.0D) DATA.megaStoneDropChance = 0.10D;
         if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
         if (DATA.rarityWeights == null) DATA.rarityWeights = defaultData.rarityWeights;
@@ -142,7 +144,7 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 5;
+        public int configVersion = 6;
         public boolean enabled = true;
         public int checkIntervalTicks = 300;
         /**
@@ -176,14 +178,17 @@ public final class MegaBossConfig {
         public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;
         public int maxDistanceFromPlayer = 96;
-        public int levelsAbovePlayerHighest = 5;
+        public int levelsAbovePlayerHighest = 10;
         public double scaleModifier = 1.7D;
         public long despawnMinutes = 30L;
         public int battlingXpReward = 350;
         public int fragmentMin = 2;
         public int fragmentMax = 4;
-        public double megaStoneBaseChance = 0.01D;
-        public double megaStoneChanceAtLevel100 = 0.20D;
+        public double megaStoneDropChance = 0.10D;
+        /** Deprecated: kept so old configs still deserialize safely. */
+        public double megaStoneBaseChance = 0.10D;
+        /** Deprecated: kept so old configs still deserialize safely. */
+        public double megaStoneChanceAtLevel100 = 0.10D;
         public boolean broadcastSpawns = true;
         public boolean broadcastMegaStoneDrops = true;
         public List<String> disabledDimensions = new ArrayList<>();
@@ -205,6 +210,7 @@ public final class MegaBossConfig {
         public String species = "lucario";
         public String rarity = "EPIC";
         public String megaStoneItem = "";
+        public List<String> megaStoneItems = new ArrayList<>();
         public String extraProperties = "mega=true";
         public String ability = "";
         public String nature = "";

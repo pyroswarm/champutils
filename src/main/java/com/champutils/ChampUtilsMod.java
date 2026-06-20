@@ -746,6 +746,7 @@ public class ChampUtilsMod implements ModInitializer {
                         ProfessionManager.saveAll();
                         QuestManager.saveAll();
                         PlaytimeManager.addOnlineMinute(server);
+                        com.champutils.profile.ProfilePlaytimeManager.flushAsync();
                         ServerStatusDatabaseRepository.sync(server);
                     }
 

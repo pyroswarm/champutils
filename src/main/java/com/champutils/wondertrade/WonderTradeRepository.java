@@ -10,6 +10,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public final class WonderTradeRepository {
@@ -143,7 +145,8 @@ public final class WonderTradeRepository {
 
         try (PreparedStatement statement = connection.prepareStatement(
                 "create table if not exists wondertrade_pending_claims (" +
-                        "player_uuid text primary key," +
+                        "profile_id uuid primary key," +
+                        "player_uuid text not null," +
                         "player_username text not null default 'unknown'," +
                         "claim_type text not null default 'RECEIVED'," +
                         "payload jsonb not null default '{}'::jsonb," +
@@ -155,6 +158,7 @@ public final class WonderTradeRepository {
             statement.executeUpdate();
         }
 
+        addColumnIfMissing(connection, "wondertrade_pending_claims", "profile_id", "uuid");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "player_uuid", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "player_username", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "claim_type", "text not null default 'RECEIVED'");
@@ -162,7 +166,10 @@ public final class WonderTradeRepository {
         addColumnIfMissing(connection, "wondertrade_pending_claims", "display_name", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "created_at", "timestamptz not null default now()");
         addColumnIfMissing(connection, "wondertrade_pending_claims", "updated_at", "timestamptz not null default now()");
-        executeQuietly(connection, "create unique index if not exists idx_wondertrade_pending_claims_player_uuid_unique on wondertrade_pending_claims(player_uuid)");
+        repairLegacyPendingClaimColumns(connection);
+        validateRequiredColumns(connection, "wondertrade_pending_claims", "profile_id", "player_uuid", "player_username", "claim_type", "payload", "display_name", "created_at", "updated_at");
+        executeQuietly(connection, "create unique index if not exists idx_wondertrade_pending_claims_profile_id_unique on wondertrade_pending_claims(profile_id)");
+        executeQuietly(connection, "create index if not exists idx_wondertrade_pending_claims_player_uuid on wondertrade_pending_claims(player_uuid)");
 
             legacyPokemonDataColumn = columnExists(connection, "wondertrade_pool", "pokemon_data");
             legacyLevelColumn = columnExists(connection, "wondertrade_pool", "level");
@@ -255,6 +262,37 @@ public final class WonderTradeRepository {
     }
 
 
+    private static void repairLegacyPendingClaimColumns(Connection connection) {
+        // WonderTrade is profile-scoped. profile_id is the ownership key; player_uuid is retained
+        // only for audit/display and account-level cooldown checks. Never make profile_id nullable.
+        try {
+            if (columnExists(connection, "wondertrade_pending_claims", "profile_id")) {
+                executeQuietly(connection, "update wondertrade_pending_claims set profile_id = nullif(player_uuid, 'unknown')::uuid where profile_id is null and player_uuid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'");
+                executeQuietly(connection, "delete from wondertrade_pending_claims where profile_id is null");
+                executeQuietly(connection, "alter table wondertrade_pending_claims alter column profile_id set not null");
+            }
+            if (columnExists(connection, "wondertrade_pending_claims", "player_uuid")) {
+                executeQuietly(connection, "update wondertrade_pending_claims set player_uuid = 'unknown' where player_uuid is null or trim(player_uuid) = ''");
+                executeQuietly(connection, "alter table wondertrade_pending_claims alter column player_uuid set not null");
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] WonderTrade pending-claim schema repair failed: " + e.getMessage());
+        }
+    }
+
+    private static void validateRequiredColumns(Connection connection, String table, String... columns) throws Exception {
+        List<String> missing = new ArrayList<>();
+        for (String column : columns) {
+            if (!columnExists(connection, table, column)) {
+                missing.add(column);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Database table " + table + " is missing required columns " + missing + ". Check DB/schema and deployed jar.");
+        }
+    }
+
+
     private static boolean columnExists(Connection connection, String table, String column) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "select 1 from information_schema.columns where table_schema = current_schema() and table_name = ? and column_name = ?"
@@ -308,7 +346,7 @@ public final class WonderTradeRepository {
         insert(UUID.fromString("00000000-0000-0000-0000-000000000000"), "WonderTrade", "SERVER_SEED", payload, species, displayName, level, shiny, false);
     }
 
-    public static WonderTradeEntry exchange(UUID playerUuid, String playerUsername, JsonObject offeredPayload) throws Exception {
+    public static WonderTradeEntry exchange(UUID profileId, UUID playerUuid, String playerUsername, JsonObject offeredPayload) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
 
@@ -394,7 +432,7 @@ public final class WonderTradeRepository {
                 statement.executeUpdate();
             }
 
-            savePendingClaim(connection, playerUuid, playerUsername, "RECEIVED", received.payload, received.displayName);
+            savePendingClaim(connection, profileId, playerUuid, playerUsername, "RECEIVED", received.payload, received.displayName);
             markCooldown(connection, playerUuid);
 
             connection.commit();
@@ -513,15 +551,18 @@ public final class WonderTradeRepository {
 
 
 
-    public static TradeGate getTradeGate(UUID playerUuid) throws Exception {
+    public static TradeGate getTradeGate(UUID profileId, UUID playerUuid) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
 
+        if (profileId == null) {
+            throw new IllegalArgumentException("WonderTrade requires an active profile_id.");
+        }
         boolean pending;
         try (PreparedStatement statement = connection.prepareStatement(
-                "select 1 from wondertrade_pending_claims where player_uuid = ? limit 1"
+                "select 1 from wondertrade_pending_claims where profile_id = ? limit 1"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
             try (ResultSet rs = statement.executeQuery()) {
                 pending = rs.next();
             }
@@ -642,34 +683,44 @@ public final class WonderTradeRepository {
         }
     }
 
-    public static void savePendingClaim(UUID playerUuid, String playerUsername, String claimType, JsonObject payload, String displayName) throws Exception {
+    public static void savePendingClaim(UUID profileId, UUID playerUuid, String playerUsername, String claimType, JsonObject payload, String displayName) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
-        savePendingClaim(connection, playerUuid, playerUsername, claimType, payload, displayName);
+        savePendingClaim(connection, profileId, playerUuid, playerUsername, claimType, payload, displayName);
     }
 
-    private static void savePendingClaim(Connection connection, UUID playerUuid, String playerUsername, String claimType, JsonObject payload, String displayName) throws Exception {
+    private static void savePendingClaim(Connection connection, UUID profileId, UUID playerUuid, String playerUsername, String claimType, JsonObject payload, String displayName) throws Exception {
+        if (profileId == null) {
+            throw new IllegalArgumentException("WonderTrade pending claims require a non-null profile_id.");
+        }
+        if (playerUuid == null) {
+            throw new IllegalArgumentException("WonderTrade pending claims require a non-null player_uuid.");
+        }
         try (PreparedStatement statement = connection.prepareStatement(
-                "insert into wondertrade_pending_claims(player_uuid, player_username, claim_type, payload, display_name, created_at, updated_at) " +
-                        "values (?, ?, ?, ?, ?, now(), now()) " +
-                        "on conflict (player_uuid) do update set player_username = excluded.player_username, claim_type = excluded.claim_type, payload = excluded.payload, display_name = excluded.display_name, updated_at = now()"
+                "insert into wondertrade_pending_claims(profile_id, player_uuid, player_username, claim_type, payload, display_name, created_at, updated_at) " +
+                        "values (?, ?, ?, ?, ?, ?, now(), now()) " +
+                        "on conflict (profile_id) do update set player_uuid = excluded.player_uuid, player_username = excluded.player_username, claim_type = excluded.claim_type, payload = excluded.payload, display_name = excluded.display_name, updated_at = now()"
         )) {
-            statement.setString(1, playerUuid.toString());
-            statement.setString(2, playerUsername == null ? playerUuid.toString() : playerUsername);
-            statement.setString(3, claimType == null ? "RECEIVED" : claimType);
-            statement.setObject(4, jsonb(payload));
-            statement.setString(5, displayName == null ? "unknown" : displayName);
+            statement.setObject(1, profileId);
+            statement.setString(2, playerUuid.toString());
+            statement.setString(3, playerUsername == null ? playerUuid.toString() : playerUsername);
+            statement.setString(4, claimType == null ? "RECEIVED" : claimType);
+            statement.setObject(5, jsonb(payload));
+            statement.setString(6, displayName == null ? "unknown" : displayName);
             statement.executeUpdate();
         }
     }
 
-    public static PendingClaim getPendingClaim(UUID playerUuid) throws Exception {
+    public static PendingClaim getPendingClaim(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
+        if (profileId == null) {
+            throw new IllegalArgumentException("WonderTrade requires an active profile_id.");
+        }
         try (PreparedStatement statement = connection.prepareStatement(
-                "select claim_type, payload::text as payload, display_name from wondertrade_pending_claims where player_uuid = ?"
+                "select claim_type, payload::text as payload, display_name from wondertrade_pending_claims where profile_id = ?"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next()) return null;
                 JsonObject payload = GSON.fromJson(rs.getString("payload"), JsonObject.class);
@@ -678,17 +729,18 @@ public final class WonderTradeRepository {
         }
     }
 
-    public static boolean hasPendingClaim(UUID playerUuid) throws Exception {
-        return getPendingClaim(playerUuid) != null;
+    public static boolean hasPendingClaim(UUID profileId) throws Exception {
+        return getPendingClaim(profileId) != null;
     }
 
-    public static void deletePendingClaim(UUID playerUuid) throws Exception {
+    public static void deletePendingClaim(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
         ensureSchema(connection);
+        if (profileId == null) return;
         try (PreparedStatement statement = connection.prepareStatement(
-                "delete from wondertrade_pending_claims where player_uuid = ?"
+                "delete from wondertrade_pending_claims where profile_id = ?"
         )) {
-            statement.setString(1, playerUuid.toString());
+            statement.setObject(1, profileId);
             statement.executeUpdate();
         }
     }

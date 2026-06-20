@@ -81,7 +81,9 @@ public final class TerritoryCommand {
                                             .executes(context -> requestGeneration(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "territoryId")))))
                             .then(Commands.literal("cooldownminutes")
                                     .then(Commands.argument("minutes", IntegerArgumentType.integer(0, 10080))
-                                            .executes(context -> setRecreateCooldown(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "minutes"))))))
+                                            .executes(context -> setRecreateCooldown(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "minutes")))))
+                            .then(Commands.literal("rebuildstewards")
+                                    .executes(context -> rebuildStewards(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("reloadcache")
                             .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                             .executes(context -> {
@@ -601,6 +603,12 @@ public final class TerritoryCommand {
         player.sendSystemMessage(Component.literal("/territory delete confirm - Permanently delete and wipe your personal territory").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/gterritory ban|unban|kick <player> - Guild territory access control").withStyle(ChatFormatting.GRAY));
         return 1;
+    }
+
+    private static int rebuildStewards(ServerPlayer player) {
+        int count = TerritoryNpcManager.rebuildAllStewards(player.server);
+        player.sendSystemMessage(Component.literal("Rebuilt territory stewards for " + count + " ready territories.").withStyle(ChatFormatting.GREEN));
+        return Math.max(1, count);
     }
 
     private static TerritoryRepository.TrustLevel parseTrust(String raw) {

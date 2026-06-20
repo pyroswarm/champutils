@@ -210,6 +210,9 @@ public class ProfessionToolRequirementListener {
             return true;
         }
 
+        // Heal old tool lore/NBT in-place when the player uses the item.
+        ProfessionToolManager.refreshToolStack(stack);
+
         if (
                 !ProfessionToolMetadata.isIdentified(
                         stack

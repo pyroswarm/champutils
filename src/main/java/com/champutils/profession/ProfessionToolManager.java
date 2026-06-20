@@ -1080,18 +1080,6 @@ public class ProfessionToolManager {
                 )
         );
 
-        lore.add(
-                Component.literal(
-                        "Requires " +
-                                formatWords(
-                                        toolData.profession
-                                ) +
-                                " level " +
-                                toolData.requiredLevel
-                ).withStyle(
-                        ChatFormatting.GRAY
-                )
-        );
     }
 
 

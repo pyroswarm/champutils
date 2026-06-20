@@ -67,6 +67,30 @@ public final class TerritoryNpcManager {
         markStewardSpawned(territory);
     }
 
+    public static int rebuildAllStewards(MinecraftServer server) {
+        if (server == null) return 0;
+        int queued = 0;
+        SPAWNED_THIS_RUNTIME.clear();
+        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
+            if (territory == null || territory.id == null || !territory.isReady() || TerritoryRepository.isDeleting(territory)) continue;
+            ServerLevel level = level(server, territory.worldName);
+            if (level == null) continue;
+            Vec3 pos = npcPosition(territory);
+            String uniqueTag = TAG_PREFIX + territory.id;
+            String displayName = territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Guild Steward" : "Territory Steward";
+            AABB search = new AABB(territory.minX, pos.y - 64, territory.minZ, territory.maxX, pos.y + 64, territory.maxZ);
+            for (Entity entity : level.getEntities((Entity) null, search, e ->
+                    e instanceof NPCEntity && (e.getTags().contains(uniqueTag) || e.getTags().contains(PERSONAL_TAG) || e.getTags().contains(GUILD_TAG) ||
+                            (e.getCustomName() != null && ("Territory Steward".equalsIgnoreCase(e.getCustomName().getString()) || "Guild Steward".equalsIgnoreCase(e.getCustomName().getString())))))) {
+                entity.discard();
+            }
+            territory.stewardNpcSpawned = false;
+            spawnOnceWhenReady(server, territory);
+            queued++;
+        }
+        return queued;
+    }
+
     private static void markStewardSpawned(TerritoryRepository.Territory territory) {
         if (territory == null || territory.stewardNpcSpawned) return;
         territory.stewardNpcSpawned = true;
@@ -80,6 +104,22 @@ public final class TerritoryNpcManager {
                 try { return TerritoryRepository.get(UUID.fromString(tag.substring(TAG_PREFIX.length()))); }
                 catch (Exception ignored) { return null; }
             }
+        }
+
+        // Self-heal older/broken stewards that survived as normal NPCs but lost their tags.
+        String name = entity.getCustomName() == null ? "" : entity.getCustomName().getString();
+        if (!("Territory Steward".equalsIgnoreCase(name) || "Guild Steward".equalsIgnoreCase(name))) return null;
+        String worldName = entity.level().dimension().location().toString();
+        BlockPos pos = entity.blockPosition();
+        for (TerritoryRepository.Territory territory : TerritoryRepository.cachedInWorld(com.champutils.network.NetworkServerConfig.serverId(), worldName)) {
+            if (territory == null || territory.id == null || !territory.isReady()) continue;
+            if (pos.getX() < territory.minX || pos.getX() > territory.maxX || pos.getZ() < territory.minZ || pos.getZ() > territory.maxZ) continue;
+            entity.addTag(TAG_PREFIX + territory.id);
+            entity.addTag(territory.ownerType == TerritoryRepository.OwnerType.GUILD ? GUILD_TAG : PERSONAL_TAG);
+            if (entity instanceof NPCEntity npc) configureNpc(npc, npcPosition(territory), territory);
+            territory.stewardNpcSpawned = true;
+            TerritoryRepository.save(territory, (success, message) -> {});
+            return territory;
         }
         return null;
     }

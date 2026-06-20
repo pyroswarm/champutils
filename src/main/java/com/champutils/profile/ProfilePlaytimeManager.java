@@ -50,6 +50,7 @@ public final class ProfilePlaytimeManager {
         SessionMark previous = SESSION_MARKS.put(player.getUUID(), new SessionMark(profileId, now));
         if (previous == null || !profileId.equals(previous.profileId)) {
             warmCacheAsync(profileId);
+            PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(Math.max(0L, loadLocalBackup(profileId))));
             return;
         }
         long elapsedSeconds = Math.max(0L, (now - previous.markedAtMillis) / 1000L);
@@ -85,14 +86,16 @@ public final class ProfilePlaytimeManager {
 
     public static long getCachedPlaytimeSeconds(UUID profileId) {
         if (profileId == null) return 0L;
-        warmCacheAsync(profileId);
         AtomicLong cached = PROFILE_SECONDS.get(profileId);
-        if (cached != null) return Math.max(0L, cached.get());
-        long local = loadLocalBackup(profileId);
-        if (local > 0L) {
-            PROFILE_SECONDS.putIfAbsent(profileId, new AtomicLong(local));
-            return local;
+        if (cached == null) {
+            long local = loadLocalBackup(profileId);
+            if (local > 0L) {
+                cached = PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(local));
+                LOADED_FROM_DB.add(profileId);
+            }
         }
+        warmCacheAsync(profileId);
+        if (cached != null) return Math.max(0L, cached.get());
         return 0L;
     }
 

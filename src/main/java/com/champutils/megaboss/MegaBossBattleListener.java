@@ -84,12 +84,12 @@ public final class MegaBossBattleListener {
         for (ServerPlayer player : playerActors(event.getBattle().getActors())) ACTIVE_PLAYER_BOSS.remove(player.getUUID());
         if (defeatedBoss == null || winners.isEmpty()) return;
         String rarity = MegaBossManager.rarity(defeatedBoss);
-        String stone = MegaBossManager.megaStone(defeatedBoss);
-        for (ServerPlayer winner : winners) giveRewards(winner, defeatedBoss, rarity, stone);
+        List<String> stones = MegaBossManager.megaStones(defeatedBoss);
+        for (ServerPlayer winner : winners) giveRewards(winner, defeatedBoss, rarity, stones);
         MegaBossManager.discardBoss(defeatedBoss);
     }
 
-    private static void giveRewards(ServerPlayer player, Entity boss, String rarity, String stoneItem) {
+    private static void giveRewards(ServerPlayer player, Entity boss, String rarity, List<String> stoneItems) {
         int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         int xp = Math.max(0, MegaBossConfig.DATA.battlingXpReward);
         if (xp > 0) ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
@@ -100,6 +100,7 @@ public final class MegaBossBattleListener {
         if (fragments > 0) ProfessionFragmentManager.giveFragments(player, rarity, fragments);
 
         double chance = megaStoneChance(battlingLevel);
+        String stoneItem = pickStone(stoneItems);
         boolean gotStone = stoneItem != null && !stoneItem.isBlank() && ThreadLocalRandom.current().nextDouble() < chance;
         if (gotStone) giveItem(player, stoneItem, 1);
 
@@ -110,11 +111,15 @@ public final class MegaBossBattleListener {
     }
 
     private static double megaStoneChance(int battlingLevel) {
-        double base = Math.max(0.0D, MegaBossConfig.DATA.megaStoneBaseChance);
-        double cap = Math.max(base, MegaBossConfig.DATA.megaStoneChanceAtLevel100);
-        int level = Math.max(1, Math.min(100, battlingLevel));
-        double scaled = base + ((cap - base) * (level / 100.0D));
-        return Math.max(0.0D, Math.min(cap, scaled));
+        return Math.max(0.0D, Math.min(1.0D, MegaBossConfig.DATA.megaStoneDropChance));
+    }
+
+    private static String pickStone(List<String> stoneItems) {
+        if (stoneItems == null || stoneItems.isEmpty()) return "";
+        List<String> valid = new ArrayList<>();
+        for (String item : stoneItems) if (item != null && !item.isBlank() && !valid.contains(item.trim())) valid.add(item.trim());
+        if (valid.isEmpty()) return "";
+        return valid.get(ThreadLocalRandom.current().nextInt(valid.size()));
     }
 
     private static void giveItem(ServerPlayer player, String itemId, int amount) {
@@ -139,7 +144,7 @@ public final class MegaBossBattleListener {
         if (boss == null) return;
         int targetLevel = 0;
         for (ServerPlayer player : playerActors(actors)) {
-            targetLevel = Math.max(targetLevel, MegaBossManager.playerPartyHighestLevelPlusFive(player));
+            targetLevel = Math.max(targetLevel, MegaBossManager.playerPartyHighestLevelPlusTen(player));
         }
         if (targetLevel <= 0) return;
         applyEntityPokemonLevel(boss, targetLevel);
@@ -163,8 +168,7 @@ public final class MegaBossBattleListener {
         try {
             Object pokemonObject = invoke(entity, "getPokemon");
             if (pokemonObject instanceof Pokemon pokemon) {
-                pokemon.setLevel(targetLevel);
-                pokemon.setCurrentHealth(pokemon.getMaxHealth());
+                MegaBossManager.maximizePokemon(pokemon, targetLevel);
             }
         } catch (Throwable ignored) {}
     }
@@ -172,13 +176,11 @@ public final class MegaBossBattleListener {
     private static void applyBattlePokemonLevel(BattlePokemon battlePokemon, int targetLevel) {
         try {
             Pokemon effected = battlePokemon.getEffectedPokemon();
-            effected.setLevel(targetLevel);
-            effected.setCurrentHealth(effected.getMaxHealth());
+            MegaBossManager.maximizePokemon(effected, targetLevel);
         } catch (Throwable ignored) {}
         try {
             Pokemon original = battlePokemon.getOriginalPokemon();
-            original.setLevel(targetLevel);
-            original.setCurrentHealth(original.getMaxHealth());
+            MegaBossManager.maximizePokemon(original, targetLevel);
         } catch (Throwable ignored) {}
         try { battlePokemon.sendUpdate(); } catch (Throwable ignored) {}
     }

@@ -766,6 +766,25 @@ public final class GuildRepository {
     }
 
 
+    private static boolean columnExists(java.sql.Connection connection, String table, String column) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select 1 from information_schema.columns where table_schema = current_schema() and table_name = ? and column_name = ?"
+        )) {
+            statement.setString(1, table);
+            statement.setString(2, column);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static void executeQuietly(java.sql.Connection connection, String sql) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.executeUpdate();
+        } catch (Exception ignored) {
+        }
+    }
+
     /**
      * Repairs older profile-migration guild schemas before any guild query runs.
      * Guild membership is account-based, so all current guild logic uses player_uuid.
@@ -841,6 +860,34 @@ public final class GuildRepository {
             statement.executeUpdate("alter table guild_members alter column player_uuid set not null");
 
             statement.executeUpdate("create unique index if not exists guild_members_player_uuid_unique on guild_members (player_uuid)");
+
+            // Final compatibility pass for databases created from early beta SQL. Some installs
+            // still had guild_members.profile_id but no player_uuid, which made /guild create fail
+            // on the first membership lookup. Keep legacy columns nullable so account-based guilds
+            // can write player_uuid without being blocked by old profile constraints.
+            if (!columnExists(connection, "guild_members", "player_uuid")) {
+                statement.executeUpdate("alter table guild_members add column player_uuid uuid");
+            }
+            if (columnExists(connection, "guild_members", "profile_id")) {
+                executeQuietly(connection, "update guild_members set player_uuid = profile_id where player_uuid is null");
+                executeQuietly(connection, "alter table guild_members alter column profile_id drop not null");
+            }
+            executeQuietly(connection, "alter table guild_members alter column player_uuid set not null");
+
+            validateRequiredColumns(connection, "guilds", "id", "name", "owner_uuid", "owner_player_uuid", "level", "xp", "created_at", "updated_at");
+            validateRequiredColumns(connection, "guild_members", "guild_id", "player_uuid", "player_name", "role", "joined_at");
+        }
+    }
+
+    private static void validateRequiredColumns(java.sql.Connection connection, String table, String... columns) throws Exception {
+        List<String> missing = new ArrayList<>();
+        for (String column : columns) {
+            if (!columnExists(connection, table, column)) {
+                missing.add(column);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Database table " + table + " is missing required columns " + missing + ". The running jar may be pointed at the wrong database/schema or an old migration may not have run.");
         }
     }
 

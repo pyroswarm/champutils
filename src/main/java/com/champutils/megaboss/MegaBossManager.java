@@ -1,6 +1,8 @@
 package com.champutils.megaboss;
 
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.api.pokemon.stats.Stat;
+import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -35,6 +37,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class MegaBossManager {
+    private static final Stat[] PERMANENT_STATS = new Stat[] {
+            Stats.HP, Stats.ATTACK, Stats.DEFENCE, Stats.SPECIAL_ATTACK, Stats.SPECIAL_DEFENCE, Stats.SPEED
+    };
     public static final String BOSS_TAG = "champutils_mega_boss";
     public static final String BOSS_RARITY_PREFIX = "champutils_mega_boss_rarity_";
     public static final String BOSS_STONE_PREFIX = "champutils_mega_boss_stone_";
@@ -92,11 +97,19 @@ public final class MegaBossManager {
     }
 
     public static String megaStone(Entity entity) {
-        if (entity == null) return "";
+        List<String> stones = megaStones(entity);
+        return stones.isEmpty() ? "" : stones.get(0);
+    }
+
+    public static List<String> megaStones(Entity entity) {
+        List<String> stones = new ArrayList<>();
+        if (entity == null) return stones;
         for (String tag : entity.getTags()) {
-            if (tag != null && tag.startsWith(BOSS_STONE_PREFIX)) return tag.substring(BOSS_STONE_PREFIX.length());
+            if (tag == null || !tag.startsWith(BOSS_STONE_PREFIX)) continue;
+            String value = tag.substring(BOSS_STONE_PREFIX.length()).trim();
+            if (!value.isBlank() && !stones.contains(value)) stones.add(value);
         }
-        return "";
+        return stones;
     }
 
     public static void discardBoss(Entity entity) {
@@ -112,7 +125,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) continue;
-            int pokemonLevel = playerPartyHighestLevelPlusFive(player);
+            int pokemonLevel = playerPartyHighestLevelPlusTen(player);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
             if (entity == null) continue;
@@ -198,12 +211,15 @@ public final class MegaBossManager {
         try {
             StringBuilder properties = new StringBuilder("species=\"cobblemon:").append(sanitize(boss.species)).append("\" level=").append(pokemonLevel);
             if (boss.extraProperties != null && !boss.extraProperties.isBlank()) properties.append(' ').append(boss.extraProperties.trim());
+            properties.append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31");
+            properties.append(" ev_hp=252 ev_attack=252 ev_defence=252 ev_special_attack=252 ev_special_defence=252 ev_speed=252");
             if (boss.ability != null && !boss.ability.isBlank()) properties.append(" ability=").append(cleanToken(boss.ability));
             if (boss.nature != null && !boss.nature.isBlank()) properties.append(" nature=").append(cleanToken(boss.nature));
             Class<?> propertiesClass = Class.forName("com.cobblemon.mod.common.api.pokemon.PokemonProperties");
             Object companion = propertiesClass.getField("Companion").get(null);
             Object parsed = companion.getClass().getMethod("parse", String.class).invoke(companion, properties.toString());
             Object pokemon = parsed.getClass().getMethod("create").invoke(parsed);
+            if (pokemon instanceof Pokemon p) maximizePokemon(p, pokemonLevel);
             Object spawned = invokePokemonSendOut(pokemon, level, new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D));
             return spawned instanceof Entity e ? e : null;
         } catch (Exception ignored) { return null; }
@@ -242,8 +258,9 @@ public final class MegaBossManager {
     private static void markBoss(Entity entity, MegaBossConfig.BossEntry boss, int pokemonLevel) {
         entity.addTag(BOSS_TAG);
         entity.addTag(BOSS_RARITY_PREFIX + normalizeRarity(boss.rarity));
-        String stone = boss.megaStoneItem == null || boss.megaStoneItem.isBlank() ? defaultMegaStoneItem(boss) : boss.megaStoneItem.trim();
-        entity.addTag(BOSS_STONE_PREFIX + stone);
+        for (String stone : megaStoneItems(boss)) {
+            if (stone != null && !stone.isBlank()) entity.addTag(BOSS_STONE_PREFIX + stone.trim());
+        }
         long expiresAt = System.currentTimeMillis() + Math.max(1L, MegaBossConfig.DATA.despawnMinutes) * 60_000L;
         entity.addTag(EXPIRES_PREFIX + expiresAt);
         entity.setCustomName(Component.literal(formatNameTag(boss, pokemonLevel)));
@@ -274,14 +291,38 @@ public final class MegaBossManager {
                 .replace("{level}", Integer.toString(level));
     }
 
+    public static List<String> megaStoneItems(MegaBossConfig.BossEntry boss) {
+        List<String> configured = new ArrayList<>();
+        if (boss != null && boss.megaStoneItems != null) {
+            for (String item : boss.megaStoneItems) {
+                if (item != null && !item.isBlank() && !configured.contains(item.trim())) configured.add(item.trim());
+            }
+        }
+        if (boss != null && boss.megaStoneItem != null && !boss.megaStoneItem.isBlank()) {
+            for (String item : boss.megaStoneItem.split("[,;]")) {
+                if (item != null && !item.isBlank() && !configured.contains(item.trim())) configured.add(item.trim());
+            }
+        }
+        if (!configured.isEmpty()) return configured;
+        return defaultMegaStoneItems(boss);
+    }
+
     public static String defaultMegaStoneItem(MegaBossConfig.BossEntry boss) {
+        List<String> stones = defaultMegaStoneItems(boss);
+        return stones.isEmpty() ? "" : stones.get(0);
+    }
+
+    public static List<String> defaultMegaStoneItems(MegaBossConfig.BossEntry boss) {
         String species = sanitize(boss == null ? "" : boss.species);
         String extra = boss == null || boss.extraProperties == null ? "" : boss.extraProperties.toLowerCase(Locale.ROOT);
-        if ("charizard".equals(species) && extra.contains("mega_x")) return "cobblemon:charizardite_x";
-        if ("charizard".equals(species) && extra.contains("mega_y")) return "cobblemon:charizardite_y";
-        if ("mewtwo".equals(species) && extra.contains("mega_x")) return "cobblemon:mewtwonite_x";
-        if ("mewtwo".equals(species) && extra.contains("mega_y")) return "cobblemon:mewtwonite_y";
-        return "cobblemon:" + species + "ite";
+        if ("charizard".equals(species) && extra.contains("mega_x")) return List.of("cobblemon:charizardite_x");
+        if ("charizard".equals(species) && extra.contains("mega_y")) return List.of("cobblemon:charizardite_y");
+        if ("mewtwo".equals(species) && extra.contains("mega_x")) return List.of("cobblemon:mewtwonite_x");
+        if ("mewtwo".equals(species) && extra.contains("mega_y")) return List.of("cobblemon:mewtwonite_y");
+        if ("charizard".equals(species)) return List.of("cobblemon:charizardite_x", "cobblemon:charizardite_y");
+        if ("mewtwo".equals(species)) return List.of("cobblemon:mewtwonite_x", "cobblemon:mewtwonite_y");
+        if (species.isBlank()) return List.of();
+        return List.of("cobblemon:" + species + "ite");
     }
 
     private static void cleanup(MinecraftServer server) {
@@ -344,7 +385,7 @@ public final class MegaBossManager {
         return top;
     }
 
-    public static int playerPartyHighestLevelPlusFive(ServerPlayer player) {
+    public static int playerPartyHighestLevelPlusTen(ServerPlayer player) {
         int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {
@@ -353,10 +394,37 @@ public final class MegaBossManager {
             }
         } catch (Exception ignored) {}
 
-        // Match roaming trainer scaling: boss level is exactly +5 above the challenger's highest party Pokemon.
-        // If the party cannot be read, fall back to 15 instead of failing the spawn.
-        if (highest <= 0) return 15;
+        // Mega bosses scale to exactly +10 above the challenger's highest party Pokemon.
+        // If the party cannot be read, fall back to 20 instead of failing the spawn.
+        if (highest <= 0) return 20;
         return Math.max(1, Math.min(100, highest + Math.max(0, MegaBossConfig.DATA.levelsAbovePlayerHighest)));
+    }
+
+    public static void maximizePokemon(Pokemon pokemon, int level) {
+        if (pokemon == null) return;
+        try { pokemon.setLevel(Math.max(1, Math.min(100, level))); } catch (Throwable ignored) {}
+        try {
+            for (Stat stat : PERMANENT_STATS) pokemon.getIvs().set(stat, 31);
+            pokemon.getIvs().update();
+        } catch (Throwable ignored) {}
+        try {
+            // Bosses are intentionally beyond normal player EV limits so they feel like raid enemies.
+            Object evs = pokemon.getEvs();
+            java.lang.reflect.Field statsField = evs.getClass().getSuperclass().getDeclaredField("stats");
+            statsField.setAccessible(true);
+            Object value = statsField.get(evs);
+            if (value instanceof Map<?, ?> rawMap) {
+                @SuppressWarnings("unchecked")
+                Map<Stat, Integer> map = (Map<Stat, Integer>) rawMap;
+                for (Stat stat : PERMANENT_STATS) map.put(stat, 252);
+            } else {
+                for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, 252);
+            }
+            pokemon.getEvs().update();
+        } catch (Throwable ignored) {
+            try { for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, 252); } catch (Throwable ignoredToo) {}
+        }
+        try { pokemon.setCurrentHealth(pokemon.getMaxHealth()); } catch (Throwable ignored) {}
     }
 
     private static boolean isDisabledDimension(ServerLevel level) {

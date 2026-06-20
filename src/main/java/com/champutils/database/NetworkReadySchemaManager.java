@@ -210,8 +210,13 @@ public final class NetworkReadySchemaManager {
                                 "primary key (owner_type, owner_id)" +
                                 ")"
                 );
-                // Existing servers may already have this table from an older build without deleted_at.
+                // Existing servers may already have this table from an older build without deleted_at or with profile-only NOT NULL columns.
                 // CREATE TABLE IF NOT EXISTS will not repair that, so keep these as explicit migrations.
+                statement.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_id text");
+                statement.executeUpdate("update territory_delete_cooldowns set owner_id = coalesce(owner_id, '__unknown__') where owner_id is null");
+                statement.executeUpdate("alter table territory_delete_cooldowns alter column owner_id set not null");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_name='territory_delete_cooldowns' and column_name='owner_profile_id') then execute 'alter table territory_delete_cooldowns alter column owner_profile_id drop not null'; end if; end $$");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_name='territory_delete_cooldowns' and column_name='owner_guild_id') then execute 'alter table territory_delete_cooldowns alter column owner_guild_id drop not null'; end if; end $$");
                 statement.executeUpdate("alter table guilds add column if not exists owner_uuid uuid");
                 statement.executeUpdate("alter table guilds add column if not exists owner_profile_id uuid");
                 statement.executeUpdate("alter table guilds add column if not exists owner_player_uuid uuid");

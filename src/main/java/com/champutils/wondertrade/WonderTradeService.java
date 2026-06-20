@@ -4,6 +4,7 @@ import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
 import com.champutils.dex.PokemonOriginManager;
 import com.champutils.profile.ProfileRestrictions;
+import com.champutils.profile.PlayerProfileManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
 import net.minecraft.ChatFormatting;
@@ -48,6 +49,11 @@ public final class WonderTradeService {
         }
 
         UUID playerUuid = player.getUUID();
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) {
+            player.sendSystemMessage(Component.literal("You must load a profile before using Wondertrade.").withStyle(ChatFormatting.RED));
+            return;
+        }
         String playerName = player.getName().getString();
         MinecraftServer server = player.server;
 
@@ -60,7 +66,7 @@ public final class WonderTradeService {
 
         CompletableFuture.supplyAsync(() -> {
             try {
-                WonderTradeRepository.TradeGate gate = WonderTradeRepository.getTradeGate(playerUuid);
+                WonderTradeRepository.TradeGate gate = WonderTradeRepository.getTradeGate(profileId, playerUuid);
                 if (gate.hasPendingClaim()) {
                     return TradeCheck.pendingClaim();
                 }
@@ -75,7 +81,7 @@ public final class WonderTradeService {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) {
                 TRADING.remove(playerUuid);
-                deletePendingAsync(playerUuid);
+                deletePendingAsync(profileId);
                 cachedStatus = null;
                 cachedStatusAtMillis = 0L;
                 return;
@@ -94,11 +100,11 @@ public final class WonderTradeService {
                 return;
             }
 
-            prepareTradeAfterCheck(onlinePlayer, slotIndex, slotNumber);
+            prepareTradeAfterCheck(onlinePlayer, profileId, slotIndex, slotNumber);
         }));
     }
 
-    private static void prepareTradeAfterCheck(ServerPlayer player, int slotIndex, int slotNumber) {
+    private static void prepareTradeAfterCheck(ServerPlayer player, UUID profileId, int slotIndex, int slotNumber) {
         UUID playerUuid = player.getUUID();
         String playerName = player.getName().getString();
         MinecraftServer server = player.server;
@@ -140,7 +146,7 @@ public final class WonderTradeService {
         CompletableFuture.runAsync(() -> {
             try {
                 // Crash/disconnect safety: this is saved before the party slot is cleared.
-                WonderTradeRepository.savePendingClaim(playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
+                WonderTradeRepository.savePendingClaim(profileId, playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -148,7 +154,7 @@ public final class WonderTradeService {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) {
                 TRADING.remove(playerUuid);
-                deletePendingAsync(playerUuid);
+                deletePendingAsync(profileId);
                 return;
             }
 
@@ -163,21 +169,21 @@ public final class WonderTradeService {
                 AuctionPokemonSerializer.clearPartySlot(onlinePlayer, slotIndex);
             } catch (Exception e) {
                 TRADING.remove(playerUuid);
-                deletePendingAsync(playerUuid);
+                deletePendingAsync(profileId);
                 onlinePlayer.sendSystemMessage(Component.literal("Could not remove that Pokémon from your party. Nothing was traded.").withStyle(ChatFormatting.RED));
                 e.printStackTrace();
                 return;
             }
 
             onlinePlayer.sendSystemMessage(Component.literal("Sending " + offeredName + " into Wondertrade...").withStyle(ChatFormatting.GRAY));
-            finishTradeAsync(server, playerUuid, playerName, offeredPayload, offeredName, offeredShiny, offeredLegendary);
+            finishTradeAsync(server, profileId, playerUuid, playerName, offeredPayload, offeredName, offeredShiny, offeredLegendary);
         }));
     }
 
-    private static void finishTradeAsync(MinecraftServer server, UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName, boolean offeredShiny, boolean offeredLegendary) {
+    private static void finishTradeAsync(MinecraftServer server, UUID profileId, UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName, boolean offeredShiny, boolean offeredLegendary) {
         CompletableFuture.supplyAsync(() -> {
             try {
-                return WonderTradeRepository.exchange(playerUuid, playerName, offeredPayload);
+                return WonderTradeRepository.exchange(profileId, playerUuid, playerName, offeredPayload);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -188,10 +194,10 @@ public final class WonderTradeService {
             if (error != null || receivedEntry == null) {
                 if (onlinePlayer != null) {
                     restoreOffered(onlinePlayer, offeredPayload);
-                    deletePendingAsync(playerUuid);
+                    deletePendingAsync(profileId);
                     onlinePlayer.sendSystemMessage(Component.literal("Wondertrade failed. Your Pokémon was returned.").withStyle(ChatFormatting.RED));
                 } else {
-                    saveOfferedPendingAsync(playerUuid, playerName, offeredPayload, offeredName);
+                    saveOfferedPendingAsync(profileId, playerUuid, playerName, offeredPayload, offeredName);
                 }
                 if (error != null) error.printStackTrace();
                 return;
@@ -211,7 +217,7 @@ public final class WonderTradeService {
                     onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but your party was full. Free a party slot, then use the Wonder Trade NPC claim button.").withStyle(ChatFormatting.YELLOW));
                     return;
                 }
-                deletePendingAsync(playerUuid);
+                deletePendingAsync(profileId);
             } catch (Exception e) {
                 onlinePlayer.sendSystemMessage(Component.literal("Wondertrade completed, but claim safety triggered. Free a party slot, then use the Wonder Trade NPC claim button.").withStyle(ChatFormatting.YELLOW));
                 e.printStackTrace();
@@ -240,12 +246,17 @@ public final class WonderTradeService {
         }
 
         UUID playerUuid = player.getUUID();
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) {
+            player.sendSystemMessage(Component.literal("You must load a profile before claiming Wondertrade Pokémon.").withStyle(ChatFormatting.RED));
+            return;
+        }
         MinecraftServer server = player.server;
         player.sendSystemMessage(Component.literal("Checking pending Wondertrade claim...").withStyle(ChatFormatting.GRAY));
 
         CompletableFuture.supplyAsync(() -> {
             try {
-                return WonderTradeRepository.getPendingClaim(playerUuid);
+                return WonderTradeRepository.getPendingClaim(profileId);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -279,7 +290,7 @@ public final class WonderTradeService {
                 return;
             }
 
-            deletePendingAsync(playerUuid);
+            deletePendingAsync(profileId);
             String label = "OFFERED".equalsIgnoreCase(claim.claimType()) ? "returned" : "claimed";
             onlinePlayer.sendSystemMessage(Component.literal("Wondertrade Pokémon " + label + ": " + claim.displayName()).withStyle(ChatFormatting.GREEN));
         }));
@@ -373,7 +384,7 @@ public final class WonderTradeService {
         try {
             Pokemon restored = AuctionPokemonSerializer.fromPayload(player, offeredPayload);
             if (!AuctionPokemonSerializer.addToFirstOpenPartySlot(player, restored)) {
-                saveOfferedPendingAsync(player.getUUID(), player.getName().getString(), offeredPayload, "Returned Pokémon");
+                saveOfferedPendingAsync(PlayerProfileManager.activeProfileId(player), player.getUUID(), player.getName().getString(), offeredPayload, "Returned Pokémon");
                 player.sendSystemMessage(Component.literal("Your party is full. Free a slot and use /wondertrade claim to recover your Pokémon.").withStyle(ChatFormatting.RED));
             }
         } catch (Exception restoreError) {
@@ -382,10 +393,10 @@ public final class WonderTradeService {
         }
     }
 
-    private static void deletePendingAsync(UUID playerUuid) {
+    private static void deletePendingAsync(UUID profileId) {
         CompletableFuture.runAsync(() -> {
             try {
-                WonderTradeRepository.deletePendingClaim(playerUuid);
+                WonderTradeRepository.deletePendingClaim(profileId);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -395,10 +406,11 @@ public final class WonderTradeService {
         });
     }
 
-    private static void saveOfferedPendingAsync(UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName) {
+    private static void saveOfferedPendingAsync(UUID profileId, UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName) {
+        if (profileId == null || playerUuid == null) return;
         CompletableFuture.runAsync(() -> {
             try {
-                WonderTradeRepository.savePendingClaim(playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
+                WonderTradeRepository.savePendingClaim(profileId, playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

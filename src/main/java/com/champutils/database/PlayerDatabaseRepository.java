@@ -56,7 +56,7 @@ public final class PlayerDatabaseRepository {
             if (playerUuid != null) {
                 try (PreparedStatement playerStatement = connection.prepareStatement(
                         "insert into players (uuid, username, playtime_seconds, last_seen, last_server_id) values (?, ?, ?, now(), ?) " +
-                                "on conflict (uuid) do update set username = excluded.username, playtime_seconds = excluded.playtime_seconds, last_seen = now(), last_server_id = excluded.last_server_id"
+                                "on conflict (uuid) do update set username = excluded.username, playtime_seconds = greatest(players.playtime_seconds, excluded.playtime_seconds), last_seen = now(), last_server_id = excluded.last_server_id"
                 )) {
                     playerStatement.setObject(1, playerUuid);
                     playerStatement.setString(2, username);
@@ -68,7 +68,7 @@ public final class PlayerDatabaseRepository {
 
             try (PreparedStatement playerStats = connection.prepareStatement(
                     "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) values (?, ?, now()) " +
-                            "on conflict (profile_id) do update set playtime_seconds = excluded.playtime_seconds, updated_at = now()"
+                            "on conflict (profile_id) do update set playtime_seconds = greatest(profile_player_stats.playtime_seconds, excluded.playtime_seconds), updated_at = now()"
             )) {
                 playerStats.setObject(1, profileId);
                 playerStats.setLong(2, Math.max(0L, data.playtimeSeconds));

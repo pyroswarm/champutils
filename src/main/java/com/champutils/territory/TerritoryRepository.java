@@ -717,6 +717,11 @@ public final class TerritoryRepository {
                 cleanup.setString(2, territory.ownerId);
                 cleanup.executeUpdate();
             }
+            try (java.sql.Statement repair = connection.createStatement()) {
+                repair.executeUpdate("alter table territory_delete_cooldowns add column if not exists owner_id text");
+                repair.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_name='territory_delete_cooldowns' and column_name='owner_profile_id') then execute 'alter table territory_delete_cooldowns alter column owner_profile_id drop not null'; end if; end $$");
+                repair.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns where table_name='territory_delete_cooldowns' and column_name='owner_guild_id') then execute 'alter table territory_delete_cooldowns alter column owner_guild_id drop not null'; end if; end $$");
+            } catch (Exception ignored) {}
             int minutes = TerritoryConfig.get().recreateCooldownMinutes;
             if (minutes > 0) {
                 try (PreparedStatement cooldown = connection.prepareStatement("insert into territory_delete_cooldowns (owner_type, owner_id, deleted_at) values (?, ?, now())")) {
