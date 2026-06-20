@@ -26,12 +26,14 @@ public final class ExplorationLootConfig {
             if (parent != null && !parent.exists()) parent.mkdirs();
             if (!FILE.exists()) {
                 data = defaults();
+                applyBetaBalance(data);
                 save();
                 return;
             }
             try (FileReader reader = new FileReader(FILE)) {
                 Data loaded = GSON.fromJson(reader, Data.class);
                 data = loaded == null ? defaults() : loaded.withDefaults();
+                applyBetaBalance(data);
             }
             save();
         } catch (Exception e) {
@@ -60,7 +62,7 @@ public final class ExplorationLootConfig {
 
     private static Data defaults() {
         Data root = new Data();
-        root.tables.put("overworld", table(4, 8,
+        root.tables.put("overworld", table(1, 3,
                 loot("COMMON", "minecraft:iron_ingot", 80, 2, 8),
                 loot("COMMON", "minecraft:gold_ingot", 60, 2, 6),
                 loot("COMMON", "minecraft:emerald", 45, 1, 4),
@@ -82,7 +84,7 @@ public final class ExplorationLootConfig {
                 loot("EPIC", "genesisforms:lustrous_globe", 2, 1, 1),
                 loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
         ));
-        root.tables.put("nether", table(4, 8,
+        root.tables.put("nether", table(1, 3,
                 loot("COMMON", "minecraft:gold_ingot", 80, 3, 10),
                 loot("COMMON", "minecraft:quartz", 70, 6, 20),
                 loot("COMMON", "minecraft:blaze_rod", 45, 1, 4),
@@ -97,7 +99,7 @@ public final class ExplorationLootConfig {
                 loot("EPIC", "genesisforms:adamant_crystal", 2, 1, 1),
                 loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
         ));
-        root.tables.put("end", table(5, 9,
+        root.tables.put("end", table(1, 3,
                 loot("COMMON", "minecraft:ender_pearl", 80, 4, 12),
                 loot("COMMON", "minecraft:chorus_fruit", 70, 8, 24),
                 loot("UNCOMMON", "minecraft:diamond", 30, 1, 3),
@@ -112,6 +114,32 @@ public final class ExplorationLootConfig {
                 loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
         ));
         return root;
+    }
+
+
+    private static void applyBetaBalance(Data d) {
+        if (d == null) return;
+        d.maxRarity = "RARE";
+        if (d.bannedItemContains == null) d.bannedItemContains = new ArrayList<>();
+        for (String banned : List.of("master_ball", "tera_orb", "adamant_crystal", "lustrous_globe", "griseous_core", "elytra", "netherite_block")) {
+            if (!d.bannedItemContains.contains(banned)) d.bannedItemContains.add(banned);
+        }
+        if (d.tables != null) {
+            for (LootTable table : d.tables.values()) {
+                if (table == null) continue;
+                table.minRolls = Math.max(1, Math.min(table.minRolls, 2));
+                table.maxRolls = Math.max(table.minRolls, Math.min(table.maxRolls, 4));
+                if (table.items == null) continue;
+                for (LootEntry entry : table.items) {
+                    if (entry == null) continue;
+                    if (entry.rarityRank() >= 2) entry.weight = Math.min(entry.weight, 6);
+                    if (entry.rarityRank() >= 3) entry.weight = 0;
+                    entry.maxAmount = Math.min(Math.max(entry.minAmount, entry.maxAmount), Math.max(entry.minAmount, 4));
+                    if (entry.itemId != null && entry.itemId.contains("rare_candy")) entry.maxAmount = Math.min(entry.maxAmount, 1);
+                    if (entry.itemId != null && entry.itemId.contains("exp_candy")) entry.maxAmount = Math.min(entry.maxAmount, 2);
+                }
+            }
+        }
     }
 
     private static LootTable table(int minRolls, int maxRolls, LootEntry... entries) {
@@ -137,7 +165,7 @@ public final class ExplorationLootConfig {
         public boolean virtualPerPlayerLoot = true;
         public boolean protectDiscoveredLootStructures = true;
         public int discoveredStructureProtectionRadius = 24;
-        public String maxRarity = "EPIC";
+        public String maxRarity = "RARE";
         public boolean skipUnknownItems = true;
 
         /**
@@ -171,7 +199,8 @@ public final class ExplorationLootConfig {
         public Map<String, LootTable> tables = new LinkedHashMap<>();
 
         private Data withDefaults() {
-            if (maxRarity == null || maxRarity.isBlank()) maxRarity = "EPIC";
+            if (maxRarity == null || maxRarity.isBlank()) maxRarity = "RARE";
+            if (rarityRank(maxRarity) > rarityRank("RARE")) maxRarity = "RARE";
             if (discoveredStructureProtectionRadius < 0) discoveredStructureProtectionRadius = 24;
             if (bannedItemContains == null) bannedItemContains = new ArrayList<>(List.of(
                     "dynamax", "max_band", "dynamax_band", "mega_bracelet", "mega_charm", "mega_ring", "mega_cuff", "mega_anklet", "keystone", "key_stone"

@@ -83,13 +83,20 @@ public final class FirstJoinKitManager {
         }
 
         UUID profileId = PlayerProfileManager.activeProfileId(player);
-        UUID uuid = profileId == null ? player.getUUID() : profileId;
-        String key = uuid.toString();
-        if (DATA.claimed.contains(key)) {
+        UUID effectiveProfileId = profileId == null ? player.getUUID() : profileId;
+        String oldProfileKey = effectiveProfileId.toString();
+        String profileKey = "profile:" + effectiveProfileId;
+        String accountKey = "account:" + player.getUUID();
+
+        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey) || DATA.claimed.contains(accountKey)) {
+            // Mark the new profile as seen, but do not hand out another starter kit.
+            DATA.claimed.add(profileKey);
+            save();
             return;
         }
 
-        DATA.claimed.add(key);
+        DATA.claimed.add(profileKey);
+        DATA.claimed.add(accountKey);
         save();
 
         for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.entries) {

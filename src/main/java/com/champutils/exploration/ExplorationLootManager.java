@@ -18,8 +18,10 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 
 public final class ExplorationLootManager {
     private ExplorationLootManager() {}
@@ -97,11 +99,19 @@ public final class ExplorationLootManager {
         List<ExplorationLootConfig.LootEntry> valid = validEntries(table);
         if (valid.isEmpty()) return rewards;
 
+        Set<String> alreadyRolled = new HashSet<>();
         for (int i = 0; i < rolls; i++) {
-            ExplorationLootConfig.LootEntry entry = weighted(valid, random);
+            List<ExplorationLootConfig.LootEntry> pool = valid.stream()
+                    .filter(entry -> entry != null && entry.itemId != null && !alreadyRolled.contains(entry.itemId.toLowerCase(Locale.ROOT)))
+                    .toList();
+            if (pool.isEmpty()) pool = valid;
+            ExplorationLootConfig.LootEntry entry = weighted(pool, random);
             if (entry == null) continue;
             ItemStack stack = toStack(entry, random);
-            if (!stack.isEmpty()) rewards.add(stack);
+            if (!stack.isEmpty()) {
+                rewards.add(stack);
+                alreadyRolled.add(entry.itemId.toLowerCase(Locale.ROOT));
+            }
         }
         return rewards;
     }

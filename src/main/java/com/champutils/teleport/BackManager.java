@@ -19,10 +19,12 @@ public final class BackManager {
 
     public static void remember(ServerPlayer player) {
         if (player == null) return;
-        LAST.put(player.getUUID(), new TeleportLocation(
-                player.serverLevel().dimension().location().toString(),
-                player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()
-        ));
+        remember(player, player.serverLevel().dimension().location().toString(), player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot());
+    }
+
+    public static void remember(ServerPlayer player, String dimension, double x, double y, double z, float yaw, float pitch) {
+        if (player == null || dimension == null || dimension.isBlank()) return;
+        LAST.put(player.getUUID(), new TeleportLocation(dimension, x, y, z, yaw, pitch));
     }
 
     public static boolean teleportBack(ServerPlayer player) {
@@ -35,7 +37,7 @@ public final class BackManager {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal("That /back location is no longer safe or allowed.").withStyle(net.minecraft.ChatFormatting.RED));
             return false;
         }
-        return SafeTeleportManager.teleport(player, level, loc.x, loc.y, loc.z, loc.yaw, loc.pitch);
+        return SafeTeleportManager.teleportNoBack(player, level, loc.x, loc.y, loc.z, loc.yaw, loc.pitch);
     }
 
     public static ServerLevel getLevel(MinecraftServer server, String dimension) {

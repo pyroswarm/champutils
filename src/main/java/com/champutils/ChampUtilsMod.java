@@ -349,39 +349,10 @@ public class ChampUtilsMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(
                 server -> {
 
-                    ProfessionManager.saveAll();
-                    EconomyManager.save();
-                    ProfessionBlockTracker.save();
-                    WorldEventBindingRegistry.save();
-                    AuctionHouseNpcBindingRegistry.save();
-                    MenuNpcBindingRegistry.save();
-                    BossConfig.save();
-                    ItemBindRegistry.save();
-                    ExplorationLootState.save();
-                    ExplorationWorldManager.save();
-                    SurvivalWorldManager.save();
-                    HomeCommand.save();
+                    ForceSaveRestartCommand.forceSave(server);
                     FirstJoinKitManager.save();
                     ChestShopRegistry.save();
-                    TeleportConfig.save();
-                    PortalConfig.save();
-                    PokemonHuntManager.save();
-                    QuestManager.saveAll();
-                    DexRewardClaimData.save();
-                    TrueCaughtDexManager.save();
-                    CatchStreakManager.save();
-                    PokemonOriginManager.save();
-                    RoamingTrainerManager.despawnAll(server);
-                    ShopPokemonCrateOpeningGui.handleServerStopping(server);
                     ServerStatusDatabaseRepository.markOffline(server);
-                    DailyLoginManager.save();
-                    TitleManager.save();
-                    WorldFirstManager.save();
-                    for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
-                        com.champutils.profile.ProfilePlaytimeManager.recordCurrentSession(onlinePlayer);
-                        PlayerProfileManager.saveActiveLocation(onlinePlayer);
-                    }
-                    com.champutils.profile.ProfilePlaytimeManager.flushBlockingBestEffort();
                     DatabaseManager.shutdown();
 
                     System.out.println(
@@ -629,8 +600,10 @@ public class ChampUtilsMod implements ModInitializer {
         BackCommand.register();
         GuildCommand.register();
         WorldBossCommand.register();
+        com.champutils.guild.BossDamageProtectionListener.register();
         TerritoryCommand.register();
         ChatCommand.register();
+        PrivateMessageCommand.register();
         TitleCommand.register();
         WorldFirstCommand.register();
         CashShopCommand.register();
@@ -640,10 +613,12 @@ public class ChampUtilsMod implements ModInitializer {
         DailyLoginCommand.register();
         ChampWorldBorderCommand.register();
         GlobalGameruleCommand.register();
+        ForceSaveRestartCommand.register();
         ProfileCommand.register();
         IslanderMineCommand.register();
         GraveyardCommand.register();
         ClearWildPokemonCommand.register();
+        com.champutils.antilag.CatchAttemptProtectionListener.register();
         TMCommand.register();
         LandClaimCommand.register();
 
@@ -678,6 +653,7 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
         CatchStreakSpawnListener.register();
+        ForbiddenNaturalPokemonSpawnGuard.register();
         TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();

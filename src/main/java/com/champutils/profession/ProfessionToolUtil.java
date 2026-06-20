@@ -155,7 +155,7 @@ public class ProfessionToolUtil {
             return false;
         }
 
-        return ProfessionManager.getLevel(player, toolProfession) >= toolData.requiredLevel;
+        return true;
     }
 
     public static ProfessionToolConfig.ToolData getToolData(

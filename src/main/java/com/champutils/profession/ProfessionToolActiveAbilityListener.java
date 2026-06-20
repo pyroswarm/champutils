@@ -52,15 +52,9 @@ public class ProfessionToolActiveAbilityListener {
                                     stack
                             );
 
-                    /*
-                     Farming profession hoes must not consume normal right-click.
-                     Normal right-click needs to stay vanilla so players can till dirt/grass.
-                     Sneak + right-click is the dedicated active ability input for hoes.
-                     */
-                    if (
-                            isHoeTool(toolData) &&
-                                    !serverPlayer.isShiftKeyDown()
-                    ) {
+                    // Active profession tool abilities are always shift + right-click.
+                    // Plain right-click stays vanilla so tools do not block normal interactions.
+                    if (toolData != null && !serverPlayer.isShiftKeyDown()) {
                         return InteractionResult.PASS;
                     }
 
@@ -166,6 +160,75 @@ public class ProfessionToolActiveAbilityListener {
         );
     }
 
+    private static boolean isOnCooldown(
+            ServerPlayer player,
+            String ability
+    ) {
+        Map<String, Long> playerCooldowns =
+                COOLDOWNS.get(player.getUUID());
+
+        if (playerCooldowns == null) {
+            return false;
+        }
+
+        Long expiresAt = playerCooldowns.get(ability);
+
+        if (expiresAt == null) {
+            return false;
+        }
+
+        if (System.currentTimeMillis() >= expiresAt) {
+            playerCooldowns.remove(ability);
+            if (playerCooldowns.isEmpty()) {
+                COOLDOWNS.remove(player.getUUID());
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void setCooldown(
+            ServerPlayer player,
+            String ability,
+            int seconds
+    ) {
+        if (seconds <= 0) {
+            return;
+        }
+
+        COOLDOWNS
+                .computeIfAbsent(player.getUUID(), ignored -> new HashMap<>())
+                .put(ability, System.currentTimeMillis() + seconds * 1000L);
+    }
+
+    private static void sendCooldownMessage(
+            ServerPlayer player,
+            String ability
+    ) {
+        Map<String, Long> playerCooldowns =
+                COOLDOWNS.get(player.getUUID());
+
+        long remainingSeconds = 1L;
+
+        if (playerCooldowns != null) {
+            Long expiresAt = playerCooldowns.get(ability);
+            if (expiresAt != null) {
+                remainingSeconds = Math.max(
+                        1L,
+                        (expiresAt - System.currentTimeMillis() + 999L) / 1000L
+                );
+            }
+        }
+
+        player.displayClientMessage(
+                Component.literal(
+                        "§c" + formatWords(ability) + " is on cooldown for " + remainingSeconds + "s."
+                ),
+                true
+        );
+    }
+
 
     private static boolean isHoeTool(
             ProfessionToolConfig.ToolData toolData
@@ -185,126 +248,9 @@ public class ProfessionToolActiveAbilityListener {
             ProfessionToolConfig.ToolData toolData
     ) {
 
-        try {
-
-            ProfessionType professionType =
-                    ProfessionType.valueOf(
-                            toolData.profession
-                                    .toUpperCase()
-                    );
-
-            int playerLevel =
-                    ProfessionManager.getLevel(
-                            player,
-                            professionType
-                    );
-
-            if (
-                    playerLevel <
-                            toolData.requiredLevel
-            ) {
-                player.sendSystemMessage(
-                        Component.literal(
-                                "§cYou need " +
-                                        formatWords(
-                                                toolData.profession
-                                        ) +
-                                        " level " +
-                                        toolData.requiredLevel +
-                                        " to use this ability."
-                        )
-                );
-
-                return false;
-            }
-
-        } catch (Exception ignored) {
-        }
-
+        // Profession tool active abilities are no longer level-gated.
+        // Profession level now improves rewards/drop rates instead of locking tool usage.
         return true;
-    }
-
-    private static boolean isOnCooldown(
-            ServerPlayer player,
-            String ability
-    ) {
-
-        Map<String, Long> playerCooldowns =
-                COOLDOWNS.get(
-                        player.getUUID()
-                );
-
-        if (playerCooldowns == null) {
-            return false;
-        }
-
-        long expiresAt =
-                playerCooldowns.getOrDefault(
-                        ability,
-                        0L
-                );
-
-        return System.currentTimeMillis() < expiresAt;
-    }
-
-    private static void setCooldown(
-            ServerPlayer player,
-            String ability,
-            int seconds
-    ) {
-
-        COOLDOWNS.computeIfAbsent(
-                player.getUUID(),
-                id -> new HashMap<>()
-        ).put(
-                ability,
-                System.currentTimeMillis() +
-                        Math.max(
-                                0,
-                                seconds
-                        ) * 1000L
-        );
-    }
-
-    private static void sendCooldownMessage(
-            ServerPlayer player,
-            String ability
-    ) {
-
-        Map<String, Long> playerCooldowns =
-                COOLDOWNS.get(
-                        player.getUUID()
-                );
-
-        if (playerCooldowns == null) {
-            return;
-        }
-
-        long expiresAt =
-                playerCooldowns.getOrDefault(
-                        ability,
-                        0L
-                );
-
-        long remaining =
-                Math.max(
-                        0,
-                        expiresAt - System.currentTimeMillis()
-                );
-
-        long seconds =
-                (long) Math.ceil(
-                        remaining / 1000D
-                );
-
-        player.displayClientMessage(
-                Component.literal(
-                        "§cAbility on cooldown: " +
-                                seconds +
-                                "s"
-                ),
-                true
-        );
     }
 
     private static String formatWords(

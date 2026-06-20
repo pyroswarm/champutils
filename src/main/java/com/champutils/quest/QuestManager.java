@@ -237,9 +237,26 @@ public class QuestManager {
         String target = safe(objective.target);
         if ("HARVEST_CROP".equals(objectiveType)) return "HARVEST_CROP".equals(directType) && (target.equalsIgnoreCase("any") || blockId.equals(target));
         if ("HARVEST_CROP_CONTAINS".equals(objectiveType)) return "HARVEST_CROP".equals(directType) && blockId.contains(target);
-        if (objectiveType.equals(directType) && (target.equalsIgnoreCase("any") || blockId.equals(target))) return true;
-        if (objectiveType.equals(directType + "_CONTAINS")) return blockId.contains(target);
+        if (objectiveType.equals(directType) && (target.equalsIgnoreCase("any") || blockMatchesTarget(blockId, target))) return true;
+        if (objectiveType.equals(directType + "_CONTAINS")) return blockId.contains(target) || blockMatchesTarget(blockId, target);
         if (objectiveType.equals(directType + "_TAG") && "logs".equalsIgnoreCase(target)) return blockId.endsWith("_log") || blockId.endsWith("_stem") || blockId.contains("log");
+        return false;
+    }
+
+    private static boolean blockMatchesTarget(String blockId, String target) {
+        if (blockId == null || target == null) return false;
+        String b = blockId.toLowerCase(Locale.ROOT);
+        String t = target.toLowerCase(Locale.ROOT);
+        if (b.equals(t)) return true;
+        if (!t.contains(":")) t = "minecraft:" + t;
+        if (b.equals(t)) return true;
+        if (t.equals("minecraft:diamond_ore") || t.equals("diamond_ore") || t.equals("diamond")) {
+            return b.equals("minecraft:diamond_ore") || b.equals("minecraft:deepslate_diamond_ore");
+        }
+        if (t.startsWith("minecraft:") && t.endsWith("_ore")) {
+            String deepslate = "minecraft:deepslate_" + t.substring("minecraft:".length());
+            return b.equals(t) || b.equals(deepslate);
+        }
         return false;
     }
 

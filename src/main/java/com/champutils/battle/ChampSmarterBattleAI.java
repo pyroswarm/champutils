@@ -8,6 +8,7 @@ import com.cobblemon.mod.common.battles.InBattleMove;
 import com.cobblemon.mod.common.battles.MoveActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownMoveset;
+import com.cobblemon.mod.common.battles.Targetable;
 import com.cobblemon.mod.common.battles.ai.StrongBattleAI;
 
 import java.lang.reflect.Field;
@@ -79,10 +80,12 @@ public final class ChampSmarterBattleAI implements BattleAI {
             chosen = fallback.choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
         } catch (Throwable t) {
             BattleAIDifficultyManager.debug("Fallback: custom AI failed before decision, using StrongBattleAI(" + skill + ") error=" + t.getClass().getSimpleName());
-            return new StrongBattleAI(skill).choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
+            ShowdownActionResponse emergency = new StrongBattleAI(skill).choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
+            return ensureValidChoice(emergency, activeBattlePokemon, moveset, forceSwitch);
         }
 
         if (!antiSpamLayer || moveset == null || forceSwitch || activeBattlePokemon == null || activeBattlePokemon.isGone()) {
+            chosen = ensureValidChoice(chosen, activeBattlePokemon, moveset, forceSwitch);
             remember(activeBattlePokemon, chosen);
             return chosen;
         }
@@ -142,7 +145,7 @@ public final class ChampSmarterBattleAI implements BattleAI {
                         BattleAIDifficultyManager.debug("AntiSpam: penalized same move pokemon=" + pokemonId
                                 + " move=" + normalized + " repeatCount=" + memory.sameMoveCount);
                     }
-                    chosen = new MoveActionResponse(replacement.getId(), null, null);
+                    chosen = legalMoveResponse(replacement, activeBattlePokemon);
                     normalized = normalize(replacement.getId());
                 }
             }
@@ -160,10 +163,47 @@ public final class ChampSmarterBattleAI implements BattleAI {
                 memory.sameMoveCount = 1;
             }
 
-            return chosen;
+            return ensureValidChoice(chosen, activeBattlePokemon, moveset, forceSwitch);
         } catch (Throwable t) {
-            BattleAIDifficultyManager.debug("Fallback: custom AI wrapper failed, using original StrongBattleAI(" + skill + ") decision. error=" + t.getClass().getSimpleName());
-            return chosen;
+            BattleAIDifficultyManager.debug("Fallback: custom AI wrapper failed, validating original StrongBattleAI(" + skill + ") decision. error=" + t.getClass().getSimpleName());
+            return ensureValidChoice(chosen, activeBattlePokemon, moveset, forceSwitch);
+        }
+    }
+
+    private ShowdownActionResponse ensureValidChoice(ShowdownActionResponse response, ActiveBattlePokemon activeBattlePokemon, ShowdownMoveset moveset, boolean forceSwitch) {
+        try {
+            if (response != null && response.isValid(activeBattlePokemon, moveset, forceSwitch)) return response;
+            String moveId = readMoveId(response);
+            BattleAIDifficultyManager.debug("SafeAI: replacing invalid action " + (moveId == null ? response : moveId));
+            if (moveset != null && !forceSwitch) {
+                for (InBattleMove move : moveset.getMoves()) {
+                    if (move == null || !move.canBeUsed()) continue;
+                    MoveActionResponse candidate = legalMoveResponse(move, activeBattlePokemon);
+                    if (candidate.isValid(activeBattlePokemon, moveset, false)) return candidate;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return response;
+    }
+
+    private MoveActionResponse legalMoveResponse(InBattleMove move, ActiveBattlePokemon activeBattlePokemon) {
+        try {
+            List<Targetable> targets = move.getTargets(activeBattlePokemon);
+            if (targets == null || targets.isEmpty() || move.mustBeUsed()) {
+                return new MoveActionResponse(move.getId(), null, null);
+            }
+            Targetable chosenTarget = null;
+            for (Targetable target : targets) {
+                if (target != null && !target.isAllied(activeBattlePokemon)) {
+                    chosenTarget = target;
+                    break;
+                }
+            }
+            if (chosenTarget == null) chosenTarget = targets.get(0);
+            return new MoveActionResponse(move.getId(), chosenTarget.getPNX(), null);
+        } catch (Throwable ignored) {
+            return new MoveActionResponse(move.getId(), null, null);
         }
     }
 

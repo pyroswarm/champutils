@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.profile.ProfileRestrictions;
+import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.auction.AuctionHouseBindInteractionListener;
 import com.champutils.auction.AuctionHouseGui;
 import com.champutils.auction.AuctionHouseNpcBindingRegistry;
@@ -21,6 +22,7 @@ import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 public final class AuctionHouseCommand {
+    private static final long AUCTION_MIN_PLAYTIME_SECONDS = 60L * 60L;
 
     private AuctionHouseCommand() {}
 
@@ -29,7 +31,7 @@ public final class AuctionHouseCommand {
                 literal("ah")
                         .executes(context -> {
                             var player = context.getSource().getPlayerOrException();
-                            if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                            if (blockAuctionUntilPlayedOneHour(player)) return 0;
                             AuctionHouseGui.openMain(player);
                             return 1;
                         })
@@ -37,7 +39,7 @@ public final class AuctionHouseCommand {
                                 .then(argument("price", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
                                         .executes(context -> {
                                             var player = context.getSource().getPlayerOrException();
-                                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                                    if (blockAuctionUntilPlayedOneHour(player)) return 0;
                                                     AuctionHouseService.beginHeldItemListing(
                                                     player,
                                                     EconomyManager.wholeCreditsToCents(LongArgumentType.getLong(context, "price"))
@@ -49,7 +51,7 @@ public final class AuctionHouseCommand {
                                         .then(argument("price", LongArgumentType.longArg(1L, 9_000_000_000_000_000L))
                                                 .executes(context -> {
                                                     var player = context.getSource().getPlayerOrException();
-                                                            if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                                            if (blockAuctionUntilPlayedOneHour(player)) return 0;
                                                             AuctionHouseService.beginPokemonListing(
                                                             player,
                                                             IntegerArgumentType.getInteger(context, "slot"),
@@ -60,7 +62,7 @@ public final class AuctionHouseCommand {
                         .then(literal("confirm")
                                 .executes(context -> {
                                     var player = context.getSource().getPlayerOrException();
-                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    if (blockAuctionUntilPlayedOneHour(player)) return 0;
                                     AuctionHouseService.confirmPending(player);
                                     return 1;
                                 }))
@@ -77,14 +79,14 @@ public final class AuctionHouseCommand {
                         .then(literal("claim")
                                 .executes(context -> {
                                     var player = context.getSource().getPlayerOrException();
-                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    if (blockAuctionUntilPlayedOneHour(player)) return 0;
                                     AuctionHouseService.claimNext(player);
                                     return 1;
                                 }))
                         .then(literal("mylistings")
                                 .executes(context -> {
                                     var player = context.getSource().getPlayerOrException();
-                                    if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return 0;
+                                    if (blockAuctionUntilPlayedOneHour(player)) return 0;
                                     AuctionHouseGui.openMyListings(player);
                                     return 1;
                                 }))
@@ -113,6 +115,20 @@ public final class AuctionHouseCommand {
                                     return 1;
                                 }))
         ));
+    }
+
+    private static boolean blockAuctionUntilPlayedOneHour(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return true;
+        if (com.champutils.permissions.PermissionUtil.has(player.createCommandSourceStack(), "champutils.admin")) return false;
+        if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return true;
+        long played = ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player);
+        if (played < AUCTION_MIN_PLAYTIME_SECONDS) {
+            long remaining = AUCTION_MIN_PLAYTIME_SECONDS - played;
+            long minutes = Math.max(1L, (remaining + 59L) / 60L);
+            player.sendSystemMessage(Component.literal("You must play this profile for 1 hour before using the Auction House. Time remaining: " + minutes + " minute(s).").withStyle(ChatFormatting.RED));
+            return true;
+        }
+        return false;
     }
 
     private static int cancelListing(CommandSourceStack source, String rawId) {

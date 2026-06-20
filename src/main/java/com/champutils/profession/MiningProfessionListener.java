@@ -143,6 +143,7 @@ public class MiningProfessionListener {
                                     .SETTINGS
                                     .miningXp
                                     .get(blockId);
+                    if (xp == null) xp = fallbackMiningXp(blockId);
 
                     if (xp == null || xp <= 0) {
                         if (!isBreakingExtraBlock(
@@ -236,6 +237,17 @@ public class MiningProfessionListener {
         );
     }
 
+
+    private static Integer fallbackMiningXp(String blockId) {
+        if (blockId == null) return null;
+        return switch (blockId) {
+            case "minecraft:nether_quartz_ore" -> 8;
+            case "minecraft:nether_gold_ore" -> 10;
+            case "minecraft:ancient_debris" -> 75;
+            default -> null;
+        };
+    }
+
     private static boolean handleAutoSmeltActive(
             ServerPlayer player,
             BlockPos pos,
@@ -284,6 +296,8 @@ public class MiningProfessionListener {
                         .SETTINGS
                         .miningXp
                         .get(blockId);
+
+        if (xp == null) xp = fallbackMiningXp(blockId);
 
         if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(player, player.getMainHandItem(), ProfessionType.MINING)) {
             ProfessionManager.addXp(

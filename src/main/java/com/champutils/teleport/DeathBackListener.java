@@ -10,7 +10,14 @@ public final class DeathBackListener {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
             if (entity instanceof ServerPlayer player) {
-                BackManager.remember(player);
+                // Store the exact death dimension/coordinates. Do not call the normal
+                // teleport memory path after respawn, or /back may point to overworld spawn.
+                BackManager.remember(
+                        player,
+                        player.serverLevel().dimension().location().toString(),
+                        player.getX(), player.getY(), player.getZ(),
+                        player.getYRot(), player.getXRot()
+                );
             }
         });
     }

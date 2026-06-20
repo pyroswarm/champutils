@@ -8,6 +8,8 @@ import com.champutils.matchmaking.MatchmakingManager;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 import com.champutils.guild.GuildXpManager;
+import com.champutils.guild.GuildBossManager;
+import java.util.UUID;
 
 import com.champutils.profession.*;
 
@@ -24,6 +26,14 @@ public class BattleListener {
             ServerPlayer winner,
             ServerPlayer loser
     ) {
+        onBattleEnd(winner, loser, null);
+    }
+
+    public static void onBattleEnd(
+            ServerPlayer winner,
+            ServerPlayer loser,
+            UUID losingNpcUuid
+    ) {
 
         if (winner == null) {
             return;
@@ -37,6 +47,11 @@ public class BattleListener {
         if (battleType == null) {
             battleType =
                     BattleContextManager.BattleType.UNKNOWN;
+        }
+
+        if (battleType == BattleContextManager.BattleType.WORLD_BOSS &&
+                (losingNpcUuid == null || !GuildBossManager.isActiveWorldBossNpc(losingNpcUuid))) {
+            battleType = BattleContextManager.BattleType.UNKNOWN;
         }
 
         com.champutils.quest.QuestManager.recordBattleWin(

@@ -15,6 +15,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -50,6 +51,10 @@ public final class ExplorationProtectionListener {
 
             ItemStack stack = serverPlayer.getItemInHand(hand);
             BlockPos placedPos = targetPos.relative(hitResult.getDirection());
+            if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof HopperBlock && touchesInstancedLoot(level, placedPos)) {
+                deny(serverPlayer, "You cannot place hoppers against per-player loot chests.");
+                return InteractionResult.FAIL;
+            }
             if (ExplorationWorldManager.isExplorationLevel(level) && stack.getItem() instanceof BlockItem && ExplorationLootState.isProtected(level, placedPos) && !(serverPlayer.hasPermissions(4) && serverPlayer.isCreative())) {
                 deny(serverPlayer, "You cannot place blocks inside protected exploration structures.");
                 return InteractionResult.FAIL;
@@ -57,6 +62,15 @@ public final class ExplorationProtectionListener {
 
             return InteractionResult.PASS;
         });
+    }
+
+    private static boolean touchesInstancedLoot(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        if (ExplorationLootManager.isInstancedLootContainer(level, pos)) return true;
+        for (net.minecraft.core.Direction direction : net.minecraft.core.Direction.values()) {
+            if (ExplorationLootManager.isInstancedLootContainer(level, pos.relative(direction))) return true;
+        }
+        return false;
     }
 
     private static boolean isLootContainer(ServerLevel level, BlockPos pos, BlockState state) {

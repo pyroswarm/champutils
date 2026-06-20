@@ -2,6 +2,7 @@ package com.champutils.profession;
 
 import com.champutils.profile.PlayerProfileManager;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,12 +38,28 @@ public class ProfessionManager {
         return data;
     }
 
+    private static boolean requiresProfessionTool(ProfessionType profession) {
+        return profession == ProfessionType.MINING || profession == ProfessionType.FORESTRY || profession == ProfessionType.FARMING;
+    }
+
+    private static boolean hasUsableProfessionTool(ServerPlayer player, ProfessionType profession) {
+        if (player == null || profession == null) return false;
+        ItemStack main = player.getMainHandItem();
+        if (ProfessionToolUtil.isUsableProfessionTool(player, main, profession)) return true;
+        ItemStack off = player.getOffhandItem();
+        return ProfessionToolUtil.isUsableProfessionTool(player, off, profession);
+    }
+
     public static void addXp(
             ServerPlayer player,
             ProfessionType profession,
             int amount
     ) {
         if (player == null || profession == null || amount <= 0) {
+            return;
+        }
+
+        if (requiresProfessionTool(profession) && !hasUsableProfessionTool(player, profession)) {
             return;
         }
 

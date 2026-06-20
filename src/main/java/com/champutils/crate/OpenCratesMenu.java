@@ -446,8 +446,9 @@ public final class OpenCratesMenu {
     }
 
     private static RewardPlan planTool(CrateConfig.CrateDefinition crate) {
+        ProfessionToolConfig.load();
         CrateConfig.WeightedTool wt = rollEqualChanceToolType(crate);
-        if (wt == null) return planItem(crate);
+        if (wt == null || ProfessionToolConfig.TOOLS.get(wt.toolId) == null) return planItem(crate);
         RewardPlan plan = new RewardPlan();
         plan.type = RewardType.TOOL;
         plan.toolId = wt.toolId;
@@ -733,6 +734,7 @@ public final class OpenCratesMenu {
     }
 
     private static Map<String, List<CrateConfig.WeightedTool>> eligibleToolsByType(CrateConfig.CrateDefinition crate) {
+        ProfessionToolConfig.load();
         Map<String, List<CrateConfig.WeightedTool>> byType = new LinkedHashMap<>();
         byType.put("pickaxe", new ArrayList<>());
         byType.put("axe", new ArrayList<>());
@@ -756,8 +758,8 @@ public final class OpenCratesMenu {
         if (crate == null || tool == null || tool.toolId == null || tool.toolId.isBlank() || tool.weight <= 0) return false;
         ProfessionToolConfig.ToolData data = ProfessionToolConfig.TOOLS.get(tool.toolId);
         if (data == null) {
-            // Keep older configs from going empty if the server has custom tools that load later.
-            return true;
+            System.out.println("[ChampUtils] Skipping unknown crate tool id: " + tool.toolId);
+            return false;
         }
         String crateRarity = normalizeRarity(crate.guaranteedShardRarity);
         String toolRarity = normalizeRarity(data.rarity);

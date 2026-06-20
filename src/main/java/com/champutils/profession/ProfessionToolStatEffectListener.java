@@ -126,7 +126,7 @@ public class ProfessionToolStatEffectListener {
             return false;
         }
 
-        return ProfessionManager.getLevel(player, professionType) >= toolData.requiredLevel;
+        return true;
     }
 
     private static boolean isVanillaProfessionTool(ItemStack stack) {

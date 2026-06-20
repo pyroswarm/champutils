@@ -39,7 +39,6 @@ import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -190,19 +189,13 @@ public final class LandClaimProtectionListener {
 
     public static void tick(MinecraftServer server) {
         if (server == null) return;
-        if (server.getTickCount() % 20 == 0) renderBorders(server);
-        if (server.getTickCount() % 20 != 0) return;
-        for (ServerLevel level : server.getAllLevels()) {
-            String worldName = level.dimension().location().toString();
-            for (LandClaimRepository.Claim claim : LandClaimRepository.allCached()) {
-                if (claim == null || !claim.worldName.equalsIgnoreCase(worldName)) continue;
-                AABB box = new AABB(claim.minX - 1, level.getMinBuildHeight(), claim.minZ - 1, claim.maxX + 2.0D, level.getMaxBuildHeight(), claim.maxZ + 2.0D);
-                for (Entity entity : level.getEntities((Entity) null, box, LandClaimProtectionListener::isDangerousEntity)) {
-                    if (LandClaimRepository.findAt(level, entity.blockPosition()) != null || isNearClaimBoundary(claim, entity.blockPosition())) entity.discard();
-                }
-                sealBorderAgainstGrief(level, claim);
-            }
-        }
+
+        // Keep the tick hook extremely light. The old code ran once per second and, for
+        // every claim in every world, built full-height AABBs, scanned entities, and
+        // walked every Y-level along every claim border. On large claims this can cost
+        // 40-150ms on the server thread by itself. Protection is now handled at the
+        // event/mixin boundaries instead of doing global cleanup scans.
+        if (server.getTickCount() % 40 == 0) renderBorders(server);
     }
 
     /**

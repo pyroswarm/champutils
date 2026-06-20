@@ -136,6 +136,8 @@ public final class WildPokemonCleanupManager {
         if (entity == null || !entity.isAlive()) return Safety.protectedBecause("not alive");
         if (entity.tickCount < Math.max(0, minAgeTicks)) return Safety.protectedBecause("fresh spawn");
         if (protectCustomNames && entity.hasCustomName()) return Safety.protectedBecause("custom name");
+        String catchProtection = catchProtectionReason(entity);
+        if (catchProtection != null) return Safety.protectedBecause(catchProtection);
         if (hasProtectedEntityTag(entity)) return Safety.protectedBecause("protected entity tag");
         if (entity.isBattling() || entity.getBattleId() != null || entity.getBattle() != null) return Safety.protectedBecause("battle");
         if (entity.getTethering() != null) return Safety.protectedBecause("pasture tether");
@@ -185,6 +187,31 @@ public final class WildPokemonCleanupManager {
             // Do not protect it here. The battle/tether/owner/shiny/special checks above and below still protect valuables.
         }
 
+        return null;
+    }
+
+
+    private static String catchProtectionReason(PokemonEntity entity) {
+        long now = System.currentTimeMillis();
+        for (String tag : entity.getTags()) {
+            if (tag == null) continue;
+            String lower = tag.toLowerCase(Locale.ROOT);
+            if (lower.startsWith("champutils_catch_protected_until_")) {
+                try {
+                    long until = Long.parseLong(lower.substring("champutils_catch_protected_until_".length()));
+                    if (until > now) return "recent catch attempt";
+                    entity.removeTag(tag);
+                } catch (Exception ignored) {
+                    return "recent catch attempt";
+                }
+            }
+        }
+        try {
+            String state = String.valueOf(entity.getPokemon().getState()).toLowerCase(Locale.ROOT);
+            if (state.contains("capture") || state.contains("catch") || state.contains("pokeball") || state.contains("poke_ball")) {
+                return "capture state";
+            }
+        } catch (Throwable ignored) {}
         return null;
     }
 

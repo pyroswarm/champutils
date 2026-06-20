@@ -107,6 +107,7 @@ public final class MegaBossManager {
 
     private static boolean trySpawnFor(ServerPlayer player, MegaBossConfig.BossEntry boss) {
         ServerLevel level = player.serverLevel();
+        if (isDisabledDimension(level)) return false;
         if (countMegaBossesNear(level, player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) return false;
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
@@ -360,6 +361,8 @@ public final class MegaBossManager {
 
     private static boolean isDisabledDimension(ServerLevel level) {
         String id = level.dimension().location().toString();
+        String lower = id == null ? "" : id.toLowerCase(Locale.ROOT);
+        if (lower.equals("spawn1") || lower.endsWith(":spawn1") || lower.contains("spawn1")) return true;
         for (String d : MegaBossConfig.DATA.disabledDimensions) if (id.equalsIgnoreCase(d)) return true;
         return false;
     }

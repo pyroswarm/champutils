@@ -20,17 +20,32 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class IslanderProfileManager {
     private static int tickCounter = 0;
+    private static final java.util.Map<String, ProfileGameMode> PROFILE_MODE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
     private IslanderProfileManager() {}
 
     public static void tick(MinecraftServer server) {
         if (server == null) return;
         tickCounter++;
-        if (tickCounter % 40 != 0) return;
+        if (tickCounter % 100 != 0) return;
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             enforceLocation(player);
         }
+    }
+
+
+    public static boolean canEnterTerritoryFast(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (player == null || territory == null || player.hasPermissions(4)) return true;
+
+        boolean playerIsIslander = PlayerProfileManager.isIslander(player);
+        boolean targetIsIslander = isIslanderTerritory(territory);
+
+        if (playerIsIslander) {
+            return targetIsIslander;
+        }
+
+        return !targetIsIslander;
     }
 
     public static boolean canEnterTerritory(ServerPlayer player, TerritoryRepository.Territory territory) {
@@ -50,7 +65,16 @@ public final class IslanderProfileManager {
 
     public static boolean isIslanderTerritory(TerritoryRepository.Territory territory) {
         if (territory == null || territory.ownerType != TerritoryRepository.OwnerType.PLAYER) return false;
-        return PlayerProfileManager.modeOfProfileIdBlocking(territory.ownerId) == ProfileGameMode.ISLANDER;
+        // Hot path: this can be called from territory movement checks. Never hit SQL repeatedly here.
+        // Islander territory worlds are named islander_*; use that as the fast path and cache DB fallback.
+        String world = territory.worldName == null ? "" : territory.worldName.toLowerCase(java.util.Locale.ROOT);
+        String path = world.contains(":") ? world.substring(world.indexOf(':') + 1) : world;
+        if (path.startsWith("islander_")) return true;
+        ProfileGameMode cached = PROFILE_MODE_CACHE.get(territory.ownerId);
+        if (cached != null) return cached == ProfileGameMode.ISLANDER;
+        ProfileGameMode loaded = PlayerProfileManager.modeOfProfileIdBlocking(territory.ownerId);
+        PROFILE_MODE_CACHE.put(territory.ownerId, loaded);
+        return loaded == ProfileGameMode.ISLANDER;
     }
 
     public static void enforceLocation(ServerPlayer player) {
@@ -95,7 +119,7 @@ public final class IslanderProfileManager {
         }
 
         if (territory == null) return;
-        if (canEnterTerritory(player, territory) && TerritoryRepository.canEnter(player, territory)) return;
+        if (canEnterTerritoryFast(player, territory) && TerritoryRepository.canEnterFast(player, territory)) return;
 
         denyAndSendToSpawn(player, "That territory is locked by profile type rules.");
     }

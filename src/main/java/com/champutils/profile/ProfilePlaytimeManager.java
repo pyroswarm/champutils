@@ -5,6 +5,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.sql.Connection;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.Properties;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -28,6 +32,7 @@ public final class ProfilePlaytimeManager {
     private static final Set<UUID> LOADING_FROM_DB = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, SessionMark> SESSION_MARKS = new ConcurrentHashMap<>();
     private static final long DEFAULT_INCREMENT_SECONDS = 60L;
+    private static final File LOCAL_BACKUP_FILE = new File("config/champutils/profile_playtime_backup.properties");
 
     private ProfilePlaytimeManager() {}
 
@@ -83,6 +88,11 @@ public final class ProfilePlaytimeManager {
         warmCacheAsync(profileId);
         AtomicLong cached = PROFILE_SECONDS.get(profileId);
         if (cached != null) return Math.max(0L, cached.get());
+        long local = loadLocalBackup(profileId);
+        if (local > 0L) {
+            PROFILE_SECONDS.putIfAbsent(profileId, new AtomicLong(local));
+            return local;
+        }
         return 0L;
     }
 
@@ -161,7 +171,7 @@ public final class ProfilePlaytimeManager {
     }
 
     public static void flushAsync() {
-        if (DIRTY.isEmpty() || !DatabaseManager.isEnabled()) return;
+        if (DIRTY.isEmpty()) return;
 
         Map<UUID, Long> snapshot = new ConcurrentHashMap<>();
         for (UUID profileId : DIRTY) {
@@ -171,6 +181,8 @@ public final class ProfilePlaytimeManager {
         DIRTY.clear();
 
         if (snapshot.isEmpty()) return;
+        saveLocalBackup(snapshot);
+        if (!DatabaseManager.isEnabled()) return;
 
         DatabaseManager.executeAsync("flush profile playtime", connection -> {
             ensureSchema(connection);
@@ -191,7 +203,17 @@ public final class ProfilePlaytimeManager {
     }
 
     public static void flushBlockingBestEffort() {
-        if (DIRTY.isEmpty() || !DatabaseManager.isEnabled()) return;
+        if (DIRTY.isEmpty()) return;
+        Map<UUID, Long> snapshot = new ConcurrentHashMap<>();
+        for (UUID profileId : DIRTY) {
+            AtomicLong seconds = PROFILE_SECONDS.get(profileId);
+            if (seconds != null) snapshot.put(profileId, Math.max(0L, seconds.get()));
+        }
+        saveLocalBackup(snapshot);
+        if (!DatabaseManager.isEnabled()) {
+            DIRTY.clear();
+            return;
+        }
         try {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
@@ -199,17 +221,50 @@ public final class ProfilePlaytimeManager {
                     "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) " +
                             "select ?, ?, now() where exists (select 1 from player_profiles where id = ?) " +
                             "on conflict (profile_id) do update set playtime_seconds = greatest(profile_player_stats.playtime_seconds, excluded.playtime_seconds), updated_at = now()")) {
-                for (UUID profileId : DIRTY) {
-                    AtomicLong seconds = PROFILE_SECONDS.get(profileId);
-                    if (seconds == null) continue;
+                for (Map.Entry<UUID, Long> entry : snapshot.entrySet()) {
+                    UUID profileId = entry.getKey();
                     ps.setObject(1, profileId);
-                    ps.setLong(2, Math.max(0L, seconds.get()));
+                    ps.setLong(2, Math.max(0L, entry.getValue()));
                     ps.setObject(3, profileId);
                     ps.addBatch();
                 }
                 ps.executeBatch();
             }
             DIRTY.clear();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private static long loadLocalBackup(UUID profileId) {
+        if (profileId == null || !LOCAL_BACKUP_FILE.exists()) return 0L;
+        try (FileInputStream in = new FileInputStream(LOCAL_BACKUP_FILE)) {
+            Properties properties = new Properties();
+            properties.load(in);
+            return Math.max(0L, Long.parseLong(properties.getProperty(profileId.toString(), "0")));
+        } catch (Exception ignored) {
+            return 0L;
+        }
+    }
+
+    private static synchronized void saveLocalBackup(Map<UUID, Long> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) return;
+        try {
+            File parent = LOCAL_BACKUP_FILE.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            Properties properties = new Properties();
+            if (LOCAL_BACKUP_FILE.exists()) {
+                try (FileInputStream in = new FileInputStream(LOCAL_BACKUP_FILE)) { properties.load(in); }
+            }
+            for (Map.Entry<UUID, Long> entry : snapshot.entrySet()) {
+                long existing = 0L;
+                try { existing = Long.parseLong(properties.getProperty(entry.getKey().toString(), "0")); } catch (Exception ignored) {}
+                properties.setProperty(entry.getKey().toString(), Long.toString(Math.max(existing, Math.max(0L, entry.getValue()))));
+            }
+            try (FileOutputStream out = new FileOutputStream(LOCAL_BACKUP_FILE)) {
+                properties.store(out, "ChampUtils per-profile playtime backup");
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -22,7 +22,8 @@ public class ProfessionLootManager {
         if (table == null || table.items == null || table.items.isEmpty()) return;
         if (table.dropChance <= 0.0D) return;
 
-        if (RANDOM.nextDouble() >= table.dropChance) return;
+        double effectiveDropChance = effectiveDropChance(player, profession, table.dropChance);
+        if (RANDOM.nextDouble() >= effectiveDropChance) return;
 
         ProfessionLootConfig.LootEntry reward = rollEntry(table.items);
         if (reward == null) return;
@@ -54,6 +55,12 @@ public class ProfessionLootManager {
         );
 
         sendRareDropMessage(player, itemId, amount);
+    }
+
+    public static double effectiveDropChance(ServerPlayer player, ProfessionType profession, double baseChance) {
+        int level = ProfessionManager.getLevel(player, profession);
+        double bonus = Math.max(0, level - 1) * 0.0015D;
+        return Math.min(0.65D, Math.max(0.0D, baseChance + bonus));
     }
 
     private static ProfessionLootConfig.LootEntry rollEntry(List<ProfessionLootConfig.LootEntry> items) {

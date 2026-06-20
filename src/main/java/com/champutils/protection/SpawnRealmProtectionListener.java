@@ -20,8 +20,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class SpawnRealmProtectionListener {
+    private static final Map<UUID, Long> LAST_WARNING = new ConcurrentHashMap<>();
+    private static final long WARNING_COOLDOWN_MS = 5000L;
+
     private SpawnRealmProtectionListener() {}
 
     public static void register() {
@@ -84,15 +90,20 @@ public final class SpawnRealmProtectionListener {
     private static boolean isAllowedEntityInteraction(Entity entity) {
         if (entity == null) return false;
         String type = EntityType.getKey(entity.getType()).toString().toLowerCase(Locale.ROOT);
-        return type.contains("npc") || type.contains("cobblemon:npc");
+        return type.contains("npc") || type.contains("cobblemon:npc") || type.contains("pokemon");
     }
 
     private static boolean isAllowedInteraction(BlockState state) {
         String id = state.getBlock().builtInRegistryHolder().key().location().toString().toLowerCase(Locale.ROOT);
-        return id.contains("healing_machine") || id.endsWith(":pc") || id.contains("pokemon_pc");
+        return id.contains("healing_machine") || id.endsWith(":pc") || id.contains("pokemon_pc") || id.endsWith(":ender_chest");
     }
 
     private static void deny(ServerPlayer player, String msg) {
+        if (player == null) return;
+        long now = System.currentTimeMillis();
+        Long last = LAST_WARNING.get(player.getUUID());
+        if (last != null && now - last < WARNING_COOLDOWN_MS) return;
+        LAST_WARNING.put(player.getUUID(), now);
         player.sendSystemMessage(Component.literal(msg).withStyle(ChatFormatting.RED));
     }
 }

@@ -295,6 +295,25 @@ public final class TerritoryRepository {
                 && com.champutils.guild.GuildRepository.canManageGuildTerritory(guild.role);
     }
 
+
+    /**
+     * Main-thread hot-path entry check used by movement/tick enforcement.
+     *
+     * This intentionally avoids LuckPerms/user loading because territory border checks run very often.
+     * Full permission checks still happen in commands and lower-frequency administrative paths.
+     */
+    public static boolean canEnterFast(ServerPlayer player, Territory territory) {
+        if (player == null || territory == null) return true;
+        if (player.hasPermissions(4)) return true;
+        if (!territory.isReady()) return false;
+        if (!IslanderProfileManager.canEnterTerritoryFast(player, territory)) return false;
+        if (getTrust(territory.id, player.getUUID()) == TrustLevel.BANNED) return false;
+        if (isOwnerOrGuildMember(player, territory)) return true;
+        TrustLevel trust = getTrust(territory.id, player.getUUID());
+        if (trust != null && trust != TrustLevel.BANNED) return true;
+        return territory.allowVisitors || territory.isPublic;
+    }
+
     public static boolean canEnter(ServerPlayer player, Territory territory) {
         if (player == null || territory == null) return true;
         if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;

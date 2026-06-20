@@ -249,25 +249,7 @@ public class ProfessionToolRequirementListener {
             return true;
         }
 
-        int playerLevel =
-                ProfessionManager.getLevel(
-                        player,
-                        professionType
-                );
-
-        if (
-                playerLevel <
-                        toolData.requiredLevel
-        ) {
-
-            sendLevelDeniedMessage(
-                    player,
-                    toolData
-            );
-
-            return false;
-        }
-
+        // Profession tools no longer have a usage level cap. Levels now improve rewards instead of locking tools.
         return true;
     }
 
@@ -303,22 +285,10 @@ public class ProfessionToolRequirementListener {
             return true;
         }
 
-        if (
-                ProfessionToolManager.canHarvestWithConfiguredTier(
-                        stack,
-                        state
-                )
-        ) {
-            return true;
-        }
-
-        sendTierDeniedMessage(
-                player,
-                toolData,
-                state
-        );
-
-        return false;
+        // Profession mining tools are progression tools, not vanilla-tier-locked tools.
+        // Let even common mining tools break higher-tier ores such as diamond ore;
+        // XP/abilities still require the correct identified, unbroken profession tool.
+        return true;
     }
 
     private static void sendTierDeniedMessage(

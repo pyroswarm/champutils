@@ -145,11 +145,12 @@ public class CobblemonBattleHandler {
              */
             if (winner != null) {
 
-                com.champutils.guild.GuildBossManager.recordBossVictory(winner);
+                com.champutils.guild.GuildBossManager.recordBossVictory(winner, losingNpcUuid);
 
                 BattleListener.onBattleEnd(
                         winner,
-                        loser
+                        loser,
+                        losingNpcUuid
                 );
 
                 if (losingNpcUuid != null) {

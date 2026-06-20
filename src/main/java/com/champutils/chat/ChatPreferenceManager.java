@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ChatPreferenceManager {
     public record ChatPreferences(ChatMode mode) {
         public static ChatPreferences defaults() {
-            return new ChatPreferences(ChatMode.LOCAL);
+            return new ChatPreferences(ChatMode.GLOBAL);
         }
     }
 
@@ -31,21 +31,21 @@ public final class ChatPreferenceManager {
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("create table if not exists player_chat_preferences (" +
                         "player_uuid uuid primary key, " +
-                        "chat_mode text not null default 'local', " +
+                        "chat_mode text not null default 'global', " +
                         "updated_at timestamptz not null default now())");
             }
         });
     }
 
     public static ChatMode get(UUID uuid) {
-        return MODES.getOrDefault(uuid, ChatMode.LOCAL);
+        return MODES.getOrDefault(uuid, ChatMode.GLOBAL);
     }
 
     public static ChatPreferences getCachedOrDefault(UUID uuid) {
         if (uuid == null) return ChatPreferences.defaults();
         ChatPreferences cached = CACHE.get(uuid);
         if (cached != null) return cached;
-        return new ChatPreferences(MODES.getOrDefault(uuid, ChatMode.LOCAL));
+        return new ChatPreferences(MODES.getOrDefault(uuid, ChatMode.GLOBAL));
     }
 
     public static void set(UUID uuid, ChatMode mode) {
@@ -192,7 +192,7 @@ public final class ChatPreferenceManager {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     ChatMode mode = ChatMode.parse(rs.getString("chat_mode"));
-                    return new ChatPreferences(mode == null ? ChatMode.LOCAL : mode);
+                    return new ChatPreferences(mode == null ? ChatMode.GLOBAL : mode);
                 }
             }
         }
@@ -206,7 +206,7 @@ public final class ChatPreferenceManager {
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("create table if not exists player_chat_preferences (" +
                     "player_uuid uuid primary key, " +
-                    "chat_mode text not null default 'local', " +
+                    "chat_mode text not null default 'global', " +
                     "updated_at timestamptz not null default now())");
         }
     }

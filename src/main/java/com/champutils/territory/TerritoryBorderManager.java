@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TerritoryBorderManager {
     private static final Map<UUID, Long> LAST_WARN = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> LAST_ALLOWED_TERRITORY = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_BORDER_TELEPORT = new ConcurrentHashMap<>();
     private static int tickCounter = 0;
 
     private TerritoryBorderManager() {}
@@ -24,11 +25,15 @@ public final class TerritoryBorderManager {
         if (server == null || !TerritoryConfig.get().enabled) return;
 
         tickCounter++;
-        if (tickCounter < 5) return;
+        // Border enforcement does not need to run 4 times per second. Running once per second
+        // keeps movement safe enough while preventing territory checks from owning the tick.
+        if (tickCounter < 100) return;
         tickCounter = 0;
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) continue;
+            // Do not call LuckPerms from this hot path. A cache miss can block the server thread.
+            // OP-level admins bypass; command-level admin bypasses are handled outside tick movement enforcement.
+            if (player.hasPermissions(4)) continue;
 
             ServerLevel level = player.serverLevel();
             if (!TerritoryRepository.isTerritoryWorld(level)) {
@@ -40,11 +45,11 @@ public final class TerritoryBorderManager {
             TerritoryRepository.Territory current = TerritoryRepository.findAt(level, pos);
 
             if (current != null) {
-                if (!TerritoryRepository.canEnter(player, current)) {
+                if (!TerritoryRepository.canEnterFast(player, current)) {
                     LAST_ALLOWED_TERRITORY.remove(player.getUUID());
                     stopPlayerMovement(player);
                     sendWarn(player, "You are not allowed inside " + current.ownerName + "'s territory.");
-                    teleportToOwnTerritory(player);
+                    if (canBorderTeleport(player)) teleportToOwnTerritory(player);
                     continue;
                 }
 
@@ -53,15 +58,12 @@ public final class TerritoryBorderManager {
                 if (current.lockBorder && isOutsidePrecise(player, current)) {
                     stopPlayerMovement(player);
                     sendWarn(player, "You cannot leave this territory border.");
-                    TerritoryTeleportUtil.teleportInside(player, current);
+                    if (canBorderTeleport(player)) TerritoryTeleportUtil.teleportInside(player, current);
                 }
                 continue;
             }
 
             TerritoryRepository.Territory lockedTerritory = lastAllowedTerritory(player);
-            if (lockedTerritory == null) {
-                lockedTerritory = nearestEnterableLockedTerritory(level, player);
-            }
             if (lockedTerritory == null) {
                 lockedTerritory = preferredHomeTerritory(player);
             }
@@ -69,9 +71,17 @@ public final class TerritoryBorderManager {
             if (lockedTerritory != null && lockedTerritory.lockBorder) {
                 stopPlayerMovement(player);
                 sendWarn(player, "You cannot leave this territory border.");
-                TerritoryTeleportUtil.teleportInside(player, lockedTerritory);
+                if (canBorderTeleport(player)) TerritoryTeleportUtil.teleportInside(player, lockedTerritory);
             }
         }
+    }
+
+    private static boolean canBorderTeleport(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        long last = LAST_BORDER_TELEPORT.getOrDefault(player.getUUID(), 0L);
+        if (now - last < 2000L) return false;
+        LAST_BORDER_TELEPORT.put(player.getUUID(), now);
+        return true;
     }
 
     private static boolean isOutsidePrecise(ServerPlayer player, TerritoryRepository.Territory territory) {
@@ -110,7 +120,7 @@ public final class TerritoryBorderManager {
 
         for (TerritoryRepository.Territory territory : TerritoryRepository.cachedInWorld(level)) {
             if (!territory.lockBorder) continue;
-            if (!TerritoryRepository.canEnter(player, territory)) continue;
+            if (!TerritoryRepository.canEnterFast(player, territory)) continue;
 
             double clampedX = Math.max(territory.minX, Math.min(territory.maxX, player.getX()));
             double clampedZ = Math.max(territory.minZ, Math.min(territory.maxZ, player.getZ()));

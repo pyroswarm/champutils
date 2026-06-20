@@ -2,6 +2,8 @@ package com.champutils.menu;
 
 import com.champutils.profession.ProfessionDataManager;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionLootConfig;
+import com.champutils.profession.ProfessionLootManager;
 import com.champutils.profession.ProfessionType;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -63,6 +65,7 @@ public class ProfessionMenu {
         );
 
         setProfessionSlot(
+                player,
                 gui,
                 10,
                 ProfessionType.BATTLING,
@@ -71,6 +74,7 @@ public class ProfessionMenu {
         );
 
         setProfessionSlot(
+                player,
                 gui,
                 12,
                 ProfessionType.MINING,
@@ -79,6 +83,7 @@ public class ProfessionMenu {
         );
 
         setProfessionSlot(
+                player,
                 gui,
                 14,
                 ProfessionType.FORESTRY,
@@ -87,6 +92,7 @@ public class ProfessionMenu {
         );
 
         setProfessionSlot(
+                player,
                 gui,
                 16,
                 ProfessionType.FARMING,
@@ -106,6 +112,7 @@ public class ProfessionMenu {
     }
 
     private static void setProfessionSlot(
+            ServerPlayer player,
             SimpleGui gui,
             int slot,
             ProfessionType type,
@@ -149,7 +156,19 @@ public class ProfessionMenu {
                                                 )
                                 )
                         )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Rare drop chance: §a" + dropChanceText(player, type)
+                                )
+                        )
         );
+    }
+
+    private static String dropChanceText(ServerPlayer player, ProfessionType type) {
+        ProfessionLootConfig.LootTable table = ProfessionLootConfig.TABLES.get(type.name());
+        if (table == null) return "None";
+        double chance = ProfessionLootManager.effectiveDropChance(player, type, table.dropChance) * 100.0D;
+        return String.format(java.util.Locale.ROOT, "%.1f%%", chance);
     }
 
     private static String format(

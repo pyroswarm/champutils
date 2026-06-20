@@ -12,6 +12,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.levelgen.Heightmap;
 import java.util.List;
 
@@ -265,15 +268,50 @@ public final class LandClaimCommand {
             player.sendSystemMessage(Component.literal("Could not find that claim's world: " + claim.worldName).withStyle(ChatFormatting.RED));
             return 0;
         }
-        int x = claim.minX + ((claim.maxX - claim.minX) / 2);
-        int z = claim.minZ + ((claim.maxZ - claim.minZ) / 2);
-        BlockPos surface = targetLevel.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, targetLevel.getMinBuildHeight(), z));
-        double tx = surface.getX() + 0.5D;
-        double ty = Math.max(targetLevel.getMinBuildHeight() + 1, surface.getY() + 1);
-        double tz = surface.getZ() + 0.5D;
+        BlockPos safe = findSafeClaimTeleport(targetLevel, claim);
+        if (safe == null) {
+            player.sendSystemMessage(Component.literal("Could not find a safe open spot inside claim #" + number + ". Clear a 2-block-tall space near the claim center and try again.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        double tx = safe.getX() + 0.5D;
+        double ty = safe.getY();
+        double tz = safe.getZ() + 0.5D;
         if (!SafeTeleportManager.teleport(player, targetLevel, tx, ty, tz, player.getYRot(), player.getXRot())) return 0;
         player.sendSystemMessage(Component.literal("Teleported to claim #" + number + ".").withStyle(ChatFormatting.GREEN));
         return 1;
+    }
+
+    private static BlockPos findSafeClaimTeleport(ServerLevel level, LandClaimRepository.Claim claim) {
+        int centerX = claim.minX + ((claim.maxX - claim.minX) / 2);
+        int centerZ = claim.minZ + ((claim.maxZ - claim.minZ) / 2);
+        int radius = Math.max(1, Math.min(24, Math.max(claim.maxX - claim.minX, claim.maxZ - claim.minZ) / 2));
+        for (int r = 0; r <= radius; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
+                    int x = centerX + dx;
+                    int z = centerZ + dz;
+                    if (x < claim.minX || x > claim.maxX || z < claim.minZ || z > claim.maxZ) continue;
+                    BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, level.getMinBuildHeight(), z));
+                    BlockPos feet = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY() + 1), surface.getZ());
+                    if (isSafeTeleportSpot(level, feet)) return feet;
+                    BlockPos atSurface = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY()), surface.getZ());
+                    if (isSafeTeleportSpot(level, atSurface)) return atSurface;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isSafeTeleportSpot(ServerLevel level, BlockPos feet) {
+        if (feet == null || feet.getY() <= level.getMinBuildHeight() || feet.getY() >= level.getMaxBuildHeight() - 2) return false;
+        BlockState feetState = level.getBlockState(feet);
+        BlockState headState = level.getBlockState(feet.above());
+        BlockState groundState = level.getBlockState(feet.below());
+        if (feetState.blocksMotion() || headState.blocksMotion()) return false;
+        if (level.getFluidState(feet).is(FluidTags.LAVA) || level.getFluidState(feet.above()).is(FluidTags.LAVA) || level.getFluidState(feet.below()).is(FluidTags.LAVA)) return false;
+        if (groundState.isAir()) return false;
+        return !(groundState.is(Blocks.CACTUS) || groundState.is(Blocks.MAGMA_BLOCK) || groundState.is(Blocks.CAMPFIRE) || groundState.is(Blocks.SOUL_CAMPFIRE) || groundState.is(Blocks.FIRE) || groundState.is(Blocks.SOUL_FIRE));
     }
 
     private static int deletePrompt(ServerPlayer player) {

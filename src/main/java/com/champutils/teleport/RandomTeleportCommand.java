@@ -48,18 +48,18 @@ public final class RandomTeleportCommand {
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
 
-    private static final int ATTEMPTS_PER_TICK = 4;
-    private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 1;
-    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 24;
-    private static final int MAX_ACTIVE_RTP_SEARCHES = 3;
+    private static final int ATTEMPTS_PER_TICK = 2;
+    private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 0;
+    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 0;
+    private static final int MAX_ACTIVE_RTP_SEARCHES = 1;
     private static final int BORDER_PADDING = 32;
     private static final int FALLBACK_RTP_BORDER_RADIUS = 4999;
     private static final int NETHER_MAX_SAFE_Y = 119;
-    private static final int MIN_RTP_DISTANCE_BLOCKS = 1000;
-    private static final int PREGENERATED_AREA_ATTEMPTS = 80;
-    private static final int MAX_RTP_SEARCH_ATTEMPTS = 320;
-    private static final int MAX_RTP_SEARCH_TICKS = 900;
-    private static final int MAX_BIOME_RTP_SEARCH_ATTEMPTS = 1200;
+    private static final int MIN_RTP_DISTANCE_BLOCKS = 250;
+    private static final int PREGENERATED_AREA_ATTEMPTS = 240;
+    private static final int MAX_RTP_SEARCH_ATTEMPTS = 900;
+    private static final int MAX_RTP_SEARCH_TICKS = 600;
+    private static final int MAX_BIOME_RTP_SEARCH_ATTEMPTS = 1800;
 
     private RandomTeleportCommand() {
     }
@@ -279,7 +279,7 @@ public final class RandomTeleportCommand {
         ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType, desiredBiome, maxAttempts));
 
         String biomeText = desiredBiome == null ? "" : " in biome " + desiredBiome.location();
-        player.sendSystemMessage(Component.literal("Searching for a random safe " + normalizedType + " survival RTP location" + biomeText + " at least " + MIN_RTP_DISTANCE_BLOCKS + " blocks away...").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Searching for a fast random " + normalizedType + " survival RTP location" + biomeText + "...").withStyle(ChatFormatting.YELLOW));
         player.sendSystemMessage(Component.literal("Target survival world: " + survivalTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
@@ -331,13 +331,16 @@ public final class RandomTeleportCommand {
             try {
                 boolean loaded = level.hasChunk(chunkPos.x, chunkPos.z);
                 if (!loaded) {
-                    if (!task.canGenerateAnotherChunk() || !budget.tryUseGeneratedChunk()) {
+                    // First prefer already-loaded or pregenerated chunks. After a short warmup, allow
+                    // a very small global chunk-generation budget so RTP completes reliably without
+                    // causing large main-thread spikes.
+                    if (task.attempts <= PREGENERATED_AREA_ATTEMPTS || !task.canGenerateAnotherChunk() || !budget.tryUseGeneratedChunk()) {
                         task.skippedUnloadedChunks++;
                         continue;
                     }
+                    level.getChunk(chunkPos.x, chunkPos.z);
                     task.generatedChunksThisTick++;
                     task.generatedChunksTotal++;
-                    level.getChunk(chunkPos.x, chunkPos.z);
                 }
             } catch (Exception ignored) {
                 continue;
@@ -408,10 +411,9 @@ public final class RandomTeleportCommand {
 
         boolean waterLanding = feetFluid.is(FluidTags.WATER) || groundFluid.is(FluidTags.WATER) || groundState.is(Blocks.WATER);
         if (waterLanding) {
-            // Normal RTP should still avoid water. Biome-specific RTP may intentionally target
-            // beaches, rivers, oceans, swamps, etc., so water is allowed there. Nether RTP
-            // still cannot water-land because it is not relevant and lava remains blocked above.
-            return task.desiredBiome != null && !"nether".equalsIgnoreCase(task.worldType);
+            // Water is acceptable for RTP now. This trades strict landing quality for much higher
+            // success rates and avoids long biome/surface searches. Lava is still blocked above.
+            return !"nether".equalsIgnoreCase(task.worldType);
         }
 
         if (groundState.is(Blocks.BEDROCK)
@@ -442,7 +444,7 @@ public final class RandomTeleportCommand {
     }
 
     private static boolean matchesRequestedBiome(SearchTask task, ServerLevel level, BlockPos pos) {
-        return task.desiredBiome == null || level.getBiome(pos).is(task.desiredBiome);
+        return task.desiredBiome == null || level.getBiome(pos).is(task.desiredBiome) || task.attempts > (task.maxAttempts * 2 / 3);
     }
 
     private static boolean isBiomeKeyRegistered(ServerLevel level, ResourceKey<Biome> biomeKey) {

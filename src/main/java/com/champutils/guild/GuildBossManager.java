@@ -123,6 +123,10 @@ public final class GuildBossManager {
         return null;
     }
 
+    public static boolean isActiveGuildBossNpc(UUID npcUuid) {
+        return getActiveGuildBossByNpc(npcUuid) != null;
+    }
+
     public static boolean isActiveWorldBossNpc(UUID npcUuid) {
         if (npcUuid == null || activeWorldBoss == null) return false;
         for (BossSpawn spawn : activeWorldBoss.spawns) {
@@ -220,10 +224,21 @@ public final class GuildBossManager {
     }
 
     public static void recordBossVictory(ServerPlayer winner) {
-        if (winner == null) return;
-        recordGuildVictory(winner);
-        recordWorldVictory(winner);
-        com.champutils.cosmetic.TitleRegistry.handleBoss(winner);
+        recordBossVictory(winner, null);
+    }
+
+    public static void recordBossVictory(ServerPlayer winner, UUID defeatedNpcUuid) {
+        if (winner == null || defeatedNpcUuid == null) return;
+        boolean counted = false;
+        if (isActiveGuildBossNpc(defeatedNpcUuid)) {
+            recordGuildVictory(winner);
+            counted = true;
+        }
+        if (isActiveWorldBossNpc(defeatedNpcUuid)) {
+            recordWorldVictory(winner);
+            counted = true;
+        }
+        if (counted) com.champutils.cosmetic.TitleRegistry.handleBoss(winner);
     }
 
     private static void recordGuildVictory(ServerPlayer winner) {
@@ -390,12 +405,16 @@ public final class GuildBossManager {
         return removed;
     }
 
-    private static boolean isKnownBossNpc(NPCEntity npc) {
+    public static boolean isBossNpcEntity(Entity entity) {
         try {
-            return npc.getTags().contains(WORLD_BOSS_ENTITY_TAG) || npc.getTags().contains(GUILD_BOSS_ENTITY_TAG);
+            return entity != null && (entity.getTags().contains(WORLD_BOSS_ENTITY_TAG) || entity.getTags().contains(GUILD_BOSS_ENTITY_TAG));
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static boolean isKnownBossNpc(NPCEntity npc) {
+        return isBossNpcEntity(npc);
     }
 
     private static boolean looksLikeConfiguredWorldBossNpc(ServerLevel level, NPCEntity npc) {

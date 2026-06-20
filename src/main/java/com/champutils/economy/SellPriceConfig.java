@@ -205,6 +205,30 @@ public final class SellPriceConfig {
         root.blockedItemContains.add("crate_key");
         root.blockedItemContains.add("tm_item");
 
+        // Basic building materials. Logs intentionally sell for more than planks.
+        root.itemPrices.put("minecraft:stick", 0.01D);
+        root.itemPrices.put("minecraft:oak_planks", 0.02D);
+        root.itemPrices.put("minecraft:spruce_planks", 0.02D);
+        root.itemPrices.put("minecraft:birch_planks", 0.02D);
+        root.itemPrices.put("minecraft:jungle_planks", 0.02D);
+        root.itemPrices.put("minecraft:acacia_planks", 0.02D);
+        root.itemPrices.put("minecraft:dark_oak_planks", 0.02D);
+        root.itemPrices.put("minecraft:mangrove_planks", 0.02D);
+        root.itemPrices.put("minecraft:cherry_planks", 0.02D);
+        root.itemPrices.put("minecraft:bamboo_planks", 0.02D);
+        root.itemPrices.put("minecraft:crimson_planks", 0.02D);
+        root.itemPrices.put("minecraft:warped_planks", 0.02D);
+        root.itemPrices.put("minecraft:oak_log", 0.12D);
+        root.itemPrices.put("minecraft:spruce_log", 0.12D);
+        root.itemPrices.put("minecraft:birch_log", 0.12D);
+        root.itemPrices.put("minecraft:jungle_log", 0.12D);
+        root.itemPrices.put("minecraft:acacia_log", 0.12D);
+        root.itemPrices.put("minecraft:dark_oak_log", 0.12D);
+        root.itemPrices.put("minecraft:mangrove_log", 0.12D);
+        root.itemPrices.put("minecraft:cherry_log", 0.12D);
+        root.itemPrices.put("minecraft:crimson_stem", 0.12D);
+        root.itemPrices.put("minecraft:warped_stem", 0.12D);
+
         return root;
     }
 
