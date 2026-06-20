@@ -40,6 +40,13 @@ public final class MegaBossManager {
     private static final Stat[] PERMANENT_STATS = new Stat[] {
             Stats.HP, Stats.ATTACK, Stats.DEFENCE, Stats.SPECIAL_ATTACK, Stats.SPECIAL_DEFENCE, Stats.SPEED
     };
+    // Cobblemon enforces the vanilla 510 total EV cap. Giving 252 to all six stats
+    // creates a 1512-EV Pokémon; when a battle ends or is fled from, Cobblemon's EV
+    // reward sync can try to coerce into a negative range and crash the server.
+    // 85 x 6 = 510 keeps mega bosses as strong as legally possible without corrupting EV state.
+    private static final int BOSS_BALANCED_EV = 85;
+    private static final String BOSS_EV_PROPERTIES =
+            " ev_hp=85 ev_attack=85 ev_defence=85 ev_special_attack=85 ev_special_defence=85 ev_speed=85";
     public static final String BOSS_TAG = "champutils_mega_boss";
     public static final String BOSS_RARITY_PREFIX = "champutils_mega_boss_rarity_";
     public static final String BOSS_STONE_PREFIX = "champutils_mega_boss_stone_";
@@ -187,6 +194,16 @@ public final class MegaBossManager {
         return null;
     }
 
+    private static String sanitizeExtraProperties(String extraProperties) {
+        if (extraProperties == null || extraProperties.isBlank()) return "";
+        // Do not allow config-supplied EV tokens to override the safe legal spread above.
+        // This protects old configs that still contain ev_hp=252 ... ev_speed=252.
+        return extraProperties.trim()
+                .replaceAll("(?i)(^|\\s)ev_(hp|attack|atk|defence|defense|def|special_attack|specialattack|spa|special_defence|special_defense|specialdefence|specialdefense|spd|speed|spe)=[^\\s]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
     private static String buildPokespawnCommand(MegaBossConfig.BossEntry boss, int level, BlockPos pos) {
         StringBuilder cmd = new StringBuilder("pokespawn ").append(sanitize(boss.species))
                 .append(" lvl=").append(level)
@@ -194,7 +211,7 @@ public final class MegaBossManager {
                 .append(" scale_modifier=").append(MegaBossConfig.DATA.scaleModifier)
                 .append(" shiny=false ai=false")
                 .append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31")
-                .append(" ev_hp=252 ev_attack=252 ev_defence=252 ev_special_attack=252 ev_special_defence=252 ev_speed=252");
+                .append(BOSS_EV_PROPERTIES);
         if (boss.ability != null && !boss.ability.isBlank()) cmd.append(" ability=").append(cleanToken(boss.ability));
         if (boss.nature != null && !boss.nature.isBlank()) cmd.append(" nature=").append(cleanToken(boss.nature));
         if (boss.moves != null) {
@@ -203,16 +220,18 @@ public final class MegaBossManager {
                 if (!move.isBlank()) cmd.append(" move").append(i + 1).append("=").append(move);
             }
         }
-        if (boss.extraProperties != null && !boss.extraProperties.isBlank()) cmd.append(' ').append(boss.extraProperties.trim());
+        String safeExtra = sanitizeExtraProperties(boss.extraProperties);
+        if (!safeExtra.isBlank()) cmd.append(' ').append(safeExtra);
         return cmd.toString();
     }
 
     private static Entity spawnDirectly(ServerLevel level, BlockPos pos, MegaBossConfig.BossEntry boss, int pokemonLevel) {
         try {
             StringBuilder properties = new StringBuilder("species=\"cobblemon:").append(sanitize(boss.species)).append("\" level=").append(pokemonLevel);
-            if (boss.extraProperties != null && !boss.extraProperties.isBlank()) properties.append(' ').append(boss.extraProperties.trim());
+            String safeExtra = sanitizeExtraProperties(boss.extraProperties);
+            if (!safeExtra.isBlank()) properties.append(' ').append(safeExtra);
             properties.append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31");
-            properties.append(" ev_hp=252 ev_attack=252 ev_defence=252 ev_special_attack=252 ev_special_defence=252 ev_speed=252");
+            properties.append(BOSS_EV_PROPERTIES);
             if (boss.ability != null && !boss.ability.isBlank()) properties.append(" ability=").append(cleanToken(boss.ability));
             if (boss.nature != null && !boss.nature.isBlank()) properties.append(" nature=").append(cleanToken(boss.nature));
             Class<?> propertiesClass = Class.forName("com.cobblemon.mod.common.api.pokemon.PokemonProperties");
@@ -408,7 +427,6 @@ public final class MegaBossManager {
             pokemon.getIvs().update();
         } catch (Throwable ignored) {}
         try {
-            // Bosses are intentionally beyond normal player EV limits so they feel like raid enemies.
             Object evs = pokemon.getEvs();
             java.lang.reflect.Field statsField = evs.getClass().getSuperclass().getDeclaredField("stats");
             statsField.setAccessible(true);
@@ -416,13 +434,13 @@ public final class MegaBossManager {
             if (value instanceof Map<?, ?> rawMap) {
                 @SuppressWarnings("unchecked")
                 Map<Stat, Integer> map = (Map<Stat, Integer>) rawMap;
-                for (Stat stat : PERMANENT_STATS) map.put(stat, 252);
+                for (Stat stat : PERMANENT_STATS) map.put(stat, BOSS_BALANCED_EV);
             } else {
-                for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, 252);
+                for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, BOSS_BALANCED_EV);
             }
             pokemon.getEvs().update();
         } catch (Throwable ignored) {
-            try { for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, 252); } catch (Throwable ignoredToo) {}
+            try { for (Stat stat : PERMANENT_STATS) pokemon.getEvs().set(stat, BOSS_BALANCED_EV); } catch (Throwable ignoredToo) {}
         }
         try { pokemon.setCurrentHealth(pokemon.getMaxHealth()); } catch (Throwable ignored) {}
     }
