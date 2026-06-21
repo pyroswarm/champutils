@@ -111,6 +111,7 @@ public class MenuCommand {
                     dispatcher.register(
 
                             literal("profile")
+                                    .requires(source -> source.hasPermission(2))
 
                                     // /profile = your own card
                                     .executes(ctx->{

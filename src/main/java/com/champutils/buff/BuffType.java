@@ -16,7 +16,7 @@ public enum BuffType {
     FARMING_XP("Farming Profession XP", "Increases Farming profession XP earned from legitimate gameplay.", ChatFormatting.YELLOW, ProfessionType.FARMING),
     BATTLING_XP("Battling Profession XP", "Increases Battling profession XP earned from legitimate gameplay.", ChatFormatting.RED, ProfessionType.BATTLING),
 
-    SHINY_CHANCE("Shiny Catch Chance", "Tiny chance for a legitimate wild catch to become shiny.", ChatFormatting.LIGHT_PURPLE, null),
+    SHINY_CHANCE("Shiny Chance Multiplier", "Increases the current/base shiny chance by a relative percent for legitimate wild spawns/catches.", ChatFormatting.LIGHT_PURPLE, null),
     CATCH_CHANCE("Catch Chance", "Future hook for increasing legitimate wild capture chance.", ChatFormatting.GREEN, null),
     PERFECT_IV_CHANCE("Perfect IV Chance", "Tiny chance for one random IV on a legitimate wild catch to become 31.", ChatFormatting.AQUA, null),
 

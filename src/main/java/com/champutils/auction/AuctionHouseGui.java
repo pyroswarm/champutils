@@ -120,46 +120,50 @@ public final class AuctionHouseGui {
                 .setCallback((index, clickType, actionType, g) -> AuctionHouseService.claimNext(player)));
         gui.open();
 
+        renderBrowseListings(player, gui, AuctionHouseRepository.cachedActiveListings(45), true);
+
         CompletableFuture.supplyAsync(() -> {
             try { return AuctionHouseRepository.fetchActiveListings(45); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listings, error) -> player.server.execute(() -> {
             if (error != null) {
-                player.sendSystemMessage(Component.literal("Could not load auction listings. Check console.").withStyle(ChatFormatting.RED));
+                if (AuctionHouseRepository.cachedActiveListings(1).isEmpty()) {
+                    player.sendSystemMessage(Component.literal("Could not load auction listings. Check console.").withStyle(ChatFormatting.RED));
+                }
                 error.printStackTrace();
                 return;
             }
-
-            if (listings.isEmpty()) {
-                gui.setSlot(22, cleanButton(Items.BARRIER, "§7No active listings")
-                        .addLoreLine(Component.literal("§8Listings will appear here once players sell items.")));
-                return;
-            }
-
-            UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
-            for (int i = 0; i < Math.min(45, listings.size()); i++) {
-                int slot = i;
-                AuctionHouseRepository.AuctionListingSummary listing = listings.get(i);
-                long delayMillis = (slot / 9L) * 50L;
-                CompletableFuture.runAsync(() -> {}, CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
-                        .thenRun(() -> player.server.execute(() -> {
-                            List<Component> lore = listingLore(listing);
-                            lore.add(Component.literal(""));
-                            if (activeProfileId.toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
-                                lore.add(Component.literal("§eThis is your listing."));
-                                lore.add(Component.literal("§7Click to inspect."));
-                            } else {
-                                lore.add(Component.literal("§aClick to inspect and buy."));
-                            }
-
-                            GuiElementBuilder builder = iconFor(player, listing)
-                                    .setName(Component.literal("§f" + listing.title))
-                                    .setLore(lore)
-                                    .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "browse"));
-                            gui.setSlot(slot, builder);
-                        }));
-            }
+            renderBrowseListings(player, gui, listings, false);
         }));
+    }
+
+    private static void renderBrowseListings(ServerPlayer player, SimpleGui gui, List<AuctionHouseRepository.AuctionListingSummary> listings, boolean cached) {
+        if (listings == null || listings.isEmpty()) {
+            gui.setSlot(22, cleanButton(cached ? Items.CLOCK : Items.BARRIER, cached ? "§eLoading cached listings..." : "§7No active listings")
+                    .addLoreLine(Component.literal(cached ? "§8Refreshing auction data async." : "§8Listings will appear here once players sell items.")));
+            return;
+        }
+
+        UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
+        for (int i = 0; i < 45; i++) gui.setSlot(i, cleanButton(Items.GRAY_STAINED_GLASS_PANE, " "));
+        for (int i = 0; i < Math.min(45, listings.size()); i++) {
+            int slot = i;
+            AuctionHouseRepository.AuctionListingSummary listing = listings.get(i);
+            List<Component> lore = listingLore(listing);
+            lore.add(Component.literal(""));
+            if (cached) lore.add(Component.literal("§8Cached; refreshing..."));
+            if (activeProfileId != null && activeProfileId.toString().equalsIgnoreCase(String.valueOf(listing.sellerUuid))) {
+                lore.add(Component.literal("§eThis is your listing."));
+                lore.add(Component.literal("§7Click to inspect."));
+            } else {
+                lore.add(Component.literal("§aClick to inspect and buy."));
+            }
+            GuiElementBuilder builder = iconFor(player, listing)
+                    .setName(Component.literal("§f" + listing.title))
+                    .setLore(lore)
+                    .setCallback((index, clickType, actionType, g) -> openInspect(player, listing, "browse"));
+            gui.setSlot(slot, builder);
+        }
     }
 
     public static void openMyListings(ServerPlayer player) {

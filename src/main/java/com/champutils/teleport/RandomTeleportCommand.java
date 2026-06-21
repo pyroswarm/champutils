@@ -2,9 +2,9 @@ package com.champutils.teleport;
 
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.survival.SurvivalWorldManager;
-import com.champutils.worldborder.ChampWorldBorderManager;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.worldborder.ChampWorldBorderConfig;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -24,6 +24,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
@@ -33,11 +35,14 @@ import net.minecraft.world.level.material.FluidState;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CompletableFuture;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -48,18 +53,24 @@ public final class RandomTeleportCommand {
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
 
-    private static final int ATTEMPTS_PER_TICK = 8;
+    private static final int ATTEMPTS_PER_TICK = 2;
+    private static final int BIOME_ATTEMPTS_PER_TICK = 1;
+    // Normal RTP still never generates chunks. Biome-specific RTP is allowed to generate very slowly
+    // because accuracy matters more there, but generation is globally throttled and hard-capped.
     private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 1;
-    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 32;
+    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 120;
+    private static final int MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH = 360;
+    private static final int RTP_CHUNK_GENERATION_COOLDOWN_TICKS = 100;
+    private static final int BIOME_CHUNK_GENERATION_COOLDOWN_TICKS = 140;
     private static final int MAX_ACTIVE_RTP_SEARCHES = 1;
     private static final int BORDER_PADDING = 32;
-    private static final int FALLBACK_RTP_BORDER_RADIUS = 4999;
     private static final int NETHER_MAX_SAFE_Y = 119;
-    private static final int MIN_RTP_DISTANCE_BLOCKS = 250;
-    private static final int PREGENERATED_AREA_ATTEMPTS = 40;
-    private static final int MAX_RTP_SEARCH_ATTEMPTS = 900;
-    private static final int MAX_RTP_SEARCH_TICKS = 600;
-    private static final int MAX_BIOME_RTP_SEARCH_ATTEMPTS = 1800;
+    private static final int MAX_RTP_SEARCH_ATTEMPTS = 9600;
+    private static final int MAX_RTP_SEARCH_TICKS = 1200;
+    private static final int MAX_BIOME_RTP_SEARCH_ATTEMPTS = 20000;
+    private static final int MAX_BIOME_RTP_SEARCH_TICKS = 2400;
+    private static final int MAX_CACHED_SAFE_POSITIONS_PER_WORLD = 256;
+    private static final Map<String, ConcurrentLinkedQueue<BlockPos>> SAFE_POSITION_CACHE = new ConcurrentHashMap<>();
 
     private RandomTeleportCommand() {
     }
@@ -145,15 +156,39 @@ public final class RandomTeleportCommand {
     }
 
     private static boolean biomeAllowedForRtpType(ResourceLocation id, String survivalType) {
-        String text = id.toString();
-        String path = id.getPath();
-        if ("nether".equalsIgnoreCase(survivalType)) {
-            return text.startsWith("minecraft:") && (path.contains("nether") || path.equals("crimson_forest") || path.equals("warped_forest") || path.equals("soul_sand_valley") || path.equals("basalt_deltas"));
+        if (id == null || isRtpBiomeBlacklisted(id)) return false;
+        String path = id.getPath().toLowerCase(Locale.ROOT);
+        String type = survivalType == null ? "overworld" : survivalType.toLowerCase(Locale.ROOT);
+
+        // Be permissive for custom datapack/modded dimensions. The old filter only allowed a few
+        // vanilla Nether biomes and blocked End biome RTP entirely, which made RTP fail in many realms.
+        if ("nether".equals(type)) {
+            return path.contains("nether")
+                    || path.contains("crimson")
+                    || path.contains("warped")
+                    || path.contains("soul_sand")
+                    || path.contains("basalt")
+                    || path.equals("nether_wastes");
         }
-        if ("end".equalsIgnoreCase(survivalType)) {
-            return false;
+        if ("end".equals(type)) {
+            return path.contains("end") || path.equals("the_end") || path.equals("small_end_islands");
         }
-        return !path.contains("nether") && !path.contains("end") && !path.equals("crimson_forest") && !path.equals("warped_forest") && !path.equals("soul_sand_valley") && !path.equals("basalt_deltas");
+        return !path.contains("nether")
+                && !path.contains("end")
+                && !path.equals("crimson_forest")
+                && !path.equals("warped_forest")
+                && !path.equals("soul_sand_valley")
+                && !path.equals("basalt_deltas")
+                && !path.equals("nether_wastes");
+    }
+
+    private static boolean isRtpBiomeBlacklisted(ResourceLocation id) {
+        if (id == null) return true;
+        String path = id.getPath().toLowerCase(Locale.ROOT);
+        return path.equals("deep_dark")
+                || path.equals("the_void")
+                || path.equals("lush_caves")
+                || path.equals("dripstone_caves");
     }
 
     private static int listRtpWorlds(CommandSourceStack source) {
@@ -240,27 +275,25 @@ public final class RandomTeleportCommand {
         if (biomeName != null && desiredBiome == null) {
             return 0;
         }
+        if (desiredBiome != null && isRtpBiomeBlacklisted(desiredBiome.location())) {
+            player.sendSystemMessage(Component.literal("That biome is disabled for RTP because it is too slow or unreliable to search safely. Try /rtp " + normalizedType + " without a biome filter.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         if (desiredBiome != null && !biomeAllowedForRtpType(desiredBiome.location(), normalizedType)) {
             sendBiomeNotAllowedMessage(player, desiredBiome.location(), normalizedType);
             return 0;
         }
 
         SurvivalWorldManager.RtpTarget survivalTarget = SurvivalWorldManager.pickRtpTarget(player.server, normalizedType);
-        if (survivalTarget == null || survivalTarget.level == null || survivalTarget.entry == null) {
-            player.sendSystemMessage(Component.literal("No " + normalizedType + " survival world is currently loaded for RTP.").withStyle(ChatFormatting.RED));
-            player.sendSystemMessage(Component.literal("ChampUtils will create/load the permanent survival worlds automatically when Multiworld is available.").withStyle(ChatFormatting.GRAY));
-            return 0;
+        ServerLevel targetLevel = survivalTarget == null ? null : survivalTarget.level;
+        String targetWorldName = survivalTarget == null || survivalTarget.entry == null ? null : survivalTarget.entry.worldName;
+        if (targetLevel == null && dimensionMatchesType(startLevel, normalizedType) && !TeleportConfig.isRtpBlocked(currentDimension)) {
+            targetLevel = startLevel;
+            targetWorldName = currentDimension;
         }
-
-        ServerLevel targetLevel = survivalTarget.level;
-        double startXForDistance = 0.0D;
-        double startZForDistance = 0.0D;
-
-        if (targetLevel == startLevel
-                && !isSpawnHubDimension(currentDimension)
-                && !TeleportConfig.isRtpBlocked(currentDimension)) {
-            startXForDistance = player.getX();
-            startZForDistance = player.getZ();
+        if (targetLevel == null) {
+            player.sendSystemMessage(Component.literal("No loaded " + normalizedType + " world is available for RTP. Stand in that realm or unlock/load a survival RTP world with /rtpworlds.").withStyle(ChatFormatting.RED));
+            return 0;
         }
 
         SearchBounds bounds = SearchBounds.from(targetLevel);
@@ -276,11 +309,22 @@ public final class RandomTeleportCommand {
         }
 
         LAST_USE_MS.put(playerId, now);
-        ACTIVE_SEARCHES.put(playerId, new SearchTask(playerId, targetLevel, bounds, startXForDistance, startZForDistance, normalizedType, desiredBiome, maxAttempts));
+        SearchTask search = new SearchTask(playerId, targetLevel, bounds, normalizedType, desiredBiome, maxAttempts);
+        BlockPos cached = pollCachedSafePosition(search);
+        if (cached != null) {
+            LAST_USE_MS.put(playerId, now);
+            SafeTeleportManager.teleport(player, targetLevel, cached.getX() + 0.5D, cached.getY(), cached.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            player.sendSystemMessage(Component.literal("Teleported to a cached safe random " + normalizedType + " location.").withStyle(ChatFormatting.GREEN));
+            return 1;
+        }
+
+        ACTIVE_SEARCHES.put(playerId, search);
 
         String biomeText = desiredBiome == null ? "" : " in biome " + desiredBiome.location();
-        player.sendSystemMessage(Component.literal("Searching for a fast random " + normalizedType + " survival RTP location" + biomeText + "...").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Target survival world: " + survivalTarget.entry.worldName).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal(desiredBiome == null
+                ? "Searching for a random " + normalizedType + " RTP location anywhere inside the world border..."
+                : "Searching thoroughly for a " + normalizedType + " RTP location" + biomeText + " anywhere inside the world border. This can take up to 2 minutes because chunk checks are heavily throttled.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Target RTP world: " + targetWorldName).withStyle(ChatFormatting.GRAY));
         return 1;
     }
 
@@ -307,13 +351,71 @@ public final class RandomTeleportCommand {
             }
         }
     }
+    private static BlockPos pollCachedSafePosition(SearchTask task) {
+        // RTP should be truly random per request, not pulled from a previously discovered location.
+        // Keeping this method as a no-op avoids repeat/cache-biased teleports while preserving the rest
+        // of the async search flow.
+        return null;
+        /*
+        if (task == null || task.desiredBiome != null) return null;
+        ConcurrentLinkedQueue<BlockPos> queue = SAFE_POSITION_CACHE.get(cacheKey(task.level, task.worldType));
+        if (queue == null) return null;
+        WorldBorder border = task.level.getWorldBorder();
+        for (int i = 0; i < 16; i++) {
+            BlockPos pos = queue.poll();
+            if (pos == null) return null;
+            if (!isInsideRtpBorder(border, pos.getX(), pos.getZ())) continue;
+            ChunkPos chunkPos = new ChunkPos(pos);
+            if (!task.level.hasChunk(chunkPos.x, chunkPos.z)) continue;
+            if ("nether".equalsIgnoreCase(task.worldType)) {
+                if (findNetherSafePosition(task, task.level, pos.getX(), pos.getZ()) != null) return pos;
+            } else {
+                BlockPos safe = findSurfaceSafePosition(task, task.level, border, pos.getX(), pos.getZ());
+                if (safe != null) return safe;
+            }
+        }
+        return null;
+        */
+    }
+
+    private static String cacheKey(ServerLevel level, String worldType) {
+        return level.dimension().location().toString().toLowerCase(java.util.Locale.ROOT) + "|" + (worldType == null ? "" : worldType.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private static void offerCachedSafePosition(SearchTask task, BlockPos pos) {
+        // Do not cache RTP destinations; cached locations make future RTPs feel non-random/repeated.
+        if (true) return;
+        /*
+        if (task == null || pos == null || task.desiredBiome != null) return;
+        ConcurrentLinkedQueue<BlockPos> queue = SAFE_POSITION_CACHE.computeIfAbsent(cacheKey(task.level, task.worldType), ignored -> new ConcurrentLinkedQueue<>());
+        if (queue.size() < MAX_CACHED_SAFE_POSITIONS_PER_WORLD) {
+            queue.offer(pos.immutable());
+        }
+        */
+    }
 
     private static BlockPos findSafePosition(SearchTask task, TickBudget budget) {
         ServerLevel level = task.level;
         SearchBounds bounds = task.bounds;
         WorldBorder border = level.getWorldBorder();
 
-        for (int attempt = 0; attempt < ATTEMPTS_PER_TICK; attempt++) {
+        BlockPos completedAsyncCandidate = task.consumeCompletedAsyncChunkCandidate();
+        if (completedAsyncCandidate != null) {
+            BlockPos feet = validateCandidate(task, level, border, completedAsyncCandidate.getX(), completedAsyncCandidate.getZ());
+            if (feet != null) {
+                offerCachedSafePosition(task, feet);
+                return feet;
+            }
+        }
+
+        // If a chunk generation request is still running, do absolutely no more RTP work this tick.
+        // This is intentionally slow: chunkgen is the lag source, so one search waits for its one pending chunk.
+        if (task.hasPendingAsyncChunk()) {
+            return null;
+        }
+
+        int attemptsThisTick = task.desiredBiome == null ? ATTEMPTS_PER_TICK : BIOME_ATTEMPTS_PER_TICK;
+        for (int attempt = 0; attempt < attemptsThisTick; attempt++) {
             task.attempts++;
 
             int x = randomBetween(bounds.minX(task.attempts), bounds.maxX(task.attempts));
@@ -323,38 +425,34 @@ public final class RandomTeleportCommand {
                 continue;
             }
 
-            if (!isFarEnoughFromStart(task, x, z)) {
-                continue;
-            }
-
             ChunkPos chunkPos = new ChunkPos(x >> 4, z >> 4);
             try {
-                boolean loaded = level.hasChunk(chunkPos.x, chunkPos.z);
-                if (!loaded) {
-                    // First prefer already-loaded or pregenerated chunks. After a short warmup, allow
-                    // a very small global chunk-generation budget so RTP completes reliably without
-                    // causing large main-thread spikes.
-                    if (task.attempts <= PREGENERATED_AREA_ATTEMPTS || !task.canGenerateAnotherChunk() || !budget.tryUseGeneratedChunk()) {
+                if (!level.hasChunk(chunkPos.x, chunkPos.z)) {
+                    if (task.canGenerateAnotherChunk() && task.canGenerateChunkThisTick() && budget.tryUseGeneratedChunk()) {
+                        task.requestAsyncChunk(chunkPos, x, z);
+                    } else {
                         task.skippedUnloadedChunks++;
-                        continue;
                     }
-                    level.getChunk(chunkPos.x, chunkPos.z);
-                    task.generatedChunksThisTick++;
-                    task.generatedChunksTotal++;
+                    continue;
                 }
             } catch (Exception ignored) {
                 continue;
             }
 
-            BlockPos feet = "nether".equalsIgnoreCase(task.worldType)
-                    ? findNetherSafePosition(task, level, x, z)
-                    : findSurfaceSafePosition(task, level, border, x, z);
+            BlockPos feet = validateCandidate(task, level, border, x, z);
 
             if (feet == null) continue;
+            offerCachedSafePosition(task, feet);
             return feet;
         }
 
         return null;
+    }
+
+    private static BlockPos validateCandidate(SearchTask task, ServerLevel level, WorldBorder border, int x, int z) {
+        return "nether".equalsIgnoreCase(task.worldType)
+                ? findNetherSafePosition(task, level, x, z)
+                : findSurfaceSafePosition(task, level, border, x, z);
     }
 
 
@@ -430,6 +528,15 @@ public final class RandomTeleportCommand {
         return !groundState.isAir();
     }
 
+    private static boolean dimensionMatchesType(ServerLevel level, String normalizedType) {
+        if (level == null) return false;
+        String dim = level.dimension().location().toString().toLowerCase(Locale.ROOT);
+        String path = level.dimension().location().getPath().toLowerCase(Locale.ROOT);
+        if ("nether".equalsIgnoreCase(normalizedType)) return dim.contains("nether");
+        if ("end".equalsIgnoreCase(normalizedType)) return dim.contains("end");
+        return !path.contains("nether") && !path.contains("end");
+    }
+
     private static boolean isInsideRtpBorder(WorldBorder border, int x, int z) {
         double minX = border.getMinX() + BORDER_PADDING;
         double maxX = border.getMaxX() - BORDER_PADDING;
@@ -444,7 +551,7 @@ public final class RandomTeleportCommand {
     }
 
     private static boolean matchesRequestedBiome(SearchTask task, ServerLevel level, BlockPos pos) {
-        return task.desiredBiome == null || level.getBiome(pos).is(task.desiredBiome) || task.attempts > (task.maxAttempts * 2 / 3);
+        return task.desiredBiome == null || level.getBiome(pos).is(task.desiredBiome);
     }
 
     private static boolean isBiomeKeyRegistered(ServerLevel level, ResourceKey<Biome> biomeKey) {
@@ -525,12 +632,6 @@ public final class RandomTeleportCommand {
         return out.length() == 0 ? id.toString() : out.toString();
     }
 
-    private static boolean isFarEnoughFromStart(SearchTask task, int x, int z) {
-        double dx = x - task.startX;
-        double dz = z - task.startZ;
-        return (dx * dx) + (dz * dz) >= (double) MIN_RTP_DISTANCE_BLOCKS * (double) MIN_RTP_DISTANCE_BLOCKS;
-    }
-
     private static int randomBetween(int min, int max) {
         return min + RANDOM.nextInt(Math.max(1, max - min + 1));
     }
@@ -598,8 +699,6 @@ public final class RandomTeleportCommand {
         private final UUID playerId;
         private final ServerLevel level;
         private final SearchBounds bounds;
-        private final double startX;
-        private final double startZ;
         private final String worldType;
         private final ResourceKey<Biome> desiredBiome;
         private final int maxAttempts;
@@ -608,16 +707,19 @@ public final class RandomTeleportCommand {
         private int generatedChunksThisTick = 0;
         private int generatedChunksTotal = 0;
         private int skippedUnloadedChunks = 0;
+        private int lastGeneratedChunkTick;
+        private CompletableFuture<?> pendingChunkFuture = null;
+        private int pendingCandidateX = 0;
+        private int pendingCandidateZ = 0;
 
-        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, double startX, double startZ, String worldType, ResourceKey<Biome> desiredBiome, int maxAttempts) {
+        private SearchTask(UUID playerId, ServerLevel level, SearchBounds bounds, String worldType, ResourceKey<Biome> desiredBiome, int maxAttempts) {
             this.playerId = playerId;
             this.level = level;
             this.bounds = bounds;
-            this.startX = startX;
-            this.startZ = startZ;
             this.worldType = worldType;
             this.desiredBiome = desiredBiome;
             this.maxAttempts = Math.max(1, maxAttempts);
+            this.lastGeneratedChunkTick = -(desiredBiome == null ? RTP_CHUNK_GENERATION_COOLDOWN_TICKS : BIOME_CHUNK_GENERATION_COOLDOWN_TICKS);
         }
 
         private boolean tick(ServerPlayer player, TickBudget budget) {
@@ -626,14 +728,19 @@ public final class RandomTeleportCommand {
 
             BlockPos target = findSafePosition(this, budget);
             if (target == null) {
-                if (attempts >= maxAttempts || ticks >= MAX_RTP_SEARCH_TICKS) {
+                int maxTicks = desiredBiome == null ? MAX_RTP_SEARCH_TICKS : MAX_BIOME_RTP_SEARCH_TICKS;
+                if (attempts >= maxAttempts || ticks >= maxTicks) {
                     String biomeText = desiredBiome == null ? "" : " in " + desiredBiome.location();
-                    player.sendSystemMessage(Component.literal("RTP could not find a safe location" + biomeText + " after checking " + attempts + " spots. Search stopped safely so the server will not keep generating chunks forever.").withStyle(ChatFormatting.RED));
-                    player.sendSystemMessage(Component.literal("Generated chunks this search: " + generatedChunksTotal + ". Skipped unloaded chunks: " + skippedUnloadedChunks + ". Try a broader biome, /rtp " + worldType + ", or unlock/pregen another survival world.").withStyle(ChatFormatting.GRAY));
+                    player.sendSystemMessage(Component.literal("RTP could not find a safe location" + biomeText + " after checking " + attempts + " spots within the slow anti-lag search cap.").withStyle(ChatFormatting.RED));
+                    player.sendSystemMessage(Component.literal("Skipped unloaded chunks: " + skippedUnloadedChunks + ". Generated chunks for this search: " + generatedChunksTotal + ". Try again or increase pregenerated survival area for very rare biomes.").withStyle(ChatFormatting.GRAY));
                     return true;
                 }
-                if (ticks % 80 == 0) {
-                    player.sendSystemMessage(Component.literal("Still searching RTP safely... checked " + attempts + " spots, generated " + generatedChunksTotal + " chunks.").withStyle(ChatFormatting.GRAY));
+                if (ticks % 100 == 0) {
+                    if (desiredBiome == null) {
+                        player.sendSystemMessage(Component.literal("Still searching RTP safely across the full border... checked " + attempts + " candidates, generated " + generatedChunksTotal + " throttled chunks.").withStyle(ChatFormatting.GRAY));
+                    } else {
+                        player.sendSystemMessage(Component.literal("Still searching for " + desiredBiome.location() + "... checked " + attempts + " spots, generated " + generatedChunksTotal + " throttled chunks.").withStyle(ChatFormatting.GRAY));
+                    }
                 }
                 return false;
             }
@@ -644,8 +751,47 @@ public final class RandomTeleportCommand {
             return true;
         }
 
+
+        private boolean hasPendingAsyncChunk() {
+            return pendingChunkFuture != null && !pendingChunkFuture.isDone();
+        }
+
+        private void requestAsyncChunk(ChunkPos chunkPos, int candidateX, int candidateZ) {
+            pendingCandidateX = candidateX;
+            pendingCandidateZ = candidateZ;
+            pendingChunkFuture = level.getChunkSource().getChunkFuture(chunkPos.x, chunkPos.z, ChunkStatus.FULL, true);
+            generatedChunksTotal++;
+            generatedChunksThisTick++;
+            lastGeneratedChunkTick = ticks;
+        }
+
+        private BlockPos consumeCompletedAsyncChunkCandidate() {
+            CompletableFuture<?> future = pendingChunkFuture;
+            if (future == null || !future.isDone()) {
+                return null;
+            }
+
+            int x = pendingCandidateX;
+            int z = pendingCandidateZ;
+            pendingChunkFuture = null;
+
+            if (future.isCompletedExceptionally()) {
+                return null;
+            }
+
+            ChunkPos chunkPos = new ChunkPos(x >> 4, z >> 4);
+            return level.hasChunk(chunkPos.x, chunkPos.z) ? new BlockPos(x, level.getMinBuildHeight(), z) : null;
+        }
+
         private boolean canGenerateAnotherChunk() {
-            return generatedChunksTotal < MAX_GENERATED_CHUNKS_PER_SEARCH;
+            int limit = desiredBiome == null ? MAX_GENERATED_CHUNKS_PER_SEARCH : MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH;
+            return generatedChunksTotal < limit;
+        }
+
+        private boolean canGenerateChunkThisTick() {
+            int cooldown = desiredBiome == null ? RTP_CHUNK_GENERATION_COOLDOWN_TICKS : BIOME_CHUNK_GENERATION_COOLDOWN_TICKS;
+            return generatedChunksThisTick <= 0
+                    && ticks - lastGeneratedChunkTick >= cooldown;
         }
     }
 
@@ -670,49 +816,56 @@ public final class RandomTeleportCommand {
         private final int maxX;
         private final int minZ;
         private final int maxZ;
-        private final int preferredMinX;
-        private final int preferredMaxX;
-        private final int preferredMinZ;
-        private final int preferredMaxZ;
-
         private SearchBounds(int minX, int maxX, int minZ, int maxZ) {
-            this(minX, maxX, minZ, maxZ, minX, maxX, minZ, maxZ);
-        }
-
-        private SearchBounds(int minX, int maxX, int minZ, int maxZ, int preferredMinX, int preferredMaxX, int preferredMinZ, int preferredMaxZ) {
             this.minX = minX;
             this.maxX = maxX;
             this.minZ = minZ;
             this.maxZ = maxZ;
-            this.preferredMinX = preferredMinX;
-            this.preferredMaxX = preferredMaxX;
-            this.preferredMinZ = preferredMinZ;
-            this.preferredMaxZ = preferredMaxZ;
         }
 
-        private int minX(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMinX : minX; }
-        private int maxX(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMaxX : maxX; }
-        private int minZ(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMinZ : minZ; }
-        private int maxZ(int attempts) { return attempts <= PREGENERATED_AREA_ATTEMPTS ? preferredMaxZ : maxZ; }
-
+        private int minX(int attempts) { return minX; }
+        private int maxX(int attempts) { return maxX; }
+        private int minZ(int attempts) { return minZ; }
+        private int maxZ(int attempts) { return maxZ; }
 
         private static SearchBounds from(ServerLevel level) {
+            if (level == null) return null;
+
+            String dimension = level.dimension().location().toString();
+
+            // Survival Multiworld Nether/End worlds have sometimes kept a stale/default
+            // vanilla world-border state, which made RTP collapse to the 10k/10k edge.
+            // For configured survival RTP worlds, always use the ChampUtils survival
+            // radius centered at 0,0 instead of trusting the level's mutable border.
+            if (SurvivalWorldManager.find(level) != null) {
+                int radius = Math.max(64, com.champutils.survival.SurvivalWorldConfig.get().borderRadius);
+                return padded(-radius, radius, -radius, radius);
+            }
+
+            ChampWorldBorderConfig.BorderEntry configured = ChampWorldBorderConfig.get(dimension);
+            if (configured != null) {
+                int rawMinX = (int) Math.ceil(configured.centerX - configured.radius);
+                int rawMaxX = (int) Math.floor(configured.centerX + configured.radius);
+                int rawMinZ = (int) Math.ceil(configured.centerZ - configured.radius);
+                int rawMaxZ = (int) Math.floor(configured.centerZ + configured.radius);
+                SearchBounds bounds = padded(rawMinX, rawMaxX, rawMinZ, rawMaxZ);
+                if (bounds != null) return bounds;
+            }
+
             WorldBorder border = level.getWorldBorder();
+            return padded(
+                    (int) Math.ceil(border.getMinX()),
+                    (int) Math.floor(border.getMaxX()),
+                    (int) Math.ceil(border.getMinZ()),
+                    (int) Math.floor(border.getMaxZ())
+            );
+        }
 
-            boolean hasChampBorder = ChampWorldBorderManager.isConfigured(level);
-            int configuredRadius = hasChampBorder
-                    ? (int) Math.floor(ChampWorldBorderManager.radius(level))
-                    : FALLBACK_RTP_BORDER_RADIUS;
-
-            int rawMinX = (int) Math.ceil(border.getMinX());
-            int rawMaxX = (int) Math.floor(border.getMaxX());
-            int rawMinZ = (int) Math.ceil(border.getMinZ());
-            int rawMaxZ = (int) Math.floor(border.getMaxZ());
-
-            int borderMinX = (hasChampBorder ? rawMinX : Math.max(rawMinX, -configuredRadius)) + BORDER_PADDING;
-            int borderMaxX = (hasChampBorder ? rawMaxX : Math.min(rawMaxX, configuredRadius)) - BORDER_PADDING;
-            int borderMinZ = (hasChampBorder ? rawMinZ : Math.max(rawMinZ, -configuredRadius)) + BORDER_PADDING;
-            int borderMaxZ = (hasChampBorder ? rawMaxZ : Math.min(rawMaxZ, configuredRadius)) - BORDER_PADDING;
+        private static SearchBounds padded(int rawMinX, int rawMaxX, int rawMinZ, int rawMaxZ) {
+            int borderMinX = rawMinX + BORDER_PADDING;
+            int borderMaxX = rawMaxX - BORDER_PADDING;
+            int borderMinZ = rawMinZ + BORDER_PADDING;
+            int borderMaxZ = rawMaxZ - BORDER_PADDING;
 
             if (borderMinX >= borderMaxX || borderMinZ >= borderMaxZ) {
                 return null;

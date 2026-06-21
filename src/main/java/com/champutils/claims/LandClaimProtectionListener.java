@@ -190,12 +190,35 @@ public final class LandClaimProtectionListener {
     public static void tick(MinecraftServer server) {
         if (server == null) return;
 
-        // Keep the tick hook extremely light. The old code ran once per second and, for
-        // every claim in every world, built full-height AABBs, scanned entities, and
-        // walked every Y-level along every claim border. On large claims this can cost
-        // 40-150ms on the server thread by itself. Protection is now handled at the
-        // event/mixin boundaries instead of doing global cleanup scans.
+        // Keep the tick hook light. Entry denial only scans online players every half second.
+        if (server.getTickCount() % 10 == 0) enforceEntrySettings(server);
         if (server.getTickCount() % 40 == 0) renderBorders(server);
+    }
+
+    private static void enforceEntrySettings(MinecraftServer server) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player == null || player.isSpectator()) continue;
+            ServerLevel level = player.serverLevel();
+            LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, player.blockPosition());
+            if (claim == null || LandClaimRepository.canEnter(player, claim)) continue;
+            double x = player.getX();
+            double z = player.getZ();
+            double left = Math.abs(x - (claim.minX - 0.75D));
+            double right = Math.abs(x - (claim.maxX + 1.75D));
+            double north = Math.abs(z - (claim.minZ - 0.75D));
+            double south = Math.abs(z - (claim.maxZ + 1.75D));
+            double min = Math.min(Math.min(left, right), Math.min(north, south));
+            if (min == left) x = claim.minX - 0.75D;
+            else if (min == right) x = claim.maxX + 1.75D;
+            else if (min == north) z = claim.minZ - 0.75D;
+            else z = claim.maxZ + 1.75D;
+            if (!level.getWorldBorder().isWithinBounds(new BlockPos((int)Math.floor(x), player.blockPosition().getY(), (int)Math.floor(z)))) {
+                x = level.getSharedSpawnPos().getX() + 0.5D;
+                z = level.getSharedSpawnPos().getZ() + 0.5D;
+            }
+            player.teleportTo(level, x, player.getY(), z, player.getYRot(), player.getXRot());
+            deny(player, "You cannot enter " + claim.ownerName + "'s claim.");
+        }
     }
 
     /**

@@ -23,11 +23,11 @@ public class QuestConfig {
         public int weeklyResetMinute = 0;
         public int dailyObjectiveCount = 3;
         public int weeklyObjectiveCount = 3;
-        public int dailyCompletionCredits = 250;
-        public int weeklyCompletionCredits = 1500;
+        public int dailyCompletionCredits = 350;
+        public int weeklyCompletionCredits = 2500;
         public int dailyProfessionXpPerObjective = 75;
         public int weeklyProfessionXpPerObjective = 350;
-        public int crateCreditChancePercent = 33;
+        public int crateCreditChancePercent = 100;
         public String dailyCrateCreditId = "common";
         public String weeklyCrateCreditId = "rare";
         public int guildWeeklyObjectiveCount = 3;
@@ -114,12 +114,12 @@ public class QuestConfig {
             default -> 25;
         };
         int rewardCredits = switch (c.difficulty) {
-            case "UNCOMMON" -> 150;
-            case "RARE" -> 350;
-            case "EPIC" -> 800;
-            case "LEGENDARY" -> 1500;
-            case "MYTHIC" -> 3000;
-            default -> 75;
+            case "UNCOMMON" -> 350;
+            case "RARE" -> 700;
+            case "EPIC" -> 1400;
+            case "LEGENDARY" -> 2800;
+            case "MYTHIC" -> 6500;
+            default -> 150;
         };
         int hours = switch (c.difficulty) {
             case "UNCOMMON" -> 7;
@@ -133,7 +133,7 @@ public class QuestConfig {
         // Keep contracts short enough for normal play sessions. Existing configs with
         // old 24-240h durations are corrected on load before beta.
         c.creditCost = cost;
-        if (c.rewardCredits <= 0) c.rewardCredits = rewardCredits;
+        c.rewardCredits = Math.max(c.rewardCredits, rewardCredits);
         c.durationHours = hours;
     }
 
@@ -217,7 +217,7 @@ public class QuestConfig {
             guildWeekly(s, "guild_weekly_defeat_dragons", "Guild members defeat 60 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 60, 25, 4);
 
             // Purchasable single-objective contracts. Only auto-trackable objectives are used.
-            // Crate credits are awarded separately at a 33% chance, matching the contract rarity.
+            // Crate credits and rarity fragments are guaranteed, matching the contract rarity.
             contract(s, "contract_coal_shift", "Mine 160 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 160, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");
             contract(s, "contract_log_shift", "Chop 220 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:oran_berry 8");
             contract(s, "contract_crop_shift", "Harvest 220 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");

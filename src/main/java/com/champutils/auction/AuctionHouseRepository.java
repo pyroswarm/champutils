@@ -11,10 +11,14 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Collections;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class AuctionHouseRepository {
 
     private static final Gson GSON = new Gson();
+    private static final CopyOnWriteArrayList<AuctionListingSummary> ACTIVE_LISTING_CACHE = new CopyOnWriteArrayList<>();
+    private static volatile long activeListingCacheMs = 0L;
 
     private AuctionHouseRepository() {}
 
@@ -53,7 +57,11 @@ public final class AuctionHouseRepository {
             statement.setInt(14, Math.max(1, Math.min(365, listingDurationDays)));
 
             try (ResultSet rs = statement.executeQuery()) {
-                if (rs.next()) return UUID.fromString(rs.getString("id"));
+                if (rs.next()) {
+                    activeListingCacheMs = 0L;
+                    ACTIVE_LISTING_CACHE.clear();
+                    return UUID.fromString(rs.getString("id"));
+                }
             }
         }
 
@@ -73,6 +81,17 @@ public final class AuctionHouseRepository {
         return 0;
     }
 
+    public static List<AuctionListingSummary> cachedActiveListings(int limit) {
+        int capped = Math.max(1, Math.min(54, limit));
+        if (ACTIVE_LISTING_CACHE.isEmpty()) return Collections.emptyList();
+        return new ArrayList<>(ACTIVE_LISTING_CACHE.subList(0, Math.min(capped, ACTIVE_LISTING_CACHE.size())));
+    }
+
+    public static long activeListingCacheAgeMs() {
+        long loaded = activeListingCacheMs;
+        return loaded <= 0L ? Long.MAX_VALUE : Math.max(0L, System.currentTimeMillis() - loaded);
+    }
+
     public static List<AuctionListingSummary> fetchActiveListings(int limit) throws Exception {
         ensureSchema(DatabaseManager.getConnection());
         List<AuctionListingSummary> listings = new ArrayList<>();
@@ -85,6 +104,9 @@ public final class AuctionHouseRepository {
                 while (rs.next()) listings.add(readListingSummary(rs));
             }
         }
+        ACTIVE_LISTING_CACHE.clear();
+        ACTIVE_LISTING_CACHE.addAll(listings);
+        activeListingCacheMs = System.currentTimeMillis();
         return listings;
     }
 

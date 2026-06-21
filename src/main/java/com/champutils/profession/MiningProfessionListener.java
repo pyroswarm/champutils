@@ -20,9 +20,11 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MiningProfessionListener {
 
@@ -31,6 +33,11 @@ public class MiningProfessionListener {
 
     private static final Set<String> MANUALLY_PROCESSED_EXTRA_BLOCKS =
             new HashSet<>();
+
+    private static final int STONE_BLOCKS_PER_XP = 20;
+
+    private static final Map<UUID, Integer> STONE_BLOCK_COUNTS =
+            new ConcurrentHashMap<>();
 
     public static void register() {
 
@@ -146,6 +153,17 @@ public class MiningProfessionListener {
                     if (xp == null) xp = fallbackMiningXp(blockId);
 
                     if (xp == null || xp <= 0) {
+                        if (
+                                isStoneTypeBlock(blockId) &&
+                                        ProfessionToolUtil.isUsableProfessionTool(
+                                                serverPlayer,
+                                                serverPlayer.getMainHandItem(),
+                                                ProfessionType.MINING
+                                        )
+                        ) {
+                            handleStoneTypeMiningProgress(serverPlayer, blockId);
+                        }
+
                         if (!isBreakingExtraBlock(
                                 serverPlayer
                         )) {
@@ -237,6 +255,69 @@ public class MiningProfessionListener {
         );
     }
 
+    private static boolean isStoneTypeBlock(String blockId) {
+        if (blockId == null || blockId.isBlank()) {
+            return false;
+        }
+
+        return switch (blockId) {
+            case "minecraft:stone",
+                    "minecraft:cobblestone",
+                    "minecraft:mossy_cobblestone",
+                    "minecraft:smooth_stone",
+                    "minecraft:deepslate",
+                    "minecraft:cobbled_deepslate",
+                    "minecraft:tuff",
+                    "minecraft:andesite",
+                    "minecraft:diorite",
+                    "minecraft:granite",
+                    "minecraft:calcite",
+                    "minecraft:dripstone_block",
+                    "minecraft:blackstone",
+                    "minecraft:basalt",
+                    "minecraft:smooth_basalt",
+                    "minecraft:netherrack",
+                    "minecraft:end_stone" -> true;
+            default -> false;
+        };
+    }
+
+    private static void handleStoneTypeMiningProgress(
+            ServerPlayer player,
+            String blockId
+    ) {
+        int count = STONE_BLOCK_COUNTS.merge(
+                player.getUUID(),
+                1,
+                Integer::sum
+        );
+
+        if (count < STONE_BLOCKS_PER_XP) {
+            return;
+        }
+
+        STONE_BLOCK_COUNTS.put(
+                player.getUUID(),
+                count % STONE_BLOCKS_PER_XP
+        );
+
+        ProfessionManager.addXp(
+                player,
+                ProfessionType.MINING,
+                1
+        );
+
+        com.champutils.quest.QuestManager.recordBlock(
+                player,
+                ProfessionType.MINING,
+                blockId
+        );
+
+        ProfessionWeaponFragmentDropManager.rollReward(
+                player,
+                ProfessionType.MINING
+        );
+    }
 
     private static Integer fallbackMiningXp(String blockId) {
         if (blockId == null) return null;
@@ -707,11 +788,15 @@ public class MiningProfessionListener {
                         .miningXp
                         .get(targetBlockId);
 
+        if (xp == null) xp = fallbackMiningXp(targetBlockId);
+
         if (xp != null && xp > 0) {
+            int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
+
             ProfessionManager.addXp(
                     player,
                     ProfessionType.MINING,
-                    xp
+                    extraXp
             );
 
             com.champutils.quest.QuestManager.recordBlock(
@@ -1107,12 +1192,15 @@ public class MiningProfessionListener {
                                 .miningXp
                                 .get(targetBlockId);
 
+                if (xp == null) xp = fallbackMiningXp(targetBlockId);
+
                 if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(
                         player,
                         player.getMainHandItem(),
                         ProfessionType.MINING
                 )) {
-                    ProfessionManager.addXp(player, ProfessionType.MINING, xp);
+                    int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
+                    ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
                     com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
                     ProfessionLootManager.rollReward(player, ProfessionType.MINING);
                     ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.MINING);

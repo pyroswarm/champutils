@@ -64,7 +64,7 @@ public final class ChampUtilsHelpCommand {
     private static void playerCommands(CommandSourceStack source) {
         section(source, "General");
         line(source, "/menu", "Open the main Cobble Champs menu.");
-        line(source, "/profile", "Open your player profile menu.");
+        line(source, "/profile", "Admin-only profile viewer/menu.");
         line(source, "/leaderboards", "Open the leaderboard menu.");
         line(source, "/leaderboard", "Show the ranked leaderboard.");
         line(source, "/items", "Open the custom item menu.");

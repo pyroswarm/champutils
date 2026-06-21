@@ -75,6 +75,7 @@ public class ProfessionRewardPassiveConfig {
             }
 
             TABLES = readTables(file);
+            mergeMissingDefaultRewardEntries();
         } catch (Exception e) {
             e.printStackTrace();
             TABLES = new LinkedHashMap<>();
@@ -301,7 +302,7 @@ public class ProfessionRewardPassiveConfig {
         }
 
         if ("profession_fragment_gamble".equals(type) || "fragment_gamble".equals(type)) {
-            String rarity = rollAllowedFragmentRarity(tool);
+            String rarity = rollAllowedFragmentRarity(player, profession);
             if (rarity == null || rarity.isBlank()) {
                 return ItemStack.EMPTY;
             }
@@ -329,41 +330,88 @@ public class ProfessionRewardPassiveConfig {
     }
 
     /**
-     * Gamble pool rule:
-     * - Common tool: COMMON or UNCOMMON
-     * - Uncommon tool: COMMON / UNCOMMON / RARE
-     * - Rare tool: COMMON / UNCOMMON / RARE / EPIC
-     * - Epic tool: COMMON / UNCOMMON / RARE / EPIC / LEGENDARY
-     * - Legendary tool: COMMON through LEGENDARY
-     * - Mythic tool: COMMON through LEGENDARY
+     * Profession fragment passive drops are based on profession level, not tool rarity:
+     * - Level 0-9: COMMON only
+     * - Level 10-19: UNCOMMON and below
+     * - Level 20-29: RARE and below
+     * - Level 30-49: EPIC and below
+     * - Level 50+: LEGENDARY and below
      * Mythic fragments are never produced by profession passive drops.
      */
-    private static String rollAllowedFragmentRarity(ItemStack tool) {
-        String toolRarity = getToolRarity(tool);
-        int maxIndex = switch (toolRarity) {
-            case "UNCOMMON" -> 2;
-            case "RARE" -> 3;
-            case "EPIC", "LEGENDARY", "MYTHIC" -> 4;
-            case "COMMON" -> 1;
-            default -> 1;
-        };
+    private static String rollAllowedFragmentRarity(ServerPlayer player, ProfessionType profession) {
+        int level = player == null || profession == null
+                ? 0
+                : Math.max(0, ProfessionManager.getLevel(player, profession));
+
+        int maxIndex;
+        if (level >= 50) {
+            maxIndex = 4;
+        } else if (level >= 30) {
+            maxIndex = 3;
+        } else if (level >= 20) {
+            maxIndex = 2;
+        } else if (level >= 10) {
+            maxIndex = 1;
+        } else {
+            maxIndex = 0;
+        }
 
         maxIndex = Math.max(0, Math.min(maxIndex, SHARD_RARITY_ORDER.size() - 1));
         return SHARD_RARITY_ORDER.get(RANDOM.nextInt(maxIndex + 1));
     }
 
-    private static String getToolRarity(ItemStack tool) {
-        if (tool == null || tool.isEmpty() || !ProfessionToolMetadata.isProfessionTool(tool)) {
-            return "COMMON";
+    private static void mergeMissingDefaultRewardEntries() {
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:red_apricorn_seed", 1, 2, 8));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:blue_apricorn_seed", 1, 2, 8));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:green_apricorn_seed", 1, 2, 8));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:yellow_apricorn_seed", 1, 2, 8));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:black_apricorn_seed", 1, 2, 5));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:white_apricorn_seed", 1, 2, 5));
+        addMissingEntry("forestry_seed_finder", entry("cobblemon:pink_apricorn_seed", 1, 2, 5));
+
+        addMissingEntry("farming_seed_saver", entry("minecraft:chicken_spawn_egg", 1, 1, 5));
+        addMissingEntry("farming_seed_saver", entry("minecraft:cow_spawn_egg", 1, 1, 4));
+        addMissingEntry("farming_seed_saver", entry("minecraft:pig_spawn_egg", 1, 1, 4));
+        addMissingEntry("farming_seed_saver", entry("minecraft:sheep_spawn_egg", 1, 1, 4));
+        addMissingEntry("farming_seed_saver", entry("minecraft:rabbit_spawn_egg", 1, 1, 3));
+    }
+
+    private static void addMissingEntry(String tableId, RewardEntry reward) {
+        if (tableId == null || reward == null) {
+            return;
         }
 
-        String toolId = ProfessionToolMetadata.getToolId(tool);
-        ProfessionToolConfig.ToolData data = ProfessionToolConfig.TOOLS.get(toolId);
-        if (data == null || data.rarity == null || data.rarity.isBlank()) {
-            return "COMMON";
+        List<RewardEntry> rewards = TABLES.computeIfAbsent(tableId, ignored -> new ArrayList<>());
+        for (RewardEntry existing : rewards) {
+            if (sameReward(existing, reward)) {
+                return;
+            }
+        }
+        rewards.add(reward);
+    }
+
+    private static boolean sameReward(RewardEntry first, RewardEntry second) {
+        if (first == null || second == null) {
+            return false;
         }
 
-        return data.rarity.trim().toUpperCase();
+        String firstType = first.type == null ? "item" : first.type;
+        String secondType = second.type == null ? "item" : second.type;
+        if (!firstType.equalsIgnoreCase(secondType)) {
+            return false;
+        }
+
+        if ("item".equalsIgnoreCase(firstType)) {
+            String firstItem = first.item == null ? "" : first.item;
+            String secondItem = second.item == null ? "" : second.item;
+            return firstItem.equalsIgnoreCase(secondItem);
+        }
+
+        String firstKey = first.keyId == null ? "" : first.keyId;
+        String secondKey = second.keyId == null ? "" : second.keyId;
+        String firstRarity = first.fragmentRarity == null ? "" : first.fragmentRarity;
+        String secondRarity = second.fragmentRarity == null ? "" : second.fragmentRarity;
+        return firstKey.equalsIgnoreCase(secondKey) && firstRarity.equalsIgnoreCase(secondRarity);
     }
 
     private static ProfessionType inferProfession(String tableId) {
@@ -438,10 +486,17 @@ public class ProfessionRewardPassiveConfig {
                 entry("minecraft:spruce_sapling", 1, 2, 18),
                 entry("minecraft:cherry_sapling", 1, 1, 8),
                 entry("minecraft:cocoa_beans", 1, 3, 12),
-                entry("cobblemon:red_apricorn", 1, 2, 7),
-                entry("cobblemon:blue_apricorn", 1, 2, 7),
-                entry("cobblemon:green_apricorn", 1, 2, 7),
-                entry("cobblemon:yellow_apricorn", 1, 2, 7),
+                entry("cobblemon:red_apricorn_seed", 1, 2, 8),
+                entry("cobblemon:blue_apricorn_seed", 1, 2, 8),
+                entry("cobblemon:green_apricorn_seed", 1, 2, 8),
+                entry("cobblemon:yellow_apricorn_seed", 1, 2, 8),
+                entry("cobblemon:black_apricorn_seed", 1, 2, 5),
+                entry("cobblemon:white_apricorn_seed", 1, 2, 5),
+                entry("cobblemon:pink_apricorn_seed", 1, 2, 5),
+                entry("cobblemon:red_apricorn", 1, 2, 4),
+                entry("cobblemon:blue_apricorn", 1, 2, 4),
+                entry("cobblemon:green_apricorn", 1, 2, 4),
+                entry("cobblemon:yellow_apricorn", 1, 2, 4),
                 entry("cobblemon:revival_herb", 1, 1, 2),
                 fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));
@@ -450,6 +505,12 @@ public class ProfessionRewardPassiveConfig {
                 entry("minecraft:wheat_seeds", 1, 3, 24),
                 entry("minecraft:pumpkin_seeds", 1, 2, 10),
                 entry("minecraft:melon_seeds", 1, 2, 10),
+                entry("minecraft:beetroot_seeds", 1, 2, 8),
+                entry("minecraft:chicken_spawn_egg", 1, 1, 5),
+                entry("minecraft:cow_spawn_egg", 1, 1, 4),
+                entry("minecraft:pig_spawn_egg", 1, 1, 4),
+                entry("minecraft:sheep_spawn_egg", 1, 1, 4),
+                entry("minecraft:rabbit_spawn_egg", 1, 1, 3),
                 entry("cobblemon:oran_berry", 1, 3, 12),
                 entry("cobblemon:leppa_berry", 1, 2, 8),
                 entry("cobblemon:pecha_berry", 1, 2, 8),

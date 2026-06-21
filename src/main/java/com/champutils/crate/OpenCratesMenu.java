@@ -399,8 +399,7 @@ public final class OpenCratesMenu {
     private static RewardPlan planPokemon(CrateConfig.CrateDefinition crate, String crateId) {
         CrateConfig.WeightedPokemon wp = weighted(crate.pokemon);
         if (wp == null) return planItem(crate);
-        int min = Math.max(1, crate.minPokemonLevel); int max = Math.max(min, crate.maxPokemonLevel);
-        int level = min + RANDOM.nextInt((max - min) + 1);
+        int level = 1;
         boolean shiny = RANDOM.nextDouble() * 100.0D < adjustedShinyChance(crate, crateId, wp.species);
         NpcShopService.PokemonCratePool pool = pool(wp.pool, wp.species);
         NpcShopService.PlannedPokemonCrateReward reward = NpcShopService.restorePlannedPokemonCrateReward(wp.species, level, shiny, pool);

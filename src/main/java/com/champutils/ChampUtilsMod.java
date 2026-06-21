@@ -618,6 +618,7 @@ public class ChampUtilsMod implements ModInitializer {
         IslanderMineCommand.register();
         GraveyardCommand.register();
         ClearWildPokemonCommand.register();
+        MegaBossCommand.register();
         com.champutils.antilag.CatchAttemptProtectionListener.register();
         TMCommand.register();
         LandClaimCommand.register();
@@ -639,6 +640,7 @@ public class ChampUtilsMod implements ModInitializer {
         BattleAIDifficultyManager.register();
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
+        BattleDamageProtectionListener.register();
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();

@@ -123,20 +123,20 @@ public final class BattleProfessionLootConfig {
         public boolean enabled = true;
         public boolean wildBattlesOnly = true;
         public boolean guaranteedOnWildBattleWin = true;
-        public double baseMin = 0.85D;
-        public double baseMax = 1.15D;
-        public double perBattlingLevelMin = 0.035D;
-        public double perBattlingLevelMax = 0.055D;
-        public double maxReward = 7.5D;
+        public double baseMin = 0.90D;
+        public double baseMax = 1.10D;
+        public double perBattlingLevelMin = 0.18D;
+        public double perBattlingLevelMax = 0.20D;
+        public double maxReward = 20.0D;
         public int roundToDecimals = 2;
         public String message = "§a+$%amount% §7for winning a wild battle.";
     }
 
     public static class FragmentJackpotSettings {
         public boolean enabled = true;
-        public double baseChance = 0.001D;
-        public double chancePerBattlingLevel = 0.00008D;
-        public double maxChance = 0.012D;
+        public double baseChance = 0.025D;
+        public double chancePerBattlingLevel = 0.00075D;
+        public double maxChance = 0.10D;
         public int minBattlingLevel = 1;
         public boolean allowMythic = false;
         public Map<String, Integer> rarityWeights = new LinkedHashMap<>();

@@ -70,7 +70,7 @@ public final class IslanderMineConfig {
          * Higher = denser mines. Vanilla-feeling dense stripmine value is around 160-240.
          * This still creates pockets, not random single-block ore confetti.
          */
-        public int orePocketStartChancePer10000 = 340;
+        public int orePocketStartChancePer10000 = 520;
 
         /** Shared mine dimensions are named like islander_mine_1, islander_mine_2, etc. */
         public String worldPrefix = "islander_mine_";
@@ -92,16 +92,25 @@ public final class IslanderMineConfig {
 
         public static Data defaults() {
             Data d = new Data();
-            d.ores.put("minecraft:coal_ore", new OreRule(54, 8, 18, 18, 95, false));
-            d.ores.put("minecraft:copper_ore", new OreRule(44, 7, 16, 28, 90, false));
-            d.ores.put("minecraft:iron_ore", new OreRule(52, 7, 15, 8, 84, false));
-            d.ores.put("minecraft:gold_ore", new OreRule(24, 5, 11, 0, 44, false));
-            d.ores.put("minecraft:redstone_ore", new OreRule(28, 6, 12, 0, 36, false));
-            d.ores.put("minecraft:lapis_ore", new OreRule(16, 4, 10, 0, 42, false));
-            d.ores.put("minecraft:diamond_ore", new OreRule(10, 3, 7, 0, 28, false));
-            d.ores.put("minecraft:emerald_ore", new OreRule(5, 1, 5, 0, 24, false));
-            d.ores.put("minecraft:quartz_ore", new OreRule(24, 4, 10, 0, 42, false));
-            d.ores.put("minecraft:ancient_debris", new OreRule(2, 1, 1, 0, 18, true));
+            d.ores.put("minecraft:coal_ore", new OreRule(76, 9, 22, 18, 95, false));
+            d.ores.put("minecraft:deepslate_coal_ore", new OreRule(22, 4, 10, 0, 28, false));
+            d.ores.put("minecraft:copper_ore", new OreRule(68, 8, 20, 24, 95, false));
+            d.ores.put("minecraft:deepslate_copper_ore", new OreRule(24, 4, 10, 0, 34, false));
+            d.ores.put("minecraft:iron_ore", new OreRule(74, 8, 18, 8, 90, false));
+            d.ores.put("minecraft:deepslate_iron_ore", new OreRule(48, 6, 14, 0, 48, false));
+            d.ores.put("minecraft:gold_ore", new OreRule(36, 5, 12, 4, 56, false));
+            d.ores.put("minecraft:deepslate_gold_ore", new OreRule(30, 4, 10, 0, 36, false));
+            d.ores.put("minecraft:redstone_ore", new OreRule(44, 6, 14, 0, 42, false));
+            d.ores.put("minecraft:deepslate_redstone_ore", new OreRule(36, 5, 12, 0, 34, false));
+            d.ores.put("minecraft:lapis_ore", new OreRule(28, 4, 11, 0, 56, false));
+            d.ores.put("minecraft:deepslate_lapis_ore", new OreRule(22, 3, 8, 0, 34, false));
+            d.ores.put("minecraft:diamond_ore", new OreRule(18, 3, 8, 0, 34, false));
+            d.ores.put("minecraft:deepslate_diamond_ore", new OreRule(16, 2, 6, 0, 24, false));
+            d.ores.put("minecraft:emerald_ore", new OreRule(9, 1, 5, 8, 70, false));
+            d.ores.put("minecraft:deepslate_emerald_ore", new OreRule(6, 1, 3, 0, 24, false));
+            d.ores.put("minecraft:nether_quartz_ore", new OreRule(42, 5, 13, 0, 70, false));
+            d.ores.put("minecraft:nether_gold_ore", new OreRule(28, 4, 10, 0, 64, false));
+            d.ores.put("minecraft:ancient_debris", new OreRule(4, 1, 2, 0, 24, true));
             d.ores.put("cobblemon:fire_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
             d.ores.put("cobblemon:water_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
             d.ores.put("cobblemon:thunder_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
@@ -118,8 +127,8 @@ public final class IslanderMineConfig {
             if (centerY + height > 319) height = Math.max(32, 319 - centerY);
             if (blocksPerTick < 512) blocksPerTick = 512;
             if (blocksPerTick > 25000) blocksPerTick = 25000;
-            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 340;
-            if (orePocketStartChancePer10000 <= 220) orePocketStartChancePer10000 = 340;
+            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 520;
+            if (orePocketStartChancePer10000 <= 340) orePocketStartChancePer10000 = 520;
             if (orePocketStartChancePer10000 < 25) orePocketStartChancePer10000 = 25;
             if (orePocketStartChancePer10000 > 1000) orePocketStartChancePer10000 = 1000;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "islander_mine_";
@@ -142,6 +151,11 @@ public final class IslanderMineConfig {
             if (protectedSpawnHeight < spawnRoomHeight + 1) protectedSpawnHeight = spawnRoomHeight + 1;
             if (protectedSpawnHeight > 24) protectedSpawnHeight = 24;
             if (ores == null || ores.isEmpty()) ores = defaults().ores;
+            OreRule oldQuartz = ores.remove("minecraft:quartz_ore");
+            if (oldQuartz != null) ores.putIfAbsent("minecraft:nether_quartz_ore", oldQuartz);
+            for (Map.Entry<String, OreRule> entry : defaults().ores.entrySet()) {
+                ores.putIfAbsent(entry.getKey(), entry.getValue());
+            }
             ores.entrySet().removeIf(e -> e.getKey() == null || e.getKey().isBlank() || e.getValue() == null || e.getValue().weight <= 0);
             if (ores.isEmpty()) ores = defaults().ores;
             for (OreRule rule : ores.values()) rule.normalize();

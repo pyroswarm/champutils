@@ -114,14 +114,13 @@ public class ProfessionToolActiveAbilityListener {
                             stack
                     )) {
                         String activeName = ActiveEffectManager.getCurrentActiveDisplayName(serverPlayer);
+                        ActiveEffectManager.clearAllActiveEffects(serverPlayer);
                         serverPlayer.displayClientMessage(
                                 Component.literal(
-                                        "§cYou already have an active ability running" +
-                                                (activeName == null ? "." : ": " + activeName + ".")
+                                        "§eTurned off " + (activeName == null ? "your previous active ability" : activeName) + " before starting the new ability."
                                 ),
                                 true
                         );
-                        return InteractionResult.FAIL;
                     }
 
                     if (
@@ -148,6 +147,8 @@ public class ProfessionToolActiveAbilityListener {
                     if (!used) {
                         return InteractionResult.PASS;
                     }
+
+                    com.champutils.quest.QuestManager.recordProfessionAbility(serverPlayer, ability);
 
                     setCooldown(
                             serverPlayer,

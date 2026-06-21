@@ -5,6 +5,9 @@ import com.champutils.shop.ShopPokemonCrateOpeningGui;
 import com.champutils.economy.EconomyManager;
 import com.champutils.guild.GuildRepository;
 import com.champutils.battle.DisconnectForfeitManager;
+import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.BattleStateManager;
+import com.champutils.megaboss.MegaBossBattleListener;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.party.PartyManager;
 import com.champutils.profession.ProfessionDataManager;
@@ -95,19 +98,41 @@ public final class ProfileSessionLoader {
      */
     public static void loadDelayedNonCritical(ServerPlayer player) {
         if (player == null || player.hasDisconnected()) return;
-        time("ProfileSessionLoader.delayed.NotificationManager.handleJoin", () -> NotificationManager.handleJoin(player));
-        time("ProfileSessionLoader.delayed.QuestManager.handleJoin", () -> QuestManager.handleJoin(player));
-        time("ProfileSessionLoader.delayed.WonderTradeSeeder.handleJoin", () -> WonderTradeSeeder.handleJoin(player));
-        time("ProfileSessionLoader.delayed.ShopPokemonCrateOpeningGui.handleJoin", () -> ShopPokemonCrateOpeningGui.handleJoin(player));
-        time("ProfileSessionLoader.delayed.AuctionHouseService.handleJoin", () -> AuctionHouseService.handleJoin(player));
-        time("ProfileSessionLoader.delayed.ChatPreferenceManager.applyCached", () -> ChatPreferenceManager.apply(player, ChatPreferenceManager.getCachedOrDefault(player.getUUID())));
-        time("ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
-        time("ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
-        time("ProfileSessionLoader.delayed.EconomyManager.ensurePlayer", () -> EconomyManager.ensurePlayer(player));
+        UUID playerUuid = player.getUUID();
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        runDelayed(player, playerUuid, profileId, 1, "ProfileSessionLoader.delayed.NotificationManager.handleJoin", () -> NotificationManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 3, "ProfileSessionLoader.delayed.QuestManager.handleJoin", () -> QuestManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 5, "ProfileSessionLoader.delayed.WonderTradeSeeder.handleJoin", () -> WonderTradeSeeder.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 7, "ProfileSessionLoader.delayed.ShopPokemonCrateOpeningGui.handleJoin", () -> ShopPokemonCrateOpeningGui.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 9, "ProfileSessionLoader.delayed.AuctionHouseService.handleJoin", () -> AuctionHouseService.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 11, "ProfileSessionLoader.delayed.ChatPreferenceManager.applyCached", () -> ChatPreferenceManager.apply(player, ChatPreferenceManager.getCachedOrDefault(playerUuid)));
+        runDelayed(player, playerUuid, profileId, 13, "ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 15, "ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 17, "ProfileSessionLoader.delayed.EconomyManager.ensurePlayer", () -> EconomyManager.ensurePlayer(player));
+    }
+
+    private static void runDelayed(ServerPlayer player, UUID playerUuid, UUID profileId, long delayTicks, String label, Runnable action) {
+        if (player == null || player.server == null || action == null) return;
+        long delayMs = Math.max(1L, delayTicks) * 50L;
+        java.util.concurrent.CompletableFuture
+                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS))
+                .thenRun(() -> player.server.execute(() -> {
+                    if (player.hasDisconnected()) return;
+                    UUID active = PlayerProfileManager.activeProfileId(player);
+                    if (profileId != null && active != null && !profileId.equals(active)) return;
+                    time(label, action);
+                }));
     }
 
     public static void unload(ServerPlayer player) {
         if (player == null) return;
+        // Profile switching while a Cobblemon battle is open used to leave stale battle/profile
+        // state behind. Treat it like a safe local forfeit/cleanup before unloading profile data.
+        DisconnectForfeitManager.handleDisconnect(player);
+        BattleStateManager.clearAll(player);
+        BattleContextManager.clearContext(player.getUUID());
+        MegaBossBattleListener.cleanupPlayer(player);
+
         ChatPreferenceManager.saveAsync(player.getUUID(), ChatPreferenceManager.get(player.getUUID()));
         ShopPokemonCrateOpeningGui.handleDisconnect(player);
         com.champutils.profession.ProfessionManager.unloadPlayer(player);

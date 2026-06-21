@@ -125,14 +125,16 @@ public final class ExplorationLootConfig {
             if (!d.bannedItemContains.contains(banned)) d.bannedItemContains.add(banned);
         }
         if (d.tables != null) {
-            for (LootTable table : d.tables.values()) {
+            for (Map.Entry<String, LootTable> tableEntry : d.tables.entrySet()) {
+                LootTable table = tableEntry.getValue();
                 if (table == null) continue;
-                table.minRolls = Math.max(1, Math.min(table.minRolls, 2));
-                table.maxRolls = Math.max(table.minRolls, Math.min(table.maxRolls, 4));
-                if (table.items == null) continue;
+                table.minRolls = Math.max(2, Math.min(table.minRolls, 3));
+                table.maxRolls = Math.max(table.minRolls, Math.min(table.maxRolls, 5));
+                if (table.items == null) table.items = new ArrayList<>();
+                addDilutionItems(table, tableEntry.getKey());
                 for (LootEntry entry : table.items) {
                     if (entry == null) continue;
-                    if (entry.rarityRank() >= 2) entry.weight = Math.min(entry.weight, 6);
+                    if (entry.rarityRank() >= 2) entry.weight = Math.min(entry.weight, 10);
                     if (entry.rarityRank() >= 3) entry.weight = 0;
                     entry.maxAmount = Math.min(Math.max(entry.minAmount, entry.maxAmount), Math.max(entry.minAmount, 4));
                     if (entry.itemId != null && entry.itemId.contains("rare_candy")) entry.maxAmount = Math.min(entry.maxAmount, 1);
@@ -140,6 +142,58 @@ public final class ExplorationLootConfig {
                 }
             }
         }
+    }
+
+    private static void addDilutionItems(LootTable table, String tableId) {
+        addLootIfMissing(table, "COMMON", "cobblemon:poke_ball", 120, 3, 8);
+        addLootIfMissing(table, "COMMON", "cobblemon:potion", 80, 2, 4);
+        addLootIfMissing(table, "COMMON", "cobblemon:super_potion", 55, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:antidote", 45, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:paralyze_heal", 45, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:awakening", 35, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:oran_berry", 80, 2, 6);
+        addLootIfMissing(table, "COMMON", "cobblemon:sitrus_berry", 35, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:exp_candy_xs", 55, 1, 3);
+        addLootIfMissing(table, "COMMON", "cobblemon:exp_candy_s", 35, 1, 2);
+        addLootIfMissing(table, "COMMON", "cobblemon:red_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "COMMON", "cobblemon:blue_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "COMMON", "cobblemon:yellow_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "COMMON", "cobblemon:green_apricorn", 50, 2, 6);
+        addLootIfMissing(table, "COMMON", "cobblemon:black_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "COMMON", "cobblemon:white_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "COMMON", "cobblemon:pink_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:great_ball", 70, 2, 5);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:heal_ball", 45, 2, 4);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:net_ball", 35, 1, 3);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:dive_ball", 35, 1, 3);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:dusk_ball", 30, 1, 2);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:quick_ball", 28, 1, 2);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:revive", 28, 1, 2);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:exp_candy_m", 22, 1, 2);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:link_cable", 8, 1, 1);
+        addLootIfMissing(table, "UNCOMMON", "champutils:random_tm_common", 22, 1, 1);
+        addLootIfMissing(table, "RARE", "champutils:random_tm_uncommon", 6, 1, 1);
+        addLootIfMissing(table, "RARE", "cobblemon:dawn_stone", 6, 1, 1);
+        addLootIfMissing(table, "RARE", "cobblemon:dusk_stone", 6, 1, 1);
+        addLootIfMissing(table, "RARE", "cobblemon:moon_stone", 6, 1, 1);
+        addLootIfMissing(table, "RARE", "cobblemon:shiny_stone", 6, 1, 1);
+        addLootIfMissing(table, "RARE", "cobblemon:rare_candy", 5, 1, 1);
+        if (tableId != null && tableId.equalsIgnoreCase("nether")) {
+            addLootIfMissing(table, "COMMON", "cobblemon:burn_heal", 60, 1, 3);
+            addLootIfMissing(table, "RARE", "cobblemon:nether_fire_stone_ore", 4, 1, 1);
+        }
+        if (tableId != null && tableId.equalsIgnoreCase("end")) {
+            addLootIfMissing(table, "UNCOMMON", "cobblemon:ultra_ball", 45, 1, 3);
+            addLootIfMissing(table, "RARE", "cobblemon:exp_candy_l", 6, 1, 1);
+        }
+    }
+
+    private static void addLootIfMissing(LootTable table, String rarity, String itemId, int weight, int minAmount, int maxAmount) {
+        if (table == null || itemId == null) return;
+        for (LootEntry existing : table.items) {
+            if (existing != null && itemId.equalsIgnoreCase(existing.itemId)) return;
+        }
+        table.items.add(loot(rarity, itemId, weight, minAmount, maxAmount));
     }
 
     private static LootTable table(int minRolls, int maxRolls, LootEntry... entries) {

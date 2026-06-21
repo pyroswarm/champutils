@@ -59,15 +59,19 @@ public final class MegaBossConfig {
     }
 
     private static void sanitizeRuntimeDefaults(Data defaultData) {
-        if (DATA.checkIntervalTicks == 600) DATA.checkIntervalTicks = 300;
+        if (DATA.checkIntervalTicks == 300 || DATA.checkIntervalTicks == 600) DATA.checkIntervalTicks = defaultData.checkIntervalTicks;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = defaultData.checkIntervalTicks;
         if (DATA.maxAliveMegaBossesPerNearbyPlayer <= 0) DATA.maxAliveMegaBossesPerNearbyPlayer = defaultData.maxAliveMegaBossesPerNearbyPlayer;
         if (DATA.nearbyPlayerBossRadius <= 0) DATA.nearbyPlayerBossRadius = defaultData.nearbyPlayerBossRadius;
-        if (DATA.maxSpawnedPlayersPerCheck == 5 || DATA.maxSpawnedPlayersPerCheck == 8) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
+        if (DATA.maxSpawnedPlayersPerCheck == 4 || DATA.maxSpawnedPlayersPerCheck == 5 || DATA.maxSpawnedPlayersPerCheck == 8) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
-        if (DATA.spawnChancePerPlayerCheck <= 0.0D || DATA.spawnChancePerPlayerCheck > 1.0D) DATA.spawnChancePerPlayerCheck = defaultData.spawnChancePerPlayerCheck;
-        if (DATA.levelsAbovePlayerHighest < 10) DATA.levelsAbovePlayerHighest = 10;
-        if (DATA.megaStoneDropChance <= 0.0D || DATA.megaStoneDropChance > 1.0D) DATA.megaStoneDropChance = 0.10D;
+        if (DATA.spawnChancePerPlayerCheck <= 0.0D || DATA.spawnChancePerPlayerCheck > 1.0D || DATA.spawnChancePerPlayerCheck == 0.25D) DATA.spawnChancePerPlayerCheck = defaultData.spawnChancePerPlayerCheck;
+        if (DATA.levelsAbovePlayerHighest < 15) DATA.levelsAbovePlayerHighest = 15;
+        // Mega Stones are intentionally fixed at 10% per megaboss win.
+        // Do not allow old configs or manual edits to raise/lower this rate.
+        DATA.megaStoneDropChance = 0.10D;
+        DATA.megaStoneBaseChance = 0.10D;
+        DATA.megaStoneChanceAtLevel100 = 0.10D;
         if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
         if (DATA.rarityWeights == null) DATA.rarityWeights = defaultData.rarityWeights;
@@ -144,41 +148,41 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 6;
+        public int configVersion = 7;
         public boolean enabled = true;
-        public int checkIntervalTicks = 300;
+        public int checkIntervalTicks = 1200;
         /**
          * Soft safety cap. Set high enough that megabosses can behave like roaming trainers across the server.
          * The real spawn limiter is maxAliveMegaBossesPerNearbyPlayer below.
          */
-        public int maxAliveBosses = 50;
+        public int maxAliveBosses = 6;
 
         /**
          * Roaming-trainer-style density cap: each player can only have this many megabosses near them.
          */
-        public int maxAliveMegaBossesPerNearbyPlayer = 2;
+        public int maxAliveMegaBossesPerNearbyPlayer = 1;
 
         /**
          * Radius used for the nearby-player megaboss cap.
          */
-        public int nearbyPlayerBossRadius = 128;
+        public int nearbyPlayerBossRadius = 192;
 
         /**
          * Prevents one server tick from spawning around every online player at once.
          * Raise this if you want bigger worlds to fill faster.
          */
-        public int maxSpawnedPlayersPerCheck = 4;
+        public int maxSpawnedPlayersPerCheck = 1;
 
         /**
          * Per eligible player spawn roll each check. Previous behavior was effectively 100% until caps were reached.
          * 0.65 makes mega bosses a little rarer without making them feel gone.
          */
-        public double spawnChancePerPlayerCheck = 0.65D;
+        public double spawnChancePerPlayerCheck = 0.08D;
 
         public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;
         public int maxDistanceFromPlayer = 96;
-        public int levelsAbovePlayerHighest = 10;
+        public int levelsAbovePlayerHighest = 15;
         public double scaleModifier = 1.7D;
         public long despawnMinutes = 30L;
         public int battlingXpReward = 350;
@@ -197,12 +201,12 @@ public final class MegaBossConfig {
     }
 
     public static final class RarityWeights {
-        public int COMMON = 3000;
-        public int UNCOMMON = 2500;
-        public int RARE = 1800;
-        public int EPIC = 1200;
-        public int LEGENDARY = 700;
-        public int MYTHIC = 150;
+        public int COMMON = 8000;
+        public int UNCOMMON = 1000;
+        public int RARE = 500;
+        public int EPIC = 80;
+        public int LEGENDARY = 25;
+        public int MYTHIC = 5;
     }
 
     public static final class BossEntry {

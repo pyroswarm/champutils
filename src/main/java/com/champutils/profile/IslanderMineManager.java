@@ -269,7 +269,7 @@ public final class IslanderMineManager {
 
         BlockState ore = oreAt(task, dx, dy, dz, cfg);
         if (ore != null) { setClean(level, pos, ore); return; }
-        setClean(level, pos, baseStoneFor(dy, cfg));
+        setClean(level, pos, baseStoneFor(dx, dy, dz, cfg, task.seed));
     }
 
     private static void buildEntrance(ServerLevel level, IslanderMineConfig.Data cfg) {
@@ -286,7 +286,38 @@ public final class IslanderMineManager {
     }
 
     private static BlockState baseStoneFor(int localY, IslanderMineConfig.Data cfg) {
+        // Fallback for callers that do not have coordinates. Normal generation
+        // uses baseStoneFor(dx, localY, dz, cfg) so the mine has natural pockets.
         return localY < cfg.height * 0.55D ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.STONE.defaultBlockState();
+    }
+
+    private static BlockState baseStoneFor(int dx, int localY, int dz, IslanderMineConfig.Data cfg, long seed) {
+        boolean deep = localY < cfg.height * 0.55D;
+        BlockState base = deep ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.STONE.defaultBlockState();
+
+        long cellSeed = seed
+                ^ (((long)(dx >> 3)) * 73428767L)
+                ^ (((long)(localY >> 3)) * 912931L)
+                ^ (((long)(dz >> 3)) * 19349663L);
+        Random random = new Random(cellSeed);
+        int roll = random.nextInt(10_000);
+
+        // Large decorative/resource pockets. These are intentionally separate
+        // from ore pockets so dirt/granite/diorite/andesite feel like terrain,
+        // not ore spam.
+        if (roll >= 820) return base;
+
+        int ax = (dx >> 3) * 8 + random.nextInt(8) - 4;
+        int ay = (localY >> 3) * 8 + random.nextInt(8) - 4;
+        int az = (dz >> 3) * 8 + random.nextInt(8) - 4;
+        double blob = Math.sqrt((dx - ax) * (dx - ax) + ((localY - ay) * (localY - ay) * 1.15D) + (dz - az) * (dz - az));
+        if (blob > 3.0D + random.nextDouble() * 2.0D) return base;
+
+        int type = random.nextInt(100);
+        if (type < 22) return Blocks.DIRT.defaultBlockState();
+        if (type < 48) return Blocks.ANDESITE.defaultBlockState();
+        if (type < 74) return Blocks.DIORITE.defaultBlockState();
+        return Blocks.GRANITE.defaultBlockState();
     }
 
     private static BlockState oreAt(MineTask task, int dx, int dy, int dz, IslanderMineConfig.Data cfg) {

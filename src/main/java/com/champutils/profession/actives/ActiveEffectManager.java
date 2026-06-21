@@ -636,6 +636,58 @@ public class ActiveEffectManager {
         );
     }
 
+    public static void clearActiveEffectsForTool(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        if (player == null || stack == null || stack.isEmpty()) {
+            return;
+        }
+
+        String toolInstanceId = ProfessionToolMetadata.getActiveInstanceId(stack);
+        if (toolInstanceId == null) {
+            ProfessionToolMetadata.clearActiveToggles(stack);
+            return;
+        }
+
+        UUID playerId = player.getUUID();
+        Map<String, TimedEffect> timed = TIMED_EFFECTS.get(playerId);
+        if (timed != null) {
+            timed.entrySet().removeIf(entry -> entry.getValue().toolInstanceId.equals(toolInstanceId));
+            if (timed.isEmpty()) TIMED_EFFECTS.remove(playerId);
+        }
+
+        Map<String, ToggleEffect> toggles = TOGGLED_EFFECTS.get(playerId);
+        if (toggles != null) {
+            toggles.entrySet().removeIf(entry -> entry.getValue().toolInstanceId.equals(toolInstanceId));
+            if (toggles.isEmpty()) TOGGLED_EFFECTS.remove(playerId);
+        }
+
+        ProfessionToolMetadata.clearActiveToggles(stack);
+    }
+
+    public static void clearAllActiveEffects(
+            ServerPlayer player
+    ) {
+        if (player == null) return;
+        TIMED_EFFECTS.remove(player.getUUID());
+        TOGGLED_EFFECTS.remove(player.getUUID());
+    }
+
+    private static void cleanupInvalidHeldToggles(
+            MinecraftServer server
+    ) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            ItemStack held = player.getMainHandItem();
+            if (held == null || held.isEmpty() || !ProfessionToolMetadata.isProfessionTool(held) || ProfessionToolMetadata.isBroken(held)) {
+                clearAllActiveEffects(player);
+                if (held != null && !held.isEmpty()) ProfessionToolMetadata.clearActiveToggles(held);
+            }
+        }
+    }
+
+
     public static void tick(
             MinecraftServer server
     ) {
@@ -703,6 +755,7 @@ public class ActiveEffectManager {
         }
 
         if (server.getTickCount() % 10 == 0) {
+            cleanupInvalidHeldToggles(server);
             tickMagnetToggles(server);
         }
     }

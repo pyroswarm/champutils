@@ -1,6 +1,7 @@
 package com.champutils.buff;
 
 import com.champutils.dex.PokemonOriginManager;
+import com.champutils.dex.CatchStreakManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -95,6 +96,12 @@ public final class BuffManager {
         applyCatchBuffs(BuffContext.trueWildCatch(player, pokemon));
     }
 
+
+    /** Applies shiny/perfect-IV buff rolls when a legitimate wild Pokémon spawns near the player. */
+    public static void applySpawnBuffs(BuffContext context) {
+        applyCatchBuffs(context);
+    }
+
     public static void applyCatchBuffs(BuffContext context) {
         if (context == null || !context.allowsPokemonCatchBuffs()) return;
         ServerPlayer player = context.player;
@@ -104,10 +111,11 @@ public final class BuffManager {
         if (pokemonUuid != null && !markProcessed(pokemonUuid)) return;
 
         boolean changed = false;
-        double shinyBonus = getTotalBuff(context, BuffType.SHINY_CHANCE);
-        if (shinyBonus > 0.0D && ThreadLocalRandom.current().nextDouble() < shinyBonus && !isShiny(pokemon)) {
+        double shinyMultiplierBonus = getTotalBuff(context, BuffType.SHINY_CHANCE);
+        double shinyProcChance = relativeShinyProcChance(shinyMultiplierBonus);
+        if (shinyProcChance > 0.0D && ThreadLocalRandom.current().nextDouble() < shinyProcChance && !isShiny(pokemon)) {
             changed = setShiny(pokemon, true) || changed;
-            player.sendSystemMessage(Component.literal("[Buff] A catch buff made this Pokémon shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
+            player.sendSystemMessage(Component.literal("[Buff] A shiny chance buff affected a wild spawn!").withStyle(ChatFormatting.LIGHT_PURPLE));
         }
 
         double perfectIvBonus = getTotalBuff(context, BuffType.PERFECT_IV_CHANCE);
@@ -115,13 +123,30 @@ public final class BuffManager {
             String stat = upgradeRandomIvToPerfect(pokemon);
             if (stat != null) {
                 changed = true;
-                player.sendSystemMessage(Component.literal("[Buff] A catch buff perfected " + stat + " on this catch!").withStyle(ChatFormatting.AQUA));
+                player.sendSystemMessage(Component.literal("[Buff] A buff perfected " + stat + " on this catch!").withStyle(ChatFormatting.AQUA));
             }
         }
 
         if (changed) {
             PokemonOriginManager.markOrigin(pokemon, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
         }
+    }
+
+    /**
+     * Shiny buffs are relative multipliers, not flat shiny odds.
+     * Example: 0.01D means the current/base shiny chance is increased by 1%,
+     * so normal 1/4096 odds only gain an extra 1/409600 roll.
+     */
+    private static double relativeShinyProcChance(double multiplierBonus) {
+        if (multiplierBonus <= 0.0D) return 0.0D;
+        double baseChance = 1.0D / 4096.0D;
+        try {
+            if (CatchStreakManager.CONFIG != null && CatchStreakManager.CONFIG.baseShinyChance > 0.0D) {
+                baseChance = CatchStreakManager.CONFIG.baseShinyChance;
+            }
+        } catch (Throwable ignored) {
+        }
+        return Math.max(0.0D, Math.min(1.0D, baseChance * multiplierBonus));
     }
 
     public static String percent(double value) {

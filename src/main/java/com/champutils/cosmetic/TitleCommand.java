@@ -85,6 +85,8 @@ public final class TitleCommand {
                                             .then(Commands.argument("description", StringArgumentType.greedyString())
                                                     .executes(ctx -> update(ctx.getSource().getPlayerOrException(), StringArgumentType.getString(ctx, "id"), null, null, null, StringArgumentType.getString(ctx, "description"))))))
                             .then(Commands.literal("buff")
+                                    .then(Commands.literal("list")
+                                            .executes(ctx -> listBuffs(ctx.getSource().getPlayerOrException())))
                                     .then(Commands.literal("set")
                                             .then(Commands.argument("id", StringArgumentType.word())
                                                     .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(TitleConfig.titles().stream().map(t -> t.id), builder))
@@ -111,7 +113,7 @@ public final class TitleCommand {
     }
 
     private static Iterable<String> buffSuggestions() {
-        return Arrays.asList("SHINY_CHANCE", "BATTLING_XP", "CATCH_CHANCE");
+        return Arrays.stream(BuffType.values()).map(Enum::name).toList();
     }
 
     private static int create(ServerPlayer admin, String id, String name) {
@@ -120,7 +122,7 @@ public final class TitleCommand {
             admin.sendSystemMessage(Component.literal("Could not create title.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        admin.sendSystemMessage(Component.literal("Created manual title " + def.id + ". Use /titles admin buff set " + def.id + " SHINY_CHANCE 0.001").withStyle(ChatFormatting.GREEN));
+        admin.sendSystemMessage(Component.literal("Created manual title " + def.id + ". Use /titles admin buff set " + def.id + " SHINY_CHANCE 0.01").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -133,9 +135,17 @@ public final class TitleCommand {
         return 1;
     }
 
+    private static int listBuffs(ServerPlayer admin) {
+        admin.sendSystemMessage(Component.literal("Title buffs:").withStyle(ChatFormatting.GOLD));
+        for (BuffType type : BuffType.values()) {
+            admin.sendSystemMessage(Component.literal("- " + type.name() + " = " + type.displayName + " (example amount: 0.10 for +10%)").withStyle(type.color));
+        }
+        return 1;
+    }
+
     private static int setBuff(ServerPlayer admin, String id, String buff, double amount) {
         if (TitleConfig.parseBuffType(buff) == null) {
-            admin.sendSystemMessage(Component.literal("Unknown buff. Use SHINY_CHANCE, BATTLING_XP, or CATCH_CHANCE.").withStyle(ChatFormatting.RED));
+            admin.sendSystemMessage(Component.literal("Unknown buff. Use /titles admin buff list to see valid buff names.").withStyle(ChatFormatting.RED));
             return 0;
         }
         if (!TitleConfig.setBuff(id, buff, amount)) {

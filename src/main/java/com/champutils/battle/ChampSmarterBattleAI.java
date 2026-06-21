@@ -4,7 +4,9 @@ import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.battles.model.ai.BattleAI;
 import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
 import com.cobblemon.mod.common.battles.BattleSide;
+import com.cobblemon.mod.common.battles.DefaultActionResponse;
 import com.cobblemon.mod.common.battles.InBattleMove;
+import com.cobblemon.mod.common.battles.MoveTarget;
 import com.cobblemon.mod.common.battles.MoveActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownMoveset;
@@ -79,9 +81,13 @@ public final class ChampSmarterBattleAI implements BattleAI {
         try {
             chosen = fallback.choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
         } catch (Throwable t) {
-            BattleAIDifficultyManager.debug("Fallback: custom AI failed before decision, using StrongBattleAI(" + skill + ") error=" + t.getClass().getSimpleName());
-            ShowdownActionResponse emergency = new StrongBattleAI(skill).choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
-            return ensureValidChoice(emergency, activeBattlePokemon, moveset, forceSwitch);
+            BattleAIDifficultyManager.debug("Fallback: custom AI failed before decision, selecting safe legal move. error=" + t.getClass().getSimpleName());
+            try {
+                ShowdownActionResponse emergency = new StrongBattleAI(skill).choose(activeBattlePokemon, battle, aiSide, moveset, forceSwitch);
+                return ensureValidChoice(emergency, activeBattlePokemon, moveset, forceSwitch);
+            } catch (Throwable ignored) {
+                return safestAction(activeBattlePokemon, moveset, forceSwitch);
+            }
         }
 
         if (!antiSpamLayer || moveset == null || forceSwitch || activeBattlePokemon == null || activeBattlePokemon.isGone()) {
@@ -184,23 +190,53 @@ public final class ChampSmarterBattleAI implements BattleAI {
             }
         } catch (Throwable ignored) {
         }
-        return response;
+        return safestAction(activeBattlePokemon, moveset, forceSwitch);
+    }
+
+    private ShowdownActionResponse safestAction(ActiveBattlePokemon activeBattlePokemon, ShowdownMoveset moveset, boolean forceSwitch) {
+        if (moveset != null && !forceSwitch) {
+            for (InBattleMove move : moveset.getMoves()) {
+                if (move == null || !move.canBeUsed()) continue;
+                MoveActionResponse candidate = legalMoveResponse(move, activeBattlePokemon);
+                try {
+                    if (candidate.isValid(activeBattlePokemon, moveset, false)) return candidate;
+                } catch (Throwable ignored) {
+                }
+            }
+            for (InBattleMove move : moveset.getMoves()) {
+                if (move != null && "struggle".equalsIgnoreCase(move.getId())) {
+                    return new MoveActionResponse("struggle", null, null);
+                }
+            }
+        }
+        return new DefaultActionResponse();
     }
 
     private MoveActionResponse legalMoveResponse(InBattleMove move, ActiveBattlePokemon activeBattlePokemon) {
         try {
             List<Targetable> targets = move.getTargets(activeBattlePokemon);
-            if (targets == null || targets.isEmpty() || move.mustBeUsed()) {
+            if ((targets == null || targets.isEmpty()) && move.getTarget() != MoveTarget.self && !move.mustBeUsed()) {
+                targets = activeBattlePokemon.getAdjacentOpponents();
+            }
+            if (targets == null || targets.isEmpty() || move.mustBeUsed() || move.getTarget() == MoveTarget.self) {
                 return new MoveActionResponse(move.getId(), null, null);
             }
             Targetable chosenTarget = null;
             for (Targetable target : targets) {
-                if (target != null && !target.isAllied(activeBattlePokemon)) {
+                if (target != null && target.hasPokemon() && !target.isAllied(activeBattlePokemon)) {
                     chosenTarget = target;
                     break;
                 }
             }
-            if (chosenTarget == null) chosenTarget = targets.get(0);
+            if (chosenTarget == null) {
+                for (Targetable target : targets) {
+                    if (target != null && target.hasPokemon()) {
+                        chosenTarget = target;
+                        break;
+                    }
+                }
+            }
+            if (chosenTarget == null) return new MoveActionResponse(move.getId(), null, null);
             return new MoveActionResponse(move.getId(), chosenTarget.getPNX(), null);
         } catch (Throwable ignored) {
             return new MoveActionResponse(move.getId(), null, null);

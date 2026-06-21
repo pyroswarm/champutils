@@ -1,6 +1,7 @@
 package com.champutils.shop;
 
 import com.champutils.claims.LandClaimRepository;
+import com.champutils.territory.TerritoryRepository;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,8 +19,16 @@ public final class ChestShopClaimCompat {
         if (player.hasPermissions(4)) return ClaimCheckResult.ALLOWED;
 
         LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, pos);
-        if (claim == null) return ClaimCheckResult.UNCLAIMED;
-        return LandClaimRepository.canBuild(player, claim) ? ClaimCheckResult.ALLOWED : ClaimCheckResult.NOT_TRUSTED;
+        if (claim != null) {
+            return LandClaimRepository.canBuild(player, claim) ? ClaimCheckResult.ALLOWED : ClaimCheckResult.NOT_TRUSTED;
+        }
+
+        TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, pos);
+        if (territory != null) {
+            return TerritoryRepository.canBuild(player, territory) ? ClaimCheckResult.ALLOWED : ClaimCheckResult.NOT_TRUSTED;
+        }
+
+        return ClaimCheckResult.UNCLAIMED;
     }
 
     public enum ClaimCheckResult {

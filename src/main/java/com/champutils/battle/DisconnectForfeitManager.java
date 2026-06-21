@@ -2,6 +2,7 @@ package com.champutils.battle;
 
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.matchmaking.MatchmakingManager;
+import com.champutils.megaboss.MegaBossBattleListener;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -75,102 +76,41 @@ DISCONNECT FORFEIT
             ServerPlayer quitter
     ){
 
-        if(
-                quitter==null
-        ){
+        if (quitter == null) {
             return;
         }
 
+        boolean trackedBattle = BattleStateManager.isInBattle(quitter)
+                || BattleStateManager.hasTrackedState(quitter)
+                || MegaBossBattleListener.isPlayerInMegaBossBattle(quitter);
 
-        if(
-                !BattleStateManager.isInBattle(
-                        quitter
-                )
-        ){
+        if (!trackedBattle) {
+            BattleContextManager.clearContext(quitter.getUUID());
+            MegaBossBattleListener.cleanupPlayer(quitter);
             return;
         }
 
+        ServerPlayer opponent = MatchmakingManager.getOpponent(quitter);
 
-        ServerPlayer opponent=
-                MatchmakingManager.getOpponent(
-                        quitter
-                );
+        if (opponent != null) {
+            try {
+                BattleListener.onBattleEnd(opponent, quitter);
+            } catch (Exception e) {
+                System.err.println("[ChampUtils] Disconnect battle forfeit cleanup failed: " + e.getMessage());
+                e.printStackTrace();
+            }
 
-        if(
-                opponent==null
-        ){
-            BattleStateManager.setInBattle(
-                    quitter,
-                    false
-            );
-
-            return;
+            opponent.sendSystemMessage(Component.literal("§aOpponent forfeited by disconnect."));
+            BattleStateManager.clearAll(opponent);
+            BattleContextManager.clearContext(opponent.getUUID());
+            MegaBossBattleListener.cleanupPlayer(opponent);
+            MatchmakingManager.clearMatch(opponent);
         }
 
-
-
-/* =========================
-RP RESULT
-========================= */
-
-        BattleListener.onBattleEnd(
-                opponent,
-                quitter
-        );
-
-
-
-/* =========================
-MESSAGING
-========================= */
-
-        opponent.sendSystemMessage(
-                Component.literal(
-                        "§aOpponent forfeited by disconnect."
-                )
-        );
-
-
-
-/* =========================
-CLEAR BATTLE STATE
-========================= */
-
-        BattleStateManager.setInBattle(
-                quitter,
-                false
-        );
-
-        BattleStateManager.setInBattle(
-                opponent,
-                false
-        );
-
-        BattleStateManager.clearBattle(
-                quitter
-        );
-
-        BattleStateManager.clearBattle(
-                opponent
-        );
-
-
-
-
-
-
-/* =========================
-CLEAR MATCH DATA
-========================= */
-
-        MatchmakingManager.clearMatch(
-                quitter
-        );
-
-        MatchmakingManager.clearMatch(
-                opponent
-        );
-
+        BattleStateManager.clearAll(quitter);
+        BattleContextManager.clearContext(quitter.getUUID());
+        MegaBossBattleListener.cleanupPlayer(quitter);
+        MatchmakingManager.clearMatch(quitter);
     }
 
 

@@ -1,6 +1,10 @@
 package com.champutils.dex;
 
 import com.champutils.util.CobblemonEventReflection;
+import com.champutils.buff.BuffContext;
+import com.champutils.buff.BuffManager;
+import com.champutils.buff.BuffType;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -43,6 +47,12 @@ public final class CatchStreakSpawnListener {
         if (pokemon == null || CatchStreakManager.isShiny(pokemon)) return;
         Entity entity = pokemonHolder instanceof Entity e ? e : event instanceof Entity e ? e : firstEntity(event);
         if (entity == null || !(entity.level() instanceof ServerLevel level)) return;
+        ServerPlayer buffPlayer = nearestPlayerWithSpawnBuff(level, entity, pokemon);
+        if (buffPlayer != null && pokemon instanceof Pokemon cobblemonPokemon) {
+            BuffManager.applySpawnBuffs(BuffContext.trueWildCatch(buffPlayer, cobblemonPokemon));
+            if (CatchStreakManager.isShiny(pokemon)) return;
+        }
+
         ServerPlayer player = nearestPlayerWithMatchingStreak(level, entity, pokemon);
         if (player == null) return;
         if (CatchStreakManager.shouldForceShiny(player, pokemon) && CatchStreakManager.setShiny(pokemon, true)) {
@@ -51,6 +61,24 @@ public final class CatchStreakSpawnListener {
                         .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             }
         }
+    }
+
+    private static ServerPlayer nearestPlayerWithSpawnBuff(ServerLevel level, Entity entity, Object pokemon) {
+        if (!(pokemon instanceof Pokemon cobblemonPokemon)) return null;
+        double radius = Math.max(8, CatchStreakManager.CONFIG.nearbyPlayerSpawnRadius);
+        double radiusSq = radius * radius;
+        ServerPlayer best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (ServerPlayer player : level.players()) {
+            double distance = player.distanceToSqr(entity);
+            if (distance > radiusSq || distance >= bestDistance) continue;
+            double shiny = BuffManager.getTotalBuff(BuffContext.trueWildCatch(player, cobblemonPokemon), BuffType.SHINY_CHANCE);
+            double perfectIv = BuffManager.getTotalBuff(BuffContext.trueWildCatch(player, cobblemonPokemon), BuffType.PERFECT_IV_CHANCE);
+            if (shiny <= 0.0D && perfectIv <= 0.0D) continue;
+            best = player;
+            bestDistance = distance;
+        }
+        return best;
     }
 
     private static ServerPlayer nearestPlayerWithMatchingStreak(ServerLevel level, Entity entity, Object pokemon) {

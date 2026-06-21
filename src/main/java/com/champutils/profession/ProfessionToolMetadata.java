@@ -764,6 +764,23 @@ public final class ProfessionToolMetadata {
         );
     }
 
+    public static void clearActiveToggles(
+            ItemStack stack
+    ) {
+
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+
+        updateRoot(
+                stack,
+                root -> root.remove(
+                        ACTIVE_TOGGLES_KEY
+                )
+        );
+    }
+
+
 
     public static Map<String, Integer> getCustomEnchants(
             ItemStack stack

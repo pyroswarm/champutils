@@ -12,6 +12,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.DoorBlock;
@@ -57,6 +59,11 @@ public final class TerritoryProtectionListener {
 
             if (!TerritoryRepository.canEnter(serverPlayer, territory)) {
                 deny(serverPlayer, "You cannot interact in " + territory.ownerName + "'s territory.");
+                return InteractionResult.FAIL;
+            }
+
+            if ((stack.getItem() instanceof BucketItem || stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE)) && !TerritoryRepository.canBuild(serverPlayer, territory)) {
+                deny(serverPlayer, "You cannot place fluids or fire in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 

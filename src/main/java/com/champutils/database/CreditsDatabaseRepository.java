@@ -71,11 +71,13 @@ public final class CreditsDatabaseRepository {
             }
 
             try (PreparedStatement stats = connection.prepareStatement(
-                    "insert into profile_player_stats (profile_id, money, updated_at) values (?::uuid, ?, now()) " +
+                    "insert into profile_player_stats (profile_id, money, updated_at) " +
+                            "select ?::uuid, ?, now() where exists (select 1 from player_profiles where id = ?::uuid) " +
                             "on conflict (profile_id) do update set money = excluded.money, updated_at = now()"
             )) {
                 stats.setString(1, playerId.toString());
                 stats.setLong(2, safeCredits);
+                stats.setString(3, playerId.toString());
                 stats.executeUpdate();
             }
         });

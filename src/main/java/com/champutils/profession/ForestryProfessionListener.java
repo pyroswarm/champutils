@@ -30,10 +30,12 @@ import java.util.Set;
 public class ForestryProfessionListener {
 
     private static final Random RANDOM = new Random();
+    private static final Set<String> MANUALLY_PROCESSED_EXTRA_BLOCKS = new HashSet<>();
 
     public static void register() {
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return true;
+            if (MANUALLY_PROCESSED_EXTRA_BLOCKS.remove(extraBlockKey(serverPlayer, pos))) return true;
             String blockId = getBlockId(state.getBlock());
             Integer xp = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
             if (xp == null || xp <= 0) return true;
@@ -43,14 +45,7 @@ public class ForestryProfessionListener {
             }
 
             ItemStack tool = serverPlayer.getMainHandItem();
-            ProfessionManager.addXp(serverPlayer, ProfessionType.FORESTRY, xp);
-            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FORESTRY, blockId);
-            rollXpSurge(serverPlayer, tool, xp);
-            ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
-            ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FORESTRY);
-            rollDropMultiplier(serverPlayer, state, tool);
-            rollRewardPassive(serverPlayer, tool, "sapFinderChance", "forestry_sap_finder");
-            rollRewardPassive(serverPlayer, tool, "seedFinderChance", "forestry_seed_finder");
+            processForestryRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool)) {
                 breakConnectedLogs(serverPlayer, pos, state, getIntStat(tool, "maxTimberBlocks", 32));
@@ -66,6 +61,19 @@ public class ForestryProfessionListener {
 
             return true;
         });
+    }
+
+
+    private static void processForestryRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
+        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
+        ProfessionManager.addXp(player, ProfessionType.FORESTRY, xp);
+        com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FORESTRY, blockId);
+        rollXpSurge(player, tool, xp);
+        ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY);
+        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FORESTRY);
+        rollDropMultiplier(player, state, tool);
+        rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder");
+        rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder");
     }
 
     private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool) {
@@ -129,6 +137,8 @@ public class ForestryProfessionListener {
                 BlockState state = level.getBlockState(current);
                 if (state.getBlock() != original.getBlock()) continue;
                 if (ProfessionBlockTracker.isPlayerPlaced(level, current)) continue;
+                processForestryRewards(player, state, getBlockId(state.getBlock()), player.getMainHandItem(), Math.max(1, ProfessionConfig.SETTINGS.forestryXp.getOrDefault(getBlockId(state.getBlock()), 0)), true);
+                MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, current));
                 if (level.destroyBlock(current, true, player)) broken++;
             }
             for (BlockPos next : neighbors(current)) queue.add(next);
@@ -155,6 +165,10 @@ public class ForestryProfessionListener {
         Block sapling = ForestryBlockUtil.getSaplingForLog(getBlockId(oldState.getBlock()));
         if (sapling == Blocks.AIR) return;
         player.serverLevel().setBlock(pos, sapling.defaultBlockState(), 3);
+    }
+
+    private static String extraBlockKey(ServerPlayer player, BlockPos pos) {
+        return player.getUUID() + ":" + pos.asLong();
     }
 
     private static Iterable<BlockPos> neighbors(BlockPos pos) {

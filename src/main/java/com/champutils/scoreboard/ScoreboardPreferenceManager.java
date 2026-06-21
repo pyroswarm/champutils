@@ -63,7 +63,7 @@ public final class ScoreboardPreferenceManager {
             return false;
         }
 
-        return ENABLED.getOrDefault(uuid.toString(), false);
+        return ENABLED.getOrDefault(uuid.toString(), true);
     }
 
     public static boolean toggle(UUID uuid) {

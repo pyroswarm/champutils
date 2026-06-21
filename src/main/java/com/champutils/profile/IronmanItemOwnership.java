@@ -34,6 +34,7 @@ public final class IronmanItemOwnership {
      */
     public static final String SOURCE = "source";
     public static final String DROP_TAG_PREFIX = "champutils_ironman_dropper_profile:";
+    public static final String DROP_MODE_TAG_PREFIX = "champutils_dropper_mode:";
 
     private static boolean registered = false;
     private static int tickCounter = 0;
@@ -91,37 +92,82 @@ public final class IronmanItemOwnership {
 
     public static void tagDroppedEntity(Player player, ItemEntity entity) {
         if (!(player instanceof ServerPlayer serverPlayer) || entity == null) return;
-        UUID profileId = PlayerProfileManager.activeProfileId(serverPlayer);
-        if (profileId == null) return;
-        entity.addTag(DROP_TAG_PREFIX + profileId);
-        stampOwned(serverPlayer, entity.getItem(), "player_drop");
+        ProfileGameMode mode = PlayerProfileManager.gameMode(serverPlayer);
+        entity.addTag(DROP_MODE_TAG_PREFIX + mode.name());
+        if (usesItemOwnershipRules(serverPlayer)) {
+            UUID profileId = PlayerProfileManager.activeProfileId(serverPlayer);
+            if (profileId == null) return;
+            entity.addTag(DROP_TAG_PREFIX + profileId);
+            stampOwned(serverPlayer, entity.getItem(), "player_drop");
+        } else {
+            normalizeOwnedStack(entity.getItem());
+        }
     }
 
     public static boolean canPickup(ServerPlayer player, ItemEntity entity) {
         if (player == null || entity == null) return true;
 
+        // Normal profiles should behave like vanilla for trading and dropped items.
+        // They may pick up anything, including legacy Ironman/Islander-stamped stacks.
+        // Strip the ownership marker on pickup so the item can be traded/stacked normally afterwards.
+        if (!usesItemOwnershipRules(player)) {
+            clearOwnership(entity.getItem());
+            return true;
+        }
+
         UUID activeProfile = PlayerProfileManager.activeProfileId(player);
         UUID itemOwner = ownerProfile(entity.getItem());
         UUID dropper = dropperProfile(entity);
 
-        if (isRestricted(player)) {
-            if (itemOwner != null && !itemOwner.equals(activeProfile)) {
-                deny(player, "That item came from another player.");
-                return false;
-            }
+        boolean playerIsIslander = PlayerProfileManager.isIslander(player);
+        ProfileGameMode itemOwnerMode = itemOwner == null ? null : ownerProfileMode(itemOwner);
+        ProfileGameMode dropperMode = dropperMode(entity);
 
-            if (dropper != null && !dropper.equals(activeProfile)) {
-                deny(player, "Ironman/Nuzlocke profiles cannot pick up items dropped by other players.");
+        // Islander profiles are isolated from the normal economy, but may share
+        // Islander-stamped items with other Islander profiles. Ironman/Nuzlocke
+        // stay strictly profile-private.
+        if (itemOwner != null && !itemOwner.equals(activeProfile) && !player.hasPermissions(4)) {
+            if (!(playerIsIslander && itemOwnerMode == ProfileGameMode.ISLANDER)) {
+                deny(player, playerIsIslander ? "Islanders can only pick up Islander items." : "That item belongs to another profile.");
                 return false;
             }
         }
 
-        if (itemOwner == null && isRestricted(player)) stampOwned(player, entity.getItem(), dropper == null ? "world_pickup" : "own_drop_pickup");
+        if (playerIsIslander) {
+            if (dropperMode != null && dropperMode != ProfileGameMode.ISLANDER) {
+                deny(player, "Islanders can only pick up items from other Islanders or the world.");
+                return false;
+            }
+            if (dropper != null && ownerProfileMode(dropper) != ProfileGameMode.ISLANDER) {
+                deny(player, "Islanders can only pick up items from other Islanders or the world.");
+                return false;
+            }
+        } else if (usesItemOwnershipRules(player)) {
+            if (dropper != null && !dropper.equals(activeProfile)) {
+                deny(player, "Restricted profiles cannot pick up items dropped by other players.");
+                return false;
+            }
+        }
+
+        if (itemOwner == null && usesItemOwnershipRules(player)) stampOwned(player, entity.getItem(), dropper == null ? "world_pickup" : "own_drop_pickup");
         return true;
     }
 
     public static boolean isRestricted(ServerPlayer player) {
-        return player != null && (PlayerProfileManager.isIronman(player) || PlayerProfileManager.isNuzlocke(player)) && !player.hasPermissions(4);
+        return usesItemOwnershipRules(player);
+    }
+
+    /**
+     * Profiles that should stamp otherwise normal stackable items with ownership.
+     * Normal/Monotype profiles intentionally do not stamp items, which keeps the
+     * common player experience fully vanilla-stackable.
+     */
+    public static boolean usesItemOwnershipRules(ServerPlayer player) {
+        return player != null
+                && (PlayerProfileManager.isIronman(player)
+                    || PlayerProfileManager.isNuzlocke(player)
+                    || PlayerProfileManager.isIslander(player))
+                && !player.hasPermissions(4);
     }
 
     public static boolean canMoveStackIntoRestrictedInventory(ServerPlayer player, ItemStack stack) {
@@ -130,19 +176,29 @@ public final class IronmanItemOwnership {
 
     public static void stampContainerDeposit(ServerPlayer player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) return;
-        if (!isRestricted(player)) return;
+        if (!usesItemOwnershipRules(player)) return;
         if (!denyForeignUse(player, stack)) stampIfIronmanOwned(player, stack, "container_deposit");
     }
 
     public static boolean denyForeignUse(ServerPlayer player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) return false;
-        if (!isRestricted(player)) return false;
+        if (!usesItemOwnershipRules(player)) {
+            clearOwnership(stack);
+            return false;
+        }
+        if (player.hasPermissions(4)) return false;
         UUID owner = ownerProfile(stack);
+        if (owner == null) return false;
         UUID active = PlayerProfileManager.activeProfileId(player);
-        if (owner != null && !owner.equals(active)) {
-            deny(player, "Ironman/Nuzlocke profiles cannot use items that came from another player.");
+        if (!owner.equals(active)) {
+            if (PlayerProfileManager.isIslander(player) && ownerProfileMode(owner) == ProfileGameMode.ISLANDER) {
+                normalizeOwnedStack(stack);
+                return false;
+            }
+            deny(player, PlayerProfileManager.isIslander(player) ? "Islanders can only use Islander items." : "That item belongs to another profile.");
             return true;
         }
+        normalizeOwnedStack(stack);
         return false;
     }
 
@@ -153,7 +209,30 @@ public final class IronmanItemOwnership {
             normalizeOwnedStack(stack);
             return;
         }
+
+        if (!usesItemOwnershipRules(player)) return;
+
+        // Right-clicking Cobblemon stackables such as apricorns used to stamp only the
+        // held stack. That left identical items split between owned and unowned component
+        // states, so Minecraft would not merge them. When a restricted profile stamps a
+        // stack, stamp matching unowned inventory stacks at the same time.
+        stampMatchingUnownedInventoryStacks(player, stack);
         stampOwned(player, stack, source);
+    }
+
+    private static void stampMatchingUnownedInventoryStacks(ServerPlayer player, ItemStack reference) {
+        if (player == null || reference == null || reference.isEmpty()) return;
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack other = inv.getItem(i);
+            if (other == null || other.isEmpty() || other == reference) continue;
+            if (!ItemStack.isSameItem(reference, other)) continue;
+            if (ownerProfile(other) != null) {
+                normalizeOwnedStack(other);
+                continue;
+            }
+            stampOwned(player, other, "inventory_match");
+        }
     }
 
     public static void stampOwned(ServerPlayer player, ItemStack stack, String source) {
@@ -171,6 +250,27 @@ public final class IronmanItemOwnership {
         root.remove(SOURCE);
         tag.put(ROOT, root);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    /**
+     * Removes ChampUtils restricted-profile ownership from a stack. Used when normal
+     * profiles receive traded/dropped legacy restricted items so normal gameplay stays vanilla.
+     */
+    public static boolean clearOwnership(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        try {
+            CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            if (!tag.contains(ROOT)) return false;
+            tag.remove(ROOT);
+            if (tag.isEmpty()) {
+                stack.remove(DataComponents.CUSTOM_DATA);
+            } else {
+                stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            }
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /**
@@ -220,9 +320,23 @@ public final class IronmanItemOwnership {
         return null;
     }
 
+    private static ProfileGameMode dropperMode(Entity entity) {
+        if (entity == null) return null;
+        for (String tag : entity.getTags()) {
+            if (!tag.startsWith(DROP_MODE_TAG_PREFIX)) continue;
+            return ProfileGameMode.parse(tag.substring(DROP_MODE_TAG_PREFIX.length()));
+        }
+        return null;
+    }
+
+    private static ProfileGameMode ownerProfileMode(UUID profileId) {
+        if (profileId == null) return ProfileGameMode.NORMAL;
+        return PlayerProfileManager.modeOfProfileIdBlocking(profileId.toString());
+    }
+
     private static void sanitizeInventory(ServerPlayer player) {
         if (player == null || PlayerProfileManager.isInMainMenu(player)) return;
-        if (!isRestricted(player)) return;
+        if (!usesItemOwnershipRules(player)) return;
         Inventory inv = player.getInventory();
         boolean changed = false;
         for (int i = 0; i < inv.getContainerSize(); i++) {

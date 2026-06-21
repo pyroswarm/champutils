@@ -37,6 +37,25 @@ public final class TitleMenu {
             if (unlocked) b.setCallback((i,c,t) -> { TitleManager.select(player, def.id); open(player); });
             gui.setSlot(slot++, b);
         }
+
+        for (String ownedId : owned) {
+            boolean known = false;
+            for (TitleConfig.TitleDef def : titles) {
+                if (def != null && def.id != null && def.id.equals(ownedId)) { known = true; break; }
+            }
+            if (known || ownedId == null || ownedId.isBlank() || slot >= 54) continue;
+            if (slot == 45) slot++;
+            String display = TitleManager.displayFor(player.getUUID(), ownedId).replace('&','§');
+            boolean active = ownedId.equals(selected);
+            GuiElementBuilder b = new GuiElementBuilder(active ? Items.NAME_TAG : Items.PAPER)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal((active ? "§aSelected §r" : "§6World First §r") + display))
+                    .addLoreLine(Component.literal("§7World First trophy title."))
+                    .addLoreLine(Component.literal("§7Passive: §a" + TitleConfig.buffText(TitleConfig.get(ownedId))))
+                    .addLoreLine(Component.literal("§eClick to select"));
+            b.setCallback((i,c,t) -> { TitleManager.select(player, ownedId); open(player); });
+            gui.setSlot(slot++, b);
+        }
         MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }

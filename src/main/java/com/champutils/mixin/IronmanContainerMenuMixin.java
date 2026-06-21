@@ -19,7 +19,6 @@ public abstract class IronmanContainerMenuMixin {
     @Inject(method = "clicked", at = @At("HEAD"), cancellable = true)
     private void champutils$blockForeignIronmanContainerMoves(int slotId, int button, ClickType clickType, Player player, CallbackInfo ci) {
         if (!(player instanceof ServerPlayer serverPlayer)) return;
-        if (!IronmanItemOwnership.isRestricted(serverPlayer)) return;
 
         AbstractContainerMenu menu = (AbstractContainerMenu) (Object) this;
         if (slotId >= 0 && slotId < menu.slots.size()) {

@@ -205,6 +205,20 @@ public final class SellPriceConfig {
         root.blockedItemContains.add("crate_key");
         root.blockedItemContains.add("tm_item");
 
+        // Block common AFK-farmable drops and Cobblemon plant materials from server selling.
+        root.blockedItemContains.add("apricorn");
+        root.blockedItemContains.add("berry");
+        root.blockedItemContains.add("mint_leaf");
+        root.blockedItemContains.add("mint_seeds");
+        root.blockedItemContains.add("vivichoke");
+        root.blockedItemContains.add("rotten_flesh");
+        root.blockedItemContains.add("spider_eye");
+        root.blockedItemContains.add("gunpowder");
+        root.blockedItemContains.add("slime_ball");
+        root.blockedItemContains.add("magma_cream");
+        root.blockedItemContains.add("ender_pearl");
+        root.blockedItemContains.add("phantom_membrane");
+
         // Basic building materials. Logs intentionally sell for more than planks.
         root.itemPrices.put("minecraft:stick", 0.01D);
         root.itemPrices.put("minecraft:oak_planks", 0.02D);
@@ -229,7 +243,32 @@ public final class SellPriceConfig {
         root.itemPrices.put("minecraft:crimson_stem", 0.12D);
         root.itemPrices.put("minecraft:warped_stem", 0.12D);
 
+        addLowValueProfessionMaterials(root);
+
         return root;
+    }
+
+    private static void putAll(Map<String, Double> prices, double price, String... itemIds) {
+        for (String itemId : itemIds) {
+            prices.put(itemId, price);
+        }
+    }
+
+    private static void addLowValueProfessionMaterials(ConfigRoot root) {
+        // Stone and common mine bulk should be sellable, but intentionally pays almost nothing.
+        putAll(root.itemPrices, 0.01D,
+                "minecraft:stone", "minecraft:cobblestone", "minecraft:deepslate", "minecraft:cobbled_deepslate",
+                "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:tuff", "minecraft:calcite",
+                "minecraft:basalt", "minecraft:blackstone", "minecraft:netherrack", "minecraft:end_stone", "minecraft:dripstone_block",
+                "cobblemon:tumblestone", "cobblemon:tumblestone_block", "cobblemon:black_tumblestone", "cobblemon:black_tumblestone_block",
+                "cobblemon:sky_tumblestone", "cobblemon:sky_tumblestone_block");
+
+        // Crops are allowed for Farming profession utility, but should never be a strong AFK income source.
+        putAll(root.itemPrices, 0.02D,
+                "minecraft:wheat", "minecraft:carrot", "minecraft:potato", "minecraft:beetroot",
+                "minecraft:melon_slice", "minecraft:pumpkin", "minecraft:cocoa_beans", "minecraft:nether_wart");
+        putAll(root.itemPrices, 0.005D,
+                "minecraft:wheat_seeds", "minecraft:beetroot_seeds", "minecraft:melon_seeds", "minecraft:pumpkin_seeds");
     }
 
     private static void addBlocked(Set<String> blocked) {
@@ -242,6 +281,26 @@ public final class SellPriceConfig {
         blocked.add("minecraft:structure_void");
         blocked.add("minecraft:debug_stick");
         blocked.add("minecraft:bedrock");
+
+        blocked.add("minecraft:rotten_flesh");
+        blocked.add("minecraft:bone");
+        blocked.add("minecraft:string");
+        blocked.add("minecraft:spider_eye");
+        blocked.add("minecraft:fermented_spider_eye");
+        blocked.add("minecraft:gunpowder");
+        blocked.add("minecraft:slime_ball");
+        blocked.add("minecraft:magma_cream");
+        blocked.add("minecraft:ender_pearl");
+        blocked.add("minecraft:phantom_membrane");
+        blocked.add("minecraft:blaze_rod");
+        blocked.add("minecraft:blaze_powder");
+        blocked.add("minecraft:ghast_tear");
+        blocked.add("minecraft:prismarine_shard");
+        blocked.add("minecraft:prismarine_crystals");
+        blocked.add("minecraft:shulker_shell");
+        blocked.add("minecraft:rabbit_foot");
+        blocked.add("minecraft:ink_sac");
+        blocked.add("minecraft:glow_ink_sac");
     }
 
     public static final class ConfigRoot {

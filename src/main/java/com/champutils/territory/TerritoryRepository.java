@@ -64,6 +64,11 @@ public final class TerritoryRepository {
         public boolean visitorsCanUseRedstone;
         public boolean lockBorder;
         public boolean stewardNpcSpawned;
+        public Double stewardNpcX;
+        public Double stewardNpcY;
+        public Double stewardNpcZ;
+        public Float stewardNpcYaw;
+        public Float stewardNpcPitch;
 
         public boolean contains(String serverId, String worldName, BlockPos pos) {
             if (pos == null) return false;
@@ -759,13 +764,13 @@ public final class TerritoryRepository {
         DatabaseManager.executeAsync("save territory " + territory.id, connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into territories " +
-                            "(id, owner_type, owner_id, owner_name, display_name, server_id, world_name, world_key, slot_index, generation_state, center_x, center_z, radius, min_x, max_x, min_z, max_z, spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch, level, biome_preference, is_public, allow_visitors, visitors_can_build, visitors_can_open_containers, visitors_can_interact_entities, visitors_can_use_redstone, lock_border, steward_npc_spawned, created_at, updated_at) " +
-                            "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) " +
+                            "(id, owner_type, owner_id, owner_name, display_name, server_id, world_name, world_key, slot_index, generation_state, center_x, center_z, radius, min_x, max_x, min_z, max_z, spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch, level, biome_preference, is_public, allow_visitors, visitors_can_build, visitors_can_open_containers, visitors_can_interact_entities, visitors_can_use_redstone, lock_border, steward_npc_spawned, steward_npc_x, steward_npc_y, steward_npc_z, steward_npc_yaw, steward_npc_pitch, created_at, updated_at) " +
+                            "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) " +
                             "on conflict (owner_type, owner_id) do update set " +
                             "owner_name = excluded.owner_name, display_name = excluded.display_name, server_id = excluded.server_id, world_name = excluded.world_name, world_key = excluded.world_key, slot_index = excluded.slot_index, generation_state = excluded.generation_state, center_x = excluded.center_x, center_z = excluded.center_z, radius = excluded.radius, " +
                             "min_x = excluded.min_x, max_x = excluded.max_x, min_z = excluded.min_z, max_z = excluded.max_z, " +
                             "spawn_x = excluded.spawn_x, spawn_y = excluded.spawn_y, spawn_z = excluded.spawn_z, spawn_yaw = excluded.spawn_yaw, spawn_pitch = excluded.spawn_pitch, level = excluded.level, biome_preference = excluded.biome_preference, " +
-                            "is_public = excluded.is_public, allow_visitors = excluded.allow_visitors, visitors_can_build = excluded.visitors_can_build, visitors_can_open_containers = excluded.visitors_can_open_containers, visitors_can_interact_entities = excluded.visitors_can_interact_entities, visitors_can_use_redstone = excluded.visitors_can_use_redstone, lock_border = excluded.lock_border, steward_npc_spawned = excluded.steward_npc_spawned, updated_at = now()"
+                            "is_public = excluded.is_public, allow_visitors = excluded.allow_visitors, visitors_can_build = excluded.visitors_can_build, visitors_can_open_containers = excluded.visitors_can_open_containers, visitors_can_interact_entities = excluded.visitors_can_interact_entities, visitors_can_use_redstone = excluded.visitors_can_use_redstone, lock_border = excluded.lock_border, steward_npc_spawned = excluded.steward_npc_spawned, steward_npc_x = excluded.steward_npc_x, steward_npc_y = excluded.steward_npc_y, steward_npc_z = excluded.steward_npc_z, steward_npc_yaw = excluded.steward_npc_yaw, steward_npc_pitch = excluded.steward_npc_pitch, updated_at = now()"
             )) {
                 statement.setObject(1, territory.id);
                 statement.setString(2, territory.ownerType.name());
@@ -799,6 +804,11 @@ public final class TerritoryRepository {
                 statement.setBoolean(30, territory.visitorsCanUseRedstone);
                 statement.setBoolean(31, territory.lockBorder);
                 statement.setBoolean(32, territory.stewardNpcSpawned);
+                if (territory.stewardNpcX == null) statement.setNull(33, Types.DOUBLE); else statement.setDouble(33, territory.stewardNpcX);
+                if (territory.stewardNpcY == null) statement.setNull(34, Types.DOUBLE); else statement.setDouble(34, territory.stewardNpcY);
+                if (territory.stewardNpcZ == null) statement.setNull(35, Types.DOUBLE); else statement.setDouble(35, territory.stewardNpcZ);
+                if (territory.stewardNpcYaw == null) statement.setNull(36, Types.REAL); else statement.setFloat(36, territory.stewardNpcYaw);
+                if (territory.stewardNpcPitch == null) statement.setNull(37, Types.REAL); else statement.setFloat(37, territory.stewardNpcPitch);
                 statement.executeUpdate();
             }
             TERRITORIES.put(territory.id, territory);
@@ -844,6 +854,11 @@ public final class TerritoryRepository {
         t.visitorsCanUseRedstone = getBooleanOrDefault(rs, "visitors_can_use_redstone", false);
         t.lockBorder = getBooleanOrDefault(rs, "lock_border", true);
         t.stewardNpcSpawned = getBooleanOrDefault(rs, "steward_npc_spawned", true);
+        t.stewardNpcX = getDoubleOrNull(rs, "steward_npc_x");
+        t.stewardNpcY = getDoubleOrNull(rs, "steward_npc_y");
+        t.stewardNpcZ = getDoubleOrNull(rs, "steward_npc_z");
+        t.stewardNpcYaw = getFloatOrNull(rs, "steward_npc_yaw");
+        t.stewardNpcPitch = getFloatOrNull(rs, "steward_npc_pitch");
         normalizeBounds(t);
         return t;
     }
@@ -874,6 +889,12 @@ public final class TerritoryRepository {
     }
     private static String getStringOrNull(ResultSet rs, String column) {
         try { return rs.getString(column); } catch (Exception ignored) { return null; }
+    }
+    private static Double getDoubleOrNull(ResultSet rs, String column) {
+        try { double value = rs.getDouble(column); return rs.wasNull() ? null : value; } catch (Exception ignored) { return null; }
+    }
+    private static Float getFloatOrNull(ResultSet rs, String column) {
+        try { float value = rs.getFloat(column); return rs.wasNull() ? null : value; } catch (Exception ignored) { return null; }
     }
 
     private static TrustLevel parseTrust(String raw) {

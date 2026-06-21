@@ -110,10 +110,12 @@ public final class ProfileCommand {
             player.sendSystemMessage(Component.literal("Profile swapping is only allowed from the profile menu. Select the profile again to load it.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        String result = PlayerProfileManager.switchBlocking(player, name);
-        boolean ok = result.startsWith("Loaded");
-        player.sendSystemMessage(Component.literal(result).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
-        return ok ? 1 : 0;
+        player.sendSystemMessage(Component.literal("Loading profile slowly in the background. This may take a few seconds, but it will not block the server.").withStyle(ChatFormatting.YELLOW));
+        PlayerProfileManager.switchAsync(player, name, result -> {
+            boolean ok = result != null && result.startsWith("Loaded");
+            player.sendSystemMessage(Component.literal(result == null ? "Could not switch profile." : result).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
+        });
+        return 1;
     }
 
     private static int create(ServerPlayer player, String name, String rawMode, String type) {

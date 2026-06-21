@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.api.pokemon.stats.Stat;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import com.champutils.profile.IslanderMineManager;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -131,7 +132,7 @@ public final class MegaBossManager {
         if (countMegaBossesNear(level, player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) return false;
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
-            if (pos == null) continue;
+            if (pos == null || IslanderMineManager.isMineWorld(level)) continue;
             int pokemonLevel = playerPartyHighestLevelPlusTen(player);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -147,14 +148,48 @@ public final class MegaBossManager {
         return false;
     }
 
+    public static ForceSpawnResult forceSpawn(ServerPlayer player, String rarity) {
+        if (player == null) return ForceSpawnResult.fail("Player not found.");
+        if (!MegaBossConfig.DATA.enabled) return ForceSpawnResult.fail("Mega bosses are disabled in config.");
+        ServerLevel level = player.serverLevel();
+        if (isDisabledDimension(level)) return ForceSpawnResult.fail("Mega bosses are disabled in this dimension.");
+
+        String normalized = normalizeRarity(rarity);
+        MegaBossConfig.BossEntry boss = pickBoss(normalized, false);
+        if (boss == null) return ForceSpawnResult.fail("No enabled mega bosses found for rarity " + normalized + ".");
+
+        // Test command intentionally bypasses the natural nearby/global spawn caps, but it still uses
+        // the normal spawn-position safety checks, battle stats, tags, expiry, and reward metadata.
+        for (int attempt = 0; attempt < 30; attempt++) {
+            BlockPos pos = randomSpawnPos(level, player.blockPosition());
+            if (pos == null || IslanderMineManager.isMineWorld(level)) continue;
+            int pokemonLevel = playerPartyHighestLevelPlusTen(player);
+            Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
+            if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
+            if (entity == null) continue;
+            markBoss(entity, boss, pokemonLevel);
+            announce(player, boss, level, pos, pokemonLevel);
+            return ForceSpawnResult.success(boss, pos, pokemonLevel);
+        }
+        return ForceSpawnResult.fail("Could not find a valid spawn position near you.");
+    }
+
+    public static List<String> validRarities() {
+        return List.of("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC");
+    }
+
     private static MegaBossConfig.BossEntry pickBoss() {
-        String rarity = pickRarity();
+        return pickBoss(pickRarity(), true);
+    }
+
+    private static MegaBossConfig.BossEntry pickBoss(String rarity, boolean fallbackToAnyRarity) {
+        String normalized = normalizeRarity(rarity);
         List<MegaBossConfig.BossEntry> valid = new ArrayList<>();
         for (MegaBossConfig.BossEntry entry : MegaBossConfig.DATA.bosses) {
             if (entry == null || !entry.enabled || entry.species == null || entry.species.isBlank()) continue;
-            if (rarity.equalsIgnoreCase(entry.rarity)) valid.add(entry);
+            if (normalized.equalsIgnoreCase(entry.rarity)) valid.add(entry);
         }
-        if (valid.isEmpty()) {
+        if (valid.isEmpty() && fallbackToAnyRarity) {
             for (MegaBossConfig.BossEntry entry : MegaBossConfig.DATA.bosses) {
                 if (entry != null && entry.enabled && entry.species != null && !entry.species.isBlank()) valid.add(entry);
             }
@@ -209,7 +244,7 @@ public final class MegaBossManager {
                 .append(" lvl=").append(level)
                 .append(" x=").append(pos.getX() + 0.5D).append(" y=").append(pos.getY()).append(" z=").append(pos.getZ() + 0.5D)
                 .append(" scale_modifier=").append(MegaBossConfig.DATA.scaleModifier)
-                .append(" shiny=false ai=false")
+                .append(" shiny=false ai=true")
                 .append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31")
                 .append(BOSS_EV_PROPERTIES);
         if (boss.ability != null && !boss.ability.isBlank()) cmd.append(" ability=").append(cleanToken(boss.ability));
@@ -278,13 +313,17 @@ public final class MegaBossManager {
         entity.addTag(BOSS_TAG);
         entity.addTag(BOSS_RARITY_PREFIX + normalizeRarity(boss.rarity));
         for (String stone : megaStoneItems(boss)) {
-            if (stone != null && !stone.isBlank()) entity.addTag(BOSS_STONE_PREFIX + stone.trim());
+            String normalizedStone = normalizeGenesisItemId(stone);
+            if (normalizedStone != null && !normalizedStone.isBlank()) entity.addTag(BOSS_STONE_PREFIX + normalizedStone);
         }
         long expiresAt = System.currentTimeMillis() + Math.max(1L, MegaBossConfig.DATA.despawnMinutes) * 60_000L;
         entity.addTag(EXPIRES_PREFIX + expiresAt);
         entity.setCustomName(Component.literal(formatNameTag(boss, pokemonLevel)));
         entity.setCustomNameVisible(true);
-        if (entity instanceof Mob mob) mob.setPersistenceRequired();
+        if (entity instanceof Mob mob) {
+            mob.setNoAi(false);
+            mob.setPersistenceRequired();
+        }
         TRACKED.put(entity.getUUID(), expiresAt);
     }
 
@@ -314,12 +353,14 @@ public final class MegaBossManager {
         List<String> configured = new ArrayList<>();
         if (boss != null && boss.megaStoneItems != null) {
             for (String item : boss.megaStoneItems) {
-                if (item != null && !item.isBlank() && !configured.contains(item.trim())) configured.add(item.trim());
+                String normalized = normalizeGenesisItemId(item);
+                if (normalized != null && !normalized.isBlank() && !configured.contains(normalized)) configured.add(normalized);
             }
         }
         if (boss != null && boss.megaStoneItem != null && !boss.megaStoneItem.isBlank()) {
             for (String item : boss.megaStoneItem.split("[,;]")) {
-                if (item != null && !item.isBlank() && !configured.contains(item.trim())) configured.add(item.trim());
+                String normalized = normalizeGenesisItemId(item);
+                if (normalized != null && !normalized.isBlank() && !configured.contains(normalized)) configured.add(normalized);
             }
         }
         if (!configured.isEmpty()) return configured;
@@ -334,14 +375,31 @@ public final class MegaBossManager {
     public static List<String> defaultMegaStoneItems(MegaBossConfig.BossEntry boss) {
         String species = sanitize(boss == null ? "" : boss.species);
         String extra = boss == null || boss.extraProperties == null ? "" : boss.extraProperties.toLowerCase(Locale.ROOT);
-        if ("charizard".equals(species) && extra.contains("mega_x")) return List.of("cobblemon:charizardite_x");
-        if ("charizard".equals(species) && extra.contains("mega_y")) return List.of("cobblemon:charizardite_y");
-        if ("mewtwo".equals(species) && extra.contains("mega_x")) return List.of("cobblemon:mewtwonite_x");
-        if ("mewtwo".equals(species) && extra.contains("mega_y")) return List.of("cobblemon:mewtwonite_y");
-        if ("charizard".equals(species)) return List.of("cobblemon:charizardite_x", "cobblemon:charizardite_y");
-        if ("mewtwo".equals(species)) return List.of("cobblemon:mewtwonite_x", "cobblemon:mewtwonite_y");
+        if ("charizard".equals(species) && extra.contains("mega_x")) return List.of("genesisforms:charizardite_x");
+        if ("charizard".equals(species) && extra.contains("mega_y")) return List.of("genesisforms:charizardite_y");
+        if ("mewtwo".equals(species) && extra.contains("mega_x")) return List.of("genesisforms:mewtwonite_x");
+        if ("mewtwo".equals(species) && extra.contains("mega_y")) return List.of("genesisforms:mewtwonite_y");
+        if ("charizard".equals(species)) return List.of("genesisforms:charizardite_x", "genesisforms:charizardite_y");
+        if ("mewtwo".equals(species)) return List.of("genesisforms:mewtwonite_x", "genesisforms:mewtwonite_y");
         if (species.isBlank()) return List.of();
-        return List.of("cobblemon:" + species + "ite");
+        return List.of("genesisforms:" + species + "ite");
+    }
+
+    public static String normalizeGenesisItemId(String itemId) {
+        if (itemId == null) return "";
+        String id = itemId.trim().toLowerCase(Locale.ROOT);
+        if (id.isBlank()) return "";
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        if (isGenesisFormsItemPath(path)) return "genesisforms:" + path;
+        return id;
+    }
+
+    private static boolean isGenesisFormsItemPath(String path) {
+        if (path == null || path.isBlank()) return false;
+        if (path.equals("tera_orb") || path.equals("mega_bracelet") || path.equals("mega_ring") || path.equals("mega_charm") || path.equals("mega_cuff") || path.equals("mega_anklet") || path.equals("keystone") || path.equals("key_stone")) return true;
+        if (path.equals("adamant_crystal") || path.equals("lustrous_globe") || path.equals("griseous_core")) return true;
+        if (path.endsWith("ite") || path.endsWith("ite_x") || path.endsWith("ite_y") || path.endsWith("nite_x") || path.endsWith("nite_y")) return true;
+        return false;
     }
 
     private static void cleanup(MinecraftServer server) {
@@ -398,7 +456,7 @@ public final class MegaBossManager {
         int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
         BlockPos top = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, origin.getY(), z));
         if (!level.hasChunk(new ChunkPos(top).x, new ChunkPos(top).z)) return null;
-        if (!level.getWorldBorder().isWithinBounds(top)) return null;
+        if (!level.getWorldBorder().isWithinBounds(top) || !level.getWorldBorder().isWithinBounds(top.above())) return null;
         if (!level.getBlockState(top.below()).isSolid()) return null;
         if (!level.getBlockState(top).isAir() || !level.getBlockState(top.above()).isAir()) return null;
         return top;
@@ -413,7 +471,7 @@ public final class MegaBossManager {
             }
         } catch (Exception ignored) {}
 
-        // Mega bosses scale to exactly +10 above the challenger's highest party Pokemon.
+        // Mega bosses scale to exactly the configured amount above the challenger's highest party Pokemon.
         // If the party cannot be read, fall back to 20 instead of failing the spawn.
         if (highest <= 0) return 20;
         return Math.max(1, Math.min(100, highest + Math.max(0, MegaBossConfig.DATA.levelsAbovePlayerHighest)));
@@ -449,6 +507,7 @@ public final class MegaBossManager {
         String id = level.dimension().location().toString();
         String lower = id == null ? "" : id.toLowerCase(Locale.ROOT);
         if (lower.equals("spawn1") || lower.endsWith(":spawn1") || lower.contains("spawn1")) return true;
+        if (IslanderMineManager.isMineWorld(level)) return true;
         for (String d : MegaBossConfig.DATA.disabledDimensions) if (id.equalsIgnoreCase(d)) return true;
         return false;
     }
@@ -485,4 +544,30 @@ public final class MegaBossManager {
         }
         return sb.toString();
     }
+    public static final class ForceSpawnResult {
+        public final boolean success;
+        public final String message;
+        public final MegaBossConfig.BossEntry boss;
+        public final BlockPos pos;
+        public final int level;
+
+        private ForceSpawnResult(boolean success, String message, MegaBossConfig.BossEntry boss, BlockPos pos, int level) {
+            this.success = success;
+            this.message = message;
+            this.boss = boss;
+            this.pos = pos;
+            this.level = level;
+        }
+
+        public static ForceSpawnResult success(MegaBossConfig.BossEntry boss, BlockPos pos, int level) {
+            String name = boss == null ? "Mega Boss" : pretty(boss.species);
+            String rarity = boss == null ? "UNKNOWN" : normalizeRarity(boss.rarity);
+            return new ForceSpawnResult(true, "Spawned " + rarity + " " + name + " Lv." + level + ".", boss, pos, level);
+        }
+
+        public static ForceSpawnResult fail(String message) {
+            return new ForceSpawnResult(false, message, null, null, 0);
+        }
+    }
+
 }

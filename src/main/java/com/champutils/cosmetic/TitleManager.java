@@ -134,10 +134,6 @@ public final class TitleManager {
         }
 
         String normalizedId = id.trim();
-        if (com.champutils.worldfirst.WorldFirstManager.titleDisplay(normalizedId) != null) {
-            player.sendSystemMessage(Component.literal("World First titles are trophies and cannot be equipped with regular titles.").withStyle(ChatFormatting.RED));
-            return;
-        }
         if (!unlocked.contains(normalizedId)) {
             player.sendSystemMessage(Component.literal("You have not unlocked that title.").withStyle(ChatFormatting.RED));
             return;

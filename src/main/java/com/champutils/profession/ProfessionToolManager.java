@@ -469,6 +469,14 @@ public class ProfessionToolManager {
             return true;
         }
 
+        if (
+                "MINING".equalsIgnoreCase(
+                        toolData.profession
+                )
+        ) {
+            return true;
+        }
+
         int toolTier =
                 getConfiguredTierLevel(
                         toolData
@@ -2594,7 +2602,10 @@ public class ProfessionToolManager {
                 );
             }
 
-            return true;
+            // Custom profession durability is handled above. Returning false prevents
+            // vanilla combat durability from pushing the stack past max damage and
+            // deleting it instead of leaving it broken-but-repairable.
+            return false;
         }
 
         @Override
@@ -2695,7 +2706,10 @@ public class ProfessionToolManager {
                 );
             }
 
-            return true;
+            // Custom profession durability is handled above. Returning false prevents
+            // vanilla combat durability from pushing the stack past max damage and
+            // deleting it instead of leaving it broken-but-repairable.
+            return false;
         }
 
         @Override
@@ -2783,7 +2797,10 @@ public class ProfessionToolManager {
                 );
             }
 
-            return true;
+            // Custom profession durability is handled above. Returning false prevents
+            // vanilla combat durability from pushing the stack past max damage and
+            // deleting it instead of leaving it broken-but-repairable.
+            return false;
         }
 
         @Override
@@ -2837,7 +2854,10 @@ public class ProfessionToolManager {
                 );
             }
 
-            return true;
+            // Custom profession durability is handled above. Returning false prevents
+            // vanilla combat durability from pushing the stack past max damage and
+            // deleting it instead of leaving it broken-but-repairable.
+            return false;
         }
 
         @Override

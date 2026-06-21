@@ -25,7 +25,7 @@ public final class BuffRegistry {
         HARD_CAPS.put(BuffType.FORESTRY_XP, 1.00D);
         HARD_CAPS.put(BuffType.FARMING_XP, 1.00D);
         HARD_CAPS.put(BuffType.BATTLING_XP, 1.00D);
-        HARD_CAPS.put(BuffType.SHINY_CHANCE, 0.01D);
+        HARD_CAPS.put(BuffType.SHINY_CHANCE, 1000.00D);
         HARD_CAPS.put(BuffType.CATCH_CHANCE, 1.00D);
         HARD_CAPS.put(BuffType.PERFECT_IV_CHANCE, 0.01D);
         HARD_CAPS.put(BuffType.WORLD_EVENT_REWARDS, 1.00D);

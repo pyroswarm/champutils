@@ -44,6 +44,9 @@ public final class TerritoryCommand {
                             .then(Commands.literal("show").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), true)))
                             .then(Commands.literal("hide").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), false))))
                     .then(Commands.literal("sethome").executes(context -> setHomePersonal(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("npc")
+                            .then(Commands.literal("movehere")
+                                    .executes(context -> moveNpcPersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("settings").executes(context -> { TerritoryMenus.openSettings(context.getSource().getPlayerOrException(), false); return 1; }))
                     .then(Commands.literal("set")
                             .then(Commands.argument("setting", StringArgumentType.word())
@@ -147,6 +150,9 @@ public final class TerritoryCommand {
                     .then(Commands.literal("create")
                             .executes(context -> ensureGuild(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("sethome").executes(context -> setHomeGuild(context.getSource().getPlayerOrException())))
+                    .then(Commands.literal("npc")
+                            .then(Commands.literal("movehere")
+                                    .executes(context -> moveNpcGuild(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("settings").executes(context -> { TerritoryMenus.openSettings(context.getSource().getPlayerOrException(), true); return 1; }))
                     .then(Commands.literal("set")
                             .then(Commands.argument("setting", StringArgumentType.word())
@@ -433,6 +439,32 @@ public final class TerritoryCommand {
             return 0;
         }
         TerritoryRepository.setHome(territory, player, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        return 1;
+    }
+
+
+    private static int moveNpcPersonal(ServerPlayer player) { return moveNpcHere(player, ownPersonal(player)); }
+    private static int moveNpcGuild(ServerPlayer player) { return moveNpcHere(player, ownGuild(player)); }
+
+    private static int moveNpcHere(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("No territory found.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!territory.isReady()) {
+            player.sendSystemMessage(Component.literal("Your territory is not ready yet.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!territory.contains(com.champutils.network.NetworkServerConfig.serverId(), player.serverLevel().dimension().location().toString(), player.blockPosition())) {
+            player.sendSystemMessage(Component.literal("Stand inside your territory where you want the steward moved.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        TerritoryNpcManager.moveStewardHere(player, territory, player.position(), player.getYRot(), player.getXRot(),
+                (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
         return 1;
     }
 

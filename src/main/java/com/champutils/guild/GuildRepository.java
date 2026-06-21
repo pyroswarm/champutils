@@ -87,8 +87,19 @@ public final class GuildRepository {
     private GuildRepository() {
     }
 
+    private static void guildDebug(String action, String message) {
+        System.out.println("[ChampUtils][GuildDebug][" + action + "] " + message);
+    }
+
+    private static void guildDebugError(String action, Throwable error, String context) {
+        String detail = error.getClass().getSimpleName() + (error.getMessage() == null ? "" : ": " + error.getMessage());
+        System.err.println("[ChampUtils][GuildDebug][" + action + "] FAILED: " + context + " | " + detail);
+        error.printStackTrace(System.err);
+    }
+
     public static void createGuild(UUID ownerUuid, String ownerName, String name, String tag, Callback callback) {
         if (ownerUuid == null || ownerName == null || name == null || name.isBlank()) {
+            guildDebug("create", "Rejected before DB: invalid request ownerUuid=" + ownerUuid + ", ownerName=" + ownerName + ", name=" + name);
             callback.done(false, "Invalid guild create request.");
             return;
         }
@@ -103,8 +114,11 @@ public final class GuildRepository {
                 ensureGuildAccountSchema(connection);
                 ensureGuildCreateCooldownTable(connection);
 
+                guildDebug("create", "DB start owner=" + ownerUuid + " name='" + cleanName + "' tag='" + cleanTag + "'");
+
                 long remainingMs = guildCreateCooldownRemainingMillis(connection, ownerUuid);
                 if (remainingMs > 0L) {
+                    guildDebug("create", "Rejected: owner=" + ownerUuid + " still has cooldown remainingMs=" + remainingMs);
                     connection.rollback();
                     callback.done(false, "You must wait " + formatDuration(remainingMs) + " before creating another guild.");
                     return;
@@ -116,6 +130,7 @@ public final class GuildRepository {
                     existing.setObject(1, ownerUuid);
                     try (ResultSet rs = existing.executeQuery()) {
                         if (rs.next()) {
+                            guildDebug("create", "Rejected: owner=" + ownerUuid + " is already in guild=" + rs.getObject("guild_id"));
                             connection.rollback();
                             callback.done(false, "You are already in a guild.");
                             return;
@@ -151,6 +166,7 @@ public final class GuildRepository {
                 upsertPlayer(connection, ownerUuid, ownerName);
 
                 connection.commit();
+                guildDebug("create", "SUCCESS guildId=" + guildId + " owner=" + ownerUuid + " name='" + cleanName + "' tag='" + cleanTag + "'");
                 GuildSnapshot snapshot = new GuildSnapshot();
                 snapshot.id = guildId;
                 snapshot.name = cleanName;
@@ -178,7 +194,7 @@ public final class GuildRepository {
             catch (Exception e) {
                 try { connection.rollback(); } catch (Exception ignored) {}
                 String detail = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
-                System.err.println("[ChampUtils] Guild create failed for '" + cleanName + "' [" + cleanTag + "]: " + detail);
+                guildDebugError("create", e, "owner=" + ownerUuid + " name='" + cleanName + "' tag='" + cleanTag + "'");
                 callback.done(false, "Failed to create guild. " + detail);
                 throw e;
             }
@@ -207,24 +223,32 @@ public final class GuildRepository {
     public static void invite(UUID inviterUuid, String inviterName, UUID targetUuid, String targetName, Callback callback) {
         GuildSnapshot inviterGuild = cachedGuild(inviterUuid);
         if (inviterGuild == null) {
+            guildDebug("invite", "Rejected before DB: inviter=" + inviterUuid + " has no cached guild. Try /guild debugreload or relog if this is wrong.");
             callback.done(false, "You are not in a guild.");
             return;
         }
         if (!canInvite(inviterGuild.role)) {
+            guildDebug("invite", "Rejected before DB: inviter=" + inviterUuid + " role=" + inviterGuild.role + " cannot invite.");
             callback.done(false, "Only guild leaders, officers, veterans, and members can invite players.");
             return;
         }
         if (targetUuid == null || targetName == null || targetName.isBlank()) {
+            guildDebug("invite", "Rejected before DB: invalid target targetUuid=" + targetUuid + ", targetName=" + targetName);
             callback.done(false, "Invalid invite target.");
             return;
         }
         if (inviterUuid.equals(targetUuid)) {
+            guildDebug("invite", "Rejected before DB: inviter attempted self invite uuid=" + inviterUuid);
             callback.done(false, "You cannot invite yourself.");
             return;
         }
 
         DatabaseManager.executeAsync("guild invite " + targetUuid, connection -> {
             try {
+                guildDebug("invite", "DB start guild=" + inviterGuild.id + " inviter=" + inviterUuid + " target=" + targetUuid + " targetName='" + targetName + "'");
+                ensureGuildAccountSchema(connection);
+                ensureGuildInviteTable(connection);
+                guildDebug("invite", describeGuildInviteColumns(connection));
                 connection.setAutoCommit(false);
 
                 try (PreparedStatement existingMember = connection.prepareStatement(
@@ -233,6 +257,7 @@ public final class GuildRepository {
                     existingMember.setObject(1, targetUuid);
                     try (ResultSet rs = existingMember.executeQuery()) {
                         if (rs.next()) {
+                            guildDebug("invite", "Rejected: target=" + targetUuid + " is already in guild=" + rs.getObject("guild_id"));
                             connection.rollback();
                             callback.done(false, targetName + " is already in a guild.");
                             return;
@@ -242,24 +267,16 @@ public final class GuildRepository {
 
                 upsertPlayer(connection, targetUuid, targetName);
 
-                try (PreparedStatement invite = connection.prepareStatement(
-                        "insert into guild_invites (guild_id, invited_uuid, invited_name, invited_by_uuid, expires_at, created_at) " +
-                                "values (?, ?, ?, ?, now() + interval '7 days', now()) " +
-                                "on conflict (guild_id, invited_uuid) do update set invited_name = excluded.invited_name, invited_by_uuid = excluded.invited_by_uuid, expires_at = excluded.expires_at, created_at = now()"
-                )) {
-                    invite.setObject(1, inviterGuild.id);
-                    invite.setObject(2, targetUuid);
-                    invite.setString(3, targetName);
-                    invite.setObject(4, inviterUuid);
-                    invite.executeUpdate();
-                }
+                insertGuildInvite(connection, inviterGuild.id, targetUuid, targetName, inviterUuid);
 
                 connection.commit();
+                guildDebug("invite", "SUCCESS guild=" + inviterGuild.id + " inviter=" + inviterUuid + " target=" + targetUuid);
                 callback.done(true, "Invited " + targetName + " to " + inviterGuild.name + ".");
             }
             catch (Exception e) {
                 try { connection.rollback(); } catch (Exception ignored) {}
-                callback.done(false, "Failed to send guild invite.");
+                guildDebugError("invite", e, "guild=" + inviterGuild.id + " inviter=" + inviterUuid + " target=" + targetUuid + " targetName='" + targetName + "'");
+                callback.done(false, "Failed to send guild invite. " + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
                 throw e;
             }
             finally {
@@ -268,14 +285,89 @@ public final class GuildRepository {
         });
     }
 
+    /**
+     * Inserts guild invites while satisfying old live beta schemas that still have
+     * NOT NULL legacy columns. The canonical columns are invited_uuid and
+     * invited_by_uuid, but we mirror values into any legacy columns that still
+     * exist so invites keep working even before manual DB cleanup.
+     */
+    private static void insertGuildInvite(java.sql.Connection connection, UUID guildId, UUID targetUuid, String targetName, UUID inviterUuid) throws Exception {
+        List<String> columns = new ArrayList<>();
+        List<Object> values = new ArrayList<>();
+
+        columns.add("guild_id"); values.add(guildId);
+        columns.add("invited_uuid"); values.add(targetUuid);
+        columns.add("invited_name"); values.add(targetName == null ? "" : targetName);
+        columns.add("invited_by_uuid"); values.add(inviterUuid);
+        columns.add("expires_at");
+        columns.add("created_at");
+
+        if (columnExists(connection, "guild_invites", "invited_player_uuid")) {
+            columns.add("invited_player_uuid"); values.add(targetUuid);
+        }
+        if (columnExists(connection, "guild_invites", "invited_profile_id")) {
+            columns.add("invited_profile_id"); values.add(targetUuid);
+        }
+        if (columnExists(connection, "guild_invites", "inviter_player_uuid")) {
+            columns.add("inviter_player_uuid"); values.add(inviterUuid);
+        }
+        if (columnExists(connection, "guild_invites", "inviter_uuid")) {
+            columns.add("inviter_uuid"); values.add(inviterUuid);
+        }
+        if (columnExists(connection, "guild_invites", "invite_message")) {
+            columns.add("invite_message"); values.add("");
+        }
+
+        StringBuilder placeholders = new StringBuilder();
+        for (String column : columns) {
+            if (placeholders.length() > 0) placeholders.append(", ");
+            if ("expires_at".equals(column)) {
+                placeholders.append("now() + interval '7 days'");
+            } else if ("created_at".equals(column)) {
+                placeholders.append("now()");
+            } else {
+                placeholders.append("?");
+            }
+        }
+
+        List<String> deletePredicates = new ArrayList<>();
+        deletePredicates.add("invited_uuid = ?");
+        if (columnExists(connection, "guild_invites", "invited_player_uuid")) deletePredicates.add("invited_player_uuid = ?");
+        if (columnExists(connection, "guild_invites", "invited_profile_id")) deletePredicates.add("invited_profile_id = ?");
+        String deleteSql = "delete from guild_invites where guild_id = ? and (" + String.join(" or ", deletePredicates) + ")";
+        try (PreparedStatement delete = connection.prepareStatement(deleteSql)) {
+            delete.setObject(1, guildId);
+            for (int i = 0; i < deletePredicates.size(); i++) {
+                delete.setObject(i + 2, targetUuid);
+            }
+            delete.executeUpdate();
+        }
+
+        String sql = "insert into guild_invites (" + String.join(", ", columns) + ") values (" + placeholders + ")";
+        guildDebug("invite", "Insert SQL=" + sql + " values=" + values);
+
+        try (PreparedStatement invite = connection.prepareStatement(sql)) {
+            int index = 1;
+            for (Object value : values) {
+                invite.setObject(index++, value);
+            }
+            invite.executeUpdate();
+        }
+    }
+
     public static void acceptInvite(UUID playerUuid, String playerName, Callback callback) {
         if (cachedGuild(playerUuid) != null) {
+            guildDebug("accept", "Rejected before DB: player=" + playerUuid + " already has cached guild=" + cachedGuild(playerUuid).id);
             callback.done(false, "You are already in a guild.");
             return;
         }
 
         DatabaseManager.executeAsync("guild accept " + playerUuid, connection -> {
             try {
+                guildDebug("accept", "DB start player=" + playerUuid + " name='" + playerName + "'");
+                ensureGuildAccountSchema(connection);
+                ensureGuildInviteTable(connection);
+                guildDebug("accept", describeGuildInviteColumns(connection));
                 connection.setAutoCommit(false);
 
                 UUID guildId;
@@ -288,6 +380,7 @@ public final class GuildRepository {
                     invite.setObject(1, playerUuid);
                     try (ResultSet rs = invite.executeQuery()) {
                         if (!rs.next()) {
+                            guildDebug("accept", "Rejected: no active invite found for player=" + playerUuid);
                             connection.rollback();
                             callback.done(false, "You do not have any active guild invites.");
                             return;
@@ -330,12 +423,14 @@ public final class GuildRepository {
                 }
 
                 connection.commit();
+                guildDebug("accept", "SUCCESS player=" + playerUuid + " joined guild=" + guildId + " name='" + guildName + "'");
                 loadForPlayerSync(connection, playerUuid);
                 callback.done(true, "Joined " + guildName + (guildTag == null ? "" : " [" + guildTag + "]") + ".");
             }
             catch (Exception e) {
                 try { connection.rollback(); } catch (Exception ignored) {}
-                callback.done(false, "Failed to accept guild invite.");
+                guildDebugError("accept", e, "player=" + playerUuid + " name='" + playerName + "'");
+                callback.done(false, "Failed to accept guild invite. " + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
                 throw e;
             }
             finally {
@@ -346,12 +441,23 @@ public final class GuildRepository {
 
     public static void denyInvites(UUID playerUuid, Callback callback) {
         DatabaseManager.executeAsync("guild deny " + playerUuid, connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "delete from guild_invites where invited_uuid = ?"
-            )) {
-                statement.setObject(1, playerUuid);
-                int removed = statement.executeUpdate();
-                callback.done(true, removed > 0 ? "Denied your active guild invite(s)." : "You do not have any active guild invites.");
+            try {
+                guildDebug("deny", "DB start player=" + playerUuid);
+                ensureGuildInviteTable(connection);
+                guildDebug("deny", describeGuildInviteColumns(connection));
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "delete from guild_invites where invited_uuid = ?"
+                )) {
+                    statement.setObject(1, playerUuid);
+                    int removed = statement.executeUpdate();
+                    guildDebug("deny", "SUCCESS player=" + playerUuid + " removedInvites=" + removed);
+                    callback.done(true, removed > 0 ? "Denied your active guild invite(s)." : "You do not have any active guild invites.");
+                }
+            }
+            catch (Exception e) {
+                guildDebugError("deny", e, "player=" + playerUuid);
+                callback.done(false, "Failed to deny guild invite. " + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
+                throw e;
             }
         });
     }
@@ -903,6 +1009,72 @@ public final class GuildRepository {
             throw new IllegalStateException("Database table " + table + " is missing required columns " + missing + ". The running jar may be pointed at the wrong database/schema or an old migration may not have run.");
         }
     }
+
+    private static String describeGuildInviteColumns(java.sql.Connection connection) throws Exception {
+        List<String> columns = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select column_name, is_nullable from information_schema.columns where table_schema = current_schema() and table_name = 'guild_invites' order by ordinal_position"
+        ); ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) {
+                columns.add(rs.getString("column_name") + " nullable=" + rs.getString("is_nullable"));
+            }
+        }
+        return "guild_invites columns=" + columns;
+    }
+
+    private static void ensureGuildInviteTable(java.sql.Connection connection) throws Exception {
+        try (java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "create table if not exists guild_invites (" +
+                            "guild_id uuid not null references guilds(id) on delete cascade, " +
+                            "invited_uuid uuid not null, " +
+                            "invited_name text not null default '', " +
+                            "invited_by_uuid uuid not null, " +
+                            "expires_at timestamptz not null default (now() + interval '7 days'), " +
+                            "created_at timestamptz not null default now(), " +
+                            "primary key (guild_id, invited_uuid)" +
+                            ")"
+            );
+            statement.executeUpdate("alter table guild_invites add column if not exists invited_uuid uuid");
+            statement.executeUpdate("alter table guild_invites add column if not exists invited_name text not null default ''");
+            statement.executeUpdate("alter table guild_invites add column if not exists invited_by_uuid uuid");
+            statement.executeUpdate("alter table guild_invites add column if not exists expires_at timestamptz not null default (now() + interval '7 days')");
+            statement.executeUpdate("alter table guild_invites add column if not exists created_at timestamptz not null default now()");
+
+            // Invite schema changed during beta. Runtime code now uses invited_uuid/invited_by_uuid,
+            // while some live databases still have legacy NOT NULL columns such as
+            // invited_player_uuid, invited_profile_id, or inviter_player_uuid. If those columns
+            // stay NOT NULL, inserts that correctly populate invited_uuid still fail with a null
+            // legacy column. Mirror values both ways, then make legacy columns nullable so old
+            // rows remain readable without blocking new account-based invites.
+            if (columnExists(connection, "guild_invites", "invited_player_uuid")) {
+                executeQuietly(connection, "update guild_invites set invited_uuid = invited_player_uuid where invited_uuid is null and invited_player_uuid is not null");
+                executeQuietly(connection, "update guild_invites set invited_player_uuid = invited_uuid where invited_player_uuid is null and invited_uuid is not null");
+                executeQuietly(connection, "alter table guild_invites alter column invited_player_uuid drop not null");
+            }
+            if (columnExists(connection, "guild_invites", "invited_profile_id")) {
+                executeQuietly(connection, "update guild_invites set invited_uuid = invited_profile_id where invited_uuid is null and invited_profile_id is not null");
+                executeQuietly(connection, "alter table guild_invites alter column invited_profile_id drop not null");
+            }
+            if (columnExists(connection, "guild_invites", "inviter_player_uuid")) {
+                executeQuietly(connection, "update guild_invites set invited_by_uuid = inviter_player_uuid where invited_by_uuid is null and inviter_player_uuid is not null");
+                executeQuietly(connection, "update guild_invites set inviter_player_uuid = invited_by_uuid where inviter_player_uuid is null and invited_by_uuid is not null");
+                executeQuietly(connection, "alter table guild_invites alter column inviter_player_uuid drop not null");
+            }
+            if (columnExists(connection, "guild_invites", "inviter_uuid")) {
+                executeQuietly(connection, "update guild_invites set invited_by_uuid = inviter_uuid where invited_by_uuid is null and inviter_uuid is not null");
+                executeQuietly(connection, "alter table guild_invites alter column inviter_uuid drop not null");
+            }
+            if (columnExists(connection, "guild_invites", "invite_message")) {
+                executeQuietly(connection, "alter table guild_invites alter column invite_message drop not null");
+            }
+
+            statement.executeUpdate("delete from guild_invites where invited_uuid is null");
+            validateRequiredColumns(connection, "guild_invites", "guild_id", "invited_uuid", "invited_name", "invited_by_uuid", "expires_at", "created_at");
+            guildDebug("schema", describeGuildInviteColumns(connection));
+        }
+    }
+
 
     private static void ensureGuildCreateCooldownTable(java.sql.Connection connection) throws Exception {
         try (java.sql.Statement statement = connection.createStatement()) {

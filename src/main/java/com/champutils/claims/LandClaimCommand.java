@@ -90,6 +90,10 @@ public final class LandClaimCommand {
     }
 
     private static int preview(ServerPlayer player) {
+        if (isSpawnWorld(player.serverLevel())) {
+            player.sendSystemMessage(Component.literal("You cannot create land claims in spawn.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         PendingClaim pending = buildPending(player);
         if (pending == null) return 0;
         PENDING.put(player.getUUID(), pending);
@@ -98,7 +102,18 @@ public final class LandClaimCommand {
         return 1;
     }
 
+    private static boolean isSpawnWorld(ServerLevel level) {
+        if (level == null) return false;
+        String id = level.dimension().location().toString().toLowerCase(java.util.Locale.ROOT);
+        return id.equals("multiworld:spawn1") || id.equals("minecraft:spawn1") || id.equals("spawn1") || id.endsWith(":spawn1");
+    }
+
     private static int confirm(ServerPlayer player) {
+        if (isSpawnWorld(player.serverLevel())) {
+            PENDING.remove(player.getUUID());
+            player.sendSystemMessage(Component.literal("You cannot create land claims in spawn.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         PendingClaim pending = PENDING.get(player.getUUID());
         if (pending == null) {
             player.sendSystemMessage(Component.literal("Run /claims claim first to preview the cost.").withStyle(ChatFormatting.RED));

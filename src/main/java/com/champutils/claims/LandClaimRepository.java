@@ -45,6 +45,8 @@ public final class LandClaimRepository {
 
         public boolean contains(String serverId, String worldName, BlockPos pos) {
             if (pos == null) return false;
+            // Claims are intentionally 2D columns: if X/Z is inside the claim, every Y
+            // from world min build height/bedrock through max build height is protected.
             return this.serverId.equalsIgnoreCase(serverId)
                     && this.worldName.equalsIgnoreCase(worldName)
                     && pos.getX() >= minX && pos.getX() <= maxX

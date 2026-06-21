@@ -25,8 +25,8 @@ public final class ChestShopDisplayManager {
 
     private static final String DISPLAY_TAG = "champutils_chestshop_display";
     private static int nextShopIndex = 0;
-    private static final int SYNC_INTERVAL_TICKS = 200;
-    private static final int MAX_SHOPS_PER_SYNC = 10;
+    private static final int SYNC_INTERVAL_TICKS = 100;
+    private static final int MAX_SHOPS_PER_SYNC = 25;
     private static final int ORPHAN_CLEANUP_INTERVAL_TICKS = 20 * 600;
 
     private ChestShopDisplayManager() {
@@ -243,8 +243,12 @@ public final class ChestShopDisplayManager {
         try {
             Class<?> displayClass = Class.forName("net.minecraft.world.entity.Display");
             Class<?> billboardClass = Class.forName("net.minecraft.world.entity.Display$BillboardConstraints");
-            Object fixed = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "FIXED");
-            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, fixed);
+            // CENTER keeps the text readable from any angle. The old FIXED rotation could make text
+            // appear invisible/edge-on depending on chest direction and client view.
+            Object center = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "CENTER");
+            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, center);
+            invokeOptional(display, "setViewRange", float.class, 48.0F);
+            invokeOptional(display, "setShadowRadius", float.class, 0.35F);
             Direction facing = chestFacing(level, storagePos);
             display.setYRot(facing.toYRot() + 180.0F);
             display.setYHeadRot(display.getYRot());
@@ -276,7 +280,7 @@ public final class ChestShopDisplayManager {
         BlockPos connected = ChestShopContainers.connectedContainerPos(level, storagePos);
         Direction facing = chestFacing(level, storagePos);
         double x = storagePos.getX() + 0.5D;
-        double y = storagePos.getY() + 1.35D;
+        double y = storagePos.getY() + 1.85D;
         double z = storagePos.getZ() + 0.5D;
 
         if (connected != null) {

@@ -32,16 +32,16 @@ public final class ProfessionWeaponFragmentConfig {
     }
 
     public static class DropSettings {
-        public double baseDropChance = 0.005D;
-        public double chancePerLevel = 0.0005D;
-        public double maxDropChance = 0.08D;
+        public double baseDropChance = 0.0125D;
+        public double chancePerLevel = 0.0010D;
+        public double maxDropChance = 0.15D;
         public boolean announceLegendaryAndMythicToServer = true;
         public boolean actionBarMessage = true;
         /**
          * Guarantees a fragment after this many eligible profession actions without one.
          * Set to 0 or lower to disable pity.
          */
-        public Integer pityActions = 60;
+        public Integer pityActions = 40;
         /**
          * Pity awards from the normal eligible rarity pool for the player's tool rarity.
          * Keeping this true prevents pity from being abused as a high-rarity-only source.
@@ -130,9 +130,10 @@ public final class ProfessionWeaponFragmentConfig {
 
         // Early beta defaults were so low that normal play could see 0 fragments after long sessions.
         // Keep custom higher values, but lift old/too-low values to the current intended baseline.
-        if (DROP_SETTINGS.baseDropChance <= 0.001D) DROP_SETTINGS.baseDropChance = defaults.dropSettings.baseDropChance;
-        if (DROP_SETTINGS.chancePerLevel <= 0.00012D) DROP_SETTINGS.chancePerLevel = defaults.dropSettings.chancePerLevel;
-        if (DROP_SETTINGS.maxDropChance <= 0.0125D) DROP_SETTINGS.maxDropChance = defaults.dropSettings.maxDropChance;
+        if (DROP_SETTINGS.baseDropChance < defaults.dropSettings.baseDropChance) DROP_SETTINGS.baseDropChance = defaults.dropSettings.baseDropChance;
+        if (DROP_SETTINGS.chancePerLevel < defaults.dropSettings.chancePerLevel) DROP_SETTINGS.chancePerLevel = defaults.dropSettings.chancePerLevel;
+        if (DROP_SETTINGS.maxDropChance < defaults.dropSettings.maxDropChance) DROP_SETTINGS.maxDropChance = defaults.dropSettings.maxDropChance;
+        if (DROP_SETTINGS.pityActions == null || DROP_SETTINGS.pityActions <= 0 || DROP_SETTINGS.pityActions > defaults.dropSettings.pityActions) DROP_SETTINGS.pityActions = defaults.dropSettings.pityActions;
 
         if (FRAGMENTS == null || FRAGMENTS.isEmpty()) {
             FRAGMENTS = defaults.fragments;

@@ -45,7 +45,7 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         double chance = getChance(player, profession, settings);
-        int level = Math.max(1, ProfessionManager.getLevel(player, profession));
+        int level = Math.max(0, ProfessionManager.getLevel(player, profession));
 
         if (chance <= 0.0D) {
             return;
@@ -62,11 +62,11 @@ public final class ProfessionWeaponFragmentDropManager {
             return;
         }
 
-        String rarity = rollRarity(settings.pityUsesToolRarityPool ? toolRarity : "MYTHIC");
+        String rarity = rollRarityForLevel(level);
 
         if (rarity == null || rarity.isBlank()) {
             // A bad/old config can leave the eligible pool empty. Never consume a successful roll without a reward.
-            rarity = fallbackRarity(toolRarity);
+            rarity = fallbackRarityForLevel(level);
         }
 
         if (rarity == null || rarity.isBlank()) {
@@ -78,6 +78,7 @@ public final class ProfessionWeaponFragmentDropManager {
         rarity = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
         PITY_COUNTERS.remove(pityKey);
         ProfessionManager.addFragments(player, rarity, 1);
+        com.champutils.quest.QuestManager.recordProfessionFragment(player, profession, rarity);
         sendMessage(player, rarity, profession, settings);
     }
 
@@ -101,6 +102,30 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         return Math.max(0.0D, chance * multiplier);
+    }
+
+
+    private static String rollRarityForLevel(int level) {
+        return rollRarity(maxRarityForLevel(level));
+    }
+
+    private static String maxRarityForLevel(int level) {
+        if (level >= 50) return "LEGENDARY";
+        if (level >= 30) return "EPIC";
+        if (level >= 20) return "RARE";
+        if (level >= 10) return "UNCOMMON";
+        return "COMMON";
+    }
+
+    private static String fallbackRarityForLevel(int level) {
+        int maxTier = Math.min(tierIndex(maxRarityForLevel(level)), TIER_ORDER.length - 1);
+        for (int i = maxTier; i >= 0; i--) {
+            String rarity = TIER_ORDER[i];
+            if (ProfessionWeaponFragmentConfig.FRAGMENTS.containsKey(rarity)) {
+                return rarity;
+            }
+        }
+        return "COMMON";
     }
 
     private static String rollRarity(String toolRarity) {

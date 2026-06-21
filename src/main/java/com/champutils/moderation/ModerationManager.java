@@ -481,7 +481,17 @@ public final class ModerationManager {
                 return new ChatViolation(category, rawPattern, false, normalized, category + ": " + rawPattern);
             }
 
-            if (!isSafeNormalizedWord(normalized) && normalized.contains(normalizedPattern)) {
+            // Do not join normal words together for slur checks. This prevents false positives like
+            // "does pickaxe" -> "doespickaxe" containing a blocked substring across the space.
+            for (String token : normalizedTokens(lower)) {
+                if (!isSafeNormalizedWord(token) && token.equals(normalizedPattern)) {
+                    String extra = ModerationConfig.DATA.normalizedBypassExtraSeverity == null
+                            ? "filter evasion"
+                            : ModerationConfig.DATA.normalizedBypassExtraSeverity;
+                    return new ChatViolation(category, rawPattern, true, normalized, category + " / " + extra + ": " + rawPattern);
+                }
+            }
+            if (!lower.matches(".*\\s+.*") && normalized.length() <= Math.max(12, normalizedPattern.length() + 4) && !isSafeNormalizedWord(normalized) && normalized.contains(normalizedPattern)) {
                 String extra = ModerationConfig.DATA.normalizedBypassExtraSeverity == null
                         ? "filter evasion"
                         : ModerationConfig.DATA.normalizedBypassExtraSeverity;

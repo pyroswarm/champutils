@@ -692,17 +692,17 @@ public class ProfessionToolConfig {
 
         costs.put(
                 "EPIC",
-                2500L
+                1000L
         );
 
         costs.put(
                 "LEGENDARY",
-                10000L
+                2500L
         );
 
         costs.put(
                 "MYTHIC",
-                50000L
+                7500L
         );
 
         return costs;

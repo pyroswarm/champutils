@@ -56,7 +56,7 @@ public class WildBattleRewardManager {
 
         double base = baseMin + (RANDOM.nextDouble() * (baseMax - baseMin));
         double perLevel = perLevelMin + (RANDOM.nextDouble() * (perLevelMax - perLevelMin));
-        double reward = base + (perLevel * Math.max(0, battlingLevel - 1));
+        double reward = base + (perLevel * Math.max(0, Math.min(100, battlingLevel) - 1));
 
         if (settings.maxReward > 0.0D) {
             reward = Math.min(reward, settings.maxReward);
@@ -142,7 +142,7 @@ public class WildBattleRewardManager {
             return soundAlreadyPlayed;
         }
 
-        String rarity = rollFragmentRarity(settings);
+        String rarity = rollFragmentRarityForLevel(settings, battlingLevel);
 
         if (rarity == null || rarity.isBlank()) {
             return soundAlreadyPlayed;
@@ -164,6 +164,21 @@ public class WildBattleRewardManager {
         }
 
         return soundAlreadyPlayed;
+    }
+
+    private static String rollFragmentRarityForLevel(BattleProfessionLootConfig.FragmentJackpotSettings settings, int battlingLevel) {
+        java.util.Map<String, Integer> weights = new java.util.LinkedHashMap<>();
+        int lvl = Math.max(1, battlingLevel);
+        if (lvl < 10) { weights.put("COMMON", 90); weights.put("UNCOMMON", 10); }
+        else if (lvl < 25) { weights.put("COMMON", 55); weights.put("UNCOMMON", 35); weights.put("RARE", 10); }
+        else if (lvl < 40) { weights.put("COMMON", 30); weights.put("UNCOMMON", 35); weights.put("RARE", 25); weights.put("EPIC", 10); }
+        else { weights.put("COMMON", 20); weights.put("UNCOMMON", 25); weights.put("RARE", 25); weights.put("EPIC", 20); weights.put("LEGENDARY", 10); }
+        BattleProfessionLootConfig.FragmentJackpotSettings copy = settings;
+        java.util.Map<String, Integer> original = copy.rarityWeights;
+        copy.rarityWeights = weights;
+        String rarity = rollFragmentRarity(copy);
+        copy.rarityWeights = original;
+        return rarity;
     }
 
     private static String rollFragmentRarity(BattleProfessionLootConfig.FragmentJackpotSettings settings) {

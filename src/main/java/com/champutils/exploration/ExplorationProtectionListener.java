@@ -83,13 +83,11 @@ public final class ExplorationProtectionListener {
             var nbt = entity.saveWithFullMetadata(level.registryAccess());
             if (nbt != null && nbt.contains("LootTable")) return true;
         } catch (Throwable ignored) {}
-        String blockId = level.getBlockState(pos).getBlock().builtInRegistryHolder().key().location().toString().toLowerCase(java.util.Locale.ROOT);
-        return blockId.contains("gilded_chest");
+        return ExplorationLootManager.isInstancedLootContainer(level, pos);
     }
 
     private static boolean isAllowedLootBlock(ServerLevel level, BlockPos pos, BlockState state) {
-        String blockId = level.getBlockState(pos).getBlock().builtInRegistryHolder().key().location().toString().toLowerCase(java.util.Locale.ROOT);
-        return blockId.equals("minecraft:chest") || blockId.equals("minecraft:barrel") || blockId.contains("gilded_chest");
+        return ExplorationLootManager.isConfiguredLootContainer(level, pos);
     }
 
     private static void deny(ServerPlayer player, String message) {

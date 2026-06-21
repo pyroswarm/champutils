@@ -71,6 +71,19 @@ public final class PokemonHuntConfig {
         if (target.rewards.items == null) target.rewards.items = new ArrayList<>();
         if (target.weight <= 0) target.weight = 1;
         if (target.rewards.rewardRolls <= 0) target.rewards.rewardRolls = 1;
+        target.rewards.credits = creditsForDifficulty(target.difficulty);
+    }
+
+    private static long creditsForDifficulty(String difficulty) {
+        String d = difficulty == null ? "" : difficulty.trim().toUpperCase();
+        return switch (d) {
+            case "UNCOMMON" -> 250L;
+            case "RARE" -> 500L;
+            case "EPIC" -> 1000L;
+            case "LEGENDARY" -> 2000L;
+            case "MYTHIC" -> 5000L;
+            default -> 100L;
+        };
     }
 
     public static Root defaults() {
@@ -81,7 +94,7 @@ public final class PokemonHuntConfig {
         root.settings.announceNewHunts = true;
         root.settings.announceWinners = true;
         root.settings.allowAlreadyWonHuntsToStayVisible = true;
-        root.settings.crateCreditChancePercent = 33;
+        root.settings.crateCreditChancePercent = 100;
 
         add(root, "pikachu", 12, "COMMON", 650, 1,
                 list("jolly", "timid", "hasty"), list("male", "female"), list("static"),
@@ -131,6 +144,20 @@ public final class PokemonHuntConfig {
         add(root, "deino", 2, "EPIC", 3000, 2,
                 list("timid", "modest"), list("male", "female"), list("hustle"),
                 reward("cobblemon:dusk_ball", 3, 6, 22), reward("cobblemon:dragon_fang", 1, 1, 5));
+
+
+        String[] common = {"caterpie","weedle","pidgey","rattata","sentret","zigzagoon","bidoof","starly","patrat","fletchling","wooloo","lechonk","skwovet","nidoranmale","nidoranfemale","oddish","bellsprout","geodude","zubat","psyduck","tentacool"};
+        for (String sp : common) add(root, sp, 14, "COMMON", 100, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:poke_ball", 3, 6, 30));
+        String[] uncommon = {"ponyta","dratini","togepi","mareep","sneasel","skarmory","trapinch","swablu","shroomish","aron","noibat","rockruff","impidimp","tinkatink","charcadet","applin","dreepy","pawniard"};
+        for (String sp : uncommon) add(root, sp, 8, "UNCOMMON", 250, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:great_ball", 2, 5, 30));
+        String[] rare = {"axew","goomy","jangmoo","frigibax","drilbur","larvitar","dratini","dreepy","toxel","ralts","riolu","gible","bagon","beldum"};
+        for (String sp : rare) add(root, sp, 5, "RARE", 500, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:ultra_ball", 2, 4, 30));
+        String[] epic = {"larvesta","feebas","deino","duraludon","drampa","turtonator","rotom","mimikyu","zorua","spiritomb","honedge","sandile"};
+        for (String sp : epic) add(root, sp, 3, "EPIC", 1000, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:luxury_ball", 2, 4, 30));
+        String[] legendary = {"beldum","gible","bagon","larvitar","deino","dreepy","frigibax","jangmoo"};
+        for (String sp : legendary) add(root, sp, 2, "LEGENDARY", 2000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
+        String[] mythic = {"rotom","spiritomb","larvesta","beldum","frigibax","dreepy"};
+        for (String sp : mythic) add(root, sp, 1, "MYTHIC", 5000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
         return root;
     }
 

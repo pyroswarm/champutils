@@ -1,6 +1,7 @@
 package com.champutils.megaboss;
 
 import com.champutils.battle.BattleContextManager;
+import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionNotificationSettings;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,6 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class MegaBossBattleListener {
     private static final Map<UUID, UUID> ACTIVE_PLAYER_BOSS = new ConcurrentHashMap<>();
     private static final Map<String, BossRewardSnapshot> ACTIVE_BATTLE_BOSS = new ConcurrentHashMap<>();
+    private static final Set<String> REWARDED_BATTLE_IDS = ConcurrentHashMap.newKeySet();
     private static final TagKey<Item> POKE_BALLS = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("cobblemon", "poke_balls"));
 
     private MegaBossBattleListener() {}
@@ -68,6 +71,23 @@ public final class MegaBossBattleListener {
         return player != null && ACTIVE_PLAYER_BOSS.containsKey(player.getUUID());
     }
 
+    /**
+     * Defensive cleanup for disconnect/profile-switch paths. Cobblemon does not always
+     * fire a normal victory/end event if a player leaves during a Pokémon battle, so
+     * stale megaboss battle markers must be cleared outside the battle event pipeline.
+     */
+    public static void cleanupPlayer(ServerPlayer player) {
+        if (player == null) return;
+        UUID bossUuid = ACTIVE_PLAYER_BOSS.remove(player.getUUID());
+        BattleContextManager.clearContext(player.getUUID());
+        if (bossUuid == null) return;
+
+        // Remove snapshots only when no online player still points at this boss.
+        if (!ACTIVE_PLAYER_BOSS.containsValue(bossUuid)) {
+            ACTIVE_BATTLE_BOSS.entrySet().removeIf(entry -> entry.getValue() != null && bossUuid.equals(entry.getValue().bossUuid()));
+        }
+    }
+
     private static void handleBattleStarting(BattleStartedEvent event) {
         Entity boss = findMegaBossEntity(event.getBattle().getActors());
         if (boss == null) return;
@@ -95,6 +115,9 @@ public final class MegaBossBattleListener {
 
     private static void handleVictory(BattleVictoryEvent event) {
         String battleId = readBattleId(event.getBattle());
+        if (!"unknown".equals(battleId) && !REWARDED_BATTLE_IDS.add(battleId)) {
+            return;
+        }
         Entity defeatedBoss = findMegaBossEntity(event.getLosers());
         Entity survivingBoss = findMegaBossEntity(event.getWinners());
         List<ServerPlayer> winners = playerActors(event.getWinners());
@@ -118,7 +141,11 @@ public final class MegaBossBattleListener {
             return;
         }
 
-        if (winners.isEmpty() || defeatedBoss == null) {
+        // Cobblemon can remove/despawn the Pokémon entity before the victory event is fully
+        // processed. Rewards must be based on the battle snapshot, not on the entity still
+        // being present. Only withhold rewards when the boss is clearly on the winning side
+        // or no player won the battle.
+        if (survivingBoss != null || allPlayers.isEmpty()) {
             for (ServerPlayer player : allPlayers) {
                 player.sendSystemMessage(Component.literal("§cMega Boss battle ended. No rewards were granted."));
             }
@@ -128,12 +155,13 @@ public final class MegaBossBattleListener {
             return;
         }
 
-        for (ServerPlayer winner : winners) giveRewards(winner, snapshot.bossUuid(), snapshot.rarity(), snapshot.stones());
-        MegaBossManager.discardBoss(defeatedBoss);
+        List<ServerPlayer> rewardTargets = winners.isEmpty() ? allPlayers : winners;
+        for (ServerPlayer winner : rewardTargets) giveRewards(winner, snapshot.bossUuid(), snapshot.rarity(), snapshot.stones());
+        Entity bossToRemove = defeatedBoss != null ? defeatedBoss : findEntityByUuid(allPlayers, snapshot.bossUuid());
+        if (bossToRemove != null) MegaBossManager.discardBoss(bossToRemove);
     }
 
     private static void giveRewards(ServerPlayer player, UUID bossUuid, String rarity, List<String> stoneItems) {
-        int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         int xp = Math.max(0, MegaBossConfig.DATA.battlingXpReward);
         if (xp > 0) ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
 
@@ -142,28 +170,67 @@ public final class MegaBossBattleListener {
         int fragments = max <= 0 ? 0 : min + ThreadLocalRandom.current().nextInt(max - min + 1);
         if (fragments > 0) ProfessionFragmentManager.giveFragments(player, rarity, fragments);
 
-        double chance = megaStoneChance(battlingLevel);
+        double chance = megaStoneChance();
         String stoneItem = pickStone(stoneItems);
         double roll = ThreadLocalRandom.current().nextDouble();
+        // Exactly one independent 10% Mega Stone roll per rewarded player per megaboss victory.
         boolean gotStone = stoneItem != null && !stoneItem.isBlank() && roll < chance;
         if (gotStone) giveItem(player, stoneItem, 1);
 
-        player.sendSystemMessage(Component.literal("§dMega Boss defeated! §b+" + xp + " Battling XP §7| §6" + fragments + " " + pretty(rarity) + " Fragments §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
+        long creditReward = megaBossCreditReward(rarity);
+        if (creditReward > 0L) {
+            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(creditReward), "Mega Boss victory " + bossUuid);
+        }
+
+        player.sendSystemMessage(Component.literal("§dMega Boss defeated! §a+" + EconomyManager.formatWholeCredits(creditReward) + " §7| §b+" + xp + " Battling XP §7| §6" + fragments + " " + pretty(rarity) + " Fragments §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
         if (gotStone && MegaBossConfig.DATA.broadcastMegaStoneDrops && player.getServer() != null) {
-            player.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§6§lMega Stone Drop! §e" + player.getName().getString() + " obtained §b" + stoneItem + " §efrom a Mega Boss!"), false);
+            player.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§6§lMega Stone Drop! §e" + player.getName().getString() + " obtained §b" + prettyItemName(stoneItem) + " §efrom a Mega Boss!"), false);
         }
     }
 
-    private static double megaStoneChance(int battlingLevel) {
-        return Math.max(0.0D, Math.min(1.0D, MegaBossConfig.DATA.megaStoneDropChance));
+    private static long megaBossCreditReward(String rarity) {
+        if (rarity == null) return 100L;
+        return switch (rarity.trim().toUpperCase(Locale.ROOT)) {
+            case "COMMON" -> 25L;
+            case "UNCOMMON" -> 50L;
+            case "RARE" -> 100L;
+            case "EPIC" -> 250L;
+            case "LEGEND", "LEGENDARY" -> 500L;
+            case "MYTHIC", "MYTHICAL" -> 1000L;
+            default -> 100L;
+        };
+    }
+
+    private static double megaStoneChance() {
+        // Fixed design rule: megaboss wins have a flat 10% Mega Stone chance.
+        // This intentionally ignores profession level and any stale config values.
+        return 0.10D;
     }
 
     private static String pickStone(List<String> stoneItems) {
         if (stoneItems == null || stoneItems.isEmpty()) return "";
         List<String> valid = new ArrayList<>();
-        for (String item : stoneItems) if (item != null && !item.isBlank() && !valid.contains(item.trim())) valid.add(item.trim());
+        for (String item : stoneItems) {
+            String normalized = MegaBossManager.normalizeGenesisItemId(item);
+            if (normalized != null && !normalized.isBlank() && !valid.contains(normalized)) valid.add(normalized);
+        }
         if (valid.isEmpty()) return "";
         return valid.get(ThreadLocalRandom.current().nextInt(valid.size()));
+    }
+
+    private static String prettyItemName(String itemId) {
+        if (itemId == null || itemId.isBlank()) return "Mega Stone";
+        String path = itemId.contains(":") ? itemId.substring(itemId.indexOf(':') + 1) : itemId;
+        path = path.replace('_', ' ').trim();
+        if (path.isBlank()) return "Mega Stone";
+        StringBuilder out = new StringBuilder();
+        for (String part : path.split("\\s+")) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            if (part.length() == 1) out.append(part.toUpperCase(Locale.ROOT));
+            else out.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return out.toString();
     }
 
     private static void giveItem(ServerPlayer player, String itemId, int amount) {

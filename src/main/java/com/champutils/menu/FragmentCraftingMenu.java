@@ -72,7 +72,7 @@ public final class FragmentCraftingMenu {
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7All costs come from profession_fragments.json."
+                                        "§7Shows upgrade costs and craft costs for fragments."
                                 )
                         )
         );

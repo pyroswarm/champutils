@@ -2,6 +2,7 @@ package com.champutils.hunt;
 
 import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.shop.NpcShopService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -206,8 +207,8 @@ public final class PokemonHuntManager {
         for (PokemonHuntState.HuntEntry hunt : STATE.hunts) {
             if (hunt == null || hunt.claimed) continue;
             if (!normalSpecies(hunt.species).equals(species)) continue;
-            if (!normalizeNature(hunt.nature).equals(normalizeNature(nature))) continue;
-            if (!normalizeGender(hunt.gender).equals(gender)) continue;
+            if (!matchesAny(normalizeNature(hunt.nature), normalizeNature(nature))) continue;
+            if (!matchesAny(normalizeGender(hunt.gender), gender)) continue;
             if (!abilityMatches(hunt.ability, ability)) continue;
 
             completeHunt(player, hunt);
@@ -309,7 +310,8 @@ public final class PokemonHuntManager {
             player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits)).withStyle(ChatFormatting.GOLD));
         }
 
-        maybeAwardCrateCredit(player, hunt.difficulty);
+        awardCrateCredit(player, hunt.difficulty);
+        awardFragments(player, hunt.difficulty);
 
         if (rewards.items != null) {
             for (PokemonHuntConfig.RewardItem reward : rewards.items) {
@@ -319,10 +321,17 @@ public final class PokemonHuntManager {
         }
     }
 
-    private static void maybeAwardCrateCredit(ServerPlayer player, String difficulty) {
-        int chance = Math.max(0, Math.min(100, PokemonHuntConfig.DATA.settings.crateCreditChancePercent));
-        if (player == null || chance <= 0 || RANDOM.nextInt(100) >= chance) return;
+    private static void awardCrateCredit(ServerPlayer player, String difficulty) {
+        if (player == null) return;
         CrateCreditManager.addCredits(player, crateIdForDifficulty(difficulty), 1);
+    }
+
+    private static void awardFragments(ServerPlayer player, String difficulty) {
+        if (player == null) return;
+        String rarity = crateIdForDifficulty(difficulty).toUpperCase(Locale.ROOT);
+        int amount = 1 + RANDOM.nextInt(3);
+        ProfessionFragmentManager.giveFragments(player, rarity, amount);
+        player.sendSystemMessage(Component.literal("+" + amount + " " + displayCrateForDifficulty(difficulty) + " Fragment" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
     public static String crateIdForDifficulty(String difficulty) {
@@ -380,6 +389,10 @@ public final class PokemonHuntManager {
             player.sendSystemMessage(Component.literal("+" + amount + "x " + prettyItemId(reward.item)).withStyle(ChatFormatting.AQUA));
         } catch (Exception ignored) {
         }
+    }
+
+    private static boolean matchesAny(String required, String actual) {
+        return required == null || required.isBlank() || required.equalsIgnoreCase("any") || required.equalsIgnoreCase(actual);
     }
 
     private static boolean abilityMatches(String required, String actual) {

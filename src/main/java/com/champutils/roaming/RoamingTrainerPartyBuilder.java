@@ -53,7 +53,7 @@ public final class RoamingTrainerPartyBuilder {
             party.initialize();
             npc.setParty(party);
             // Roaming trainers should be weaker than gym leaders. Champion-tier AI is reserved for gyms, E4, bosses, and events.
-            try { npc.setSkill(Math.max(0, Math.min(2, settings.aiSkill))); } catch (Exception ignored) {}
+            try { npc.setSkill(Math.max(2, Math.min(5, settings.aiSkill))); } catch (Exception ignored) {}
             try { npc.setCustomName(Component.literal(data.displayName).withStyle(data.rarity.color)); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}

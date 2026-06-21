@@ -13,6 +13,7 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import com.champutils.tm.TMManager;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -30,11 +31,11 @@ public final class ExplorationLootManager {
         if (player == null || level == null || pos == null) return;
         if (!ExplorationLootConfig.get().enabled || !ExplorationLootConfig.get().virtualPerPlayerLoot) return;
 
-        ExplorationLootState.markDiscovered(level, pos);
-
         if (!isInstancedLootContainer(level, pos)) {
             return;
         }
+
+        ExplorationLootState.markDiscovered(level, pos);
 
         if (ExplorationLootState.hasClaimed(player.getUUID(), level, pos)) {
             player.sendSystemMessage(Component.literal("You have already claimed this exploration loot.").withStyle(ChatFormatting.YELLOW));
@@ -47,8 +48,9 @@ public final class ExplorationLootManager {
             return;
         }
 
+        String chestRarity = chestRarity(level, pos);
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
-        gui.setTitle(Component.literal("Exploration Loot"));
+        gui.setTitle(Component.literal(chestRarity + " Exploration Loot").withStyle(rarityColor(chestRarity)));
         gui.setLockPlayerInventory(true);
 
         for (int i = 0; i < gui.getSize(); i++) {
@@ -60,12 +62,16 @@ public final class ExplorationLootManager {
             if (slot >= 44) break;
             if (slot % 9 == 8) slot += 2;
             gui.setSlot(slot, new GuiElementBuilder(reward.copy())
+                    .addLoreLine(Component.literal("Chest Rarity: ").withStyle(ChatFormatting.GRAY)
+                            .append(Component.literal(chestRarity).withStyle(rarityColor(chestRarity))))
                     .addLoreLine(Component.literal("Click Claim All to receive this loot.").withStyle(ChatFormatting.GRAY)));
             slot++;
         }
 
         gui.setSlot(49, new GuiElementBuilder(Items.EMERALD_BLOCK)
                 .setName(Component.literal("Claim All").withStyle(ChatFormatting.GREEN))
+                .addLoreLine(Component.literal("Chest Rarity: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(chestRarity).withStyle(rarityColor(chestRarity))))
                 .addLoreLine(Component.literal("One claim per player, per exploration chest.").withStyle(ChatFormatting.GRAY))
                 .addLoreLine(Component.literal("Loot is generated separately for every player.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, type, action) -> {
@@ -124,7 +130,7 @@ public final class ExplorationLootManager {
             if (entry.weight <= 0) continue;
             if (entry.rarityRank() > maxRarity) continue;
             if (isBanned(entry.itemId)) continue;
-            if (ExplorationLootConfig.get().skipUnknownItems && !BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(entry.itemId))) continue;
+            if (ExplorationLootConfig.get().skipUnknownItems && !isSpecialReward(entry.itemId) && !isKnownItem(entry.itemId)) continue;
             valid.add(entry);
         }
         return valid;
@@ -150,8 +156,21 @@ public final class ExplorationLootManager {
         return entries.get(entries.size() - 1);
     }
 
+    private static boolean isKnownItem(String itemId) {
+        try {
+            return BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(itemId));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static ItemStack toStack(ExplorationLootConfig.LootEntry entry, Random random) {
         try {
+            String tmRarity = randomTmRarity(entry.itemId);
+            if (tmRarity != null) {
+                ItemStack tm = TMManager.createRandomTMStack(tmRarity, 1);
+                return tm == null ? ItemStack.EMPTY : tm;
+            }
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(entry.itemId));
             if (item == Items.AIR) return ItemStack.EMPTY;
             int min = Math.max(1, entry.minAmount);
@@ -161,6 +180,17 @@ public final class ExplorationLootManager {
         } catch (Exception ignored) {
             return ItemStack.EMPTY;
         }
+    }
+
+    private static boolean isSpecialReward(String itemId) {
+        return randomTmRarity(itemId) != null;
+    }
+
+    private static String randomTmRarity(String itemId) {
+        if (itemId == null) return null;
+        String normalized = itemId.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith("champutils:random_tm_")) return null;
+        return normalized.substring("champutils:random_tm_".length()).toUpperCase(Locale.ROOT);
     }
 
     private static String tableId(ServerLevel level, BlockPos pos) {
@@ -185,17 +215,14 @@ public final class ExplorationLootManager {
         if (id.isBlank()) return false;
         String lower = id.toLowerCase(Locale.ROOT);
 
-        boolean allowedBlock = lower.equals("minecraft:chest")
-                || lower.equals("minecraft:barrel")
-                || lower.contains("gilded_chest");
-        if (!allowedBlock) return false;
+        if (!isConfiguredLootContainerId(lower)) return false;
 
         BlockEntity entity = level.getBlockEntity(pos);
         if (!(entity instanceof net.minecraft.world.Container)) return false;
 
         // Cobblemon gilded chests are generated loot containers even when they do not expose
         // the vanilla LootTable tag the same way vanilla chests/barrels do.
-        if (lower.contains("gilded_chest")) return true;
+        if (matchesConfiguredContains(lower)) return true;
 
         try {
             var nbt = entity.saveWithFullMetadata(level.registryAccess());
@@ -203,6 +230,65 @@ public final class ExplorationLootManager {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    public static boolean isConfiguredLootContainer(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        String id = blockId(level, pos);
+        if (id.isBlank()) return false;
+        return isConfiguredLootContainerId(id.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean isConfiguredLootContainerId(String lowerBlockId) {
+        if (lowerBlockId == null || lowerBlockId.isBlank()) return false;
+        ExplorationLootConfig.Data config = ExplorationLootConfig.get();
+        if (config.lootContainerBlockIds != null) {
+            for (String configured : config.lootContainerBlockIds) {
+                if (configured != null && lowerBlockId.equals(configured.trim().toLowerCase(Locale.ROOT))) return true;
+            }
+        }
+        return matchesConfiguredContains(lowerBlockId);
+    }
+
+    private static boolean matchesConfiguredContains(String lowerBlockId) {
+        if (lowerBlockId == null || lowerBlockId.isBlank()) return false;
+        ExplorationLootConfig.Data config = ExplorationLootConfig.get();
+        if (config.lootContainerIdContains == null) return false;
+        for (String contains : config.lootContainerIdContains) {
+            if (contains != null && !contains.isBlank() && lowerBlockId.contains(contains.trim().toLowerCase(Locale.ROOT))) return true;
+        }
+        return false;
+    }
+
+    private static String chestRarity(ServerLevel level, BlockPos pos) {
+        String id = blockId(level, pos).toLowerCase(Locale.ROOT);
+        if (id.contains("black_gilded_chest")) return "Mythic";
+        if (id.contains("pink_gilded_chest")) return "Legendary";
+        if (id.contains("blue_gilded_chest")) return "Epic";
+        if (id.contains("green_gilded_chest")) return "Rare";
+        if (id.contains("yellow_gilded_chest")) return "Uncommon";
+        if (id.contains("white_gilded_chest")) return "Guild";
+        if (id.contains("gilded_chest")) return "Common";
+
+        String table = tableId(level, pos);
+        if ("nether".equals(table)) return "Nether";
+        if ("end".equals(table)) return "End";
+        return "Common";
+    }
+
+    private static ChatFormatting rarityColor(String rarity) {
+        if (rarity == null) return ChatFormatting.WHITE;
+        return switch (rarity.toUpperCase(Locale.ROOT)) {
+            case "UNCOMMON" -> ChatFormatting.YELLOW;
+            case "RARE" -> ChatFormatting.GREEN;
+            case "EPIC" -> ChatFormatting.BLUE;
+            case "LEGENDARY" -> ChatFormatting.LIGHT_PURPLE;
+            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
+            case "GUILD" -> ChatFormatting.AQUA;
+            case "NETHER" -> ChatFormatting.RED;
+            case "END" -> ChatFormatting.DARK_AQUA;
+            default -> ChatFormatting.WHITE;
+        };
     }
 
     private static String blockId(ServerLevel level, BlockPos pos) {

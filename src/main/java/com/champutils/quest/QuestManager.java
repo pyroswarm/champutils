@@ -5,6 +5,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.guild.GuildRepository;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerProfileManager;
 
@@ -219,6 +220,25 @@ public class QuestManager {
         increment(player, objective -> matchesBlockObjective(objective, type, blockId), 1);
     }
 
+    public static void recordProfessionAbility(ServerPlayer player, String abilityId) {
+        if (player == null || abilityId == null || abilityId.isBlank()) return;
+        String normalized = abilityId.toLowerCase(Locale.ROOT);
+        increment(player, objective -> "USE_PROFESSION_ABILITY".equalsIgnoreCase(objective.objectiveType) && targetMatches(objective.target, normalized), 1);
+    }
+
+    public static void recordProfessionFragment(ServerPlayer player, ProfessionType profession, String rarity) {
+        if (player == null) return;
+        String normalizedRarity = rarity == null ? "any" : rarity.toLowerCase(Locale.ROOT);
+        increment(player, objective -> {
+            String type = safe(objective.objectiveType).toUpperCase(Locale.ROOT);
+            String target = safe(objective.target);
+            return ("EARN_PROFESSION_FRAGMENT".equals(type) || "PROFESSION_FRAGMENT".equals(type))
+                    && (target.equalsIgnoreCase("any")
+                    || targetMatches(target, normalizedRarity)
+                    || (profession != null && targetMatches(target, profession.name())));
+        }, 1);
+    }
+
     public static void recordBattleWin(ServerPlayer player, BattleContextManager.BattleType battleType) {
         if (player == null) return;
         String target = battleType == null ? "UNKNOWN" : battleType.name();
@@ -364,7 +384,7 @@ public class QuestManager {
         if (xp > 0) lore.add(Component.literal("§7• §a" + xp + " Profession XP per objective"));
         addCommandRewardLore(lore, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
         String crateId = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
-        lore.add(Component.literal("§7• §e" + crateChance() + "% chance for 1 " + displayCrateId(crateId) + " Crate Credit"));
+        lore.add(Component.literal("§7• §eGuaranteed 1 " + displayCrateId(crateId) + " Crate Credit"));
         return lore;
     }
 
@@ -386,7 +406,7 @@ public class QuestManager {
         List<Component> lore = new ArrayList<>();
         if (rewardCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(rewardCredits)));
         addCommandRewardLore(lore, commands);
-        lore.add(Component.literal("§7• §e" + crateChance() + "% chance for 1 " + displayCrateId(crateIdForDifficulty(difficulty)) + " Crate Credit"));
+        lore.add(Component.literal("§7• §eGuaranteed 1 " + displayCrateId(crateIdForDifficulty(difficulty)) + " Crate Credit"));
         return lore;
     }
 
@@ -438,13 +458,20 @@ public class QuestManager {
     }
 
     private static int crateChance() {
-        return Math.max(0, Math.min(100, QuestConfig.SETTINGS.crateCreditChancePercent));
+        return 100;
     }
 
     private static void maybeAwardCrateCredit(ServerPlayer player, String crateId) {
-        int chance = crateChance();
-        if (player == null || chance <= 0 || RANDOM.nextInt(100) >= chance) return;
+        if (player == null) return;
         CrateCreditManager.addCredits(player, crateIdForDifficulty(crateId), 1);
+    }
+
+    private static void awardRarityFragments(ServerPlayer player, String rarity) {
+        if (player == null) return;
+        String normalized = crateIdForDifficulty(rarity).toUpperCase(Locale.ROOT);
+        int amount = 1 + RANDOM.nextInt(3);
+        ProfessionFragmentManager.giveFragments(player, normalized, amount);
+        player.sendSystemMessage(Component.literal("+" + amount + " " + normalized + " Fragment" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
     private static String crateIdForDifficulty(String difficulty) {
@@ -511,7 +538,9 @@ public class QuestManager {
             }
         }
         runRewardCommands(player, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
-        maybeAwardCrateCredit(player, daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId);
+        String questRarity = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
+        maybeAwardCrateCredit(player, questRarity);
+        awardRarityFragments(player, questRarity);
         if (daily) com.champutils.cosmetic.TitleManager.unlock(player, "questing_soul");
         markDirty(player);
         savePlayer(player);
@@ -643,6 +672,7 @@ public class QuestManager {
             if (c.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(c.rewardCredits), "quest_contract_complete:" + c.id);
             runRewardCommands(player, c.rewardCommands);
             maybeAwardCrateCredit(player, crateIdForDifficulty(c.difficulty));
+            awardRarityFragments(player, c.difficulty);
             com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);
             if (profession != null) ProfessionManager.addXp(player, profession, Math.max(100, c.required / 2));

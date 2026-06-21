@@ -1,6 +1,7 @@
 package com.champutils.gym;
 
 import com.champutils.badge.BadgeType;
+import com.champutils.badge.BadgeManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
@@ -151,16 +152,17 @@ NPCBattleActor gymNpc = null;
              */
 
 
-            String requiredGroup =
-                    requiredGroup(
+            BadgeType requiredBadge =
+                    requiredBadge(
                             badge
                     );
 
 
             if(
-                    !hasGroup(
+                    requiredBadge != null &&
+                    !BadgeManager.hasBadge(
                             player,
-                            requiredGroup
+                            requiredBadge
                     )
             ){
 
@@ -237,27 +239,28 @@ NPCBattleActor gymNpc = null;
 
 
 
-    private static String requiredGroup(
+    private static BadgeType requiredBadge(
             BadgeType badge
     ){
 
         return switch(badge){
 
             case CASCADE -> null;
-            case MARSH -> "gym1";
-            case EARTH -> "gym2";
-            case BOULDER -> "gym3";
-            case THUNDER -> "gym4";
-            case RAINBOW -> "gym5";
-            case SOUL -> "gym6";
-            case VOLCANO -> "gym7";
-            case LORELEI -> "gym8";
-            case BRUNO -> "elite4-1";
-            case AGATHA -> "elite4-2";
-            case LANCE -> "elite4-3";
-            case CHAMPION -> "elite4-4";
+            case MARSH -> BadgeType.CASCADE;
+            case EARTH -> BadgeType.MARSH;
+            case BOULDER -> BadgeType.EARTH;
+            case THUNDER -> BadgeType.BOULDER;
+            case RAINBOW -> BadgeType.THUNDER;
+            case SOUL -> BadgeType.RAINBOW;
+            case VOLCANO -> BadgeType.SOUL;
+            case LORELEI -> BadgeType.VOLCANO;
+            case BRUNO -> BadgeType.LORELEI;
+            case AGATHA -> BadgeType.BRUNO;
+            case LANCE -> BadgeType.AGATHA;
+            case CHAMPION -> BadgeType.LANCE;
         };
     }
+
 
 
     private static boolean hasGroup(

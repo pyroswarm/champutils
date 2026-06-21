@@ -105,12 +105,21 @@ public final class SpawnWarpCommand {
 
         TeleportLocation warp = TeleportConfig.getWarp(name);
         if (warp == null) {
-            player.sendSystemMessage(Component.literal("Unknown warp: " + name).withStyle(ChatFormatting.RED));
+            if ("tower".equalsIgnoreCase(name)) {
+                player.sendSystemMessage(Component.literal("The tower warp is not configured. Use /setwarp tower at the correct tower location.").withStyle(ChatFormatting.RED));
+            } else {
+                player.sendSystemMessage(Component.literal("Unknown warp: " + name).withStyle(ChatFormatting.RED));
+            }
+            return 0;
+        }
+
+        if (TeleportConfig.resolveLevel(player.server, warp.dimension) == null) {
+            player.sendSystemMessage(Component.literal("Warp '" + name.toLowerCase() + "' points to an unloaded/missing dimension: " + warp.dimension).withStyle(ChatFormatting.RED));
             return 0;
         }
 
         if (!TeleportConfig.teleport(player, warp)) {
-            player.sendSystemMessage(Component.literal("Warp dimension is missing or not loaded.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Warp location is not safe or could not be loaded.").withStyle(ChatFormatting.RED));
             return 0;
         }
 

@@ -23,15 +23,19 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 public class FarmingProfessionListener {
 
     private static final Random RANDOM = new Random();
+    private static final Set<String> MANUALLY_PROCESSED_EXTRA_BLOCKS = new HashSet<>();
 
     public static void register() {
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return;
+            if (MANUALLY_PROCESSED_EXTRA_BLOCKS.remove(extraBlockKey(serverPlayer, pos))) return;
             if (!isMatureFarmingBlock(state)) return;
 
             ItemStack tool = serverPlayer.getMainHandItem();
@@ -40,14 +44,7 @@ public class FarmingProfessionListener {
                     blockId,
                     ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
             );
-            ProfessionManager.addXp(serverPlayer, ProfessionType.FARMING, xp);
-            com.champutils.quest.QuestManager.recordBlock(serverPlayer, ProfessionType.FARMING, blockId);
-            rollXpSurge(serverPlayer, tool, xp);
-            ProfessionLootManager.rollReward(serverPlayer, ProfessionType.FARMING);
-            ProfessionWeaponFragmentDropManager.rollReward(serverPlayer, ProfessionType.FARMING);
-            rollHarvestMultiplier(serverPlayer, state.getBlock(), tool);
-            rollRewardPassive(serverPlayer, tool, "seedSaverChance", "farming_seed_saver");
-            rollRewardPassive(serverPlayer, tool, "goldenHarvestChance", "farming_golden_harvest");
+            processFarmingRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
                 BlockState replanted = getReplantedState(state);
@@ -62,6 +59,19 @@ public class FarmingProfessionListener {
         });
     }
 
+
+
+    private static void processFarmingRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
+        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
+        ProfessionManager.addXp(player, ProfessionType.FARMING, xp);
+        com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FARMING, blockId);
+        rollXpSurge(player, tool, xp);
+        ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
+        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FARMING);
+        rollHarvestMultiplier(player, state.getBlock(), tool);
+        rollRewardPassive(player, tool, "seedSaverChance", "farming_seed_saver");
+        rollRewardPassive(player, tool, "goldenHarvestChance", "farming_golden_harvest");
+    }
 
     private static boolean isMatureFarmingBlock(BlockState state) {
         if (state == null || state.isAir()) return false;
@@ -168,6 +178,13 @@ public class FarmingProfessionListener {
             if (pos.equals(center)) continue;
             BlockState state = level.getBlockState(pos);
             if (!isMatureFarmingBlock(state)) continue;
+            String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault(
+                    blockId,
+                    ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
+            );
+            processFarmingRewards(player, state, blockId, player.getMainHandItem(), xp, true);
+            MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, pos));
             level.destroyBlock(pos.immutable(), true, player);
             if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
                 BlockState replanted = getReplantedState(state);
@@ -180,6 +197,10 @@ public class FarmingProfessionListener {
         if (harvested > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
         }
+    }
+
+    private static String extraBlockKey(ServerPlayer player, BlockPos pos) {
+        return player.getUUID() + ":" + pos.asLong();
     }
 
     private static Item cropReward(Block cropBlock) {

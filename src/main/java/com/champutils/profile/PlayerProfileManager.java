@@ -1,5 +1,10 @@
 package com.champutils.profile;
 
+import com.champutils.battle.BattleStateManager;
+import com.champutils.badge.BadgeManager;
+import com.champutils.badge.BadgeType;
+import com.champutils.megaboss.MegaBossBattleListener;
+
 import com.champutils.chat.ChatPreferenceManager;
 import com.champutils.config.Config;
 import com.champutils.claims.LandClaimRepository;
@@ -729,6 +734,16 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         UUID profileId = activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
 
+        if (BattleStateManager.isInBattle(player) || BattleStateManager.hasTrackedState(player) || MegaBossBattleListener.isPlayerInMegaBossBattle(player)) {
+            // Never persist the player's temporary battle location as their profile spawn.
+            return;
+        }
+
+        if (BattleStateManager.isInBattle(player) || BattleStateManager.hasTrackedState(player) || MegaBossBattleListener.isPlayerInMegaBossBattle(player)) {
+            // Never persist the player's temporary battle location as their profile spawn.
+            return;
+        }
+
         String dimension = player.serverLevel().dimension().location().toString();
         if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
             return;
@@ -1017,6 +1032,9 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         ProfileRecord record = active(player);
         if (player == null || record == null) return "No active profile loaded.";
         if (record.gameMode() == ProfileGameMode.NORMAL) return "This profile is already Normal.";
+        if (record.gameMode() == ProfileGameMode.ISLANDER && !hasCompletedIslanderConversionProgression(player)) {
+            return "Islander profiles can only convert after all 8 gyms and the Elite 4 Champion are completed.";
+        }
         if (!DatabaseManager.isEnabled()) return "Profiles require SQL.";
 
         int requiredDays = Config.profileConversion == null ? 3 : Config.profileConversion.minAgeDaysBeforeNormal;
@@ -1060,6 +1078,16 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             e.printStackTrace();
             return "Could not convert profile. Check console/database logs.";
         }
+    }
+
+    private static boolean hasCompletedIslanderConversionProgression(ServerPlayer player) {
+        if (player == null) return false;
+        for (BadgeType badge : BadgeType.values()) {
+            if (!BadgeManager.hasBadge(player, badge)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static ProfileGameMode modeOfProfileIdBlocking(String profileId) {

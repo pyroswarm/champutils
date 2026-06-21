@@ -154,7 +154,15 @@ public final class TitleConfig {
 
     public static double activeBuff(ServerPlayer player, BuffType type) {
         if (player == null || type == null) return 0.0D;
-        TitleDef def = get(TitleManager.selected(player.getUUID()));
+        String selected = TitleManager.selected(player.getUUID());
+        TitleDef def = get(selected);
+        if (def == null && selected != null && selected.startsWith("wf_")) {
+            if (type == BuffType.SHINY_CHANCE && selected.contains("shiny")) return 0.001D;
+            if (type == BuffType.CATCH_CHANCE && (selected.contains("catch") || selected.contains("legendary") || selected.contains("ultra_beast"))) return 0.01D;
+            if (type == BuffType.BATTLING_XP && selected.contains("battle")) return 0.03D;
+            if (type.isProfessionXp() && selected.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.03D;
+            return type == BuffType.CATCH_CHANCE ? 0.0025D : 0.0D;
+        }
         if (def == null || def.buffs == null) return 0.0D;
         double total = 0.0D;
         for (TitleBuff titleBuff : def.buffs) {
@@ -186,6 +194,9 @@ public final class TitleConfig {
         if (normalized.equals("BATTLE_XP") || normalized.equals("BATTLEXP") || normalized.equals("BATTLING")) normalized = "BATTLING_XP";
         if (normalized.equals("SHINY") || normalized.equals("SHINY_RATE")) normalized = "SHINY_CHANCE";
         if (normalized.equals("CATCH") || normalized.equals("CATCHING") || normalized.equals("CAPTURE_CHANCE")) normalized = "CATCH_CHANCE";
+        if (normalized.equals("PERFECT_IV") || normalized.equals("IV_CHANCE") || normalized.equals("PERFECTIV")) normalized = "PERFECT_IV_CHANCE";
+        if (normalized.equals("MONEY") || normalized.equals("NPC_CREDITS") || normalized.equals("TRAINER_MONEY")) normalized = "NPC_MONEY";
+        if (normalized.equals("WORLD_REWARDS") || normalized.equals("EVENT_REWARDS")) normalized = "WORLD_EVENT_REWARDS";
         try { return BuffType.valueOf(normalized); } catch (Exception ignored) { return null; }
     }
 
@@ -202,6 +213,7 @@ public final class TitleConfig {
         for (TitleDef def : BY_ID.values()) {
             UnlockCondition c = def.unlock;
             if (c == null || !"battle_win".equalsIgnoreCase(c.type)) continue;
+            if (looksLikeBossTitle(def)) continue;
             if (c.battleType != null && !c.battleType.isBlank() && !c.battleType.equalsIgnoreCase(type.name())) continue;
             TitleManager.unlock(player, def.id);
         }
@@ -223,6 +235,15 @@ public final class TitleConfig {
             if (c == null || !"boss_win".equalsIgnoreCase(c.type)) continue;
             TitleManager.unlock(player, def.id);
         }
+    }
+
+
+    private static boolean looksLikeBossTitle(TitleDef def) {
+        if (def == null) return false;
+        String id = def.id == null ? "" : def.id.toLowerCase(Locale.ROOT);
+        String name = def.name == null ? "" : def.name.toLowerCase(Locale.ROOT);
+        String desc = def.description == null ? "" : def.description.toLowerCase(Locale.ROOT);
+        return id.contains("boss") || name.contains("boss") || desc.contains("boss");
     }
 
     public static void handleProfessionLevel(ServerPlayer player, ProfessionType profession, int level) {
@@ -272,6 +293,18 @@ public final class TitleConfig {
         add(c, "hunt_helper", "Hunt Helper", "&a", "◎", "manual", null, null, 0, "Complete a Pokémon hunt.");
         add(c, "questing_soul", "Questing Soul", "&d", "◆", "manual", null, null, 0, "Complete a daily quest set.");
         add(c, "contractor", "Contractor", "&6", "$", "manual", null, null, 0, "Complete a paid contract.");
+        add(c, "cascade_badge", "Cascade Badge", "&b", "💧", "manual", null, null, 0, "Defeat the Cascade Gym.");
+        add(c, "marsh_badge", "Marsh Badge", "&d", "✦", "manual", null, null, 0, "Defeat the Marsh Gym.");
+        add(c, "thunder_badge", "Thunder Badge", "&e", "⚡", "manual", null, null, 0, "Defeat the Thunder Gym.");
+        add(c, "rainbow_badge", "Rainbow Badge", "&a", "✿", "manual", null, null, 0, "Defeat the Rainbow Gym.");
+        add(c, "soul_badge", "Soul Badge", "&5", "☠", "manual", null, null, 0, "Defeat the Soul Gym.");
+        add(c, "volcano_badge", "Volcano Badge", "&c", "🔥", "manual", null, null, 0, "Defeat the Volcano Gym.");
+        add(c, "earth_badge", "Earth Badge", "&2", "◆", "manual", null, null, 0, "Defeat the Earth Gym.");
+        add(c, "elite_four_clear", "Elite Four Victor", "&6", "♛", "manual", null, null, 0, "Defeat the Elite Four.");
+        add(c, "gym_champion", "Gym Champion", "&6", "🏅", "manual", null, null, 0, "Complete all gyms.");
+        add(c, "mega_hunter", "Mega Hunter", "&5", "✹", "boss_win", null, null, 0, "Defeat a Mega Boss.");
+        add(c, "tm_collector", "TM Collector", "&b", "▣", "manual", null, null, 0, "Craft or earn TMs.");
+        add(c, "fragment_forger", "Fragment Forger", "&d", "◇", "manual", null, null, 0, "Upgrade or use profession fragments.");
         for (ProfessionType type : ProfessionType.values()) {
             String p = pretty(type.name());
             add(c, type.name().toLowerCase(Locale.ROOT) + "_apprentice", p + " Apprentice", "&b", "✦", "profession_level", null, type.name(), 10, "Reach " + p + " level 10.");
@@ -297,9 +330,26 @@ public final class TitleConfig {
             d.passive = new PassiveBonus();
             d.passive.profession = profession;
             d.passive.professionXpBonus = level >= 50 ? 0.02D : 0.01D;
-            d.passiveDescription = passiveText(d);
         }
+        d.buffs = new ArrayList<>();
+        addDefaultBuff(d, type, battleType, profession, level);
+        d.passiveDescription = buffText(d);
         c.titles.add(d);
+    }
+
+    private static void addDefaultBuff(TitleDef d, String type, String battleType, String profession, int level) {
+        BuffType buff = null;
+        double amount = 0.001D;
+        if ("catch".equalsIgnoreCase(type)) { buff = BuffType.CATCH_CHANCE; amount = 0.005D; }
+        else if ("boss_win".equalsIgnoreCase(type)) { buff = BuffType.BATTLING_XP; amount = 0.02D; }
+        else if ("battle_win".equalsIgnoreCase(type)) { buff = BuffType.BATTLING_XP; amount = "RANKED".equalsIgnoreCase(battleType) ? 0.015D : 0.01D; }
+        else if (profession != null && !profession.isBlank()) { buff = BuffType.fromProfession(ProfessionType.valueOf(profession)); amount = level >= 50 ? 0.02D : 0.01D; }
+        else { buff = BuffType.CATCH_CHANCE; amount = 0.0025D; }
+        if (buff == null) return;
+        TitleBuff tb = new TitleBuff();
+        tb.type = buff.name();
+        tb.amount = amount;
+        d.buffs.add(tb);
     }
 
     private static String pretty(String raw) {

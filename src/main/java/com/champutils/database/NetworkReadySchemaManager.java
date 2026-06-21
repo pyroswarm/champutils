@@ -196,6 +196,11 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_use_redstone boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists lock_border boolean not null default true");
                 statement.executeUpdate("alter table territories add column if not exists steward_npc_spawned boolean not null default true");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_x double precision");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_y double precision");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_z double precision");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_yaw real");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_pitch real");
                 statement.executeUpdate("update territories set world_key = world_name where world_key is null or trim(world_key) = ''");
                 statement.executeUpdate("update territories set generation_state = 'READY' where generation_state is null or trim(generation_state) = ''");
                 statement.executeUpdate("update territories set center_x = ((min_x + max_x) / 2) where center_x is null");
@@ -237,9 +242,9 @@ public final class NetworkReadySchemaManager {
                 // Guilds are account-based, not profile-based. Some builds during the SQL profile migration
                 // created/altered guild columns as NOT NULL profile columns, which makes normal guild creation
                 // fail even when the guild name and tag are available. Repair those schemas here.
-                statement.executeUpdate("alter table guilds alter column owner_profile_id drop not null");
-                statement.executeUpdate("alter table guilds alter column owner_player_uuid drop not null");
-                statement.executeUpdate("alter table guild_members alter column profile_id drop not null");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns c where c.table_name='guilds' and c.column_name='owner_profile_id' and not exists (select 1 from information_schema.key_column_usage k join information_schema.table_constraints tc on tc.constraint_name=k.constraint_name and tc.table_schema=k.table_schema and tc.table_name=k.table_name where k.table_name='guilds' and k.column_name='owner_profile_id' and tc.constraint_type='PRIMARY KEY')) then execute 'alter table guilds alter column owner_profile_id drop not null'; end if; end $$");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns c where c.table_name='guilds' and c.column_name='owner_player_uuid' and not exists (select 1 from information_schema.key_column_usage k join information_schema.table_constraints tc on tc.constraint_name=k.constraint_name and tc.table_schema=k.table_schema and tc.table_name=k.table_name where k.table_name='guilds' and k.column_name='owner_player_uuid' and tc.constraint_type='PRIMARY KEY')) then execute 'alter table guilds alter column owner_player_uuid drop not null'; end if; end $$");
+                statement.executeUpdate("do $$ begin if exists (select 1 from information_schema.columns c where c.table_name='guild_members' and c.column_name='profile_id' and not exists (select 1 from information_schema.key_column_usage k join information_schema.table_constraints tc on tc.constraint_name=k.constraint_name and tc.table_schema=k.table_schema and tc.table_name=k.table_name where k.table_name='guild_members' and k.column_name='profile_id' and tc.constraint_type='PRIMARY KEY')) then execute 'alter table guild_members alter column profile_id drop not null'; end if; end $$");
                 statement.executeUpdate("update guilds set owner_uuid = coalesce(owner_uuid, owner_player_uuid) where owner_uuid is null");
                 statement.executeUpdate("update guilds set owner_player_uuid = coalesce(owner_player_uuid, owner_uuid) where owner_player_uuid is null");
                 statement.executeUpdate("update guild_members set player_uuid = profile_id where player_uuid is null");
