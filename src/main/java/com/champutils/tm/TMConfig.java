@@ -21,7 +21,8 @@ public final class TMConfig {
 
     public static final List<String> RARITIES = List.of("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC");
     public static Map<String, List<String>> configuredRarities = new LinkedHashMap<>();
-    public static Map<String, Map<String, Integer>> costs = new LinkedHashMap<>();
+    public static Map<String, Map<String, Integer>> selectedCosts = new LinkedHashMap<>();
+    public static Map<String, Map<String, Integer>> randomCosts = new LinkedHashMap<>();
 
     private TMConfig() {}
 
@@ -63,20 +64,37 @@ public final class TMConfig {
         try {
             File parent = COST_FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
-            if (!COST_FILE.exists()) saveCosts(defaultCosts());
+            if (!COST_FILE.exists()) saveCosts(defaultSelectedCosts(), defaultRandomCosts());
             try (FileReader reader = new FileReader(COST_FILE)) {
                 Root root = GSON.fromJson(reader, Root.class);
-                if (root == null || root.costs == null || root.costs.isEmpty()) root = defaultRoot();
-                costs = normalizeCosts(root.costs);
-                for (Map.Entry<String, Map<String, Integer>> entry : defaultCosts().entrySet()) {
-                    costs.putIfAbsent(entry.getKey(), entry.getValue());
+                if (root == null) root = new Root();
+
+                // Backwards compatibility: older configs only had "costs". Treat those as selected TM costs.
+                Map<String, Map<String, Integer>> loadedSelected = root.selectedCosts;
+                if ((loadedSelected == null || loadedSelected.isEmpty()) && root.costs != null && !root.costs.isEmpty()) {
+                    loadedSelected = root.costs;
                 }
-                saveCosts(costs);
+
+                selectedCosts = mergeCosts(defaultSelectedCosts(), normalizeCosts(loadedSelected));
+                randomCosts = mergeCosts(defaultRandomCosts(), normalizeCosts(root.randomCosts));
+                saveCosts(selectedCosts, randomCosts);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            costs = defaultCosts();
+            selectedCosts = defaultSelectedCosts();
+            randomCosts = defaultRandomCosts();
         }
+    }
+
+    private static Map<String, Map<String, Integer>> mergeCosts(Map<String, Map<String, Integer>> defaults, Map<String, Map<String, Integer>> overrides) {
+        Map<String, Map<String, Integer>> out = new LinkedHashMap<>();
+        for (String rarity : RARITIES) {
+            Map<String, Integer> value = overrides.get(rarity);
+            out.put(rarity, value == null || value.isEmpty()
+                    ? new LinkedHashMap<>(defaults.getOrDefault(rarity, Map.of()))
+                    : new LinkedHashMap<>(value));
+        }
+        return out;
     }
 
     private static Map<String, Map<String, Integer>> normalizeCosts(Map<String, Map<String, Integer>> raw) {
@@ -148,14 +166,26 @@ public final class TMConfig {
         return map;
     }
 
-    private static Map<String, Map<String, Integer>> defaultCosts() {
+    private static Map<String, Map<String, Integer>> defaultSelectedCosts() {
         Map<String, Map<String, Integer>> map = new LinkedHashMap<>();
-        map.put("COMMON", cost("COMMON", 25));
-        map.put("UNCOMMON", cost("COMMON", 50, "UNCOMMON", 25));
-        map.put("RARE", cost("UNCOMMON", 50, "RARE", 25));
-        map.put("EPIC", cost("RARE", 75, "EPIC", 40));
-        map.put("LEGENDARY", cost("EPIC", 100, "LEGENDARY", 50));
-        map.put("MYTHIC", cost("LEGENDARY", 150, "MYTHIC", 75));
+        map.put("COMMON", cost("COMMON", 5));
+        map.put("UNCOMMON", cost("UNCOMMON", 5, "COMMON", 3));
+        map.put("RARE", cost("RARE", 5, "UNCOMMON", 3));
+        map.put("EPIC", cost("EPIC", 5, "RARE", 3));
+        map.put("LEGENDARY", cost("LEGENDARY", 5, "EPIC", 3));
+        map.put("MYTHIC", cost("MYTHIC", 5, "LEGENDARY", 3));
+        return map;
+    }
+
+
+    private static Map<String, Map<String, Integer>> defaultRandomCosts() {
+        Map<String, Map<String, Integer>> map = new LinkedHashMap<>();
+        map.put("COMMON", cost("COMMON", 2));
+        map.put("UNCOMMON", cost("UNCOMMON", 2));
+        map.put("RARE", cost("RARE", 2));
+        map.put("EPIC", cost("EPIC", 2));
+        map.put("LEGENDARY", cost("LEGENDARY", 2));
+        map.put("MYTHIC", cost("MYTHIC", 2));
         return map;
     }
 
@@ -165,8 +195,19 @@ public final class TMConfig {
         return map;
     }
 
-    private static Root defaultRoot() { Root root = new Root(); root.costs = defaultCosts(); return root; }
     private static void saveRarities(Map<String, List<String>> data) { try (FileWriter writer = new FileWriter(RARITY_FILE)) { GSON.toJson(data, writer); } catch (Exception e) { e.printStackTrace(); } }
-    private static void saveCosts(Map<String, Map<String, Integer>> data) { try (FileWriter writer = new FileWriter(COST_FILE)) { Root root = new Root(); root.costs = data; GSON.toJson(root, writer); } catch (Exception e) { e.printStackTrace(); } }
-    public static class Root { public Map<String, Map<String, Integer>> costs = new LinkedHashMap<>(); }
+    private static void saveCosts(Map<String, Map<String, Integer>> selected, Map<String, Map<String, Integer>> random) {
+        try (FileWriter writer = new FileWriter(COST_FILE)) {
+            Root root = new Root();
+            root.selectedCosts = selected;
+            root.randomCosts = random;
+            GSON.toJson(root, writer);
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+    public static class Root {
+        /** Legacy field. If present, it is migrated into selectedCosts on load. */
+        public Map<String, Map<String, Integer>> costs = new LinkedHashMap<>();
+        public Map<String, Map<String, Integer>> selectedCosts = new LinkedHashMap<>();
+        public Map<String, Map<String, Integer>> randomCosts = new LinkedHashMap<>();
+    }
 }

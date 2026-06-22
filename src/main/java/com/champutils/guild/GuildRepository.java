@@ -305,8 +305,15 @@ public final class GuildRepository {
         if (columnExists(connection, "guild_invites", "invited_player_uuid")) {
             columns.add("invited_player_uuid"); values.add(targetUuid);
         }
-        if (columnExists(connection, "guild_invites", "invited_profile_id")) {
-            columns.add("invited_profile_id"); values.add(targetUuid);
+        // Do NOT mirror account/player UUIDs into invited_profile_id. On older beta schemas
+        // this column references player_profiles(id), so writing a player UUID here violates
+        // guild_invites_invited_profile_id_fkey. The canonical invite target is invited_uuid.
+        // Leave invited_profile_id null when it exists.
+        if (columnExists(connection, "guild_invites", "invited_profile_id") && isColumnNotNullable(connection, "guild_invites", "invited_profile_id")) {
+            UUID targetProfileId = findActiveProfileIdForPlayer(connection, targetUuid);
+            if (targetProfileId != null) {
+                columns.add("invited_profile_id"); values.add(targetProfileId);
+            }
         }
         if (columnExists(connection, "guild_invites", "inviter_player_uuid")) {
             columns.add("inviter_player_uuid"); values.add(inviterUuid);
@@ -333,7 +340,8 @@ public final class GuildRepository {
         List<String> deletePredicates = new ArrayList<>();
         deletePredicates.add("invited_uuid = ?");
         if (columnExists(connection, "guild_invites", "invited_player_uuid")) deletePredicates.add("invited_player_uuid = ?");
-        if (columnExists(connection, "guild_invites", "invited_profile_id")) deletePredicates.add("invited_profile_id = ?");
+        // invited_profile_id is legacy/profile-scoped; account-based guild invites use invited_uuid.
+        // Do not compare it to the player UUID.
         String deleteSql = "delete from guild_invites where guild_id = ? and (" + String.join(" or ", deletePredicates) + ")";
         try (PreparedStatement delete = connection.prepareStatement(deleteSql)) {
             delete.setObject(1, guildId);
@@ -353,6 +361,41 @@ public final class GuildRepository {
             }
             invite.executeUpdate();
         }
+    }
+
+
+    private static boolean isColumnNotNullable(java.sql.Connection connection, String table, String column) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select is_nullable from information_schema.columns where table_schema = current_schema() and table_name = ? and column_name = ?"
+        )) {
+            statement.setString(1, table);
+            statement.setString(2, column);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() && "NO".equalsIgnoreCase(rs.getString("is_nullable"));
+            }
+        }
+    }
+
+    private static UUID findActiveProfileIdForPlayer(java.sql.Connection connection, UUID playerUuid) {
+        String[] sqls = new String[] {
+                "select id from player_profiles where player_uuid = ? order by last_used_at desc nulls last, created_at desc nulls last limit 1",
+                "select id from player_profiles where player_id = ? order by created_at desc nulls last limit 1",
+                "select id from player_profiles where owner_uuid = ? order by created_at desc nulls last limit 1"
+        };
+        for (String sql : sqls) {
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, playerUuid);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        Object value = rs.getObject(1);
+                        if (value instanceof UUID) return (UUID) value;
+                    }
+                }
+            } catch (Exception ignored) {
+                // Live beta schemas have varied profile owner column names. Try the next known shape.
+            }
+        }
+        return null;
     }
 
     public static void acceptInvite(UUID playerUuid, String playerName, Callback callback) {
@@ -1053,7 +1096,8 @@ public final class GuildRepository {
                 executeQuietly(connection, "alter table guild_invites alter column invited_player_uuid drop not null");
             }
             if (columnExists(connection, "guild_invites", "invited_profile_id")) {
-                executeQuietly(connection, "update guild_invites set invited_uuid = invited_profile_id where invited_uuid is null and invited_profile_id is not null");
+                // invited_profile_id belongs to the old profile-based schema and may have an FK to player_profiles(id).
+                // Keep it nullable and never use it as the account UUID source for new invites.
                 executeQuietly(connection, "alter table guild_invites alter column invited_profile_id drop not null");
             }
             if (columnExists(connection, "guild_invites", "inviter_player_uuid")) {

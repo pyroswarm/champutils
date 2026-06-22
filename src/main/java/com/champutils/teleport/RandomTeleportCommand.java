@@ -53,15 +53,16 @@ public final class RandomTeleportCommand {
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
 
-    private static final int ATTEMPTS_PER_TICK = 2;
+    private static final int ATTEMPTS_PER_TICK = 1;
     private static final int BIOME_ATTEMPTS_PER_TICK = 1;
-    // Normal RTP still never generates chunks. Biome-specific RTP is allowed to generate very slowly
-    // because accuracy matters more there, but generation is globally throttled and hard-capped.
+    // RTP is allowed to generate/check a small number of chunks again.
+    // The previous zero budget made RTP skip every unloaded candidate and fail in fresh worlds.
+    // Keep this intentionally tiny: at most one async chunk request globally, with a per-search cap.
     private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 1;
-    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 120;
-    private static final int MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH = 360;
-    private static final int RTP_CHUNK_GENERATION_COOLDOWN_TICKS = 100;
-    private static final int BIOME_CHUNK_GENERATION_COOLDOWN_TICKS = 140;
+    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 24;
+    private static final int MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH = 60;
+    private static final int RTP_CHUNK_GENERATION_COOLDOWN_TICKS = 20;
+    private static final int BIOME_CHUNK_GENERATION_COOLDOWN_TICKS = 40;
     private static final int MAX_ACTIVE_RTP_SEARCHES = 1;
     private static final int BORDER_PADDING = 32;
     private static final int NETHER_MAX_SAFE_Y = 119;
@@ -80,19 +81,11 @@ public final class RandomTeleportCommand {
             dispatcher.register(literal("rtp")
                     .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null))
                     .then(literal("overworld")
-                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null))
-                            .then(argument("biome", StringArgumentType.greedyString())
-                                    .suggests((context, builder) -> suggestBiomes(context.getSource(), builder, "overworld"))
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", StringArgumentType.getString(ctx, "biome")))))
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "overworld", null)))
                     .then(literal("nether")
-                            .executes(ctx -> rtpSurvival(ctx.getSource(), "nether", null))
-                            .then(argument("biome", StringArgumentType.greedyString())
-                                    .suggests((context, builder) -> suggestBiomes(context.getSource(), builder, "nether"))
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "nether", StringArgumentType.getString(ctx, "biome")))))
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "nether", null)))
                     .then(literal("end")
-                            .executes(ctx -> rtpSurvival(ctx.getSource(), "end", null))
-                            .then(argument("biome", StringArgumentType.greedyString())
-                                    .executes(ctx -> rtpSurvival(ctx.getSource(), "end", StringArgumentType.getString(ctx, "biome"))))));
+                            .executes(ctx -> rtpSurvival(ctx.getSource(), "end", null))));
 
             dispatcher.register(literal("rtpcooldown")
                     .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
@@ -133,7 +126,7 @@ public final class RandomTeleportCommand {
 
 
     private static int rtpUsage(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("Use /rtp for overworld, /rtp nether [biome], or /rtp end. Example: /rtp nether Crimson Forest").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("Use /rtp for overworld, /rtp nether, or /rtp end. Biome-specific RTP is disabled to protect server performance.").withStyle(ChatFormatting.YELLOW), false);
         return 1;
     }
 
@@ -271,7 +264,11 @@ public final class RandomTeleportCommand {
         ServerLevel startLevel = player.serverLevel();
         String currentDimension = startLevel.dimension().location().toString();
         String normalizedType = SurvivalWorldManager.normalizeType(survivalType);
-        ResourceKey<Biome> desiredBiome = resolveBiome(player, biomeName);
+        if (biomeName != null && !biomeName.trim().isBlank()) {
+            player.sendSystemMessage(Component.literal("Biome-specific RTP is disabled for now because it is too laggy. Use /rtp " + normalizedType + " for a normal random teleport.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        ResourceKey<Biome> desiredBiome = null;
         if (biomeName != null && desiredBiome == null) {
             return 0;
         }
@@ -514,6 +511,9 @@ public final class RandomTeleportCommand {
             return !"nether".equalsIgnoreCase(task.worldType);
         }
 
+        BlockState feetState = level.getBlockState(feet);
+        BlockState headState = level.getBlockState(feet.above());
+
         if (groundState.is(Blocks.BEDROCK)
                 || groundState.is(Blocks.LAVA)
                 || groundState.is(Blocks.MAGMA_BLOCK)
@@ -521,11 +521,21 @@ public final class RandomTeleportCommand {
                 || groundState.is(Blocks.CAMPFIRE)
                 || groundState.is(Blocks.SOUL_CAMPFIRE)
                 || groundState.is(Blocks.FIRE)
-                || groundState.is(Blocks.SOUL_FIRE)) {
+                || groundState.is(Blocks.SOUL_FIRE)
+                || feetState.is(Blocks.FIRE)
+                || feetState.is(Blocks.SOUL_FIRE)
+                || feetState.is(Blocks.CAMPFIRE)
+                || feetState.is(Blocks.SOUL_CAMPFIRE)
+                || headState.is(Blocks.FIRE)
+                || headState.is(Blocks.SOUL_FIRE)
+                || headState.is(Blocks.CAMPFIRE)
+                || headState.is(Blocks.SOUL_CAMPFIRE)) {
             return false;
         }
 
-        return !groundState.isAir();
+        // Require real ground directly under the player. This prevents RTP from choosing
+        // an air column or a spot where the player immediately falls to death.
+        return !groundState.isAir() && groundState.blocksMotion();
     }
 
     private static boolean dimensionMatchesType(ServerLevel level, String normalizedType) {

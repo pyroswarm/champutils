@@ -229,11 +229,12 @@ public final class TMManager {
 
     public static Map<String, Integer> randomCostForRarity(String rawRarity) {
         ensureRegistryReady();
-        return new LinkedHashMap<>(TMConfig.costs.getOrDefault(TMConfig.normalizeRarity(rawRarity), Map.of()));
+        return new LinkedHashMap<>(TMConfig.randomCosts.getOrDefault(TMConfig.normalizeRarity(rawRarity), Map.of()));
     }
 
     public static Map<String, Integer> specificCostForRarity(String rawRarity) {
-        return multiplyCost(randomCostForRarity(rawRarity), 2);
+        ensureRegistryReady();
+        return new LinkedHashMap<>(TMConfig.selectedCosts.getOrDefault(TMConfig.normalizeRarity(rawRarity), Map.of()));
     }
 
     public static Map<String, Integer> specificCostForMove(String rawMove) {

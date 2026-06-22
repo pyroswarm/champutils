@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 public final class XpLockManager {
 
     public static final String LOCK_KEY = "champutils_xp_locked";
+    public static final String LEVEL_CAP_KEY = "champutils_level_cap";
 
     private XpLockManager() {
     }
@@ -15,10 +16,32 @@ public final class XpLockManager {
         }
 
         try {
-            return pokemon.getPersistentData().getBoolean(LOCK_KEY);
+            if (pokemon.getPersistentData().getBoolean(LOCK_KEY)) return true;
+            int cap = getLevelCap(pokemon);
+            return cap > 0 && pokemon.getLevel() >= cap;
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+
+    public static int getLevelCap(Pokemon pokemon) {
+        if (pokemon == null) return 0;
+        try {
+            return pokemon.getPersistentData().getInt(LEVEL_CAP_KEY);
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    public static void setLevelCap(Pokemon pokemon, int level) {
+        if (pokemon == null) return;
+        pokemon.getPersistentData().putInt(LEVEL_CAP_KEY, Math.max(1, Math.min(100, level)));
+    }
+
+    public static void clearLevelCap(Pokemon pokemon) {
+        if (pokemon == null) return;
+        pokemon.getPersistentData().remove(LEVEL_CAP_KEY);
     }
 
     public static void lock(Pokemon pokemon) {

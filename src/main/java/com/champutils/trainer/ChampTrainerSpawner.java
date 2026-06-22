@@ -3,6 +3,7 @@ package com.champutils.trainer;
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
 import com.champutils.gym.GymNpcPartyBuilder;
+import com.champutils.gym.GymNpcNameUtil;
 import com.champutils.gym.GymRegistry;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.worldevent.WorldEventConfig;
@@ -101,6 +102,7 @@ public final class ChampTrainerSpawner {
 
         GymRegistry.bindGym(npc.getUUID(), badge);
         GymNpcPartyBuilder.clearStoredGymTeam(npc);
+        GymNpcNameUtil.apply(npc, badge);
         ChampTrainerProtectionManager.track(npc, trainerId, TrainerKind.GYM, pos, yaw);
 
         return SpawnResult.ok("Spawned and auto-bound gym trainer " + trainerId + " -> " + badge.name(), npc, TrainerKind.GYM);

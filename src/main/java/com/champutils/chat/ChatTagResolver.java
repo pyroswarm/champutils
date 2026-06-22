@@ -3,6 +3,7 @@ package com.champutils.chat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
@@ -64,7 +65,10 @@ public final class ChatTagResolver {
         if (selectedTitle != null && !selectedTitle.isBlank()) {
             String titleDisplay = com.champutils.cosmetic.TitleManager.displayFor(player.getUUID(), selectedTitle);
             if (titleDisplay != null && !titleDisplay.isBlank()) {
-                result.append(legacy(titleDisplay)).append(Component.literal(" "));
+                MutableComponent titleComponent = legacy(titleDisplay);
+                Component hover = com.champutils.cosmetic.TitleConfig.hoverText(selectedTitle);
+                titleComponent.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
+                result.append(titleComponent).append(Component.literal(" "));
             }
         }
 

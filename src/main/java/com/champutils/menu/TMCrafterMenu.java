@@ -44,7 +44,7 @@ public final class TMCrafterMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal("§bTM Crafter"))
                 .addLoreLine(Component.literal("§7Craft TMs from a tier"))
-                .addLoreLine(Component.literal("§7or pick the exact TM for §e2x§7 cost."))
+                .addLoreLine(Component.literal("§7or pick the exact TM for a higher targeted cost."))
                 .addLoreLine(Component.literal("§8Costs use your stored fragments.")));
 
         for (int i = 0; i < TMConfig.RARITIES.size() && i < RARITY_SLOTS.length; i++) {
@@ -109,7 +109,7 @@ public final class TMCrafterMenu {
         gui.setSlot(49, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§bExact TM Selection"))
-                .addLoreLine(Component.literal("§7Specific crafting costs §e2x§7 the random craft."))
+                .addLoreLine(Component.literal("§7Specific crafting uses the selected TM cost."))
                 .addLoreLine(Component.literal("§7Page §f" + (safePage + 1) + "§7/§f" + (maxPage + 1))));
         if (safePage < maxPage) {
             gui.setSlot(53, new GuiElementBuilder(Items.ARROW)

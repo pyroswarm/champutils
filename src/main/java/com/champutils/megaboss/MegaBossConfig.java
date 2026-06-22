@@ -148,7 +148,7 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 7;
+        public int configVersion = 8;
         public boolean enabled = true;
         public int checkIntervalTicks = 1200;
         /**
@@ -175,9 +175,9 @@ public final class MegaBossConfig {
 
         /**
          * Per eligible player spawn roll each check. Previous behavior was effectively 100% until caps were reached.
-         * 0.65 makes mega bosses a little rarer without making them feel gone.
+         * With a 60 second check interval, 0.125 averages one eligible-player spawn roll success every 8 minutes.
          */
-        public double spawnChancePerPlayerCheck = 0.08D;
+        public double spawnChancePerPlayerCheck = 0.125D;
 
         public String nameTagFormat = "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}";
         public int minDistanceFromPlayer = 32;

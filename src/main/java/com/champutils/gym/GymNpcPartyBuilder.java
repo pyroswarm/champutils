@@ -119,6 +119,27 @@ public class GymNpcPartyBuilder {
         }
     }
 
+
+    public static Set<String> allowedSpeciesFor(BadgeType badge) {
+        GymConfig.GymDefinition gym = GymConfig.getGym(badge);
+        if (gym == null) return Set.of();
+        PoolSelection configured = configuredPool(gym);
+        Set<String> allowed = new HashSet<>();
+        for (GymConfig.PokemonSet set : configured.pool) {
+            String species = speciesKey(set == null ? null : set.species);
+            if (!species.isBlank()) allowed.add(species);
+        }
+        return allowed;
+    }
+
+    public static String speciesKey(String species) {
+        if (species == null) return "";
+        String clean = species.trim().toLowerCase(Locale.ROOT);
+        if (clean.isBlank()) return "";
+        if (clean.contains(":")) clean = clean.substring(clean.indexOf(':') + 1);
+        return clean.replaceAll("[^a-z0-9_]", "");
+    }
+
     private static List<GymConfig.PokemonSet> selectCompetitiveTeam(BadgeType badge, GymConfig.GymDefinition gym, int partySize) {
         PoolSelection selection = configuredPool(gym);
         List<GymConfig.PokemonSet> pool = selection.pool;

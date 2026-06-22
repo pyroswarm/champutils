@@ -106,7 +106,10 @@ public final class TeleportConfig {
             return false;
         }
 
-        return SafeTeleportManager.teleport(player, level, location.x, location.y, location.z, location.yaw, location.pitch);
+        // Admin-configured spawn/warps should be exact destinations. Do not run them through
+        // generic random/back safety checks because those can reject valid spawn, arena,
+        // territory, or protected-dimension locations and make /warp feel randomly broken.
+        return SafeTeleportManager.teleport(player, level, location.x, location.y, location.z, location.yaw, location.pitch, true, false);
     }
 
     public static TeleportLocation getSpawn() {

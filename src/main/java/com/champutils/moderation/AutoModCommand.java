@@ -10,6 +10,7 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -119,6 +120,54 @@ public final class AutoModCommand {
                                             context.getSource().sendSuccess(() -> Component.literal(changed ? "Unbanned " + displayName(target, targetName) + "." : displayName(target, targetName) + " had no active ban, but the unban was logged."), true);
                                             return 1;
                                         }))))
+
+                .then(Commands.literal("vanish")
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.vanish"))
+                        .executes(context -> {
+                            ServerPlayer player = context.getSource().getPlayerOrException();
+                            boolean invisible = !player.isInvisible();
+                            player.setInvisible(invisible);
+                            player.setSilent(invisible);
+                            context.getSource().sendSuccess(() -> Component.literal(invisible ? "Vanish enabled." : "Vanish disabled."), true);
+                            return 1;
+                        }))
+                .then(Commands.literal("tp")
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.tp"))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(context, "player");
+                                    ServerPlayer actor = context.getSource().getPlayerOrException();
+                                    actor.teleportTo(target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+                                    context.getSource().sendSuccess(() -> Component.literal("Teleported to " + target.getGameProfile().getName() + "."), true);
+                                    return 1;
+                                })))
+                .then(Commands.literal("invsee")
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.invsee"))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(context, "player");
+                                    context.getSource().getServer().getCommands().performPrefixedCommand(context.getSource(), "invsee " + target.getGameProfile().getName());
+                                    return 1;
+                                })))
+                .then(Commands.literal("pokesee")
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.pokesee"))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(context, "player");
+                                    context.getSource().getServer().getCommands().performPrefixedCommand(context.getSource(), "pokesee " + target.getGameProfile().getName());
+                                    return 1;
+                                })))
+                .then(Commands.literal("spectate")
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.spectate"))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(context, "player");
+                                    ServerPlayer actor = context.getSource().getPlayerOrException();
+                                    actor.setGameMode(GameType.SPECTATOR);
+                                    actor.teleportTo(target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+                                    context.getSource().sendSuccess(() -> Component.literal("Spectating " + target.getGameProfile().getName() + "."), true);
+                                    return 1;
+                                })))
                 .then(Commands.literal("history")
                         .requires(source -> PermissionUtil.has(source, HISTORY))
                         .then(Commands.argument("player", StringArgumentType.word())
@@ -161,7 +210,7 @@ public final class AutoModCommand {
     private static boolean canUseAny(CommandSourceStack source) {
         return PermissionUtil.has(source, WARN) || PermissionUtil.has(source, KICK) || PermissionUtil.has(source, MUTE)
                 || PermissionUtil.has(source, UNMUTE) || PermissionUtil.has(source, BAN) || PermissionUtil.has(source, UNBAN)
-                || PermissionUtil.has(source, HISTORY) || PermissionUtil.has(source, "champutils.admin") || PermissionUtil.has(source, "champutils.staff");
+                || PermissionUtil.has(source, HISTORY) || PermissionUtil.has(source, "champutils.mod.vanish") || PermissionUtil.has(source, "champutils.mod.tp") || PermissionUtil.has(source, "champutils.mod.invsee") || PermissionUtil.has(source, "champutils.mod.pokesee") || PermissionUtil.has(source, "champutils.mod.spectate") || PermissionUtil.has(source, "champutils.admin") || PermissionUtil.has(source, "champutils.staff");
     }
 
     private static ServerPlayer actor(CommandSourceStack source) {

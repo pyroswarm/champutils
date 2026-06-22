@@ -63,7 +63,7 @@ public final class TMCommand {
     }
 
     private static int usage(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("TM commands: /tms teach <partySlot> [replaceMoveSlot], then click Confirm in chat. Admin: /tms give <player> <move> [amount], /tms list, /tms rarity <move>. Craft: /tms craft <rarity> for a random TM, /tms craftmove <move> for an exact TM at 2x cost"), false);
+        source.sendSuccess(() -> Component.literal("TM commands: /tms teach <partySlot> [replaceMoveSlot], then click Confirm in chat. Admin: /tms give <player> <move> [amount], /tms list, /tms rarity <move>. Craft: /tms craft <rarity> for a random TM, /tms craftmove <move> for an exact TM at the same cost"), false);
         return 1;
     }
 

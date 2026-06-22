@@ -7,6 +7,7 @@ import com.champutils.buff.BuffManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
 
 import java.io.File;
 import java.io.FileReader;
@@ -170,6 +171,35 @@ public final class TitleConfig {
             if (configured == type) total += Math.max(0.0D, titleBuff.amount);
         }
         return total;
+    }
+
+
+    public static Component hoverText(String id) {
+        TitleDef def = get(id);
+        if (def == null) {
+            String wf = com.champutils.worldfirst.WorldFirstManager.titleDisplay(id);
+            if (wf != null) {
+                return com.champutils.chat.ChatTagResolver.legacy("&6World First Title\n&7Obtained by completing a server world first.");
+            }
+            return Component.literal("Title: " + (id == null ? "Unknown" : id));
+        }
+        StringBuilder text = new StringBuilder();
+        text.append("&6").append(def.name == null ? id : def.name).append("\n");
+        text.append("&7Obtained: &f").append(def.description == null || def.description.isBlank() ? describeUnlock(def.unlock) : def.description).append("\n");
+        String passive = def.passiveDescription == null || def.passiveDescription.isBlank() ? buffText(def) : def.passiveDescription;
+        text.append("&7Passive: &a").append(passive);
+        return com.champutils.chat.ChatTagResolver.legacy(text.toString());
+    }
+
+    private static String describeUnlock(UnlockCondition unlock) {
+        if (unlock == null || unlock.type == null || unlock.type.isBlank()) return "Special unlock.";
+        String type = unlock.type.trim().toLowerCase(Locale.ROOT);
+        if ("battle_win".equals(type)) return unlock.battleType == null || unlock.battleType.isBlank() ? "Win battles." : "Win a " + pretty(unlock.battleType) + " battle.";
+        if ("catch".equals(type)) return "Catch Pokémon.";
+        if ("boss_win".equals(type)) return "Defeat a boss.";
+        if ("profession_level".equals(type)) return "Reach " + pretty(unlock.profession == null ? "profession" : unlock.profession) + " level " + Math.max(1, unlock.level) + ".";
+        if ("manual".equals(type)) return "Granted manually or from a special server achievement.";
+        return pretty(type) + " unlock.";
     }
 
     public static String buffText(TitleDef def) {

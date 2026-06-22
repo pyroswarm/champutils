@@ -16,6 +16,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -234,8 +235,22 @@ public final class MegaBossBattleListener {
     }
 
     private static void giveItem(ServerPlayer player, String itemId, int amount) {
-        if (player == null || player.getServer() == null || itemId == null || itemId.isBlank() || amount <= 0) return;
-        player.getServer().getCommands().performPrefixedCommand(player.getServer().createCommandSourceStack().withSuppressedOutput(), "give " + player.getName().getString() + " " + itemId + " " + amount);
+        if (player == null || itemId == null || itemId.isBlank() || amount <= 0) return;
+        try {
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+            if (item == null) return;
+            ItemStack stack = new ItemStack(item, amount);
+            boolean added = player.getInventory().add(stack);
+            if (!added || !stack.isEmpty()) {
+                player.drop(stack.copy(), false);
+                stack.setCount(0);
+                player.sendSystemMessage(Component.literal("§eYour inventory was full, so your Mega Stone dropped at your feet."));
+            }
+        } catch (Throwable t) {
+            if (player.getServer() != null) {
+                player.getServer().getCommands().performPrefixedCommand(player.getServer().createCommandSourceStack().withSuppressedOutput(), "give " + player.getName().getString() + " " + itemId + " " + amount);
+            }
+        }
     }
 
     private static Entity findMegaBossEntity(Iterable<?> actors) {

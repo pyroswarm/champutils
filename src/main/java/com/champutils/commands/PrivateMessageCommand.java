@@ -18,23 +18,30 @@ public final class PrivateMessageCommand {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            var node = Commands.literal("msg")
+            var msgNode = dispatcher.register(Commands.literal("msg")
                     .then(Commands.argument("player", StringArgumentType.word())
                             .then(Commands.argument("message", StringArgumentType.greedyString())
                                     .executes(ctx -> send(
                                             ctx.getSource().getPlayerOrException(),
                                             StringArgumentType.getString(ctx, "player"),
                                             StringArgumentType.getString(ctx, "message")
-                                    ))));
-            dispatcher.register(node);
-            dispatcher.register(Commands.literal("pm").redirect(dispatcher.getRoot().getChild("msg")));
-            dispatcher.register(Commands.literal("r")
+                                    )))));
+            dispatcher.register(Commands.literal("pm").redirect(msgNode));
+            dispatcher.register(Commands.literal("tell").redirect(msgNode));
+            dispatcher.register(Commands.literal("w").redirect(msgNode));
+
+            var replyNode = dispatcher.register(Commands.literal("r")
                     .then(Commands.argument("message", StringArgumentType.greedyString())
                             .executes(ctx -> reply(
                                     ctx.getSource().getPlayerOrException(),
                                     StringArgumentType.getString(ctx, "message")
                             ))));
-            dispatcher.register(Commands.literal("reply").redirect(dispatcher.getRoot().getChild("r")));
+            dispatcher.register(Commands.literal("reply")
+                    .then(Commands.argument("message", StringArgumentType.greedyString())
+                            .executes(ctx -> reply(
+                                    ctx.getSource().getPlayerOrException(),
+                                    StringArgumentType.getString(ctx, "message")
+                            ))));
         });
     }
 
@@ -70,14 +77,11 @@ public final class PrivateMessageCommand {
     }
 
     private static void deliver(ServerPlayer sender, ServerPlayer target, String message) {
+        // /r should target the player who most recently messaged you. Sending a message should not
+        // steal your incoming reply target unless the target replies back.
         LAST_REPLY.put(target.getUUID(), sender.getUUID());
-        LAST_REPLY.put(sender.getUUID(), target.getUUID());
-        Component toTarget = Component.literal("[MSG] ").withStyle(ChatFormatting.DARK_PURPLE)
-                .append(Component.literal(sender.getGameProfile().getName() + " -> you: ").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .append(Component.literal(message).withStyle(ChatFormatting.WHITE));
-        Component toSender = Component.literal("[MSG] ").withStyle(ChatFormatting.DARK_PURPLE)
-                .append(Component.literal("you -> " + target.getGameProfile().getName() + ": ").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .append(Component.literal(message).withStyle(ChatFormatting.WHITE));
+        Component toTarget = Component.literal("§d[MSG] §d" + sender.getGameProfile().getName() + " -> you: §d" + message);
+        Component toSender = Component.literal("§d[MSG] §dyou -> " + target.getGameProfile().getName() + ": §d" + message);
         target.sendSystemMessage(toTarget);
         sender.sendSystemMessage(toSender);
     }

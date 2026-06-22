@@ -9,6 +9,7 @@ import com.champutils.badge.BadgeUnlockManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
+import com.champutils.cosmetic.TitleManager;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
@@ -241,40 +242,17 @@ public class GymBattleHandler {
                             badge
                     );
 
-            if(
-                    !awarded
-            ){
-
-                winner.sendSystemMessage(
-                        Component.literal(
-                                "§7You already earned this badge."
-                        )
-                );
-
-                return;
+            if(!awarded){
+                winner.sendSystemMessage(Component.literal("§7You already earned this badge."));
             }
 
+            // Always refresh progression/title unlocks after a gym victory. This repairs players who
+            // already had the badge before title SQL/config logic was fixed.
+            BadgeUnlockManager.processUnlocks(winner);
+            GymProgressRepository.recordAttempt(winner, badge, true);
+            unlockGymTitles(winner, badge);
 
-
-/* =========================
- FEATURE UNLOCKS
-========================= */
-
-            BadgeUnlockManager.processUnlocks(
-                    winner
-            );
-
-
-
-/* =========================
- PROFILE SQL GYM PROGRESSION
-========================= */
-
-            GymProgressRepository.recordAttempt(
-                    winner,
-                    badge,
-                    true
-            );
+            if(!awarded){ return; }
 
 
 
@@ -364,6 +342,27 @@ public class GymBattleHandler {
 /* =========================
  SUBTITLE TEXT
 ========================= */
+
+    private static void unlockGymTitles(ServerPlayer player, BadgeType badge) {
+        if (player == null || badge == null) return;
+        TitleManager.unlock(player, "champion_spark");
+        switch (badge) {
+            case BOULDER -> TitleManager.unlock(player, "boulder_badge");
+            case CASCADE -> TitleManager.unlock(player, "cascade_badge");
+            case THUNDER -> TitleManager.unlock(player, "thunder_badge");
+            case RAINBOW -> TitleManager.unlock(player, "rainbow_badge");
+            case SOUL -> TitleManager.unlock(player, "soul_badge");
+            case MARSH -> TitleManager.unlock(player, "marsh_badge");
+            case VOLCANO -> TitleManager.unlock(player, "volcano_badge");
+            case EARTH -> TitleManager.unlock(player, "earth_badge");
+            case LORELEI -> TitleManager.unlock(player, "lorelei_badge");
+            case BRUNO -> TitleManager.unlock(player, "bruno_badge");
+            case AGATHA -> TitleManager.unlock(player, "agatha_badge");
+            case LANCE -> TitleManager.unlock(player, "lance_badge");
+            case CHAMPION -> TitleManager.unlock(player, "champion");
+        }
+        if (GymProgressRepository.defeatedCount(player) >= 8) TitleManager.unlock(player, "gym_champion");
+    }
 
     private static String titleSubtitle(
             BadgeType badge

@@ -9,7 +9,10 @@
     "IronmanItemEntityMixin",
     "IronmanPlayerDropMixin",
     "IslanderPlayerSpawnerMixin",
-    "FluidBlockMixin"
+    "FluidBlockMixin",
+    "BlockItemPlacementProtectionMixin",
+    "IronmanContainerMenuMixin",
+    "ClaimFluidFlowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

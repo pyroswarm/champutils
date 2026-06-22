@@ -190,24 +190,39 @@ public static void handleJoin(ServerPlayer player) {
         return;
     }
 
-    try {
-        Connection connection = DatabaseManager.getConnection();
+    UUID playerUuid = player.getUUID();
+    String playerName = player.getGameProfile().getName();
+    clearActiveForMenu(player);
+
+    // Player joins used to do ensurePlayerRow, LuckPerms limit sync, profile list, and default
+    // creation on the server thread. That made joins/profile-menu opening spike ticks. Keep the
+    // network/database prep in the database executor and only touch UI/player state back on the
+    // server thread.
+    final boolean[] createdDefault = new boolean[] { false };
+    DatabaseManager.runAsync("async profile join prep", connection -> {
+        long start = System.currentTimeMillis();
         ensurePlayerRow(connection, player);
         syncLimitFromLuckPerms(connection, player);
 
-        if (listBlocking(player).isEmpty()) {
+        if (countLiveProfiles(connection, playerUuid) == 0) {
             createProfile(connection, player, "Default", ProfileGameMode.NORMAL, null, false);
+            createdDefault[0] = true;
+        }
+        System.out.println("[PROFILE-TIMING] async join profile prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+    }).whenComplete((ignored, error) -> player.server.execute(() -> {
+        if (player.hasDisconnected()) return;
+        if (error != null) {
+            error.printStackTrace();
+            ACTIVE.put(playerUuid, new ProfileRecord(playerUuid, playerUuid, "Fallback", ProfileGameMode.NORMAL, null, true, false, null));
+            player.sendSystemMessage(Component.literal("Could not prepare your SQL profiles. Check console/database logs.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (createdDefault[0]) {
             player.sendSystemMessage(Component.literal("Created your first profile: Default.").withStyle(ChatFormatting.GREEN));
         }
-
-        clearActiveForMenu(player);
-        player.server.execute(() -> ProfileMainMenuManager.enter(player, false));
-        player.server.execute(() -> ProfileSelectionMenu.open(player));
-    } catch (Exception e) {
-        e.printStackTrace();
-        ACTIVE.put(player.getUUID(), new ProfileRecord(player.getUUID(), player.getUUID(), "Fallback", ProfileGameMode.NORMAL, null, true, false, null));
-        player.sendSystemMessage(Component.literal("Could not prepare your SQL profiles. Check console/database logs.").withStyle(ChatFormatting.RED));
-    }
+        ProfileMainMenuManager.enter(player, false);
+        ProfileSelectionMenu.open(player);
+    }));
 }
 
 public static void clearActiveForMenu(ServerPlayer player) {

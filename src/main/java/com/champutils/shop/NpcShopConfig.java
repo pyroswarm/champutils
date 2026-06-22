@@ -113,7 +113,7 @@ public final class NpcShopConfig {
             if (entry.price < 0L) entry.price = 0L;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
-            if ("tool".equalsIgnoreCase(entry.type) && "COMMON".equalsIgnoreCase(entry.rarity)) entry.price = 50L;
+            if ("tool".equalsIgnoreCase(entry.type) && "COMMON".equalsIgnoreCase(entry.rarity)) entry.price = commonToolPrice();
             if (entry.shinyChance < 0.0D) entry.shinyChance = 0.0D;
             if (entry.legendaryChance < 0.0D) entry.legendaryChance = 0.0D;
             if (entry.ultraBeastChance < 0.0D) entry.ultraBeastChance = 0.0D;
@@ -127,6 +127,19 @@ public final class NpcShopConfig {
 
         upsertDefaultEntry("genesisforms:mega_bracelet", item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
+
+        upsertDefaultEntry("daycareplus:copper_incubator", item(30, "§6Copper Incubator", "daycareplus:copper_incubator", "daycareplus:copper_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(100L),
+                "§7DaycarePlus incubator tier: Copper."));
+        upsertDefaultEntry("daycareplus:iron_incubator", item(31, "§fIron Incubator", "daycareplus:iron_incubator", "daycareplus:iron_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(250L),
+                "§7DaycarePlus incubator tier: Iron."));
+        upsertDefaultEntry("daycareplus:gold_incubator", item(32, "§eGold Incubator", "daycareplus:gold_incubator", "daycareplus:gold_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(500L),
+                "§7DaycarePlus incubator tier: Gold."));
+        upsertDefaultEntry("daycareplus:diamond_incubator", item(33, "§bDiamond Incubator", "daycareplus:diamond_incubator", "daycareplus:diamond_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
+                "§7DaycarePlus incubator tier: Diamond."));
+        upsertDefaultEntry("daycareplus:netherite_incubator", item(34, "§8Netherite Incubator", "daycareplus:netherite_incubator", "daycareplus:netherite_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(5000L),
+                "§7DaycarePlus incubator tier: Netherite."));
+        upsertDefaultEntry("minecraft:netherite_upgrade_smithing_template", item(35, "§dSmithing Template", "minecraft:netherite_upgrade_smithing_template", "minecraft:netherite_upgrade_smithing_template", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
+                "§7Configurable shop smithing template."));
 
         CONFIG.entries.removeIf(entry -> entry != null && "pokemon_crate".equalsIgnoreCase(entry.type == null ? "" : entry.type.trim()));
 
@@ -181,9 +194,9 @@ public final class NpcShopConfig {
         root.entries.add(item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
 
-        root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", 50L));
-        root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", 50L));
-        root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", 50L));
+        root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", commonToolPrice()));
+        root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", commonToolPrice()));
+        root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", commonToolPrice()));
 
         root.entries.add(crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
                 "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));
@@ -193,6 +206,12 @@ public final class NpcShopConfig {
                 "§7Adds 1 Rare Crate credit.", "§7Open it from §f/opencrates§7."));
 
         return root;
+    }
+
+    private static long commonToolPrice() {
+        // Economy values are stored in cents now. Keep common starter tools at 50.00 credits,
+        // even for older npc_shop.json files that still had the pre-decimal value of 50.
+        return com.champutils.economy.EconomyManager.wholeCreditsToCents(50L);
     }
 
     private static ShopEntry item(int slot, String name, String icon, String id, int amount, long price, String... lore) {

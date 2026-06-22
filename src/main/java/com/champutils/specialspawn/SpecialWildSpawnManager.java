@@ -491,6 +491,7 @@ public final class SpecialWildSpawnManager {
     private static boolean isSafeSpawnSpace(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return false;
         if (!Level.isInSpawnableBounds(pos)) return false;
+        if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return false;
         if (!level.getBlockState(pos.below()).isSolid()) return false;
         if (!level.getFluidState(pos).isEmpty() || !level.getFluidState(pos.above()).isEmpty()) return false;
         return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()
@@ -515,6 +516,7 @@ public final class SpecialWildSpawnManager {
             if (!level.getBlockState(pos).isAir() && level.getBlockState(pos).getDestroySpeed(level, pos) < 0) return null;
             if (!level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.above()).getDestroySpeed(level, pos.above()) < 0) return null;
 
+            if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return null;
             if (!level.getBlockState(pos.below()).isSolid() || !level.getFluidState(pos.below()).isEmpty()) {
                 level.setBlock(pos.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
             }

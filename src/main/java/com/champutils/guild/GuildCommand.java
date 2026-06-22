@@ -251,7 +251,20 @@ public final class GuildCommand {
             return 0;
         }
         GuildRepository.acceptInvite(player.getUUID(), player.getGameProfile().getName(), (success, message) ->
-                player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED)))
+                player.server.execute(() -> {
+                    player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    if (success) {
+                        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+                        if (guild != null) {
+                            for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(player.server.getPlayerList().getPlayers(), guild.id)) {
+                                ServerPlayer online = player.server.getPlayerList().getPlayer(member.playerUuid);
+                                if (online != null && !online.getUUID().equals(player.getUUID())) {
+                                    online.sendSystemMessage(Component.literal(player.getGameProfile().getName() + " joined the guild!").withStyle(ChatFormatting.GREEN));
+                                }
+                            }
+                        }
+                    }
+                })
         );
         return 1;
     }

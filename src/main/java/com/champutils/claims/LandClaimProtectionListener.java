@@ -25,6 +25,7 @@ import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.ChestBlock;
@@ -118,8 +119,6 @@ public final class LandClaimProtectionListener {
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
-            if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
-
             BlockPos targetPos = hitResult.getBlockPos();
             BlockState state = level.getBlockState(targetPos);
             ItemStack stack = serverPlayer.getItemInHand(hand);
@@ -147,6 +146,11 @@ public final class LandClaimProtectionListener {
 
             if (stack.getItem() instanceof BlockItem && !LandClaimRepository.canBuild(serverPlayer, claim)) {
                 deny(serverPlayer, "You cannot place blocks in " + claim.ownerName + "'s claim.");
+                return InteractionResult.FAIL;
+            }
+
+            if (state.getBlock() instanceof BedBlock && !LandClaimRepository.canBuild(serverPlayer, claim)) {
+                deny(serverPlayer, "You cannot sleep in " + claim.ownerName + "'s bed.");
                 return InteractionResult.FAIL;
             }
 
@@ -185,6 +189,15 @@ public final class LandClaimProtectionListener {
                 entity.discard();
             }
         });
+    }
+
+
+    public static boolean canPlaceBlock(ServerPlayer player, ServerLevel level, BlockPos placedPos) {
+        if (player == null || level == null || placedPos == null) return true;
+        LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, placedPos);
+        if (claim == null || LandClaimRepository.canBuild(player, claim)) return true;
+        deny(player, "You cannot place blocks in " + claim.ownerName + "'s claim.");
+        return false;
     }
 
     public static void tick(MinecraftServer server) {

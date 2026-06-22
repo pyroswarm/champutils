@@ -86,7 +86,7 @@ public final class GuildBossManager {
             msg(player, "Your guild territory world is not loaded yet. Try again in a moment.", ChatFormatting.RED);
             return;
         }
-        double x = territory.centerX + 0.5D, y = territory.spawnY - 1.0D, z = territory.centerZ + 0.5D;
+        double x = territory.centerX + 0.5D, y = Math.max(territory.spawnY, level.getMinBuildHeight() + 2), z = territory.centerZ + 0.5D;
         String displayName = guildBossDisplayName(theme);
         NPCEntity npc = spawnBossTrainer(level, team, BossConfig.DATA.guildBoss, x, y, z, 180.0F, displayName, "swordtap");
         if (npc != null) {
@@ -440,7 +440,7 @@ public final class GuildBossManager {
         try {
             NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, new Vec3(x, y, z), yaw, name, skinUsername);
             if (npc == null) return null;
-            try { npc.setNoAi(true); } catch (Exception ignored) {}
+            try { npc.setNoAi(false); } catch (Exception ignored) {}
             try { npc.setMovable(false); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try {
@@ -463,7 +463,7 @@ public final class GuildBossManager {
         try {
             NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(level, new Vec3(x, y, z), yaw, name, skinUsername);
             if (npc == null) return null;
-            try { npc.setNoAi(true); } catch (Exception ignored) {}
+            try { npc.setNoAi(false); } catch (Exception ignored) {}
             try { npc.setMovable(false); } catch (Exception ignored) {}
             try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
             try {
@@ -627,14 +627,7 @@ public final class GuildBossManager {
             delivered.add(player.getUUID());
         }
 
-        // Staff monitoring copy. Ops/admins outside the guild can still see guild boss lifecycle messages,
-        // but normal players outside the owning guild never receive them.
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player == null || delivered.contains(player.getUUID())) continue;
-            if (isBossNotificationAdmin(player)) {
-                player.sendSystemMessage(Component.literal("[Guild Boss Monitor] ").withStyle(ChatFormatting.DARK_GRAY).append(message));
-            }
-        }
+        // Guild boss lifecycle messages are intentionally guild-only.
     }
 
     private static boolean isBossNotificationAdmin(ServerPlayer player) {

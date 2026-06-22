@@ -3,6 +3,7 @@ package com.champutils.gym;
 import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeManager;
 import com.champutils.battle.BattleStateManager;
+import com.champutils.battle.BattleContextManager;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 
@@ -12,6 +13,7 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import com.cobblemon.mod.common.battles.BattleBuilder;
 
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
@@ -20,6 +22,12 @@ import net.luckperms.api.model.user.User;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerPlayer;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class GymBattleStartHandler {
 
@@ -143,13 +151,32 @@ NPCBattleActor gymNpc = null;
                 return;
             }
 
-            /*
-             * Do not rebuild the NPC party here. Cobblemon has already created the
-             * NPCBattleActor by the time BATTLE_STARTED_PRE fires, so changing the
-             * NPC's stored party at this point can affect the next challenge instead
-             * of the current one. ChampTrainerInteractionListener rebuilds the gym
-             * team immediately before BattleBuilder.pvn(), which is the correct time.
-             */
+            if (!npcTeamIsFromConfiguredPool(gymNpc, badge)) {
+                BattleStateManager.setInBattle(player, false);
+                pre.cancel();
+
+                ServerPlayer p = player;
+                NPCBattleActor npcActor = gymNpc;
+                p.server.execute(() -> {
+                    try {
+                        GymNpcPartyBuilder.clearStoredGymTeam(npcActor.getNpc());
+                        if (!GymNpcPartyBuilder.applyGymTeam(npcActor.getNpc(), badge)) {
+                            p.sendSystemMessage(Component.literal("§cThis gym could not build a valid battle team. Check gyms.json."));
+                            return;
+                        }
+                        BattleContextManager.setContext(p.getUUID(), BattleContextManager.BattleType.GYM);
+                        Object result = BattleBuilder.INSTANCE.pvn(p, npcActor.getNpc());
+                        GymNpcPartyBuilder.clearStoredGymTeam(npcActor.getNpc());
+                        if (result == null) {
+                            p.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
+                        }
+                    } catch (Exception retryError) {
+                        retryError.printStackTrace();
+                        p.sendSystemMessage(Component.literal("§cCould not refresh this gym team. Check server console."));
+                    }
+                });
+                return;
+            }
 
 
             BadgeType requiredBadge =
@@ -328,4 +355,59 @@ NPCBattleActor gymNpc = null;
             default -> "§cThis challenge is locked.";
         };
     }
+
+    private static boolean npcTeamIsFromConfiguredPool(NPCBattleActor npcActor, BadgeType badge) {
+        Set<String> allowed = GymNpcPartyBuilder.allowedSpeciesFor(badge);
+        if (allowed.isEmpty()) return true;
+
+        List<String> found = new ArrayList<>();
+        for (Object battlePokemon : pokemonList(npcActor)) {
+            String species = speciesKeyFromBattlePokemon(battlePokemon);
+            if (!species.isBlank()) found.add(species);
+        }
+
+        if (found.isEmpty()) return false;
+        for (String species : found) {
+            if (!speciesAllowed(species, allowed)) {
+                System.out.println("[ChampUtils][GymTeamGuard] Rejected stale/foreign gym team for "
+                        + badge.name() + ". Found " + found + " but allowed only configured pool.");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean speciesAllowed(String species, Set<String> allowed) {
+        if (species == null || species.isBlank()) return false;
+        if (allowed.contains(species)) return true;
+        for (String allowedSpecies : allowed) {
+            if (allowedSpecies != null && allowedSpecies.startsWith(species + "_")) return true;
+        }
+        return false;
+    }
+
+    private static Iterable<?> pokemonList(Object actor) {
+        Object value = invoke(actor, "getPokemonList");
+        if (value instanceof Iterable<?> iterable) return iterable;
+        return List.of();
+    }
+
+    private static String speciesKeyFromBattlePokemon(Object battlePokemon) {
+        Object pokemon = invoke(battlePokemon, "getEffectedPokemon");
+        Object species = invoke(pokemon, "getSpecies");
+        if (species == null) return "";
+        return GymNpcPartyBuilder.speciesKey(String.valueOf(species));
+    }
+
+    private static Object invoke(Object target, String methodName) {
+        if (target == null) return null;
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            method.setAccessible(true);
+            return method.invoke(target);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
 }

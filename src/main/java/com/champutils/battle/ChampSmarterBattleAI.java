@@ -178,8 +178,20 @@ public final class ChampSmarterBattleAI implements BattleAI {
 
     private ShowdownActionResponse ensureValidChoice(ShowdownActionResponse response, ActiveBattlePokemon activeBattlePokemon, ShowdownMoveset moveset, boolean forceSwitch) {
         try {
-            if (response != null && response.isValid(activeBattlePokemon, moveset, forceSwitch)) return response;
             String moveId = readMoveId(response);
+
+            // Cobblemon/Showdown can reject a move after isValid() if we send a target for
+            // targetless spread moves like Earthquake. Normalize every move response here so
+            // the final choice matches the move target mode Showdown expects.
+            if (moveId != null && moveset != null && !forceSwitch) {
+                InBattleMove selectedMove = findMoveById(moveset, moveId);
+                if (selectedMove != null && selectedMove.canBeUsed()) {
+                    MoveActionResponse normalized = legalMoveResponse(selectedMove, activeBattlePokemon);
+                    if (normalized.isValid(activeBattlePokemon, moveset, false)) return normalized;
+                }
+            }
+
+            if (response != null && response.isValid(activeBattlePokemon, moveset, forceSwitch)) return response;
             BattleAIDifficultyManager.debug("SafeAI: replacing invalid action " + (moveId == null ? response : moveId));
             if (moveset != null && !forceSwitch) {
                 for (InBattleMove move : moveset.getMoves()) {
@@ -214,11 +226,19 @@ public final class ChampSmarterBattleAI implements BattleAI {
 
     private MoveActionResponse legalMoveResponse(InBattleMove move, ActiveBattlePokemon activeBattlePokemon) {
         try {
+            if (move == null) return new MoveActionResponse("struggle", null, null);
+
+            // Showdown only accepts an explicit target for selectable-target moves.
+            // Spread/field/self/random moves must be sent as just "move <id>".
+            if (move.mustBeUsed() || !requiresExplicitTarget(move.getTarget())) {
+                return new MoveActionResponse(move.getId(), null, null);
+            }
+
             List<Targetable> targets = move.getTargets(activeBattlePokemon);
-            if ((targets == null || targets.isEmpty()) && move.getTarget() != MoveTarget.self && !move.mustBeUsed()) {
+            if (targets == null || targets.isEmpty()) {
                 targets = activeBattlePokemon.getAdjacentOpponents();
             }
-            if (targets == null || targets.isEmpty() || move.mustBeUsed() || move.getTarget() == MoveTarget.self) {
+            if (targets == null || targets.isEmpty()) {
                 return new MoveActionResponse(move.getId(), null, null);
             }
             Targetable chosenTarget = null;
@@ -241,6 +261,23 @@ public final class ChampSmarterBattleAI implements BattleAI {
         } catch (Throwable ignored) {
             return new MoveActionResponse(move.getId(), null, null);
         }
+    }
+
+    private boolean requiresExplicitTarget(MoveTarget target) {
+        return target == MoveTarget.any
+                || target == MoveTarget.normal
+                || target == MoveTarget.adjacentFoe
+                || target == MoveTarget.adjacentAlly
+                || target == MoveTarget.adjacentAllyOrSelf;
+    }
+
+    private InBattleMove findMoveById(ShowdownMoveset moveset, String moveId) {
+        if (moveset == null || moveId == null) return null;
+        String normalizedMoveId = normalize(moveId);
+        for (InBattleMove move : moveset.getMoves()) {
+            if (move != null && normalize(move.getId()).equals(normalizedMoveId)) return move;
+        }
+        return null;
     }
 
     private void remember(ActiveBattlePokemon activeBattlePokemon, ShowdownActionResponse chosen) {

@@ -9,6 +9,7 @@ import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 import com.champutils.guild.GuildXpManager;
 import com.champutils.guild.GuildBossManager;
+import com.champutils.rewardtrack.RewardTrackCommand;
 import java.util.UUID;
 
 import com.champutils.profession.*;
@@ -113,6 +114,9 @@ public class BattleListener {
             cleanup(winner, loser);
             return;
         }
+
+        RewardTrackCommand.addXp(winner, 250, "ranked_win");
+        RewardTrackCommand.addXp(loser, 100, "ranked_play");
 
         int winnerElo =
                 ProfileManager.getCurrentRp(winner);

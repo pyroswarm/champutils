@@ -132,7 +132,7 @@ public final class BossConfig {
     }
 
     public static final class WorldBossSettings extends BossSettings {
-        public int averageMinutesUntilNextBoss = 1440;
+        public int averageMinutesUntilNextBoss = 720;
         /** Saved so the scoreboard can show the last world boss spawn even after restart. */
         public long lastSpawnAtMillis = 0L;
 
@@ -167,13 +167,14 @@ public final class BossConfig {
             s.spawnDimensions.add("multiworld:spawn1");
             s.spawnLocation = new SpawnLocation(0.5D, 80D, 0.5D);
             s.yaw = 180.0F;
+            s.averageMinutesUntilNextBoss = 720;
             return s;
         }
 
         @Override
         void normalize() {
             super.normalize();
-            if (averageMinutesUntilNextBoss <= 0) averageMinutesUntilNextBoss = 1440;
+            if (averageMinutesUntilNextBoss <= 0) averageMinutesUntilNextBoss = 720;
             if (partySize <= 0 || partySize > 6) partySize = 3;
             if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
             themes.forEach(WorldBossTheme::normalize);

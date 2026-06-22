@@ -37,6 +37,12 @@ public final class SpawnWarpCommand {
                             .suggests(WARP_SUGGESTIONS)
                             .executes(ctx -> warp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
 
+            dispatcher.register(literal("warps")
+                    .executes(ctx -> listWarps(ctx.getSource()))
+                    .then(argument("name", StringArgumentType.word())
+                            .suggests(WARP_SUGGESTIONS)
+                            .executes(ctx -> warp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+
             dispatcher.register(literal("setwarp")
                     .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                     .then(argument("name", StringArgumentType.word())

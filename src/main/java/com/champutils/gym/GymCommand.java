@@ -235,6 +235,7 @@ public class GymCommand {
                                                                             // Gym binding must only store metadata.
                                                                             // The battle party is generated fresh immediately before each challenge.
                                                                             GymNpcPartyBuilder.clearStoredGymTeam(npc);
+                                                                            GymNpcNameUtil.apply(npc, badge);
                                                                         }
 
 

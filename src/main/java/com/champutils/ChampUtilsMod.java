@@ -57,6 +57,8 @@ import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
 import com.champutils.tm.*;
 import com.champutils.claims.*;
+import com.champutils.expeditions.*;
+import com.champutils.rewardtrack.*;
 
 /*
  =========================
@@ -211,6 +213,11 @@ public class ChampUtilsMod implements ModInitializer {
         LandClaimConfig.load();
         LandClaimRepository.ensureSchemaAsync();
         LandClaimRepository.refreshAll();
+        GymRewardConfig.load();
+        GymRewardClaimData.load();
+        ExpeditionManager.load();
+        com.champutils.rewardtrack.RewardTrackConfig.load();
+        com.champutils.rewardtrack.RewardTrackData.load();
 
         /*
          =========================
@@ -604,6 +611,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryCommand.register();
         ChatCommand.register();
         PrivateMessageCommand.register();
+        DiscordCommand.register();
         TitleCommand.register();
         WorldFirstCommand.register();
         CashShopCommand.register();
@@ -622,6 +630,9 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.antilag.CatchAttemptProtectionListener.register();
         TMCommand.register();
         LandClaimCommand.register();
+        GymRewardCommand.register();
+        ExpeditionCommand.register();
+        RewardTrackCommand.register();
 
         /*
          New custom item test command
@@ -630,6 +641,7 @@ public class ChampUtilsMod implements ModInitializer {
         ShowItemCommand.register();
         ItemLockCommand.register();
         XpLockCommand.register();
+        LevelCapCommand.register();
 
         /*
          =========================
@@ -663,6 +675,7 @@ public class ChampUtilsMod implements ModInitializer {
         DeathBackListener.register();
         com.champutils.badge.BadgeUnlockManager.init();
         com.champutils.protection.SpawnRealmProtectionListener.register();
+        com.champutils.protection.SpawnEditCommand.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();

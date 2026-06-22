@@ -7,6 +7,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Single routing point for ChampUtils profile-aware Cobblemon storage.
@@ -139,14 +141,14 @@ public final class CobblemonProfileStorageBridge {
         System.out.println("[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
 
         // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
-        // but move the broader Cobblemon player-data sync out of the profile activation critical path.
-        // MinecraftServer#execute queues this after the current activation runnable instead of making
-        // the switch block wait on it.
-        player.server.execute(() -> {
+        // but move the broader Cobblemon player-data sync out of the profile activation critical path
+        // and away from the same tick as inventory/profile teleport work.
+        CompletableFuture.runAsync(() -> player.server.execute(() -> {
+            if (player.hasDisconnected()) return;
             long syncStart = System.currentTimeMillis();
             try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
-            System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync deferred took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
-        });
+            System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        }), CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS));
 
         long elapsed = System.currentTimeMillis() - start;
         System.out.println("[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);

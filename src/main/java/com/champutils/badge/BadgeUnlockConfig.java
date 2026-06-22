@@ -97,12 +97,22 @@ public final class BadgeUnlockConfig {
             u.broadcastUnlocks = true;
             c.badges.put(badge.name(), u);
         }
+        c.badges.get("BOULDER").titles.add("boulder_badge");
         c.badges.get("CASCADE").permissions.add("champutils.command.pc");
         c.badges.get("CASCADE").commands.add("/pc");
         c.badges.get("CASCADE").titles.add("cascade_badge");
         c.badges.get("THUNDER").permissions.add("champutils.command.pokeheal");
         c.badges.get("THUNDER").commands.add("/pokeheal");
         c.badges.get("THUNDER").titles.add("thunder_badge");
+        c.badges.get("RAINBOW").titles.add("rainbow_badge");
+        c.badges.get("SOUL").titles.add("soul_badge");
+        c.badges.get("MARSH").titles.add("marsh_badge");
+        c.badges.get("VOLCANO").titles.add("volcano_badge");
+        c.badges.get("EARTH").titles.add("earth_badge");
+        c.badges.get("LORELEI").titles.add("lorelei_badge");
+        c.badges.get("BRUNO").titles.add("bruno_badge");
+        c.badges.get("AGATHA").titles.add("agatha_badge");
+        c.badges.get("LANCE").titles.add("lance_badge");
         c.badges.get("CHAMPION").titles.add("champion");
         return c;
     }
