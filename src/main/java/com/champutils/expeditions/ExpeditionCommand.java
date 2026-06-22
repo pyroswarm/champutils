@@ -26,22 +26,25 @@ public final class ExpeditionCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> dispatcher.register(literal("expeditions")
                 .executes(ctx -> { menu(ctx.getSource().getPlayerOrException()); return 1; })
+                .then(literal("start")
+                        .then(argument("slot", IntegerArgumentType.integer(1, 6))
+                                .executes(ctx -> { preview(ctx.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(ctx, "slot")); return 1; })))
                 .then(argument("slot", IntegerArgumentType.integer(1, 6))
-                        .executes(ctx -> { preview(ctx.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(ctx, "slot")); return 1; }))));
-
-        CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> dispatcher.register(literal("expedition")
-                .then(literal("confirm").executes(ctx -> { confirm(ctx.getSource().getPlayerOrException()); return 1; }))
-                .then(literal("claim").executes(ctx -> { ExpeditionManager.claim(ctx.getSource().getPlayerOrException()); return 1; }))));
+                        .executes(ctx -> { preview(ctx.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(ctx, "slot")); return 1; }))
+                .then(literal("confirm")
+                        .executes(ctx -> { confirm(ctx.getSource().getPlayerOrException()); return 1; }))
+                .then(literal("claim")
+                        .executes(ctx -> { ExpeditionManager.claim(ctx.getSource().getPlayerOrException()); return 1; }))));
     }
 
     private static void menu(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("Expeditions: /expeditions <party slot>, then /expedition confirm. Claim finished runs with /expedition claim.").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("Expeditions: /expeditions start <slot>, /expeditions confirm, /expeditions claim.").withStyle(ChatFormatting.GOLD));
         ExpeditionManager.status(player);
     }
 
     private static void preview(ServerPlayer player, int slot) {
         if (ExpeditionManager.hasActive(player)) {
-            player.sendSystemMessage(Component.literal("You already have an active expedition.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             ExpeditionManager.status(player);
             return;
         }
@@ -56,18 +59,18 @@ public final class ExpeditionCommand {
         ExpeditionConfig.Tier tier = ExpeditionConfig.tier(pokemon.getLevel());
         long hours = Math.max(1, tier.hours);
         PENDING.put(PlayerProfileManager.activeProfileId(player), new Pending(slot, System.currentTimeMillis() + hours * 3_600_000L));
-        player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " will leave for " + hours + " hour(s). Type /expedition confirm.").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " will leave for " + hours + " hour(s). Type /expeditions confirm to send it.").withStyle(ChatFormatting.YELLOW));
     }
 
     private static void confirm(ServerPlayer player) {
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         Pending pending = PENDING.remove(profileId);
         if (pending == null) {
-            player.sendSystemMessage(Component.literal("No pending expedition.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("No pending expedition. Start one with /expeditions start <slot>.").withStyle(ChatFormatting.RED));
             return;
         }
         if (ExpeditionManager.hasActive(player)) {
-            player.sendSystemMessage(Component.literal("You already have an active expedition.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             return;
         }
 
@@ -81,7 +84,7 @@ public final class ExpeditionCommand {
         try {
             ExpeditionManager.start(player, pending.slot, pokemon, pending.endsAt);
             AuctionPokemonSerializer.clearPartySlot(player, pending.slot - 1);
-            player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " was sent on an expedition.").withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " was sent on an expedition. Check it with /expeditions and claim it with /expeditions claim.").withStyle(ChatFormatting.GREEN));
         } catch (Exception e) {
             e.printStackTrace();
             player.sendSystemMessage(Component.literal("Could not start that expedition. Check console for details.").withStyle(ChatFormatting.RED));

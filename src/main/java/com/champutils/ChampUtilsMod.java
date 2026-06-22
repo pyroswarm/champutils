@@ -731,6 +731,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("OversizedChunkEntityGuard", () -> com.champutils.antilag.OversizedChunkEntityGuard.tick(server));
                     timedTick("ModerationManager", () -> ModerationManager.tick(server));
                     timedTick("DailyLoginManager", () -> DailyLoginManager.tick(server));
+                    timedTick("AutoChampSaveManager", () -> com.champutils.commands.AutoChampSaveManager.tick(server));
                     timedTick("ChampWorldBorderManager", () -> ChampWorldBorderManager.tick(server));
                     timedTick("IslanderProfileManager", () -> IslanderProfileManager.tick(server));
                     timedTick("IslanderMineManager", () -> IslanderMineManager.tick(server));

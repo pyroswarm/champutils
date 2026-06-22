@@ -20,11 +20,26 @@ public final class LevelCapCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("levelcap")
-                        .then(literal("now")
+                        .executes(ctx -> status(ctx.getSource()))
+                        .then(literal("set")
                                 .then(argument("level", IntegerArgumentType.integer(1, 100))
                                         .executes(ctx -> setCap(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "level")))))
-                        .then(literal("off").executes(ctx -> clearCap(ctx.getSource())))
+                        .then(literal("on").executes(ctx -> enableCap(ctx.getSource())))
+                        .then(literal("off").executes(ctx -> disableCap(ctx.getSource())))
         ));
+    }
+
+    private static int status(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) { source.sendFailure(Component.literal("Only players can use this command.")); return 0; }
+        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        int cap = firstPartyCap(party);
+        if (cap > 0) {
+            source.sendSuccess(() -> Component.literal("Your party levelcap is ON at level " + cap + ". Use /levelcap set <level> to change it or /levelcap off to disable it.").withStyle(ChatFormatting.GREEN), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("Your party levelcap is OFF. Use /levelcap set <level> or /levelcap on.").withStyle(ChatFormatting.YELLOW), false);
+        }
+        return 1;
     }
 
     private static int setCap(CommandSourceStack source, int level) {
@@ -32,19 +47,27 @@ public final class LevelCapCommand {
         if (player == null) { source.sendFailure(Component.literal("Only players can use this command.")); return 0; }
         PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         if (party == null) { source.sendFailure(Component.literal("Could not access your Cobblemon party.")); return 0; }
-        int applied = 0;
-        for (int i = 0; i < 6; i++) {
-            Pokemon pokemon = party.get(i);
-            if (pokemon == null) continue;
-            XpLockManager.setLevelCap(pokemon, level);
-            applied++;
-        }
+        int applied = applyCap(party, level);
         int finalApplied = applied;
-        source.sendSuccess(() -> Component.literal("Set level cap " + level + " on " + finalApplied + " party Pokémon. They will stop gaining XP once they reach/cross that level.").withStyle(ChatFormatting.GREEN), false);
+        source.sendSuccess(() -> Component.literal("Your party levelcap is now ON at level " + level + " for " + finalApplied + " Pokémon.").withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
-    private static int clearCap(CommandSourceStack source) {
+    private static int enableCap(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) { source.sendFailure(Component.literal("Only players can use this command.")); return 0; }
+        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        if (party == null) { source.sendFailure(Component.literal("Could not access your Cobblemon party.")); return 0; }
+        int existing = firstPartyCap(party);
+        int level = existing > 0 ? existing : 100;
+        int applied = applyCap(party, level);
+        int finalApplied = applied;
+        int finalLevel = level;
+        source.sendSuccess(() -> Component.literal("Your party levelcap is ON at level " + finalLevel + " for " + finalApplied + " Pokémon. Use /levelcap set <level> to choose a different cap.").withStyle(ChatFormatting.GREEN), false);
+        return 1;
+    }
+
+    private static int disableCap(CommandSourceStack source) {
         ServerPlayer player = source.getPlayer();
         if (player == null) { source.sendFailure(Component.literal("Only players can use this command.")); return 0; }
         PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
@@ -57,7 +80,28 @@ public final class LevelCapCommand {
             cleared++;
         }
         int finalCleared = cleared;
-        source.sendSuccess(() -> Component.literal("Cleared level caps from " + finalCleared + " party Pokémon.").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("Your party levelcap is OFF. Cleared level caps from " + finalCleared + " Pokémon.").withStyle(ChatFormatting.YELLOW), false);
         return 1;
+    }
+
+    private static int applyCap(PartyStore party, int level) {
+        int applied = 0;
+        for (int i = 0; i < 6; i++) {
+            Pokemon pokemon = party.get(i);
+            if (pokemon == null) continue;
+            XpLockManager.setLevelCap(pokemon, level);
+            applied++;
+        }
+        return applied;
+    }
+
+    private static int firstPartyCap(PartyStore party) {
+        if (party == null) return 0;
+        for (int i = 0; i < 6; i++) {
+            Pokemon pokemon = party.get(i);
+            int cap = XpLockManager.getLevelCap(pokemon);
+            if (cap > 0) return cap;
+        }
+        return 0;
     }
 }

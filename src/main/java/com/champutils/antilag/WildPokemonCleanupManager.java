@@ -193,7 +193,10 @@ public final class WildPokemonCleanupManager {
 
     private static String catchProtectionReason(PokemonEntity entity) {
         long now = System.currentTimeMillis();
-        for (String tag : entity.getTags()) {
+        // Copy tags before scanning because expired catch-protection tags are removed below.
+        // Iterating entity.getTags() directly while removing a tag can throw ConcurrentModificationException
+        // during the server tick cleanup pass.
+        for (String tag : new ArrayList<>(entity.getTags())) {
             if (tag == null) continue;
             String lower = tag.toLowerCase(Locale.ROOT);
             if (lower.startsWith("champutils_catch_protected_until_")) {

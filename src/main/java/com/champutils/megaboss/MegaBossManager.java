@@ -133,7 +133,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null || IslanderMineManager.isMineWorld(level)) continue;
-            int pokemonLevel = playerPartyHighestLevelPlusTen(player);
+            int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
             if (entity == null) continue;
@@ -163,7 +163,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 30; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null || IslanderMineManager.isMineWorld(level)) continue;
-            int pokemonLevel = playerPartyHighestLevelPlusTen(player);
+            int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
             if (entity == null) continue;
@@ -462,7 +462,7 @@ public final class MegaBossManager {
         return top;
     }
 
-    public static int playerPartyHighestLevelPlusTen(ServerPlayer player) {
+    public static int playerPartyHighestLevelForRarity(ServerPlayer player, String rarity) {
         int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {
@@ -471,10 +471,28 @@ public final class MegaBossManager {
             }
         } catch (Exception ignored) {}
 
-        // Mega bosses scale to exactly the configured amount above the challenger's highest party Pokemon.
-        // If the party cannot be read, fall back to 20 instead of failing the spawn.
-        if (highest <= 0) return 20;
-        return Math.max(1, Math.min(100, highest + Math.max(0, MegaBossConfig.DATA.levelsAbovePlayerHighest)));
+        int offset = rarityLevelOffset(rarity);
+        // Mega bosses scale by spawn rarity: common +5, uncommon +10, rare +15,
+        // epic +20, legendary +25, mythic +30, capped at level 100.
+        if (highest <= 0) return Math.max(1, Math.min(100, 15 + offset));
+        return Math.max(1, Math.min(100, highest + offset));
+    }
+
+    public static int playerPartyHighestLevelPlusTen(ServerPlayer player) {
+        return playerPartyHighestLevelForRarity(player, "RARE");
+    }
+
+    private static int rarityLevelOffset(String rarity) {
+        String normalized = normalizeRarity(rarity);
+        return switch (normalized) {
+            case "COMMON" -> 5;
+            case "UNCOMMON" -> 10;
+            case "RARE" -> 15;
+            case "EPIC" -> 20;
+            case "LEGENDARY" -> 25;
+            case "MYTHIC" -> 30;
+            default -> 5;
+        };
     }
 
     public static void maximizePokemon(Pokemon pokemon, int level) {

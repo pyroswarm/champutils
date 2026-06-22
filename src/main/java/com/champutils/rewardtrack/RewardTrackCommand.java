@@ -16,10 +16,10 @@ public final class RewardTrackCommand {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> dispatcher.register(literal("rewardtrack")
-                .executes(ctx -> { show(ctx.getSource().getPlayerOrException()); return 1; })
+                .executes(ctx -> { RewardTrackMenu.open(ctx.getSource().getPlayerOrException()); return 1; })
                 .then(literal("claim").executes(ctx -> { claim(ctx.getSource().getPlayerOrException()); return 1; }))
-                .then(literal("missions").executes(ctx -> { RewardTrackMissionManager.show(ctx.getSource().getPlayerOrException()); return 1; }))
-                .then(literal("menu").executes(ctx -> { show(ctx.getSource().getPlayerOrException()); RewardTrackMissionManager.show(ctx.getSource().getPlayerOrException()); return 1; }))));
+                .then(literal("missions").executes(ctx -> { RewardTrackMenu.open(ctx.getSource().getPlayerOrException()); return 1; }))
+                .then(literal("menu").executes(ctx -> { RewardTrackMenu.open(ctx.getSource().getPlayerOrException()); return 1; }))));
     }
 
     public static void addXp(ServerPlayer player, int xp, String reason) {
@@ -40,11 +40,11 @@ public final class RewardTrackCommand {
         }
     }
 
-    private static int level(int xp) {
+    public static int level(int xp) {
         return Math.min(RewardTrackConfig.maxLevel(), Math.max(0, xp) / RewardTrackConfig.xpPerLevel());
     }
 
-    private static void show(ServerPlayer player) {
+    public static void show(ServerPlayer player) {
         RewardTrackData.Save data = RewardTrackData.get(player);
         int level = level(data.xp);
         int nextLevelXp = Math.min(RewardTrackConfig.maxLevel(), level + 1) * RewardTrackConfig.xpPerLevel();
@@ -57,7 +57,7 @@ public final class RewardTrackCommand {
         player.sendSystemMessage(Component.literal("Use /rewardtrack missions to view daily and weekly ranked PvP missions.").withStyle(ChatFormatting.GRAY));
     }
 
-    private static void claim(ServerPlayer player) {
+    public static void claim(ServerPlayer player) {
         RewardTrackData.Save data = RewardTrackData.get(player);
         int currentLevel = level(data.xp);
         if (data.claimedLevel >= currentLevel) {

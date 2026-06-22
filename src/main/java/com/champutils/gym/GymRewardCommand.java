@@ -14,7 +14,7 @@ import static net.minecraft.commands.Commands.argument;import static net.minecra
 
 public final class GymRewardCommand {
     private GymRewardCommand() {}
-    public static void register(){ CommandRegistrationCallback.EVENT.register((dispatcher,r,e)->dispatcher.register(literal("gymrewards")
+    public static void register(){ CommandRegistrationCallback.EVENT.register((dispatcher,r,e)->dispatcher.register(literal("gymrewards").requires(source -> source.hasPermission(2))
         .executes(ctx->{ list(ctx.getSource().getPlayerOrException()); return 1; })
         .then(literal("claim").then(argument("badge", StringArgumentType.word()).executes(ctx->{ claim(ctx.getSource().getPlayerOrException(), BadgeType.fromString(StringArgumentType.getString(ctx,"badge"))); return 1; })))
         .then(literal("claimall").executes(ctx->{ claimAll(ctx.getSource().getPlayerOrException()); return 1; })))); }
@@ -22,9 +22,9 @@ public final class GymRewardCommand {
         p.sendSystemMessage(Component.literal("Gym rewards: /gymrewards claim <badge> or /gymrewards claimall").withStyle(ChatFormatting.GOLD));
         for(BadgeType b: BadgeType.values()) if(BadgeManager.hasBadge(p,b)) p.sendSystemMessage(Component.literal("- "+b.name()+": "+(GymRewardClaimData.isClaimed(p,b)?"claimed":"available")).withStyle(ChatFormatting.YELLOW));
     }
-    private static void claimAll(ServerPlayer p){ int n=0; for(BadgeType b: BadgeType.values()) if(claimOne(p,b,false)) n++; p.sendSystemMessage(Component.literal("Claimed "+n+" gym reward(s).").withStyle(ChatFormatting.GREEN)); }
-    private static void claim(ServerPlayer p, BadgeType badge){ if(badge==null){p.sendSystemMessage(Component.literal("Unknown badge.").withStyle(ChatFormatting.RED));return;} claimOne(p,badge,true); }
-    private static boolean claimOne(ServerPlayer p, BadgeType badge, boolean message){
+    public static void claimAll(ServerPlayer p){ int n=0; for(BadgeType b: BadgeType.values()) if(claimOne(p,b,false)) n++; p.sendSystemMessage(Component.literal("Claimed "+n+" gym reward(s).").withStyle(ChatFormatting.GREEN)); }
+    public static void claim(ServerPlayer p, BadgeType badge){ if(badge==null){p.sendSystemMessage(Component.literal("Unknown badge.").withStyle(ChatFormatting.RED));return;} claimOne(p,badge,true); }
+    public static boolean claimOne(ServerPlayer p, BadgeType badge, boolean message){
         if(!BadgeManager.hasBadge(p,badge)){ if(message)p.sendSystemMessage(Component.literal("You have not earned that badge yet.").withStyle(ChatFormatting.RED)); return false; }
         if(GymRewardClaimData.isClaimed(p,badge)){ if(message)p.sendSystemMessage(Component.literal("You already claimed that reward.").withStyle(ChatFormatting.GRAY)); return false; }
         var reward=GymRewardConfig.reward(badge); if(reward==null){ if(message)p.sendSystemMessage(Component.literal("No reward configured for that badge.").withStyle(ChatFormatting.RED)); return false; }

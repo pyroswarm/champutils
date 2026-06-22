@@ -2,6 +2,10 @@ package com.champutils.menu;
 
 import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
+import com.champutils.economy.EconomyManager;
+import com.champutils.gym.GymRewardClaimData;
+import com.champutils.gym.GymRewardCommand;
+import com.champutils.gym.GymRewardConfig;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
@@ -47,6 +51,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 0,
                 BadgeType.CASCADE,
                 "Misty",
@@ -56,6 +61,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 1,
                 BadgeType.MARSH,
                 "Sabrina",
@@ -65,6 +71,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 2,
                 BadgeType.EARTH,
                 "Giovanni",
@@ -74,6 +81,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 3,
                 BadgeType.BOULDER,
                 "Brock",
@@ -83,6 +91,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 4,
                 BadgeType.THUNDER,
                 "Lt. Surge",
@@ -92,6 +101,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 5,
                 BadgeType.RAINBOW,
                 "Erika",
@@ -101,6 +111,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 6,
                 BadgeType.SOUL,
                 "Koga",
@@ -110,6 +121,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 7,
                 BadgeType.VOLCANO,
                 "Blaine",
@@ -124,6 +136,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 9,
                 BadgeType.LORELEI,
                 "Lorelei",
@@ -133,6 +146,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 10,
                 BadgeType.BRUNO,
                 "Bruno",
@@ -142,6 +156,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 11,
                 BadgeType.AGATHA,
                 "Agatha",
@@ -151,6 +166,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 12,
                 BadgeType.LANCE,
                 "Lance",
@@ -160,6 +176,7 @@ public class BadgeMenu {
 
         addBadge(
                 gui,
+                player,
                 13,
                 BadgeType.CHAMPION,
                 "Champion",
@@ -185,6 +202,7 @@ public class BadgeMenu {
 
     private static void addBadge(
             SimpleGui gui,
+            ServerPlayer player,
             int slot,
             BadgeType badge,
             String leader,
@@ -231,9 +249,23 @@ public class BadgeMenu {
                             .addLoreLine(
                                     Component.literal(
                                             "§eReward: "
-                                                    + reward
+                                                    + rewardSummary(badge, reward)
+                                    )
+                            )
+                            .addLoreLine(
+                                    Component.literal(
+                                            GymRewardClaimData.isClaimed(player, badge)
+                                                    ? "§7Reward claimed"
+                                                    : "§aClick to claim reward"
                                     )
                             );
+
+            if (!GymRewardClaimData.isClaimed(player, badge)) {
+                item.setCallback((index, clickType, actionType) -> {
+                    GymRewardCommand.claimOne(player, badge, true);
+                    open(player);
+                });
+            }
 
         }
         else{
@@ -268,6 +300,45 @@ public class BadgeMenu {
 
     }
 
+
+
+
+    private static String rewardSummary(
+            BadgeType badge,
+            String fallback
+    ){
+
+        GymRewardConfig.Reward configured =
+                GymRewardConfig.reward(badge);
+
+        if(
+                configured == null
+        ){
+            return fallback;
+        }
+
+        int itemTypes =
+                configured.items == null
+                        ? 0
+                        : configured.items.size();
+
+        String credits =
+                configured.credits > 0
+                        ? EconomyManager.format(configured.credits)
+                        : "No credits";
+
+        if(
+                itemTypes <= 0
+        ){
+            return credits;
+        }
+
+        return credits
+                + " + "
+                + itemTypes
+                + " item reward"
+                + (itemTypes == 1 ? "" : "s");
+    }
 
 
 

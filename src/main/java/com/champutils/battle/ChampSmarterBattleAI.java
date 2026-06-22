@@ -50,6 +50,15 @@ public final class ChampSmarterBattleAI implements BattleAI {
             "brn", "burn", "psn", "tox", "badlypoisoned", "poison", "poisonbadly"
     );
 
+    private static final Set<String> SETUP_MOVES = Set.of(
+            "swordsdance", "dragondance", "nastyplot", "calmmind", "quiverdance", "shellsmash", "bulkup", "agility",
+            "rockpolish", "growth", "workup", "irondefense", "cosmicpower", "curse", "coil"
+    );
+
+    private static final Set<String> TEAM_SETUP_MOVES = Set.of(
+            "stealthrock", "spikes", "toxicspikes", "stickyweb", "reflect", "lightscreen", "auroraveil", "tailwind", "trickroom"
+    );
+
     /**
      * Cobblemon's StrongBattleAI can occasionally value Recover/Roost too early.
      * This wrapper only allows direct self-healing once the Pokémon is meaningfully damaged.
@@ -156,6 +165,13 @@ public final class ChampSmarterBattleAI implements BattleAI {
                 }
             }
 
+            InBattleMove strategic = findStrategicMove(moveset, activeBattlePokemon, aiSide, memory, hpFraction);
+            if (strategic != null && !normalize(strategic.getId()).equals(normalized)) {
+                BattleAIDifficultyManager.debug("SmartAI: upgraded decision pokemon=" + pokemonId + " from=" + normalized + " to=" + normalize(strategic.getId()));
+                chosen = legalMoveResponse(strategic, activeBattlePokemon);
+                normalized = normalize(strategic.getId());
+            }
+
             if (PROTECT_MOVES.contains(normalized)) {
                 memory.protectCooldown = ChampBattleAIConfig.DATA.antiSpam.protectRepeatPenaltyTurns;
             } else if (memory.protectCooldown > 0) {
@@ -203,6 +219,131 @@ public final class ChampSmarterBattleAI implements BattleAI {
         } catch (Throwable ignored) {
         }
         return safestAction(activeBattlePokemon, moveset, forceSwitch);
+    }
+
+    private InBattleMove findStrategicMove(ShowdownMoveset moveset, ActiveBattlePokemon active, BattleSide aiSide, Memory memory, double hpFraction) {
+        if (!competitiveLayer || moveset == null || active == null || active.isGone()) return null;
+        List<InBattleMove> usable = moveset.getMoves().stream().filter(m -> m != null && m.canBeUsed()).toList();
+        if (usable.isEmpty()) return null;
+
+        boolean firstTurn = memory == null || memory.lastMove == null || memory.lastMove.isBlank();
+        if (firstTurn) {
+            InBattleMove leadSetup = usable.stream()
+                    .filter(m -> TEAM_SETUP_MOVES.contains(normalize(m.getId())) || SETUP_MOVES.contains(normalize(m.getId())))
+                    .filter(m -> !wouldBeRedundantUtility(m, active, aiSide))
+                    .findFirst().orElse(null);
+            if (leadSetup != null && hpFraction > 0.45D) return leadSetup;
+        }
+
+        InBattleMove bestDamage = null;
+        double bestScore = -1.0D;
+        for (InBattleMove move : usable) {
+            String id = normalize(move.getId());
+            if (PROTECT_MOVES.contains(id) || SELF_RECOVERY_MOVES.contains(id)) continue;
+            double score = offensiveMoveScore(move, active, aiSide);
+            if (score > bestScore) {
+                bestScore = score;
+                bestDamage = move;
+            }
+        }
+
+        if (bestDamage != null && bestScore >= 35.0D) return bestDamage;
+
+        InBattleMove utility = usable.stream()
+                .filter(m -> STATUS_MOVES.contains(normalize(m.getId())) || TEAM_SETUP_MOVES.contains(normalize(m.getId())) || SETUP_MOVES.contains(normalize(m.getId())))
+                .filter(m -> !wouldBeRedundantUtility(m, active, aiSide))
+                .findFirst().orElse(null);
+        return utility;
+    }
+
+    private double offensiveMoveScore(InBattleMove move, ActiveBattlePokemon active, BattleSide aiSide) {
+        String id = normalize(move == null ? null : move.getId());
+        int power = readMovePower(id);
+        if (power <= 0) return 0.0D;
+        String type = moveType(id);
+        double multiplier = 1.0D;
+        for (Object opponent : opponentActives(active, aiSide)) {
+            multiplier = Math.max(multiplier, typeMultiplier(type, readTypes(opponent)));
+        }
+        double stab = hasType(active, type) ? 1.5D : 1.0D;
+        double accuracy = readMoveAccuracy(id);
+        double priority = id.contains("suckerpunch") || id.contains("extremespeed") || id.contains("aquajet") || id.contains("bulletpunch") || id.contains("shadowsneak") || id.contains("quickattack") ? 20.0D : 0.0D;
+        return power * multiplier * stab * accuracy + priority;
+    }
+
+    private boolean wouldBeRedundantUtility(InBattleMove move, ActiveBattlePokemon active, BattleSide aiSide) {
+        String id = normalize(move == null ? null : move.getId());
+        if (id.isBlank()) return true;
+        if (STATUS_MOVES.contains(id) && opponentAlreadyHasStatus(active, aiSide)) return true;
+        try {
+            Object opposite = aiSide.getClass().getMethod("getOppositeSide").invoke(aiSide);
+            String alliedScreen = normalize(String.valueOf(readObject(aiSide, "getScreenCondition")));
+            String alliedTailwind = normalize(String.valueOf(readObject(aiSide, "getTailwindCondition")));
+            if ((id.equals("reflect") || id.equals("lightscreen") || id.equals("auroraveil")) && !alliedScreen.isBlank() && !alliedScreen.equals("null")) return true;
+            if (id.equals("tailwind") && !alliedTailwind.isBlank() && !alliedTailwind.equals("null")) return true;
+            if (id.equals("stealthrock") || id.equals("spikes") || id.equals("toxicspikes") || id.equals("stickyweb")) {
+                Object hazards = readObject(opposite, "getSideHazards");
+                if (hazards != null && normalize(hazards.toString()).contains(id)) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private double readMoveAccuracy(String moveId) {
+        try {
+            Class<?> movesClass = Class.forName("com.cobblemon.mod.common.api.moves.Moves");
+            Method getByName = movesClass.getMethod("getByName", String.class);
+            Object template = getByName.invoke(null, moveId);
+            if (template == null) return 1.0D;
+            Object value = template.getClass().getMethod("getAccuracy").invoke(template);
+            if (value instanceof Number n) return Math.max(0.5D, Math.min(1.0D, n.doubleValue() / 100.0D));
+        } catch (Throwable ignored) {}
+        return 1.0D;
+    }
+
+    private boolean hasType(Object activeOrPokemon, String type) {
+        if (type == null || type.isBlank()) return false;
+        return readTypes(activeOrPokemon).contains(type);
+    }
+
+    private List<String> readTypes(Object activeOrPokemon) {
+        java.util.ArrayList<String> types = new java.util.ArrayList<>();
+        Object bp = readObject(activeOrPokemon, "getBattlePokemon");
+        if (bp == null) bp = activeOrPokemon;
+        Object pokemon = readObject(bp, "getEffectedPokemon");
+        if (pokemon == null) pokemon = readObject(bp, "getPokemon");
+        Object species = readObject(pokemon == null ? bp : pokemon, "getSpecies");
+        Object form = readObject(pokemon == null ? bp : pokemon, "getForm");
+        Object rawTypes = readObject(form, "getTypes");
+        if (rawTypes == null) rawTypes = readObject(species, "getTypes");
+        if (rawTypes instanceof Iterable<?> iterable) {
+            for (Object t : iterable) {
+                Object name = readObject(t, "getName");
+                String clean = normalize(name == null ? String.valueOf(t) : String.valueOf(name));
+                if (!clean.isBlank()) types.add(clean);
+            }
+        }
+        return types;
+    }
+
+    private double typeMultiplier(String attackType, List<String> defenderTypes) {
+        if (attackType == null || attackType.isBlank() || defenderTypes == null || defenderTypes.isEmpty()) return 1.0D;
+        double multiplier = 1.0D;
+        for (String defenderType : defenderTypes) multiplier *= singleTypeMultiplier(attackType, defenderType);
+        return multiplier;
+    }
+
+    private double singleTypeMultiplier(String a, String d) {
+        if (a.equals("normal") && d.equals("ghost")) return 0.0D;
+        if (a.equals("electric") && d.equals("ground")) return 0.0D;
+        if (a.equals("ground") && d.equals("flying")) return 0.0D;
+        if (a.equals("psychic") && d.equals("dark")) return 0.0D;
+        if (a.equals("ghost") && d.equals("normal")) return 0.0D;
+        if (a.equals("dragon") && d.equals("fairy")) return 0.0D;
+        if (a.equals("poison") && d.equals("steel")) return 0.0D;
+        if ((a.equals("fire") && List.of("grass","ice","bug","steel").contains(d)) || (a.equals("water") && List.of("fire","ground","rock").contains(d)) || (a.equals("grass") && List.of("water","ground","rock").contains(d)) || (a.equals("electric") && List.of("water","flying").contains(d)) || (a.equals("ice") && List.of("grass","ground","flying","dragon").contains(d)) || (a.equals("fighting") && List.of("normal","ice","rock","dark","steel").contains(d)) || (a.equals("ground") && List.of("fire","electric","poison","rock","steel").contains(d)) || (a.equals("flying") && List.of("grass","fighting","bug").contains(d)) || (a.equals("psychic") && List.of("fighting","poison").contains(d)) || (a.equals("bug") && List.of("grass","psychic","dark").contains(d)) || (a.equals("rock") && List.of("fire","ice","flying","bug").contains(d)) || (a.equals("ghost") && List.of("psychic","ghost").contains(d)) || (a.equals("dragon") && d.equals("dragon")) || (a.equals("dark") && List.of("psychic","ghost").contains(d)) || (a.equals("steel") && List.of("ice","rock","fairy").contains(d)) || (a.equals("fairy") && List.of("fighting","dragon","dark").contains(d)) || (a.equals("poison") && List.of("grass","fairy").contains(d))) return 2.0D;
+        if ((a.equals("fire") && List.of("fire","water","rock","dragon").contains(d)) || (a.equals("water") && List.of("water","grass","dragon").contains(d)) || (a.equals("grass") && List.of("fire","grass","poison","flying","bug","dragon","steel").contains(d)) || (a.equals("electric") && List.of("electric","grass","dragon").contains(d)) || (a.equals("ice") && List.of("fire","water","ice","steel").contains(d)) || (a.equals("fighting") && List.of("poison","flying","psychic","bug","fairy").contains(d)) || (a.equals("ground") && List.of("grass","bug").contains(d)) || (a.equals("flying") && List.of("electric","rock","steel").contains(d)) || (a.equals("psychic") && List.of("psychic","steel").contains(d)) || (a.equals("bug") && List.of("fire","fighting","poison","flying","ghost","steel","fairy").contains(d)) || (a.equals("rock") && List.of("fighting","ground","steel").contains(d)) || (a.equals("ghost") && d.equals("dark")) || (a.equals("dragon") && d.equals("steel")) || (a.equals("dark") && List.of("fighting","dark","fairy").contains(d)) || (a.equals("steel") && List.of("fire","water","electric","steel").contains(d)) || (a.equals("fairy") && List.of("fire","poison","steel").contains(d)) || (a.equals("poison") && List.of("poison","ground","rock","ghost").contains(d))) return 0.5D;
+        return 1.0D;
     }
 
     private ShowdownActionResponse safestAction(ActiveBattlePokemon activeBattlePokemon, ShowdownMoveset moveset, boolean forceSwitch) {

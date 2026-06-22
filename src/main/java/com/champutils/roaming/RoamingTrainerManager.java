@@ -110,7 +110,7 @@ public final class RoamingTrainerManager {
         // IMPORTANT: scale the roaming trainer at challenge/battle start time, not spawn time.
         // Players can change their party at a PC after the trainer spawns, so using the spawn-time
         // party would let them bait a low-level trainer and then swap to stronger Pokemon.
-        data.targetLevel = playerPartyHighestLevelPlusFive(player);
+        data.targetLevel = playerPartyHighestLevelForRarity(player, data.rarity);
         RoamingTrainerPartyBuilder.apply(npc, data);
 
         applyRoamingProtections(npc, data);
@@ -228,7 +228,7 @@ public final class RoamingTrainerManager {
         if (pos == null) return false;
 
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(rarity);
-        int targetLevel = playerPartyHighestLevelPlusFive(player);
+        int targetLevel = playerPartyHighestLevelForRarity(player, rarity);
         TrainerIdentity identity = chooseIdentity(rarity, settings);
         String displayName = identity.displayName;
         String skin = identity.skin;
@@ -556,7 +556,7 @@ public final class RoamingTrainerManager {
         try { npc.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
     }
 
-    private static int playerPartyHighestLevelPlusFive(ServerPlayer player) {
+    private static int playerPartyHighestLevelForRarity(ServerPlayer player, RoamingTrainerRarity rarity) {
         int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {
@@ -565,10 +565,22 @@ public final class RoamingTrainerManager {
             }
         } catch (Exception ignored) {}
 
-        // Roaming trainer level scaling is intentionally simple and always based only on the
-        // challenger's current party ace: highest current party Pokemon level + 5.
-        // Do not clamp by playtime tier here; tiers may affect rarity/moves, but not level.
-        return clamp(highest <= 0 ? 15 : highest + 5, 1, 100);
+        int offset = rarityLevelOffset(rarity);
+        // Roaming trainer level scaling is based on spawn rarity, not playtime tier:
+        // common +5, uncommon +10, rare +15, epic +20, legendary +25, mythic +30.
+        return clamp(highest <= 0 ? 15 + offset : highest + offset, 1, 100);
+    }
+
+    private static int rarityLevelOffset(RoamingTrainerRarity rarity) {
+        if (rarity == null) return 5;
+        return switch (rarity) {
+            case COMMON -> 5;
+            case UNCOMMON -> 10;
+            case RARE -> 15;
+            case EPIC -> 20;
+            case LEGENDARY -> 25;
+            case MYTHIC -> 30;
+        };
     }
 
     private static int clamp(int value, int min, int max) {

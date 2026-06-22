@@ -66,7 +66,7 @@ public final class MegaBossConfig {
         if (DATA.maxSpawnedPlayersPerCheck == 4 || DATA.maxSpawnedPlayersPerCheck == 5 || DATA.maxSpawnedPlayersPerCheck == 8) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.spawnChancePerPlayerCheck <= 0.0D || DATA.spawnChancePerPlayerCheck > 1.0D || DATA.spawnChancePerPlayerCheck == 0.25D) DATA.spawnChancePerPlayerCheck = defaultData.spawnChancePerPlayerCheck;
-        if (DATA.levelsAbovePlayerHighest < 15) DATA.levelsAbovePlayerHighest = 15;
+        if (DATA.levelsAbovePlayerHighest < 0) DATA.levelsAbovePlayerHighest = 0;
         // Mega Stones are intentionally fixed at 10% per megaboss win.
         // Do not allow old configs or manual edits to raise/lower this rate.
         DATA.megaStoneDropChance = 0.10D;

@@ -70,7 +70,7 @@ public final class RoamingTrainerConfig {
         public List<String> randomTrainerSkins = new ArrayList<>();
         public List<String> maleTrainerSkins = new ArrayList<>();
         public List<String> femaleTrainerSkins = new ArrayList<>();
-        public boolean allowCompetitiveMoves = false;
+        public boolean allowCompetitiveMoves = true;
     }
 
     public static class RaritySettings {
@@ -208,7 +208,9 @@ public final class RoamingTrainerConfig {
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
             settings.pokemonCount = desiredPokemonCount(rarity);
-            settings.aiSkill = Math.min(settings.aiSkill, desiredAiSkill(rarity));
+            settings.aiSkill = desiredAiSkill(rarity);
+            settings.heldItemChance = 1.0D;
+            settings.competitiveNatureChance = 1.0D;
             if (settings.trainerNames == null || settings.trainerNames.isEmpty()) {
                 settings.trainerNames = defaultTrainerNames(rarity);
             } else {
@@ -219,18 +221,16 @@ public final class RoamingTrainerConfig {
 
     private static int desiredPokemonCount(RoamingTrainerRarity rarity) {
         return switch (rarity) {
-            case COMMON, UNCOMMON -> 1;
-            case RARE, EPIC -> 2;
-            case LEGENDARY, MYTHIC -> 3;
+            case COMMON, UNCOMMON, RARE -> 3;
+            case EPIC -> 4;
+            case LEGENDARY -> 5;
+            case MYTHIC -> 6;
         };
     }
 
     private static int desiredAiSkill(RoamingTrainerRarity rarity) {
-        return switch (rarity) {
-            case COMMON, UNCOMMON -> 1;
-            case RARE, EPIC -> 2;
-            case LEGENDARY, MYTHIC -> 3;
-        };
+        // Every roaming trainer rarity should use the strongest available battle AI.
+        return 5;
     }
 
     public static boolean isIslanderDimension(String dimensionId) {
@@ -315,46 +315,46 @@ public final class RoamingTrainerConfig {
         s.trainerNames.addAll(defaultTrainerNames(rarity));
         switch (rarity) {
             case COMMON -> {
-                s.weight = 85; s.pokemonCount = 1; s.levelOffsetMin = -3; s.levelOffsetMax = 1; s.aiSkill = 1;
+                s.weight = 85; s.pokemonCount = 3; s.levelOffsetMin = 5; s.levelOffsetMax = 5; s.aiSkill = 5;
                 s.allPokemonChance = 0.85D;
                 s.fragmentMin = 1; s.fragmentMax = 2;
                 s.rewardCommands.add("eco give %player% 25");
             }
             case UNCOMMON -> {
-                s.weight = 12; s.pokemonCount = 1; s.levelOffsetMin = -2; s.levelOffsetMax = 2; s.aiSkill = 1;
+                s.weight = 12; s.pokemonCount = 3; s.levelOffsetMin = 10; s.levelOffsetMax = 10; s.aiSkill = 5;
                 s.allPokemonChance = 0.60D;
-                s.evolvedSpeciesChance = 0.15; s.heldItemChance = 0.10; s.competitiveNatureChance = 0.15;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 1; s.fragmentMax = 3;
                 s.rewardCommands.add("eco give %player% 75");
             }
             case RARE -> {
-                s.weight = 3; s.pokemonCount = 2; s.levelOffsetMin = 0; s.levelOffsetMax = 3; s.aiSkill = 2;
+                s.weight = 3; s.pokemonCount = 3; s.levelOffsetMin = 15; s.levelOffsetMax = 15; s.aiSkill = 5;
                 s.allPokemonChance = 0.35D;
-                s.evolvedSpeciesChance = 0.35; s.heldItemChance = 0.25; s.competitiveNatureChance = 0.35;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 2; s.fragmentMax = 4;
                 s.rewardCommands.add("eco give %player% 175");
             }
             case EPIC -> {
-                s.weight = 0.0; s.pokemonCount = 2; s.levelOffsetMin = 1; s.levelOffsetMax = 4; s.aiSkill = 2;
+                s.weight = 0.0; s.pokemonCount = 4; s.levelOffsetMin = 20; s.levelOffsetMax = 20; s.aiSkill = 5;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
-                s.evolvedSpeciesChance = 0.55; s.heldItemChance = 0.45; s.competitiveNatureChance = 0.55;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 3; s.fragmentMax = 5;
                 s.rewardCommands.add("eco give %player% 500");
             }
             case LEGENDARY -> {
-                s.weight = 0.0; s.pokemonCount = 3; s.levelOffsetMin = 2; s.levelOffsetMax = 5; s.aiSkill = 3;
+                s.weight = 0.0; s.pokemonCount = 5; s.levelOffsetMin = 25; s.levelOffsetMax = 25; s.aiSkill = 5;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 1;
-                s.evolvedSpeciesChance = 0.75; s.heldItemChance = 0.65; s.competitiveNatureChance = 0.75;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 4; s.fragmentMax = 7;
                 s.rewardCommands.add("eco give %player% 1250");
             }
             case MYTHIC -> {
-                s.weight = 0.0; s.pokemonCount = 3; s.levelOffsetMin = 3; s.levelOffsetMax = 6; s.aiSkill = 3;
+                s.weight = 0.0; s.pokemonCount = 6; s.levelOffsetMin = 30; s.levelOffsetMax = 30; s.aiSkill = 5;
                 s.allPokemonChance = 0.0D;
                 s.legendaryPokemonCount = 3;
-                s.evolvedSpeciesChance = 0.95; s.heldItemChance = 0.90; s.competitiveNatureChance = 0.95; s.shinyChance = 0.01;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0; s.shinyChance = 0.01;
                 s.fragmentMin = 5; s.fragmentMax = 9;
                 s.rewardCommands.add("eco give %player% 175");
             }

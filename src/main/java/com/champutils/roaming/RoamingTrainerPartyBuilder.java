@@ -72,20 +72,16 @@ public final class RoamingTrainerPartyBuilder {
             Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + sanitize(species) + "\" level=" + level).create();
 
             applyBestIVs(pokemon);
-            applyBestEVs(pokemon);
             applyTierLegalMoves(pokemon, species, level, rarity);
+            applyBestEVs(pokemon);
 
             if (RANDOM.nextDouble() < Math.max(0.0D, settings.shinyChance)) {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
             }
 
-            if (RANDOM.nextDouble() < Math.max(0.0D, settings.competitiveNatureChance)) {
-                applyNature(pokemon, pick(RoamingTrainerConfig.DATA.competitiveNatures));
-            }
-
-            if (RANDOM.nextDouble() < Math.max(0.0D, settings.heldItemChance)) {
-                applyHeldItem(pokemon, pick(RoamingTrainerConfig.DATA.competitiveHeldItems));
-            }
+            // Every rarity should be battle-ready: competitive nature + held item whenever possible.
+            applyNature(pokemon, bestNatureForCurrentMoves(pokemon));
+            applyHeldItem(pokemon, bestHeldItemForCurrentMoves(pokemon));
 
             try { pokemon.heal(); } catch (Exception ignored) {}
             return pokemon;
@@ -241,6 +237,7 @@ public final class RoamingTrainerPartyBuilder {
 
     private static List<String> legalMoveCandidates(String species, int level, RoamingTrainerRarity rarity) {
         List<String> moves = new ArrayList<>();
+        if (RoamingTrainerConfig.DATA.allowCompetitiveMoves) moves.addAll(competitiveMovesFor(species));
         moves.addAll(levelUpMoves(species, level));
         if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.UNCOMMON.ordinal()) moves.addAll(tmStyleMoves(species));
         if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.RARE.ordinal()) moves.addAll(eggStyleMoves(species));
@@ -391,15 +388,68 @@ public final class RoamingTrainerPartyBuilder {
         if (pokemon == null) return;
         try {
             var evs = pokemon.getEvs();
-            // 510 total EVs, spread evenly so every randomly selected Pokemon is battle-ready
-            // even when we do not know whether it is a physical, special, mixed, or bulky set.
-            evs.set(Stats.HP, 32);
-            evs.set(Stats.ATTACK, 32);
-            evs.set(Stats.DEFENCE, 32);
-            evs.set(Stats.SPECIAL_ATTACK, 32);
-            evs.set(Stats.SPECIAL_DEFENCE, 32);
-            evs.set(Stats.SPEED, 32);
+            int physical = 0;
+            int special = 0;
+            try {
+                for (Object moveObj : pokemon.getMoveSet()) {
+                    String id = normalizeMoveObject(moveObj);
+                    MoveTemplate t = Moves.getByName(id);
+                    if (t == null || t.getPower() <= 0) continue;
+                    String category = String.valueOf(t.getDamageCategory()).toLowerCase(Locale.ROOT);
+                    if (category.contains("special")) special++; else physical++;
+                }
+            } catch (Exception ignored) {}
+
+            evs.set(Stats.HP, 0);
+            evs.set(Stats.ATTACK, 0);
+            evs.set(Stats.DEFENCE, 4);
+            evs.set(Stats.SPECIAL_ATTACK, 0);
+            evs.set(Stats.SPECIAL_DEFENCE, 0);
+            evs.set(Stats.SPEED, 252);
+            if (special > physical) evs.set(Stats.SPECIAL_ATTACK, 252);
+            else evs.set(Stats.ATTACK, 252);
         } catch (Exception ignored) {}
+    }
+
+    private static String bestNatureForCurrentMoves(Pokemon pokemon) {
+        int physical = 0;
+        int special = 0;
+        try {
+            for (Object moveObj : pokemon.getMoveSet()) {
+                String id = normalizeMoveObject(moveObj);
+                MoveTemplate t = Moves.getByName(id);
+                if (t == null || t.getPower() <= 0) continue;
+                String category = String.valueOf(t.getDamageCategory()).toLowerCase(Locale.ROOT);
+                if (category.contains("special")) special++; else physical++;
+            }
+        } catch (Exception ignored) {}
+        return special > physical ? "timid" : "jolly";
+    }
+
+    private static String bestHeldItemForCurrentMoves(Pokemon pokemon) {
+        boolean hasSetup = false;
+        boolean special = false;
+        try {
+            for (Object moveObj : pokemon.getMoveSet()) {
+                String id = normalizeMoveObject(moveObj);
+                if (id.contains("dance") || id.contains("plot") || id.contains("mind") || id.contains("smash") || id.contains("agility")) hasSetup = true;
+                MoveTemplate t = Moves.getByName(id);
+                if (t != null && t.getPower() > 0 && String.valueOf(t.getDamageCategory()).toLowerCase(Locale.ROOT).contains("special")) special = true;
+            }
+        } catch (Exception ignored) {}
+        if (hasSetup) return "focus_sash";
+        return special ? "life_orb" : "life_orb";
+    }
+
+    private static String normalizeMoveObject(Object moveObj) {
+        if (moveObj == null) return "";
+        for (String methodName : List.of("getName", "getId", "getTemplate")) {
+            try {
+                Object value = moveObj.getClass().getMethod(methodName).invoke(moveObj);
+                if (value != null && value != moveObj) return sanitizeMove(value.toString());
+            } catch (Exception ignored) {}
+        }
+        return sanitizeMove(moveObj.toString());
     }
 
     private static void applyNature(Pokemon pokemon, String nature) {

@@ -22,7 +22,7 @@ public final class NpcShopMenu {
     }
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal(NpcShopConfig.CONFIG.title == null ? "Essentials Shop" : NpcShopConfig.CONFIG.title));
 
         MenuUtil.fillBorders(gui);
@@ -33,17 +33,17 @@ public final class NpcShopMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§aYour Balance"))
                         .addLoreLine(Component.literal("§7" + EconomyManager.format(EconomyManager.getBalance(player))))
-                        .addLoreLine(Component.literal("§8This shop is intentionally small."))
-                        .addLoreLine(Component.literal("§8Most trading should stay player-driven."))
+                        .addLoreLine(Component.literal("§8Browse essentials below."))
         );
 
         Set<Integer> used = new HashSet<>();
-        int nextSlot = 9;
+        used.add(4);
+        int nextSlot = 10;
 
         for (NpcShopConfig.ShopEntry entry : NpcShopConfig.CONFIG.entries) {
             if (entry == null) continue;
 
-            int slot = entry.slot >= 0 && entry.slot < gui.getSize() ? entry.slot : nextOpenSlot(used, nextSlot, gui.getSize());
+            int slot = entry.slot >= 0 && entry.slot < gui.getSize() && isContentSlot(entry.slot, gui.getSize()) ? entry.slot : nextOpenSlot(used, nextSlot, gui.getSize());
             if (slot < 0 || slot >= gui.getSize()) {
                 continue;
             }
@@ -83,10 +83,17 @@ public final class NpcShopMenu {
 
     private static int nextOpenSlot(Set<Integer> used, int start, int size) {
         for (int i = Math.max(0, start); i < size; i++) {
-            if (!used.contains(i)) {
+            if (!used.contains(i) && isContentSlot(i, size)) {
                 return i;
             }
         }
         return -1;
+    }
+
+    private static boolean isContentSlot(int slot, int size) {
+        int row = slot / 9;
+        int column = slot % 9;
+        int rows = size / 9;
+        return row > 0 && row < rows - 1 && column > 0 && column < 8;
     }
 }

@@ -1,5 +1,6 @@
 package com.champutils.rewardtrack;
 
+import com.champutils.time.DailyResetManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -118,11 +119,11 @@ public final class RewardTrackMissionManager {
 
     private static String dailyFlavor(Random random) {
         String[] values = {
-                "Play {n} ranked PvP matches with a focused team plan",
-                "Play {n} ranked PvP matches without forfeiting",
-                "Play {n} ranked PvP matches and test a new lead",
-                "Play {n} ranked PvP matches using a balanced team",
-                "Play {n} ranked PvP matches and practice safe switching"
+                "Play {n} ranked PvP matches",
+                "Play {n} ranked PvP matches without leaving early",
+                "Play {n} ranked PvP matches using your chosen lead Pokémon",
+                "Play {n} ranked PvP matches using the same team",
+                "Play {n} ranked PvP matches and finish each battle"
         };
         return values[Math.floorMod(random.nextInt(), values.length)];
     }
@@ -133,20 +134,32 @@ public final class RewardTrackMissionManager {
                 "Win {n} ranked PvP matches",
                 "Play {n} ranked PvP matches with a Normal-type Pokémon on your team",
                 "Play {n} ranked PvP matches with a starter Pokémon on your team",
-                "Win {n} ranked PvP matches while keeping pressure all game",
+                "Win {n} ranked PvP matches",
                 "Play {n} ranked PvP matches with no duplicate held items",
-                "Play {n} ranked PvP matches with a full offensive team",
-                "Play {n} ranked PvP matches with a defensive core",
-                "Win {n} ranked PvP matches after losing a previous match",
-                "Play {n} ranked PvP matches and try a new strategy"
+                "Play {n} ranked PvP matches",
+                "Play {n} ranked PvP matches using the same team",
+                "Win {n} ranked PvP matches",
+                "Play {n} ranked PvP matches and finish each battle"
         };
     }
 
-    private static long currentDayKey() { return LocalDate.now().toEpochDay(); }
+    private static long currentDayKey() {
+        return java.time.Instant.ofEpochMilli(DailyResetManager.currentResetKeyMillis())
+                .atZone(DailyResetManager.resetZone())
+                .toLocalDate()
+                .toEpochDay();
+    }
 
     private static long currentWeekKey() {
-        LocalDate now = LocalDate.now();
+        LocalDate now = java.time.Instant.ofEpochMilli(DailyResetManager.currentResetKeyMillis())
+                .atZone(DailyResetManager.resetZone())
+                .toLocalDate();
         WeekFields wf = WeekFields.ISO;
         return now.getYear() * 100L + now.get(wf.weekOfWeekBasedYear());
+    }
+
+    public static int seasonWeekIndex(long weekKey) {
+        if (weekKey <= 0) return 1;
+        return (int) (Math.floorMod(weekKey, 4) + 1);
     }
 }
