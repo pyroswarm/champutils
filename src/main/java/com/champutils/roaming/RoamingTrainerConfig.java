@@ -88,9 +88,26 @@ public final class RoamingTrainerConfig {
         public int fragmentMax = 1;
         public List<String> rewardCommands = new ArrayList<>();
         public List<String> speciesPool = new ArrayList<>();
+        /** Detailed competitive pool. If present, roaming trainers pull configured Pokemon sets from here first. */
+        public List<PokemonPoolEntry> pool = new ArrayList<>();
         public List<String> trainerNames = new ArrayList<>();
         /** Chance to use the full Cobblemon registry pool instead of the curated pool for non-forced slots. */
         public double allPokemonChance = 0.0D;
+    }
+
+
+    public static class PokemonPoolEntry {
+        public String species = "eevee";
+        public int level = 50;
+        public String nature = "jolly";
+        public Map<String, Integer> ivs = new LinkedHashMap<>();
+        public Map<String, Integer> evs = new LinkedHashMap<>();
+        public String ability = "";
+        public String heldItem = "";
+        public List<String> moves = new ArrayList<>();
+        public double weight = 1.0D;
+        public List<String> tags = new ArrayList<>();
+        public String role = "flex";
     }
 
     public static synchronized void load() {
@@ -207,6 +224,7 @@ public final class RoamingTrainerConfig {
 
         for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
             RaritySettings settings = DATA.rarities.computeIfAbsent(rarity.name(), key -> defaultRarity(rarity));
+            if (settings.pool == null) settings.pool = new ArrayList<>();
             settings.pokemonCount = desiredPokemonCount(rarity);
             settings.aiSkill = desiredAiSkill(rarity);
             settings.heldItemChance = 1.0D;

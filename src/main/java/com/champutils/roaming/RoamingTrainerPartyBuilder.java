@@ -8,6 +8,7 @@ import com.cobblemon.mod.common.api.moves.Moves;
 import com.cobblemon.mod.common.api.moves.MoveTemplate;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
+import com.cobblemon.mod.common.api.pokemon.stats.Stat;
 import com.cobblemon.mod.common.api.types.ElementalType;
 import com.cobblemon.mod.common.api.storage.party.NPCPartyStore;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -68,27 +69,81 @@ public final class RoamingTrainerPartyBuilder {
 
     private static Pokemon createPokemon(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int baseLevel, int slot) {
         try {
-            String species = pickSpecies(rarity, settings, slot);
+            RoamingTrainerConfig.PokemonPoolEntry configured = pickConfiguredSet(settings, slot);
+            String species = configured != null ? configured.species : pickSpecies(rarity, settings, slot);
             int level = Math.max(1, Math.min(100, baseLevel));
             Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + sanitize(species) + "\" level=" + level).create();
 
-            applyBestIVs(pokemon);
-            applyTierLegalMoves(pokemon, species, level, rarity);
-            applyBestEVs(pokemon);
+            if (configured != null) {
+                applyConfiguredIVsOrPerfect(pokemon, configured);
+                int learned = applyConfiguredMoves(pokemon, configured.moves);
+                if (learned <= 0) applyTierLegalMoves(pokemon, species, level, rarity);
+                applyConfiguredEVsOrBest(pokemon, configured);
+                applyAbility(pokemon, configured.ability);
+                applyNature(pokemon, configured.nature);
+                applyHeldItem(pokemon, configured.heldItem);
+            } else {
+                applyBestIVs(pokemon);
+                applyTierLegalMoves(pokemon, species, level, rarity);
+                applyBestEVs(pokemon);
+                applyNature(pokemon, bestNatureForCurrentMoves(pokemon));
+                applyHeldItem(pokemon, bestHeldItemForCurrentMoves(pokemon, slot));
+            }
 
             if (RANDOM.nextDouble() < Math.max(0.0D, settings.shinyChance)) {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
             }
-
-            // Every rarity should be battle-ready: competitive nature + a varied held item whenever possible.
-            applyNature(pokemon, bestNatureForCurrentMoves(pokemon));
-            applyHeldItem(pokemon, bestHeldItemForCurrentMoves(pokemon, slot));
 
             try { pokemon.heal(); } catch (Exception ignored) {}
             return pokemon;
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static RoamingTrainerConfig.PokemonPoolEntry pickConfiguredSet(RoamingTrainerConfig.RaritySettings settings, int slot) {
+        if (settings == null || settings.pool == null || settings.pool.isEmpty()) return null;
+
+        List<RoamingTrainerConfig.PokemonPoolEntry> usable = new ArrayList<>();
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : settings.pool) {
+            if (entry != null && entry.species != null && !entry.species.isBlank()) usable.add(entry);
+        }
+        if (usable.isEmpty()) return null;
+
+        // Prefer a lead in slot 0 and an anchor in the final slot when configured, like gym pools do.
+        if (slot == 0) {
+            RoamingTrainerConfig.PokemonPoolEntry lead = pickTagged(usable, "lead");
+            if (lead != null) return lead;
+        }
+        if (slot >= Math.max(1, settings.pokemonCount) - 1) {
+            RoamingTrainerConfig.PokemonPoolEntry anchor = pickTagged(usable, "anchor");
+            if (anchor != null) return anchor;
+        }
+
+        double total = 0.0D;
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) total += Math.max(0.0D, entry.weight);
+        if (total <= 0.0D) return usable.get(RANDOM.nextInt(usable.size()));
+        double roll = RANDOM.nextDouble() * total;
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) {
+            roll -= Math.max(0.0D, entry.weight);
+            if (roll <= 0.0D) return entry;
+        }
+        return usable.get(usable.size() - 1);
+    }
+
+    private static RoamingTrainerConfig.PokemonPoolEntry pickTagged(List<RoamingTrainerConfig.PokemonPoolEntry> usable, String tag) {
+        List<RoamingTrainerConfig.PokemonPoolEntry> tagged = new ArrayList<>();
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) {
+            if (entry.tags == null) continue;
+            for (String value : entry.tags) {
+                if (value != null && value.equalsIgnoreCase(tag)) {
+                    tagged.add(entry);
+                    break;
+                }
+            }
+        }
+        if (tagged.isEmpty()) return null;
+        return tagged.get(RANDOM.nextInt(tagged.size()));
     }
 
     private static String pickSpecies(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int slot) {
@@ -318,7 +373,7 @@ public final class RoamingTrainerPartyBuilder {
         if (level <= 10) return List.of("tackle", "growl", "quickattack", "sandattack");
         if (level <= 20) return List.of("tackle", "quickattack", "bite", "leer", "swift", "protect");
         if (level <= 50) return List.of("quickattack", "bite", "slash", "protect", "facade", "rocktomb", "bulldoze");
-        return List.of("slash", "crunch", "protect", "quickattack", "facade", "rockslide", "bulldoze", "aerialace", "uturn");
+        return List.of("slash", "crunch", "protect", "quickattack", "facade", "bodyslam", "brickbreak", "shadowclaw", "xscissor", "aerialace", "uturn");
     }
 
     private static List<String> tmStyleMoves(String species) {
@@ -376,6 +431,72 @@ public final class RoamingTrainerPartyBuilder {
     private static String sanitizeMove(String value) {
         if (value == null) return "tackle";
         return value.trim().toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9]", "");
+    }
+
+
+    private static boolean applyAbility(Pokemon pokemon, String ability) {
+        try {
+            if (pokemon == null || ability == null || ability.isBlank()) return false;
+            pokemon.updateAbility(Abilities.INSTANCE.getOrException(sanitizeMove(ability)).create(false, Priority.NORMAL));
+            return true;
+        } catch (Exception ignored) { return false; }
+    }
+
+    private static int applyConfiguredMoves(Pokemon pokemon, List<String> configuredMoves) {
+        int learned = 0;
+        if (pokemon == null || configuredMoves == null || configuredMoves.isEmpty()) return 0;
+        try { pokemon.getMoveSet().clear(); } catch (Exception ignored) {}
+        for (String move : configuredMoves) {
+            if (learned >= 4) break;
+            try {
+                MoveTemplate template = Moves.getByName(sanitizeMove(move));
+                if (template == null) continue;
+                pokemon.getMoveSet().add(template.create());
+                learned++;
+            } catch (Exception ignored) {}
+        }
+        return learned;
+    }
+
+    private static void applyConfiguredIVsOrPerfect(Pokemon pokemon, RoamingTrainerConfig.PokemonPoolEntry entry) {
+        applyBestIVs(pokemon);
+        if (pokemon == null || entry == null || entry.ivs == null || entry.ivs.isEmpty()) return;
+        try {
+            var ivs = pokemon.getIvs();
+            setStatValue(ivs, Stats.HP, entry.ivs.get("hp"));
+            setStatValue(ivs, Stats.ATTACK, entry.ivs.get("atk"));
+            setStatValue(ivs, Stats.DEFENCE, entry.ivs.get("def"));
+            setStatValue(ivs, Stats.SPECIAL_ATTACK, entry.ivs.get("spa"));
+            setStatValue(ivs, Stats.SPECIAL_DEFENCE, entry.ivs.get("spd"));
+            setStatValue(ivs, Stats.SPEED, entry.ivs.get("spe"));
+        } catch (Exception ignored) {}
+    }
+
+    private static void applyConfiguredEVsOrBest(Pokemon pokemon, RoamingTrainerConfig.PokemonPoolEntry entry) {
+        if (pokemon == null || entry == null || entry.evs == null || entry.evs.isEmpty()) {
+            applyBestEVs(pokemon);
+            return;
+        }
+        try {
+            var evs = pokemon.getEvs();
+            setStatValue(evs, Stats.HP, entry.evs.get("hp"));
+            setStatValue(evs, Stats.ATTACK, entry.evs.get("atk"));
+            setStatValue(evs, Stats.DEFENCE, entry.evs.get("def"));
+            setStatValue(evs, Stats.SPECIAL_ATTACK, entry.evs.get("spa"));
+            setStatValue(evs, Stats.SPECIAL_DEFENCE, entry.evs.get("spd"));
+            setStatValue(evs, Stats.SPEED, entry.evs.get("spe"));
+        } catch (Exception ignored) { applyBestEVs(pokemon); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setStatValue(Object stats, Stat stat, Integer value) {
+        if (stats == null || stat == null || value == null) return;
+        int clamped = Math.max(0, Math.min(252, value));
+        try {
+            stats.getClass().getMethod("set", Stat.class, int.class).invoke(stats, stat, clamped);
+        } catch (Exception ignored) {
+            try { stats.getClass().getMethod("set", Stat.class, Integer.class).invoke(stats, stat, clamped); } catch (Exception ignoredAgain) {}
+        }
     }
 
     private static void applyBestIVs(Pokemon pokemon) {

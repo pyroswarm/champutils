@@ -684,9 +684,10 @@ public final class ProfessionFragmentManager {
         if (
                 !normalizedToolType.equals("pickaxe") &&
                         !normalizedToolType.equals("axe") &&
-                        !normalizedToolType.equals("hoe")
+                        !normalizedToolType.equals("hoe") &&
+                        !normalizedToolType.equals("shovel")
         ) {
-            return CraftResult.fail("Choose pickaxe, axe, or hoe.");
+            return CraftResult.fail("Choose pickaxe, axe, hoe, or shovel.");
         }
 
         String normalizedRarity =
@@ -846,6 +847,10 @@ public final class ProfessionFragmentManager {
 
         if (normalized.equals("hoes")) {
             return "hoe";
+        }
+
+        if (normalized.equals("spade") || normalized.equals("spades") || normalized.equals("shovels")) {
+            return "shovel";
         }
 
         return normalized;

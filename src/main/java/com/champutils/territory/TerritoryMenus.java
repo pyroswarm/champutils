@@ -10,6 +10,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -362,14 +364,23 @@ public final class TerritoryMenus {
         lore.add(Component.literal("Type: " + territory.displayType()).withStyle(territory.ownerType == TerritoryRepository.OwnerType.GUILD ? ChatFormatting.GOLD : ChatFormatting.GREEN));
         lore.add(Component.literal("Owner: " + territory.ownerName).withStyle(ChatFormatting.GRAY));
         lore.add(Component.literal("Visitors: " + (territory.allowVisitors ? "Allowed" : "Trusted/List Only")).withStyle(territory.allowVisitors ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+        lore.add(Component.literal("Upvotes: " + territory.upvotes + (TerritoryRepository.hasUpvoted(territory, player) ? " (yours)" : "")).withStyle(ChatFormatting.LIGHT_PURPLE));
         lore.add(Component.literal("Status: " + (territory.isReady() ? "Ready" : cleanState(territory.generationState))).withStyle(territory.isReady() ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-        lore.add(Component.literal("Click to visit.").withStyle(ChatFormatting.AQUA));
+        lore.add(Component.literal("Left-click to visit.").withStyle(ChatFormatting.AQUA));
+        lore.add(Component.literal("Right-click to toggle your upvote.").withStyle(ChatFormatting.LIGHT_PURPLE));
 
-        return new GuiElementBuilder(territory.ownerType == TerritoryRepository.OwnerType.GUILD ? Items.BELL : Items.GRASS_BLOCK)
+        return new GuiElementBuilder(iconFor(territory))
                 .hideDefaultTooltip()
                 .setName(Component.literal(territory.publicName()).withStyle(ChatFormatting.GOLD))
                 .setLore(lore)
                 .setCallback((index, clickType, actionType) -> {
+                    if (clickType.toString().toUpperCase(java.util.Locale.ROOT).contains("RIGHT")) {
+                        TerritoryRepository.toggleUpvote(territory, player, (success, message) -> player.server.execute(() -> {
+                            player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                            openBrowser(player, BrowserType.ALL, "", 0);
+                        }));
+                        return;
+                    }
                     if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
                         player.sendSystemMessage(Component.literal("That territory is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
                         return;
@@ -395,6 +406,8 @@ public final class TerritoryMenus {
             list.add(territory);
         }
         list.sort((a, b) -> {
+            int voteCompare = Integer.compare(b.upvotes, a.upvotes);
+            if (voteCompare != 0) return voteCompare;
             int typeCompare = a.displayType().compareToIgnoreCase(b.displayType());
             if (type == BrowserType.ALL && typeCompare != 0) return typeCompare;
             return a.publicName().compareToIgnoreCase(b.publicName());
@@ -457,6 +470,16 @@ public final class TerritoryMenus {
         };
     }
 
+    private static Item iconFor(TerritoryRepository.Territory territory) {
+        if (territory != null && territory.iconItemId != null && !territory.iconItemId.isBlank()) {
+            try {
+                Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(territory.iconItemId));
+                if (item != null && item != Items.AIR) return item;
+            } catch (Throwable ignored) {}
+        }
+        return territory != null && territory.ownerType == TerritoryRepository.OwnerType.GUILD ? Items.BELL : Items.GRASS_BLOCK;
+    }
+
     private static String cleanState(String state) {
         return state == null || state.isBlank() ? "Preparing" : state.replace('_', ' ');
     }
@@ -467,7 +490,7 @@ public final class TerritoryMenus {
                     .hideDefaultTooltip()
                     .setName(Component.literal(emptyText).withStyle(ChatFormatting.RED));
         }
-        return new GuiElementBuilder(icon)
+        return new GuiElementBuilder(iconFor(territory))
                 .hideDefaultTooltip()
                 .setName(Component.literal(territory.publicName()).withStyle(ChatFormatting.GOLD))
                 .addLoreLine(Component.literal("Owner: " + territory.ownerName).withStyle(ChatFormatting.GRAY))

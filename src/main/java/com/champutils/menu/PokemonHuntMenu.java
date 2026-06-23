@@ -37,7 +37,7 @@ public final class PokemonHuntMenu {
             ItemStack icon = PokemonIconUtil.createPokemonIcon(hunt.species, false, "minecraft:egg", false);
             GuiElementBuilder builder = new GuiElementBuilder(icon)
                     .hideDefaultTooltip()
-                    .setName(Component.literal((done ? "§a" : "§e") + PokemonHuntManager.prettySpecies(hunt.species)))
+                    .setName(Component.literal((done ? "§a" : rarityColor(hunt.difficulty)) + PokemonHuntManager.prettySpecies(hunt.species)))
                     .addLoreLine(Component.literal("§7First player to catch this exact target wins."))
                     .addLoreLine(Component.literal("§7Species: §f" + PokemonHuntManager.prettySpecies(hunt.species)))
                     .addLoreLine(Component.literal("§7Nature: §f" + PokemonHuntManager.prettyNature(hunt.nature)))
@@ -71,6 +71,18 @@ public final class PokemonHuntMenu {
         );
 
         gui.open();
+    }
+
+    private static String rarityColor(String difficulty) {
+        String d = difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (d) {
+            case "UNCOMMON" -> "§a";
+            case "RARE" -> "§9";
+            case "EPIC" -> "§5";
+            case "LEGENDARY" -> "§6";
+            case "MYTHIC" -> "§d";
+            default -> "§f";
+        };
     }
 
     private static void addRewardLore(GuiElementBuilder builder, PokemonHuntConfig.Rewards rewards, String difficulty) {

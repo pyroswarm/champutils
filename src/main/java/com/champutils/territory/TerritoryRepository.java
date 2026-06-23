@@ -5,6 +5,8 @@ import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.IslanderProfileManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -55,6 +57,8 @@ public final class TerritoryRepository {
         public float spawnPitch;
         public int level;
         public String biomePreference;
+        public String iconItemId;
+        public int upvotes;
 
         public boolean isPublic;
         public boolean allowVisitors;
@@ -100,6 +104,7 @@ public final class TerritoryRepository {
     private static final Map<UUID, Territory> TERRITORIES = new ConcurrentHashMap<>();
     private static final Map<String, UUID> OWNER_INDEX = new ConcurrentHashMap<>();
     private static final Map<String, TrustLevel> TRUST = new ConcurrentHashMap<>();
+    private static final Set<String> UPVOTES = ConcurrentHashMap.newKeySet();
 
     // Hot-path indexes. These prevent per-tick and per-interaction territory checks from scanning every territory.
     private static final Map<String, Map<Long, List<Territory>>> TERRITORIES_BY_WORLD_CHUNK = new ConcurrentHashMap<>();
@@ -118,6 +123,7 @@ public final class TerritoryRepository {
             Map<UUID, Territory> fresh = new ConcurrentHashMap<>();
             Map<String, UUID> owners = new ConcurrentHashMap<>();
             Map<String, TrustLevel> trust = new ConcurrentHashMap<>();
+            Set<String> upvotes = ConcurrentHashMap.newKeySet();
 
             try (PreparedStatement statement = connection.prepareStatement("select * from territories")) {
                 try (ResultSet rs = statement.executeQuery()) {
@@ -140,12 +146,26 @@ public final class TerritoryRepository {
                 }
             }
 
+            try (PreparedStatement statement = connection.prepareStatement("select territory_id, player_uuid from territory_upvotes")) {
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        UUID territoryId = (UUID) rs.getObject("territory_id");
+                        UUID playerId = (UUID) rs.getObject("player_uuid");
+                        upvotes.add(upvoteKey(territoryId, playerId));
+                        Territory upvoted = fresh.get(territoryId);
+                        if (upvoted != null) upvoted.upvotes++;
+                    }
+                }
+            } catch (Exception ignored) {}
+
             TERRITORIES.clear();
             TERRITORIES.putAll(fresh);
             OWNER_INDEX.clear();
             OWNER_INDEX.putAll(owners);
             TRUST.clear();
             TRUST.putAll(trust);
+            UPVOTES.clear();
+            UPVOTES.addAll(upvotes);
             rebuildSpatialIndexes();
 
             System.out.println("[ChampUtils] Loaded " + TERRITORIES.size() + " territories from the database.");
@@ -163,8 +183,58 @@ public final class TerritoryRepository {
         for (Territory t : TERRITORIES.values()) {
             if (t.ownerType == type && t.isPublic) list.add(t);
         }
-        list.sort(Comparator.comparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
+        list.sort(Comparator.comparingInt((Territory t) -> t.upvotes).reversed().thenComparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
         return list;
+    }
+
+    public static boolean hasUpvoted(Territory territory, ServerPlayer player) {
+        return territory != null && player != null && UPVOTES.contains(upvoteKey(territory.id, player.getUUID()));
+    }
+
+    public static void toggleUpvote(Territory territory, ServerPlayer player, Callback callback) {
+        if (territory == null || player == null) { callback.done(false, "Invalid territory."); return; }
+        if (!territory.isPublic) { callback.done(false, "Only public territories can be upvoted."); return; }
+        UUID playerId = player.getUUID();
+        boolean currently = hasUpvoted(territory, player);
+        DatabaseManager.executeAsync("toggle territory upvote", connection -> {
+            if (currently) {
+                try (PreparedStatement st = connection.prepareStatement("delete from territory_upvotes where territory_id = ? and player_uuid = ?")) {
+                    st.setObject(1, territory.id); st.setObject(2, playerId); st.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement st = connection.prepareStatement("insert into territory_upvotes (territory_id, player_uuid, created_at) values (?, ?, now()) on conflict do nothing")) {
+                    st.setObject(1, territory.id); st.setObject(2, playerId); st.executeUpdate();
+                }
+            }
+            try (PreparedStatement st = connection.prepareStatement("select count(*) as total from territory_upvotes where territory_id = ?")) {
+                st.setObject(1, territory.id);
+                try (ResultSet rs = st.executeQuery()) { if (rs.next()) territory.upvotes = rs.getInt("total"); }
+            }
+            if (currently) UPVOTES.remove(upvoteKey(territory.id, playerId)); else UPVOTES.add(upvoteKey(territory.id, playerId));
+            callback.done(true, currently ? "Removed your territory upvote." : "Upvoted territory.");
+        });
+    }
+
+    public static void setIcon(Territory territory, String itemId, Callback callback) {
+        if (territory == null) { callback.done(false, "No territory found."); return; }
+        String clean = cleanIconItemId(itemId);
+        if (clean == null) { callback.done(false, "Hold a valid item to set your territory icon."); return; }
+        DatabaseManager.executeAsync("set territory icon", connection -> {
+            try (PreparedStatement st = connection.prepareStatement("update territories set icon_item_id = ?, updated_at = now() where id = ?")) {
+                st.setString(1, clean); st.setObject(2, territory.id); st.executeUpdate();
+            }
+            territory.iconItemId = clean;
+            callback.done(true, "Territory icon set to " + clean + ".");
+        });
+    }
+
+    public static String cleanIconItemId(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            ResourceLocation id = ResourceLocation.parse(raw.trim().toLowerCase(Locale.ROOT));
+            if (!BuiltInRegistries.ITEM.containsKey(id)) return null;
+            return id.toString();
+        } catch (Throwable ignored) { return null; }
     }
 
     public static boolean isTerritoryWorld(ServerLevel level) {
@@ -546,7 +616,7 @@ public final class TerritoryRepository {
             TrustLevel trust = getTrust(t.id, player.getUUID());
             if (trust != null && trust != TrustLevel.BANNED) list.add(t);
         }
-        list.sort(Comparator.comparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
+        list.sort(Comparator.comparingInt((Territory t) -> t.upvotes).reversed().thenComparing(t -> t.publicName().toLowerCase(Locale.ROOT)));
         return list;
     }
 
@@ -846,6 +916,8 @@ public final class TerritoryRepository {
         t.spawnPitch = rs.getFloat("spawn_pitch");
         t.level = rs.getInt("level");
         t.biomePreference = getStringOrNull(rs, "biome_preference");
+        t.iconItemId = getStringOrNull(rs, "icon_item_id");
+        t.upvotes = getIntOrDefault(rs, "upvotes", 0);
         t.isPublic = getBooleanOrDefault(rs, "is_public", false);
         t.allowVisitors = getBooleanOrDefault(rs, "allow_visitors", false);
         t.visitorsCanBuild = getBooleanOrDefault(rs, "visitors_can_build", false);
@@ -959,6 +1031,7 @@ public final class TerritoryRepository {
 
     private static String ownerKey(OwnerType ownerType, String ownerId) { return ownerType.name() + ":" + ownerId; }
     private static String trustKey(UUID territoryId, UUID playerId) { return territoryId + ":" + playerId; }
+    private static String upvoteKey(UUID territoryId, UUID playerId) { return territoryId + ":" + playerId; }
 
     @FunctionalInterface
     public interface Callback { void done(boolean success, String message); }

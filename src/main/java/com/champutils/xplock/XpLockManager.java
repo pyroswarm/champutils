@@ -39,6 +39,18 @@ public final class XpLockManager {
         pokemon.getPersistentData().putInt(LEVEL_CAP_KEY, Math.max(1, Math.min(100, level)));
     }
 
+    public static boolean enforceLevelCap(Pokemon pokemon) {
+        if (pokemon == null) return false;
+        try {
+            int cap = getLevelCap(pokemon);
+            if (cap > 0 && pokemon.getLevel() > cap) {
+                pokemon.setLevel(cap);
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public static void clearLevelCap(Pokemon pokemon) {
         if (pokemon == null) return;
         pokemon.getPersistentData().remove(LEVEL_CAP_KEY);

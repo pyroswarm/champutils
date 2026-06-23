@@ -386,10 +386,18 @@ public final class AuctionHouseService {
             }
 
             EconomyManager.deposit(record.listing.sellerUuid, record.listing.sellerUsername, record.listing.price, "Auction sale " + record.listing.id);
+            String saleMessage = player.getName().getString() + " bought " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ".";
             try {
-                NotificationRepository.create(record.listing.sellerUuid, record.listing.sellerUsername, "AUCTION_SOLD", "Auction Sold", player.getName().getString() + " bought " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ".");
+                NotificationRepository.create(record.listing.sellerUuid, record.listing.sellerUsername, "AUCTION_SOLD", "Auction Sold", saleMessage);
             } catch (Exception notificationError) {
                 notificationError.printStackTrace();
+            }
+            for (ServerPlayer online : player.server.getPlayerList().getPlayers()) {
+                UUID activeProfile = PlayerProfileManager.activeProfileId(online);
+                if (activeProfile != null && activeProfile.equals(record.listing.sellerUuid)) {
+                    online.sendSystemMessage(Component.literal("Auction sold: " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ". Credits were added to your profile.").withStyle(ChatFormatting.GREEN));
+                    break;
+                }
             }
 
             deliver.run();

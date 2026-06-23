@@ -156,7 +156,7 @@ public final class LevelCapCommand {
             Pokemon pokemon = party.get(i);
             if (pokemon == null) continue;
             XpLockManager.setLevelCap(pokemon, level);
-            // Do NOT lower existing Pokémon. Levelcap only prevents future EXP/levelups once the cap is reached.
+            XpLockManager.enforceLevelCap(pokemon);
             applied++;
         }
         return applied;

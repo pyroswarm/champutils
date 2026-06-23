@@ -12,6 +12,9 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -39,6 +42,7 @@ public final class TerritoryCommand {
                     .then(Commands.literal("name")
                             .then(Commands.argument("name", StringArgumentType.greedyString())
                                     .executes(context -> namePersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
+                    .then(Commands.literal("icon").executes(context -> iconPersonal(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("border")
                             .executes(context -> borderPersonal(context.getSource().getPlayerOrException(), null))
                             .then(Commands.literal("show").executes(context -> borderPersonal(context.getSource().getPlayerOrException(), true)))
@@ -143,6 +147,7 @@ public final class TerritoryCommand {
                     .then(Commands.literal("name")
                             .then(Commands.argument("name", StringArgumentType.greedyString())
                                     .executes(context -> nameGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
+                    .then(Commands.literal("icon").executes(context -> iconGuild(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("border")
                             .executes(context -> borderGuild(context.getSource().getPlayerOrException(), null))
                             .then(Commands.literal("show").executes(context -> borderGuild(context.getSource().getPlayerOrException(), true)))
@@ -384,6 +389,28 @@ public final class TerritoryCommand {
 
     private static int nameGuild(ServerPlayer player, String name) {
         return name(player, ownGuild(player), name);
+    }
+
+    private static int iconPersonal(ServerPlayer player) { return icon(player, ownPersonal(player)); }
+    private static int iconGuild(ServerPlayer player) { return icon(player, ownGuild(player)); }
+
+    private static int icon(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("No territory found.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TerritoryRepository.canManage(player, territory)) {
+            player.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        ItemStack held = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (held == null || held.isEmpty()) {
+            player.sendSystemMessage(Component.literal("Hold the item you want to use as your territory icon, then run this again.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        String itemId = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+        TerritoryRepository.setIcon(territory, itemId, (success, message) -> player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
+        return 1;
     }
 
     private static int name(ServerPlayer player, TerritoryRepository.Territory territory, String name) {
