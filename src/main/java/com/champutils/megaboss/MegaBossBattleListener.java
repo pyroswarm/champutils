@@ -203,9 +203,9 @@ public final class MegaBossBattleListener {
     }
 
     private static double megaStoneChance() {
-        // Fixed design rule: megaboss wins have a flat 10% Mega Stone chance.
+        // Fixed design rule: megaboss wins have a stronger flat 15% Mega Stone chance.
         // This intentionally ignores profession level and any stale config values.
-        return 0.10D;
+        return 0.15D;
     }
 
     private static String pickStone(List<String> stoneItems) {

@@ -1,6 +1,7 @@
 package com.champutils.territory;
 
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.permissions.LuckPermsHook;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -33,7 +34,7 @@ public final class TerritoryBorderManager {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             // Do not call LuckPerms from this hot path. A cache miss can block the server thread.
             // OP-level admins bypass; command-level admin bypasses are handled outside tick movement enforcement.
-            if (player.hasPermissions(4)) continue;
+            if (player.hasPermissions(4) || LuckPermsHook.hasPermission(player, "champutils.admin") || LuckPermsHook.hasPermission(player, "champutils.claim.bypass")) continue;
 
             ServerLevel level = player.serverLevel();
             if (!TerritoryRepository.isTerritoryWorld(level)) {

@@ -101,24 +101,16 @@ public final class FirstJoinKitConfig {
     private static void normalizeStarterToolEntries(List<KitEntry> entries) {
         if (entries == null) return;
 
-        boolean hasHoe = false;
-        for (KitEntry entry : entries) {
-            if (entry != null && "tool".equalsIgnoreCase(entry.type) && "hoe".equals(normalizeToolType(entry.toolType))) {
-                hasHoe = true;
-                break;
-            }
-        }
-
         for (KitEntry entry : entries) {
             if (entry == null || !"tool".equalsIgnoreCase(entry.type)) continue;
             String type = normalizeToolType(entry.toolType);
-            if ("shovel".equals(type) && !hasHoe) {
-                entry.toolType = "hoe";
-                hasHoe = true;
-            } else {
-                entry.toolType = type.isBlank() ? "pickaxe" : type;
-            }
+            entry.toolType = type.isBlank() ? "pickaxe" : type;
         }
+
+        ensureTool(entries, "pickaxe");
+        ensureTool(entries, "axe");
+        ensureTool(entries, "hoe");
+        ensureTool(entries, "shovel");
 
         Set<String> seen = new LinkedHashSet<>();
         Iterator<KitEntry> iterator = entries.iterator();
@@ -148,10 +140,18 @@ public final class FirstJoinKitConfig {
         root.entries.add(tool("pickaxe"));
         root.entries.add(tool("axe"));
         root.entries.add(tool("hoe"));
+        root.entries.add(tool("shovel"));
         root.entries.add(item("cobblemon:poke_ball", 16));
         root.entries.add(item("minecraft:cooked_beef", 16));
         root.islanderEntries.addAll(createDefaultIslanderEntries());
         return root;
+    }
+
+    private static void ensureTool(List<KitEntry> entries, String toolType) {
+        for (KitEntry entry : entries) {
+            if (entry != null && "tool".equalsIgnoreCase(entry.type) && toolType.equals(normalizeToolType(entry.toolType))) return;
+        }
+        entries.add(tool(toolType));
     }
 
     private static void ensureIslanderBonusEntries(List<KitEntry> entries) {

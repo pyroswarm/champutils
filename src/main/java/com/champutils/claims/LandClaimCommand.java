@@ -67,13 +67,16 @@ public final class LandClaimCommand {
         });
     }
 
-    private static int setPos(ServerPlayer player, boolean first) {
+    static int setPos(ServerPlayer player, boolean first) {
+        return setPosAt(player, first, player.blockPosition());
+    }
+
+    static int setPosAt(ServerPlayer player, boolean first, BlockPos pos) {
         if (!LandClaimConfig.enabled()) {
             player.sendSystemMessage(Component.literal("Land claims are disabled.").withStyle(ChatFormatting.RED));
             return 0;
         }
         Selection selection = SELECTIONS.computeIfAbsent(player.getUUID(), ignored -> new Selection());
-        BlockPos pos = player.blockPosition();
         String world = player.serverLevel().dimension().location().toString();
         if (first) {
             selection.pos1 = pos;
@@ -84,12 +87,12 @@ public final class LandClaimCommand {
         }
         player.sendSystemMessage(Component.literal((first ? "Position 1" : "Position 2") + " set at X " + pos.getX() + ", Z " + pos.getZ() + ".").withStyle(ChatFormatting.GREEN));
         if (selection.pos1 != null && selection.pos2 != null) {
-            player.sendSystemMessage(Component.literal("Run /claims claim to preview the cost.").withStyle(ChatFormatting.YELLOW));
+            preview(player);
         }
         return 1;
     }
 
-    private static int preview(ServerPlayer player) {
+    static int preview(ServerPlayer player) {
         if (isSpawnWorld(player.serverLevel())) {
             player.sendSystemMessage(Component.literal("You cannot create land claims in spawn.").withStyle(ChatFormatting.RED));
             return 0;

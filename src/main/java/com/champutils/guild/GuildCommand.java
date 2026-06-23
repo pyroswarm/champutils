@@ -52,11 +52,6 @@ public final class GuildCommand {
                                     .executes(context -> guildTerritoryHome(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("create")
                             .then(Commands.argument("name", StringArgumentType.string())
-                                    .executes(context -> create(
-                                            context.getSource().getPlayerOrException(),
-                                            StringArgumentType.getString(context, "name"),
-                                            null
-                                    ))
                                     .then(Commands.argument("tag", StringArgumentType.string())
                                             .executes(context -> create(
                                                     context.getSource().getPlayerOrException(),
@@ -173,6 +168,11 @@ public final class GuildCommand {
     private static int create(ServerPlayer player, String name, String tag) {
         String cleanName = GuildRepository.cleanName(name);
         String cleanTag = GuildRepository.cleanTag(tag);
+
+        if (cleanTag == null || cleanTag.isBlank()) {
+            player.sendSystemMessage(Component.literal("You must choose a guild tag. Use /guild create <name> <tag>.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
 
         if (cleanName.length() < 3) {
             player.sendSystemMessage(Component.literal("Guild names must be at least 3 characters.").withStyle(ChatFormatting.RED));
@@ -434,7 +434,10 @@ public final class GuildCommand {
         GuildRepository.disbandGuild(actor.getUUID(), pending.guildId, pending.guildName, (success, message) ->
                 actor.server.execute(() -> {
                     actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (success) TerritoryRepository.refreshAll();
+                    if (success) {
+                        TerritoryRepository.refreshAll();
+                        com.champutils.teleport.DefaultSpawnManager.teleportToSpawn(actor);
+                    }
                 })
         );
         return 1;

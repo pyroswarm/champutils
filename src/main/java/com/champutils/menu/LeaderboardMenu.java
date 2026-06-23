@@ -36,11 +36,16 @@ public class LeaderboardMenu {
         open(player, Board.PROFESSIONS_OVERALL);
     }
 
+    public static void openEconomy(ServerPlayer player) {
+        open(player, Board.ECONOMY);
+    }
+
     public static void openProfession(ServerPlayer player, ProfessionType type) {
         open(player, switch (type) {
             case MINING -> Board.PROFESSIONS_MINING;
             case FORESTRY -> Board.PROFESSIONS_FORESTRY;
             case FARMING -> Board.PROFESSIONS_FARMING;
+            case BATTLING -> Board.PROFESSIONS_BATTLING;
             default -> Board.PROFESSIONS_OVERALL;
         });
     }
@@ -60,7 +65,9 @@ public class LeaderboardMenu {
         tab(gui, player, 2, Items.DIAMOND_PICKAXE, "§bMining", board, Board.PROFESSIONS_MINING);
         tab(gui, player, 3, Items.DIAMOND_AXE, "§bForestry", board, Board.PROFESSIONS_FORESTRY);
         tab(gui, player, 4, Items.DIAMOND_HOE, "§bFarming", board, Board.PROFESSIONS_FARMING);
-        tab(gui, player, 5, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
+        tab(gui, player, 5, Items.DIAMOND_SWORD, "§6Battle", board, Board.PROFESSIONS_BATTLING);
+        tab(gui, player, 6, Items.EMERALD, "§aEconomy", board, Board.ECONOMY);
+        tab(gui, player, 7, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
 
         // Profile-specific leaderboards live together in the lower-right corner.
         tab(gui, player, 48, Items.CLOCK, "§ePlaytime", board, Board.PLAYTIME);
@@ -69,7 +76,7 @@ public class LeaderboardMenu {
         tab(gui, player, 51, Items.DRAGON_HEAD, "§5Nuzlocke", board, Board.NUZLOCKE);
         tab(gui, player, 52, Items.GRASS_BLOCK, "§2Islander", board, Board.ISLANDER);
 
-        List<Entry> rows = ProfileLeaderboardRepository.top(board, 28);
+        List<Entry> rows = ProfileLeaderboardRepository.topFresh(board, 28);
         int[] slots = contentSlots();
         for (int i = 0; i < rows.size() && i < slots.length; i++) {
             gui.setSlot(slots[i], entryItem(player, rows.get(i), i + 1, board));
@@ -169,12 +176,15 @@ public class LeaderboardMenu {
             case GYMS -> "Gyms";
             case NUZLOCKE -> "Nuzlocke";
             case ISLANDER -> "Islander";
+            case PROFESSIONS_BATTLING -> "Battle";
+            case ECONOMY -> "Economy";
             case GUILDS -> "Guilds";
         };
     }
 
     private static String formatValue(Board board, long value) {
         if (board == Board.PLAYTIME) return value + "h";
+        if (board == Board.ECONOMY) return com.champutils.economy.EconomyManager.format(value);
         return Long.toString(value);
     }
 

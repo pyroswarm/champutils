@@ -16,7 +16,7 @@ import net.minecraft.world.item.Items;
 public class SettingsMenu {
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x1, player);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x2, player);
         gui.setTitle(Component.literal("Settings"));
 
         setToggle(
@@ -62,6 +62,26 @@ public class SettingsMenu {
         setToggle(
                 gui,
                 4,
+                "Repair Confirmation",
+                "Requires /itemroll repair confirm before spending materials.",
+                ProfessionNotificationSettings.isRepairConfirmationEnabled(player),
+                () -> ProfessionNotificationSettings.toggleRepairConfirmation(player),
+                player
+        );
+
+        setToggle(
+                gui,
+                5,
+                "Auto Repair Broken Tools",
+                "Automatically repairs profession tools when they hit zero durability if materials are available.",
+                ProfessionNotificationSettings.isAutoRepairEnabled(player),
+                () -> ProfessionNotificationSettings.toggleAutoRepair(player),
+                player
+        );
+
+        setToggle(
+                gui,
+                6,
                 "Scoreboard Display",
                 "Shows money, RP, dex progress, and skill levels in the sidebar.",
                 ScoreboardPreferenceManager.isEnabled(player.getUUID()),
@@ -69,7 +89,7 @@ public class SettingsMenu {
                 player
         );
 
-        MenuUtil.addBackButton(gui, 8, () -> MainMenu.open(player));
+        MenuUtil.addBackButton(gui, 17, () -> MainMenu.open(player));
         gui.open();
     }
 

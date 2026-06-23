@@ -45,7 +45,7 @@ public class NpcBattleRewardManager {
 
     private static double getRollChance(int battlingLevel) {
         double chance = BattleProfessionLootConfig.baseRollChance +
-                (BattleProfessionLootConfig.rollChancePerBattlingLevel * Math.max(0, battlingLevel - 1));
+                (BattleProfessionLootConfig.rollChancePerBattlingLevel * Math.max(0, battlingLevel));
 
         if (BattleProfessionLootConfig.maxRollChance > 0.0D) {
             chance = Math.min(chance, BattleProfessionLootConfig.maxRollChance);

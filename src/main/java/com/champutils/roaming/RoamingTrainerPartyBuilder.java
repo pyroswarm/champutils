@@ -25,6 +25,7 @@ import java.util.Random;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Collections;
 
 public final class RoamingTrainerPartyBuilder {
 
@@ -79,9 +80,9 @@ public final class RoamingTrainerPartyBuilder {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
             }
 
-            // Every rarity should be battle-ready: competitive nature + held item whenever possible.
+            // Every rarity should be battle-ready: competitive nature + a varied held item whenever possible.
             applyNature(pokemon, bestNatureForCurrentMoves(pokemon));
-            applyHeldItem(pokemon, bestHeldItemForCurrentMoves(pokemon));
+            applyHeldItem(pokemon, bestHeldItemForCurrentMoves(pokemon, slot));
 
             try { pokemon.heal(); } catch (Exception ignored) {}
             return pokemon;
@@ -267,10 +268,16 @@ public final class RoamingTrainerPartyBuilder {
                 if (!selected.isEmpty() && selected.get(selected.size() - 1).equals(m)) break;
             } catch (Exception ignored) {}
         }
-        // Strong/simple damaging moves.
-        clean.stream().filter(m -> !selected.contains(m)).filter(RoamingTrainerPartyBuilder::isDamagingMove).limit(2).forEach(selected::add);
+        // Strong/simple damaging moves. Shuffle equal-value moves so every trainer does not collapse into the same Crunch/fallback loop.
+        List<String> damaging = new ArrayList<>();
+        clean.stream().filter(m -> !selected.contains(m)).filter(RoamingTrainerPartyBuilder::isDamagingMove).forEach(damaging::add);
+        Collections.shuffle(damaging, RANDOM);
+        damaging.stream().limit(2).forEach(selected::add);
         // One utility/status max.
-        clean.stream().filter(m -> !selected.contains(m)).filter(m -> !isDamagingMove(m)).limit(1).forEach(selected::add);
+        List<String> utility = new ArrayList<>();
+        clean.stream().filter(m -> !selected.contains(m)).filter(m -> !isDamagingMove(m)).forEach(utility::add);
+        Collections.shuffle(utility, RANDOM);
+        utility.stream().limit(1).forEach(selected::add);
         // Fill remaining with damage/neutral.
         clean.stream().filter(m -> !selected.contains(m)).limit(4 - selected.size()).forEach(selected::add);
         return selected.size() > 4 ? selected.subList(0, 4) : selected;
@@ -308,10 +315,10 @@ public final class RoamingTrainerPartyBuilder {
     }
 
     private static List<String> fallbackByLevel(int level) {
-        if (level <= 10) return List.of("tackle", "growl", "quickattack");
-        if (level <= 20) return List.of("tackle", "quickattack", "bite", "leer");
-        if (level <= 50) return List.of("quickattack", "bite", "slash", "protect");
-        return List.of("slash", "crunch", "protect", "quickattack");
+        if (level <= 10) return List.of("tackle", "growl", "quickattack", "sandattack");
+        if (level <= 20) return List.of("tackle", "quickattack", "bite", "leer", "swift", "protect");
+        if (level <= 50) return List.of("quickattack", "bite", "slash", "protect", "facade", "rocktomb", "bulldoze");
+        return List.of("slash", "crunch", "protect", "quickattack", "facade", "rockslide", "bulldoze", "aerialace", "uturn");
     }
 
     private static List<String> tmStyleMoves(String species) {
@@ -426,19 +433,40 @@ public final class RoamingTrainerPartyBuilder {
         return special > physical ? "timid" : "jolly";
     }
 
-    private static String bestHeldItemForCurrentMoves(Pokemon pokemon) {
+    private static String bestHeldItemForCurrentMoves(Pokemon pokemon, int slot) {
         boolean hasSetup = false;
         boolean special = false;
+        boolean physical = false;
         try {
             for (Object moveObj : pokemon.getMoveSet()) {
                 String id = normalizeMoveObject(moveObj);
                 if (id.contains("dance") || id.contains("plot") || id.contains("mind") || id.contains("smash") || id.contains("agility")) hasSetup = true;
                 MoveTemplate t = Moves.getByName(id);
                 if (t != null && t.getPower() > 0 && String.valueOf(t.getDamageCategory()).toLowerCase(Locale.ROOT).contains("special")) special = true;
+                if (t != null && t.getPower() > 0 && String.valueOf(t.getDamageCategory()).toLowerCase(Locale.ROOT).contains("physical")) physical = true;
             }
         } catch (Exception ignored) {}
+        List<String> configured = RoamingTrainerConfig.DATA.competitiveHeldItems;
+        if (configured != null && !configured.isEmpty()) {
+            List<String> clean = new ArrayList<>();
+            for (String item : configured) if (item != null && !item.isBlank()) clean.add(item.trim());
+            if (!clean.isEmpty()) {
+                if (hasSetup && clean.stream().anyMatch(i -> sanitize(i).contains("focus_sash"))) return "focus_sash";
+                if (special && !physical && clean.stream().anyMatch(i -> sanitize(i).contains("choice_specs"))) return "choice_specs";
+                if (physical && !special && clean.stream().anyMatch(i -> sanitize(i).contains("choice_band"))) return "choice_band";
+                return clean.get(Math.floorMod(slot + RANDOM.nextInt(clean.size()), clean.size()));
+            }
+        }
         if (hasSetup) return "focus_sash";
-        return special ? "life_orb" : "life_orb";
+        if (special && !physical) return slot % 2 == 0 ? "choice_specs" : "wise_glasses";
+        if (physical && !special) return slot % 2 == 0 ? "choice_band" : "muscle_band";
+        return switch (Math.floorMod(slot, 5)) {
+            case 0 -> "life_orb";
+            case 1 -> "leftovers";
+            case 2 -> "expert_belt";
+            case 3 -> "focus_sash";
+            default -> "sitrus_berry";
+        };
     }
 
     private static String normalizeMoveObject(Object moveObj) {

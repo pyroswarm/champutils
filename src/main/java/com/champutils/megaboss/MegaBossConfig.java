@@ -195,6 +195,8 @@ public final class MegaBossConfig {
         public double megaStoneChanceAtLevel100 = 0.10D;
         public boolean broadcastSpawns = true;
         public boolean broadcastMegaStoneDrops = true;
+        /** Logs one compact line per natural spawn check plus detailed spawn failures. */
+        public boolean debugSpawning = true;
         public List<String> disabledDimensions = new ArrayList<>();
         public List<BossEntry> bosses = new ArrayList<>();
         public RarityWeights rarityWeights = new RarityWeights();

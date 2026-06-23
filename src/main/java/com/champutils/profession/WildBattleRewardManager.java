@@ -249,6 +249,7 @@ public class WildBattleRewardManager {
                 }
             } else {
                 ProfessionActionBarManager.sendBattleLootMessage(player, itemId, amount);
+                ProfessionActionBarManager.playBattleSuperRareSound(player);
             }
         }
 
@@ -269,6 +270,8 @@ public class WildBattleRewardManager {
             default -> ChatFormatting.WHITE;
         };
 
+        player.sendSystemMessage(Component.literal("§6Battle loot roll: §f" + formatWords(rarity) + " Weapon Fragment x1"));
+        ProfessionActionBarManager.playBattleSuperRareSound(player);
         player.displayClientMessage(
                 Component.literal("Battle Jackpot! ")
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)

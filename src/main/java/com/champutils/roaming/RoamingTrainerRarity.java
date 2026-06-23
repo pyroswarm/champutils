@@ -17,7 +17,7 @@ public enum RoamingTrainerRarity {
     }
 
     public boolean alertsPlayers() {
-        return false;
+        return ordinal() >= EPIC.ordinal();
     }
 
     public static RoamingTrainerRarity parse(String value, RoamingTrainerRarity fallback) {

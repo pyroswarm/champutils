@@ -61,7 +61,7 @@ public final class ChampBattleAIConfig {
         public BattleBucket gymBattles = BattleBucket.competitiveDefaults();
         public BattleBucket guildBossBattles = BattleBucket.competitiveDefaults();
         public BattleBucket worldBossBattles = BattleBucket.competitiveDefaults();
-        public AntiSpam antiSpam = AntiSpam.defaults();
+        public AntiSpam antiSpam = AntiSpam.defaults(); // legacy config; no longer used to force move replacements
 
         static Data defaults() { return new Data(); }
 
@@ -86,13 +86,13 @@ public final class ChampBattleAIConfig {
         public boolean enabled = true;
         public int skill = 5;
         public boolean competitiveLayer = true;
-        public boolean antiSpamLayer = true;
+        public boolean antiSpamLayer = false;
 
         static BattleBucket competitiveDefaults() {
             BattleBucket b = new BattleBucket();
             b.skill = 5;
             b.competitiveLayer = true;
-            b.antiSpamLayer = true;
+            b.antiSpamLayer = false;
             return b;
         }
 
@@ -100,7 +100,7 @@ public final class ChampBattleAIConfig {
             BattleBucket b = new BattleBucket();
             b.skill = 3;
             b.competitiveLayer = false;
-            b.antiSpamLayer = true;
+            b.antiSpamLayer = false;
             return b;
         }
 

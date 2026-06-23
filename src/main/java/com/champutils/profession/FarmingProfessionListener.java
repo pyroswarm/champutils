@@ -179,6 +179,7 @@ public class FarmingProfessionListener {
             BlockState state = level.getBlockState(pos);
             if (!isMatureFarmingBlock(state)) continue;
             String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            if (isCobblemonBerryBush(blockId)) continue;
             int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault(
                     blockId,
                     ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
@@ -197,6 +198,12 @@ public class FarmingProfessionListener {
         if (harvested > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
         }
+    }
+
+    private static boolean isCobblemonBerryBush(String blockId) {
+        if (blockId == null) return false;
+        String id = blockId.toLowerCase(java.util.Locale.ROOT);
+        return id.startsWith("cobblemon:") && (id.contains("berry") || id.contains("berries"));
     }
 
     private static String extraBlockKey(ServerPlayer player, BlockPos pos) {

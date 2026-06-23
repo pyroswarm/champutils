@@ -56,6 +56,7 @@ public final class SpecialWildSpawnManager {
     private static boolean stateLoaded = false;
     private static double cashShopChanceBoost = 0.0D;
     private static long cashShopChanceBoostExpiresAt = 0L;
+    private static UUID lastSpecialSpawnPlayer = null;
 
     private SpecialWildSpawnManager() {}
 
@@ -95,6 +96,10 @@ public final class SpecialWildSpawnManager {
         if (RANDOM.nextDouble() >= chance) return;
 
         Collections.shuffle(players, RANDOM);
+        if (players.size() > 1 && lastSpecialSpawnPlayer != null) {
+            players.removeIf(p -> p.getUUID().equals(lastSpecialSpawnPlayer));
+            if (players.isEmpty()) return;
+        }
         boolean rareTripleEvent = SpecialWildSpawnConfig.DATA.rareTripleSpawnEventEnabled
                 && RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventChance));
 
@@ -116,6 +121,7 @@ public final class SpecialWildSpawnManager {
             }
         }
         if (result != null) {
+            lastSpecialSpawnPlayer = result.playerUuid;
             markSpawned(result.type, result.species, false, islanderRoll);
             announce(server, result.type, result.species, result.level, result.pos);
         }
@@ -407,7 +413,7 @@ public final class SpecialWildSpawnManager {
             }
 
             if (spawned) {
-                return new SpawnResult(bucket.type, picked.species, level, pos);
+                return new SpawnResult(bucket.type, picked.species, level, pos, player.getUUID());
             }
         }
         return null;
@@ -898,7 +904,7 @@ public final class SpecialWildSpawnManager {
     }
 
     private record SpawnBucket(String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {}
-    private record SpawnResult(String type, String species, ServerLevel level, BlockPos pos) {}
+    private record SpawnResult(String type, String species, ServerLevel level, BlockPos pos, UUID playerUuid) {}
 
     private static final class State {
         long lastSpawnEpochMillis = 0L;

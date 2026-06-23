@@ -418,7 +418,7 @@ public final class RandomTeleportCommand {
             int x = randomBetween(bounds.minX(task.attempts), bounds.maxX(task.attempts));
             int z = randomBetween(bounds.minZ(task.attempts), bounds.maxZ(task.attempts));
 
-            if (!isInsideRtpBorder(border, x, z)) {
+            if (!task.bounds.contains(x, z)) {
                 continue;
             }
 
@@ -459,8 +459,7 @@ public final class RandomTeleportCommand {
         BlockPos ground = feet.below();
         BlockPos head = feet.above();
 
-        if (!isInsideRtpBorder(border, feet.getX(), feet.getZ())) return null;
-        if (!border.isWithinBounds(feet)) return null;
+        if (!task.bounds.contains(feet.getX(), feet.getZ())) return null;
         if (y <= level.getMinBuildHeight() + 1 || y >= level.getMaxBuildHeight() - 2) return null;
         if (!matchesRequestedBiome(task, level, feet)) return null;
         if (task.desiredBiome == null && (isOceanBiome(level, feet) || isOceanBiome(level, ground))) return null;
@@ -478,7 +477,7 @@ public final class RandomTeleportCommand {
             BlockPos head = feet.above();
             BlockPos ground = feet.below();
 
-            if (!level.getWorldBorder().isWithinBounds(feet)) continue;
+            if (!task.bounds.contains(feet.getX(), feet.getZ())) continue;
             if (!matchesRequestedBiome(task, level, feet)) continue;
             if (!hasRoomForPlayer(level, feet, head)) continue;
             if (!hasSafeLanding(task, level, feet, ground)) continue;
@@ -837,6 +836,7 @@ public final class RandomTeleportCommand {
         private int maxX(int attempts) { return maxX; }
         private int minZ(int attempts) { return minZ; }
         private int maxZ(int attempts) { return maxZ; }
+        private boolean contains(int x, int z) { return x >= minX && x <= maxX && z >= minZ && z <= maxZ; }
 
         private static SearchBounds from(ServerLevel level) {
             if (level == null) return null;

@@ -205,7 +205,7 @@ public final class LandClaimProtectionListener {
 
         // Keep the tick hook light. Entry denial only scans online players every half second.
         if (server.getTickCount() % 10 == 0) enforceEntrySettings(server);
-        if (server.getTickCount() % 40 == 0) renderBorders(server);
+        if (server.getTickCount() % 100 == 0) renderBorders(server);
     }
 
     private static void enforceEntrySettings(MinecraftServer server) {
@@ -252,22 +252,24 @@ public final class LandClaimProtectionListener {
             if (!BORDER_VIEWERS.contains(player.getUUID())) continue;
             ServerLevel level = player.serverLevel();
             int y = Math.max(level.getMinBuildHeight() + 1, Math.min(level.getMaxBuildHeight() - 1, player.blockPosition().getY() + 1));
+            int particleBudget = 800;
             for (LandClaimRepository.Claim claim : LandClaimRepository.allCached()) {
+                if (particleBudget <= 0) break;
                 if (claim == null || !claim.worldName.equalsIgnoreCase(level.dimension().location().toString())) continue;
                 if (!LandClaimRepository.isOwner(player, claim) && !LandClaimRepository.isMember(player, claim)) continue;
                 if (!isClaimNearPlayer(player, claim, view)) continue;
-                for (int x = claim.minX; x <= claim.maxX; x += step) {
-                    spawnBorderParticle(player, x, y, claim.minZ, view);
-                    spawnBorderParticle(player, x, y, claim.maxZ, view);
+                for (int x = claim.minX; x <= claim.maxX && particleBudget > 0; x += step) {
+                    if (spawnBorderParticle(player, x, y, claim.minZ, view)) particleBudget--;
+                    if (spawnBorderParticle(player, x, y, claim.maxZ, view)) particleBudget--;
                 }
-                spawnBorderParticle(player, claim.maxX, y, claim.minZ, view);
-                spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view);
-                for (int z = claim.minZ; z <= claim.maxZ; z += step) {
-                    spawnBorderParticle(player, claim.minX, y, z, view);
-                    spawnBorderParticle(player, claim.maxX, y, z, view);
+                if (spawnBorderParticle(player, claim.maxX, y, claim.minZ, view)) particleBudget--;
+                if (spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view)) particleBudget--;
+                for (int z = claim.minZ; z <= claim.maxZ && particleBudget > 0; z += step) {
+                    if (spawnBorderParticle(player, claim.minX, y, z, view)) particleBudget--;
+                    if (spawnBorderParticle(player, claim.maxX, y, z, view)) particleBudget--;
                 }
-                spawnBorderParticle(player, claim.minX, y, claim.maxZ, view);
-                spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view);
+                if (spawnBorderParticle(player, claim.minX, y, claim.maxZ, view)) particleBudget--;
+                if (spawnBorderParticle(player, claim.maxX, y, claim.maxZ, view)) particleBudget--;
             }
         }
     }
@@ -282,9 +284,10 @@ public final class LandClaimProtectionListener {
         return dx * dx + dz * dz <= (long) view * view;
     }
 
-    private static void spawnBorderParticle(ServerPlayer player, int x, int y, int z, int view) {
-        if (player.distanceToSqr(x + 0.5D, y + 0.5D, z + 0.5D) > (double) view * view) return;
+    private static boolean spawnBorderParticle(ServerPlayer player, int x, int y, int z, int view) {
+        if (player.distanceToSqr(x + 0.5D, y + 0.5D, z + 0.5D) > (double) view * view) return false;
         player.serverLevel().sendParticles(player, ParticleTypes.HAPPY_VILLAGER, true, x + 0.5D, y + 0.2D, z + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        return true;
     }
 
     private static void sealBorderAgainstGrief(ServerLevel level, LandClaimRepository.Claim claim) {

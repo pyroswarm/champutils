@@ -12,7 +12,10 @@
     "FluidBlockMixin",
     "BlockItemPlacementProtectionMixin",
     "IronmanContainerMenuMixin",
-    "ClaimFluidFlowMixin"
+    "ClaimFluidFlowMixin",
+    "CreeperNoTerrainDamageMixin",
+    "EndermanNoBlockTakeMixin",
+    "EndermanNoBlockPlaceMixin"
   ],
   "injectors": {
     "defaultRequire": 1

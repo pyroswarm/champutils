@@ -7,6 +7,7 @@ import com.champutils.profession.ProfessionToolAnnouncementManager;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolRollService;
 import com.champutils.profession.ItemSafetyService;
+import com.champutils.profession.ProfessionNotificationSettings;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -134,7 +135,7 @@ public class ItemRollCommand {
 
                                     .then(
                                             Commands.literal("repair")
-                                                    .executes(context -> executeRepairPreview(
+                                                    .executes(context -> executeRepair(
                                                             context.getSource().getPlayerOrException()
                                                     ))
                                                     .then(
@@ -434,6 +435,15 @@ public class ItemRollCommand {
         return 1;
     }
 
+
+    private static int executeRepair(
+            ServerPlayer player
+    ) {
+        if (Boolean.getBoolean("champutils.repairNoConfirm") || !ProfessionNotificationSettings.isRepairConfirmationEnabled(player)) {
+            return executeRepairConfirmed(player);
+        }
+        return executeRepairPreview(player);
+    }
 
     private static int executeRepairPreview(
             ServerPlayer player

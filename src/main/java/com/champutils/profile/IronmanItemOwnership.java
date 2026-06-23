@@ -97,6 +97,10 @@ public final class IronmanItemOwnership {
 
     public static void tagDroppedEntity(Player player, ItemEntity entity) {
         if (!(player instanceof ServerPlayer serverPlayer) || entity == null) return;
+        // Never let per-player/profile ItemStack NBT or UUID lore survive on dropped items.
+        // Restricted-profile pickup rules are enforced by transient entity scoreboard tags below.
+        clearRestrictedProfileData(entity.getItem());
+
         ProfileGameMode mode = PlayerProfileManager.gameMode(serverPlayer);
         entity.addTag(DROP_MODE_TAG_PREFIX + mode.name());
         if (usesItemOwnershipRules(serverPlayer)) {
@@ -118,7 +122,10 @@ public final class IronmanItemOwnership {
             return true;
         }
 
-        if (player.hasPermissions(4)) return true;
+        if (player.hasPermissions(4)) {
+            clearRestrictedProfileData(entity.getItem());
+            return true;
+        }
 
         UUID activeProfile = PlayerProfileManager.activeProfileId(player);
         UUID legacyOwner = ownerProfile(entity.getItem());
@@ -138,6 +145,7 @@ public final class IronmanItemOwnership {
                 deny(player, "Islanders can only pick up items from other Islanders or the world.");
                 return false;
             }
+            clearRestrictedProfileData(entity.getItem());
             return true;
         }
 
@@ -146,6 +154,7 @@ public final class IronmanItemOwnership {
             return false;
         }
 
+        clearRestrictedProfileData(entity.getItem());
         return true;
     }
 
@@ -251,7 +260,8 @@ public final class IronmanItemOwnership {
                         || lower.contains("ironman")
                         || lower.contains("islander")
                         || lower.contains("nuzlocke")
-                        || lower.contains("uuid"));
+                        || lower.contains("uuid")
+                        || lower.contains("player"));
                 if (restrictedOwnerLine) {
                     changed = true;
                     continue;
@@ -275,8 +285,19 @@ public final class IronmanItemOwnership {
         if (stack == null || stack.isEmpty()) return false;
         try {
             CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-            if (!tag.contains(ROOT)) return false;
-            tag.remove(ROOT);
+            boolean changed = false;
+            if (tag.contains(ROOT)) {
+                tag.remove(ROOT);
+                changed = true;
+            }
+            // Clean up older beta/key variants if they ever existed on live items.
+            for (String key : List.of("ChampUtilsOwner", "ChampUtilsProfileOwner", "ChampUtilsPlayerOwner", "OwnerProfile", "OwnerPlayer", "profile_id", "player_uuid")) {
+                if (tag.contains(key)) {
+                    tag.remove(key);
+                    changed = true;
+                }
+            }
+            if (!changed) return false;
             if (tag.isEmpty()) {
                 stack.remove(DataComponents.CUSTOM_DATA);
             } else {

@@ -1,6 +1,8 @@
 package com.champutils.dex;
 
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.database.DatabaseManager;
+import com.champutils.leaderboard.ProfileLeaderboardRepository;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -99,7 +101,11 @@ public final class TrueCaughtDexManager {
 
         Set<String> set = TRUE_CAUGHT.computeIfAbsent(playerId, ignored -> ConcurrentHashMap.newKeySet());
         boolean added = set.add(key);
-        if (added) save();
+        if (added) {
+            save();
+            syncTrueCaughtSql(playerId, key);
+            ProfileLeaderboardRepository.invalidateCache();
+        }
         return added;
     }
 
@@ -126,6 +132,18 @@ public final class TrueCaughtDexManager {
         load();
         Set<String> set = TRUE_CAUGHT.get(PlayerProfileManager.activeProfileId(player));
         return set == null ? Collections.emptySet() : Collections.unmodifiableSet(set);
+    }
+
+    private static void syncTrueCaughtSql(UUID profileId, String species) {
+        if (profileId == null || species == null || species.isBlank() || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("sync true caught dex " + profileId, connection -> {
+            try (java.sql.PreparedStatement ps = connection.prepareStatement(
+                    "insert into true_caught_dex (player_uuid, species_id, caught_at) values (?, ?, now()) on conflict (player_uuid, species_id) do nothing")) {
+                ps.setObject(1, profileId);
+                ps.setString(2, species);
+                ps.executeUpdate();
+            }
+        });
     }
 
     public static String speciesId(Object pokemon) {

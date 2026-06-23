@@ -26,9 +26,6 @@ public final class PrivateMessageCommand {
                                             StringArgumentType.getString(ctx, "player"),
                                             StringArgumentType.getString(ctx, "message")
                                     )))));
-            dispatcher.register(Commands.literal("pm").redirect(msgNode));
-            dispatcher.register(Commands.literal("tell").redirect(msgNode));
-            dispatcher.register(Commands.literal("w").redirect(msgNode));
 
             var replyNode = dispatcher.register(Commands.literal("r")
                     .then(Commands.argument("message", StringArgumentType.greedyString())
@@ -80,8 +77,8 @@ public final class PrivateMessageCommand {
         // /r should target the player who most recently messaged you. Sending a message should not
         // steal your incoming reply target unless the target replies back.
         LAST_REPLY.put(target.getUUID(), sender.getUUID());
-        Component toTarget = Component.literal("§d[MSG] §d" + sender.getGameProfile().getName() + " -> you: §d" + message);
-        Component toSender = Component.literal("§d[MSG] §dyou -> " + target.getGameProfile().getName() + ": §d" + message);
+        Component toTarget = Component.literal("§5[Private] §d" + sender.getGameProfile().getName() + " -> you: §d" + message);
+        Component toSender = Component.literal("§5[Private] §dyou -> " + target.getGameProfile().getName() + ": §d" + message);
         target.sendSystemMessage(toTarget);
         sender.sendSystemMessage(toSender);
     }

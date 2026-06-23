@@ -59,6 +59,8 @@ import com.champutils.tm.*;
 import com.champutils.claims.*;
 import com.champutils.expeditions.*;
 import com.champutils.rewardtrack.*;
+import java.util.HashSet;
+import java.util.Set;
 
 /*
  =========================
@@ -400,6 +402,8 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
+                    ExpeditionManager.notifyIfReady(player);
+
                     ProfessionDataManager.ensurePlayer(
                             player.getUUID(),
                             playerName
@@ -427,6 +431,14 @@ public class ChampUtilsMod implements ModInitializer {
                     FirstJoinKitManager.handleJoin(
                             player
                     );
+
+                    if (!player.getTags().contains("champutils_seen_before")) {
+                        player.addTag("champutils_seen_before");
+                        server.getPlayerList().broadcastSystemMessage(
+                                net.minecraft.network.chat.Component.literal("§aWelcome §f" + playerName + " §ato Cobble Champs for the first time!"),
+                                false
+                        );
+                    }
 
                     DefaultSpawnManager.handleJoin(
                             player
@@ -633,6 +645,7 @@ public class ChampUtilsMod implements ModInitializer {
         GymRewardCommand.register();
         ExpeditionCommand.register();
         RewardTrackCommand.register();
+        com.champutils.survival.HostileToggleManager.register();
 
         /*
          New custom item test command
@@ -642,6 +655,7 @@ public class ChampUtilsMod implements ModInitializer {
         ItemLockCommand.register();
         XpLockCommand.register();
         LevelCapCommand.register();
+        com.champutils.xplock.LevelCapItemUseGuard.register();
 
         /*
          =========================
@@ -659,6 +673,8 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventBattleListener.register();
         MegaBossBattleListener.register();
         MegaBossCaptureBlocker.register();
+        MegaBossDamageProtectionListener.register();
+        LandClaimSelectionItemListener.register();
         WorldEventAreaProtectionListener.register();
         AuctionHouseBindInteractionListener.register();
         MenuNpcInteractionListener.register();
@@ -666,6 +682,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChampTrainerInteractionListener.register();
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
+        SpecialCatchAnnouncementListener.register();
         CatchStreakSpawnListener.register();
         ForbiddenNaturalPokemonSpawnGuard.register();
         TradeEvolutionTrueDexListener.register();

@@ -27,6 +27,8 @@ public final class ProfileLeaderboardRepository {
         PROFESSIONS_MINING("leaderboard_professions_mining", "level", "Mining Level"),
         PROFESSIONS_FORESTRY("leaderboard_professions_forestry", "level", "Forestry Level"),
         PROFESSIONS_FARMING("leaderboard_professions_farming", "level", "Farming Level"),
+        PROFESSIONS_BATTLING("leaderboard_professions_battling", "level", "Battle Level"),
+        ECONOMY("leaderboard_economy_profiles", "credits_cents", "Credits"),
         PLAYTIME("leaderboard_playtime_profiles", "playtime_hours", "Hours"),
         POKEDEX("leaderboard_pokedex_profiles", "caught_species", "Caught Species"),
         GYMS("leaderboard_gym_profiles", "badges", "Badges"),
@@ -93,7 +95,14 @@ public final class ProfileLeaderboardRepository {
             try {
                 Map<Board, List<Entry>> next = new EnumMap<>(Board.class);
                 for (Board board : Board.values()) {
-                    next.put(board, loadFresh(connection, board, 100));
+                    try {
+                        next.put(board, loadFresh(connection, board, 100));
+                    } catch (Exception e) {
+                        System.err.println("[ChampUtils] Failed to refresh " + board + " leaderboard: " + e.getMessage());
+                        synchronized (CACHE) {
+                            next.put(board, CACHE.getOrDefault(board, List.of()));
+                        }
+                    }
                 }
                 synchronized (CACHE) {
                     CACHE.clear();
@@ -107,25 +116,25 @@ public final class ProfileLeaderboardRepository {
     }
 
     public static List<Entry> topFresh(Board board, int limit) {
-        if (!DatabaseManager.isEnabled()) return top(board, limit);
-        int safeLimit = Math.max(1, Math.min(100, limit));
-        try {
-            List<Entry> rows = loadFresh(DatabaseManager.getConnection(), board, safeLimit);
-            synchronized (CACHE) {
-                CACHE.put(board, List.copyOf(rows));
-            }
-            lastRefreshAtMillis = System.currentTimeMillis();
-            return rows;
-        } catch (Exception e) {
-            System.err.println("[ChampUtils] Failed to load fresh " + board + " leaderboard: " + e.getMessage());
-            return top(board, safeLimit);
-        }
+        // Keep menu opens and other server-thread callers non-blocking.
+        // This schedules a refresh and immediately returns the last cached snapshot.
+        refreshAllAsync(false);
+        return top(board, limit);
     }
 
     private static List<Entry> loadFresh(Connection connection, Board board, int limit) throws Exception {
         return switch (board) {
             case RANKED -> ranked(connection, limit);
             case GUILDS -> guilds(connection, limit);
+            case ECONOMY -> economy(connection, limit);
+            case POKEDEX -> pokedex(connection, limit);
+            case PROFESSIONS_OVERALL -> professionsOverall(connection, limit);
+            case PROFESSIONS_MINING -> profession(connection, "MINING", board.label, limit);
+            case PROFESSIONS_FORESTRY -> profession(connection, "FORESTRY", board.label, limit);
+            case PROFESSIONS_FARMING -> profession(connection, "FARMING", board.label, limit);
+            case PROFESSIONS_BATTLING -> profession(connection, "BATTLING", board.label, limit);
+            case PLAYTIME -> playtime(connection, limit);
+            case GYMS -> gyms(connection, limit);
             default -> generic(connection, board, limit);
         };
     }
@@ -147,6 +156,168 @@ public final class ProfileLeaderboardRepository {
                             "RP", rs.getLong("rp"), rs.getInt("rp"), rs.getInt("wins"), rs.getInt("losses"),
                             0L, 0, 0L
                     ));
+                }
+            }
+        } catch (Exception missingView) {
+            String fallback = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                    "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, s.rp, s.wins, s.losses " +
+                    "from profile_ranked_stats s join player_profiles p on p.id = s.profile_id " +
+                    "left join players pl on pl.uuid = p.player_uuid " +
+                    "where s.season_id = ? and p.deleted_at is null order by s.rp desc, s.wins desc, s.losses asc limit ?";
+            try (PreparedStatement ps = connection.prepareStatement(fallback)) {
+                ps.setString(1, seasonId);
+                ps.setInt(2, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        rows.add(new Entry(
+                                getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"),
+                                str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"),
+                                "RP", rs.getLong("rp"), rs.getInt("rp"), rs.getInt("wins"), rs.getInt("losses"),
+                                0L, 0, 0L
+                        ));
+                    }
+                }
+            }
+        }
+        return rows;
+    }
+
+
+    private static List<Entry> economy(Connection connection, int limit) throws Exception {
+        String sql = "select p.id as profile_id, p.player_uuid, coalesce(e.username, pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, coalesce(s.money::bigint, e.credits, 0) as value " +
+                "from player_profiles p left join players pl on pl.uuid = p.player_uuid " +
+                "left join player_economy e on e.uuid = p.player_uuid::text " +
+                "left join profile_player_stats s on s.profile_id = p.id " +
+                "where p.deleted_at is null order by coalesce(s.money::bigint, e.credits, 0) desc limit ?";
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Credits", value, 0, 0, 0, 0L, 0, 0L));
+                }
+            }
+        } catch (Exception first) {
+            String fallback = "select null as profile_id, uuid as player_uuid, username, username as profile_name, 'ACCOUNT' as mode, credits as value from player_economy order by credits desc limit ?";
+            try (PreparedStatement ps = connection.prepareStatement(fallback)) {
+                ps.setInt(1, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        long value = rs.getLong("value");
+                        rows.add(new Entry(null, getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Credits", value, 0, 0, 0, 0L, 0, 0L));
+                    }
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Entry> pokedex(Connection connection, int limit) throws Exception {
+        String profileSql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, count(distinct d.species_id) as value " +
+                "from true_caught_dex d join player_profiles p on p.id = d.player_uuid " +
+                "left join players pl on pl.uuid = p.player_uuid " +
+                "where p.deleted_at is null group by p.id, p.player_uuid, pl.username, p.name, p.mode order by value desc limit ?";
+        try {
+            return pokedexRows(connection, profileSql, limit);
+        } catch (Exception profileIdDexFailed) {
+            // Legacy schemas used true_caught_dex.player_uuid as the account UUID.
+            String legacySql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                    "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, count(distinct d.species_id) as value " +
+                    "from true_caught_dex d join player_profiles p on p.player_uuid = d.player_uuid " +
+                    "left join players pl on pl.uuid = p.player_uuid " +
+                    "where p.deleted_at is null group by p.id, p.player_uuid, pl.username, p.name, p.mode order by value desc limit ?";
+            return pokedexRows(connection, legacySql, limit);
+        }
+    }
+
+    private static List<Entry> pokedexRows(Connection connection, String sql, int limit) throws Exception {
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Caught Species", value, 0, 0, 0, 0L, 0, 0L));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Entry> profession(Connection connection, String profession, String label, int limit) throws Exception {
+        String sql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, pf.level as value, pf.xp " +
+                "from profile_professions pf join player_profiles p on p.id = pf.profile_id " +
+                "left join players pl on pl.uuid = p.player_uuid " +
+                "where p.deleted_at is null and pf.profession = ? order by pf.level desc, pf.xp desc limit ?";
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, profession);
+            ps.setInt(2, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), label, value, 0, 0, 0, rs.getLong("xp"), (int)value, 0L));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Entry> professionsOverall(Connection connection, int limit) throws Exception {
+        String sql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, coalesce(sum(pf.level), 0) as value, coalesce(sum(pf.xp), 0) as xp " +
+                "from player_profiles p left join players pl on pl.uuid = p.player_uuid " +
+                "left join profile_professions pf on pf.profile_id = p.id " +
+                "where p.deleted_at is null group by p.id, p.player_uuid, pl.username, p.name, p.mode order by value desc, xp desc limit ?";
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Overall Level", value, 0, 0, 0, rs.getLong("xp"), (int)value, 0L));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Entry> playtime(Connection connection, int limit) throws Exception {
+        String sql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, floor(coalesce(s.playtime_seconds, 0) / 3600.0)::bigint as value " +
+                "from player_profiles p left join players pl on pl.uuid = p.player_uuid " +
+                "left join profile_player_stats s on s.profile_id = p.id where p.deleted_at is null " +
+                "order by coalesce(s.playtime_seconds, 0) desc limit ?";
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Hours", value, 0, 0, 0, 0L, 0, 0L));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Entry> gyms(Connection connection, int limit) throws Exception {
+        String sql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, count(g.gym_id) as value " +
+                "from player_profiles p left join players pl on pl.uuid = p.player_uuid " +
+                "left join profile_gym_progress g on g.profile_id = p.id and g.defeated = true " +
+                "where p.deleted_at is null group by p.id, p.player_uuid, pl.username, p.name, p.mode order by value desc limit ?";
+        List<Entry> rows = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long value = rs.getLong("value");
+                    rows.add(new Entry(getUuid(rs, "profile_id"), getUuid(rs, "player_uuid"), str(rs, "username"), str(rs, "profile_name"), str(rs, "mode"), "Badges", value, 0, 0, 0, 0L, (int)value, 0L));
                 }
             }
         }
@@ -186,6 +357,25 @@ public final class ProfileLeaderboardRepository {
                             str(rs, "owner_name"), str(rs, "guild_name"), "GUILD",
                             "Guild XP", rs.getLong("xp"), 0, 0, 0, rs.getLong("xp"), rs.getInt("level"), rs.getLong("members")
                     ));
+                }
+            }
+        } catch (Exception missingView) {
+            String fallback = "select g.id as guild_id, g.name as guild_name, coalesce(o.username, gm.player_name, 'Unknown') as owner_name, " +
+                    "g.level, g.xp, count(m.player_uuid) as members from guilds g " +
+                    "left join players o on o.uuid = g.owner_uuid " +
+                    "left join guild_members gm on gm.guild_id = g.id and gm.player_uuid = g.owner_uuid " +
+                    "left join guild_members m on m.guild_id = g.id " +
+                    "group by g.id, g.name, o.username, gm.player_name, g.level, g.xp order by g.xp desc, g.level desc, members desc limit ?";
+            try (PreparedStatement ps = connection.prepareStatement(fallback)) {
+                ps.setInt(1, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        rows.add(new Entry(
+                                getUuid(rs, "guild_id"), null,
+                                str(rs, "owner_name"), str(rs, "guild_name"), "GUILD",
+                                "Guild XP", rs.getLong("xp"), 0, 0, 0, rs.getLong("xp"), rs.getInt("level"), rs.getLong("members")
+                        ));
+                    }
                 }
             }
         }

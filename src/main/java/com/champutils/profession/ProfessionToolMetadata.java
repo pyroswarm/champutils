@@ -7,7 +7,6 @@ import net.minecraft.world.item.component.CustomData;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public final class ProfessionToolMetadata {
 
@@ -619,47 +618,17 @@ public final class ProfessionToolMetadata {
             ItemStack stack
     ) {
 
-        CompoundTag root =
-                getRoot(stack);
-
-        if (!root.contains(ACTIVE_INSTANCE_ID_KEY)) {
-            return null;
-        }
-
-        String id =
-                root.getString(ACTIVE_INSTANCE_ID_KEY);
-
-        return id == null || id.isBlank()
-                ? null
-                : id;
+        // Do not store per-item UUIDs in ItemStack NBT. Active tool identity is now
+        // derived from stable tool metadata so identical items stay byte-for-byte identical.
+        return stableExternalIdentity(stack);
     }
 
     public static String getOrCreateActiveInstanceId(
             ItemStack stack
     ) {
 
-        String existing =
-                getActiveInstanceId(
-                        stack
-                );
-
-        if (existing != null) {
-            return existing;
-        }
-
-        String created =
-                UUID.randomUUID()
-                        .toString();
-
-        updateRoot(
-                stack,
-                root -> root.putString(
-                        ACTIVE_INSTANCE_ID_KEY,
-                        created
-                )
-        );
-
-        return created;
+        // Legacy method name kept for callers, but it no longer creates/writes UUID NBT.
+        return stableExternalIdentity(stack);
     }
 
     public static boolean matchesActiveInstanceId(
@@ -677,13 +646,32 @@ public final class ProfessionToolMetadata {
         }
 
         String actual =
-                getActiveInstanceId(
+                stableExternalIdentity(
                         stack
                 );
 
         return expectedId.equals(
                 actual
         );
+    }
+
+    private static String stableExternalIdentity(
+            ItemStack stack
+    ) {
+
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+
+        CompoundTag root = getRoot(stack);
+        if (!root.contains(TOOL_ID_KEY)) {
+            return null;
+        }
+
+        CompoundTag copy = root.copy();
+        copy.remove(ACTIVE_INSTANCE_ID_KEY);
+        copy.remove(ACTIVE_TOGGLES_KEY);
+        return Integer.toHexString(copy.toString().hashCode());
     }
 
 
@@ -977,6 +965,14 @@ public final class ProfessionToolMetadata {
                             CUSTOM_ENCHANTS_KEY
                     );
 
+                    root.remove(
+                            ACTIVE_INSTANCE_ID_KEY
+                    );
+
+                    root.remove(
+                            ACTIVE_TOGGLES_KEY
+                    );
+
                     root.putBoolean(
                             LOCKED_KEY,
                             false
@@ -1098,6 +1094,7 @@ public final class ProfessionToolMetadata {
                         : new CompoundTag();
 
         editor.edit(root);
+        root.remove(ACTIVE_INSTANCE_ID_KEY);
 
         tag.put(
                 ROOT_KEY,

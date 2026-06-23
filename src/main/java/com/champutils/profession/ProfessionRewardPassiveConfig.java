@@ -374,6 +374,7 @@ public class ProfessionRewardPassiveConfig {
         addMissingEntry("farming_seed_saver", entry("minecraft:pig_spawn_egg", 1, 1, 4));
         addMissingEntry("farming_seed_saver", entry("minecraft:sheep_spawn_egg", 1, 1, 4));
         addMissingEntry("farming_seed_saver", entry("minecraft:rabbit_spawn_egg", 1, 1, 3));
+        addMissingEntry("farming_seed_saver", entry("minecraft:villager_spawn_egg", 1, 1, 1));
     }
 
     private static void addMissingEntry(String tableId, RewardEntry reward) {
@@ -511,6 +512,7 @@ public class ProfessionRewardPassiveConfig {
                 entry("minecraft:pig_spawn_egg", 1, 1, 4),
                 entry("minecraft:sheep_spawn_egg", 1, 1, 4),
                 entry("minecraft:rabbit_spawn_egg", 1, 1, 3),
+                entry("minecraft:villager_spawn_egg", 1, 1, 1),
                 entry("cobblemon:oran_berry", 1, 3, 12),
                 entry("cobblemon:leppa_berry", 1, 2, 8),
                 entry("cobblemon:pecha_berry", 1, 2, 8),

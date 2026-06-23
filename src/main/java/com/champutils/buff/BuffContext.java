@@ -65,6 +65,7 @@ public final class BuffContext {
         if (type == null || player == null) return false;
         if (type.isCatchBuff()) return allowsPokemonCatchBuffs();
         if (type.isProfessionXp()) return allowsProfessionXpBuffs();
+        if (type == BuffType.POKEMON_XP) return source == Source.PROFESSION_XP || source == Source.NPC_BATTLE || source == Source.UNKNOWN;
         if (type == BuffType.WORLD_EVENT_REWARDS) return source == Source.WORLD_EVENT;
         if (type == BuffType.NPC_MONEY) return source == Source.NPC_BATTLE;
         return false;

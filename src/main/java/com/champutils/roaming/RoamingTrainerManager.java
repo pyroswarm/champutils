@@ -42,6 +42,8 @@ public final class RoamingTrainerManager {
     private static final Map<UUID, RoamingTrainerData> TRAINERS = new ConcurrentHashMap<>();
     private static final String ROAMING_TRAINER_TAG = "champutils_roaming_trainer";
     private static int ticksUntilScan = 20;
+    private static int ticksUntilCleanup = 20;
+    private static int ticksUntilOrphanCleanup = 600;
 
     private RoamingTrainerManager() {}
 
@@ -56,6 +58,7 @@ public final class RoamingTrainerManager {
         public String displayName;
         public UUID currentChallengerUuid;
         public long challengeLockMillis;
+        public long lastProtectionMillis;
         public double spawnX;
         public double spawnY;
         public double spawnZ;
@@ -66,7 +69,11 @@ public final class RoamingTrainerManager {
 
     public static void tick(MinecraftServer server) {
         if (server == null) return;
-        cleanupAndDespawn(server);
+        ticksUntilCleanup--;
+        if (ticksUntilCleanup <= 0) {
+            ticksUntilCleanup = 20;
+            cleanupAndDespawn(server);
+        }
         if (!RoamingTrainerConfig.DATA.enabled) return;
 
         ticksUntilScan--;
@@ -296,7 +303,11 @@ public final class RoamingTrainerManager {
     }
 
     private static void cleanupAndDespawn(MinecraftServer server) {
-        cleanupOrphanedTaggedTrainers(server);
+        ticksUntilOrphanCleanup--;
+        if (ticksUntilOrphanCleanup <= 0) {
+            ticksUntilOrphanCleanup = 600;
+            cleanupOrphanedTaggedTrainers(server);
+        }
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, RoamingTrainerData>> iterator = TRAINERS.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -310,7 +321,10 @@ public final class RoamingTrainerManager {
                 continue;
             }
 
-            applyRoamingProtections(npc, data);
+            if (now - data.lastProtectionMillis > 5_000L) {
+                applyRoamingProtections(npc, data);
+                data.lastProtectionMillis = now;
+            }
             cleanupStaleChallengeLock(npc, data, now);
             updateRoamingMovement(npc, data, now);
 

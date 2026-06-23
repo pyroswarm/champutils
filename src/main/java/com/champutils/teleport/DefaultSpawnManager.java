@@ -111,6 +111,10 @@ public final class DefaultSpawnManager {
         }
     }
 
+    public static void teleportToSpawn(ServerPlayer player) {
+        teleportToDefaultSpawn(player, false);
+    }
+
     private static void teleportToDefaultSpawn(ServerPlayer player, boolean deathRespawn) {
         if (player == null) {
             return;

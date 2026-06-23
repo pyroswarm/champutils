@@ -42,6 +42,13 @@ public final class ExpeditionManager {
         save(player, save);
     }
 
+    public static void notifyIfReady(ServerPlayer player) {
+        Save save = loadSave(player);
+        if (save.active && System.currentTimeMillis() >= save.endsAt) {
+            player.sendSystemMessage(Component.literal("Your expedition is done! Use /expeditions claim to get your Pokémon and rewards.").withStyle(ChatFormatting.GOLD));
+        }
+    }
+
     public static void status(ServerPlayer player) {
         Save save = loadSave(player);
         if (!save.active) {

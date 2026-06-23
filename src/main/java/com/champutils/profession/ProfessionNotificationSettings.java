@@ -123,6 +123,30 @@ public final class ProfessionNotificationSettings {
         return getSettings(player).queueNotifications;
     }
 
+    public static boolean isRepairConfirmationEnabled(ServerPlayer player) {
+        return getSettings(player).repairConfirmation;
+    }
+
+    public static boolean toggleRepairConfirmation(ServerPlayer player) {
+        PlayerSettings settings = getOrCreateSettings(player);
+        if (settings == null) return true;
+        settings.repairConfirmation = !settings.repairConfirmation;
+        save();
+        return settings.repairConfirmation;
+    }
+
+    public static boolean isAutoRepairEnabled(ServerPlayer player) {
+        return getSettings(player).autoRepair;
+    }
+
+    public static boolean toggleAutoRepair(ServerPlayer player) {
+        PlayerSettings settings = getOrCreateSettings(player);
+        if (settings == null) return false;
+        settings.autoRepair = !settings.autoRepair;
+        save();
+        return settings.autoRepair;
+    }
+
     public static boolean toggleQueueNotifications(ServerPlayer player) {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
@@ -227,12 +251,16 @@ public final class ProfessionNotificationSettings {
         Boolean soundEffects = true;
         Boolean broadcastMessages = true;
         Boolean queueNotifications = true;
+        Boolean repairConfirmation = true;
+        Boolean autoRepair = false;
 
         void normalizeDefaults() {
             if (professionPopups == null) professionPopups = true;
             if (soundEffects == null) soundEffects = true;
             if (broadcastMessages == null) broadcastMessages = true;
             if (queueNotifications == null) queueNotifications = true;
+            if (repairConfirmation == null) repairConfirmation = true;
+            if (autoRepair == null) autoRepair = false;
         }
     }
 }

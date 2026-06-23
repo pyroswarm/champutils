@@ -8,6 +8,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -70,10 +71,20 @@ public final class HomeCommand {
             dispatcher.register(literal("home")
                     .executes(ctx -> goHome(ctx.getSource(), "home"))
                     .then(argument("name", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                ServerPlayer player = ctx.getSource().getPlayer();
+                                if (player == null) return builder.buildFuture();
+                                return SharedSuggestionProvider.suggest(homes(player.getUUID()).keySet(), builder);
+                            })
                             .executes(ctx -> goHome(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
 
             dispatcher.register(literal("delhome")
                     .then(argument("name", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                ServerPlayer player = ctx.getSource().getPlayer();
+                                if (player == null) return builder.buildFuture();
+                                return SharedSuggestionProvider.suggest(homes(player.getUUID()).keySet(), builder);
+                            })
                             .executes(ctx -> deleteHome(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
 
             dispatcher.register(literal("homes")

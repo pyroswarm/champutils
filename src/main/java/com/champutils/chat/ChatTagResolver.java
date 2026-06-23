@@ -14,10 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 public final class ChatTagResolver {
     private static final long CACHE_TTL_MS = 30_000L;
     private static final Map<UUID, CachedTags> TAG_CACHE = new ConcurrentHashMap<>();
+    private static final Set<UUID> GUILD_REFRESH_PENDING = ConcurrentHashMap.newKeySet();
 
     private ChatTagResolver() {}
 
@@ -72,6 +74,15 @@ public final class ChatTagResolver {
             }
         }
 
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+        if (guild == null) {
+            // Never do blocking database fallback from the chat thread. A missing cache means the
+            // guild tag may be absent for one message, then the async refresh will fill it.
+            requestGuildRefresh(player);
+        } else if (guild.tag != null && !guild.tag.isBlank()) {
+            result.append(Component.literal("[" + guild.tag + "]").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)).append(Component.literal(" "));
+        }
+
         if (ChatTagConfig.INSTANCE.showLuckPermsSuffix) {
             String suffix = luckPermsMeta(player, "getSuffix");
             if (suffix != null && !suffix.isBlank()) result.append(legacy(suffix)).append(Component.literal(" "));
@@ -81,16 +92,36 @@ public final class ChatTagResolver {
         return result;
     }
 
+
+    private static void requestGuildRefresh(ServerPlayer player) {
+        if (player == null) return;
+        UUID uuid = player.getUUID();
+        if (!GUILD_REFRESH_PENDING.add(uuid)) return;
+        String name = player.getGameProfile().getName();
+        try {
+            com.champutils.guild.GuildRepository.loadForPlayer(uuid, name);
+        } catch (Throwable ignored) {
+            GUILD_REFRESH_PENDING.remove(uuid);
+        }
+    }
+
     public static void invalidate(ServerPlayer player) {
-        if (player != null) TAG_CACHE.remove(player.getUUID());
+        if (player != null) {
+            TAG_CACHE.remove(player.getUUID());
+            GUILD_REFRESH_PENDING.remove(player.getUUID());
+        }
     }
 
     public static void invalidate(UUID uuid) {
-        if (uuid != null) TAG_CACHE.remove(uuid);
+        if (uuid != null) {
+            TAG_CACHE.remove(uuid);
+            GUILD_REFRESH_PENDING.remove(uuid);
+        }
     }
 
     public static void clearCache() {
         TAG_CACHE.clear();
+        GUILD_REFRESH_PENDING.clear();
     }
 
     private record CachedTags(UUID profileId, MutableComponent component, long createdAtMillis) {}

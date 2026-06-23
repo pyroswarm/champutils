@@ -213,11 +213,25 @@ public final class GuildRepository {
             ensureGuildAccountSchema(connection);
             loadForPlayerSync(connection, uuid);
             upsertPlayer(connection, uuid, username == null || username.isBlank() ? uuid.toString() : username);
+            com.champutils.chat.ChatTagResolver.invalidate(uuid);
         });
     }
 
     public static GuildSnapshot cachedGuild(UUID uuid) {
         return uuid == null ? null : PLAYER_CACHE.get(uuid);
+    }
+
+    public static GuildSnapshot loadForPlayerBlocking(UUID uuid, String username) {
+        if (uuid == null || !DatabaseManager.isEnabled()) return cachedGuild(uuid);
+        try {
+            java.sql.Connection connection = DatabaseManager.getConnection();
+            ensureGuildAccountSchema(connection);
+            loadForPlayerSync(connection, uuid);
+            upsertPlayer(connection, uuid, username == null || username.isBlank() ? uuid.toString() : username);
+        } catch (Exception e) {
+            guildDebugError("loadBlocking", e, "player=" + uuid);
+        }
+        return cachedGuild(uuid);
     }
 
     public static void invite(UUID inviterUuid, String inviterName, UUID targetUuid, String targetName, Callback callback) {
@@ -1285,18 +1299,33 @@ public final class GuildRepository {
     }
 
     private static void loadForPlayerSync(java.sql.Connection connection, UUID uuid) throws Exception {
-        try (PreparedStatement statement = connection.prepareStatement(
+        GuildSnapshot snapshot = loadForPlayerBySql(connection, uuid,
                 "select g.id, g.name, g.tag, g.description, g.owner_uuid, g.level, g.xp, gm.role, " +
                         "(select count(*) from guild_members gm2 where gm2.guild_id = g.id) as member_count " +
-                        "from guild_members gm join guilds g on g.id = gm.guild_id where gm.player_uuid = ?"
-        )) {
+                        "from guild_members gm join guilds g on g.id = gm.guild_id where gm.player_uuid = ?",
+                false);
+
+        if (snapshot == null && columnExists(connection, "guild_members", "profile_id")) {
+            snapshot = loadForPlayerBySql(connection, uuid,
+                    "select g.id, g.name, g.tag, g.description, g.owner_uuid, g.level, g.xp, gm.role, " +
+                            "(select count(*) from guild_members gm2 where gm2.guild_id = g.id) as member_count " +
+                            "from guild_members gm join guilds g on g.id = gm.guild_id " +
+                            "join player_profiles p on p.id = gm.profile_id where p.player_uuid = ?",
+                    true);
+        }
+
+        if (snapshot == null) {
+            PLAYER_CACHE.remove(uuid);
+        } else {
+            PLAYER_CACHE.put(uuid, snapshot);
+        }
+    }
+
+    private static GuildSnapshot loadForPlayerBySql(java.sql.Connection connection, UUID uuid, String sql, boolean tolerateMissingLegacyTable) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, uuid);
             try (ResultSet rs = statement.executeQuery()) {
-                if (!rs.next()) {
-                    PLAYER_CACHE.remove(uuid);
-                    return;
-                }
-
+                if (!rs.next()) return null;
                 GuildSnapshot snapshot = new GuildSnapshot();
                 snapshot.id = (UUID) rs.getObject("id");
                 snapshot.name = rs.getString("name");
@@ -1307,8 +1336,11 @@ public final class GuildRepository {
                 snapshot.xp = Math.max(0L, rs.getLong("xp"));
                 snapshot.role = Role.fromDatabase(rs.getString("role"));
                 snapshot.memberCount = Math.max(1, rs.getInt("member_count"));
-                PLAYER_CACHE.put(uuid, snapshot);
+                return snapshot;
             }
+        } catch (Exception e) {
+            if (tolerateMissingLegacyTable) return null;
+            throw e;
         }
     }
 

@@ -222,6 +222,7 @@ public final class TitleConfig {
         if (raw == null || raw.isBlank()) return null;
         String normalized = raw.trim().toUpperCase(Locale.ROOT).replace('-', '_');
         if (normalized.equals("BATTLE_XP") || normalized.equals("BATTLEXP") || normalized.equals("BATTLING")) normalized = "BATTLING_XP";
+        if (normalized.equals("POKEMONXP") || normalized.equals("POKEMON_EXP") || normalized.equals("MON_XP") || normalized.equals("POKEMON_EXPERIENCE")) normalized = "POKEMON_XP";
         if (normalized.equals("SHINY") || normalized.equals("SHINY_RATE")) normalized = "SHINY_CHANCE";
         if (normalized.equals("CATCH") || normalized.equals("CATCHING") || normalized.equals("CAPTURE_CHANCE")) normalized = "CATCH_CHANCE";
         if (normalized.equals("PERFECT_IV") || normalized.equals("IV_CHANCE") || normalized.equals("PERFECTIV")) normalized = "PERFECT_IV_CHANCE";

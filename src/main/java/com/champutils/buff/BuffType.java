@@ -15,6 +15,7 @@ public enum BuffType {
     FORESTRY_XP("Forestry Profession XP", "Increases Forestry profession XP earned from legitimate gameplay.", ChatFormatting.GREEN, ProfessionType.FORESTRY),
     FARMING_XP("Farming Profession XP", "Increases Farming profession XP earned from legitimate gameplay.", ChatFormatting.YELLOW, ProfessionType.FARMING),
     BATTLING_XP("Battling Profession XP", "Increases Battling profession XP earned from legitimate gameplay.", ChatFormatting.RED, ProfessionType.BATTLING),
+    POKEMON_XP("Pokemon XP", "Increases Pokemon battle experience earned by a relative percent.", ChatFormatting.AQUA, null),
 
     SHINY_CHANCE("Shiny Chance Multiplier", "Increases the current/base shiny chance by a relative percent for legitimate wild spawns/catches.", ChatFormatting.LIGHT_PURPLE, null),
     CATCH_CHANCE("Catch Chance", "Future hook for increasing legitimate wild capture chance.", ChatFormatting.GREEN, null),

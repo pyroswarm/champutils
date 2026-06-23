@@ -39,7 +39,7 @@ public final class TerritoryTeleportUtil {
         double x = Math.max(minX, Math.min(maxX, player.getX()));
         double z = Math.max(minZ, Math.min(maxZ, player.getZ()));
         SafeSpot spot = findSafeSpot(level, x, player.getY(), z);
-        return SafeTeleportManager.teleportNoBack(player, level, spot.x, spot.y, spot.z, player.getYRot(), player.getXRot());
+        return SafeTeleportManager.teleport(player, level, spot.x, spot.y, spot.z, player.getYRot(), player.getXRot());
     }
 
 

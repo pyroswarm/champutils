@@ -220,11 +220,16 @@ public final class ProfessionFragmentConfig {
         addSalvage(root, "LEGENDARY", "LEGENDARY", 1, 3);
         addSalvage(root, "MYTHIC", "MYTHIC", 1, 2);
 
-        addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 64, "UNCOMMON", 1);
-        addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 64, "RARE", 1);
-        addUpgrade(root, "RARE_TO_EPIC", "RARE", 48, "EPIC", 1);
-        addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 32, "LEGENDARY", 1);
-        addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 24, "MYTHIC", 1);
+        addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 32, "UNCOMMON", 1);
+        addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 32, "RARE", 1);
+        addUpgrade(root, "RARE_TO_EPIC", "RARE", 24, "EPIC", 1);
+        addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 16, "LEGENDARY", 1);
+        addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 12, "MYTHIC", 1);
+        addUpgrade(root, "UNCOMMON_TO_COMMON_DOWNGRADE", "UNCOMMON", 1, "COMMON", 16);
+        addUpgrade(root, "RARE_TO_UNCOMMON_DOWNGRADE", "RARE", 1, "UNCOMMON", 16);
+        addUpgrade(root, "EPIC_TO_RARE_DOWNGRADE", "EPIC", 1, "RARE", 12);
+        addUpgrade(root, "LEGENDARY_TO_EPIC_DOWNGRADE", "LEGENDARY", 1, "EPIC", 8);
+        addUpgrade(root, "MYTHIC_TO_LEGENDARY_DOWNGRADE", "MYTHIC", 1, "LEGENDARY", 6);
 
         addToolCrafting(root, "COMMON", "COMMON", 64);
         addToolCrafting(root, "UNCOMMON", "UNCOMMON", 64);

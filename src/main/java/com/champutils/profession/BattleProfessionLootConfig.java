@@ -18,9 +18,9 @@ public final class BattleProfessionLootConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static boolean enabled = true;
-    public static double baseRollChance = 0.22D;
-    public static double rollChancePerBattlingLevel = 0.0012D;
-    public static double maxRollChance = 0.38D;
+    public static double baseRollChance = 0.06D;
+    public static double rollChancePerBattlingLevel = 0.01D;
+    public static double maxRollChance = 1.0D;
     public static int baseRolls = 1;
     public static int bonusRollEveryLevels = 25;
     public static int maxRolls = 5;
@@ -94,14 +94,14 @@ public final class BattleProfessionLootConfig {
 
     public static class ConfigRoot {
         public boolean enabled = true;
-        public double baseRollChance = 0.22D;
-        public double rollChancePerBattlingLevel = 0.0012D;
-        public double maxRollChance = 0.38D;
+        public double baseRollChance = 0.06D;
+        public double rollChancePerBattlingLevel = 0.01D;
+        public double maxRollChance = 1.0D;
         public int baseRolls = 1;
-        public int bonusRollEveryLevels = 25;
-        public int maxRolls = 5;
-        public boolean announceRewards = true;
-        public double wildBattleRewardChance = 0.20D;
+        public int bonusRollEveryLevels = 10;
+        public int maxRolls = 3;
+        public boolean announceRewards = false;
+        public double wildBattleRewardChance = 0.05D;
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();

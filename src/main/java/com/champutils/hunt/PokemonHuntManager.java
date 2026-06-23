@@ -145,10 +145,11 @@ public final class PokemonHuntManager {
         PokemonHuntState.HuntEntry entry = new PokemonHuntState.HuntEntry();
         entry.id = UUID.randomUUID().toString();
         entry.species = normalSpecies(target.species);
-        entry.nature = pick(target.natures, "jolly").toLowerCase(Locale.ROOT);
+        entry.difficulty = target.difficulty == null ? "COMMON" : target.difficulty.trim().toUpperCase(Locale.ROOT);
+        boolean requiresNature = entry.difficulty.equals("LEGENDARY") || entry.difficulty.equals("MYTHIC");
+        entry.nature = requiresNature ? pick(target.natures, "jolly").toLowerCase(Locale.ROOT) : "any";
         entry.gender = normalizeGender(pick(target.genders, "male"));
         entry.ability = normalizeAbility(pick(target.abilities, "any"));
-        entry.difficulty = target.difficulty == null ? "COMMON" : target.difficulty.trim().toUpperCase(Locale.ROOT);
         entry.rewards = target.rewards == null ? new PokemonHuntConfig.Rewards() : target.rewards;
         return entry;
     }

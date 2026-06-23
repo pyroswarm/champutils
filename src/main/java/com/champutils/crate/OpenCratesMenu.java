@@ -208,6 +208,7 @@ public final class OpenCratesMenu {
         addCondensedToolPreview(entries, crate, toolsByType, "pickaxe");
         addCondensedToolPreview(entries, crate, toolsByType, "axe");
         addCondensedToolPreview(entries, crate, toolsByType, "hoe");
+        addCondensedToolPreview(entries, crate, toolsByType, "shovel");
 
         return entries;
     }
@@ -233,6 +234,7 @@ public final class OpenCratesMenu {
         return switch (type) {
             case "axe" -> Items.DIAMOND_AXE;
             case "hoe" -> Items.DIAMOND_HOE;
+            case "shovel" -> Items.DIAMOND_SHOVEL;
             default -> Items.DIAMOND_PICKAXE;
         };
     }
@@ -698,6 +700,7 @@ public final class OpenCratesMenu {
         String lower = toolId == null ? "" : toolId.toLowerCase(Locale.ROOT);
         String combined = base + " " + lower;
         if (combined.contains("hoe") || combined.contains("gaias") || combined.contains("gaia") || combined.contains("blessing")) return "hoe";
+        if (combined.contains("shovel") || combined.contains("spade") || combined.contains("scoop") || combined.contains("digger")) return "shovel";
         if (combined.contains("axe") || combined.contains("cleaver") || combined.contains("worldtree") || combined.contains("wood")) return "axe";
         return "pickaxe";
     }
@@ -706,6 +709,7 @@ public final class OpenCratesMenu {
         return switch (type == null ? "" : type.toLowerCase(Locale.ROOT)) {
             case "axe" -> "Axe";
             case "hoe" -> "Hoe";
+            case "shovel" -> "Shovel";
             default -> "Pickaxe";
         };
     }
@@ -738,6 +742,7 @@ public final class OpenCratesMenu {
         byType.put("pickaxe", new ArrayList<>());
         byType.put("axe", new ArrayList<>());
         byType.put("hoe", new ArrayList<>());
+        byType.put("shovel", new ArrayList<>());
         for (CrateConfig.WeightedTool tool : eligibleTools(crate)) {
             byType.computeIfAbsent(toolType(tool.toolId), ignored -> new ArrayList<>()).add(tool);
         }

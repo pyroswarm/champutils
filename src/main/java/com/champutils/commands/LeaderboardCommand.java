@@ -14,6 +14,14 @@ public class LeaderboardCommand {
                 (dispatcher, registryAccess, environment) -> {
 
                     dispatcher.register(
+                            literal("baltop")
+                                    .executes(ctx -> {
+                                        com.champutils.menu.LeaderboardMenu.openEconomy(ctx.getSource().getPlayerOrException());
+                                        return 1;
+                                    })
+                    );
+
+                    dispatcher.register(
                             literal("leaderboard")
                                     .executes(ctx -> {
 

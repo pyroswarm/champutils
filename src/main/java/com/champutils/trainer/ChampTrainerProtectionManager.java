@@ -27,6 +27,7 @@ public final class ChampTrainerProtectionManager {
         public double y;
         public double z;
         public float yaw;
+        public long lastProtectMillis;
 
         public Anchor(String trainerId, ChampTrainerSpawner.TrainerKind kind, Vec3 pos, float yaw) {
             this.trainerId = trainerId;
@@ -56,16 +57,18 @@ public final class ChampTrainerProtectionManager {
     public static void tick(MinecraftServer server) {
         if (server == null) return;
 
-        if (server.getTickCount() % 20 == 0) {
+        if (server.getTickCount() % 100 == 0) {
             discoverBoundNpcs(server);
         }
 
-        for (ServerLevel level : server.getAllLevels()) {
-            for (UUID uuid : new java.util.ArrayList<>(ANCHORS.keySet())) {
-                Entity entity = level.getEntity(uuid);
-                if (entity instanceof NPCEntity npc) {
-                    protect(npc, ANCHORS.get(uuid));
-                }
+        long now = System.currentTimeMillis();
+        for (UUID uuid : new java.util.ArrayList<>(ANCHORS.keySet())) {
+            Anchor anchor = ANCHORS.get(uuid);
+            if (anchor == null || now - anchor.lastProtectMillis < 5_000L) continue;
+            NPCEntity npc = findNpc(server, uuid);
+            if (npc != null) {
+                protect(npc, anchor);
+                anchor.lastProtectMillis = now;
             }
         }
     }
@@ -99,26 +102,13 @@ public final class ChampTrainerProtectionManager {
         return null;
     }
 
-    private static void setNullableBooleanProperty(NPCEntity npc, String methodName, String fallbackMethodName, boolean value) {
-        try {
-            npc.getClass().getMethod(methodName, Boolean.class).invoke(npc, Boolean.valueOf(value));
-            return;
-        } catch (Exception ignored) {}
-
-        if (fallbackMethodName != null) {
-            try {
-                npc.getClass().getMethod(fallbackMethodName, Boolean.class).invoke(npc, Boolean.valueOf(value));
-            } catch (Exception ignored) {}
-        }
-    }
-
     private static void protect(NPCEntity npc, Anchor anchor) {
         if (npc == null || anchor == null) return;
 
-        setNullableBooleanProperty(npc, "setMovable", "setIsMovable", false);
-        setNullableBooleanProperty(npc, "setInvulnerable", "setIsInvulnerable", true);
-        setNullableBooleanProperty(npc, "setLeashable", "setIsLeashable", false);
-        setNullableBooleanProperty(npc, "setAllowProjectileHits", null, false);
+        try { npc.setMovable(Boolean.FALSE); } catch (Exception ignored) {}
+        try { npc.setInvulnerable(Boolean.TRUE); } catch (Exception ignored) {}
+        try { npc.setLeashable(Boolean.FALSE); } catch (Exception ignored) {}
+        try { npc.setAllowProjectileHits(Boolean.FALSE); } catch (Exception ignored) {}
         try { npc.setNoAi(true); } catch (Exception ignored) {}
         try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
         try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}

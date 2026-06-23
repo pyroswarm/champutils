@@ -55,7 +55,7 @@ public final class PokemonHuntConfig {
         if (DATA == null) DATA = defaults();
         if (DATA.settings == null) DATA.settings = new Settings();
         if (DATA.targetPool == null || DATA.targetPool.isEmpty()) DATA.targetPool = defaults().targetPool;
-        if (DATA.settings.huntsPerCycle <= 0) DATA.settings.huntsPerCycle = 6;
+        if (DATA.settings.huntsPerCycle <= 0) DATA.settings.huntsPerCycle = 9;
         if (DATA.settings.refreshHours <= 0.0) DATA.settings.refreshHours = 1.0;
         if (DATA.settings.crateCreditChancePercent < 0) DATA.settings.crateCreditChancePercent = 0;
         if (DATA.settings.crateCreditChancePercent > 100) DATA.settings.crateCreditChancePercent = 100;
@@ -90,7 +90,7 @@ public final class PokemonHuntConfig {
         Root root = new Root();
         root.settings.enabled = true;
         root.settings.refreshHours = 1.0;
-        root.settings.huntsPerCycle = 6;
+        root.settings.huntsPerCycle = 9;
         root.settings.announceNewHunts = true;
         root.settings.announceWinners = true;
         root.settings.allowAlreadyWonHuntsToStayVisible = true;
@@ -153,11 +153,11 @@ public final class PokemonHuntConfig {
         String[] rare = {"axew","goomy","jangmoo","frigibax","drilbur","larvitar","dratini","dreepy","toxel","ralts","riolu","gible","bagon","beldum"};
         for (String sp : rare) add(root, sp, 5, "RARE", 500, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:ultra_ball", 2, 4, 30));
         String[] epic = {"larvesta","feebas","deino","duraludon","drampa","turtonator","rotom","mimikyu","zorua","spiritomb","honedge","sandile"};
-        for (String sp : epic) add(root, sp, 3, "EPIC", 1000, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:luxury_ball", 2, 4, 30));
+        for (String sp : epic) add(root, sp, 5, "EPIC", 1000, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:luxury_ball", 2, 4, 30));
         String[] legendary = {"beldum","gible","bagon","larvitar","deino","dreepy","frigibax","jangmoo"};
-        for (String sp : legendary) add(root, sp, 2, "LEGENDARY", 2000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
+        for (String sp : legendary) add(root, sp, 3, "LEGENDARY", 2000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
         String[] mythic = {"rotom","spiritomb","larvesta","beldum","frigibax","dreepy"};
-        for (String sp : mythic) add(root, sp, 1, "MYTHIC", 5000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
+        for (String sp : mythic) add(root, sp, 2, "MYTHIC", 5000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
         return root;
     }
 

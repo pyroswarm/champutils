@@ -11,6 +11,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
+import eu.pb4.sgui.api.gui.SimpleGui;
+import eu.pb4.sgui.api.elements.GuiElementBuilder;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.ItemStack;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -146,11 +150,11 @@ public final class AutoModCommand {
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(context -> {
                                     ServerPlayer target = EntityArgument.getPlayer(context, "player");
-                                    context.getSource().getServer().getCommands().performPrefixedCommand(context.getSource(), "invsee " + target.getGameProfile().getName());
+                                    openInventoryView(context.getSource().getPlayerOrException(), target);
                                     return 1;
                                 })))
                 .then(Commands.literal("pokesee")
-                        .requires(source -> PermissionUtil.has(source, "champutils.mod.pokesee"))
+                        .requires(source -> PermissionUtil.has(source, "champutils.mod.pokesee") || PermissionUtil.has(source, "champutils.mod.pokeseeother"))
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(context -> {
                                     ServerPlayer target = EntityArgument.getPlayer(context, "player");
@@ -159,6 +163,13 @@ public final class AutoModCommand {
                                 })))
                 .then(Commands.literal("spectate")
                         .requires(source -> PermissionUtil.has(source, "champutils.mod.spectate"))
+                        .then(Commands.literal("end")
+                                .executes(context -> {
+                                    ServerPlayer actor = context.getSource().getPlayerOrException();
+                                    actor.setGameMode(GameType.SURVIVAL);
+                                    context.getSource().sendSuccess(() -> Component.literal("Spectate ended. You are back in survival."), true);
+                                    return 1;
+                                }))
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(context -> {
                                     ServerPlayer target = EntityArgument.getPlayer(context, "player");
@@ -207,10 +218,20 @@ public final class AutoModCommand {
                         }))));
     }
 
+    private static void openInventoryView(ServerPlayer viewer, ServerPlayer target) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, viewer, false);
+        gui.setTitle(Component.literal("Inventory: " + target.getGameProfile().getName()));
+        for (int i = 0; i < target.getInventory().getContainerSize() && i < 54; i++) {
+            ItemStack stack = target.getInventory().getItem(i);
+            if (stack != null && !stack.isEmpty()) gui.setSlot(i, new GuiElementBuilder(stack.copy()).hideDefaultTooltip());
+        }
+        gui.open();
+    }
+
     private static boolean canUseAny(CommandSourceStack source) {
         return PermissionUtil.has(source, WARN) || PermissionUtil.has(source, KICK) || PermissionUtil.has(source, MUTE)
                 || PermissionUtil.has(source, UNMUTE) || PermissionUtil.has(source, BAN) || PermissionUtil.has(source, UNBAN)
-                || PermissionUtil.has(source, HISTORY) || PermissionUtil.has(source, "champutils.mod.vanish") || PermissionUtil.has(source, "champutils.mod.tp") || PermissionUtil.has(source, "champutils.mod.invsee") || PermissionUtil.has(source, "champutils.mod.pokesee") || PermissionUtil.has(source, "champutils.mod.spectate") || PermissionUtil.has(source, "champutils.admin") || PermissionUtil.has(source, "champutils.staff");
+                || PermissionUtil.has(source, HISTORY) || PermissionUtil.has(source, "champutils.mod.vanish") || PermissionUtil.has(source, "champutils.mod.tp") || PermissionUtil.has(source, "champutils.mod.invsee") || PermissionUtil.has(source, "champutils.mod.pokesee") || PermissionUtil.has(source, "champutils.mod.pokeseeother") || PermissionUtil.has(source, "champutils.mod.spectate") || PermissionUtil.has(source, "champutils.admin") || PermissionUtil.has(source, "champutils.staff");
     }
 
     private static ServerPlayer actor(CommandSourceStack source) {
