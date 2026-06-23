@@ -26,6 +26,7 @@ public class GiveChampItemCommand {
             "pickaxe",
             "axe",
             "hoe",
+            "shovel",
             "sword",
             "tool"
     };
@@ -440,6 +441,7 @@ public class GiveChampItemCommand {
             case "pickaxe" -> baseItem.contains("pickaxe");
             case "axe" -> baseItem.contains("axe") && !baseItem.contains("pickaxe");
             case "hoe" -> baseItem.contains("hoe");
+            case "shovel" -> baseItem.contains("shovel");
             case "sword" -> baseItem.contains("sword");
             default -> false;
         };

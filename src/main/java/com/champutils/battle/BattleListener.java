@@ -214,6 +214,7 @@ public class BattleListener {
             BattleContextManager.BattleType type
     ) {
         int xp = 0;
+        Runnable rewardRoll = null;
 
         switch (type) {
 
@@ -227,16 +228,12 @@ public class BattleListener {
 
             case NPC:
                 xp = getBattleXp("npc");
-                NpcBattleRewardManager.rollReward(
-                        winner
-                );
+                rewardRoll = () -> NpcBattleRewardManager.rollReward(winner);
                 break;
 
             case WORLD_BOSS:
                 xp = getBattleXp("world_boss");
-                WorldBossRewardManager.rollReward(
-                        winner
-                );
+                rewardRoll = () -> WorldBossRewardManager.rollReward(winner);
                 break;
 
             case MEGA_BOSS:
@@ -251,22 +248,21 @@ public class BattleListener {
             case UNKNOWN:
             default:
                 xp = getBattleXp("wild");
-
-                WildBattleRewardManager.rollReward(
-                        winner
-                );
+                rewardRoll = () -> WildBattleRewardManager.rollReward(winner);
                 break;
         }
 
-        if (xp <= 0) {
-            return;
+        if (xp > 0) {
+            ProfessionManager.addXp(
+                    winner,
+                    ProfessionType.BATTLING,
+                    xp
+            );
         }
 
-        ProfessionManager.addXp(
-                winner,
-                ProfessionType.BATTLING,
-                xp
-        );
+        if (rewardRoll != null) {
+            rewardRoll.run();
+        }
     }
 
     private static int getBattleXp(String key) {

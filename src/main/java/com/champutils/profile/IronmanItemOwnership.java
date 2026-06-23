@@ -57,6 +57,7 @@ public final class IronmanItemOwnership {
                 ItemStack stack = serverPlayer.getItemInHand(hand);
                 if (denyForeignUse(serverPlayer, stack)) return InteractionResultHolder.fail(stack);
                 stampIfIronmanOwned(serverPlayer, stack, "use");
+                sanitizeInventory(serverPlayer);
             }
             return InteractionResultHolder.pass(player.getItemInHand(hand));
         });
@@ -66,6 +67,7 @@ public final class IronmanItemOwnership {
                 ItemStack stack = serverPlayer.getItemInHand(hand);
                 if (denyForeignUse(serverPlayer, stack)) return InteractionResult.FAIL;
                 stampIfIronmanOwned(serverPlayer, stack, "block_use");
+                sanitizeInventory(serverPlayer);
             }
             return InteractionResult.PASS;
         });
@@ -75,6 +77,7 @@ public final class IronmanItemOwnership {
                 ItemStack stack = serverPlayer.getItemInHand(hand);
                 if (denyForeignUse(serverPlayer, stack)) return InteractionResult.FAIL;
                 stampIfIronmanOwned(serverPlayer, stack, "entity_use");
+                sanitizeInventory(serverPlayer);
             }
             return InteractionResult.PASS;
         });
@@ -84,6 +87,7 @@ public final class IronmanItemOwnership {
                 ItemStack stack = serverPlayer.getItemInHand(hand);
                 if (denyForeignUse(serverPlayer, stack)) return InteractionResult.FAIL;
                 stampIfIronmanOwned(serverPlayer, stack, "attack");
+                sanitizeInventory(serverPlayer);
             }
             return InteractionResult.PASS;
         });
@@ -208,7 +212,7 @@ public final class IronmanItemOwnership {
         // Disabled by design: item NBT/lore ownership caused stack splitting and server-thread SQL lookups.
         // Restricted-profile isolation is now enforced from player/drop/container context only.
         if (player == null || stack == null || stack.isEmpty()) return;
-        if (!usesItemOwnershipRules(player)) clearRestrictedProfileData(stack);
+        clearRestrictedProfileData(stack);
     }
 
     private static void stampMatchingUnownedInventoryStacks(ServerPlayer player, ItemStack reference) {

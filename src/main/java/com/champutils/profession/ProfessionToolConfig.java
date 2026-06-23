@@ -136,6 +136,13 @@ public class ProfessionToolConfig {
         public int activeDurationSeconds = 0;
 
         /*
+         Optional extra seconds added per profession level for timed active abilities.
+         Example: timber_burst with activeDurationSeconds=20 and activeDurationSecondsPerLevel=1
+         lasts 20s at level 1, 21s at level 2, etc.
+         */
+        public int activeDurationSecondsPerLevel = 0;
+
+        /*
          Maximum extra connected ore blocks mined by vein_miner_burst.
          This is intentionally capped for server safety.
          */

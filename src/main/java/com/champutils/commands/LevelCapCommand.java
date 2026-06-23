@@ -98,7 +98,7 @@ public final class LevelCapCommand {
         save();
         int applied = applyCap(party, level);
         int finalApplied = applied;
-        source.sendSuccess(() -> Component.literal("Your party levelcap is now ON at level " + level + " for " + finalApplied + " Pokémon.").withStyle(ChatFormatting.GREEN), false);
+        source.sendSuccess(() -> Component.literal("Your party levelcap is now ON at level " + level + ". Future EXP is blocked once each Pokémon reaches the cap. Applied to " + finalApplied + " Pokémon.").withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -115,7 +115,7 @@ public final class LevelCapCommand {
         int applied = applyCap(party, level);
         int finalApplied = applied;
         int finalLevel = level;
-        source.sendSuccess(() -> Component.literal("Your party levelcap is ON at level " + finalLevel + " for " + finalApplied + " Pokémon. Use /levelcap set <level> to choose a different cap.").withStyle(ChatFormatting.GREEN), false);
+        source.sendSuccess(() -> Component.literal("Your party levelcap is ON at level " + finalLevel + ". Future EXP is blocked once each Pokémon reaches the cap. Applied to " + finalApplied + " Pokémon. Use /levelcap set <level> to choose a different cap.").withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -156,7 +156,7 @@ public final class LevelCapCommand {
             Pokemon pokemon = party.get(i);
             if (pokemon == null) continue;
             XpLockManager.setLevelCap(pokemon, level);
-            try { if (pokemon.getLevel() > level) pokemon.setLevel(level); } catch (Throwable ignored) {}
+            // Do NOT lower existing Pokémon. Levelcap only prevents future EXP/levelups once the cap is reached.
             applied++;
         }
         return applied;

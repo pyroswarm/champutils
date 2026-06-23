@@ -104,6 +104,7 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("pickaxe");
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
+                                                                                        builder.suggest("shovel");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -156,6 +157,7 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("pickaxe");
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
+                                                                                        builder.suggest("shovel");
 
                                                                                         return builder.buildFuture();
                                                                                     })

@@ -10,7 +10,7 @@ import static net.minecraft.commands.Commands.literal;
 
 public final class DiscordCommand {
     // Change this in source/config later if you want a different invite.
-    public static String DISCORD_URL = "https://discord.gg/replace-this";
+    public static String DISCORD_URL = "https://discord.gg/GeGUHpzQnC";
 
     private DiscordCommand() {}
 

@@ -24,23 +24,41 @@ public class WildBattleRewardManager {
         int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
         awardMoneyReward(player, battlingLevel);
 
-        double chance = Math.max(0.0D, BattleProfessionLootConfig.wildBattleRewardChance);
-        if (chance <= 0.0D || RANDOM.nextDouble() >= chance) {
-            return;
-        }
-
+        int rolls = getRollCount(battlingLevel);
+        double chance = getRollChance(battlingLevel);
         boolean playedSuperRareSound = false;
 
-        BattleProfessionLootConfig.LootEntry reward = getWeightedReward(battlingLevel);
-        if (reward != null) {
-            int min = Math.max(1, reward.minAmount);
-            int max = Math.max(min, reward.maxAmount);
-            int amount = min + RANDOM.nextInt(max - min + 1);
+        for (int i = 0; i < rolls; i++) {
+            if (chance > 0.0D && RANDOM.nextDouble() < chance) {
+                BattleProfessionLootConfig.LootEntry reward = getWeightedReward(battlingLevel);
+                if (reward != null) {
+                    int min = Math.max(1, reward.minAmount);
+                    int max = Math.max(min, reward.maxAmount);
+                    int amount = min + RANDOM.nextInt(max - min + 1);
 
-            playedSuperRareSound = giveItemReward(player, reward.itemId, amount, playedSuperRareSound);
+                    playedSuperRareSound = giveItemReward(player, reward.itemId, amount, playedSuperRareSound);
+                }
+            }
         }
 
         rollFragmentJackpot(player, battlingLevel, playedSuperRareSound);
+    }
+
+    private static int getRollCount(int battlingLevel) {
+        int rolls = Math.max(1, BattleProfessionLootConfig.baseRolls);
+        if (BattleProfessionLootConfig.bonusRollEveryLevels > 0) {
+            rolls += Math.max(0, battlingLevel / BattleProfessionLootConfig.bonusRollEveryLevels);
+        }
+        return Math.max(1, Math.min(Math.max(1, BattleProfessionLootConfig.maxRolls), rolls));
+    }
+
+    private static double getRollChance(int battlingLevel) {
+        double chance = BattleProfessionLootConfig.baseRollChance +
+                (BattleProfessionLootConfig.rollChancePerBattlingLevel * Math.max(0, battlingLevel));
+        if (BattleProfessionLootConfig.maxRollChance > 0.0D) {
+            chance = Math.min(chance, BattleProfessionLootConfig.maxRollChance);
+        }
+        return Math.max(0.0D, chance);
     }
 
     private static void awardMoneyReward(ServerPlayer player, int battlingLevel) {

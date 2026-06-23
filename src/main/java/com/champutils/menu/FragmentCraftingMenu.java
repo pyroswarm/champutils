@@ -112,7 +112,7 @@ public final class FragmentCraftingMenu {
             ServerPlayer player
     ) {
         // Layout:
-        // Row 1 = Pickaxes, Row 2 = Axes, Row 3 = Hoes
+        // Row 1 = Pickaxes, Row 2 = Axes, Row 3 = Hoes, Row 4 = Shovels
         // Columns = Common, Uncommon, Rare, Epic, Legendary, Mythic
         addToolTypeRow(
                 gui,
@@ -151,6 +151,19 @@ public final class FragmentCraftingMenu {
                 Items.DIAMOND_HOE,
                 Items.NETHERITE_HOE,
                 Items.NETHERITE_HOE
+        );
+
+        addToolTypeRow(
+                gui,
+                player,
+                "shovel",
+                39,
+                Items.STONE_SHOVEL,
+                Items.IRON_SHOVEL,
+                Items.DIAMOND_SHOVEL,
+                Items.DIAMOND_SHOVEL,
+                Items.NETHERITE_SHOVEL,
+                Items.NETHERITE_SHOVEL
         );
     }
 
@@ -336,12 +349,12 @@ public final class FragmentCraftingMenu {
             SimpleGui gui,
             ServerPlayer player
     ) {
-        addWithdrawButton(gui, player, 39, "COMMON", Items.PAPER);
-        addWithdrawButton(gui, player, 40, "UNCOMMON", Items.PAPER);
-        addWithdrawButton(gui, player, 41, "RARE", Items.PAPER);
-        addWithdrawButton(gui, player, 42, "EPIC", Items.PAPER);
-        addWithdrawButton(gui, player, 43, "LEGENDARY", Items.PAPER);
-        addWithdrawButton(gui, player, 44, "MYTHIC", Items.PAPER);
+        addWithdrawButton(gui, player, 47, "COMMON", Items.PAPER);
+        addWithdrawButton(gui, player, 48, "UNCOMMON", Items.PAPER);
+        addWithdrawButton(gui, player, 50, "RARE", Items.PAPER);
+        addWithdrawButton(gui, player, 51, "EPIC", Items.PAPER);
+        addWithdrawButton(gui, player, 52, "LEGENDARY", Items.PAPER);
+        addWithdrawButton(gui, player, 53, "MYTHIC", Items.PAPER);
     }
 
     private static void addWithdrawButton(

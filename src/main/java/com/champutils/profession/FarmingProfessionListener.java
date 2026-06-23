@@ -5,6 +5,7 @@ import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -33,6 +34,20 @@ public class FarmingProfessionListener {
     private static final Set<String> MANUALLY_PROCESSED_EXTRA_BLOCKS = new HashSet<>();
 
     public static void register() {
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+            if (!(player instanceof ServerPlayer serverPlayer)) return true;
+            ItemStack tool = serverPlayer.getMainHandItem();
+            if (!isChampUtilsHoeTool(tool)) return true;
+            if (!isFarmingBlock(state)) return true;
+            if (isMatureFarmingBlock(state)) return true;
+
+            serverPlayer.displayClientMessage(
+                    Component.literal("ChampUtils hoes only harvest fully grown crops.").withStyle(ChatFormatting.YELLOW),
+                    true
+            );
+            return false;
+        });
+
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return;
             if (MANUALLY_PROCESSED_EXTRA_BLOCKS.remove(extraBlockKey(serverPlayer, pos))) return;
@@ -47,10 +62,7 @@ public class FarmingProfessionListener {
             processFarmingRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
-                BlockState replanted = getReplantedState(state);
-                if (replanted != null) {
-                    serverPlayer.serverLevel().setBlock(pos, replanted, 3);
-                }
+                tryAutoReplant(serverPlayer.serverLevel(), pos, state);
             }
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "harvest_wave", tool)) {
@@ -71,6 +83,35 @@ public class FarmingProfessionListener {
         rollHarvestMultiplier(player, state.getBlock(), tool);
         rollRewardPassive(player, tool, "seedSaverChance", "farming_seed_saver");
         rollRewardPassive(player, tool, "goldenHarvestChance", "farming_golden_harvest");
+    }
+
+
+    private static boolean isChampUtilsHoeTool(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !ProfessionToolMetadata.isProfessionTool(stack)) return false;
+        ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(stack);
+        if (data == null) return false;
+        String profession = data.profession == null ? "" : data.profession.trim().toUpperCase(java.util.Locale.ROOT);
+        String baseItem = data.baseItem == null ? "" : data.baseItem.toLowerCase(java.util.Locale.ROOT);
+        return "FARMING".equals(profession) || baseItem.endsWith("_hoe") || baseItem.contains(":hoe");
+    }
+
+    private static boolean isFarmingBlock(BlockState state) {
+        if (state == null || state.isAir()) return false;
+        String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if (ProfessionConfig.SETTINGS.farmingXp.containsKey(blockId)) return true;
+        return state.getBlock() instanceof CropBlock || state.getBlock() instanceof NetherWartBlock || state.getBlock() instanceof CocoaBlock;
+    }
+
+    private static void tryAutoReplant(ServerLevel level, BlockPos pos, BlockState oldState) {
+        if (level == null || pos == null || oldState == null || oldState.isAir()) return;
+        BlockState replanted = getReplantedState(oldState);
+        if (replanted == null) return;
+        level.getServer().execute(() -> {
+            if (!level.getBlockState(pos).isAir()) return;
+            if (!replanted.canSurvive(level, pos)) return;
+            level.setBlock(pos, replanted, 3 | 16);
+            level.blockUpdated(pos, replanted.getBlock());
+        });
     }
 
     private static boolean isMatureFarmingBlock(BlockState state) {
@@ -188,10 +229,7 @@ public class FarmingProfessionListener {
             MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, pos));
             level.destroyBlock(pos.immutable(), true, player);
             if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
-                BlockState replanted = getReplantedState(state);
-                if (replanted != null) {
-                    level.setBlock(pos.immutable(), replanted, 3);
-                }
+                tryAutoReplant(level, pos.immutable(), state);
             }
             harvested++;
         }

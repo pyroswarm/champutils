@@ -668,10 +668,49 @@ public final class ProfessionToolMetadata {
             return null;
         }
 
-        CompoundTag copy = root.copy();
-        copy.remove(ACTIVE_INSTANCE_ID_KEY);
-        copy.remove(ACTIVE_TOGGLES_KEY);
-        return Integer.toHexString(copy.toString().hashCode());
+        /*
+         * Active abilities must survive normal tool mutations.
+         *
+         * The old identity hashed the whole profession metadata blob. That blob
+         * changes on the first block break because durability, tracker progress,
+         * announcement flags, and toggle data are all stored in the same root tag.
+         * Result: Timber Burst/Harvest Wave/Vein Miner/etc. worked for the first
+         * block, then the timed/toggled effect no longer matched the held tool.
+         *
+         * Build the identity only from stable roll/config data. Do not include
+         * runtime state. This keeps identical tools stackable while preventing
+         * block-break durability/tracker updates from killing active effects.
+         */
+        CompoundTag stable = new CompoundTag();
+        stable.putString(
+                TOOL_ID_KEY,
+                root.getString(TOOL_ID_KEY)
+        );
+
+        copyIfPresent(root, stable, IDENTIFIED_KEY);
+        copyIfPresent(root, stable, ASCENDED_KEY);
+        copyIfPresent(root, stable, QUALITY_KEY);
+        copyIfPresent(root, stable, ROLLED_STATS_KEY);
+        copyIfPresent(root, stable, CUSTOM_ENCHANTS_KEY);
+        copyIfPresent(root, stable, MAX_DURABILITY_KEY);
+
+        return Integer.toHexString(
+                stable.toString().hashCode()
+        );
+    }
+
+    private static void copyIfPresent(
+            CompoundTag source,
+            CompoundTag target,
+            String key
+    ) {
+
+        if (source.contains(key)) {
+            target.put(
+                    key,
+                    source.get(key).copy()
+            );
+        }
     }
 
 
