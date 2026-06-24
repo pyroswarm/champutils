@@ -575,6 +575,7 @@ public class ChampUtilsMod implements ModInitializer {
         LeaderboardCommand.register();
         GymCommand.register();
         EVTrainingCommand.register();
+        EnderChestCommand.register();
         EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
@@ -653,6 +654,7 @@ public class ChampUtilsMod implements ModInitializer {
         GiveChampItemCommand.register();
         ShowItemCommand.register();
         ItemLockCommand.register();
+        ItemDebugCommand.register();
         XpLockCommand.register();
         // /levelcap removed: gym/progression caps are enforced by battle systems only.
         // LevelCapItemUseGuard disabled with /levelcap removal.

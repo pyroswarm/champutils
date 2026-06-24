@@ -45,11 +45,6 @@ public final class SpecialCatchAnnouncementListener {
                                     .withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover))))
                             .append(Component.literal("! Hover to inspect.").withStyle(ChatFormatting.GRAY));
                     ProfessionNotificationSettings.sendBroadcast(player.server, msg);
-                    if (shiny) {
-                        try {
-                            player.server.execute(() -> player.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), "pokeshout"));
-                        } catch (Throwable ignored) {}
-                    }
                 } catch (Throwable ignored) {}
             });
         } catch (Throwable ignored) {}

@@ -6,6 +6,7 @@ import com.champutils.battle.BattleStateManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.PvPBattleFormatRules;
 import com.champutils.battle.PvPBattleStarter;
+import com.champutils.validation.TeamValidator;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 
@@ -150,6 +151,34 @@ NPCBattleActor gymNpc = null;
                     );
 
             if(gym == null){
+                return;
+            }
+
+            String rankedViolation = TeamValidator.validate(player, "ranked");
+            if (rankedViolation != null) {
+                BattleStateManager.setInBattle(player, false);
+                player.sendSystemMessage(Component.literal("§cGym teams must follow ranked rules: §f" + rankedViolation));
+                ServerPlayer p = player;
+                p.server.execute(() -> p.closeContainer());
+                pre.cancel();
+                return;
+            }
+
+            if (BattleContextManager.getContext(player.getUUID()) != BattleContextManager.BattleType.GYM) {
+                BattleStateManager.setInBattle(player, false);
+                pre.cancel();
+                ServerPlayer p = player;
+                NPCBattleActor npcActor = gymNpc;
+                p.server.execute(() -> {
+                    try {
+                        BattleContextManager.setContext(p.getUUID(), BattleContextManager.BattleType.GYM);
+                        Object result = PvPBattleStarter.startPvn(p, npcActor.getNpc(), PvPBattleFormatRules.getCobblemonFormat("ranked"));
+                        if (result == null) p.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
+                    } catch (Exception restartError) {
+                        restartError.printStackTrace();
+                        p.sendSystemMessage(Component.literal("§cCould not start the ranked-format gym battle. Check server console."));
+                    }
+                });
                 return;
             }
 

@@ -113,8 +113,8 @@ public class BattleListener {
         }
 
         if (queuedPvpBattle) {
-            BattlePrepManager.healParty(winner);
-            BattlePrepManager.healParty(loser);
+            healAfterQueuedBattle(winner);
+            healAfterQueuedBattle(loser);
         }
 
         if (!ranked) {
@@ -216,6 +216,20 @@ public class BattleListener {
         cleanup(winner, loser);
     }
 
+    private static void healAfterQueuedBattle(ServerPlayer player) {
+        if (player == null) return;
+        try {
+            BattlePrepManager.healParty(player);
+        } catch (Throwable t) {
+            System.out.println("[ChampUtils] Direct party heal failed after queued battle for " + player.getGameProfile().getName() + ": " + t.getMessage());
+        }
+        try {
+            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack().withSuppressedOutput().withPermission(4), "pokeheal " + player.getGameProfile().getName());
+        } catch (Throwable t) {
+            System.out.println("[ChampUtils] /pokeheal fallback failed after queued battle for " + player.getGameProfile().getName() + ": " + t.getMessage());
+        }
+    }
+
     private static void awardBattleProfessionXp(
             ServerPlayer winner,
             BattleContextManager.BattleType type
@@ -254,7 +268,8 @@ public class BattleListener {
 
             case UNKNOWN:
             default:
-                xp = getBattleXp("wild");
+                // Wild battle XP is awarded per defeated Pokémon and scales with that Pokémon's level.
+                xp = 0;
                 rewardRoll = () -> WildBattleRewardManager.rollReward(winner);
                 break;
         }

@@ -253,6 +253,8 @@ public class ProfessionConfig {
         config.farmingXp.put("minecraft:beetroots", 10);
         config.farmingXp.put("minecraft:nether_wart", 12);
         config.farmingXp.put("minecraft:cocoa", 12);
+        config.farmingXp.put("minecraft:melon", 10);
+        config.farmingXp.put("minecraft:pumpkin", 10);
 
         /*
          FARMING - COBBLEMON PLANTS / CROPS

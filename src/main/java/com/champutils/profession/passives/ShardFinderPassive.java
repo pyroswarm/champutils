@@ -6,6 +6,7 @@ import com.champutils.profession.ProfessionRewardPassiveConfig;
 import com.champutils.profession.ProfessionSpecialCelebration;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
+import com.champutils.profession.actives.MiningBlockUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -59,6 +60,8 @@ public class ShardFinderPassive implements ProfessionPassive {
 
         if (
                 !isValidShardSource(
+                        level,
+                        pos,
                         blockId
                 )
         ) {
@@ -146,8 +149,14 @@ public class ShardFinderPassive implements ProfessionPassive {
     }
 
     private static boolean isValidShardSource(
+            ServerLevel level,
+            BlockPos pos,
             String blockId
     ) {
+
+        if (MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos))) {
+            return true;
+        }
 
         return switch (blockId) {
             case "minecraft:stone",

@@ -783,6 +783,10 @@ public class ProfessionToolManager {
             return;
         }
 
+        if (!ProfessionToolMetadata.isProfessionTool(stack)) {
+            return;
+        }
+
         String toolId =
                 ProfessionToolMetadata.getToolId(
                         stack
@@ -1063,10 +1067,8 @@ public class ProfessionToolManager {
                 stack
         );
 
-        addPassivesLore(
-                lore,
-                toolData
-        );
+        // Tool passives are intentionally not shown as separate bonuses.
+        // Player-facing power should come from rolled stats only.
 
         addActiveAbilityLore(
                 lore,

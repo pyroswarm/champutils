@@ -457,7 +457,7 @@ public class ItemRollCommand {
         if (check.missing != null) {
             player.sendSystemMessage(
                     Component.literal(
-                            "§cMissing repair materials: §f" + check.missing
+                            "§cNot enough credits to repair: §f" + check.missing
                     )
             );
             return 0;
@@ -471,7 +471,7 @@ public class ItemRollCommand {
         );
         player.sendSystemMessage(
                 Component.literal(
-                        "§eCost: §f" + formatMaterials(check.materials)
+                        "§eCost: §6" + EconomyCraftHook.formatMoney(check.creditCost)
                 )
         );
         player.sendSystemMessage(
@@ -492,19 +492,11 @@ public class ItemRollCommand {
             return 0;
         }
 
-        if (check.missing != null) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cMissing repair materials: §f" + check.missing
-                    )
-            );
+        EconomyCraftHook.ChargeResult chargeResult = EconomyCraftHook.withdraw(player, check.creditCost);
+        if (!chargeResult.success) {
+            player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
             return 0;
         }
-
-        consumeMaterials(
-                player,
-                check.materials
-        );
 
         ProfessionToolManager.repairTool(
                 check.stack
@@ -594,25 +586,9 @@ public class ItemRollCommand {
             return null;
         }
 
-        Map<String, Integer> materials =
-                getRepairMaterials(
-                        toolData
-                );
-
-        if (materials.isEmpty()) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cThis item has no repair materials configured."
-                    )
-            );
-            return null;
-        }
-
-        String missing =
-                getMissingMaterials(
-                        player,
-                        materials
-                );
+        long creditCost = getRepairCreditCost(toolData);
+        EconomyCraftHook.AffordResult afford = EconomyCraftHook.canAfford(player, creditCost);
+        String missing = afford.success ? null : afford.error;
 
         int after = getRepairPreviewDurability(
                 current,
@@ -626,7 +602,7 @@ public class ItemRollCommand {
                 current,
                 max,
                 after,
-                materials,
+                creditCost,
                 missing
         );
     }
@@ -662,7 +638,7 @@ public class ItemRollCommand {
         final int current;
         final int max;
         final int after;
-        final Map<String, Integer> materials;
+        final long creditCost;
         final String missing;
 
         RepairCheck(
@@ -671,7 +647,7 @@ public class ItemRollCommand {
                 int current,
                 int max,
                 int after,
-                Map<String, Integer> materials,
+                long creditCost,
                 String missing
         ) {
             this.stack = stack;
@@ -679,9 +655,22 @@ public class ItemRollCommand {
             this.current = current;
             this.max = max;
             this.after = after;
-            this.materials = materials;
+            this.creditCost = creditCost;
             this.missing = missing;
         }
+    }
+
+    private static long getRepairCreditCost(ProfessionToolConfig.ToolData toolData) {
+        String rarity = toolData == null || toolData.rarity == null ? "common" : toolData.rarity.toLowerCase(java.util.Locale.ROOT);
+        long credits = switch (rarity) {
+            case "uncommon" -> 20L;
+            case "rare" -> 35L;
+            case "epic" -> 50L;
+            case "legendary" -> 100L;
+            case "mythic" -> 250L;
+            default -> 10L;
+        };
+        return credits * 100L;
     }
 
     private static Map<String, Integer> getRepairMaterials(

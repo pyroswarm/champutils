@@ -325,6 +325,21 @@ public class MiningProfessionListener {
             case "minecraft:nether_quartz_ore" -> 8;
             case "minecraft:nether_gold_ore" -> 10;
             case "minecraft:ancient_debris" -> 75;
+            case "minecraft:dirt",
+                 "minecraft:grass_block",
+                 "minecraft:coarse_dirt",
+                 "minecraft:rooted_dirt",
+                 "minecraft:podzol",
+                 "minecraft:mycelium",
+                 "minecraft:sand",
+                 "minecraft:red_sand",
+                 "minecraft:gravel",
+                 "minecraft:clay",
+                 "minecraft:mud",
+                 "minecraft:packed_mud",
+                 "minecraft:soul_sand",
+                 "minecraft:soul_soil",
+                 "minecraft:snow_block" -> 1;
             default -> null;
         };
     }

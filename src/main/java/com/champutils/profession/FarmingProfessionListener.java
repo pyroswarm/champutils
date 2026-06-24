@@ -41,10 +41,6 @@ public class FarmingProfessionListener {
             if (!isFarmingBlock(state)) return true;
             if (isMatureFarmingBlock(state)) return true;
 
-            serverPlayer.displayClientMessage(
-                    Component.literal("ChampUtils hoes only harvest fully grown crops.").withStyle(ChatFormatting.YELLOW),
-                    true
-            );
             return false;
         });
 
@@ -228,7 +224,7 @@ public class FarmingProfessionListener {
             processFarmingRewards(player, state, blockId, player.getMainHandItem(), xp, true);
             MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, pos));
             level.destroyBlock(pos.immutable(), true, player);
-            if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem())) {
+            if (ActiveEffectManager.hasToggle(player, "auto_replant", player.getMainHandItem()) && !isMelonOrPumpkin(blockId)) {
                 tryAutoReplant(level, pos.immutable(), state);
             }
             harvested++;
@@ -236,6 +232,10 @@ public class FarmingProfessionListener {
         if (harvested > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aHarvest Wave collected " + harvested + " crops."), true);
         }
+    }
+
+    private static boolean isMelonOrPumpkin(String blockId) {
+        return "minecraft:melon".equals(blockId) || "minecraft:pumpkin".equals(blockId);
     }
 
     private static boolean isCobblemonBerryBush(String blockId) {

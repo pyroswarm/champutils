@@ -259,12 +259,7 @@ public class NpcBattleRewardManager {
             default -> ChatFormatting.WHITE;
         };
 
-        player.displayClientMessage(
-                Component.literal("Battle Jackpot! ")
-                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                        .append(Component.literal(formatWords(rarity) + " Weapon Fragment x1").withStyle(color)),
-                true
-        );
+        player.sendSystemMessage(Component.literal("§6Battle loot roll: §f" + formatWords(rarity) + " Weapon Fragment x1"));
     }
 
     private static boolean isSuperRareFragment(String rarity) {

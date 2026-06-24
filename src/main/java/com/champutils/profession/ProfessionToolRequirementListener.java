@@ -134,6 +134,10 @@ public class ProfessionToolRequirementListener {
                                     hand
                             );
 
+                    if (isBrokenProfessionTool(stack)) {
+                        return InteractionResult.PASS;
+                    }
+
                     if (
                             !canUseTool(
                                     serverPlayer,
@@ -187,13 +191,25 @@ public class ProfessionToolRequirementListener {
         );
     }
 
+    private static boolean isBrokenProfessionTool(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && ProfessionToolMetadata.isProfessionTool(stack) && ProfessionToolMetadata.isBroken(stack);
+    }
+
     private static boolean canUseTool(
             ServerPlayer player,
             ItemStack stack
     ) {
 
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(stack)
+        ) {
+            return true;
+        }
+
         String toolId =
-                ProfessionToolUtil.getToolId(
+                ProfessionToolMetadata.getToolId(
                         stack
                 );
 
@@ -262,8 +278,16 @@ public class ProfessionToolRequirementListener {
             BlockState state
     ) {
 
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        !ProfessionToolMetadata.isProfessionTool(stack)
+        ) {
+            return true;
+        }
+
         String toolId =
-                ProfessionToolUtil.getToolId(
+                ProfessionToolMetadata.getToolId(
                         stack
                 );
 

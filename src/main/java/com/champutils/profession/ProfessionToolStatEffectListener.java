@@ -89,9 +89,11 @@ public class ProfessionToolStatEffectListener {
             return;
         }
 
-        double miningSpeed = ProfessionToolUtil.getStat(stack, "miningSpeed");
-        if (miningSpeed > 0.0D) {
-            double modifierAmount = Math.max(0.0D, ProfessionToolManager.getMiningSpeedMultiplier(miningSpeed) - 1.0D);
+        double speedStat = stack.getItem() instanceof ShovelItem
+                ? ProfessionToolUtil.getStat(stack, "diggingSpeed")
+                : ProfessionToolUtil.getStat(stack, "miningSpeed");
+        if (speedStat > 0.0D) {
+            double modifierAmount = Math.max(0.0D, ProfessionToolManager.getMiningSpeedMultiplier(speedStat) - 1.0D);
             if (modifierAmount != 0.0D) {
                 attribute.addTransientModifier(new AttributeModifier(
                         MINING_SPEED_MODIFIER_ID,

@@ -15,7 +15,7 @@ public final class ProfileMainMenuManager {
         if (player == null || player.server == null) return;
 
         if (saveCurrentProfile && PlayerProfileManager.hasActiveProfile(player)) {
-            PlayerProfileManager.saveActiveLocation(player);
+            PlayerProfileManager.saveActiveLocationAsync(player);
             VanillaProfileStateManager.saveAsync(player);
             CobblemonProfileStateManager.save(player);
             ProfileSessionLoader.unload(player);

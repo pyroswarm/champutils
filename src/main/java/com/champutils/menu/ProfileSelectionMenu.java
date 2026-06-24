@@ -61,16 +61,27 @@ public final class ProfileSelectionMenu {
         if (player != null) SNAPSHOTS.remove(player.getUUID());
     }
 
-    private static String finalizePendingDeletesIfDue(ServerPlayer player) {
-        if (player == null) return "";
+    private static void finalizePendingDeletesIfDueAsync(ServerPlayer player) {
+        if (player == null || player.server == null) return;
         UUID playerId = player.getUUID();
         long now = System.currentTimeMillis();
         Long last = LAST_FINALIZE_CHECK.get(playerId);
-        if (last != null && now - last <= FINALIZE_CHECK_TTL_MILLIS) {
-            return "";
-        }
+        if (last != null && now - last <= FINALIZE_CHECK_TTL_MILLIS) return;
         LAST_FINALIZE_CHECK.put(playerId, now);
-        return PlayerProfileManager.finalizePendingDeletesBlocking(player);
+        CompletableFuture.supplyAsync(() -> PlayerProfileManager.finalizePendingDeletesBlocking(player))
+                .whenComplete((result, error) -> player.server.execute(() -> {
+                    if (player.hasDisconnected()) return;
+                    if (error != null) {
+                        System.err.println("[ChampUtils] Async profile deletion finalize failed for " + player.getGameProfile().getName());
+                        error.printStackTrace();
+                        return;
+                    }
+                    if (result != null && !result.isBlank()) {
+                        invalidateSnapshot(player);
+                        player.sendSystemMessage(Component.literal(result).withStyle(ChatFormatting.GRAY));
+                        open(player);
+                    }
+                }));
     }
 
     private record ProfileColor(String name, Item icon, ChatFormatting style) {}
@@ -94,11 +105,7 @@ public final class ProfileSelectionMenu {
 
     public static void open(ServerPlayer player) {
         if (player == null) return;
-        String finalized = finalizePendingDeletesIfDue(player);
-        if (!finalized.isBlank()) {
-            invalidateSnapshot(player);
-            player.sendSystemMessage(Component.literal(finalized).withStyle(ChatFormatting.GRAY));
-        }
+        finalizePendingDeletesIfDueAsync(player);
 
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> open(player));
         gui.setTitle(Component.literal("Select Profile"));

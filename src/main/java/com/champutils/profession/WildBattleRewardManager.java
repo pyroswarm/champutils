@@ -19,12 +19,20 @@ public class WildBattleRewardManager {
     private static final Random RANDOM = new Random();
 
     public static void rollReward(ServerPlayer player) {
+        rollReward(player, true);
+    }
+
+    public static void rollRewardNoMoney(ServerPlayer player) {
+        rollReward(player, false);
+    }
+
+    private static void rollReward(ServerPlayer player, boolean includeMoney) {
         if (player == null || !BattleProfessionLootConfig.enabled) {
             return;
         }
 
         int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
-        awardMoneyReward(player, battlingLevel);
+        if (includeMoney) awardMoneyReward(player, battlingLevel);
 
         int rolls = getRollCount(battlingLevel);
         double chance = getRollChance(battlingLevel);
@@ -308,12 +316,6 @@ public class WildBattleRewardManager {
 
         player.sendSystemMessage(Component.literal("§6Battle loot roll: §f" + formatWords(rarity) + " Weapon Fragment x1"));
         ProfessionActionBarManager.playBattleSuperRareSound(player);
-        player.displayClientMessage(
-                Component.literal("Battle Jackpot! ")
-                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                        .append(Component.literal(formatWords(rarity) + " Weapon Fragment x1").withStyle(color)),
-                true
-        );
     }
 
     private static boolean isSuperRareFragment(String rarity) {

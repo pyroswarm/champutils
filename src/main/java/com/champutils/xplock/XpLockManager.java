@@ -16,9 +16,10 @@ public final class XpLockManager {
         }
 
         try {
-            if (pokemon.getPersistentData().getBoolean(LOCK_KEY)) return true;
-            int cap = getLevelCap(pokemon);
-            return cap > 0 && pokemon.getLevel() >= cap;
+            // /xplock should only honor the explicit XP lock flag. Legacy /levelcap data
+            // is intentionally ignored so players who had /levelcap enabled before removal
+            // are not permanently stuck unable to gain experience.
+            return pokemon.getPersistentData().getBoolean(LOCK_KEY);
         } catch (Exception ignored) {
             return false;
         }

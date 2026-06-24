@@ -39,8 +39,10 @@ public abstract class IronmanContainerMenuMixin {
 
         if (slotId >= 0 && slotId < menu.slots.size()) {
             ItemStack slotStack = menu.slots.get(slotId).getItem();
+            IronmanItemOwnership.sanitizeStack(serverPlayer, slotStack);
             IronmanItemOwnership.stampContainerDeposit(serverPlayer, slotStack);
         }
+        IronmanItemOwnership.sanitizeStack(serverPlayer, carried);
         IronmanItemOwnership.stampContainerDeposit(serverPlayer, carried);
     }
 }

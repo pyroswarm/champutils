@@ -244,6 +244,41 @@ public class DropMultiplierPassive implements ProfessionPassive {
             case "minecraft:ancient_debris" ->
                     "minecraft:ancient_debris";
 
+            case "minecraft:dirt",
+                 "minecraft:grass_block",
+                 "minecraft:coarse_dirt",
+                 "minecraft:rooted_dirt",
+                 "minecraft:podzol",
+                 "minecraft:mycelium" ->
+                    "minecraft:dirt";
+
+            case "minecraft:sand" ->
+                    "minecraft:sand";
+
+            case "minecraft:red_sand" ->
+                    "minecraft:red_sand";
+
+            case "minecraft:gravel" ->
+                    "minecraft:gravel";
+
+            case "minecraft:clay" ->
+                    "minecraft:clay_ball";
+
+            case "minecraft:mud" ->
+                    "minecraft:mud";
+
+            case "minecraft:packed_mud" ->
+                    "minecraft:packed_mud";
+
+            case "minecraft:soul_sand" ->
+                    "minecraft:soul_sand";
+
+            case "minecraft:soul_soil" ->
+                    "minecraft:soul_soil";
+
+            case "minecraft:snow_block" ->
+                    "minecraft:snowball";
+
             default ->
                     null;
         };

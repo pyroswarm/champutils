@@ -10,6 +10,8 @@ import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 import java.util.UUID;
 
 import net.minecraft.server.level.ServerPlayer;
+import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionType;
 
 public class CobblemonBattleHandler {
 
@@ -188,6 +190,7 @@ public class CobblemonBattleHandler {
             try {
 
                 recordDefeatedTypeQuestProgress(e);
+                awardWildDefeatBattleXp(e);
 
                 clearPlayersFromBattle(
                         e.getBattle()
@@ -199,6 +202,53 @@ public class CobblemonBattleHandler {
         });
     }
 
+
+    private static void awardWildDefeatBattleXp(BattleFaintedEvent event) {
+        try {
+            int defeatedLevel = defeatedPokemonLevel(event);
+            if (defeatedLevel <= 0) return;
+
+            for (Object actor : event.getBattle().getActors()) {
+                if (!(actor instanceof PlayerBattleActor p)) continue;
+                ServerPlayer player = (ServerPlayer) p.getEntity();
+                if (player == null) continue;
+
+                BattleContextManager.BattleType type = BattleContextManager.getContext(player.getUUID());
+                if (type != null && type != BattleContextManager.BattleType.UNKNOWN) continue;
+
+                // Do not pay Battling XP if the fainted Pokémon belongs to the player. This keeps
+                // the level-scaled XP limited to wild Pokémon defeats, not trainer/PvP/world-boss faints.
+                if (actorOwnsKilledPokemon(actor, event.getKilled())) continue;
+
+                int xp = Math.max(1, defeatedLevel);
+                ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static boolean actorOwnsKilledPokemon(Object actor, Object killed) {
+        if (actor == null || killed == null) return false;
+        try {
+            Object list = invokeNoArg(actor, "getPokemonList");
+            return list instanceof java.util.Collection<?> collection && collection.contains(killed);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static int defeatedPokemonLevel(BattleFaintedEvent event) {
+        try {
+            Object killed = event.getKilled();
+            Object pokemon = invokeNoArg(killed, "getOriginalPokemon");
+            if (pokemon == null) pokemon = invokeNoArg(killed, "getEffectedPokemon");
+            if (pokemon == null) pokemon = invokeNoArg(killed, "getPokemon");
+            Object level = invokeNoArg(pokemon, "getLevel");
+            return level instanceof Number n ? n.intValue() : 0;
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
 
     private static void recordDefeatedTypeQuestProgress(BattleFaintedEvent event) {
         try {

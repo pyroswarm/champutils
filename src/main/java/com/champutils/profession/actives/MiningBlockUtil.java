@@ -17,19 +17,16 @@ public class MiningBlockUtil {
             BlockPos pos,
             BlockState state
     ) {
+        return isMiningProfessionBlock(level, pos, state);
+    }
 
-        if (state == null || state.isAir()) {
-            return false;
-        }
+    public static boolean isMiningProfessionBlock(
+            Level level,
+            BlockPos pos,
+            BlockState state
+    ) {
 
-        if (state.getDestroySpeed(
-                level,
-                pos
-        ) < 0.0F) {
-            return false;
-        }
-
-        if (state.hasBlockEntity()) {
+        if (!isSafeBreakableBlock(level, pos, state)) {
             return false;
         }
 
@@ -53,5 +50,39 @@ public class MiningBlockUtil {
                 ProfessionConfig.SETTINGS.miningXp.containsKey(
                         blockId
                 );
+    }
+
+    public static boolean isShovelBlock(
+            Level level,
+            BlockPos pos,
+            BlockState state
+    ) {
+
+        return isSafeBreakableBlock(level, pos, state) &&
+                state.is(BlockTags.MINEABLE_WITH_SHOVEL);
+    }
+
+    private static boolean isSafeBreakableBlock(
+            Level level,
+            BlockPos pos,
+            BlockState state
+    ) {
+
+        if (state == null || state.isAir()) {
+            return false;
+        }
+
+        if (state.getDestroySpeed(
+                level,
+                pos
+        ) < 0.0F) {
+            return false;
+        }
+
+        if (state.hasBlockEntity()) {
+            return false;
+        }
+
+        return true;
     }
 }

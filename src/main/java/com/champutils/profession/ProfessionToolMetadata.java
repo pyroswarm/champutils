@@ -1109,6 +1109,45 @@ public final class ProfessionToolMetadata {
         return tag.getCompound(ROOT_KEY);
     }
 
+    public static boolean cleanupInvalidProfessionMetadata(
+            ItemStack stack
+    ) {
+
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+
+        CustomData customData =
+                stack.get(
+                        DataComponents.CUSTOM_DATA
+                );
+
+        if (customData == null) {
+            return false;
+        }
+
+        CompoundTag tag =
+                customData.copyTag();
+
+        if (!tag.contains(ROOT_KEY)) {
+            return false;
+        }
+
+        CompoundTag root =
+                tag.getCompound(ROOT_KEY);
+
+        if (root.contains(TOOL_ID_KEY)) {
+            return false;
+        }
+
+        tag.remove(ROOT_KEY);
+        writeCustomDataOrRemove(
+                stack,
+                tag
+        );
+        return true;
+    }
+
     private static void updateRoot(
             ItemStack stack,
             RootEditor editor
@@ -1135,10 +1174,45 @@ public final class ProfessionToolMetadata {
         editor.edit(root);
         root.remove(ACTIVE_INSTANCE_ID_KEY);
 
-        tag.put(
-                ROOT_KEY,
-                root
+        /*
+         * Never leave an empty ChampUtilsProfessionTool root on normal items.
+         *
+         * Vanilla/stackable items were getting polluted by calls that only wanted
+         * to clear runtime active toggles. That produced custom_data like
+         * {ChampUtilsProfessionTool:{}} on dirt/logs/etc. Even though those items
+         * were not real profession tools, the extra custom_data component made
+         * them fail vanilla stack equality checks.
+         *
+         * A real profession tool must always have ToolId. If an edit leaves no
+         * ToolId, remove our root entirely and remove CUSTOM_DATA too when it was
+         * the only custom data on the stack.
+         */
+        if (root.contains(TOOL_ID_KEY)) {
+            tag.put(
+                    ROOT_KEY,
+                    root
+            );
+        } else {
+            tag.remove(ROOT_KEY);
+        }
+
+        writeCustomDataOrRemove(
+                stack,
+                tag
         );
+    }
+
+    private static void writeCustomDataOrRemove(
+            ItemStack stack,
+            CompoundTag tag
+    ) {
+
+        if (tag == null || tag.isEmpty()) {
+            stack.remove(
+                    DataComponents.CUSTOM_DATA
+            );
+            return;
+        }
 
         stack.set(
                 DataComponents.CUSTOM_DATA,

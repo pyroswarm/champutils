@@ -11,6 +11,7 @@ import com.champutils.battle.BattleAIDifficultyManager;
 import com.champutils.battle.PvPBattleFormatRules;
 import com.champutils.battle.PvPBattleStarter;
 import com.champutils.battle.AITestGymLeaderBuilder;
+import com.champutils.validation.TeamValidator;
 
 import com.cobblemon.mod.common.battles.BattleBuilder;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
@@ -116,6 +117,12 @@ public final class ChampTrainerInteractionListener {
                     AITestGymLeaderBuilder.applyTeam(npc);
                     BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
                     PvPBattleStarter.startPvn(serverPlayer, npc, PvPBattleFormatRules.getCobblemonFormat("ranked"));
+                    return InteractionResult.SUCCESS;
+                }
+
+                String rankedViolation = TeamValidator.validate(serverPlayer, "ranked");
+                if (rankedViolation != null) {
+                    serverPlayer.sendSystemMessage(Component.literal("§cGym teams must follow ranked rules: §f" + rankedViolation));
                     return InteractionResult.SUCCESS;
                 }
 

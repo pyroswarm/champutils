@@ -51,7 +51,10 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         String typeName = type.getName();
         if (!IslanderSpawningConfig.CONFIG.spawnablePositionTypes.contains(typeName)) return null;
 
-        long playtimeSeconds = playerUuid == null ? 0L : PlayerDataManager.getPlaytimeSeconds(playerUuid, playerName);
+        ServerPlayer activePlayer = playerUuid == null || level.getServer() == null ? null : level.getServer().getPlayerList().getPlayer(playerUuid);
+        long playtimeSeconds = activePlayer == null
+                ? 0L
+                : ProfilePlaytimeManager.getDisplayPlaytimeSeconds(activePlayer);
         IslanderSpawningConfig.Tier tier = IslanderSpawningConfig.tierForPlaytime(playtimeSeconds);
 
         String bucketKey = String.valueOf(bucket);

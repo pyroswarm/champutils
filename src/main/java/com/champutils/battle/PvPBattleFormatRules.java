@@ -24,9 +24,19 @@ public final class PvPBattleFormatRules {
     }
 
     public static BattleFormat getCobblemonFormat(String formatId) {
+        return getCobblemonFormatWithExtraRules(formatId);
+    }
+
+    public static BattleFormat getCobblemonFormatWithExtraRules(String formatId, String... extraRules) {
         Format configured = getFormat(formatId);
         BattleFormat base = resolveBaseFormat(configured);
         Set<String> rules = collectRules(formatId, configured);
+        if (extraRules != null) {
+            for (String rule : extraRules) {
+                String normalized = normalizeRule(rule);
+                if (normalized != null) rules.add(normalized);
+            }
+        }
 
         if (rules.isEmpty()) {
             return base;

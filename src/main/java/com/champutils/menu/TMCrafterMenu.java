@@ -97,7 +97,7 @@ public final class TMCrafterMenu {
         for (int i = 0; i < MOVE_SLOTS.length; i++) {
             int moveIndex = start + i;
             if (moveIndex >= moves.size()) break;
-            addMove(gui, player, MOVE_SLOTS[i], moves.get(moveIndex));
+            addMove(gui, player, MOVE_SLOTS[i], moves.get(moveIndex), safePage);
         }
 
         if (safePage > 0) {
@@ -124,7 +124,7 @@ public final class TMCrafterMenu {
         gui.open();
     }
 
-    private static void addMove(SimpleGui gui, ServerPlayer player, int slot, String moveId) {
+    private static void addMove(SimpleGui gui, ServerPlayer player, int slot, String moveId, int currentPage) {
         String rarity = TMManager.rarityForMove(moveId);
         Map<String, Integer> cost = TMManager.specificCostForMove(moveId);
         boolean canCraft = canAfford(player, cost);
@@ -137,7 +137,7 @@ public final class TMCrafterMenu {
         builder.setCallback((i, c, t) -> {
             TMManager.CraftResult result = TMManager.craftSpecific(player, moveId);
             player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
-            openMovePicker(player, rarity, 0);
+            openMovePicker(player, rarity, currentPage);
         });
         gui.setSlot(slot, builder);
     }

@@ -75,11 +75,29 @@ public class ProfessionRewardPassiveConfig {
             }
 
             TABLES = readTables(file);
+            filterSeedSaverTable();
             mergeMissingDefaultRewardEntries();
+            filterSeedSaverTable();
         } catch (Exception e) {
             e.printStackTrace();
             TABLES = new LinkedHashMap<>();
         }
+    }
+
+    private static void filterSeedSaverTable() {
+        List<RewardEntry> entries = TABLES.get("farming_seed_saver");
+        if (entries == null) return;
+        java.util.Set<String> allowed = java.util.Set.of(
+                "cobblemon:roseli_berry", "cobblemon:chilan_berry", "cobblemon:babiri_berry", "cobblemon:colbur_berry",
+                "cobblemon:haban_berry", "cobblemon:kasib_berry", "cobblemon:charti_berry", "cobblemon:tanga_berry",
+                "cobblemon:payapa_berry", "cobblemon:coba_berry", "cobblemon:shuca_berry", "cobblemon:kebia_berry",
+                "cobblemon:chople_berry", "cobblemon:yache_berry", "cobblemon:rindo_berry", "cobblemon:wacan_berry",
+                "cobblemon:passho_berry", "cobblemon:occa_berry", "cobblemon:pinap_berry", "cobblemon:wepear_berry",
+                "cobblemon:nanab_berry", "cobblemon:bluk_berry", "cobblemon:razz_berry", "cobblemon:persim_berry",
+                "cobblemon:aspear_berry", "cobblemon:rawst_berry", "cobblemon:pecha_berry", "cobblemon:chesto_berry",
+                "cobblemon:cheri_berry", "cobblemon:oran_berry"
+        );
+        entries.removeIf(entry -> entry == null || entry.item == null || !allowed.contains(entry.item.toLowerCase(java.util.Locale.ROOT)));
     }
 
     public static ItemStack rollReward(String tableId) {

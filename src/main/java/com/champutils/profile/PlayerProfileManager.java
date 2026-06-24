@@ -39,6 +39,10 @@ public final class PlayerProfileManager {
     private static final Map<UUID, ProfileRecord> ACTIVE = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> SWITCHING = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<String, ProfileRecord>> PROFILE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, CachedProfileList> PROFILE_LIST_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, ProfileLimit> LIMIT_CACHE = new ConcurrentHashMap<>();
+    private static final long PROFILE_LIST_CACHE_TTL_MILLIS = 15_000L;
+    private static final long PROFILE_LIMIT_CACHE_TTL_MILLIS = 60_000L;
     private static final Map<UUID, String> VANILLA_STATE_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, SavedLocationSnapshot> SAVED_LOCATION_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, Object> CREATE_LOCKS = new ConcurrentHashMap<>();
@@ -77,14 +81,46 @@ public final class PlayerProfileManager {
             boolean useFallback
     ) {}
 
+    private record CachedProfileList(
+            List<ProfileRecord> profiles,
+            long cachedAtMillis
+    ) {}
+
     private static void cacheProfile(ProfileRecord record) {
         if (record == null || record.playerUuid() == null || record.profileName() == null) return;
         PROFILE_CACHE.computeIfAbsent(record.playerUuid(), ignored -> new ConcurrentHashMap<>())
                 .put(record.profileName().toLowerCase(), record);
     }
 
+    private static void cacheProfileList(UUID playerUuid, List<ProfileRecord> profiles) {
+        if (playerUuid == null || profiles == null) return;
+        for (ProfileRecord record : profiles) cacheProfile(record);
+        PROFILE_LIST_CACHE.put(playerUuid, new CachedProfileList(List.copyOf(profiles), System.currentTimeMillis()));
+    }
+
+    private static List<ProfileRecord> cachedProfileList(UUID playerUuid) {
+        CachedProfileList cached = playerUuid == null ? null : PROFILE_LIST_CACHE.get(playerUuid);
+        if (cached == null || System.currentTimeMillis() - cached.cachedAtMillis() > PROFILE_LIST_CACHE_TTL_MILLIS) return null;
+        return cached.profiles();
+    }
+
+    private static void updateCachedActive(UUID playerUuid, UUID activeProfileId) {
+        CachedProfileList cached = playerUuid == null ? null : PROFILE_LIST_CACHE.get(playerUuid);
+        if (cached == null) return;
+        List<ProfileRecord> updated = new ArrayList<>();
+        for (ProfileRecord r : cached.profiles()) {
+            if (r == null) continue;
+            updated.add(new ProfileRecord(r.profileId(), r.playerUuid(), r.profileName(), r.gameMode(), r.monotypeType(), activeProfileId != null && activeProfileId.equals(r.profileId()), r.pendingDelete(), r.deleteAvailableAt()));
+        }
+        cacheProfileList(playerUuid, updated);
+    }
+
     private static void clearProfileCache(UUID playerUuid) {
-        if (playerUuid != null) PROFILE_CACHE.remove(playerUuid);
+        if (playerUuid != null) {
+            PROFILE_CACHE.remove(playerUuid);
+            PROFILE_LIST_CACHE.remove(playerUuid);
+            LIMIT_CACHE.remove(playerUuid);
+        }
     }
 
     static void cacheVanillaState(UUID profileId, String snbt) {
@@ -208,7 +244,9 @@ public static void handleJoin(ServerPlayer player) {
             createProfile(connection, player, "Default", ProfileGameMode.NORMAL, null, false);
             createdDefault[0] = true;
         }
-        System.out.println("[PROFILE-TIMING] async join profile prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+        readProfiles(connection, playerUuid);
+        readLimit(connection, player);
+        System.out.println("[PROFILE-TIMING] async join profile prep/cache warm took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
     }).whenComplete((ignored, error) -> player.server.execute(() -> {
         if (player.hasDisconnected()) return;
         if (error != null) {
@@ -291,21 +329,10 @@ public static void unload(UUID playerUuid) {
 
     public static ProfileLimit limitBlocking(ServerPlayer player) {
         if (player == null || !DatabaseManager.isEnabled()) return new ProfileLimit(DEFAULT_MAX_PROFILES, false, false, 30);
+        ProfileLimit cached = LIMIT_CACHE.get(player.getUUID());
+        if (cached != null) return cached;
         try {
-            Connection connection = DatabaseManager.getConnection();
-            ensurePlayerRow(connection, player);
-            syncLimitFromLuckPerms(connection, player);
-            try (var ps = connection.prepareStatement("select max_profiles, instant_delete, fast_delete, deletion_delay_minutes from player_profile_limits where player_uuid = ?")) {
-                ps.setObject(1, player.getUUID());
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        boolean instant = rs.getBoolean("instant_delete");
-                        boolean fast = rs.getBoolean("fast_delete");
-                        int delay = instant ? 0 : Math.max(1, rs.getInt("deletion_delay_minutes"));
-                        return new ProfileLimit(Math.max(DEFAULT_MAX_PROFILES, rs.getInt("max_profiles")), instant, fast, delay);
-                    }
-                }
-            }
+            return readLimit(DatabaseManager.getConnection(), player);
         } catch (Exception e) { e.printStackTrace(); }
         return new ProfileLimit(DEFAULT_MAX_PROFILES, false, false, 30);
     }
@@ -327,18 +354,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             profiles.add(active(player));
             return profiles;
         }
-        try (var statement = DatabaseManager.getConnection().prepareStatement(
-                "select p.id, p.player_uuid, p.name, p.mode, p.monotype, (a.profile_id is not null) as active, p.is_pending_delete, p.delete_available_at " +
-                        "from player_profiles p left join player_active_profiles a on a.player_uuid = p.player_uuid and a.profile_id = p.id " +
-                        "where p.player_uuid = ? and p.deleted_at is null order by p.created_at asc")) {
-            statement.setObject(1, player.getUUID());
-            try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    ProfileRecord record = fromResultSet(rs);
-                    profiles.add(record);
-                    cacheProfile(record);
-                }
-            }
+        List<ProfileRecord> cached = cachedProfileList(player.getUUID());
+        if (cached != null) return new ArrayList<>(cached);
+        try {
+            profiles.addAll(readProfiles(DatabaseManager.getConnection(), player.getUUID()));
         }
         catch (Exception e) { e.printStackTrace(); }
         return profiles;
@@ -395,6 +414,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             System.out.println("[PROFILE-TIMING] createBlocking.ProfileRepository.createProfile insert took " + (System.currentTimeMillis() - createTimingStart) + "ms");
 
             long defaultCacheStart = System.currentTimeMillis();
+            clearProfileCache(player.getUUID());
             cacheProfile(created);
             // Do not cache an empty vanilla state here. A newly created profile may receive
             // starter items or player-earned items later in the same server session, and a
@@ -422,7 +442,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             UUID previousProfileId = hasActiveProfile(player) ? activeProfileId(player) : null;
             if (hasActiveProfile(player)) {
                 ProfilePlaytimeManager.flushPlayerAsyncBestEffort(player);
-                saveActiveLocation(player);
+                saveActiveLocationAsync(player);
                 VanillaProfileStateManager.saveAsync(player);
                 CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
                 if (previousProfileId != null) CobblemonProfileStorageBridge.evictProfileStores(previousProfileId);
@@ -432,6 +452,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             setActive(connection, player.getUUID(), target.profileId());
             ProfileRecord active = new ProfileRecord(target.profileId(), target.playerUuid(), target.profileName(), target.gameMode(), target.monotypeType(), true, false, null);
             ACTIVE.put(player.getUUID(), active);
+            cacheProfile(active);
+            updateCachedActive(player.getUUID(), active.profileId());
             ProfilePlaytimeManager.warmCacheAsync(active.profileId());
             ProfilePlaytimeManager.recordCurrentSession(player);
             ProfileLobbyManager.leaveLobby(player);
@@ -589,6 +611,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     }
                     ACTIVE.put(playerUuid, active);
                     cacheProfile(active);
+                    updateCachedActive(playerUuid, active.profileId());
                     ProfilePlaytimeManager.warmCacheAsync(active.profileId());
                     ProfilePlaytimeManager.recordCurrentSession(player);
                     timing("server.execute.ProfileLobbyManager.leaveLobby", () -> ProfileLobbyManager.leaveLobby(player));
@@ -979,6 +1002,42 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ps.setObject(1, playerUuid);
             try (ResultSet rs = ps.executeQuery()) { return rs.next() ? rs.getInt("total") : 0; }
         }
+    }
+
+    private static List<ProfileRecord> readProfiles(Connection connection, UUID playerUuid) throws Exception {
+        List<ProfileRecord> profiles = new ArrayList<>();
+        try (var statement = connection.prepareStatement(
+                "select p.id, p.player_uuid, p.name, p.mode, p.monotype, (a.profile_id is not null) as active, p.is_pending_delete, p.delete_available_at " +
+                        "from player_profiles p left join player_active_profiles a on a.player_uuid = p.player_uuid and a.profile_id = p.id " +
+                        "where p.player_uuid = ? and p.deleted_at is null order by p.created_at asc")) {
+            statement.setObject(1, playerUuid);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) profiles.add(fromResultSet(rs));
+            }
+        }
+        cacheProfileList(playerUuid, profiles);
+        return profiles;
+    }
+
+    private static ProfileLimit readLimit(Connection connection, ServerPlayer player) throws Exception {
+        ensurePlayerRow(connection, player);
+        syncLimitFromLuckPerms(connection, player);
+        try (var ps = connection.prepareStatement("select max_profiles, instant_delete, fast_delete, deletion_delay_minutes from player_profile_limits where player_uuid = ?")) {
+            ps.setObject(1, player.getUUID());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    boolean instant = rs.getBoolean("instant_delete");
+                    boolean fast = rs.getBoolean("fast_delete");
+                    int delay = instant ? 0 : Math.max(1, rs.getInt("deletion_delay_minutes"));
+                    ProfileLimit limit = new ProfileLimit(Math.max(DEFAULT_MAX_PROFILES, rs.getInt("max_profiles")), instant, fast, delay);
+                    LIMIT_CACHE.put(player.getUUID(), limit);
+                    return limit;
+                }
+            }
+        }
+        ProfileLimit fallback = new ProfileLimit(DEFAULT_MAX_PROFILES, false, false, 30);
+        LIMIT_CACHE.put(player.getUUID(), fallback);
+        return fallback;
     }
 
     private static ProfileRecord readActive(Connection connection, UUID playerUuid) throws Exception {

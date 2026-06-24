@@ -6,6 +6,7 @@ import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionType;
+import com.champutils.profession.WildBattleRewardManager;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
@@ -182,6 +183,10 @@ public final class MegaBossBattleListener {
         if (creditReward > 0L) {
             EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(creditReward), "Mega Boss victory " + bossUuid);
         }
+
+        // Mega bosses use their own XP/credit rewards, but they should still trigger the
+        // Battling profession's post-battle random loot roll.
+        WildBattleRewardManager.rollRewardNoMoney(player);
 
         player.sendSystemMessage(Component.literal("§dMega Boss defeated! §a+" + EconomyManager.formatWholeCredits(creditReward) + " §7| §b+" + xp + " Battling XP §7| §6" + fragments + " " + pretty(rarity) + " Fragments §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
         if (gotStone && MegaBossConfig.DATA.broadcastMegaStoneDrops && player.getServer() != null) {

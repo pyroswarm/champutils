@@ -7,6 +7,7 @@ import com.champutils.profession.ProfessionConfig;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionToolUtil;
 import com.champutils.profession.actives.ActiveEffectManager;
+import com.champutils.profession.actives.MiningBlockUtil;
 import com.champutils.profession.ProfessionType;
 
 import net.minecraft.core.BlockPos;
@@ -68,6 +69,10 @@ public class XpSurgePassive implements ProfessionPassive {
                         .get(
                                 blockId
                         );
+
+        if (baseXp == null && MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos))) {
+            baseXp = 1;
+        }
 
         if (
                 baseXp == null ||

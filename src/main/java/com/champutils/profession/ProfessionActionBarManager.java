@@ -101,9 +101,8 @@ public class ProfessionActionBarManager {
             return;
         }
 
-        player.displayClientMessage(
-                Component.literal("§6Rare Drop! §e" + itemId + " x" + amount),
-                true
+        player.sendSystemMessage(
+                Component.literal("§6Battle loot roll: §e" + itemId + " x" + amount)
         );
 
         if (playSound) {

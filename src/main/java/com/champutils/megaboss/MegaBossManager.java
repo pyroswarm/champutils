@@ -176,8 +176,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) { nullPositions++; continue; }
-            if (IslanderMineManager.isMineWorld(level)) { mineWorldSkips++; continue; }
-            if (TerritoryRepository.findAt(level, pos) != null) { territorySkips++; continue; }
+            if (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level)) { territorySkips++; continue; }
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -211,7 +210,7 @@ public final class MegaBossManager {
         // the normal spawn-position safety checks, battle stats, tags, expiry, and reward metadata.
         for (int attempt = 0; attempt < 30; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
-            if (pos == null || IslanderMineManager.isMineWorld(level) || TerritoryRepository.findAt(level, pos) != null) continue;
+            if (pos == null || (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level))) continue;
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -620,9 +619,19 @@ public final class MegaBossManager {
         String id = level.dimension().location().toString();
         String lower = id == null ? "" : id.toLowerCase(Locale.ROOT);
         if (lower.equals("spawn1") || lower.endsWith(":spawn1") || lower.contains("spawn1")) return true;
-        if (IslanderMineManager.isMineWorld(level)) return true;
         for (String d : MegaBossConfig.DATA.disabledDimensions) if (id.equalsIgnoreCase(d)) return true;
         return false;
+    }
+
+    private static boolean isIslanderDimension(ServerLevel level) {
+        if (level == null) return false;
+        String id = level.dimension().location().toString().toLowerCase(Locale.ROOT);
+        return id.equals("islander") ||
+                id.endsWith(":islander") ||
+                id.startsWith("islander_") ||
+                id.contains(":islander_") ||
+                id.contains("/islander_") ||
+                IslanderMineManager.isMineWorld(level);
     }
 
     private static void announce(ServerPlayer player, MegaBossConfig.BossEntry boss, ServerLevel level, BlockPos pos, int pokemonLevel) {

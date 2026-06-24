@@ -2,13 +2,11 @@ package com.champutils.profession;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.FishingRodItem;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.server.level.ServerPlayer;
-
 import java.util.Map;
+
 
 public class ProfessionToolUtil {
 
@@ -59,33 +57,21 @@ public class ProfessionToolUtil {
             }
         }
 
-        Item item =
-                stack.getItem();
-
         /*
-         Plain fishing rods should never be treated as custom tools by item type.
-         Custom fishing tools are detected only by stored tool ID.
-        */
-        if (
-                item instanceof FishingRodItem
-        ) {
-            return null;
-        }
-
-        for (
-                Map.Entry<String, Item> entry :
-                ProfessionToolManager
-                        .getRegisteredTools()
-                        .entrySet()
-        ) {
-
-            if (
-                    entry.getValue() == item
-            ) {
-                return entry.getKey();
-            }
-        }
-
+         * Do NOT infer Champ tool identity from the vanilla item type.
+         *
+         * Many configured profession tools use normal Minecraft base items
+         * like diamond_pickaxe, netherite_axe, shovel, hoe, etc. The old
+         * fallback treated every matching vanilla item as a Champ tool, then
+         * listeners such as ProfessionToolRequirementListener refreshed that
+         * held stack in-place. That added custom name/lore/model/durability
+         * components to otherwise normal items and caused the 5-components vs
+         * 6-components stacking split after players held or used them.
+         *
+         * Real Champ tools are created with ChampUtilsProfessionTool metadata.
+         * Legacy ChampUtilsToolId is still accepted above for old real tools,
+         * but plain vanilla items must remain byte-for-byte vanilla.
+         */
         return null;
     }
 
