@@ -79,8 +79,10 @@ public class BattleListener {
                 battleType ==
                         BattleContextManager.BattleType.RANKED;
 
-        if (battleType == BattleContextManager.BattleType.RANKED ||
-                battleType == BattleContextManager.BattleType.CASUAL) {
+        boolean queuedPvpBattle = battleType == BattleContextManager.BattleType.RANKED ||
+                battleType == BattleContextManager.BattleType.CASUAL;
+
+        if (queuedPvpBattle) {
             GuildXpManager.awardBattleWin(winner, ranked);
         }
 
@@ -108,6 +110,11 @@ public class BattleListener {
 
             ArenaManager.releaseArena(winner);
             ArenaManager.releaseArena(loser);
+        }
+
+        if (queuedPvpBattle) {
+            BattlePrepManager.healParty(winner);
+            BattlePrepManager.healParty(loser);
         }
 
         if (!ranked) {

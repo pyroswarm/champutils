@@ -16,13 +16,17 @@ public class ProfessionLootManager {
     private ProfessionLootManager() {}
 
     public static void rollReward(ServerPlayer player, ProfessionType profession) {
+        rollReward(player, profession, 1.0D);
+    }
+
+    public static void rollReward(ServerPlayer player, ProfessionType profession, double chanceMultiplier) {
         if (player == null || profession == null) return;
 
         ProfessionLootConfig.LootTable table = ProfessionLootConfig.TABLES.get(profession.name());
         if (table == null || table.items == null || table.items.isEmpty()) return;
         if (table.dropChance <= 0.0D) return;
 
-        double effectiveDropChance = effectiveDropChance(player, profession, table.dropChance);
+        double effectiveDropChance = effectiveDropChance(player, profession, table.dropChance) * Math.max(0.0D, chanceMultiplier);
         if (RANDOM.nextDouble() >= effectiveDropChance) return;
 
         ProfessionLootConfig.LootEntry reward = rollEntry(table.items);

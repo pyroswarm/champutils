@@ -8,6 +8,8 @@ import com.champutils.worldevent.WorldEventManager;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleAIDifficultyManager;
+import com.champutils.battle.PvPBattleFormatRules;
+import com.champutils.battle.PvPBattleStarter;
 import com.champutils.battle.AITestGymLeaderBuilder;
 
 import com.cobblemon.mod.common.battles.BattleBuilder;
@@ -113,7 +115,7 @@ public final class ChampTrainerInteractionListener {
                 if (aiTestGym) {
                     AITestGymLeaderBuilder.applyTeam(npc);
                     BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
-                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    PvPBattleStarter.startPvn(serverPlayer, npc, PvPBattleFormatRules.getCobblemonFormat("ranked"));
                     return InteractionResult.SUCCESS;
                 }
 
@@ -124,7 +126,7 @@ public final class ChampTrainerInteractionListener {
                 }
 
                 BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
-                Object gymBattleResult = BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                Object gymBattleResult = PvPBattleStarter.startPvn(serverPlayer, npc, PvPBattleFormatRules.getCobblemonFormat("ranked"));
 
                 // BattleBuilder has already copied the NPCPartyStore into the NPCBattleActor.
                 // Clear the entity's saved party immediately so the bound NPC never persists a static team.

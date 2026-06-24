@@ -467,8 +467,16 @@ public class GymNpcPartyBuilder {
     private static String normalizeSpecies(String species) {
         if (species == null || species.isBlank()) return "cobblemon:mewtwo";
         String s = species.trim().toLowerCase(Locale.ROOT);
-        if (!s.contains(":")) s = "cobblemon:" + s;
-        return s;
+        String namespace = "cobblemon";
+        String path = s;
+        int colon = s.indexOf(':');
+        if (colon >= 0) {
+            namespace = s.substring(0, colon);
+            path = s.substring(colon + 1);
+        }
+        path = path.replaceAll("[^a-z0-9]", "");
+        if (path.isBlank()) path = "mewtwo";
+        return namespace + ":" + path;
     }
 
     private static String cleanKey(String value) {

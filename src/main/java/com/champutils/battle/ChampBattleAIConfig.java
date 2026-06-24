@@ -53,7 +53,7 @@ public final class ChampBattleAIConfig {
     }
 
     public static final class Data {
-        public boolean enabled = true;
+        public boolean enabled = false; // default to Cobblemon AI; /champai can re-enable ChampUtils AI
         public boolean debug = false;
         public int defaultAiSkill = 5;
         public BattleBucket wildBattles = BattleBucket.wildDefaults();
@@ -83,15 +83,15 @@ public final class ChampBattleAIConfig {
     }
 
     public static final class BattleBucket {
-        public boolean enabled = true;
+        public boolean enabled = false; // default to Cobblemon AI; /champai can re-enable ChampUtils AI
         public int skill = 5;
-        public boolean competitiveLayer = true;
+        public boolean competitiveLayer = false;
         public boolean antiSpamLayer = false;
 
         static BattleBucket competitiveDefaults() {
             BattleBucket b = new BattleBucket();
             b.skill = 5;
-            b.competitiveLayer = true;
+            b.competitiveLayer = false;
             b.antiSpamLayer = false;
             return b;
         }

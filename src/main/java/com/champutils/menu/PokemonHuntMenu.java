@@ -91,8 +91,9 @@ public final class PokemonHuntMenu {
             builder.addLoreLine(Component.literal("§7- §fRewards vary by target."));
             return;
         }
-        if (rewards.credits > 0L) {
-            builder.addLoreLine(Component.literal("§7- §6" + EconomyManager.formatWholeCredits(rewards.credits)));
+        long rewardCredits = PokemonHuntConfig.normalizeRewardCredits(rewards.credits, difficulty);
+        if (rewardCredits > 0L) {
+            builder.addLoreLine(Component.literal("§7- §6" + EconomyManager.format(rewardCredits)));
         }
         if (rewards.items != null && !rewards.items.isEmpty()) {
             int shown = 0;

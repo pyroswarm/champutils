@@ -48,7 +48,7 @@ public class ForestryProfessionListener {
             processForestryRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool)) {
-                breakConnectedLogs(serverPlayer, pos, state, getIntStat(tool, "maxTimberBlocks", 32));
+                breakConnectedLogs(serverPlayer, pos, state, timberBurstLimit(serverPlayer, tool));
             }
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "leafstorm", tool)) {
@@ -65,21 +65,22 @@ public class ForestryProfessionListener {
 
 
     private static void processForestryRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
-        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
+        double extraMultiplier = extraBlock ? 0.10D : 1.0D;
+        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp * extraMultiplier)) : baseXp;
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FORESTRY, blockId);
-        rollXpSurge(player, tool, xp);
-        ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY);
-        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FORESTRY);
-        rollDropMultiplier(player, state, tool);
-        rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder");
-        rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder");
+        rollXpSurge(player, tool, xp, extraMultiplier);
+        ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
+        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
+        rollDropMultiplier(player, state, tool, extraMultiplier);
+        rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder", extraMultiplier);
+        rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder", extraMultiplier);
     }
 
-    private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool) {
+    private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool, double chanceMultiplier) {
         int multiplier = 1;
-        if (roll(player, tool, "tripleChopChance")) multiplier = 3;
-        else if (roll(player, tool, "doubleChopChance")) multiplier = 2;
+        if (roll(player, tool, "tripleChopChance", chanceMultiplier)) multiplier = 3;
+        else if (roll(player, tool, "doubleChopChance", chanceMultiplier)) multiplier = 2;
         if (multiplier <= 1) return;
         Item item = state.getBlock().asItem();
         if (item == Items.AIR) return;
@@ -91,8 +92,8 @@ public class ForestryProfessionListener {
         }
     }
 
-    private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {
-        if (!roll(player, tool, "forestryXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
+    private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp, double chanceMultiplier) {
+        if (!roll(player, tool, "forestryXpSurgeChance", chanceMultiplier) && !roll(player, tool, "xpSurgeChance", chanceMultiplier)) return;
         int bonus = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, bonus);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
@@ -100,8 +101,8 @@ public class ForestryProfessionListener {
         }
     }
 
-    private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table) {
-        if (!roll(player, tool, stat)) return;
+    private static void rollRewardPassive(ServerPlayer player, ItemStack tool, String stat, String table, double chanceMultiplier) {
+        if (!roll(player, tool, stat, chanceMultiplier)) return;
 
         if ("forestry_sap_finder".equals(table)) {
             ProfessionRewardPassiveConfig.giveRolled(player, table, "§6Sap Finder!", "§fFound ", ProfessionType.FORESTRY, tool);
@@ -116,11 +117,12 @@ public class ForestryProfessionListener {
         ProfessionRewardPassiveConfig.giveRolled(player, table, null, null, ProfessionType.FORESTRY, tool);
     }
 
-    private static boolean roll(ServerPlayer player, ItemStack tool, String stat) {
+    private static boolean roll(ServerPlayer player, ItemStack tool, String stat, double chanceMultiplier) {
         double chance = ProfessionToolUtil.getStat(tool, stat);
         if (ActiveEffectManager.hasTimedEffect(player, "lumberjack_focus", tool)) {
             chance *= 1.0D + (ProfessionToolUtil.getStat(tool, "lumberjackFocusBoost") / 100.0D);
         }
+        chance *= Math.max(0.0D, chanceMultiplier);
         return chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance;
     }
 
@@ -173,6 +175,13 @@ public class ForestryProfessionListener {
 
     private static Iterable<BlockPos> neighbors(BlockPos pos) {
         return java.util.List.of(pos.above(), pos.below(), pos.north(), pos.south(), pos.east(), pos.west());
+    }
+
+    private static int timberBurstLimit(ServerPlayer player, ItemStack tool) {
+        int forestryLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.FORESTRY));
+        int scaledLimit = 6 + Math.max(0, forestryLevel / 2);
+        int configuredCap = getIntStat(tool, "maxTimberBlocks", scaledLimit);
+        return Math.max(1, Math.min(configuredCap, scaledLimit));
     }
 
     private static int getIntStat(ItemStack stack, String stat, int fallback) {

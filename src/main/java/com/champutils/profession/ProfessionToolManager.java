@@ -614,10 +614,6 @@ public class ProfessionToolManager {
             return false;
         }
 
-        if (!isLegendaryOrMythic(toolData.rarity)) {
-            return false;
-        }
-
         double chancePercent =
                 ProfessionToolConfig.ASCENDED_UNIDENTIFIED_CHANCE_PERCENT;
 

@@ -148,10 +148,23 @@ public final class PokemonHuntManager {
         entry.difficulty = target.difficulty == null ? "COMMON" : target.difficulty.trim().toUpperCase(Locale.ROOT);
         boolean requiresNature = entry.difficulty.equals("LEGENDARY") || entry.difficulty.equals("MYTHIC");
         entry.nature = requiresNature ? pick(target.natures, "jolly").toLowerCase(Locale.ROOT) : "any";
-        entry.gender = normalizeGender(pick(target.genders, "male"));
+        entry.gender = forcedGenderForSpecies(entry.species, target.genders);
         entry.ability = normalizeAbility(pick(target.abilities, "any"));
         entry.rewards = target.rewards == null ? new PokemonHuntConfig.Rewards() : target.rewards;
         return entry;
+    }
+
+
+    private static String forcedGenderForSpecies(String species, java.util.List<String> configured) {
+        String normalized = normalSpecies(species);
+        if (isAlwaysGenderlessSpecies(normalized)) return "genderless";
+        String picked = normalizeGender(pick(configured, "male"));
+        return picked.isBlank() ? "any" : picked;
+    }
+
+    private static boolean isAlwaysGenderlessSpecies(String species) {
+        String s = normalSpecies(species);
+        return java.util.Set.of("magnemite","magneton","voltorb","electrode","staryu","starmie","porygon","porygon2","porygonz","shedinja","lunatone","solrock","baltoy","claydol","beldum","metang","metagross","bronzor","bronzong","rotom","klink","klang","klinklang","cryogonal","golett","golurk","carbink","minior","dhelmise","sinistea","polteageist","falinks","tandemaus","maushold","gimmighoul","gholdengo","mew","celebi","jirachi","deoxys","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt","articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","hooh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","type_null","silvally","tapukoko","tapulele","tapubulu","tapufini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wochien","chienpao","tinglu","chiyu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon","nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon").contains(s.replace("_", ""));
     }
 
     private static PokemonHuntConfig.HuntTarget pickWeightedTarget(List<PokemonHuntConfig.HuntTarget> targets, Set<String> usedSpecies) {
@@ -305,7 +318,8 @@ public final class PokemonHuntManager {
     private static void grantRewards(ServerPlayer player, PokemonHuntState.HuntEntry hunt) {
         com.champutils.cosmetic.TitleManager.unlock(player, "hunt_helper");
         PokemonHuntConfig.Rewards rewards = hunt.rewards == null ? new PokemonHuntConfig.Rewards() : hunt.rewards;
-        long credits = Math.max(0L, rewards.credits);
+        long credits = PokemonHuntConfig.normalizeRewardCredits(rewards.credits, hunt.difficulty);
+        rewards.credits = credits;
         if (credits > 0L) {
             EconomyManager.deposit(player, credits, "Pokémon hunt reward: " + hunt.species);
             player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits)).withStyle(ChatFormatting.GOLD));

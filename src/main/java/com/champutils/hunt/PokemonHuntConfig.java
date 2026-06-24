@@ -1,5 +1,6 @@
 package com.champutils.hunt;
 
+import com.champutils.economy.EconomyManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -74,9 +75,9 @@ public final class PokemonHuntConfig {
         target.rewards.credits = creditsForDifficulty(target.difficulty);
     }
 
-    private static long creditsForDifficulty(String difficulty) {
+    public static long creditsForDifficulty(String difficulty) {
         String d = difficulty == null ? "" : difficulty.trim().toUpperCase();
-        return switch (d) {
+        long wholeCredits = switch (d) {
             case "UNCOMMON" -> 250L;
             case "RARE" -> 500L;
             case "EPIC" -> 1000L;
@@ -84,6 +85,27 @@ public final class PokemonHuntConfig {
             case "MYTHIC" -> 5000L;
             default -> 100L;
         };
+        return EconomyManager.wholeCreditsToCents(wholeCredits);
+    }
+
+    /**
+     * Hunt rewards are stored in economy cents. This also repairs old active/pending hunt
+     * state that was created before the decimal-credit migration, where rewards were stored
+     * as whole-credit values or tiny legacy tier numbers.
+     */
+    public static long normalizeRewardCredits(long storedCredits, String difficulty) {
+        long defaultCents = creditsForDifficulty(difficulty);
+        if (storedCredits <= 0L) return defaultCents;
+
+        // Pre-migration active hunts could contain 1/2/5/etc. or 100/250/etc. as whole credits.
+        // Anything below one configured common hunt payout is not a valid cents payout for hunts.
+        long commonDefault = creditsForDifficulty("COMMON");
+        if (storedCredits < commonDefault) {
+            long asWholeCredits = EconomyManager.wholeCreditsToCents(storedCredits);
+            return Math.max(asWholeCredits, defaultCents);
+        }
+
+        return storedCredits;
     }
 
     public static Root defaults() {
@@ -171,7 +193,7 @@ public final class PokemonHuntConfig {
         target.natures = natures;
         target.genders = genders;
         target.abilities = abilities;
-        target.rewards.credits = credits;
+        target.rewards.credits = EconomyManager.wholeCreditsToCents(credits);
         target.rewards.rewardRolls = rolls;
         target.rewards.items.addAll(Arrays.asList(items));
         root.targetPool.add(target);
@@ -211,7 +233,7 @@ public final class PokemonHuntConfig {
     }
 
     public static class Rewards {
-        public long credits = 750;
+        public long credits = EconomyManager.wholeCreditsToCents(750L);
         public int rewardRolls = 1;
         public List<RewardItem> items = new ArrayList<>();
     }

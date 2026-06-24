@@ -654,8 +654,8 @@ public class ChampUtilsMod implements ModInitializer {
         ShowItemCommand.register();
         ItemLockCommand.register();
         XpLockCommand.register();
-        LevelCapCommand.register();
-        com.champutils.xplock.LevelCapItemUseGuard.register();
+        // /levelcap removed: gym/progression caps are enforced by battle systems only.
+        // LevelCapItemUseGuard disabled with /levelcap removal.
 
         /*
          =========================

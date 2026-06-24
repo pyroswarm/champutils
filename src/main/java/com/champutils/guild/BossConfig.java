@@ -110,14 +110,14 @@ public final class BossConfig {
 
     public static final class GuildBossSettings extends BossSettings {
         /** Guild bosses mirror world bosses by using themed trainer parties. */
-        public int partySize = 3;
+        public int partySize = 6;
         public List<WorldBossTheme> themes = new ArrayList<>();
 
         static GuildBossSettings guildDefaults() {
             GuildBossSettings s = new GuildBossSettings();
             s.pool = defaultGuildPool();
             s.themes = defaultWorldThemes();
-            s.partySize = 3;
+            s.partySize = 6;
             s.rewardTiers = defaultRewardTiers();
             return s;
         }
@@ -125,7 +125,7 @@ public final class BossConfig {
         @Override
         void normalize() {
             super.normalize();
-            if (partySize <= 0 || partySize > 6) partySize = 3;
+            if (partySize <= 0 || partySize > 6) partySize = 6;
             if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
             themes.forEach(WorldBossTheme::normalize);
         }
@@ -155,14 +155,14 @@ public final class BossConfig {
          * On load, these are migrated into spawnDimensions + spawnLocation.
          */
         public List<SpawnPoint> spawnPoints = new ArrayList<>();
-        public int partySize = 3;
+        public int partySize = 6;
         public List<WorldBossTheme> themes = new ArrayList<>();
 
         static WorldBossSettings defaults() {
             WorldBossSettings s = new WorldBossSettings();
             s.pool = defaultWorldPool();
             s.themes = defaultWorldThemes();
-            s.partySize = 3;
+            s.partySize = 6;
             s.rewardTiers = defaultRewardTiers();
             s.spawnDimensions.add("multiworld:spawn1");
             s.spawnLocation = new SpawnLocation(0.5D, 80D, 0.5D);
@@ -175,7 +175,7 @@ public final class BossConfig {
         void normalize() {
             super.normalize();
             if (averageMinutesUntilNextBoss <= 0) averageMinutesUntilNextBoss = 720;
-            if (partySize <= 0 || partySize > 6) partySize = 3;
+            if (partySize <= 0 || partySize > 6) partySize = 6;
             if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
             themes.forEach(WorldBossTheme::normalize);
             if (lastSpawnAtMillis < 0L) lastSpawnAtMillis = 0L;

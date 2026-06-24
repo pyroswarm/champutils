@@ -170,7 +170,7 @@ public final class LandClaimProtectionListener {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, entity.blockPosition());
-            if (claim == null || LandClaimRepository.canInteractEntities(serverPlayer, claim)) return InteractionResult.PASS;
+            if (claim == null || LandClaimRepository.canInteractEntities(serverPlayer, claim) || (entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart && LandClaimRepository.canBuild(serverPlayer, claim))) return InteractionResult.PASS;
             deny(serverPlayer, "You cannot interact with entities in " + claim.ownerName + "'s claim.");
             return InteractionResult.FAIL;
         });
@@ -185,7 +185,8 @@ public final class LandClaimProtectionListener {
 
         ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
             if (!(world instanceof ServerLevel level)) return;
-            if (isDangerousEntity(entity) && LandClaimRepository.findAt(level, entity.blockPosition()) != null) {
+            LandClaimRepository.Claim claim = LandClaimRepository.findAt(level, entity.blockPosition());
+            if (claim != null && isDangerousEntity(entity) && !(entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart)) {
                 entity.discard();
             }
         });
@@ -329,8 +330,7 @@ public final class LandClaimProtectionListener {
     }
 
     private static boolean isDangerousEntity(Entity entity) {
-        return entity instanceof MinecartHopper || entity.getType() == EntityType.HOPPER_MINECART
-                || entity instanceof PrimedTnt || entity.getType() == EntityType.TNT_MINECART
+        return entity instanceof PrimedTnt || entity.getType() == EntityType.TNT_MINECART
                 || entity instanceof AbstractHurtingProjectile;
     }
 

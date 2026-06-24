@@ -84,6 +84,8 @@ public final class ProfessionToolRollService {
                 false
         );
 
+        rollAscendedOnIdentify(stack);
+
         assignAscendedTrackerOnIdentify(
                 stack,
                 toolData
@@ -452,6 +454,15 @@ public final class ProfessionToolRollService {
                 (weightedTotal / totalWeight) *
                         100.0D
         );
+    }
+
+
+    private static void rollAscendedOnIdentify(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || ProfessionToolMetadata.isAscended(stack)) return;
+        if (RANDOM.nextDouble() < 0.001D) {
+            ProfessionToolMetadata.setAscended(stack, true);
+            ProfessionToolMetadata.setDiscoveryAnnouncementEligible(stack, true);
+        }
     }
 
     private static void assignAscendedTrackerOnIdentify(

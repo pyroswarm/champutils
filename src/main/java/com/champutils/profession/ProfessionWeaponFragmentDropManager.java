@@ -24,6 +24,10 @@ public final class ProfessionWeaponFragmentDropManager {
     }
 
     public static void rollReward(ServerPlayer player, ProfessionType profession) {
+        rollReward(player, profession, 1.0D);
+    }
+
+    public static void rollReward(ServerPlayer player, ProfessionType profession, double chanceMultiplier) {
         if (player == null || profession == null) {
             return;
         }
@@ -44,7 +48,7 @@ public final class ProfessionWeaponFragmentDropManager {
             return;
         }
 
-        double chance = getChance(player, profession, settings);
+        double chance = getChance(player, profession, settings) * Math.max(0.0D, chanceMultiplier);
         int level = Math.max(0, ProfessionManager.getLevel(player, profession));
 
         if (chance <= 0.0D) {

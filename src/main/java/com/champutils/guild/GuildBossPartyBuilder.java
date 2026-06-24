@@ -173,8 +173,19 @@ public final class GuildBossPartyBuilder {
     private static String normalizeSpecies(String species) {
         if (species == null || species.isBlank()) return "cobblemon:mewtwo";
         String s = species.trim().toLowerCase(Locale.ROOT);
-        if (!s.contains(":")) s = "cobblemon:" + s;
-        return s;
+        String namespace = "cobblemon";
+        String path = s;
+        int colon = s.indexOf(':');
+        if (colon >= 0) {
+            namespace = s.substring(0, colon);
+            path = s.substring(colon + 1);
+        }
+        // Cobblemon species IDs are compact Showdown-style keys. Configs often use readable
+        // names like ho_oh, chien_pao, walking_wake, or iron_hands; those can parse as the
+        // wrong fallback Pokémon if passed through unchanged. Compact them before parsing.
+        path = path.replaceAll("[^a-z0-9]", "");
+        if (path.isBlank()) path = "mewtwo";
+        return namespace + ":" + path;
     }
 
     private static String cleanKey(String value) {

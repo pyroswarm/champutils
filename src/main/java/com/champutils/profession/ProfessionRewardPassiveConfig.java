@@ -375,6 +375,75 @@ public class ProfessionRewardPassiveConfig {
         addMissingEntry("farming_seed_saver", entry("minecraft:sheep_spawn_egg", 1, 1, 4));
         addMissingEntry("farming_seed_saver", entry("minecraft:rabbit_spawn_egg", 1, 1, 3));
         addMissingEntry("farming_seed_saver", entry("minecraft:villager_spawn_egg", 1, 1, 1));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:aguav_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:apicot_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:aspear_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:babiri_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:belue_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:bluk_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:charti_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:cheri_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:chesto_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:chilan_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:chople_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:coba_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:colbur_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:cornn_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:custap_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:durin_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:enigma_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:figy_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:ganlon_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:grepa_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:haban_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:hondew_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:hopo_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:iapapa_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:jaboca_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:kasib_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:kebia_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:kee_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:kelpsy_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:lansat_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:leppa_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:liechi_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:lum_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:mago_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:magost_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:maranga_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:micle_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:nanab_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:nomel_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:occa_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:oran_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:pamtre_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:passho_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:payapa_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:pecha_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:persim_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:petaya_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:pinap_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:pomeg_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:qualot_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:rabuta_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:rawst_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:razz_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:rindo_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:roseli_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:rowap_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:salac_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:shuca_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:sitrus_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:spelon_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:starf_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:tamato_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:tanga_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:touga_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:wacan_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:watmel_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:wepear_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:wiki_berry", 1, 2, 3));
+        addMissingEntry("farming_seed_saver", entry("cobblemon:yache_berry", 1, 2, 3));
     }
 
     private static void addMissingEntry(String tableId, RewardEntry reward) {
@@ -517,6 +586,71 @@ public class ProfessionRewardPassiveConfig {
                 entry("cobblemon:leppa_berry", 1, 2, 8),
                 entry("cobblemon:pecha_berry", 1, 2, 8),
                 entry("cobblemon:cheri_berry", 1, 2, 8),
+                entry("cobblemon:aguav_berry", 1, 2, 3),
+                entry("cobblemon:apicot_berry", 1, 2, 3),
+                entry("cobblemon:aspear_berry", 1, 2, 3),
+                entry("cobblemon:babiri_berry", 1, 2, 3),
+                entry("cobblemon:belue_berry", 1, 2, 3),
+                entry("cobblemon:bluk_berry", 1, 2, 3),
+                entry("cobblemon:charti_berry", 1, 2, 3),
+                entry("cobblemon:chesto_berry", 1, 2, 3),
+                entry("cobblemon:chilan_berry", 1, 2, 3),
+                entry("cobblemon:chople_berry", 1, 2, 3),
+                entry("cobblemon:coba_berry", 1, 2, 3),
+                entry("cobblemon:colbur_berry", 1, 2, 3),
+                entry("cobblemon:cornn_berry", 1, 2, 3),
+                entry("cobblemon:custap_berry", 1, 2, 3),
+                entry("cobblemon:durin_berry", 1, 2, 3),
+                entry("cobblemon:enigma_berry", 1, 2, 3),
+                entry("cobblemon:figy_berry", 1, 2, 3),
+                entry("cobblemon:ganlon_berry", 1, 2, 3),
+                entry("cobblemon:grepa_berry", 1, 2, 3),
+                entry("cobblemon:haban_berry", 1, 2, 3),
+                entry("cobblemon:hondew_berry", 1, 2, 3),
+                entry("cobblemon:hopo_berry", 1, 2, 3),
+                entry("cobblemon:iapapa_berry", 1, 2, 3),
+                entry("cobblemon:jaboca_berry", 1, 2, 3),
+                entry("cobblemon:kasib_berry", 1, 2, 3),
+                entry("cobblemon:kebia_berry", 1, 2, 3),
+                entry("cobblemon:kee_berry", 1, 2, 3),
+                entry("cobblemon:kelpsy_berry", 1, 2, 3),
+                entry("cobblemon:lansat_berry", 1, 2, 3),
+                entry("cobblemon:liechi_berry", 1, 2, 3),
+                entry("cobblemon:lum_berry", 1, 2, 3),
+                entry("cobblemon:mago_berry", 1, 2, 3),
+                entry("cobblemon:magost_berry", 1, 2, 3),
+                entry("cobblemon:maranga_berry", 1, 2, 3),
+                entry("cobblemon:micle_berry", 1, 2, 3),
+                entry("cobblemon:nanab_berry", 1, 2, 3),
+                entry("cobblemon:nomel_berry", 1, 2, 3),
+                entry("cobblemon:occa_berry", 1, 2, 3),
+                entry("cobblemon:pamtre_berry", 1, 2, 3),
+                entry("cobblemon:passho_berry", 1, 2, 3),
+                entry("cobblemon:payapa_berry", 1, 2, 3),
+                entry("cobblemon:persim_berry", 1, 2, 3),
+                entry("cobblemon:petaya_berry", 1, 2, 3),
+                entry("cobblemon:pinap_berry", 1, 2, 3),
+                entry("cobblemon:pomeg_berry", 1, 2, 3),
+                entry("cobblemon:qualot_berry", 1, 2, 3),
+                entry("cobblemon:rabuta_berry", 1, 2, 3),
+                entry("cobblemon:rawst_berry", 1, 2, 3),
+                entry("cobblemon:razz_berry", 1, 2, 3),
+                entry("cobblemon:rindo_berry", 1, 2, 3),
+                entry("cobblemon:roseli_berry", 1, 2, 3),
+                entry("cobblemon:rowap_berry", 1, 2, 3),
+                entry("cobblemon:salac_berry", 1, 2, 3),
+                entry("cobblemon:shuca_berry", 1, 2, 3),
+                entry("cobblemon:sitrus_berry", 1, 2, 3),
+                entry("cobblemon:spelon_berry", 1, 2, 3),
+                entry("cobblemon:starf_berry", 1, 2, 3),
+                entry("cobblemon:tamato_berry", 1, 2, 3),
+                entry("cobblemon:tanga_berry", 1, 2, 3),
+                entry("cobblemon:touga_berry", 1, 2, 3),
+                entry("cobblemon:wacan_berry", 1, 2, 3),
+                entry("cobblemon:watmel_berry", 1, 2, 3),
+                entry("cobblemon:wepear_berry", 1, 2, 3),
+                entry("cobblemon:wiki_berry", 1, 2, 3),
+                entry("cobblemon:yache_berry", 1, 2, 3),
                 entry("cobblemon:revival_herb", 1, 1, 2),
                 fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));

@@ -1,11 +1,13 @@
 package com.champutils.profession;
 
+import com.champutils.tm.TMManager;
 import com.champutils.economy.EconomyManager;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -253,9 +255,18 @@ public class WildBattleRewardManager {
             return soundAlreadyPlayed;
         }
 
-        String command = "give " + player.getName().getString() + " " + itemId + " " + amount;
-
-        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command);
+        String tmRarity = randomTmRarity(itemId);
+        if (tmRarity != null) {
+            for (int i = 0; i < amount; i++) {
+                ItemStack tm = TMManager.createRandomTMStack(tmRarity, 1);
+                if (!tm.isEmpty() && !player.getInventory().add(tm)) {
+                    player.drop(tm, false);
+                }
+            }
+        } else {
+            String command = "give " + player.getName().getString() + " " + itemId + " " + amount;
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command);
+        }
 
         if (BattleProfessionLootConfig.announceRewards && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             if (BattleProfessionLootConfig.isSuperRareItem(itemId)) {
@@ -272,6 +283,13 @@ public class WildBattleRewardManager {
         }
 
         return soundAlreadyPlayed;
+    }
+
+    private static String randomTmRarity(String itemId) {
+        if (itemId == null) return null;
+        String normalized = itemId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!normalized.startsWith("champutils:random_tm_")) return null;
+        return normalized.substring("champutils:random_tm_".length()).toUpperCase(java.util.Locale.ROOT);
     }
 
     private static void sendFragmentMessage(ServerPlayer player, String rarity) {

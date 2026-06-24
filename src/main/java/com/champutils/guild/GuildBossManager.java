@@ -160,6 +160,7 @@ public final class GuildBossManager {
         try { npc.setCustomName(Component.literal(boss.displayName == null ? "Guild Boss" : boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         boss.attemptedPlayers.add(playerUuid);
+        boss.battlingPlayers.add(playerUuid);
         BossAttemptDatabaseRepository.recordAttempt("guild", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
@@ -181,6 +182,7 @@ public final class GuildBossManager {
         try { npc.setCustomName(Component.literal(boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         boss.attemptedPlayers.add(playerUuid);
+        boss.battlingPlayers.add(playerUuid);
         BossAttemptDatabaseRepository.recordAttempt("world", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
@@ -193,6 +195,36 @@ public final class GuildBossManager {
 
     public static boolean hasActiveWorldBoss() {
         return activeWorldBoss != null;
+    }
+
+    public static boolean teleportToWorldBoss(ServerPlayer player) {
+        if (player == null) return false;
+        ActiveWorldBoss boss = activeWorldBoss;
+        if (boss == null || boss.spawns == null || boss.spawns.isEmpty()) {
+            msg(player, "There is no active world boss right now.", ChatFormatting.RED);
+            return false;
+        }
+        BossSpawn chosen = null;
+        String playerDimension = player.serverLevel().dimension().location().toString();
+        for (BossSpawn spawn : boss.spawns) {
+            if (spawn != null && playerDimension.equals(spawn.dimension)) {
+                chosen = spawn;
+                break;
+            }
+        }
+        if (chosen == null) chosen = boss.spawns.stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (chosen == null) {
+            msg(player, "The active world boss has no valid spawn location.", ChatFormatting.RED);
+            return false;
+        }
+        ServerLevel targetLevel = level(player.server, chosen.dimension);
+        if (targetLevel == null) {
+            msg(player, "The world boss dimension is not loaded right now.", ChatFormatting.RED);
+            return false;
+        }
+        player.teleportTo(targetLevel, chosen.x + 0.5D, chosen.y, chosen.z + 0.5D, player.getYRot(), player.getXRot());
+        msg(player, "Teleported you to the active world boss.", ChatFormatting.LIGHT_PURPLE);
+        return true;
     }
 
     public static String formatLastWorldBossSpawnAgo() {
@@ -229,6 +261,7 @@ public final class GuildBossManager {
 
     public static void recordBossVictory(ServerPlayer winner, UUID defeatedNpcUuid) {
         if (winner == null || defeatedNpcUuid == null) return;
+        recordBossBattleEnded(winner, defeatedNpcUuid);
         boolean counted = false;
         if (isActiveGuildBossNpc(defeatedNpcUuid)) {
             recordGuildVictory(winner);
@@ -239,6 +272,25 @@ public final class GuildBossManager {
             counted = true;
         }
         if (counted) com.champutils.cosmetic.TitleRegistry.handleBoss(winner);
+    }
+
+    public static void recordBossBattleEnded(ServerPlayer player, UUID bossNpcUuid) {
+        if (player == null || bossNpcUuid == null) return;
+        ActiveWorldBoss worldBoss = activeWorldBoss;
+        if (worldBoss != null) {
+            for (BossSpawn spawn : worldBoss.spawns) {
+                if (spawn != null && bossNpcUuid.equals(spawn.npcUuid)) {
+                    worldBoss.battlingPlayers.remove(player.getUUID());
+                    return;
+                }
+            }
+        }
+        for (ActiveGuildBoss boss : ACTIVE_GUILD.values()) {
+            if (boss != null && bossNpcUuid.equals(boss.npcUuid)) {
+                boss.battlingPlayers.remove(player.getUUID());
+                return;
+            }
+        }
     }
 
     private static void recordGuildVictory(ServerPlayer winner) {
@@ -269,7 +321,7 @@ public final class GuildBossManager {
     private static boolean spawnWorldBoss(MinecraftServer server) {
         BossConfig.WorldBossSettings settings = BossConfig.DATA.worldBoss;
         BossConfig.WorldBossTheme theme = chooseTheme(settings.themes);
-        List<BossConfig.BossPokemon> team = chooseTeam(theme.pool, Math.max(1, Math.min(6, settings.partySize)));
+        List<BossConfig.BossPokemon> team = chooseTeam(theme.pool, 6);
         if (team.isEmpty()) team.add(choose(settings.pool));
         ActiveWorldBoss boss = new ActiveWorldBoss();
         boss.id = UUID.randomUUID();
@@ -305,6 +357,10 @@ public final class GuildBossManager {
     }
 
     private static void finishGuildBoss(MinecraftServer server, ActiveGuildBoss boss) {
+        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+            boss.despawnAtMillis = System.currentTimeMillis() + 30_000L;
+            return;
+        }
         ACTIVE_GUILD.remove(boss.guildId);
         removeBossNpc(server, boss);
         int clears = boss.defeatedPlayers.size();
@@ -315,6 +371,10 @@ public final class GuildBossManager {
     }
 
     private static void finishWorldBoss(MinecraftServer server, ActiveWorldBoss boss) {
+        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+            boss.despawnAtMillis = System.currentTimeMillis() + 30_000L;
+            return;
+        }
         if (activeWorldBoss == boss) activeWorldBoss = null;
         removeWorldBossNpcs(server, boss);
         int clears = boss.defeatedPlayers.size();
@@ -325,7 +385,7 @@ public final class GuildBossManager {
         }
         RewardDrop drop = makeReward(boss.id, clears, BossConfig.DATA.worldBoss.rewardTiers);
         WORLD_REWARDS.put(boss.id, drop);
-        broadcastAll(server, "World boss rewards are ready! Each player can claim " + drop.credits + " " + drop.crateId + " crate credit(s).", ChatFormatting.GOLD);
+        broadcastAll(server, "World boss rewards are ready! Use /worldboss claim to claim your " + drop.crateId + " key credit.", ChatFormatting.GOLD);
         scheduleNextWorldBoss(System.currentTimeMillis());
     }
 
@@ -651,8 +711,8 @@ public final class GuildBossManager {
     }
 
     public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
-    private static final class ActiveGuildBoss { UUID id; UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
-    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveGuildBoss { UUID id; UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
 }

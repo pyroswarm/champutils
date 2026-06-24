@@ -11,6 +11,11 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.server.level.ServerLevel;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +25,8 @@ public final class HostileToggleManager {
     private static final Map<UUID, Boolean> DISABLED = new ConcurrentHashMap<>();
     private static final Set<UUID> PENDING_CONFIRM = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File FILE = new File("config/champutils/hostile_toggle.json");
     private static final long COOLDOWN_MS = 24L * 60L * 60L * 1000L;
     private static final double RADIUS_SQ = 96.0D * 96.0D;
     private static int tickCounter = 0;
@@ -29,6 +36,7 @@ public final class HostileToggleManager {
     public static synchronized void register() {
         if (registered) return;
         registered = true;
+        load();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 dispatcher.register(Commands.literal("togglehostile")
                         .executes(ctx -> requestToggle(ctx.getSource().getPlayerOrException()))
@@ -37,10 +45,12 @@ public final class HostileToggleManager {
         );
         ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> removeIfBlocked(entity, world));
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            if (++tickCounter % 20 != 0 || DISABLED.isEmpty()) return;
+            if (++tickCounter % 5 != 0 || DISABLED.isEmpty()) return;
             for (ServerLevel level : server.getAllLevels()) {
-                for (Mob mob : level.getEntitiesOfClass(Mob.class, level.getWorldBorder().getCollisionShape().bounds())) {
-                    removeIfBlocked(mob, level);
+                for (ServerPlayer player : level.players()) {
+                    if (!Boolean.TRUE.equals(DISABLED.get(player.getUUID()))) continue;
+                    net.minecraft.world.phys.AABB box = player.getBoundingBox().inflate(96.0D);
+                    for (Mob mob : level.getEntitiesOfClass(Mob.class, box)) removeIfBlocked(mob, level);
                 }
             }
         });
@@ -59,6 +69,12 @@ public final class HostileToggleManager {
     }
 
     private static int requestToggle(ServerPlayer player) {
+        long wait = cooldownRemaining(player);
+        if (wait > 0 && !player.hasPermissions(4)) {
+            long hours = Math.max(1L, (wait + 3599999L) / 3600000L);
+            player.sendSystemMessage(Component.literal("You can toggle hostile protection again in " + hours + " hour(s). Need 24 hours between toggles.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         boolean currentlyDisabled = Boolean.TRUE.equals(DISABLED.get(player.getUUID()));
         player.sendSystemMessage(Component.literal(currentlyDisabled
                 ? "Run /togglehostile confirm to turn hostile mob spawning near you back ON. This uses your 24 hour toggle."
@@ -72,8 +88,7 @@ public final class HostileToggleManager {
             return requestToggle(player);
         }
         long now = System.currentTimeMillis();
-        long last = LAST_TOGGLE.getOrDefault(player.getUUID(), 0L);
-        long wait = COOLDOWN_MS - (now - last);
+        long wait = cooldownRemaining(player);
         if (wait > 0 && !player.hasPermissions(4)) {
             long hours = Math.max(1L, (wait + 3599999L) / 3600000L);
             player.sendSystemMessage(Component.literal("You can toggle hostile protection again in " + hours + " hour(s).").withStyle(ChatFormatting.RED));
@@ -82,9 +97,42 @@ public final class HostileToggleManager {
         boolean next = !Boolean.TRUE.equals(DISABLED.get(player.getUUID()));
         DISABLED.put(player.getUUID(), next);
         LAST_TOGGLE.put(player.getUUID(), now);
+        save();
         player.sendSystemMessage(Component.literal(next
                 ? "Hostile mob spawning near you is now disabled. Cobblemon spawns are not affected."
                 : "Hostile mob spawning near you is now enabled again.").withStyle(next ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         return 1;
     }
+    private static long cooldownRemaining(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        long last = LAST_TOGGLE.getOrDefault(player.getUUID(), 0L);
+        return COOLDOWN_MS - (now - last);
+    }
+
+    private static synchronized void load() {
+        try {
+            if (!FILE.exists()) return;
+            try (FileReader reader = new FileReader(FILE)) {
+                Data data = GSON.fromJson(reader, Data.class);
+                DISABLED.clear(); LAST_TOGGLE.clear();
+                if (data != null) {
+                    if (data.disabled != null) for (String id : data.disabled) try { DISABLED.put(UUID.fromString(id), true); } catch (Exception ignored) {}
+                    if (data.lastToggleMillis != null) for (Map.Entry<String, Long> e : data.lastToggleMillis.entrySet()) try { LAST_TOGGLE.put(UUID.fromString(e.getKey()), e.getValue()); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) { System.err.println("[ChampUtils] Failed to load hostile toggle data"); e.printStackTrace(); }
+    }
+
+    private static synchronized void save() {
+        try {
+            File parent = FILE.getParentFile(); if (parent != null && !parent.exists()) parent.mkdirs();
+            Data data = new Data();
+            for (UUID id : DISABLED.keySet()) if (Boolean.TRUE.equals(DISABLED.get(id))) data.disabled.add(id.toString());
+            for (Map.Entry<UUID, Long> e : LAST_TOGGLE.entrySet()) data.lastToggleMillis.put(e.getKey().toString(), e.getValue());
+            try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(data, writer); }
+        } catch (Exception e) { System.err.println("[ChampUtils] Failed to save hostile toggle data"); e.printStackTrace(); }
+    }
+
+    private static final class Data { java.util.List<String> disabled = new java.util.ArrayList<>(); Map<String, Long> lastToggleMillis = new java.util.HashMap<>(); }
+
 }

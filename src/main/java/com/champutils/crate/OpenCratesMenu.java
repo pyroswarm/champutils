@@ -344,8 +344,9 @@ public final class OpenCratesMenu {
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
                 if ("mythic".equals(opening.crateId) && opening.mainReward != null && opening.mainReward.type == RewardType.POKEMON) {
-                    player.sendSystemMessage(Component.literal("Mythic crate Pokémon roll included a 10% shiny chance" + (opening.mainReward.shiny ? " — it became shiny!" : ".")).withStyle(opening.mainReward.shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE));
+                    player.sendSystemMessage(Component.literal("Mythic crate Pokémon roll included a 25% shiny chance" + (opening.mainReward.shiny ? " — it became shiny!" : ".")).withStyle(opening.mainReward.shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE));
                 }
+                announceSpecialCratePokemon(player, opening.crate, opening.mainReward, actualMainReward);
                 playLocalSound(player, isSpecial(opening.mainReward) ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.experience_orb.pickup", 0.8F, isSpecial(opening.mainReward) ? 1.0F : 1.25F);
                 open(player);
             }
@@ -487,7 +488,7 @@ public final class OpenCratesMenu {
             }
             case ITEM -> {
                 Item item = resolveItem(plan.itemId);
-                if (item == Items.AIR) return cleanRewardSummary(plan);
+                if (item == Items.AIR) return plan.itemId == null ? cleanRewardSummary(plan) : prettyItem(plan.itemId);
                 ItemStack stack = new ItemStack(item, Math.max(1, plan.amount));
                 if (!player.getInventory().add(stack)) player.drop(stack, false);
                 if (plan.itemId != null && plan.itemId.toLowerCase(Locale.ROOT).contains("master_ball")) player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.6F);
@@ -498,16 +499,34 @@ public final class OpenCratesMenu {
                 if (stack.isEmpty()) return cleanRewardSummary(plan);
                 if (!player.getInventory().add(stack)) player.drop(stack, false);
                 player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.35F);
-                return stack.getHoverName().getString();
+                String name = stack.getHoverName().getString();
+                return (name == null || name.isBlank() || name.equalsIgnoreCase("Air")) ? cleanRewardSummary(plan) : name;
             }
             case TM -> {
                 ItemStack stack = plan.icon == null ? ItemStack.EMPTY : plan.icon.copy();
                 if (stack.isEmpty()) return cleanRewardSummary(plan);
                 if (!player.getInventory().add(stack)) player.drop(stack, false);
-                return stack.getHoverName().getString();
+                String name = stack.getHoverName().getString();
+                return (name == null || name.isBlank() || name.equalsIgnoreCase("Air")) ? cleanRewardSummary(plan) : name;
             }
         }
         return cleanRewardSummary(plan);
+    }
+
+    private static void announceSpecialCratePokemon(ServerPlayer player, CrateConfig.CrateDefinition crate, RewardPlan reward, String rewardName) {
+        if (player == null || reward == null || reward.type != RewardType.POKEMON) return;
+        NpcShopService.PokemonCratePool pool = reward.pool == null ? pool(null, reward.species) : reward.pool;
+        if (pool != NpcShopService.PokemonCratePool.LEGENDARY && pool != NpcShopService.PokemonCratePool.ULTRA_BEAST && pool != NpcShopService.PokemonCratePool.MYTHICAL) return;
+        String name = rewardName == null || rewardName.isBlank() || rewardName.equalsIgnoreCase("Air") ? cleanRewardSummary(reward) : rewardName;
+        String crateName = crate == null || crate.displayName == null ? "a crate" : crate.displayName;
+        player.server.getPlayerList().broadcastSystemMessage(
+                Component.literal("✦ ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(player.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(" pulled ").withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(name).withStyle(poolColor(pool), ChatFormatting.BOLD))
+                        .append(Component.literal(" from " + crateName + "!").withStyle(ChatFormatting.WHITE)),
+                false
+        );
     }
 
     private static void updateSpin(Opening opening, boolean finalLock) {

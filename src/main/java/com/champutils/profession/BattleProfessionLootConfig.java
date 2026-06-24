@@ -166,6 +166,7 @@ public final class BattleProfessionLootConfig {
         addPokeBalls(root);
         addBattleItems(root);
         addHeldItems(root);
+        addRandomTms(root);
 
         return root;
     }
@@ -207,7 +208,19 @@ public final class BattleProfessionLootConfig {
         ids.add("cobblemon:dream_ball");
         ids.add("cobblemon:beast_ball");
         ids.add("cobblemon:cherish_ball");
+        ids.add("champutils:random_tm_epic");
+        ids.add("champutils:random_tm_legendary");
+        ids.add("champutils:random_tm_mythic");
         return ids;
+    }
+
+    private static void addRandomTms(ConfigRoot root) {
+        entry(root, "champutils:random_tm_common", 1, 1, 1, 75, 1);
+        entry(root, "champutils:random_tm_uncommon", 15, 1, 1, 46, 1);
+        entry(root, "champutils:random_tm_rare", 35, 1, 1, 22, 1);
+        entry(root, "champutils:random_tm_epic", 60, 1, 1, 8, 0);
+        entry(root, "champutils:random_tm_legendary", 80, 1, 1, 3, 0);
+        entry(root, "champutils:random_tm_mythic", 95, 1, 1, 1, 0);
     }
 
     private static void addPokeBalls(ConfigRoot root) {

@@ -4,6 +4,8 @@ import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.PvPBattleFormatRules;
+import com.champutils.battle.PvPBattleStarter;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 
@@ -165,7 +167,7 @@ NPCBattleActor gymNpc = null;
                             return;
                         }
                         BattleContextManager.setContext(p.getUUID(), BattleContextManager.BattleType.GYM);
-                        Object result = BattleBuilder.INSTANCE.pvn(p, npcActor.getNpc());
+                        Object result = PvPBattleStarter.startPvn(p, npcActor.getNpc(), PvPBattleFormatRules.getCobblemonFormat("ranked"));
                         GymNpcPartyBuilder.clearStoredGymTeam(npcActor.getNpc());
                         if (result == null) {
                             p.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));

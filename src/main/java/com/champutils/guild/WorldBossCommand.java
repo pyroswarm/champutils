@@ -26,6 +26,16 @@ public final class WorldBossCommand {
                                 GuildBossManager.claimWorldRewards(context.getSource().getPlayerOrException());
                                 return 1;
                             }))
+                    .then(Commands.literal("tp")
+                            .executes(context -> {
+                                GuildBossManager.teleportToWorldBoss(context.getSource().getPlayerOrException());
+                                return 1;
+                            }))
+                    .then(Commands.literal("teleport")
+                            .executes(context -> {
+                                GuildBossManager.teleportToWorldBoss(context.getSource().getPlayerOrException());
+                                return 1;
+                            }))
                     .then(Commands.literal("force")
                             .requires(source -> hasBossPermission(source, FORCE_PERMISSION) || hasBossPermission(source, ADMIN_PERMISSION))
                             .executes(context -> {

@@ -94,7 +94,7 @@ public final class IronmanItemOwnership {
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
-            if (tickCounter % 40 != 0) return;
+            if (tickCounter % 10 != 0) return;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) sanitizeInventory(player);
         });
     }
@@ -256,6 +256,36 @@ public final class IronmanItemOwnership {
     public static boolean clearRestrictedProfileData(ItemStack stack) {
         boolean changed = clearOwnership(stack);
         changed |= stripRestrictedUuidLore(stack);
+        changed |= stripEmptyStackBreakingComponents(stack);
+        return changed;
+    }
+
+    /**
+     * Vanilla stackables can become unstackable if a listener leaves an explicit empty
+     * data component on the stack. In 1.21.1 that still counts as an extra component
+     * in the client tooltip, so held items show 7 components while untouched drops show 6.
+     * Remove only empty/no-op components; never remove real custom data used by tools,
+     * TMs, crates, or other intentionally customized items.
+     */
+    private static boolean stripEmptyStackBreakingComponents(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        boolean changed = false;
+        try {
+            CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+            if (customData != null && customData.copyTag().isEmpty()) {
+                stack.remove(DataComponents.CUSTOM_DATA);
+                changed = true;
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            ItemLore lore = stack.get(DataComponents.LORE);
+            if (lore != null && lore.lines().isEmpty()) {
+                stack.remove(DataComponents.LORE);
+                changed = true;
+            }
+        } catch (Throwable ignored) {
+        }
         return changed;
     }
 
@@ -299,8 +329,14 @@ public final class IronmanItemOwnership {
     public static boolean clearOwnership(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         try {
-            CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            CustomData existingData = stack.get(DataComponents.CUSTOM_DATA);
+            if (existingData == null) return false;
+            CompoundTag tag = existingData.copyTag();
             boolean changed = false;
+            if (tag.isEmpty()) {
+                stack.remove(DataComponents.CUSTOM_DATA);
+                return true;
+            }
             if (tag.contains(ROOT)) {
                 tag.remove(ROOT);
                 changed = true;
@@ -312,7 +348,13 @@ public final class IronmanItemOwnership {
                     changed = true;
                 }
             }
-            if (!changed) return false;
+            if (!changed) {
+                if (tag.isEmpty() && stack.get(DataComponents.CUSTOM_DATA) != null) {
+                    stack.remove(DataComponents.CUSTOM_DATA);
+                    return true;
+                }
+                return false;
+            }
             if (tag.isEmpty()) {
                 stack.remove(DataComponents.CUSTOM_DATA);
             } else {
