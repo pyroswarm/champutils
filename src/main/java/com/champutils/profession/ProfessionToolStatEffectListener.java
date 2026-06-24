@@ -13,6 +13,7 @@ import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.ShovelItem;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -134,7 +135,7 @@ public class ProfessionToolStatEffectListener {
     private static boolean isVanillaProfessionTool(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         if (ProfessionToolMetadata.isProfessionTool(stack)) return false;
-        return stack.getItem() instanceof PickaxeItem || stack.getItem() instanceof AxeItem || stack.getItem() instanceof HoeItem;
+        return stack.getItem() instanceof PickaxeItem || stack.getItem() instanceof AxeItem || stack.getItem() instanceof HoeItem || stack.getItem() instanceof ShovelItem;
     }
 
     private static AttributeInstance getAttribute(ServerPlayer player, ResourceLocation attributeId) {

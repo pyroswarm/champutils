@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 import com.champutils.profile.IslanderMineManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.territory.TerritoryRepository;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -171,10 +172,12 @@ public final class MegaBossManager {
         int mineWorldSkips = 0;
         int entitySpawnFailures = 0;
         int postSpawnCapSkips = 0;
+        int territorySkips = 0;
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) { nullPositions++; continue; }
             if (IslanderMineManager.isMineWorld(level)) { mineWorldSkips++; continue; }
+            if (TerritoryRepository.findAt(level, pos) != null) { territorySkips++; continue; }
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -190,7 +193,7 @@ public final class MegaBossManager {
             debug("spawn success player=" + player.getGameProfile().getName() + " boss=" + sanitize(boss.species) + " rarity=" + normalizeRarity(boss.rarity) + " level=" + pokemonLevel + " dimension=" + level.dimension().location() + " pos=" + pos.getX() + "," + pos.getY() + "," + pos.getZ());
             return true;
         }
-        debug("spawn fail player=" + player.getGameProfile().getName() + " boss=" + sanitize(boss.species) + " rarity=" + normalizeRarity(boss.rarity) + " reason=no_valid_attempt attempts=20 nullPositions=" + nullPositions + " mineWorldSkips=" + mineWorldSkips + " entitySpawnFailures=" + entitySpawnFailures + " postSpawnCapSkips=" + postSpawnCapSkips + " dimension=" + level.dimension().location());
+        debug("spawn fail player=" + player.getGameProfile().getName() + " boss=" + sanitize(boss.species) + " rarity=" + normalizeRarity(boss.rarity) + " reason=no_valid_attempt attempts=20 nullPositions=" + nullPositions + " mineWorldSkips=" + mineWorldSkips + " territorySkips=" + territorySkips + " entitySpawnFailures=" + entitySpawnFailures + " postSpawnCapSkips=" + postSpawnCapSkips + " dimension=" + level.dimension().location());
         return false;
     }
 
@@ -208,7 +211,7 @@ public final class MegaBossManager {
         // the normal spawn-position safety checks, battle stats, tags, expiry, and reward metadata.
         for (int attempt = 0; attempt < 30; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
-            if (pos == null || IslanderMineManager.isMineWorld(level)) continue;
+            if (pos == null || IslanderMineManager.isMineWorld(level) || TerritoryRepository.findAt(level, pos) != null) continue;
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);

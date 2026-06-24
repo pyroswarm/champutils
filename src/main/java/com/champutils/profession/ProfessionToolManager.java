@@ -20,6 +20,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tier;
@@ -47,6 +48,7 @@ public class ProfessionToolManager {
     private static final int UNIDENTIFIED_AXE_MODEL_DATA = 9902;
     private static final int UNIDENTIFIED_HOE_MODEL_DATA = 9903;
     private static final int UNIDENTIFIED_SWORD_MODEL_DATA = 9904;
+    private static final int UNIDENTIFIED_SHOVEL_MODEL_DATA = 9905;
 
     private static final int UNIDENTIFIED_PICKAXE_COMMON_MODEL_DATA = 9911;
     private static final int UNIDENTIFIED_PICKAXE_UNCOMMON_MODEL_DATA = 9912;
@@ -75,6 +77,13 @@ public class ProfessionToolManager {
     private static final int UNIDENTIFIED_SWORD_EPIC_MODEL_DATA = 9944;
     private static final int UNIDENTIFIED_SWORD_LEGENDARY_MODEL_DATA = 9945;
     private static final int UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA = 9946;
+
+    private static final int UNIDENTIFIED_SHOVEL_COMMON_MODEL_DATA = 9951;
+    private static final int UNIDENTIFIED_SHOVEL_UNCOMMON_MODEL_DATA = 9952;
+    private static final int UNIDENTIFIED_SHOVEL_RARE_MODEL_DATA = 9953;
+    private static final int UNIDENTIFIED_SHOVEL_EPIC_MODEL_DATA = 9954;
+    private static final int UNIDENTIFIED_SHOVEL_LEGENDARY_MODEL_DATA = 9955;
+    private static final int UNIDENTIFIED_SHOVEL_MYTHIC_MODEL_DATA = 9956;
 
     private static final Map<String, Item> REGISTERED_TOOLS =
             new HashMap<>();
@@ -250,6 +259,14 @@ public class ProfessionToolManager {
             );
         }
 
+        if (base.contains("shovel")) {
+            return new CustomShovelItem(
+                    baseItem,
+                    configuredTier,
+                    properties
+            );
+        }
+
         if (base.contains("sword")) {
             return new CustomSwordItem(
                     baseItem,
@@ -322,6 +339,8 @@ public class ProfessionToolManager {
             damage = 2.0D;
         } else if (base.contains("hoe")) {
             damage = 1.0D;
+        } else if (base.contains("shovel")) {
+            damage = 1.5D;
         } else if (base.contains("sword")) {
             damage = 3.0D;
         } else {
@@ -2083,6 +2102,16 @@ public class ProfessionToolManager {
                             rarity
                     )
             );
+            return;
+        }
+
+        if (baseItem.contains("shovel")) {
+            applyCustomModelData(
+                    stack,
+                    getUnidentifiedShovelModelData(
+                            rarity
+                    )
+            );
         }
     }
 
@@ -2159,6 +2188,21 @@ public class ProfessionToolManager {
             case "MYTHIC" -> UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA;
             case "COMMON" -> UNIDENTIFIED_SWORD_COMMON_MODEL_DATA;
             default -> UNIDENTIFIED_SWORD_MODEL_DATA;
+        };
+    }
+
+    private static int getUnidentifiedShovelModelData(
+            String rarity
+    ) {
+
+        return switch (rarity) {
+            case "UNCOMMON" -> UNIDENTIFIED_SHOVEL_UNCOMMON_MODEL_DATA;
+            case "RARE" -> UNIDENTIFIED_SHOVEL_RARE_MODEL_DATA;
+            case "EPIC" -> UNIDENTIFIED_SHOVEL_EPIC_MODEL_DATA;
+            case "LEGENDARY" -> UNIDENTIFIED_SHOVEL_LEGENDARY_MODEL_DATA;
+            case "MYTHIC" -> UNIDENTIFIED_SHOVEL_MYTHIC_MODEL_DATA;
+            case "COMMON" -> UNIDENTIFIED_SHOVEL_COMMON_MODEL_DATA;
+            default -> UNIDENTIFIED_SHOVEL_MODEL_DATA;
         };
     }
 
@@ -2800,6 +2844,108 @@ public class ProfessionToolManager {
             // Custom profession durability is handled above. Returning false prevents
             // vanilla combat durability from pushing the stack past max damage and
             // deleting it instead of leaving it broken-but-repairable.
+            return false;
+        }
+
+        @Override
+        public boolean isEnchantable(
+                ItemStack stack
+        ) {
+
+            return false;
+        }
+
+        @Override
+        public Item getPolymerItem(
+                ItemStack stack,
+                ServerPlayer player
+        ) {
+
+            return baseItem;
+        }
+    }
+
+
+    public static class CustomShovelItem extends ShovelItem implements PolymerItem {
+
+        private final Item baseItem;
+
+        public CustomShovelItem(
+                Item baseItem,
+                Tier tier,
+                Properties properties
+        ) {
+
+            super(
+                    tier,
+                    properties
+            );
+
+            this.baseItem =
+                    baseItem;
+        }
+
+        @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return ProfessionToolManager.applyMiningSpeedStat(
+                    stack,
+                    super.getDestroySpeed(
+                            stack,
+                            state
+                    )
+            );
+        }
+
+        @Override
+        public boolean mineBlock(
+                ItemStack stack,
+                Level level,
+                BlockState state,
+                BlockPos pos,
+                LivingEntity miningEntity
+        ) {
+
+            if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
+                if (
+                        miningEntity instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurability(
+                                        serverPlayer,
+                                        stack,
+                                        serverPlayer.serverLevel(),
+                                        pos,
+                                        state
+                                )
+                ) {
+                    return true;
+                }
+
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
+            return true;
+        }
+
+        @Override
+        public boolean hurtEnemy(
+                ItemStack stack,
+                LivingEntity target,
+                LivingEntity attacker
+        ) {
+
+            if (!attacker.level().isClientSide) {
+                ProfessionToolManager.damageTool(
+                        stack,
+                        1
+                );
+            }
+
             return false;
         }
 

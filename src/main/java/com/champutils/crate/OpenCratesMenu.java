@@ -775,7 +775,7 @@ public final class OpenCratesMenu {
         return rarity.trim().toUpperCase(Locale.ROOT);
     }
 
-    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic")) return 10.0D; return Math.max(0D, crate.shinyChance); }
+    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic")) return 25.0D; return Math.max(0D, crate.shinyChance); }
     private static <T> T weighted(List<T> list) { if (list == null || list.isEmpty()) return null; int total = 0; for (T t : list) total += Math.max(0, weightOf(t)); if (total <= 0) return list.get(RANDOM.nextInt(list.size())); int roll = RANDOM.nextInt(total); for (T t : list) { roll -= Math.max(0, weightOf(t)); if (roll < 0) return t; } return list.get(0); }
     private static int weightOf(Object o) { if (o instanceof CrateConfig.WeightedPokemon p) return p.weight; if (o instanceof CrateConfig.WeightedItem i) return i.weight; if (o instanceof CrateConfig.WeightedTool t) return t.weight; return 1; }
     private static Item crateIconItem(String crateId, CrateConfig.CrateDefinition crate) {

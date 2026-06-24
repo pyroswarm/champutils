@@ -250,6 +250,8 @@ public class ProfessionToolConfig {
                         defaultRarityCosts();
             }
 
+            ensureDefaultShovelTools();
+
             ENCHANTING =
                     new LinkedHashMap<>();
 
@@ -514,6 +516,8 @@ public class ProfessionToolConfig {
                     )
             );
 
+            addDefaultShovelTools(root.tools);
+
             root.tools.put(
                     "gaias_blessing",
                     createTool(
@@ -553,6 +557,148 @@ public class ProfessionToolConfig {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    private static void ensureDefaultShovelTools() {
+        if (TOOLS == null) {
+            TOOLS = new LinkedHashMap<>();
+        }
+        addDefaultShovelTools(TOOLS);
+    }
+
+    private static void addDefaultShovelTools(Map<String, ToolData> tools) {
+        if (tools == null) return;
+
+        tools.putIfAbsent(
+                "trailblazer_shovel",
+                createTool(
+                        "MINING",
+                        1,
+                        "Trailblazer Shovel",
+                        "COMMON",
+                        "minecraft:iron_shovel",
+                        5001,
+                        false,
+                        Map.of(
+                                "miningSpeed", new StatRange(25.0D, 60.0D, 2.0D),
+                                "durabilityBonus", new StatRange(25.0D, 75.0D, 1.0D),
+                                "excavationSeconds", new StatRange(8.0D, 14.0D, 1.0D)
+                        ),
+                        List.of("durability_save"),
+                        "excavation",
+                        45
+                )
+        );
+
+        tools.putIfAbsent(
+                "riverbed_spade",
+                createTool(
+                        "MINING",
+                        10,
+                        "Riverbed Spade",
+                        "UNCOMMON",
+                        "minecraft:iron_shovel",
+                        5005,
+                        false,
+                        Map.of(
+                                "miningSpeed", new StatRange(35.0D, 80.0D, 2.0D),
+                                "durabilityBonus", new StatRange(50.0D, 120.0D, 1.0D),
+                                "excavationSeconds", new StatRange(10.0D, 17.0D, 1.0D)
+                        ),
+                        List.of("durability_save"),
+                        "excavation",
+                        40
+                )
+        );
+
+        tools.putIfAbsent(
+                "sandsweeper",
+                createTool(
+                        "MINING",
+                        25,
+                        "Sandsweeper",
+                        "RARE",
+                        "minecraft:diamond_shovel",
+                        5002,
+                        false,
+                        Map.of(
+                                "miningSpeed", new StatRange(50.0D, 110.0D, 2.0D),
+                                "fortuneBonus", new StatRange(2.0D, 8.0D, 2.0D),
+                                "durabilityBonus", new StatRange(75.0D, 175.0D, 1.0D),
+                                "excavationSeconds", new StatRange(12.0D, 20.0D, 1.0D)
+                        ),
+                        List.of("bonus_ore_drops", "durability_save"),
+                        "excavation",
+                        35
+                )
+        );
+
+        tools.putIfAbsent(
+                "dune_cleaver",
+                createTool(
+                        "MINING",
+                        60,
+                        "Dune Cleaver",
+                        "EPIC",
+                        "minecraft:diamond_shovel",
+                        5006,
+                        false,
+                        Map.of(
+                                "miningSpeed", new StatRange(70.0D, 145.0D, 2.0D),
+                                "fortuneBonus", new StatRange(5.0D, 14.0D, 2.0D),
+                                "durabilityBonus", new StatRange(125.0D, 300.0D, 1.0D),
+                                "excavationSeconds", new StatRange(15.0D, 25.0D, 1.0D)
+                        ),
+                        List.of("bonus_ore_drops", "durability_save"),
+                        "excavation",
+                        32
+                )
+        );
+
+        tools.putIfAbsent(
+                "earthshaper",
+                createTool(
+                        "MINING",
+                        100,
+                        "Earthshaper",
+                        "LEGENDARY",
+                        "minecraft:netherite_shovel",
+                        5003,
+                        true,
+                        Map.of(
+                                "miningSpeed", new StatRange(90.0D, 180.0D, 2.0D),
+                                "fortuneBonus", new StatRange(8.0D, 20.0D, 2.0D),
+                                "durabilityBonus", new StatRange(200.0D, 500.0D, 1.0D),
+                                "excavationSeconds", new StatRange(18.0D, 30.0D, 1.0D)
+                        ),
+                        List.of("bonus_ore_drops", "durability_save"),
+                        "excavation",
+                        30
+                )
+        );
+
+        tools.putIfAbsent(
+                "worldcarver",
+                createTool(
+                        "MINING",
+                        100,
+                        "Worldcarver",
+                        "MYTHIC",
+                        "minecraft:netherite_shovel",
+                        5004,
+                        true,
+                        Map.of(
+                                "miningSpeed", new StatRange(140.0D, 260.0D, 2.0D),
+                                "fortuneBonus", new StatRange(15.0D, 30.0D, 2.0D),
+                                "durabilityBonus", new StatRange(400.0D, 800.0D, 1.0D),
+                                "excavationSeconds", new StatRange(24.0D, 40.0D, 1.0D)
+                        ),
+                        List.of("bonus_ore_drops", "durability_save"),
+                        "excavation",
+                        25
+                )
+        );
     }
 
     private static ToolData createTool(

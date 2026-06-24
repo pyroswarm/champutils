@@ -42,7 +42,7 @@ public class ExcavationAbility implements ProfessionActiveAbility {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§6Excavation active: §fYour pickaxe breaks a §e3x3 §farea for §e" +
+                        "§6Excavation active: §fYour tool breaks a §e3x3 §farea for §e" +
                                 seconds +
                                 "s§f."
                 )
@@ -51,7 +51,7 @@ public class ExcavationAbility implements ProfessionActiveAbility {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(
                     Component.literal(
-                        "§6Excavation active: 3x3 mining for " +
+                        "§6Excavation active: 3x3 excavation for " +
                                 seconds +
                                 "s"
                 ),

@@ -1,5 +1,7 @@
 package com.champutils.crate;
 
+import com.champutils.profession.ProfessionToolConfig;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -99,10 +101,14 @@ public final class CrateConfig {
                     upgradeNewCrates(root.crates, defaults);
                     applyGildedChestIcons(root.crates);
                     applySeasonCrateBalance(root.crates);
+                    applyLegendaryMythicHighValueOnly(root.crates);
+                    applyProfessionToolLootPools(root.crates);
                     CRATES = root.crates;
                 }
                 applyGildedChestIcons(CRATES);
                 applySeasonCrateBalance(CRATES);
+                applyLegendaryMythicHighValueOnly(CRATES);
+                applyProfessionToolLootPools(CRATES);
                 // Event crate was removed. World events now award regular crate credits by event tier.
                 CRATES.remove("event");
                 Root saved = new Root();
@@ -176,28 +182,22 @@ public final class CrateConfig {
                         "cobblemon:ability_capsule:1:1:10","cobblemon:ability_patch:1:1:8","cobblemon:leftovers:1:1:6","cobblemon:life_orb:1:1:5","cobblemon:choice_band:1:1:4","cobblemon:choice_specs:1:1:4","cobblemon:choice_scarf:1:1:4","cobblemon:focus_sash:1:1:4","cobblemon:master_ball:1:1:1","minecraft:diamond:2:6:8"),
                 listT("miners_fang:4","deep_prospector:3","cavern_breaker:2","woodcleaver:4","worldtree_axe:2","gaias_blessing:3"));
 
-        add(root,"legendary","Legendary Crate","cobblemon:pink_gilded_chest","LEGENDARY",5,10,60,80,0.9D,
+        add(root,"legendary","Legendary Crate","cobblemon:pink_gilded_chest","LEGENDARY",6,12,65,90,2.5D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"),
-                        weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST"),
-                        weighted(PARADOX_SPECIES, 2, "PARADOX"),
-                        weighted(STRONG_FILLER_SPECIES, 3, "REGULAR"),
-                        weighted(MID_FILLER_SPECIES, 1, "REGULAR")
+                        weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST")
                 ),
                 listI(
                         "cobblemon:master_ball:1:1:4","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18","cobblemon:exp_candy_xl:2:6:16",
                         "cobblemon:ability_patch:1:2:10","cobblemon:leftovers:1:1:8","cobblemon:life_orb:1:1:8","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6","cobblemon:focus_sash:1:1:6","cobblemon:eviolite:1:1:5","cobblemon:heavy_duty_boots:1:1:5","minecraft:netherite_ingot:1:2:6"),
                 listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2","titanbreaker:2","worldtree_axe:3","gaias_blessing:3"));
 
-        add(root,"mythic","Mythic Crate","cobblemon:black_gilded_chest","MYTHIC",8,14,70,100,1.5D,
+        add(root,"mythic","Mythic Crate","cobblemon:black_gilded_chest","MYTHIC",10,18,75,100,25.0D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 2, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 2, "MYTHICAL"),
-                        weighted(ULTRA_BEAST_SPECIES, 3, "ULTRA_BEAST"),
-                        weighted(PARADOX_SPECIES, 3, "PARADOX"),
-                        weighted(STRONG_FILLER_SPECIES, 2, "REGULAR"),
-                        weighted(MID_FILLER_SPECIES, 1, "REGULAR")
+                        weighted(ULTRA_BEAST_SPECIES, 3, "ULTRA_BEAST")
                 ),
                 listI(
                         "cobblemon:master_ball:1:2:10","cobblemon:dream_ball:3:6:16","cobblemon:beast_ball:3:6:16","cobblemon:rare_candy:6:12:18","cobblemon:exp_candy_xl:4:10:16",
@@ -214,19 +214,53 @@ public final class CrateConfig {
                 listI("cobblemon:ultra_ball:5:12:24","cobblemon:luxury_ball:3:8:14","cobblemon:rare_candy:2:5:18","cobblemon:exp_candy_l:2:5:18","cobblemon:ability_capsule:1:1:10","cobblemon:ability_patch:1:1:8","cobblemon:master_ball:1:1:1"),
                 listT("deep_prospector:3","cavern_breaker:2","woodcleaver:3","worldtree_axe:2","gaias_blessing:3"));
 
-        add(root,"world_boss","World Boss Crate","cobblemon:white_gilded_chest","LEGENDARY",5,10,60,80,0.9D,
+        add(root,"world_boss","World Boss Crate","cobblemon:white_gilded_chest","LEGENDARY",6,12,65,90,2.5D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"),
-                        weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST"),
-                        weighted(PARADOX_SPECIES, 2, "PARADOX"),
-                        weighted(STRONG_FILLER_SPECIES, 3, "REGULAR"),
-                        weighted(MID_FILLER_SPECIES, 1, "REGULAR")
+                        weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST")
                 ),
                 listI("cobblemon:master_ball:1:1:5","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18","cobblemon:exp_candy_xl:2:6:16","cobblemon:ability_patch:1:2:10","cobblemon:leftovers:1:1:8","cobblemon:life_orb:1:1:8","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6"),
                 listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2","titanbreaker:2","worldtree_axe:3","gaias_blessing:3"));
         applySeasonCrateBalance(root.crates);
+        applyProfessionToolLootPools(root.crates);
         return root;
+    }
+
+
+    private static void applyProfessionToolLootPools(Map<String, CrateDefinition> crates) {
+        if (crates == null || crates.isEmpty()) return;
+        if (ProfessionToolConfig.TOOLS == null || ProfessionToolConfig.TOOLS.isEmpty()) {
+            try { ProfessionToolConfig.load(); } catch (Throwable ignored) {}
+        }
+        if (ProfessionToolConfig.TOOLS == null || ProfessionToolConfig.TOOLS.isEmpty()) return;
+
+        for (Map.Entry<String, CrateDefinition> crateEntry : crates.entrySet()) {
+            CrateDefinition crate = crateEntry.getValue();
+            if (crate == null) continue;
+            String crateRarity = normalizeRarity(crate.guaranteedShardRarity);
+            for (Map.Entry<String, ProfessionToolConfig.ToolData> toolEntry : ProfessionToolConfig.TOOLS.entrySet()) {
+                String toolId = toolEntry.getKey();
+                ProfessionToolConfig.ToolData toolData = toolEntry.getValue();
+                if (toolId == null || toolId.isBlank() || toolData == null) continue;
+                if (!crateRarity.equals(normalizeRarity(toolData.rarity))) continue;
+                addToolOnce(crate, toolId, defaultToolWeight(crateRarity, toolData));
+            }
+        }
+    }
+
+    private static int defaultToolWeight(String rarity, ProfessionToolConfig.ToolData toolData) {
+        String base = toolData == null || toolData.baseItem == null ? "" : toolData.baseItem.toLowerCase();
+        boolean shovel = base.contains("shovel");
+        return switch (normalizeRarity(rarity)) {
+            case "COMMON" -> shovel ? 2 : 1;
+            case "UNCOMMON" -> shovel ? 2 : 2;
+            case "RARE" -> shovel ? 3 : 3;
+            case "EPIC" -> shovel ? 3 : 3;
+            case "LEGENDARY" -> shovel ? 2 : 2;
+            case "MYTHIC" -> shovel ? 2 : 2;
+            default -> 1;
+        };
     }
 
     private static void applySeasonCrateBalance(Map<String, CrateDefinition> crates) {
@@ -243,25 +277,38 @@ public final class CrateConfig {
         }
         CrateDefinition mythic = crates.get("mythic");
         if (mythic != null) {
-            mythic.shinyChance = 10.0D;
+            mythic.shinyChance = 25.0D;
             mythic.items = new ArrayList<>();
             mythic.items.add(new WeightedItem("cobblemon:ability_patch", 1, 3, 35));
             mythic.items.add(new WeightedItem("cobblemon:master_ball", 1, 2, 25));
             mythic.items.add(new WeightedItem("champutils:random_tm_mythic", 1, 1, 40));
 
-            // Keep Mythic tools rare, but make the preview/reward pool cover all three
-            // profession tool types instead of only pickaxe-looking mystery tools.
+            // Rebuild the Mythic tool pool from the loaded profession tool config.
+            // applyProfessionToolLootPools runs after this and adds every valid Mythic
+            // pickaxe/axe/hoe/shovel, avoiding stale hard-coded IDs that get skipped.
             mythic.tools = new ArrayList<>();
-            addToolOnce(mythic, "starfall", 2);
-            addToolOnce(mythic, "void_rift", 2);
-            addToolOnce(mythic, "infernal_core", 2);
-            addToolOnce(mythic, "vein_reaper", 1);
-            addToolOnce(mythic, "titanbreaker", 2);
-            addToolOnce(mythic, "worldtree_axe", 2);
-            addToolOnce(mythic, "gaias_blessing", 2);
         }
     }
 
+    private static void applyLegendaryMythicHighValueOnly(Map<String, CrateDefinition> crates) {
+        if (crates == null) return;
+        keepOnlyPremiumPokemon(crates.get("legendary"));
+        keepOnlyPremiumPokemon(crates.get("mythic"));
+    }
+
+    private static void keepOnlyPremiumPokemon(CrateDefinition crate) {
+        if (crate == null || crate.pokemon == null) return;
+        crate.pokemon.removeIf(p -> {
+            if (p == null) return true;
+            String pool = p.pool == null ? classifyPool(p.species) : p.pool.trim().toUpperCase(java.util.Locale.ROOT);
+            return !(pool.contains("LEGEND") || pool.contains("MYTH") || pool.contains("ULTRA"));
+        });
+        if (crate.pokemon.isEmpty()) {
+            crate.pokemon.addAll(weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"));
+            crate.pokemon.addAll(weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"));
+            crate.pokemon.addAll(weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST"));
+        }
+    }
 
     private static void addToolOnce(CrateDefinition crate, String toolId, int weight) {
         if (crate == null || toolId == null || toolId.isBlank() || weight <= 0) return;
@@ -338,6 +385,11 @@ public final class CrateConfig {
         int colon = s.lastIndexOf(':');
         if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1);
         return s.replace('-', '_').replace(' ', '_').replace(".", "_");
+    }
+
+    private static String normalizeRarity(String rarity) {
+        if (rarity == null || rarity.isBlank()) return "COMMON";
+        return rarity.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     private static List<WeightedItem> listI(String... vals){ List<WeightedItem> out=new ArrayList<>(); for(String v:vals){String[] p=v.split(":"); out.add(new WeightedItem(p[0]+":"+p[1], Integer.parseInt(p[2]), Integer.parseInt(p[3]), Integer.parseInt(p[4])));} return out; }

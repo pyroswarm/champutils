@@ -118,6 +118,13 @@ public final class IronmanItemOwnership {
     }
 
     public static boolean canPickup(ServerPlayer player, ItemEntity entity) {
+        if (entity != null) {
+            clearRestrictedProfileData(entity.getItem());
+        }
+        return true;
+    }
+
+    private static boolean canPickupLegacy(ServerPlayer player, ItemEntity entity) {
         if (player == null || entity == null) return true;
 
         // Normal profiles are fully vanilla-stackable and unrestricted.
@@ -172,11 +179,10 @@ public final class IronmanItemOwnership {
      * common player experience fully vanilla-stackable.
      */
     public static boolean usesItemOwnershipRules(ServerPlayer player) {
-        return player != null
-                && (PlayerProfileManager.isIronman(player)
-                    || PlayerProfileManager.isNuzlocke(player)
-                    || PlayerProfileManager.isIslander(player))
-                && !player.hasPermissions(4);
+        // Disabled intentionally: per-item ownership/profile checks were the root cause
+        // of held items becoming unstackable. Restricted-profile rules are not enforced
+        // through ItemStack NBT anymore.
+        return false;
     }
 
     public static boolean canMoveStackIntoRestrictedInventory(ServerPlayer player, ItemStack stack) {
@@ -191,6 +197,11 @@ public final class IronmanItemOwnership {
     }
 
     public static boolean denyForeignUse(ServerPlayer player, ItemStack stack) {
+        if (stack != null && !stack.isEmpty()) clearRestrictedProfileData(stack);
+        return false;
+    }
+
+    private static boolean denyForeignUseLegacy(ServerPlayer player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) return false;
         if (!usesItemOwnershipRules(player)) {
             clearRestrictedProfileData(stack);

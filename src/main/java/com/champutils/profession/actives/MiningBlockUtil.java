@@ -35,6 +35,8 @@ public class MiningBlockUtil {
 
         if (state.is(
                 BlockTags.MINEABLE_WITH_PICKAXE
+        ) || state.is(
+                BlockTags.MINEABLE_WITH_SHOVEL
         )) {
             return true;
         }
