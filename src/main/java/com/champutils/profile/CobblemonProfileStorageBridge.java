@@ -123,7 +123,21 @@ public final class CobblemonProfileStorageBridge {
     }
 
     public static void loadActiveProfileStores(ServerPlayer player) {
-        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
+        loadActiveProfileStoresAndSync(player);
+    }
+
+    /**
+     * Hydrates the active party immediately, sends it to the client, then completes only after
+     * Cobblemon's broader player data sync has run on the server thread. Profile switching uses
+     * the returned future as part of the survival quarantine so gameplay is not unlocked while
+     * Cobblemon still sees an old/unknown profile store.
+     */
+    public static CompletableFuture<Void> loadActiveProfileStoresAndSync(ServerPlayer player) {
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) {
+            done.complete(null);
+            return done;
+        }
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         long start = System.currentTimeMillis();
 
@@ -141,16 +155,28 @@ public final class CobblemonProfileStorageBridge {
         System.out.println("[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
 
         // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
-        // but move the broader Cobblemon player-data sync out of the profile activation critical path
-        // and away from the same tick as inventory/profile teleport work.
+        // but do not release the profile-loading quarantine until it finishes.
         CompletableFuture.runAsync(() -> player.server.execute(() -> {
-            if (player.hasDisconnected()) return;
-            long syncStart = System.currentTimeMillis();
-            try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
-            System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+            try {
+                if (player.hasDisconnected()) {
+                    done.complete(null);
+                    return;
+                }
+                if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) {
+                    done.complete(null);
+                    return;
+                }
+                long syncStart = System.currentTimeMillis();
+                try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
+                System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+                done.complete(null);
+            } catch (Throwable t) {
+                done.completeExceptionally(t);
+            }
         }), CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS));
 
         long elapsed = System.currentTimeMillis() - start;
         System.out.println("[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        return done;
     }
 }

@@ -21,11 +21,12 @@ public final class MenuNpcCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("menunpc")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(2) || com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                         .executes(context -> help(context.getSource()))
                         .then(Commands.literal("bind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
+                                            builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
                                             builder.suggest("tmcrafter");
@@ -50,6 +51,7 @@ public final class MenuNpcCommand {
                         .then(Commands.literal("unbind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
+                                            builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearappraiser");
                                             builder.suggest("tmcrafter");
@@ -75,6 +77,7 @@ public final class MenuNpcCommand {
 
     private static String normalizeMenu(String menu) {
         return switch (menu.toLowerCase()) {
+            case "profile", "profiles", "profilemenu" -> "profiles";
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";

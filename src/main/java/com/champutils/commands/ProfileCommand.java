@@ -3,6 +3,10 @@ package com.champutils.commands;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileMainMenuManager;
+import com.champutils.profile.ProfileLobbyDebug;
+import com.champutils.profile.ProfileNetworkTransferFlow;
+import com.champutils.profile.ProxyTransferBridge;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.profile.NuzlockeManager;
 import com.champutils.menu.ProfileSelectionMenu;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -91,9 +95,39 @@ public final class ProfileCommand {
     }
 
     private static int openOrEnterMenu(ServerPlayer player) {
+        if (ProfileNetworkTransferFlow.isSurvivalServer()) {
+            NetworkServerConfig config = NetworkServerConfig.get();
+            String targetServer = config.profileLobbyServerId == null || config.profileLobbyServerId.isBlank() ? "profile_lobby" : config.profileLobbyServerId;
+            String command = config.returnToProfileLobbyCommand == null || config.returnToProfileLobbyCommand.isBlank()
+                    ? "server {player} {target_server}"
+                    : config.returnToProfileLobbyCommand;
+            command = command
+                    .replace("{player}", player.getGameProfile().getName())
+                    .replace("{target_server}", targetServer)
+                    .replace("{profile}", "")
+                    .replace("{token}", "");
+            if (command.startsWith("/")) command = command.substring(1);
+            ProfileLobbyDebug.log("profilesCommand.transferToLobby", player);
+
+            boolean transferRequested = ProxyTransferBridge.connect(player, targetServer);
+            if (!transferRequested) {
+                player.server.getCommands().performPrefixedCommand(player.server.createCommandSourceStack().withSuppressedOutput(), command);
+            }
+
+            player.sendSystemMessage(Component.literal("Sending you to the profile lobby...").withStyle(ChatFormatting.YELLOW));
+            return 1;
+        }
+
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            ProfileLobbyDebug.log("profilesCommand.openMenu.profileLobby", player);
+            ProfileSelectionMenu.open(player);
+            return 1;
+        }
+
         if (PlayerProfileManager.hasActiveProfile(player)) {
             ProfileMainMenuManager.enter(player, true);
         }
+        ProfileLobbyDebug.log("profilesCommand.openMenu.allInOne", player);
         ProfileSelectionMenu.open(player);
         return 1;
     }
@@ -110,10 +144,12 @@ public final class ProfileCommand {
             player.sendSystemMessage(Component.literal("Profile swapping is only allowed from the profile menu. Select the profile again to load it.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("Loading profile slowly in the background. This may take a few seconds, but it will not block the server.").withStyle(ChatFormatting.YELLOW));
+        ProfileNetworkTransferFlow.sendLoadingTitle(player, name);
         PlayerProfileManager.switchAsync(player, name, result -> {
             boolean ok = result != null && result.startsWith("Loaded");
-            player.sendSystemMessage(Component.literal(result == null ? "Could not switch profile." : result).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
+            if (!ok) {
+                player.sendSystemMessage(Component.literal(result == null ? "Could not switch profile." : result).withStyle(ChatFormatting.RED));
+            }
         });
         return 1;
     }

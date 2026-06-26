@@ -13,6 +13,7 @@ import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.teleport.TeleportConfig;
 import com.champutils.teleport.TeleportLocation;
 import com.champutils.menu.ProfileSelectionMenu;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.territory.TerritoryRegionWipeManager;
 import com.champutils.leaderboard.ProfileLeaderboardRepository;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public final class PlayerProfileManager {
@@ -241,6 +243,17 @@ public static void handleJoin(ServerPlayer player) {
         return;
     }
 
+    if (ProfileNetworkTransferFlow.isSurvivalServer()) {
+        // In two-server mode, survival should not do the generic profile-list/default-profile
+        // prep before validating the lobby-issued transfer. That prep is useful for the old
+        // all-in-one flow, but it adds avoidable join delay and can briefly touch unrelated
+        // profile rows before we know this join is authorized. Consume the transfer first;
+        // the successful path will call switchAsync(), which performs the real hydration.
+        if (ProfileNetworkTransferFlow.consumePendingTransferOnJoin(player)) {
+            return;
+        }
+    }
+
     // Player joins used to do ensurePlayerRow, LuckPerms limit sync, profile list, and default
     // creation on the server thread. That made joins/profile-menu opening spike ticks. Keep the
     // network/database prep in the database executor and only touch UI/player state back on the
@@ -290,7 +303,7 @@ private static void handleProfileLobbyJoin(ServerPlayer player, UUID playerUuid,
         }
         readProfiles(connection, playerUuid);
         readLimit(connection, player);
-        System.out.println("[PROFILE-LOBBY-DEBUG] metadata-only join prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+        System.out.println("[PROFILE-TIMING] profile lobby metadata-only join prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
     }).whenComplete((ignored, error) -> player.server.execute(() -> {
         if (player.hasDisconnected()) return;
         if (error != null) {
@@ -299,14 +312,12 @@ private static void handleProfileLobbyJoin(ServerPlayer player, UUID playerUuid,
             return;
         }
         try {
-            ProfileLobbyDebug.log("handleProfileLobbyJoin.beforeLobby", player);
-            if (createdDefault[0]) {
-                player.sendSystemMessage(Component.literal("Created your first profile: Default.").withStyle(ChatFormatting.GREEN));
-            }
-            ProfileLobbyManager.sendToLobby(player);
-            ProfileLobbyDebug.log("handleProfileLobbyJoin.afterLobby", player);
+            // PROFILE_LOBBY join must be packet-quiet. Do not teleport, clear inventory,
+            // force lobby protections, or open SGUI here. The player is already on the
+            // profile_lobby backend/world; /profiles or the bound NPC opens the selector.
+            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyNoAutoPackets createdDefault=" + createdDefault[0], player);
         } catch (Throwable t) {
-            ProfileLobbyDebug.log("handleProfileLobbyJoin.lobbyFailed", player, t);
+            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyLogFailed", player, t);
         }
     }));
 }
@@ -316,6 +327,7 @@ public static void clearActiveForMenu(ServerPlayer player) {
     UUID playerUuid = player.getUUID();
     ACTIVE.remove(playerUuid);
     SWITCHING.remove(playerUuid);
+    ProfileNetworkTransferFlow.clearAcceptedTransferSession(playerUuid);
     ProfileSelectionMenu.clearPlayerState(playerUuid);
 }
 
@@ -399,6 +411,7 @@ public static void saveAndUnloadForDisconnect(ServerPlayer player) {
     if (player == null) return;
     UUID playerUuid = player.getUUID();
     SWITCHING.remove(playerUuid);
+    ProfileNetworkTransferFlow.clearAcceptedTransferSession(playerUuid);
     ProfileSelectionMenu.clearPlayerState(playerUuid);
 
     try { ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player); }
@@ -658,7 +671,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         }
 
         UUID playerUuid = player.getUUID();
+        ProfileLoadingStateManager.begin(player, clean);
+
         if (SWITCHING.putIfAbsent(playerUuid, Boolean.TRUE) != null) {
+            ProfileLoadingStateManager.end(player);
             if (callback != null) callback.accept("Profile switch already in progress. Please wait a moment.");
             return;
         }
@@ -693,6 +709,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             timing("switchAsync.ChatPreferenceManager.saveAsync", () -> ChatPreferenceManager.saveAsync(player.getUUID(), ChatPreferenceManager.get(player.getUUID())));
             timing("switchAsync.ProfileSessionLoader.unload", () -> ProfileSessionLoader.unload(player));
         }
+
+        // After any old active profile has been snapshotted, move the player into a blank quarantine
+        // so no stale inventory/Pokemon/profile data is visible during the async load.
+        ProfileLoadingStateManager.beginBlank(player, clean);
 
         final UUID previousProfileIdFinal = previousProfileId;
         final boolean hadActiveProfileFinal = hadActiveProfile;
@@ -769,11 +789,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             player.server.execute(() -> {
                 long activationStart = System.currentTimeMillis();
                 if (player.hasDisconnected()) {
+                    ProfileLoadingStateManager.end(player);
                     SWITCHING.remove(playerUuid);
                     return;
                 }
                 try {
-                    activateLoadedProfile(
+                    CompletableFuture<Void> cobblemonSync = activateLoadedProfile(
                             player,
                             active,
                             targetSnbtFinal,
@@ -781,29 +802,55 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                             hadActiveProfileFinal ? previousProfileIdFinal : null
                     );
 
-                    SWITCHING.remove(playerUuid);
                     System.out.println("[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
 
-                    CompletableFuture
-                            .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
-                            .whenComplete((snapshot, error) -> player.server.execute(() -> {
-                                if (player.hasDisconnected()) return;
-                                try {
-                                    if (!active.profileId().equals(activeProfileId(player))) return;
-                                    if (error != null) {
-                                        System.err.println("[ChampUtils] Background profile session load failed for " + playerName + ": " + error.getMessage());
-                                        error.printStackTrace();
-                                    } else {
-                                        ProfileSessionLoader.applyBackground(player, snapshot);
-                                    }
-                                    ProfileSessionLoader.loadDelayedNonCritical(player);
-                                } finally {
-                                    System.out.println("[PROFILE-TIMING] switchAsync total took " + (System.currentTimeMillis() - switchStart) + "ms for " + playerName);
-                                }
-                            }));
+                    cobblemonSync.whenComplete((syncIgnored, syncError) -> player.server.execute(() -> {
+                        if (player.hasDisconnected()) {
+                            ProfileLoadingStateManager.end(player);
+                            SWITCHING.remove(playerUuid);
+                            return;
+                        }
+                        if (syncError != null) {
+                            ProfileLoadingStateManager.end(player);
+                            SWITCHING.remove(playerUuid);
+                            ACTIVE.remove(playerUuid);
+                            System.err.println("[ChampUtils] Cobblemon profile sync failed for " + playerName + ": " + syncError.getMessage());
+                            syncError.printStackTrace();
+                            try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
+                            if (callback != null) callback.accept("Could not finish loading your profile safely. You were returned to profile selection. Check console/database logs.");
+                            return;
+                        }
 
-                    if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
+                        CompletableFuture
+                                .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
+                                .whenComplete((snapshot, error) -> player.server.execute(() -> {
+                                    if (player.hasDisconnected()) {
+                                        ProfileLoadingStateManager.end(player);
+                                        SWITCHING.remove(playerUuid);
+                                        return;
+                                    }
+                                    try {
+                                        if (!active.profileId().equals(activeProfileId(player))) return;
+                                        if (error != null) {
+                                            System.err.println("[ChampUtils] Background profile session load failed for " + playerName + ": " + error.getMessage());
+                                            error.printStackTrace();
+                                        } else {
+                                            ProfileSessionLoader.applyBackground(player, snapshot);
+                                        }
+                                        ProfileSessionLoader.loadDelayedNonCritical(player);
+                                    } finally {
+                                        // Last step: release quarantine and restore normal gameplay only after
+                                        // vanilla state, Cobblemon party, Cobblemon sync, critical session load,
+                                        // and background profile state have been applied or safely skipped.
+                                        releaseLoadedProfile(player, savedLocationSnapshotFinal);
+                                        SWITCHING.remove(playerUuid);
+                                        System.out.println("[PROFILE-TIMING] switchAsync total took " + (System.currentTimeMillis() - switchStart) + "ms for " + playerName);
+                                        if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
+                                    }
+                                }));
+                    }));
                 } catch (Exception e) {
+                    ProfileLoadingStateManager.end(player);
                     SWITCHING.remove(playerUuid);
                     ACTIVE.remove(playerUuid);
                     e.printStackTrace();
@@ -812,6 +859,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 }
             });
         }).exceptionally(throwable -> {
+            ProfileLoadingStateManager.end(player);
             SWITCHING.remove(playerUuid);
             String message = throwable.getCause() != null ? throwable.getCause().getMessage() : throwable.getMessage();
             if (message == null || message.isBlank()) message = "Could not switch profile. Check console/database logs.";
@@ -823,6 +871,50 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         });
     }
 
+
+    /**
+     * Final profile-load release. This is intentionally idempotent and retried over the
+     * next few ticks because dimension changes and lobby-protection ticks can race the
+     * async Cobblemon/profile hydration path. A loaded profile must never stay trapped
+     * in multiworld:profile_lobby, Adventure mode, invulnerable state, or command lock.
+     */
+    private static void releaseLoadedProfile(ServerPlayer player, SavedLocationSnapshot snapshot) {
+        if (player == null || player.server == null) return;
+
+        ProfileLoadingStateManager.end(player);
+        ProfileLobbyManager.leaveLobby(player);
+        teleportToSavedLocationSnapshot(player, snapshot);
+        ProfileLobbyManager.leaveLobby(player);
+
+        scheduleReleaseVerify(player, snapshot, 1);
+        scheduleReleaseVerify(player, snapshot, 5);
+        scheduleReleaseVerify(player, snapshot, 20);
+    }
+
+    private static void scheduleReleaseVerify(ServerPlayer player, SavedLocationSnapshot snapshot, int ticks) {
+        if (player == null || player.server == null) return;
+        long delayMillis = Math.max(50L, ticks * 50L);
+        CompletableFuture.runAsync(
+                () -> player.server.execute(() -> verifyLoadedProfileReleased(player, snapshot)),
+                CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS)
+        );
+    }
+
+    private static void verifyLoadedProfileReleased(ServerPlayer player, SavedLocationSnapshot snapshot) {
+        if (player == null || player.server == null || player.hasDisconnected()) return;
+        if (!hasActiveProfile(player)) return;
+
+        ProfileLoadingStateManager.end(player);
+        ProfileLobbyManager.leaveLobby(player);
+
+        String dimension = player.serverLevel() == null ? "" : player.serverLevel().dimension().location().toString();
+        if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension)) {
+            System.out.println("[ChampUtils] Release verify rescued " + player.getGameProfile().getName() + " from profile_lobby after profile load.");
+            teleportToSavedLocationSnapshot(player, snapshot);
+            ProfileLobbyManager.leaveLobby(player);
+        }
+    }
+
     /**
      * Applies a fully preloaded profile on the server thread as one critical section.
      *
@@ -830,7 +922,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
      * The lobby is only released after vanilla state, Cobblemon party, critical profile
      * session data, starter title checks, and saved-location teleport all succeed.
      */
-    private static void activateLoadedProfile(
+    private static CompletableFuture<Void> activateLoadedProfile(
             ServerPlayer player,
             ProfileRecord active,
             String targetSnbt,
@@ -850,10 +942,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         ACTIVE.put(playerUuid, active);
 
         timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbt));
-        timing("server.execute.loadActiveProfileStores", () -> CobblemonProfileStorageBridge.loadActiveProfileStores(player));
+        long cobblemonStart = System.currentTimeMillis();
+        CompletableFuture<Void> cobblemonSync = CobblemonProfileStorageBridge.loadActiveProfileStoresAndSync(player);
+        System.out.println("[PROFILE-TIMING] server.execute.loadActiveProfileStores scheduled took " + (System.currentTimeMillis() - cobblemonStart) + "ms");
         timing("server.execute.ProfileSessionLoader.loadCritical", () -> ProfileSessionLoader.loadCritical(player));
         com.champutils.cosmetic.TitleRegistry.unlockProfileStarter(player);
-        timing("server.execute.teleportToSavedLocation", () -> teleportToSavedLocationSnapshot(player, savedLocationSnapshot));
 
         cacheProfile(active);
         updateCachedActive(playerUuid, active.profileId());
@@ -861,8 +954,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         ProfilePlaytimeManager.warmCacheAsync(active.profileId());
         ProfilePlaytimeManager.recordCurrentSession(player);
 
-        // Last step: unlock normal gameplay only after every critical profile layer is live.
-        timing("server.execute.ProfileLobbyManager.leaveLobby", () -> ProfileLobbyManager.leaveLobby(player));
+        return cobblemonSync;
     }
 
     public static String deleteBlocking(ServerPlayer player, String name) {
@@ -1054,6 +1146,30 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         }
     }
 
+    /**
+     * Read-only warmup used by the PROFILE_LOBBY backend before proxy transfer. This moves the
+     * safe SQL/cache work off survival join without applying inventory, location, active-profile,
+     * party, scoreboard, title, or session state to the live player on the lobby backend.
+     */
+    public static void prewarmProfileForNetworkTransfer(Connection connection, UUID profileId, UUID playerUuid, net.minecraft.core.RegistryAccess registryAccess) throws Exception {
+        if (connection == null || profileId == null || playerUuid == null) return;
+
+        String targetSnbt = VANILLA_STATE_CACHE.get(profileId);
+        if (targetSnbt == null) {
+            targetSnbt = VanillaProfileStateManager.loadSnbt(connection, profileId);
+            if (targetSnbt != null) VANILLA_STATE_CACHE.put(profileId, targetSnbt);
+        }
+
+        SavedLocationSnapshot savedLocationSnapshot = SAVED_LOCATION_CACHE.get(profileId);
+        if (savedLocationSnapshot == null) {
+            savedLocationSnapshot = loadSavedLocationSnapshot(connection, profileId);
+            if (savedLocationSnapshot != null) SAVED_LOCATION_CACHE.put(profileId, savedLocationSnapshot);
+        }
+
+        ProfilePlaytimeManager.loadCacheBlocking(connection, profileId);
+        CobblemonProfileStorageBridge.prefetchProfileStores(connection, profileId, playerUuid, registryAccess);
+    }
+
     private static SavedLocationSnapshot loadSavedLocationSnapshot(Connection connection, UUID profileId) throws Exception {
         if (connection == null || profileId == null) return null;
         try (var ps = connection.prepareStatement("select last_dimension, last_x, last_y, last_z, last_yaw, last_pitch from player_profiles where id = ?")) {
@@ -1078,7 +1194,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     }
 
     private static void teleportToSavedLocationSnapshot(ServerPlayer player, SavedLocationSnapshot snapshot) {
-        if (player == null || player.server == null || snapshot == null) return;
+        if (player == null || player.server == null) return;
+        if (snapshot == null) {
+            teleportToFirstProfileFallback(player);
+            return;
+        }
         if (snapshot.useFallback()) {
             teleportToFirstProfileFallback(player);
             return;
@@ -1103,6 +1223,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to restore profile location snapshot for " + player.getGameProfile().getName());
             e.printStackTrace();
+            teleportToFirstProfileFallback(player);
         }
     }
 
@@ -1181,6 +1302,19 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     }
 
     private static void syncLimitFromLuckPerms(Connection connection, ServerPlayer player) throws Exception {
+        // PROFILE_LOBBY is intentionally allowed to run without LuckPerms installed.
+        // Do not touch LuckPermsHook here: simply guarantee a safe default profile limit row
+        // so /profiles can build its menu and the player can select/create profiles.
+        if (NetworkServerConfig.serverRole() == NetworkServerConfig.ServerRole.PROFILE_LOBBY) {
+            try (var ps = connection.prepareStatement("insert into player_profile_limits (player_uuid, max_profiles, instant_delete, fast_delete, deletion_delay_minutes, source, updated_at) values (?, ?, false, false, 30, 'PROFILE_LOBBY_DEFAULT', now()) " +
+                    "on conflict (player_uuid) do nothing")) {
+                ps.setObject(1, player.getUUID());
+                ps.setInt(2, DEFAULT_MAX_PROFILES);
+                ps.executeUpdate();
+            }
+            return;
+        }
+
         int max = DEFAULT_MAX_PROFILES;
         boolean instant = false;
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) max = Math.max(max, 3);

@@ -108,6 +108,50 @@ public class ChampUtilsMod implements ModInitializer {
         }
     }
 
+
+    private static void initializeProfileLobbyOnly() {
+
+        DatabaseManager.init();
+        NetworkReadySchemaManager.ensureAsync();
+        PlayerProfileManager.ensureSchemaAsync();
+        MenuNpcBindingRegistry.load();
+
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            try {
+                MenuNpcBindingRegistry.save();
+            } catch (Exception ignored) {
+            }
+            DatabaseManager.shutdown();
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerPlayer player = handler.player;
+            server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                ProfileLobbyManager.sendToLobby(player);
+                ProfileLobbySetupManager.applyPlayerRules(player);
+            });
+        });
+
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            ServerPlayer player = handler.player;
+            PlayerProfileManager.clearActiveForMenu(player);
+        });
+
+        ProfileCommand.register();
+        MenuNpcCommand.register();
+        BlankNpcCommand.register();
+        MenuNpcInteractionListener.register();
+        ProfileLobbySetupManager.register();
+        ProfileLoadingStateManager.register();
+        LobbyCommandTreePruner.register();
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            // Intentionally empty. PROFILE_LOBBY must not run gameplay packet managers.
+        });
+
+    }
+
     @Override
     public void onInitialize() {
 
@@ -142,6 +186,13 @@ public class ChampUtilsMod implements ModInitializer {
 
         Config.load(configFile);
         NetworkServerConfig.load();
+        ProxyTransferBridge.register();
+
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            initializeProfileLobbyOnly();
+            return;
+        }
+
         GuildConfig.load();
         GuildBuffConfig.load();
         BossConfig.load();
@@ -165,6 +216,8 @@ public class ChampUtilsMod implements ModInitializer {
         NuzlockeManager.ensureSchemaAsync();
         ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
+        ProfileLoadingStateManager.register();
+        PokemonExperienceBuffListener.register();
         MonotypeStarterManager.register();
         NuzlockeManager.register();
         IronmanItemOwnership.register();
@@ -392,7 +445,6 @@ public class ChampUtilsMod implements ModInitializer {
 
                     PlayerProfileManager.handleJoin(player);
                     if (com.champutils.profile.ProfileNetworkTransferFlow.isProfileLobbyServer()) {
-                        System.out.println("[PROFILE-LOBBY-DEBUG] ChampUtilsMod.join short-circuited gameplay managers for profile lobby player=" + playerName);
                         return;
                     }
                     if (PlayerProfileManager.isInMainMenu(player)) {
@@ -611,6 +663,7 @@ public class ChampUtilsMod implements ModInitializer {
         ForceSaveRestartCommand.register();
         ProfileCommand.register();
         IslanderMineCommand.register();
+        IslanderDebugCommand.register();
         GraveyardCommand.register();
         ClearWildPokemonCommand.register();
         MegaBossCommand.register();
@@ -694,6 +747,13 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ServerTickEvents.END_SERVER_TICK.register(
                 server -> {
+
+                    if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+                        // PROFILE_LOBBY must be as packet-quiet as possible while players are connecting through Velocity.
+                        // Do not run gameplay/sidebar/actionbar/world systems here; players should only see the lobby
+                        // world and manually open the selector through /profiles or the bound NPC.
+                        return;
+                    }
 
                     timedTick("ShopPokemonCrateOpeningGui", () -> ShopPokemonCrateOpeningGui.tick(server));
                     timedTick("OpenCratesMenu", () -> OpenCratesMenu.tick(server));

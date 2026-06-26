@@ -37,30 +37,54 @@ public final class IslanderProfileManager {
 
     public static boolean canEnterTerritoryFast(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (player == null || territory == null || player.hasPermissions(4)) return true;
+        if (ProfileLoadingStateManager.isLoading(player)) {
+            IslanderDebugManager.log(player, "canEnterFast", territory, "DENY", "profile_loading");
+            return false;
+        }
+        if (!PlayerProfileManager.hasActiveProfile(player)) {
+            IslanderDebugManager.log(player, "canEnterFast", territory, "DENY", "no_active_profile");
+            return false;
+        }
 
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
         boolean targetIsIslander = isIslanderTerritory(territory);
 
         if (playerIsIslander) {
-            return targetIsIslander;
+            boolean allowed = targetIsIslander;
+            IslanderDebugManager.log(player, "canEnterFast", territory, allowed ? "ALLOW" : "DENY", allowed ? "islander_to_islander" : "islander_to_non_islander");
+            return allowed;
         }
 
-        return !targetIsIslander;
+        boolean allowed = !targetIsIslander;
+        IslanderDebugManager.log(player, "canEnterFast", territory, allowed ? "ALLOW" : "DENY", allowed ? "normal_to_normal" : "normal_to_islander");
+        return allowed;
     }
 
     public static boolean canEnterTerritory(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (player == null || territory == null || player.hasPermissions(4)) return true;
+        if (ProfileLoadingStateManager.isLoading(player)) {
+            IslanderDebugManager.log(player, "canEnter", territory, "DENY", "profile_loading");
+            return false;
+        }
+        if (!PlayerProfileManager.hasActiveProfile(player)) {
+            IslanderDebugManager.log(player, "canEnter", territory, "DENY", "no_active_profile");
+            return false;
+        }
 
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
         boolean targetIsIslander = isIslanderTerritory(territory);
 
         if (playerIsIslander) {
             // Islanders are ONLY allowed in Islander territories. Spawn is handled by dimension rules, not territory trust.
-            return targetIsIslander;
+            boolean allowed = targetIsIslander;
+            IslanderDebugManager.log(player, "canEnter", territory, allowed ? "ALLOW" : "DENY", allowed ? "islander_to_islander" : "islander_to_non_islander");
+            return allowed;
         }
 
         // Non-islanders can never enter Islander territories.
-        return !targetIsIslander;
+        boolean allowed = !targetIsIslander;
+        IslanderDebugManager.log(player, "canEnter", territory, allowed ? "ALLOW" : "DENY", allowed ? "normal_to_normal" : "normal_to_islander");
+        return allowed;
     }
 
     public static boolean isIslanderTerritory(TerritoryRepository.Territory territory) {
@@ -79,48 +103,82 @@ public final class IslanderProfileManager {
 
     public static void enforceLocation(ServerPlayer player) {
         if (player == null || player.hasPermissions(4)) return;
+        if (ProfileLoadingStateManager.isLoading(player)) {
+            IslanderDebugManager.log(player, "enforceLocation", null, "SKIP", "profile_loading");
+            return;
+        }
+        if (!PlayerProfileManager.hasActiveProfile(player)) {
+            IslanderDebugManager.log(player, "enforceLocation", null, "SKIP", "no_active_profile");
+            return;
+        }
         if (!(player.level() instanceof ServerLevel level)) return;
 
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
         boolean islanderWorld = isIslanderWorld(level);
         boolean islanderMineWorld = IslanderMineManager.isMineWorld(level);
         boolean spawnWorld = isSpawnWorld(level);
+        TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, player.blockPosition());
+        if (territory == null && playerIsIslander && islanderWorld) {
+            java.util.UUID activeProfile = PlayerProfileManager.activeProfileId(player);
+            TerritoryRepository.Territory owned = activeProfile == null ? null : TerritoryRepository.cachedForOwner(TerritoryRepository.OwnerType.PLAYER, activeProfile.toString());
+            if (owned != null && owned.containsLoose(level.dimension().location().toString(), player.blockPosition())) {
+                territory = owned;
+                IslanderDebugManager.log(player, "enforceLocation", territory, "RECOVER", "owner_territory_fallback_world_or_server_mismatch");
+            }
+        }
+        boolean territoryIsIslander = isIslanderTerritory(territory);
 
-        // Absolute world wall:
-        // Islanders: spawn + islander_* territory worlds + islander_mine_* shared mine worlds ONLY.
-        // Non-islanders: never islander_* territory worlds or islander_mine_* shared mine worlds.
+        // Important: check the claimed territory BEFORE the dimension wall.
+        // Islander islands may live in the normal survival/overworld dimension, so a world-only
+        // check incorrectly kicks players even when they are standing inside their Islander claim.
         if (playerIsIslander) {
-            if (!spawnWorld && !islanderWorld && !islanderMineWorld) {
-                denyAndSendToSpawn(player, "Islanders can only access spawn, Islander territories, and Islander mines.");
+            if (spawnWorld) {
+                IslanderDebugManager.log(player, "enforceLocation", territory, "ALLOW", "islander_spawn_world");
                 return;
             }
-        } else if (islanderWorld || islanderMineWorld) {
-            denyAndSendToSpawn(player, "Only Islander profiles can enter Islander worlds.");
-            return;
-        }
 
-        TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, player.blockPosition());
-
-        if (playerIsIslander) {
-            // Spawn is always allowed. Shared mine worlds are allowed only inside the sealed managed mine region.
-            // Regular islander_* worlds still require being inside a real Islander territory.
-            if (spawnWorld) return;
             if (islanderMineWorld) {
-                if (IslanderMineManager.isMineLocation(level, player.blockPosition())) return;
+                if (IslanderMineManager.isMineLocation(level, player.blockPosition())) {
+                    IslanderDebugManager.log(player, "enforceLocation", territory, "ALLOW", "islander_mine_location");
+                    return;
+                }
+                IslanderDebugManager.log(player, "enforceLocation", territory, "DENY", "islander_mine_outside_bounds");
                 denyAndSendToSpawn(player, "Stay inside the sealed Islander mine area.");
                 return;
             }
-            if (territory == null || !isIslanderTerritory(territory)) {
-                denyAndSendToSpawn(player, "Islanders can only access Islander territories, Islander mines, and spawn.");
+
+            if (territoryIsIslander) {
+                if (TerritoryRepository.canEnterFast(player, territory)) {
+                    IslanderDebugManager.log(player, "enforceLocation", territory, "ALLOW", "islander_territory_can_enter");
+                    return;
+                }
+                IslanderDebugManager.log(player, "enforceLocation", territory, "DENY", "islander_territory_locked_or_not_owner_trusted");
+                denyAndSendToSpawn(player, "That Islander territory is locked.");
                 return;
             }
-        } else if (territory == null) {
+
+            IslanderDebugManager.log(player, "enforceLocation", territory, "DENY", "islander_not_in_spawn_mine_or_islander_territory");
+            denyAndSendToSpawn(player, "Islanders can only access claimed Islander islands, Islander mines, and spawn.");
             return;
         }
 
-        if (territory == null) return;
-        if (canEnterTerritoryFast(player, territory) && TerritoryRepository.canEnterFast(player, territory)) return;
+        // Non-islanders can never enter Islander worlds, Islander mines, or Islander territories.
+        if (islanderWorld || islanderMineWorld || territoryIsIslander) {
+            IslanderDebugManager.log(player, "enforceLocation", territory, "DENY", "normal_in_islander_area");
+            denyAndSendToSpawn(player, "Only Islander profiles can enter Islander islands and mines.");
+            return;
+        }
 
+        if (territory == null) {
+            IslanderDebugManager.log(player, "enforceLocation", null, "ALLOW", "normal_no_territory");
+            return;
+        }
+        if (TerritoryRepository.canEnterFast(player, territory)) {
+            IslanderDebugManager.log(player, "enforceLocation", territory, "ALLOW", "normal_territory_can_enter");
+            return;
+        }
+
+        IslanderDebugManager.log(player, "enforceLocation", territory, "DENY", "normal_territory_locked");
         denyAndSendToSpawn(player, "That territory is locked by profile type rules.");
     }
 

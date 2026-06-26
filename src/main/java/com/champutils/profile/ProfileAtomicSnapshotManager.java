@@ -43,6 +43,12 @@ public final class ProfileAtomicSnapshotManager {
                     "status text not null default 'PENDING' check (status in ('PENDING','COMPLETE')), " +
                     "created_at timestamptz not null default now(), " +
                     "completed_at timestamptz)");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists vanilla_snbt text");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists party_nbt text");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists pc_nbt text");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists reason text");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists status text not null default 'PENDING'");
+            statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists completed_at timestamptz");
             statement.executeUpdate("create index if not exists idx_profile_atomic_snapshots_latest on profile_atomic_snapshots(profile_id, snapshot_type, completed_at desc) where status = 'COMPLETE'");
             statement.executeUpdate("create index if not exists idx_profile_atomic_snapshots_pending on profile_atomic_snapshots(profile_id, snapshot_type, created_at) where status = 'PENDING'");
             statement.executeUpdate("alter table profile_atomic_snapshots add column if not exists save_generation uuid");

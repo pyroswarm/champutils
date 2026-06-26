@@ -16,7 +16,10 @@
     "ClaimFluidFlowMixin",
     "CreeperNoTerrainDamageMixin",
     "EndermanNoBlockTakeMixin",
-    "EndermanNoBlockPlaceMixin"
+    "EndermanNoBlockPlaceMixin",
+    "ProfileLoadingContainerLockMixin",
+    "ProfileLoadingDropLockMixin",
+    "ProfileLoadingPickupLockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

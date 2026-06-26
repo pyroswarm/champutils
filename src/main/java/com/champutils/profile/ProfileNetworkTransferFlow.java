@@ -4,10 +4,14 @@ import com.champutils.database.DatabaseManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.sql.Connection;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -19,7 +23,19 @@ import java.util.function.Consumer;
  * SURVIVAL consumes the newest live token on join, then loads that profile with the existing loader.
  */
 public final class ProfileNetworkTransferFlow {
+    private static final ConcurrentHashMap<UUID, AcceptedTransferSession> ACCEPTED_SURVIVAL_SESSIONS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Boolean> SURVIVAL_CONSUME_IN_FLIGHT = new ConcurrentHashMap<>();
+    private static final long ACCEPTED_SESSION_TTL_MS = 120_000L;
+    private static final int SURVIVAL_TOKEN_WAIT_ATTEMPTS = 75;
+    private static final long SURVIVAL_TOKEN_WAIT_SLEEP_MS = 1000L;
+
     private ProfileNetworkTransferFlow() {}
+
+    private record AcceptedTransferSession(String profileName, long acceptedAtMillis) {
+        boolean isFresh(long now) {
+            return now - acceptedAtMillis <= ACCEPTED_SESSION_TTL_MS;
+        }
+    }
 
     public static boolean isProfileLobbyServer() {
         return NetworkServerConfig.serverRole() == NetworkServerConfig.ServerRole.PROFILE_LOBBY;
@@ -45,6 +61,7 @@ public final class ProfileNetworkTransferFlow {
 
         NetworkServerConfig config = NetworkServerConfig.get();
         UUID playerUuid = player.getUUID();
+        net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
         AtomicReference<String> issuedWireToken = new AtomicReference<>("");
 
         DatabaseManager.runAsync("issue profile transfer token", connection -> {
@@ -59,7 +76,13 @@ public final class ProfileNetworkTransferFlow {
                     config.profileTransferTtlSeconds
             );
             issuedWireToken.set(token.wireValue());
-            ProfileTransferTokenManager.audit(connection, playerUuid, profile.profileId(), token.tokenId(), config.serverId, config.survivalServerId, "TOKEN_ISSUED", "lobby-profile-selected", "{}");
+
+            long warmStart = System.currentTimeMillis();
+            PlayerProfileManager.prewarmProfileForNetworkTransfer(connection, profile.profileId(), playerUuid, registryAccess);
+            System.out.println("[PROFILE-TIMING] transfer profile prewarm took " + (System.currentTimeMillis() - warmStart) + "ms for " + player.getGameProfile().getName());
+            // ProfileTransferTokenManager.issue already writes the TOKEN_ISSUED audit row.
+            // Do not write a second row with the same transfer_id because older beta schemas
+            // may still have a unique transfer_id audit index.
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
             if (player.hasDisconnected()) return;
             if (error != null) {
@@ -68,10 +91,37 @@ public final class ProfileNetworkTransferFlow {
                 return;
             }
 
-            player.sendSystemMessage(Component.literal("Profile ready. Sending you to survival...").withStyle(ChatFormatting.GREEN));
-            executeLobbyTransferCommand(player, profile, config, issuedWireToken.get());
-            if (callback != null) callback.accept("Profile transfer token issued for " + profile.profileName() + ".");
+            scheduleProxyTransfer(player, profile, config, issuedWireToken.get());
+            if (callback != null) callback.accept("Profile transfer token issued for " + profile.profileName() + ". Transfer scheduled.");
         }));
+    }
+
+    private static void scheduleProxyTransfer(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String wireToken) {
+        if (player == null || player.server == null || config == null) return;
+        try {
+            // Close SGUI/vanilla containers before asking Velocity to switch servers. This keeps the transfer
+            // as packet-quiet as possible and avoids racing menu/resource-pack/chat-session packets.
+            if (player.containerMenu != player.inventoryMenu) {
+                player.closeContainer();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        final UUID playerUuid = player.getUUID();
+        final String playerName = player.getGameProfile().getName();
+
+        java.util.concurrent.CompletableFuture
+                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(3000, java.util.concurrent.TimeUnit.MILLISECONDS))
+                .thenRun(() -> player.server.execute(() -> {
+                    ServerPlayer live = player.server.getPlayerList().getPlayer(playerUuid);
+                    if (live == null || live.hasDisconnected()) {
+                        return;
+                    }
+                    boolean transferRequested = executeProxyTransfer(live, config);
+                    if (!transferRequested) {
+                        executeLobbyTransferCommand(live, profile, config, wireToken);
+                    }
+                }));
     }
 
     /**
@@ -85,13 +135,56 @@ public final class ProfileNetworkTransferFlow {
         UUID playerUuid = player.getUUID();
         String playerName = player.getGameProfile().getName();
 
+        AcceptedTransferSession accepted = ACCEPTED_SURVIVAL_SESSIONS.get(playerUuid);
+        long now = System.currentTimeMillis();
+        if (accepted != null) {
+            if (accepted.isFresh(now)) {
+                return true;
+            }
+            ACCEPTED_SURVIVAL_SESSIONS.remove(playerUuid, accepted);
+        }
+
+        if (SURVIVAL_CONSUME_IN_FLIGHT.putIfAbsent(playerUuid, Boolean.TRUE) != null) {
+            return true;
+        }
+
+        ProfileLoadingStateManager.beginBlank(player, "Profile");
         AtomicReference<String> transferredProfileName = new AtomicReference<>();
         DatabaseManager.runAsync("consume profile transfer token on survival join", connection -> {
             ProfileTransferTokenManager.ensureSchema(connection);
-            var consumed = ProfileTransferTokenManager.consumeLatestForPlayer(connection, playerUuid, config.profileTransferSecret, config.serverId);
+            java.util.Optional<ProfileTransferTokenManager.ConsumedToken> consumed = java.util.Optional.empty();
+            String lastTokenDebug = "not-checked";
+            for (int attempt = 1; attempt <= SURVIVAL_TOKEN_WAIT_ATTEMPTS; attempt++) {
+                consumed = ProfileTransferTokenManager.consumeLatestForPlayer(connection, playerUuid, config.profileTransferSecret, config.serverId);
+                if (consumed.isPresent()) {
+                    if (attempt > 1) {
+                        System.out.println("[ChampUtils][ProfileTransferDebug] accepted transfer token for " + playerName + " after attempt " + attempt + ".");
+                    }
+                    break;
+                }
+
+                lastTokenDebug = ProfileTransferTokenManager.latestDebugForPlayer(connection, playerUuid);
+                if (attempt == 1 || attempt % 10 == 0) {
+                    System.out.println("[ChampUtils][ProfileTransferDebug] waiting for token for " + playerName + " attempt=" + attempt + "/" + SURVIVAL_TOKEN_WAIT_ATTEMPTS + " serverId=" + config.serverId + " latest=" + lastTokenDebug);
+                }
+
+                AcceptedTransferSession alreadyAccepted = ACCEPTED_SURVIVAL_SESSIONS.get(playerUuid);
+                if (alreadyAccepted != null && alreadyAccepted.isFresh(System.currentTimeMillis())) {
+                    transferredProfileName.set(alreadyAccepted.profileName());
+                    return;
+                }
+
+                try {
+                    Thread.sleep(SURVIVAL_TOKEN_WAIT_SLEEP_MS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+
             if (consumed.isEmpty()) {
                 if (config.allowSurvivalDirectProfileMenu) return;
-                throw new IllegalStateException("No valid profile transfer token for this survival join.");
+                throw new IllegalStateException("No valid profile transfer token for this survival join. latest=" + lastTokenDebug);
             }
 
             UUID profileId = consumed.get().profileId();
@@ -100,31 +193,57 @@ public final class ProfileNetworkTransferFlow {
                 throw new IllegalStateException("Transferred profile no longer exists or belongs to a different player.");
             }
             transferredProfileName.set(profileName);
+            ACCEPTED_SURVIVAL_SESSIONS.put(playerUuid, new AcceptedTransferSession(profileName, System.currentTimeMillis()));
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
+            SURVIVAL_CONSUME_IN_FLIGHT.remove(playerUuid);
             if (player.hasDisconnected()) return;
 
             if (error != null) {
+                ProfileLoadingStateManager.end(player);
                 Throwable cause = error.getCause() == null ? error : error.getCause();
                 System.err.println("[ChampUtils] Survival profile transfer failed for " + playerName + ": " + cause.getMessage());
-                cause.printStackTrace();
                 player.connection.disconnect(Component.literal("No valid profile transfer token. Please join through the profile lobby."));
                 return;
             }
 
             String profileName = transferredProfileName.get();
             if (profileName != null && !profileName.isBlank()) {
-                player.sendSystemMessage(Component.literal("Loading transferred profile...").withStyle(ChatFormatting.YELLOW));
-                PlayerProfileManager.switchAsync(player, profileName, result ->
-                        player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Loaded") ? ChatFormatting.GREEN : ChatFormatting.RED)));
+                // The profile lobby already displayed the loading title before issuing the token.
+                // Survival still has to attach the cached inventory/party stores to the live player,
+                // but do not show a second loading popup here.
+                // Keep the survival quarantine active through the entire profile switch.
+                // switchAsync owns the final unlock now; ending here re-opened the dangerous
+                // gap where survival systems could run before the profile was fully hydrated.
+                ProfileLoadingStateManager.beginBlank(player, profileName);
+                PlayerProfileManager.switchAsync(player, profileName, result -> {
+                    if (result == null || !result.startsWith("Loaded")) {
+                        player.sendSystemMessage(Component.literal(result == null ? "Could not load your profile." : result).withStyle(ChatFormatting.RED));
+                    }
+                });
                 return;
             }
 
+            ProfileLoadingStateManager.end(player);
             if (config.allowSurvivalDirectProfileMenu) {
                 ProfileLobbyManager.sendToLobby(player);
             }
         }));
 
         return true;
+    }
+
+    public static void clearAcceptedTransferSession(UUID playerUuid) {
+        if (playerUuid == null) return;
+        ACCEPTED_SURVIVAL_SESSIONS.remove(playerUuid);
+        SURVIVAL_CONSUME_IN_FLIGHT.remove(playerUuid);
+    }
+
+    public static void sendLoadingTitle(ServerPlayer player, String profileName) {
+        if (player == null || player.connection == null) return;
+        String cleanProfileName = profileName == null || profileName.isBlank() ? "Profile" : profileName.trim();
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 60, 10));
+        player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("§eLoading " + cleanProfileName + " Profile...")));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("§7Please wait")));
     }
 
     private static String readProfileName(Connection connection, UUID playerUuid, UUID profileId) throws Exception {
@@ -135,6 +254,34 @@ public final class ProfileNetworkTransferFlow {
                 return rs.next() ? rs.getString("name") : null;
             }
         }
+    }
+
+    private static boolean executeProxyTransfer(ServerPlayer player, NetworkServerConfig config) {
+        String targetServer = resolveVelocityTargetServer(config);
+        if (targetServer == null || targetServer.isBlank()) {
+            return false;
+        }
+        return ProxyTransferBridge.connect(player, targetServer);
+    }
+
+    private static String resolveVelocityTargetServer(NetworkServerConfig config) {
+        if (config == null) return "";
+
+        String command = config.lobbyTransferCommand == null ? "" : config.lobbyTransferCommand.trim();
+        if (!command.isBlank()) {
+            String expanded = command
+                    .replace("{player}", "__player__")
+                    .replace("{target_server}", config.survivalServerId == null ? "" : config.survivalServerId)
+                    .replace("{profile}", "__profile__")
+                    .replace("{token}", "__token__")
+                    .replace("/", "")
+                    .trim();
+            String[] parts = expanded.split("\\s+");
+            if (parts.length >= 2 && parts[0].equalsIgnoreCase("server")) {
+                return parts[parts.length - 1];
+            }
+        }
+        return config.survivalServerId == null ? "" : config.survivalServerId;
     }
 
     private static void executeLobbyTransferCommand(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String wireToken) {

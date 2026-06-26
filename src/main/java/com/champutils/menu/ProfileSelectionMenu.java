@@ -139,31 +139,30 @@ public final class ProfileSelectionMenu {
                 invalidateSnapshot(player);
                 gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("Loading profile...").withStyle(ChatFormatting.YELLOW))
-                        .addLoreLine(Component.literal("Please wait. This no longer blocks the whole server.").withStyle(ChatFormatting.GRAY)));
+                        .setName(Component.literal("Loading " + profile.profileName() + " Profile...").withStyle(ChatFormatting.YELLOW))
+                        .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+                ProfileNetworkTransferFlow.sendLoadingTitle(player, profile.profileName());
                 if (ProfileNetworkTransferFlow.shouldUseLobbyTransferFlow()) {
-                    player.sendSystemMessage(Component.literal("Preparing profile transfer for " + profile.profileName() + "...").withStyle(ChatFormatting.YELLOW));
                     ProfileNetworkTransferFlow.issueTransferFromLobby(player, profile, result -> {
                         boolean issued = result.startsWith("Profile transfer token issued");
-                        if (issued) clearForcedReopener(player);
-                        player.sendSystemMessage(Component.literal(result).withStyle(issued ? ChatFormatting.GREEN : ChatFormatting.RED));
                         if (issued) {
+                            clearForcedReopener(player);
                             gui.close();
                         } else {
+                            player.sendSystemMessage(Component.literal(result).withStyle(ChatFormatting.RED));
                             navigate(player, () -> open(player));
                         }
                     });
                     return;
                 }
 
-                player.sendSystemMessage(Component.literal("Loading profile " + profile.profileName() + "...").withStyle(ChatFormatting.YELLOW));
                 PlayerProfileManager.switchAsync(player, profile.profileName(), result -> {
                     boolean loaded = result.startsWith("Loaded");
-                    if (loaded) clearForcedReopener(player);
-                    player.sendSystemMessage(Component.literal(result).withStyle(loaded ? ChatFormatting.GREEN : ChatFormatting.RED));
                     if (loaded) {
+                        clearForcedReopener(player);
                         gui.close();
                     } else {
+                        player.sendSystemMessage(Component.literal(result).withStyle(ChatFormatting.RED));
                         navigate(player, () -> open(player));
                     }
                 });

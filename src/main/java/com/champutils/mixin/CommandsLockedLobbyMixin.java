@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.profile.ProfileLobbyLockManager;
+import com.champutils.profile.ProfileLoadingStateManager;
 import com.champutils.commands.CommandBlocker;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,7 +33,19 @@ public abstract class CommandsLockedLobbyMixin {
         }
 
         if (!ProfileLobbyLockManager.isLocked(player)) return;
+        // Staff/console-level commands must always be able to rescue a player from a bad profile lock.
+        if (source.hasPermission(4)) return;
         if (ProfileLobbyLockManager.hasBypass(player)) return;
+
+        // Survival profile hydration is stricter than the profile-lobby menu lock.
+        // Only login/auth commands can pass while the profile is not fully attached.
+        if (ProfileLoadingStateManager.isLoading(player)) {
+            if (ProfileLoadingStateManager.isAllowedCommand(command)) return;
+            ProfileLoadingStateManager.deny(player);
+            ci.cancel();
+            return;
+        }
+
         if (ProfileLobbyLockManager.isAllowedCommand(command)) return;
 
         ProfileLobbyLockManager.deny(player);

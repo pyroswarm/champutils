@@ -9,6 +9,7 @@ import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfilePlaytimeManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.rank.RankManager;
 import com.champutils.config.Rank;
 import com.champutils.specialspawn.SpecialWildSpawnManager;
@@ -50,7 +51,7 @@ public final class PlayerSidebarManager {
     }
 
     public static void tick(MinecraftServer server) {
-        if (server == null) {
+        if (server == null || ProfileNetworkTransferFlow.isProfileLobbyServer()) {
             return;
         }
 
@@ -64,7 +65,7 @@ public final class PlayerSidebarManager {
     }
 
     public static void update(ServerPlayer player) {
-        if (player == null || player.connection == null) {
+        if (player == null || player.connection == null || ProfileNetworkTransferFlow.isProfileLobbyServer()) {
             return;
         }
 
@@ -125,7 +126,7 @@ public final class PlayerSidebarManager {
     }
 
     public static void clear(ServerPlayer player) {
-        if (player == null || player.connection == null) {
+        if (player == null || player.connection == null || ProfileNetworkTransferFlow.isProfileLobbyServer()) {
             return;
         }
 

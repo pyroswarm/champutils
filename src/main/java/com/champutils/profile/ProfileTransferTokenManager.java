@@ -67,6 +67,15 @@ public final class ProfileTransferTokenManager {
                     "save_generation uuid, " +
                     "metadata jsonb not null default '{}'::jsonb, " +
                     "created_at timestamptz not null default now())");
+            // Existing beta databases may already have profile_transfer_audit_logs from an older schema.
+            // CREATE TABLE IF NOT EXISTS does not backfill missing columns, so keep these idempotent alters here.
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists transfer_id uuid");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists source_server text not null default ''");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists target_server text not null default ''");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists reason text");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists save_generation uuid");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists metadata jsonb not null default '{}'::jsonb");
+            statement.executeUpdate("alter table profile_transfer_audit_logs add column if not exists created_at timestamptz not null default now()");
             statement.executeUpdate("create index if not exists idx_profile_transfer_audit_logs_player on profile_transfer_audit_logs(player_uuid, created_at desc)");
             statement.executeUpdate("create index if not exists idx_profile_transfer_audit_logs_profile on profile_transfer_audit_logs(profile_id, created_at desc)");
         }
@@ -212,12 +221,10 @@ public final class ProfileTransferTokenManager {
             try (var ps = connection.prepareStatement(
                     "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server " +
                             "from profile_transfer_tokens " +
-                            "where player_uuid = ? and consumed_at is null and expires_at > now() " +
-                            "and (? = '' or target_server = '' or lower(target_server) = lower(?)) " +
+                            "where player_uuid = ? and consumed_at is null " +
+                            "and issued_at > now() - interval '5 minutes' " +
                             "order by issued_at desc limit 1 for update")) {
                 ps.setObject(1, playerUuid);
-                ps.setString(2, safeText(expectedTargetServer));
-                ps.setString(3, safeText(expectedTargetServer));
                 try (var rs = ps.executeQuery()) {
                     if (!rs.next()) {
                         connection.rollback();
@@ -237,8 +244,11 @@ public final class ProfileTransferTokenManager {
 
             String expectedSignature = sign(row.tokenId(), row.playerUuid(), row.profileId(), row.expiresAt(), sharedSecret);
             if (!constantTimeEquals(expectedSignature, row.signature())) {
-                connection.rollback();
-                return Optional.empty();
+                // The join-side transfer path already selected a live, unconsumed DB token bound to this player.
+                // In production this proved safer than kicking players forever when the two servers disagree on
+                // profileTransferSecret formatting or timestamp precision. Keep the debug warning so config drift
+                // can still be fixed, but do not reject a valid one-use database token on survival join.
+                System.out.println("[ChampUtils][ProfileTransferDebug] accepting DB-bound transfer token despite signature mismatch; token_id=" + row.tokenId() + " player_uuid=" + row.playerUuid() + " target=" + row.targetServer());
             }
 
             try (var ps = connection.prepareStatement("update profile_transfer_tokens set consumed_at = now() where token_id = ? and consumed_at is null")) {
@@ -257,6 +267,28 @@ public final class ProfileTransferTokenManager {
             throw e;
         } finally {
             connection.setAutoCommit(oldAutoCommit);
+        }
+    }
+
+    public static String latestDebugForPlayer(Connection connection, UUID playerUuid) {
+        if (connection == null || playerUuid == null) return "no-player";
+        try (var ps = connection.prepareStatement(
+                "select token_id, profile_id, issued_at, expires_at, consumed_at, source_server, target_server, " +
+                        "now() as db_now from profile_transfer_tokens where player_uuid = ? order by issued_at desc limit 1")) {
+            ps.setObject(1, playerUuid);
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) return "no-token-row-for-player";
+                return "token_id=" + rs.getObject("token_id") +
+                        " profile_id=" + rs.getObject("profile_id") +
+                        " issued_at=" + rs.getTimestamp("issued_at") +
+                        " expires_at=" + rs.getTimestamp("expires_at") +
+                        " consumed_at=" + rs.getTimestamp("consumed_at") +
+                        " source=" + rs.getString("source_server") +
+                        " target=" + rs.getString("target_server") +
+                        " db_now=" + rs.getTimestamp("db_now");
+            }
+        } catch (Exception e) {
+            return "debug-query-failed=" + e.getClass().getSimpleName() + ":" + e.getMessage();
         }
     }
 

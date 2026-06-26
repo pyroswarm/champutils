@@ -28,6 +28,9 @@ public final class NetworkServerConfig {
     /** Server id that PROFILE_LOBBY should issue profile transfer tokens for. */
     public String survivalServerId = "survival-1";
 
+    /** Velocity backend name for the profile lobby. Used by /profiles on SURVIVAL. */
+    public String profileLobbyServerId = "profile_lobby";
+
     /** Seconds before a lobby-issued profile transfer token expires. Clamped to 10-300. */
     public int profileTransferTtlSeconds = 90;
 
@@ -36,6 +39,9 @@ public final class NetworkServerConfig {
      * {profile}, and {token}. For Bungee/Velocity setups, usually: server {player} survival
      */
     public String lobbyTransferCommand = "server {player} survival";
+
+    /** Command run by SURVIVAL when a player uses /profiles to return to profile selection. */
+    public String returnToProfileLobbyCommand = "server {player} {target_server}";
 
     /**
      * Safety valve for testing SURVIVAL directly. Keep false in production once the proxy lobby
@@ -91,6 +97,25 @@ public final class NetworkServerConfig {
 
         if (serverRole == null) {
             serverRole = ServerRole.ALL_IN_ONE;
+        }
+
+        if (survivalServerId == null || survivalServerId.isBlank()) {
+            survivalServerId = "survival-1";
+        }
+        if (profileLobbyServerId == null || profileLobbyServerId.isBlank()) {
+            profileLobbyServerId = "profile_lobby";
+        }
+        if (lobbyTransferCommand == null || lobbyTransferCommand.isBlank()) {
+            lobbyTransferCommand = "server {player} survival";
+        }
+        if (returnToProfileLobbyCommand == null || returnToProfileLobbyCommand.isBlank()) {
+            returnToProfileLobbyCommand = "server {player} {target_server}";
+        }
+        if (profileTransferTtlSeconds < 10) {
+            profileTransferTtlSeconds = 10;
+        }
+        if (profileTransferTtlSeconds > 300) {
+            profileTransferTtlSeconds = 300;
         }
     }
 

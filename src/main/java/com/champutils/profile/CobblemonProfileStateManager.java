@@ -1,6 +1,8 @@
 package com.champutils.profile;
 
 import net.minecraft.server.level.ServerPlayer;
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.storage.party.PartyStore;
 
 /**
  * Compatibility wrapper kept so older ChampUtils call sites still compile.
@@ -26,7 +28,14 @@ public final class CobblemonProfileStateManager {
     }
 
     public static void clearLive(ServerPlayer player) {
-        // No-op by design. The active profile SQL store is selected before
-        // Cobblemon loads, so there is no profile-copy cleanup step anymore.
+        if (player == null) return;
+        try {
+            PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party != null) {
+                for (int i = 0; i < party.size(); i++) {
+                    try { party.set(i, null); } catch (Throwable ignored) {}
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 }

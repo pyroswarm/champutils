@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.network.NetworkServerConfig;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -48,6 +49,10 @@ public final class ProfileSaveGenerationManager {
                     "committed_at timestamptz, " +
                     "metadata jsonb not null default '{}'::jsonb)");
             statement.executeUpdate("alter table profile_save_generations add column if not exists expected_lock_version bigint");
+            statement.executeUpdate("alter table profile_save_generations add column if not exists server_id text");
+            statement.executeUpdate("alter table profile_save_generations alter column server_id set default ''");
+            statement.executeUpdate("update profile_save_generations set server_id = '' where server_id is null");
+            statement.executeUpdate("alter table profile_save_generations alter column server_id set not null");
             statement.executeUpdate("alter table profile_save_generations add column if not exists committed_profile_version bigint");
             statement.executeUpdate("create index if not exists idx_profile_save_generations_profile_started on profile_save_generations(profile_id, started_at desc)");
             statement.executeUpdate("create index if not exists idx_profile_save_generations_open on profile_save_generations(profile_id, started_at) where state = 'OPEN'");
@@ -92,13 +97,14 @@ public final class ProfileSaveGenerationManager {
                 expectedLockVersion = rs.getLong("lock_version");
             }
         }
-        try (var ps = connection.prepareStatement("insert into profile_save_generations (profile_id, player_uuid, source, state, expected_lock_version, metadata) values (?, ?, ?, 'OPEN', ?, jsonb_build_object('reason', ?, 'local_generation', ?)) returning id")) {
+        try (var ps = connection.prepareStatement("insert into profile_save_generations (profile_id, player_uuid, server_id, source, state, expected_lock_version, metadata) values (?, ?, ?, ?, 'OPEN', ?, jsonb_build_object('reason', ?, 'local_generation', ?)) returning id")) {
             ps.setObject(1, queuedSave.profileId());
             ps.setObject(2, queuedSave.playerUuid());
-            ps.setString(3, queuedSave.saveType());
-            ps.setLong(4, expectedLockVersion);
-            ps.setString(5, queuedSave.reason());
-            ps.setLong(6, queuedSave.localGeneration());
+            ps.setString(3, NetworkServerConfig.serverId());
+            ps.setString(4, queuedSave.saveType());
+            ps.setLong(5, expectedLockVersion);
+            ps.setString(6, queuedSave.reason());
+            ps.setLong(7, queuedSave.localGeneration());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Could not create save generation.");
                 return new SqlSave((UUID) rs.getObject("id"), expectedLockVersion);

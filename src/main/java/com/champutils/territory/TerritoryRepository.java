@@ -76,16 +76,26 @@ public final class TerritoryRepository {
 
         public boolean contains(String serverId, String worldName, BlockPos pos) {
             if (pos == null) return false;
-            return this.serverId.equalsIgnoreCase(serverId)
-                    && this.worldName.equalsIgnoreCase(worldName)
-                    && pos.getX() >= minX
+            return serverMatches(this.serverId, serverId)
+                    && worldMatches(this.worldName, worldName)
+                    && containsPositionOnly(pos);
+        }
+
+        public boolean containsLoose(String worldName, BlockPos pos) {
+            if (pos == null) return false;
+            return worldMatches(this.worldName, worldName) && containsPositionOnly(pos);
+        }
+
+        public boolean containsPositionOnly(BlockPos pos) {
+            if (pos == null) return false;
+            return pos.getX() >= minX
                     && pos.getX() <= maxX
                     && pos.getZ() >= minZ
                     && pos.getZ() <= maxZ;
         }
 
         public boolean isTerritoryWorld(String serverId, String worldName) {
-            return this.serverId.equalsIgnoreCase(serverId) && this.worldName.equalsIgnoreCase(worldName);
+            return serverMatches(this.serverId, serverId) && worldMatches(this.worldName, worldName);
         }
 
         public boolean isReady() {
@@ -239,14 +249,43 @@ public final class TerritoryRepository {
 
     public static boolean isTerritoryWorld(ServerLevel level) {
         if (level == null) return false;
-        return TERRITORY_WORLD_KEYS.contains(worldKey(NetworkServerConfig.serverId(), level.dimension().location().toString()));
+        String currentServerId = NetworkServerConfig.serverId();
+        String worldName = level.dimension().location().toString();
+        if (TERRITORY_WORLD_KEYS.contains(worldKey(currentServerId, worldName))) return true;
+        String normalizedWorld = normalizeWorldName(worldName);
+        for (String key : TERRITORY_WORLD_KEYS) {
+            int split = key.indexOf('|');
+            String indexedServer = split >= 0 ? key.substring(0, split) : "";
+            String indexedWorld = split >= 0 ? key.substring(split + 1) : key;
+            if (serverMatches(indexedServer, currentServerId) && normalizeWorldName(indexedWorld).equals(normalizedWorld)) return true;
+        }
+        return false;
     }
 
     public static Territory findAt(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return null;
         String serverId = NetworkServerConfig.serverId();
         String worldName = level.dimension().location().toString();
+        Territory exact = findAtIndexed(serverId, worldName, pos);
+        if (exact != null) return exact;
+
+        // Recovery path for old/backfilled rows whose server_id or world_name differs only by namespace.
+        // This is critical for Islander worlds like multiworld:islander_1 where older rows may be stored
+        // as islander_1 or with a previous server_id.
+        String normalizedWorld = normalizeWorldName(worldName);
+        for (Territory territory : TERRITORIES.values()) {
+            if (territory == null) continue;
+            if (!normalizeWorldName(territory.worldName).equals(normalizedWorld)) continue;
+            if (territory.containsPositionOnly(pos)) return territory;
+        }
+        return null;
+    }
+
+    private static Territory findAtIndexed(String serverId, String worldName, BlockPos pos) {
         Map<Long, List<Territory>> chunks = TERRITORIES_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
+        if (chunks == null || chunks.isEmpty()) {
+            chunks = TERRITORIES_BY_WORLD_CHUNK.get(worldKey(serverId, normalizeWorldName(worldName)));
+        }
         if (chunks == null || chunks.isEmpty()) return null;
 
         List<Territory> candidates = chunks.get(chunkKey(pos.getX() >> 4, pos.getZ() >> 4));
@@ -265,7 +304,15 @@ public final class TerritoryRepository {
 
     public static List<Territory> cachedInWorld(String serverId, String worldName) {
         List<Territory> territories = TERRITORIES_BY_WORLD.get(worldKey(serverId, worldName));
-        return territories == null ? Collections.emptyList() : territories;
+        if (territories != null) return territories;
+        String normalizedWorld = normalizeWorldName(worldName);
+        List<Territory> fallback = new ArrayList<>();
+        for (Territory territory : TERRITORIES.values()) {
+            if (territory != null && serverMatches(territory.serverId, serverId) && normalizeWorldName(territory.worldName).equals(normalizedWorld)) {
+                fallback.add(territory);
+            }
+        }
+        return fallback.isEmpty() ? Collections.emptyList() : fallback;
     }
 
 
@@ -303,6 +350,26 @@ public final class TerritoryRepository {
 
     private static long chunkKey(int chunkX, int chunkZ) {
         return (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL);
+    }
+
+    private static boolean serverMatches(String storedServerId, String currentServerId) {
+        String stored = storedServerId == null ? "" : storedServerId.trim().toLowerCase(Locale.ROOT);
+        String current = currentServerId == null ? "" : currentServerId.trim().toLowerCase(Locale.ROOT);
+        return stored.isEmpty() || current.isEmpty() || stored.equals(current);
+    }
+
+    public static boolean worldMatches(String storedWorldName, String currentWorldName) {
+        return normalizeWorldName(storedWorldName).equals(normalizeWorldName(currentWorldName));
+    }
+
+    public static String normalizeWorldName(String worldName) {
+        if (worldName == null) return "";
+        String clean = worldName.trim().toLowerCase(Locale.ROOT).replace('\\', '/');
+        int slash = clean.lastIndexOf('/');
+        if (slash >= 0) clean = clean.substring(slash + 1);
+        if (clean.startsWith("multiworld:")) return clean.substring("multiworld:".length());
+        if (clean.startsWith("minecraft:")) return clean.substring("minecraft:".length());
+        return clean;
     }
 
     private static String worldKey(String serverId, String worldName) {
@@ -726,9 +793,8 @@ public final class TerritoryRepository {
     }
 
     private static boolean isIslanderWorldName(String worldName) {
-        if (worldName == null) return false;
-        String clean = worldName.trim().toLowerCase(Locale.ROOT);
-        return clean.matches("multiworld:islander_\\d+") || clean.matches("islander_\\d+");
+        String clean = normalizeWorldName(worldName);
+        return clean.matches("islander_\\d+");
     }
 
     public static boolean isDeleting(Territory territory) {

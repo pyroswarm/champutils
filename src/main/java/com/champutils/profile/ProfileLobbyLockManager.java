@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.menu.ProfileSelectionMenu;
+import com.champutils.menu.MenuNpcBindingRegistry;
 import com.champutils.permissions.LuckPermsHook;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
@@ -71,23 +72,31 @@ public final class ProfileLobbyLockManager {
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
-                ProfileSelectionMenu.reopenForcedOrRoot(serverPlayer);
-                return InteractionResult.FAIL;
-            }
-            return InteractionResult.PASS;
-        });
-
-        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
                 deny(serverPlayer);
                 return InteractionResult.FAIL;
             }
             return InteractionResult.PASS;
         });
 
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (player instanceof ServerPlayer serverPlayer) {
+                String boundMenu = MenuNpcBindingRegistry.getBoundMenu(entity);
+                if ("profiles".equals(MenuNpcBindingRegistry.normalize(boundMenu))) {
+                    ProfileLobbyDebug.log("npcProfileMenu.open", serverPlayer);
+                    ProfileSelectionMenu.open(serverPlayer);
+                    return InteractionResult.SUCCESS;
+                }
+                if (isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
+                    deny(serverPlayer);
+                    return InteractionResult.FAIL;
+                }
+            }
+            return InteractionResult.PASS;
+        });
+
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (player instanceof ServerPlayer serverPlayer && isLocked(serverPlayer) && !hasBypass(serverPlayer)) {
-                ProfileSelectionMenu.reopenForcedOrRoot(serverPlayer);
+                deny(serverPlayer);
                 return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
             }
             return InteractionResultHolder.pass(player.getItemInHand(hand));
@@ -97,6 +106,16 @@ public final class ProfileLobbyLockManager {
     }
 
     public static boolean isLocked(ServerPlayer player) {
+        if (player == null) return false;
+        if (ProfileLoadingStateManager.isLoading(player)) return true;
+        // Once a real profile is active, the player must never remain trapped by the lobby lock.
+        // This prevents stale menu/no-profile state from blocking commands after a successful load.
+        if (PlayerProfileManager.hasActiveProfile(player)) return false;
+        // On a real PROFILE_LOBBY backend, do not enforce the old all-in-one lobby lock.
+        // The lock applies protection/state packets every tick, and the current Velocity/FabricProxy
+        // failure happens before the async profile prep finishes. Keep PROFILE_LOBBY join packet-quiet;
+        // /profiles and bound profile NPCs still open the selector manually.
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) return false;
         return ProfileLobbyManager.isInLobby(player);
     }
 
@@ -108,6 +127,7 @@ public final class ProfileLobbyLockManager {
         if (command == null) return false;
         String clean = command.startsWith("/") ? command.substring(1) : command;
         clean = clean.trim().toLowerCase();
+
         return clean.equals("profiles")
                 || clean.equals("profilemode")
                 || clean.equals("login")
@@ -120,8 +140,11 @@ public final class ProfileLobbyLockManager {
         long last = LAST_DENY.getOrDefault(player.getUUID(), 0L);
         if (now - last >= DENY_COOLDOWN_MS) {
             LAST_DENY.put(player.getUUID(), now);
-            player.sendSystemMessage(Component.literal("Select a profile from the menu before playing.").withStyle(ChatFormatting.YELLOW));
-            ProfileSelectionMenu.reopenForcedOrRoot(player);
+            if (ProfileLoadingStateManager.isLoading(player)) {
+                ProfileLoadingStateManager.deny(player);
+            } else {
+                player.sendSystemMessage(Component.literal("Right-click the Select a Profile NPC or use /profiles to choose a profile.").withStyle(ChatFormatting.YELLOW));
+            }
         }
     }
 
@@ -129,6 +152,10 @@ public final class ProfileLobbyLockManager {
         tickCounter++;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!isLocked(player) || hasBypass(player)) continue;
+
+            if (ProfileLoadingStateManager.isLoading(player)) {
+                continue;
+            }
 
             ProfileLobbyManager.applyLobbyProtections(player);
 
@@ -139,9 +166,8 @@ public final class ProfileLobbyLockManager {
                 ProfileMainMenuManager.teleportToMenu(player);
             }
 
-            if (tickCounter % REOPEN_MENU_EVERY_TICKS == 0 && player.containerMenu == player.inventoryMenu) {
-                ProfileSelectionMenu.reopenForcedOrRoot(player);
-            }
+            // Do not auto-open or force-reopen SGUI in PROFILE_LOBBY mode.
+            // Velocity can disconnect clients if virtual inventory packets are sent during backend join.
         }
     }
 }

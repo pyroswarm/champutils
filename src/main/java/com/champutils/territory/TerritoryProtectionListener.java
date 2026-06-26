@@ -1,5 +1,6 @@
 package com.champutils.territory;
 
+import com.champutils.profile.IslanderDebugManager;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -38,6 +39,7 @@ public final class TerritoryProtectionListener {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return true;
             TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, pos);
             if (territory == null || TerritoryRepository.canBuild(serverPlayer, territory)) return true;
+            IslanderDebugManager.log(serverPlayer, "protect.break", territory, "DENY", "canBuild_false");
             deny(serverPlayer, "You cannot break blocks in " + territory.ownerName + "'s territory.");
             return false;
         });
@@ -58,26 +60,31 @@ public final class TerritoryProtectionListener {
             if (territory == null) return InteractionResult.PASS;
 
             if (!TerritoryRepository.canEnter(serverPlayer, territory)) {
+                IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "canEnter_false");
                 deny(serverPlayer, "You cannot interact in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 
             if ((stack.getItem() instanceof BucketItem || stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE)) && !TerritoryRepository.canBuild(serverPlayer, territory)) {
+                IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "fluid_or_fire_canBuild_false");
                 deny(serverPlayer, "You cannot place fluids or fire in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 
             if (stack.getItem() instanceof BlockItem && !TerritoryRepository.canBuild(serverPlayer, territory)) {
+                IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "place_block_canBuild_false");
                 deny(serverPlayer, "You cannot place blocks in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 
             if (isContainer(level, targetPos, state) && !TerritoryRepository.canOpenContainers(serverPlayer, territory)) {
+                IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "canOpenContainers_false");
                 deny(serverPlayer, "You cannot open containers in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 
             if (isRedstoneOrDoor(state) && !TerritoryRepository.canUseRedstone(serverPlayer, territory)) {
+                IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "canUseRedstone_false");
                 deny(serverPlayer, "You cannot use switches, doors, or redstone in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
@@ -89,6 +96,7 @@ public final class TerritoryProtectionListener {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, entity.blockPosition());
             if (territory == null || TerritoryRepository.canInteractEntities(serverPlayer, territory)) return InteractionResult.PASS;
+            IslanderDebugManager.log(serverPlayer, "protect.useEntity", territory, "DENY", "canInteractEntities_false");
             deny(serverPlayer, "You cannot interact with entities in " + territory.ownerName + "'s territory.");
             return InteractionResult.FAIL;
         });
@@ -97,6 +105,7 @@ public final class TerritoryProtectionListener {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, entity.blockPosition());
             if (territory == null || TerritoryRepository.canInteractEntities(serverPlayer, territory)) return InteractionResult.PASS;
+            IslanderDebugManager.log(serverPlayer, "protect.attackEntity", territory, "DENY", "canInteractEntities_false");
             deny(serverPlayer, "You cannot attack entities in " + territory.ownerName + "'s territory.");
             return InteractionResult.FAIL;
         });

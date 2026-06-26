@@ -3,6 +3,7 @@ package com.champutils.menu;
 import com.champutils.auction.AuctionHouseGui;
 import com.champutils.crate.OpenCratesMenu;
 import com.champutils.territory.TerritoryMenus;
+import com.champutils.profile.ProfileLobbyDebug;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
@@ -73,6 +74,10 @@ public final class MenuNpcInteractionListener {
 
     private static void openBoundMenu(ServerPlayer player, String menu) {
         switch (MenuNpcBindingRegistry.normalize(menu)) {
+            case "profiles", "profile", "profilemenu" -> {
+                ProfileLobbyDebug.log("menuNpc.openProfiles", player);
+                ProfileSelectionMenu.open(player);
+            }
             case "gearworkshop" -> GearWorkshopMenu.open(player);
             case "gearappraiser" -> GearAppraiserMenu.open(player);
             case "tmcrafter", "tms" -> TMCrafterMenu.open(player);
