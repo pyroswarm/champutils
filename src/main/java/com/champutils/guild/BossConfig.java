@@ -174,7 +174,9 @@ public final class BossConfig {
         @Override
         void normalize() {
             super.normalize();
-            if (averageMinutesUntilNextBoss <= 0) averageMinutesUntilNextBoss = 720;
+            // Keep world bosses at roughly a 12-hour average. Older beta configs sometimes saved
+            // tiny test values like 8 minutes; migrate those automatically.
+            if (averageMinutesUntilNextBoss <= 0 || averageMinutesUntilNextBoss < 60) averageMinutesUntilNextBoss = 720;
             if (partySize <= 0 || partySize > 6) partySize = 6;
             if (themes == null || themes.isEmpty()) themes = defaultWorldThemes();
             themes.forEach(WorldBossTheme::normalize);

@@ -31,6 +31,7 @@ public class GymCommand {
 
                     dispatcher.register(
                             literal("gym")
+                                    .requires(source -> source.hasPermission(4))
 
 
 

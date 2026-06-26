@@ -35,8 +35,12 @@ public class MiningProfessionListener {
             new HashSet<>();
 
     private static final int STONE_BLOCKS_PER_XP = 20;
+    private static final int SHOVEL_BLOCKS_PER_XP = 100;
 
     private static final Map<UUID, Integer> STONE_BLOCK_COUNTS =
+            new ConcurrentHashMap<>();
+
+    private static final Map<UUID, Integer> SHOVEL_BLOCK_COUNTS =
             new ConcurrentHashMap<>();
 
     public static void register() {
@@ -146,11 +150,54 @@ public class MiningProfessionListener {
                     }
 
                     Integer xp =
-                            ProfessionConfig
-                                    .SETTINGS
-                                    .miningXp
-                                    .get(blockId);
-                    if (xp == null) xp = fallbackMiningXp(blockId);
+                            getMiningXp(
+                                    serverPlayer.serverLevel(),
+                                    pos,
+                                    state,
+                                    blockId
+                            );
+
+                    boolean isShovelBlock =
+                            MiningBlockUtil.isShovelBlock(
+                                    serverPlayer.serverLevel(),
+                                    pos,
+                                    state
+                            );
+
+                    boolean hasMiningTool =
+                            ProfessionToolUtil.isUsableProfessionTool(
+                                    serverPlayer,
+                                    serverPlayer.getMainHandItem(),
+                                    ProfessionType.MINING
+                            );
+
+                    if (isShovelBlock && hasMiningTool) {
+                        handleShovelDiggingProgress(serverPlayer, blockId);
+
+                        if (!isBreakingExtraBlock(
+                                serverPlayer
+                        )) {
+                            handleBlastMineActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+
+                            handleStonebreakerActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+
+                            handleExcavationActive(
+                                    serverPlayer,
+                                    pos,
+                                    state
+                            );
+                        }
+
+                        return true;
+                    }
 
                     if (xp == null || xp <= 0) {
                         if (
@@ -190,11 +237,7 @@ public class MiningProfessionListener {
                     }
 
                     if (
-                            !ProfessionToolUtil.isUsableProfessionTool(
-                                    serverPlayer,
-                                    serverPlayer.getMainHandItem(),
-                                    ProfessionType.MINING
-                            )
+                            !hasMiningTool
                     ) {
                         return true;
                     }
@@ -319,6 +362,77 @@ public class MiningProfessionListener {
         );
     }
 
+    private static void handleShovelDiggingProgress(
+            ServerPlayer player,
+            String blockId
+    ) {
+        int count = SHOVEL_BLOCK_COUNTS.merge(
+                player.getUUID(),
+                1,
+                Integer::sum
+        );
+
+        if (count < SHOVEL_BLOCKS_PER_XP) {
+            return;
+        }
+
+        SHOVEL_BLOCK_COUNTS.put(
+                player.getUUID(),
+                count % SHOVEL_BLOCKS_PER_XP
+        );
+
+        ProfessionManager.addXp(
+                player,
+                ProfessionType.MINING,
+                1
+        );
+
+        com.champutils.quest.QuestManager.recordBlock(
+                player,
+                ProfessionType.MINING,
+                blockId
+        );
+
+        /*
+         * Shovel digging is deliberately throttled to 1 Mining XP per 100
+         * natural shovel blocks and must not roll profession fragments.
+         */
+    }
+
+    private static Integer getMiningXp(
+            ServerLevel level,
+            BlockPos pos,
+            BlockState state,
+            String blockId
+    ) {
+
+        Integer configuredXp = null;
+
+        if (
+                ProfessionConfig.SETTINGS != null &&
+                        ProfessionConfig.SETTINGS.miningXp != null
+        ) {
+            configuredXp = ProfessionConfig.SETTINGS.miningXp.get(blockId);
+        }
+
+        /*
+         * Shovel blocks use a separate 100-block progress counter instead of
+         * per-block configured XP, and they never roll profession fragments.
+         */
+        if (
+                state != null &&
+                        MiningBlockUtil.isShovelBlock(level, pos, state)
+        ) {
+            return 0;
+        }
+
+        if (configuredXp != null) {
+            return configuredXp;
+        }
+
+        return fallbackMiningXp(blockId);
+    }
+
     private static Integer fallbackMiningXp(String blockId) {
         if (blockId == null) return null;
         return switch (blockId) {
@@ -388,12 +502,12 @@ public class MiningProfessionListener {
         );
 
         Integer xp =
-                ProfessionConfig
-                        .SETTINGS
-                        .miningXp
-                        .get(blockId);
-
-        if (xp == null) xp = fallbackMiningXp(blockId);
+                getMiningXp(
+                        player.serverLevel(),
+                        pos,
+                        state,
+                        blockId
+                );
 
         if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(player, player.getMainHandItem(), ProfessionType.MINING)) {
             ProfessionManager.addXp(
@@ -798,14 +912,24 @@ public class MiningProfessionListener {
         );
 
         Integer xp =
-                ProfessionConfig
-                        .SETTINGS
-                        .miningXp
-                        .get(targetBlockId);
+                getMiningXp(
+                        level,
+                        target,
+                        targetState,
+                        targetBlockId
+                );
 
-        if (xp == null) xp = fallbackMiningXp(targetBlockId);
-
-        if (xp != null && xp > 0) {
+        if (
+                MiningBlockUtil.isShovelBlock(level, target, targetState) &&
+                        ProfessionToolUtil.isUsableProfessionTool(
+                                player,
+                                player.getMainHandItem(),
+                                ProfessionType.MINING
+                        )
+        ) {
+            handleShovelDiggingProgress(player, targetBlockId);
+        }
+        else if (xp != null && xp > 0) {
             int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
 
             ProfessionManager.addXp(
@@ -1202,23 +1326,28 @@ public class MiningProfessionListener {
                 );
 
                 Integer xp =
-                        ProfessionConfig
-                                .SETTINGS
-                                .miningXp
-                                .get(targetBlockId);
+                        getMiningXp(
+                                level,
+                                target,
+                                targetState,
+                                targetBlockId
+                        );
 
-                if (xp == null) xp = fallbackMiningXp(targetBlockId);
-
-                if (xp != null && xp > 0 && ProfessionToolUtil.isUsableProfessionTool(
+                if (ProfessionToolUtil.isUsableProfessionTool(
                         player,
                         player.getMainHandItem(),
                         ProfessionType.MINING
                 )) {
-                    int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
-                    ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
-                    com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
-                    ProfessionLootManager.rollReward(player, ProfessionType.MINING);
-                    ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.MINING);
+                    if (MiningBlockUtil.isShovelBlock(level, target, targetState)) {
+                        handleShovelDiggingProgress(player, targetBlockId);
+                    }
+                    else if (xp != null && xp > 0) {
+                        int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
+                        ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
+                        com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
+                        ProfessionLootManager.rollReward(player, ProfessionType.MINING);
+                        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.MINING);
+                    }
                 }
 
                 if (ActiveEffectManager.hasAutoSmelt(

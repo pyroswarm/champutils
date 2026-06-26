@@ -67,6 +67,10 @@ public class ProspectAbility implements ProfessionActiveAbility {
                                     .location()
                                     .toString();
 
+                    if (!isProspectOre(blockId)) {
+                        continue;
+                    }
+
                     if (
                             ProfessionConfig.SETTINGS == null ||
                                     ProfessionConfig.SETTINGS.miningXp == null ||
@@ -187,6 +191,26 @@ public class ProspectAbility implements ProfessionActiveAbility {
         );
 
         return true;
+    }
+
+
+    private boolean isProspectOre(
+            String blockId
+    ) {
+
+        if (blockId == null || blockId.isBlank()) {
+            return false;
+        }
+
+        String path =
+                blockId.contains(":")
+                        ? blockId.substring(
+                        blockId.indexOf(":") + 1
+                )
+                        : blockId;
+
+        return path.endsWith("_ore") ||
+                path.equals("ancient_debris");
     }
 
     private int getRadius(

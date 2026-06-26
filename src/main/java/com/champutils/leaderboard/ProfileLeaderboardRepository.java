@@ -307,9 +307,14 @@ public final class ProfileLeaderboardRepository {
 
     private static List<Entry> gyms(Connection connection, int limit) throws Exception {
         String sql = "select p.id as profile_id, p.player_uuid, coalesce(pl.username, p.name, 'Unknown') as username, " +
-                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, count(g.gym_id) as value " +
+                "p.name as profile_name, coalesce(p.mode, 'NORMAL') as mode, " +
+                "count(distinct clears.clear_id) as value " +
                 "from player_profiles p left join players pl on pl.uuid = p.player_uuid " +
-                "left join profile_gym_progress g on g.profile_id = p.id and g.defeated = true " +
+                "left join (" +
+                "  select profile_id, gym_id::text as clear_id from profile_gym_progress where defeated = true " +
+                "  union " +
+                "  select profile_id, badge::text as clear_id from profile_badges " +
+                ") clears on clears.profile_id = p.id " +
                 "where p.deleted_at is null group by p.id, p.player_uuid, pl.username, p.name, p.mode order by value desc limit ?";
         List<Entry> rows = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {

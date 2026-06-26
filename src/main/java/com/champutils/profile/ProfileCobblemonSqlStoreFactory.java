@@ -55,6 +55,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             statement.executeUpdate("alter table profile_cobblemon_storage add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("create index if not exists idx_profile_cobblemon_storage_updated_at on profile_cobblemon_storage(updated_at)");
             statement.executeUpdate("create index if not exists idx_profile_cobblemon_storage_profile_updated on profile_cobblemon_storage(profile_id, updated_at)");
+            ProfileAtomicSnapshotManager.ensureSchema(connection);
         }
     }
 
@@ -166,11 +167,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
         String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
         System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync snapshot took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null) + " pcSnapshot=" + (pcNbt != null));
-        DatabaseManager.executeAsync("save SQL Cobblemon profile stores", connection -> {
-            long sqlStart = System.currentTimeMillis();
-            upsertSnapshot(connection, profileId, partyNbt, pcNbt);
-            System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync SQL write took " + (System.currentTimeMillis() - sqlStart) + "ms for profile=" + profileId);
-        });
+        ProfileAtomicSnapshotManager.saveCobblemonCoalesced(profileId, partyNbt, pcNbt, "async-save");
     }
 
 
@@ -309,8 +306,13 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             try (var ps = connection.prepareStatement("select " + column + " from profile_cobblemon_storage where profile_id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) return;
-                    String raw = rs.getString(column);
+                    String raw;
+                    if (!rs.next()) {
+                        raw = ProfileAtomicSnapshotManager.latestCompletedCobblemon(connection, profileId, party);
+                    } else {
+                        raw = rs.getString(column);
+                        if (raw == null || raw.isBlank()) raw = ProfileAtomicSnapshotManager.latestCompletedCobblemon(connection, profileId, party);
+                    }
                     if (raw == null || raw.isBlank()) return;
                     CompoundTag tag = TagParser.parseTag(raw);
                     store.loadFromNBT(tag, registryAccess);
@@ -329,7 +331,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             if (pc != null) dedupeStore(pc);
             String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
             String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
-            upsertSnapshot(DatabaseManager.getConnection(), profileId, partyNbt, pcNbt);
+            ProfileAtomicSnapshotManager.saveCobblemonBlocking(DatabaseManager.getConnection(), profileId, partyNbt, pcNbt, "blocking-save");
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to save SQL Cobblemon stores for profile " + profileId + ".");
             e.printStackTrace();

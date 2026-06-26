@@ -147,6 +147,28 @@ public class ProfessionConfig {
         config.miningXp.put("minecraft:ancient_debris", 100);
 
         /*
+         MINING - SHOVEL BLOCKS
+         Shovels use the Mining profession too. Keep these explicit so fresh
+         and auto-migrated configs award normal XP every valid shovel break.
+         */
+        config.miningXp.put("minecraft:dirt", 1);
+        config.miningXp.put("minecraft:grass_block", 1);
+        config.miningXp.put("minecraft:coarse_dirt", 1);
+        config.miningXp.put("minecraft:rooted_dirt", 1);
+        config.miningXp.put("minecraft:podzol", 1);
+        config.miningXp.put("minecraft:mycelium", 1);
+        config.miningXp.put("minecraft:mud", 1);
+        config.miningXp.put("minecraft:packed_mud", 1);
+        config.miningXp.put("minecraft:clay", 1);
+        config.miningXp.put("minecraft:sand", 1);
+        config.miningXp.put("minecraft:red_sand", 1);
+        config.miningXp.put("minecraft:gravel", 1);
+        config.miningXp.put("minecraft:soul_sand", 1);
+        config.miningXp.put("minecraft:soul_soil", 1);
+        config.miningXp.put("minecraft:snow_block", 1);
+        config.miningXp.put("minecraft:powder_snow", 1);
+
+        /*
          MINING - COBBLEMON ORES
          */
         config.miningXp.put("cobblemon:dawn_stone_ore", 75);

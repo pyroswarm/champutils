@@ -18,8 +18,35 @@ public final class NetworkServerConfig {
     public boolean allowLocalFallbackWhileDatabaseOffline = true;
     public boolean enableCrossServerReadySchemas = true;
 
+    /**
+     * Shared HMAC secret used only when splitting profile selection onto a separate server.
+     * Leave blank while running ALL_IN_ONE. Before using PROFILE_LOBBY/SURVIVAL, set the
+     * same random 32+ character value on both servers.
+     */
+    public String profileTransferSecret = "CHANGE_ME_TO_A_32_PLUS_CHARACTER_RANDOM_SECRET";
+
+    /** Server id that PROFILE_LOBBY should issue profile transfer tokens for. */
+    public String survivalServerId = "survival-1";
+
+    /** Seconds before a lobby-issued profile transfer token expires. Clamped to 10-300. */
+    public int profileTransferTtlSeconds = 90;
+
+    /**
+     * Command run by the lobby server after token issue. Use {player}, {target_server},
+     * {profile}, and {token}. For Bungee/Velocity setups, usually: server {player} survival
+     */
+    public String lobbyTransferCommand = "server {player} survival";
+
+    /**
+     * Safety valve for testing SURVIVAL directly. Keep false in production once the proxy lobby
+     * is live so players cannot bypass token-gated profile loading.
+     */
+    public boolean allowSurvivalDirectProfileMenu = true;
+
     public enum ServerRole {
         ALL_IN_ONE,
+        PROFILE_LOBBY,
+        SURVIVAL,
         HUB,
         EXPLORATION,
         TERRITORY
@@ -93,7 +120,9 @@ public final class NetworkServerConfig {
     public String safeSummary() {
         return "serverId=" + serverId
                 + ", serverRole=" + serverRole
+                + ", survivalServerId=" + survivalServerId
                 + ", databaseIsSourceOfTruth=" + databaseIsSourceOfTruth
-                + ", allowLocalFallbackWhileDatabaseOffline=" + allowLocalFallbackWhileDatabaseOffline;
+                + ", allowLocalFallbackWhileDatabaseOffline=" + allowLocalFallbackWhileDatabaseOffline
+                + ", allowSurvivalDirectProfileMenu=" + allowSurvivalDirectProfileMenu;
     }
 }

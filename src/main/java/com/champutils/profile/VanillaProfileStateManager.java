@@ -40,6 +40,7 @@ public final class VanillaProfileStateManager {
             statement.executeUpdate("alter table profile_vanilla_state add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("create index if not exists idx_profile_vanilla_state_player_uuid on profile_vanilla_state(player_uuid)");
             statement.executeUpdate("create index if not exists idx_profile_vanilla_state_updated_at on profile_vanilla_state(updated_at)");
+            ProfileAtomicSnapshotManager.ensureSchema(connection);
         }
     }
 
@@ -61,18 +62,7 @@ public final class VanillaProfileStateManager {
     public static void saveSnapshotAsync(UUID profileId, UUID playerUuid, String playerName, String snbt) {
         if (profileId == null || playerUuid == null || snbt == null || snbt.isBlank() || !DatabaseManager.isEnabled()) return;
         PlayerProfileManager.cacheVanillaState(profileId, snbt);
-        DatabaseManager.executeAsync("save vanilla profile state snapshot", connection -> {
-            try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
-                    "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
-                ps.setObject(1, profileId);
-                ps.setObject(2, playerUuid);
-                ps.setString(3, snbt);
-                ps.executeUpdate();
-            } catch (Exception e) {
-                System.err.println("[ChampUtils] Failed async vanilla profile save for " + playerName);
-                throw e;
-            }
-        });
+        ProfileAtomicSnapshotManager.saveVanillaCoalesced(profileId, playerUuid, playerName, snbt, "checkpoint");
     }
 
     public static String loadSnbt(Connection connection, UUID profileId) throws Exception {
@@ -80,8 +70,10 @@ public final class VanillaProfileStateManager {
         try (var ps = connection.prepareStatement("select vanilla_snbt from profile_vanilla_state where profile_id = ?")) {
             ps.setObject(1, profileId);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
-                return rs.getString("vanilla_snbt");
+                if (!rs.next()) return ProfileAtomicSnapshotManager.latestCompletedVanilla(connection, profileId);
+                String active = rs.getString("vanilla_snbt");
+                if (active != null && !active.isBlank()) return active;
+                return ProfileAtomicSnapshotManager.latestCompletedVanilla(connection, profileId);
             }
         }
     }
@@ -115,13 +107,7 @@ public final class VanillaProfileStateManager {
             scrubAccountOnlyFields(tag, player);
             String snbt = tag.toString();
             PlayerProfileManager.cacheVanillaState(profileId, snbt);
-            try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
-                    "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
-                ps.setObject(1, profileId);
-                ps.setObject(2, player.getUUID());
-                ps.setString(3, snbt);
-                ps.executeUpdate();
-            }
+            ProfileAtomicSnapshotManager.saveVanillaBlocking(connection, profileId, player.getUUID(), snbt, "blocking-save");
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to save vanilla profile state for " + player.getGameProfile().getName());
             e.printStackTrace();
@@ -142,18 +128,7 @@ public final class VanillaProfileStateManager {
         String snbt = tag.toString();
         PlayerProfileManager.cacheVanillaState(profileId, snbt);
 
-        DatabaseManager.executeAsync("save vanilla profile state", connection -> {
-            try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at) values (?, ?, ?, now()) " +
-                    "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, updated_at = now()")) {
-                ps.setObject(1, profileId);
-                ps.setObject(2, playerUuid);
-                ps.setString(3, snbt);
-                ps.executeUpdate();
-            } catch (Exception e) {
-                System.err.println("[ChampUtils] Failed async vanilla profile save for " + playerName);
-                throw e;
-            }
-        });
+        ProfileAtomicSnapshotManager.saveVanillaCoalesced(profileId, playerUuid, playerName, snbt, "async-save");
     }
 
     public static void load(ServerPlayer player) {
@@ -165,11 +140,13 @@ public final class VanillaProfileStateManager {
             try (var ps = connection.prepareStatement("select vanilla_snbt from profile_vanilla_state where profile_id = ?")) {
                 ps.setObject(1, profileId);
                 try (ResultSet rs = ps.executeQuery()) {
+                    String snbt;
                     if (!rs.next()) {
-                        clearLiveForMenu(player);
-                        return;
+                        snbt = ProfileAtomicSnapshotManager.latestCompletedVanilla(connection, profileId);
+                    } else {
+                        snbt = rs.getString("vanilla_snbt");
+                        if (snbt == null || snbt.isBlank()) snbt = ProfileAtomicSnapshotManager.latestCompletedVanilla(connection, profileId);
                     }
-                    String snbt = rs.getString("vanilla_snbt");
                     if (snbt == null || snbt.isBlank() || snbt.equals("{}")) {
                         clearLiveForMenu(player);
                         return;

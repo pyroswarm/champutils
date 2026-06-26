@@ -27,6 +27,9 @@ public class CobblemonBattleHandler {
             BattleStartedEvent e =
                     (BattleStartedEvent) event;
 
+            UUID firstPlayerUuid = null;
+            UUID firstNpcUuid = null;
+
             for (
                     Object actor :
                     e.getBattle().getActors()
@@ -39,6 +42,10 @@ public class CobblemonBattleHandler {
                     ServerPlayer player =
                             (ServerPlayer) p.getEntity();
 
+                    if (firstPlayerUuid == null) {
+                        firstPlayerUuid = player.getUUID();
+                    }
+
                     BattleStateManager.setInBattle(
                             player,
                             true
@@ -48,7 +55,26 @@ public class CobblemonBattleHandler {
                             player,
                             e.getBattle()
                     );
+
+                    BattleProfileRecoveryManager.handleBattleStarted(
+                            player,
+                            e.getBattle()
+                    );
                 }
+
+                if (actor instanceof NPCBattleActor n && firstNpcUuid == null) {
+                    firstNpcUuid = n.getEntity().getUUID();
+                }
+            }
+
+            BattleContextManager.TrainerBattleContext trainerBattleContext =
+                    BattleContextManager.attachTrainerBattleContext(
+                            readBattleId(e.getBattle()),
+                            firstPlayerUuid,
+                            firstNpcUuid
+                    );
+            if (trainerBattleContext != null && trainerBattleContext.playerId() != null) {
+                BattleContextManager.setContext(trainerBattleContext.playerId(), trainerBattleContext.type());
             }
         });
 
@@ -63,6 +89,18 @@ public class CobblemonBattleHandler {
 
             BattleVictoryEvent e =
                     (BattleVictoryEvent) event;
+
+            BattleContextManager.TrainerBattleContext trainerBattleContext =
+                    BattleContextManager.removeTrainerBattleContext(readBattleId(e.getBattle()));
+            if (trainerBattleContext != null && trainerBattleContext.playerId() != null) {
+                BattleContextManager.setContext(trainerBattleContext.playerId(), trainerBattleContext.type());
+            }
+
+            finishPlayerProfileGuards(
+                    e.getBattle()
+                            .getActors(),
+                    "battle-victory"
+            );
 
             clearPlayersFromBattle(
                     e.getBattle()
@@ -192,11 +230,6 @@ public class CobblemonBattleHandler {
                 recordDefeatedTypeQuestProgress(e);
                 awardWildDefeatBattleXp(e);
 
-                clearPlayersFromBattle(
-                        e.getBattle()
-                                .getActors()
-                );
-
             } catch (Exception ignored) {
             }
         });
@@ -318,6 +351,28 @@ public class CobblemonBattleHandler {
         return String.valueOf(type).toLowerCase(java.util.Locale.ROOT);
     }
 
+
+    private static String readBattleId(Object battle) {
+        if (battle == null) return "unknown";
+        Object id = invokeNoArg(battle, "getBattleId");
+        if (id == null) id = invokeNoArg(battle, "getBattleID");
+        if (id == null) id = invokeNoArg(battle, "getUuid");
+        if (id == null) id = invokeNoArg(battle, "getUUID");
+        return id == null ? "unknown" : String.valueOf(id);
+    }
+
+
+    private static void finishPlayerProfileGuards(
+            Iterable<?> actors,
+            String reason
+    ) {
+        for (Object actor : actors) {
+            if (actor instanceof PlayerBattleActor p) {
+                ServerPlayer player = (ServerPlayer) p.getEntity();
+                BattleProfileRecoveryManager.handleBattleEnded(player, reason);
+            }
+        }
+    }
 
     private static void clearPlayersFromBattle(
             Iterable<?> actors

@@ -1,5 +1,7 @@
 package com.champutils.database;
 
+import com.champutils.profile.ProfileTransferTokenManager;
+
 public final class NetworkReadySchemaManager {
 
     private static boolean ensured = false;
@@ -62,6 +64,8 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table server_status add column if not exists last_heartbeat timestamptz not null default now()");
 
                 AccountLinkDatabaseRepository.ensureSchema(connection);
+                ProfileTransferTokenManager.ensureSchema(connection);
+                ProfileTransferTokenManager.cleanupExpired(connection);
 
                 statement.executeUpdate(
                         "create table if not exists guilds (" +

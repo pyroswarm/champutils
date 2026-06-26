@@ -9,11 +9,10 @@ import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleAIDifficultyManager;
 import com.champutils.battle.PvPBattleFormatRules;
-import com.champutils.battle.PvPBattleStarter;
+import com.champutils.battle.PluginTrainerBattleStarter;
 import com.champutils.battle.AITestGymLeaderBuilder;
 import com.champutils.validation.TeamValidator;
 
-import com.cobblemon.mod.common.battles.BattleBuilder;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
@@ -70,20 +69,32 @@ public final class ChampTrainerInteractionListener {
                 LAST_TRAINER_CLICK.put(key, now);
 
                 if (guildBoss) {
-                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.WORLD_BOSS);
                     if (!GuildBossManager.prepareGuildBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
-                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    PluginTrainerBattleStarter.startOrMessage(
+                            serverPlayer,
+                            npc,
+                            BattleContextManager.BattleType.WORLD_BOSS,
+                            "guild_boss",
+                            null,
+                            Component.literal("§cThat guild boss battle could not start. Try again in a few seconds.")
+                    );
                     return InteractionResult.SUCCESS;
                 }
 
                 if (worldBoss) {
-                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.WORLD_BOSS);
                     if (!GuildBossManager.prepareWorldBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
-                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    PluginTrainerBattleStarter.startOrMessage(
+                            serverPlayer,
+                            npc,
+                            BattleContextManager.BattleType.WORLD_BOSS,
+                            "world_boss",
+                            null,
+                            Component.literal("§cThat world boss battle could not start. Try again in a few seconds.")
+                    );
                     return InteractionResult.SUCCESS;
                 }
 
@@ -92,10 +103,17 @@ public final class ChampTrainerInteractionListener {
                         return InteractionResult.SUCCESS;
                     }
                     try {
-                        BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.NPC);
-                        Object result = BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
-                        if (result == null) {
-                            serverPlayer.sendSystemMessage(Component.literal("§cThat roaming trainer could not start a battle. Try again in a few seconds."));
+                        PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
+                                serverPlayer,
+                                npc,
+                                BattleContextManager.BattleType.NPC,
+                                "roaming_trainer",
+                                null,
+                                true,
+                                true,
+                                Component.literal("§cThat roaming trainer could not start a battle. Try again in a few seconds.")
+                        );
+                        if (!result.started()) {
                             RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());
                         }
                     } catch (Exception battleStartError) {
@@ -109,14 +127,27 @@ public final class ChampTrainerInteractionListener {
                     if (!WorldEventManager.prepareBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
-                    BattleBuilder.INSTANCE.pvn(serverPlayer, npc);
+                    PluginTrainerBattleStarter.startOrMessage(
+                            serverPlayer,
+                            npc,
+                            BattleContextManager.BattleType.WORLD_BOSS,
+                            "world_event",
+                            null,
+                            Component.literal("§cThat event battle could not start. Try again in a few seconds.")
+                    );
                     return InteractionResult.SUCCESS;
                 }
 
                 if (aiTestGym) {
                     AITestGymLeaderBuilder.applyTeam(npc);
-                    BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
-                    PvPBattleStarter.startPvn(serverPlayer, npc, PvPBattleFormatRules.getCobblemonFormat("ranked"));
+                    PluginTrainerBattleStarter.startOrMessage(
+                            serverPlayer,
+                            npc,
+                            BattleContextManager.BattleType.GYM,
+                            "ai_test_gym",
+                            PvPBattleFormatRules.getCobblemonFormat("ranked"),
+                            Component.literal("§cThat test gym battle could not start. Try again in a few seconds.")
+                    );
                     return InteractionResult.SUCCESS;
                 }
 
@@ -132,15 +163,21 @@ public final class ChampTrainerInteractionListener {
                     return InteractionResult.SUCCESS;
                 }
 
-                BattleContextManager.setContext(serverPlayer.getUUID(), BattleContextManager.BattleType.GYM);
-                Object gymBattleResult = PvPBattleStarter.startPvn(serverPlayer, npc, PvPBattleFormatRules.getCobblemonFormat("ranked"));
+                PluginTrainerBattleStarter.StartResult gymBattleResult = PluginTrainerBattleStarter.startOrMessage(
+                        serverPlayer,
+                        npc,
+                        BattleContextManager.BattleType.GYM,
+                        "gym",
+                        PvPBattleFormatRules.getCobblemonFormat("ranked"),
+                        Component.literal("§cThat gym battle could not start. Try again in a few seconds.")
+                );
 
                 // BattleBuilder has already copied the NPCPartyStore into the NPCBattleActor.
                 // Clear the entity's saved party immediately so the bound NPC never persists a static team.
                 GymNpcPartyBuilder.clearStoredGymTeam(npc);
 
-                if (gymBattleResult == null) {
-                    serverPlayer.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
+                if (!gymBattleResult.started()) {
+                    BattleContextManager.clearPendingTrainerBattleContext(serverPlayer.getUUID(), npc.getUUID());
                 }
                 return InteractionResult.SUCCESS;
             } catch (Exception e) {

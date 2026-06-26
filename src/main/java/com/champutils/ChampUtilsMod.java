@@ -311,6 +311,7 @@ public class ChampUtilsMod implements ModInitializer {
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
                     PlayerProfileManager.ensureSchemaAsync();
+                    BattleProfileRecoveryManager.recoverInterruptedGuardsAsync();
                     VanillaProfileStateManager.ensureSchemaAsync();
                     CobblemonProfileStorageBridge.ensureSchemaAsync();
                     MonotypeStarterManager.ensureSchemaAsync();
@@ -390,6 +391,10 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     PlayerProfileManager.handleJoin(player);
+                    if (com.champutils.profile.ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+                        System.out.println("[PROFILE-LOBBY-DEBUG] ChampUtilsMod.join short-circuited gameplay managers for profile lobby player=" + playerName);
+                        return;
+                    }
                     if (PlayerProfileManager.isInMainMenu(player)) {
                         return;
                     }
@@ -491,43 +496,10 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
 
-                    com.champutils.profile.ProfilePlaytimeManager.flushPlayerBlockingBestEffort(handler.player);
-                    com.champutils.profile.ProfilePlaytimeManager.clearSession(handler.player);
-                    PlayerProfileManager.saveActiveLocation(handler.player);
-                    VanillaProfileStateManager.save(handler.player);
-                    CobblemonProfileStorageBridge.forceSaveActiveProfileStores(handler.player);
-                    ChatPreferenceManager.saveAsync(handler.player.getUUID(), ChatPreferenceManager.get(handler.player.getUUID()));
+                    PlayerProfileManager.saveAndUnloadForDisconnect(handler.player);
 
                     MatchmakingManager.leaveQueue(
                             handler.player
-                    );
-
-                    DisconnectForfeitManager.handleDisconnect(
-                            handler.player
-                    );
-
-                    ShopPokemonCrateOpeningGui.handleDisconnect(
-                            handler.player
-                    );
-
-                    ProfessionManager.unloadPlayer(
-                            handler.player
-                    );
-
-                    QuestManager.unloadPlayer(
-                            handler.player
-                    );
-
-                    PartyManager.handleDisconnect(
-                            handler.player
-                    );
-
-                    DailyLoginManager.handleDisconnect(
-                            handler.player
-                    );
-
-                    PlayerProfileManager.unload(
-                            handler.player.getUUID()
                     );
                 }
         );
@@ -567,6 +539,8 @@ public class ChampUtilsMod implements ModInitializer {
          COMMANDS
          =========================
          */
+        CommandBlocker.register();
+        AccessCommandWrappers.register();
         ChampUtilsHelpCommand.register();
         ChampAICommand.register();
         MenuCommand.register();

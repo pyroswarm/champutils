@@ -80,6 +80,8 @@ DISCONNECT FORFEIT
             return;
         }
 
+        BattleProfileRecoveryManager.handleDisconnectBeforeUnload(quitter);
+
         boolean trackedBattle = BattleStateManager.isInBattle(quitter)
                 || BattleStateManager.hasTrackedState(quitter)
                 || MegaBossBattleListener.isPlayerInMegaBossBattle(quitter);
@@ -87,6 +89,7 @@ DISCONNECT FORFEIT
         if (!trackedBattle) {
             BattleContextManager.clearContext(quitter.getUUID());
             MegaBossBattleListener.cleanupPlayer(quitter);
+            BattleProfileRecoveryManager.clearLocal(quitter);
             return;
         }
 
@@ -105,12 +108,14 @@ DISCONNECT FORFEIT
             BattleContextManager.clearContext(opponent.getUUID());
             MegaBossBattleListener.cleanupPlayer(opponent);
             MatchmakingManager.clearMatch(opponent);
+            BattleProfileRecoveryManager.handleBattleEnded(opponent, "opponent-disconnect-forfeit");
         }
 
         BattleStateManager.clearAll(quitter);
         BattleContextManager.clearContext(quitter.getUUID());
         MegaBossBattleListener.cleanupPlayer(quitter);
         MatchmakingManager.clearMatch(quitter);
+        BattleProfileRecoveryManager.handleBattleEnded(quitter, "disconnect-forfeit");
     }
 
 

@@ -3,6 +3,7 @@ package com.champutils.menu;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.ProfileGameMode;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
@@ -140,6 +141,21 @@ public final class ProfileSelectionMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("Loading profile...").withStyle(ChatFormatting.YELLOW))
                         .addLoreLine(Component.literal("Please wait. This no longer blocks the whole server.").withStyle(ChatFormatting.GRAY)));
+                if (ProfileNetworkTransferFlow.shouldUseLobbyTransferFlow()) {
+                    player.sendSystemMessage(Component.literal("Preparing profile transfer for " + profile.profileName() + "...").withStyle(ChatFormatting.YELLOW));
+                    ProfileNetworkTransferFlow.issueTransferFromLobby(player, profile, result -> {
+                        boolean issued = result.startsWith("Profile transfer token issued");
+                        if (issued) clearForcedReopener(player);
+                        player.sendSystemMessage(Component.literal(result).withStyle(issued ? ChatFormatting.GREEN : ChatFormatting.RED));
+                        if (issued) {
+                            gui.close();
+                        } else {
+                            navigate(player, () -> open(player));
+                        }
+                    });
+                    return;
+                }
+
                 player.sendSystemMessage(Component.literal("Loading profile " + profile.profileName() + "...").withStyle(ChatFormatting.YELLOW));
                 PlayerProfileManager.switchAsync(player, profile.profileName(), result -> {
                     boolean loaded = result.startsWith("Loaded");
@@ -446,8 +462,22 @@ public final class ProfileSelectionMenu {
 
     public static void clearForcedReopener(ServerPlayer player) {
         if (player != null) {
-            FORCED_REOPENERS.remove(player.getUUID());
+            clearPlayerState(player.getUUID());
         }
+    }
+
+    /**
+     * Clears all per-player menu state. This is important for forced disconnects/kicks:
+     * the forced reopen callbacks capture the old ServerPlayer instance, so leaving them
+     * behind can make the next login reopen menus against a disconnected player object.
+     */
+    public static void clearPlayerState(UUID playerUuid) {
+        if (playerUuid == null) return;
+        FORCED_REOPENERS.remove(playerUuid);
+        SUPPRESS_NEXT_CLOSE_REOPEN.remove(playerUuid);
+        PROFILE_CREATION_IN_PROGRESS.remove(playerUuid);
+        SNAPSHOTS.remove(playerUuid);
+        LAST_FINALIZE_CHECK.remove(playerUuid);
     }
 
     private static final class ForcedProfileGui extends SimpleGui {

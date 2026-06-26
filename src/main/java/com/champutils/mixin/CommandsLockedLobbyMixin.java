@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.profile.ProfileLobbyLockManager;
+import com.champutils.commands.CommandBlocker;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +22,12 @@ public abstract class CommandsLockedLobbyMixin {
         try {
             player = source.getPlayerOrException();
         } catch (Exception ignored) {
+            return;
+        }
+
+        if (CommandBlocker.isBlockedRoot(command) && !source.hasPermission(4)) {
+            player.sendSystemMessage(CommandBlocker.denyMessage());
+            ci.cancel();
             return;
         }
 

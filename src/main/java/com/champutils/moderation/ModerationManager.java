@@ -1,5 +1,7 @@
 package com.champutils.moderation;
 
+import com.champutils.profile.PlayerProfileManager;
+
 import com.champutils.antilag.AntiLagConfig;
 import com.champutils.database.DatabaseManager;
 import com.champutils.permissions.LuckPermsHook;
@@ -251,7 +253,7 @@ public final class ModerationManager {
             alertAction(player, track.label, "warning", stage, reason);
         } else if (stage == 2) {
             alertAction(player, track.label, "kick", stage, reason);
-            player.connection.disconnect(Component.literal("Kicked by " + track.label + ". Reason: " + reason));
+            PlayerProfileManager.safeDisconnect(player, Component.literal("Kicked by " + track.label + ". Reason: " + reason));
         } else if (stage == 3) {
             applyTempBan(player, Duration.ofMinutes(30), track.label, stage, reason);
         } else if (stage == 4) {
@@ -271,7 +273,7 @@ public final class ModerationManager {
         draft.expiresAt = Instant.ofEpochMilli(until);
         draft.metadataJson = "{\"source\":\"automod_escalation\",\"stage\":" + stage + "}";
         ModerationActionRepository.insert(draft);
-        player.connection.disconnect(Component.literal("You are temporarily banned for " + durationText + " by " + system + ". Reason: " + reason));
+        PlayerProfileManager.safeDisconnect(player, Component.literal("You are temporarily banned for " + durationText + " by " + system + ". Reason: " + reason));
         alertAction(player, system, durationText + " temporary ban", stage, reason);
     }
 
@@ -331,7 +333,7 @@ public final class ModerationManager {
         String staffName = actorName(actor);
         alertAdmins(target.server, "§c[Staff Kick] §f" + staffName + " §7kicked §f" + target.getGameProfile().getName() + "§7. Reason: §c" + finalReason);
         webhook("Staff kick: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | reason=" + finalReason);
-        target.connection.disconnect(Component.literal("Kicked from Cobble Champs. Reason: " + finalReason));
+        PlayerProfileManager.safeDisconnect(target, Component.literal("Kicked from Cobble Champs. Reason: " + finalReason));
     }
 
     public static void staffMute(ServerPlayer actor, ServerPlayer target, Duration duration, String reason) {
@@ -358,7 +360,7 @@ public final class ModerationManager {
         String durationText = permanent ? "permanently" : "for " + format(duration.toMillis());
         alertAdmins(target.server, "§4[Staff Ban] §f" + staffName + " §7banned §f" + target.getGameProfile().getName() + " §7" + durationText + "§7. Reason: §c" + finalReason);
         webhook("Staff ban: actor=" + staffName + " | player=" + target.getGameProfile().getName() + " | duration=" + durationText + " | reason=" + finalReason);
-        target.connection.disconnect(Component.literal("You are banned " + durationText + ". Reason: " + finalReason));
+        PlayerProfileManager.safeDisconnect(target, Component.literal("You are banned " + durationText + ". Reason: " + finalReason));
     }
 
     public static boolean staffUnmute(ServerPlayer actor, ServerPlayer target, String targetName, String reason) {

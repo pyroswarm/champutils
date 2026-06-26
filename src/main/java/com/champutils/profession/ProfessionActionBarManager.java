@@ -12,7 +12,9 @@ import java.util.UUID;
 public class ProfessionActionBarManager {
 
     private static final Map<UUID, Long> XP_COOLDOWNS = new HashMap<>();
+    private static final Map<UUID, Long> BATTLE_LOOT_SOUND_COOLDOWNS = new HashMap<>();
     private static final long XP_COOLDOWN_MS = 900L;
+    private static final long BATTLE_LOOT_SOUND_COOLDOWN_MS = 750L;
 
     private ProfessionActionBarManager() {
     }
@@ -84,6 +86,12 @@ public class ProfessionActionBarManager {
             return;
         }
 
+        long now = System.currentTimeMillis();
+        Long last = BATTLE_LOOT_SOUND_COOLDOWNS.get(player.getUUID());
+        if (last != null && now - last < BATTLE_LOOT_SOUND_COOLDOWN_MS) {
+            return;
+        }
+        BATTLE_LOOT_SOUND_COOLDOWNS.put(player.getUUID(), now);
         ProfessionNotificationSettings.playSound(player,
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
                 SoundSource.PLAYERS,

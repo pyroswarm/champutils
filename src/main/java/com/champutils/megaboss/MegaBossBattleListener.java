@@ -95,7 +95,24 @@ public final class MegaBossBattleListener {
         if (boss == null) return;
         String battleId = readBattleId(event.getBattle());
         ACTIVE_BATTLE_BOSS.put(battleId, BossRewardSnapshot.from(boss));
+        registerMegaBossTrainerContext(battleId, boss, event.getBattle().getActors());
         scaleBossForBattleStart(boss, event.getBattle().getActors());
+    }
+
+
+    private static void registerMegaBossTrainerContext(String battleId, Entity boss, Iterable<?> actors) {
+        if (boss == null) return;
+        for (Object actor : actors) {
+            if (!(actor instanceof PlayerBattleActor playerActor)) continue;
+            if (!(playerActor.getEntity() instanceof ServerPlayer player)) continue;
+            BattleContextManager.registerTrainerBattleContextForBattle(
+                    battleId,
+                    player.getUUID(),
+                    boss.getUUID(),
+                    BattleContextManager.BattleType.MEGA_BOSS,
+                    "mega_boss"
+            );
+        }
     }
 
     private static void handleBattleStarted(BattleStartedEvent event) {
@@ -104,7 +121,9 @@ public final class MegaBossBattleListener {
             return;
         }
         scaleBossForBattleStart(boss, event.getBattle().getActors());
-        ACTIVE_BATTLE_BOSS.put(readBattleId(event.getBattle()), BossRewardSnapshot.from(boss));
+        String battleId = readBattleId(event.getBattle());
+        ACTIVE_BATTLE_BOSS.put(battleId, BossRewardSnapshot.from(boss));
+        registerMegaBossTrainerContext(battleId, boss, event.getBattle().getActors());
         for (Object actor : event.getBattle().getActors()) {
             if (actor instanceof PlayerBattleActor playerActor) {
                 if (!(playerActor.getEntity() instanceof ServerPlayer player)) continue;

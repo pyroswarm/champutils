@@ -70,8 +70,14 @@ public class XpSurgePassive implements ProfessionPassive {
                                 blockId
                         );
 
-        if (baseXp == null && MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos))) {
-            baseXp = 1;
+        if (
+                MiningBlockUtil.isShovelBlock(
+                        level,
+                        pos,
+                        level.getBlockState(pos)
+                )
+        ) {
+            baseXp = Math.max(1, baseXp == null ? 1 : baseXp);
         }
 
         if (

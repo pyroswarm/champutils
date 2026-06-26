@@ -47,6 +47,8 @@ public class BattleStuckCleanupManager {
         }
 
         BattleStateManager.clearAll(player);
+        BattleContextManager.clearContext(player.getUUID());
+        BattleProfileRecoveryManager.handleBattleEnded(player, "stale-battle-cleanup");
 
         if (notify) {
             player.sendSystemMessage(

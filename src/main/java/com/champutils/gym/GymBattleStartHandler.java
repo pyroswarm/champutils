@@ -5,7 +5,7 @@ import com.champutils.badge.BadgeManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.PvPBattleFormatRules;
-import com.champutils.battle.PvPBattleStarter;
+import com.champutils.battle.PluginTrainerBattleStarter;
 import com.champutils.validation.TeamValidator;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
@@ -171,9 +171,14 @@ NPCBattleActor gymNpc = null;
                 NPCBattleActor npcActor = gymNpc;
                 p.server.execute(() -> {
                     try {
-                        BattleContextManager.setContext(p.getUUID(), BattleContextManager.BattleType.GYM);
-                        Object result = PvPBattleStarter.startPvn(p, npcActor.getNpc(), PvPBattleFormatRules.getCobblemonFormat("ranked"));
-                        if (result == null) p.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
+                        PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
+                                p,
+                                npcActor.getNpc(),
+                                BattleContextManager.BattleType.GYM,
+                                "gym_retry_ranked_format",
+                                PvPBattleFormatRules.getCobblemonFormat("ranked"),
+                                Component.literal("§cThat gym battle could not start. Try again in a few seconds.")
+                        );
                     } catch (Exception restartError) {
                         restartError.printStackTrace();
                         p.sendSystemMessage(Component.literal("§cCould not start the ranked-format gym battle. Check server console."));
@@ -195,12 +200,15 @@ NPCBattleActor gymNpc = null;
                             p.sendSystemMessage(Component.literal("§cThis gym could not build a valid battle team. Check gyms.json."));
                             return;
                         }
-                        BattleContextManager.setContext(p.getUUID(), BattleContextManager.BattleType.GYM);
-                        Object result = PvPBattleStarter.startPvn(p, npcActor.getNpc(), PvPBattleFormatRules.getCobblemonFormat("ranked"));
+                        PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
+                                p,
+                                npcActor.getNpc(),
+                                BattleContextManager.BattleType.GYM,
+                                "gym_retry_team_refresh",
+                                PvPBattleFormatRules.getCobblemonFormat("ranked"),
+                                Component.literal("§cThat gym battle could not start. Try again in a few seconds.")
+                        );
                         GymNpcPartyBuilder.clearStoredGymTeam(npcActor.getNpc());
-                        if (result == null) {
-                            p.sendSystemMessage(Component.literal("§cThat gym battle could not start. Try again in a few seconds."));
-                        }
                     } catch (Exception retryError) {
                         retryError.printStackTrace();
                         p.sendSystemMessage(Component.literal("§cCould not refresh this gym team. Check server console."));

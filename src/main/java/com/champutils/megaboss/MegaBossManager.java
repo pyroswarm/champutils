@@ -176,6 +176,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) { nullPositions++; continue; }
+            if (isNetherRoofPosition(level, pos)) { nullPositions++; continue; }
             if (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level)) { territorySkips++; continue; }
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
@@ -210,7 +211,7 @@ public final class MegaBossManager {
         // the normal spawn-position safety checks, battle stats, tags, expiry, and reward metadata.
         for (int attempt = 0; attempt < 30; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
-            if (pos == null || (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level))) continue;
+            if (pos == null || isNetherRoofPosition(level, pos) || (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level))) continue;
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -544,6 +545,7 @@ public final class MegaBossManager {
         int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
         BlockPos top = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, origin.getY(), z));
         if (!level.hasChunk(new ChunkPos(top).x, new ChunkPos(top).z)) return null;
+        if (isNetherRoofPosition(level, top)) return null;
         if (!level.getWorldBorder().isWithinBounds(top) || !level.getWorldBorder().isWithinBounds(top.above())) return null;
         if (!level.getBlockState(top.below()).isSolid()) return null;
         if (!level.getBlockState(top).isAir() || !level.getBlockState(top.above()).isAir()) return null;
@@ -613,6 +615,12 @@ public final class MegaBossManager {
         try { if (com.champutils.territory.TerritoryRepository.findAt(level, pos) != null) return true; } catch (Throwable ignored) {}
         try { if (com.champutils.claims.LandClaimRepository.findAt(level, pos) != null) return true; } catch (Throwable ignored) {}
         return false;
+    }
+
+    private static boolean isNetherRoofPosition(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        String id = level.dimension().location().toString().toLowerCase(Locale.ROOT);
+        return (id.equals("minecraft:the_nether") || id.endsWith(":the_nether") || id.equals("the_nether")) && pos.getY() >= 127;
     }
 
     private static boolean isDisabledDimension(ServerLevel level) {

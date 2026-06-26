@@ -29,17 +29,27 @@ public final class ProfileLobbyManager {
 
     public static void sendToLobby(ServerPlayer player) {
         if (player == null || player.server == null) return;
+        ProfileLobbyDebug.log("sendToLobby.begin", player);
 
         // Critical: the lobby is no-profile-loaded, never a profile.
         PlayerProfileManager.clearActiveForMenu(player);
 
-        // Remove live profile-bound data so it cannot bleed into the next profile.
-        CobblemonProfileStateManager.clearLive(player);
-        VanillaProfileStateManager.clearLiveForMenu(player);
+        // In network PROFILE_LOBBY mode, do not clear live Cobblemon/vanilla inventories during join.
+        // That packet burst can happen before Velocity/Polymer has fully finished the backend play handshake.
+        // The lobby server should have an isolated lightweight world and no profile data to protect anyway.
+        if (!ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            CobblemonProfileStateManager.clearLive(player);
+            VanillaProfileStateManager.clearLiveForMenu(player);
+        }
 
         applyLobbyProtections(player);
         teleportToLobby(player);
-        ProfileSelectionMenu.open(player);
+        player.server.execute(() -> {
+            if (player.hasDisconnected()) return;
+            ProfileLobbyDebug.log("sendToLobby.openMenu.delayed", player);
+            ProfileSelectionMenu.open(player);
+        });
+        ProfileLobbyDebug.log("sendToLobby.end", player);
     }
 
     public static boolean isInLobby(ServerPlayer player) {
@@ -89,9 +99,11 @@ public final class ProfileLobbyManager {
         player.getFoodData().setFoodLevel(20);
         player.getFoodData().setSaturation(20.0F);
         player.clearFire();
-        player.getInventory().clearContent();
-        player.getEnderChestInventory().clearContent();
-        player.inventoryMenu.broadcastChanges();
+        if (!ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            player.getInventory().clearContent();
+            player.getEnderChestInventory().clearContent();
+            player.inventoryMenu.broadcastChanges();
+        }
     }
 
     public static void applyNormalPlayerState(ServerPlayer player) {

@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.xplock.XpLockManager;
+import com.champutils.battle.ServerLifecycleBridge;
 import com.champutils.buff.BuffContext;
 import com.champutils.buff.BuffManager;
 import com.champutils.buff.BuffType;
@@ -20,7 +21,7 @@ public abstract class StandardExperienceCalculatorMixin {
         if (XpLockManager.isLocked(battlePokemon.getOriginalPokemon())) return 0.0D;
         ServerPlayer player = findPlayer(battlePokemon);
         if (player == null) return term4;
-        double bonus = BuffManager.getTotalBuff(BuffContext.builder(player, BuffContext.Source.PROFESSION_XP).pokemon(battlePokemon.getOriginalPokemon()).build(), BuffType.POKEMON_XP);
+        double bonus = BuffManager.getTotalBuff(BuffContext.builder(player, BuffContext.Source.NPC_BATTLE).pokemon(battlePokemon.getOriginalPokemon()).build(), BuffType.POKEMON_XP);
         return term4 * (1.0D + Math.max(0.0D, bonus));
     }
 
@@ -30,10 +31,9 @@ public abstract class StandardExperienceCalculatorMixin {
             Object entity = read(actor, "getEntity");
             if (entity instanceof ServerPlayer sp) return sp;
             Object uuid = read(actor, "getUuid");
-            if (uuid instanceof java.util.UUID id && battlePokemon.getOriginalPokemon() != null) {
-                // PlayerBattleActor may not expose entity; Cobblemon stores actor uuid as player uuid.
-                Object storage = com.cobblemon.mod.common.Cobblemon.INSTANCE.getStorage();
-                // fall through to online player lookup is unavailable here; keep safe.
+            if (uuid instanceof java.util.UUID id) {
+                ServerPlayer player = ServerLifecycleBridge.getPlayer(id);
+                if (player != null) return player;
             }
         } catch (Throwable ignored) {}
         return null;

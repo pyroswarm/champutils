@@ -36,6 +36,11 @@ public final class GuildBossManager {
     private static final String GUILD_BOSS_ENTITY_TAG = "champutils_guild_boss";
     private static boolean startupBossCleanupDone = false;
 
+    /** World boss target cadence: about once every 12 hours. */
+    private static final int TARGET_WORLD_BOSS_AVERAGE_MINUTES = 720;
+    /** If a configured spawn world is not loaded yet, retry soon instead of skipping a full cycle. */
+    private static final long WORLD_BOSS_RETRY_DELAY_MILLIS = 5L * 60L * 1000L;
+
     private static ActiveWorldBoss activeWorldBoss = null;
     private static long nextWorldBossAtMillis = 0L;
 
@@ -52,8 +57,11 @@ public final class GuildBossManager {
         cleanupOrphanedWorldBossNpcs(server, now);
         long currentResetKey = DailyResetManager.currentResetKeyMillis();
         BossAttemptDatabaseRepository.pruneBeforeResetAsync(currentResetKey);
-        if (nextWorldBossAtMillis <= 0L) scheduleNextWorldBoss(now);
-        if (activeWorldBoss == null && BossConfig.DATA.worldBoss.enabled && now >= nextWorldBossAtMillis) spawnWorldBoss(server);
+        normalizeWorldBossCadence();
+        if (nextWorldBossAtMillis <= 0L) initializeNextWorldBossSchedule(now);
+        if (activeWorldBoss == null && BossConfig.DATA.worldBoss.enabled && now >= nextWorldBossAtMillis) {
+            spawnWorldBoss(server);
+        }
 
         for (ActiveGuildBoss boss : new ArrayList<>(ACTIVE_GUILD.values())) {
             if (now >= boss.despawnAtMillis) finishGuildBoss(server, boss);
@@ -346,7 +354,7 @@ public final class GuildBossManager {
         }
 
         if (boss.spawns.isEmpty()) {
-            scheduleNextWorldBoss(System.currentTimeMillis());
+            scheduleWorldBossRetry(System.currentTimeMillis(), "no configured world boss spawn dimensions were loaded");
             return false;
         }
         activeWorldBoss = boss;
@@ -650,10 +658,49 @@ public final class GuildBossManager {
         return DailyResetManager.formatResetTime();
     }
 
+    private static void normalizeWorldBossCadence() {
+        BossConfig.WorldBossSettings worldBoss = BossConfig.DATA.worldBoss;
+        if (worldBoss == null) return;
+
+        // Earlier test configs used very short world boss timers. Migrate those forward so existing
+        // servers actually settle on the requested roughly-12-hour cadence without manual JSON edits.
+        if (worldBoss.averageMinutesUntilNextBoss <= 0 || worldBoss.averageMinutesUntilNextBoss < 60) {
+            worldBoss.averageMinutesUntilNextBoss = TARGET_WORLD_BOSS_AVERAGE_MINUTES;
+            BossConfig.save();
+        }
+    }
+
+    private static void initializeNextWorldBossSchedule(long now) {
+        BossConfig.WorldBossSettings worldBoss = BossConfig.DATA.worldBoss;
+        int avg = Math.max(1, worldBoss.averageMinutesUntilNextBoss);
+        long interval = avg * 60_000L;
+
+        // Timers are in memory, so rebuild them after a restart from the persisted last spawn time.
+        // If the server was offline past the due time, spawn shortly after startup instead of waiting
+        // another full interval.
+        long lastSpawn = worldBoss.lastSpawnAtMillis;
+        if (lastSpawn > 0L) {
+            long dueAt = lastSpawn + interval;
+            if (now >= dueAt) {
+                nextWorldBossAtMillis = now + 60_000L;
+            } else {
+                nextWorldBossAtMillis = dueAt;
+            }
+            return;
+        }
+
+        scheduleNextWorldBoss(now);
+    }
+
     private static void scheduleNextWorldBoss(long fromMillis) {
         int avg = Math.max(1, BossConfig.DATA.worldBoss.averageMinutesUntilNextBoss);
         double factor = 0.75D + RANDOM.nextDouble() * 0.5D;
         nextWorldBossAtMillis = fromMillis + Math.max(60_000L, (long)(avg * factor * 60_000D));
+    }
+
+    private static void scheduleWorldBossRetry(long fromMillis, String reason) {
+        nextWorldBossAtMillis = fromMillis + WORLD_BOSS_RETRY_DELAY_MILLIS;
+        System.err.println("[ChampUtils] World boss auto spawn failed (" + reason + "). Retrying in 5 minutes.");
     }
 
     private static ServerLevel level(MinecraftServer server, String dimension) {

@@ -106,6 +106,7 @@ public class PokemonIconUtil {
 
         cleaned = cleaned.replace("♀", "-f").replace("♂", "-m");
         cleaned = cleaned.replace(" ", "-").replace("_", "-");
+        cleaned = explicitSpeciesIconAlias(cleaned);
 
         try {
             Species byName = PokemonSpecies.getByName(cleaned);
@@ -120,6 +121,15 @@ public class PokemonIconUtil {
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    private static String explicitSpeciesIconAlias(String cleaned) {
+        if (cleaned == null) return null;
+        return switch (cleaned) {
+            case "nidoranmale", "nidoran-male", "nidoran-m", "nidoran♂" -> "nidoran-m";
+            case "nidoranfemale", "nidoran-female", "nidoran-f", "nidoran♀" -> "nidoran-f";
+            default -> cleaned;
+        };
     }
 
     private static ItemStack fallbackStack(String fallbackItemId) {
