@@ -688,9 +688,21 @@ public final class ProfessionFragmentManager {
                         !normalizedToolType.equals("axe") &&
                         !normalizedToolType.equals("hoe") &&
                         !normalizedToolType.equals("shovel") &&
-                        !normalizedToolType.equals("boots")
+                        !normalizedToolType.equals("helmet") &&
+                        !normalizedToolType.equals("chestplate") &&
+                        !normalizedToolType.equals("leggings") &&
+                        !normalizedToolType.equals("boots") &&
+                        !normalizedToolType.equals("magnet") &&
+                        !normalizedToolType.equals("shiny_charm") &&
+                        !normalizedToolType.equals("profession_xp_gem") &&
+                        !normalizedToolType.equals("pokemon_xp_egg") &&
+                        !normalizedToolType.equals("friendship_charm") &&
+                        !normalizedToolType.equals("level_charm") &&
+                        !normalizedToolType.equals("rare_pokemon_charm") &&
+                        !normalizedToolType.equals("chunky_brick") &&
+                        !normalizedToolType.equals("trinket_pouch")
         ) {
-            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, or boots.");
+            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, helmet, chestplate, leggings, boots, magnet, shiny_charm, profession_xp_gem, pokemon_xp_egg, friendship_charm, level_charm, rare_pokemon_charm, chunky_brick, or trinket_pouch.");
         }
 
         String normalizedRarity =
@@ -703,11 +715,26 @@ public final class ProfessionFragmentManager {
             return CraftResult.fail("No fragment crafting rule exists for rarity: " + normalizedRarity);
         }
 
+        boolean trinketCraft =
+                normalizedToolType.equals("magnet") ||
+                        normalizedToolType.equals("shiny_charm") ||
+                        normalizedToolType.equals("profession_xp_gem") ||
+                        normalizedToolType.equals("pokemon_xp_egg") ||
+                        normalizedToolType.equals("friendship_charm") ||
+                        normalizedToolType.equals("level_charm") ||
+                        normalizedToolType.equals("rare_pokemon_charm") ||
+                        normalizedToolType.equals("chunky_brick") ||
+                        normalizedToolType.equals("trinket_pouch");
+
         String fragmentKey =
-                ProfessionFragmentConfig.normalizeRarity(trade.fragment);
+                trinketCraft
+                        ? normalizedRarity
+                        : ProfessionFragmentConfig.normalizeRarity(trade.fragment);
 
         int cost =
-                Math.max(1, trade.cost);
+                trinketCraft
+                        ? Math.max(1, ProfessionTrinketConfig.tier(normalizedRarity).sameTierFragmentCost)
+                        : Math.max(1, trade.cost);
 
         int available =
                 countFragments(
@@ -721,10 +748,10 @@ public final class ProfessionFragmentManager {
             );
         }
 
-        if (normalizedToolType.equals("boots")) {
-            ItemStack reward = RunningShoeManager.create(normalizedRarity);
+        if (normalizedToolType.equals("helmet") || normalizedToolType.equals("chestplate") || normalizedToolType.equals("leggings") || normalizedToolType.equals("boots")) {
+            ItemStack reward = ProfessionGearManager.createArmor(normalizedToolType, normalizedRarity);
             if (reward.isEmpty()) {
-                return CraftResult.fail("Could not create running shoes for rarity: " + normalizedRarity);
+                return CraftResult.fail("Could not create profession gear for rarity: " + normalizedRarity);
             }
             if (!removeFragments(player, fragmentKey, cost)) {
                 return CraftResult.fail("Could not remove fragments.");
@@ -732,8 +759,28 @@ public final class ProfessionFragmentManager {
             boolean added = player.getInventory().add(reward);
             if (!added) player.drop(reward, false);
             return CraftResult.success(
-                    normalizedRarity.toLowerCase() + "_running_shoes",
-                    formatWords(normalizedRarity) + " Running Shoes",
+                    normalizedRarity.toLowerCase() + "_profession_" + normalizedToolType,
+                    formatWords(normalizedRarity) + " Profession " + formatWords(normalizedToolType),
+                    normalizedRarity,
+                    normalizedToolType,
+                    fragmentKey,
+                    cost
+            );
+        }
+
+        if (normalizedToolType.equals("magnet") || normalizedToolType.equals("shiny_charm") || normalizedToolType.equals("profession_xp_gem") || normalizedToolType.equals("pokemon_xp_egg") || normalizedToolType.equals("friendship_charm") || normalizedToolType.equals("level_charm") || normalizedToolType.equals("rare_pokemon_charm") || normalizedToolType.equals("chunky_brick") || normalizedToolType.equals("trinket_pouch")) {
+            ItemStack reward = ProfessionTrinketManager.create(normalizedToolType, normalizedRarity);
+            if (reward.isEmpty()) {
+                return CraftResult.fail("Could not create trinket for rarity: " + normalizedRarity);
+            }
+            if (!removeFragments(player, fragmentKey, cost)) {
+                return CraftResult.fail("Could not remove fragments.");
+            }
+            boolean added = player.getInventory().add(reward);
+            if (!added) player.drop(reward, false);
+            return CraftResult.success(
+                    normalizedRarity.toLowerCase() + "_" + normalizedToolType,
+                    formatWords(normalizedRarity) + " " + formatWords(normalizedToolType),
                     normalizedRarity,
                     normalizedToolType,
                     fragmentKey,
@@ -876,8 +923,52 @@ public final class ProfessionFragmentManager {
             return "shovel";
         }
 
+        if (normalized.equals("helmet") || normalized.equals("helm") || normalized.equals("helmets")) {
+            return "helmet";
+        }
+
+        if (normalized.equals("chest") || normalized.equals("chestplate") || normalized.equals("chestplates")) {
+            return "chestplate";
+        }
+
+        if (normalized.equals("leg") || normalized.equals("legs") || normalized.equals("legging") || normalized.equals("leggings")) {
+            return "leggings";
+        }
+
         if (normalized.equals("boot") || normalized.equals("boots") || normalized.equals("shoes") || normalized.equals("running_shoes")) {
             return "boots";
+        }
+
+        if (normalized.equals("shinycharm") || normalized.equals("charm")) {
+            return "shiny_charm";
+        }
+
+        if (normalized.equals("trinketpouch") || normalized.equals("pouch")) {
+            return "trinket_pouch";
+        }
+
+        if (normalized.equals("professionxpgem") || normalized.equals("xp_gem") || normalized.equals("profession_gem")) {
+            return "profession_xp_gem";
+        }
+
+        if (normalized.equals("pokemonxpegg") || normalized.equals("xp_egg") || normalized.equals("pokemon_egg")) {
+            return "pokemon_xp_egg";
+        }
+
+        if (normalized.equals("friendshipcharm")) {
+            return "friendship_charm";
+        }
+
+        if (normalized.equals("levelcharm")) {
+            return "level_charm";
+        }
+
+        if (normalized.equals("rarepokemoncharm") || normalized.equals("rare_charm")) {
+            return "rare_pokemon_charm";
+        }
+
+        if (normalized.equals("chunkybrick") || normalized.equals("chunk_brick")) {
+            return "chunky_brick";
         }
 
         return normalized;

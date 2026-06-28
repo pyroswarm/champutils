@@ -82,22 +82,28 @@ public final class ProfessionXpBoostManager {
         }
 
         double totalBonus = getTotalBonus(player, profession);
-        if (totalBonus <= 0.0D) {
-            return baseAmount;
+        int boosted = baseAmount;
+
+        if (totalBonus > 0.0D) {
+            String bankKey = player.getUUID() + ":" + profession.name();
+            double rawBonus = (baseAmount * totalBonus) + FRACTION_BANK.getOrDefault(bankKey, 0.0D);
+            int wholeBonus = (int) Math.floor(rawBonus);
+            double remainder = rawBonus - wholeBonus;
+
+            if (remainder > 0.0D) {
+                FRACTION_BANK.put(bankKey, remainder);
+            } else {
+                FRACTION_BANK.remove(bankKey);
+            }
+
+            boosted += Math.max(0, wholeBonus);
         }
 
-        String bankKey = player.getUUID() + ":" + profession.name();
-        double rawBonus = (baseAmount * totalBonus) + FRACTION_BANK.getOrDefault(bankKey, 0.0D);
-        int wholeBonus = (int) Math.floor(rawBonus);
-        double remainder = rawBonus - wholeBonus;
-
-        if (remainder > 0.0D) {
-            FRACTION_BANK.put(bankKey, remainder);
-        } else {
-            FRACTION_BANK.remove(bankKey);
+        if (ProfessionTrinketManager.rollDoubleProfessionXp(player)) {
+            boosted += baseAmount;
         }
 
-        return baseAmount + Math.max(0, wholeBonus);
+        return boosted;
     }
 
     public static double getTotalBonus(ServerPlayer player, ProfessionType profession) {

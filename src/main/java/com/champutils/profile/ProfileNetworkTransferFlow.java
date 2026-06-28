@@ -186,7 +186,7 @@ public final class ProfileNetworkTransferFlow {
             return true;
         }
 
-        ProfileLoadingStateManager.beginBlank(player, "Profile");
+        ProfileLoadingStateManager.beginBlankSilent(player, "Profile");
         AtomicReference<String> transferredProfileName = new AtomicReference<>();
         DatabaseManager.runAsync("consume profile transfer token on survival join", connection -> {
             ProfileTransferTokenManager.ensureSchema(connection);

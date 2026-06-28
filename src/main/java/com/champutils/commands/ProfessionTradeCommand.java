@@ -32,6 +32,17 @@ public final class ProfessionTradeCommand {
                                         .then(Commands.argument("rewardItem", StringArgumentType.word())
                                                 .then(Commands.argument("amount", IntegerArgumentType.integer(1))
                                                         .executes(context -> setReward(context.getSource(), StringArgumentType.getString(context, "item"), StringArgumentType.getString(context, "rewardItem"), IntegerArgumentType.getInteger(context, "amount")))))))
+                        .then(Commands.literal("disable")
+                                .requires(source -> PermissionUtil.has(source, "champutils.admin"))
+                                .then(Commands.argument("item", StringArgumentType.word())
+                                        .executes(context -> setTradeDisabled(context.getSource(), StringArgumentType.getString(context, "item"), true))))
+                        .then(Commands.literal("enable")
+                                .requires(source -> PermissionUtil.has(source, "champutils.admin"))
+                                .then(Commands.argument("item", StringArgumentType.word())
+                                        .executes(context -> setTradeDisabled(context.getSource(), StringArgumentType.getString(context, "item"), false))))
+                        .then(Commands.literal("listdisabled")
+                                .requires(source -> PermissionUtil.has(source, "champutils.admin"))
+                                .executes(context -> listDisabled(context.getSource())))
         ));
     }
 
@@ -67,9 +78,34 @@ public final class ProfessionTradeCommand {
         return 1;
     }
 
+    private static int setTradeDisabled(CommandSourceStack source, String itemId, boolean disabled) {
+        String id = normalizeCommandItem(itemId);
+        if (ProfessionBackpackManager.item(id) == net.minecraft.world.item.Items.AIR) {
+            source.sendFailure(Component.literal("§cInvalid item: " + id));
+            return 0;
+        }
+        ProfessionBackpackConfig.setTradeDisabled(id, disabled);
+        source.sendSuccess(() -> Component.literal((disabled ? "§cDisabled" : "§aEnabled") + " §f" + id + (disabled
+                ? " §cfrom backpack Rare Candy trades. Players can still store it if backpack collection allows it."
+                : " §afor backpack trades if the item entry also exists and has enough balance.")), true);
+        return 1;
+    }
+
+    private static int listDisabled(CommandSourceStack source) {
+        if (ProfessionBackpackConfig.CONFIG.tradeDisabledItems == null || ProfessionBackpackConfig.CONFIG.tradeDisabledItems.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("§aNo backpack trade-disabled items are configured."), false);
+            return 1;
+        }
+        source.sendSuccess(() -> Component.literal("§6Backpack trade-disabled items:"), false);
+        ProfessionBackpackConfig.CONFIG.tradeDisabledItems.stream()
+                .sorted()
+                .forEach(item -> source.sendSuccess(() -> Component.literal("§7- §f" + item), false));
+        return 1;
+    }
+
     private static String normalizeCommandItem(String item) {
         String id = item.trim().toLowerCase(java.util.Locale.ROOT);
         if (!id.contains(":")) id = "minecraft:" + id;
-        return ProfessionBackpackConfig.normalizeItem(id);
+        return ProfessionBackpackConfig.normalizeTradeItemId(id);
     }
 }

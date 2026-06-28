@@ -89,7 +89,7 @@ public final class AntiLagManager {
         broadcastCleanupCountdown(server, countdownSecond);
         if(countdownSecond>=1 && countdownSecond<=3 && countdownSecond!=lastCleanupCountdownSecond){
             lastCleanupCountdownSecond=countdownSecond;
-            server.getPlayerList().broadcastSystemMessage(Component.literal("§c[Cleanup] §eClearing ordinary lag entities in §c"+countdownSecond+"§e..."), false);
+            server.getPlayerList().broadcastSystemMessage(Component.literal("§6[Cleanup] §e" + countdownSecond + "..."), false);
         }
 
         if(--ticksUntilCleanup<=0){
@@ -122,12 +122,12 @@ public final class AntiLagManager {
         return Math.max(18000, AntiLagConfig.DATA.cleanupIntervalMinutes*60*20);
     }
     private static void warnCleanup(MinecraftServer server, int seconds){
-        String msg="§6[Cleanup] §eDropped items and ordinary natural wild Pokémon will be cleared in §c"+seconds+" seconds§e. §aShiny, Legendary, Mythical, Ultra Beast, Boss/Event, owned, captured, and battling Pokémon are protected.§e";
+        String msg="§6[Cleanup] §eClearing pokemon and items in §c"+seconds+" seconds";
         server.getPlayerList().broadcastSystemMessage(Component.literal(msg), false);
     }
 
     private static void broadcastCleanupCountdown(MinecraftServer server, int countdownSecond){
-        int[] checkpoints = {60, 30, 10};
+        int[] checkpoints = {60};
         for(int checkpoint : checkpoints){
             if(countdownSecond == checkpoint && cleanupBroadcastSecondsSent.add(checkpoint)){
                 warnCleanup(server, checkpoint);

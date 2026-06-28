@@ -374,11 +374,8 @@ public class BadgeManager {
                 badge
         );
 
-
-        announceBadge(
-                player,
-                badge
-        );
+        // Global badge chat announcements are intentionally disabled.
+        // Title announcements now handle this moment without duplicate chat noise.
 
 
         return true;

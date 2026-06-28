@@ -14,12 +14,17 @@ public final class AccessCommandWrappers {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("pc")
-                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pc", "cobblemonextras:pc", "VIP")));
+                    .executes(ctx -> runAny(ctx.getSource(), "champutils.command.pc", "VIP", "cobblemon:pc", "cobblemonextras:pc")));
             dispatcher.register(Commands.literal("pokeheal")
-                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeheal", "healpokemon", "VIP"))
+                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeheal", "cobblemon:healpokemon", "VIP"))
                     .then(Commands.argument("target", StringArgumentType.greedyString())
                             .requires(source -> source.hasPermission(4))
-                            .executes(ctx -> runRaw(ctx.getSource(), "cobblemonextras:pokeheal " + StringArgumentType.getString(ctx, "target")))));
+                            .executes(ctx -> runRaw(ctx.getSource(), "cobblemon:healpokemon " + StringArgumentType.getString(ctx, "target")))));
+            dispatcher.register(Commands.literal("healpokemon")
+                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeheal", "cobblemon:healpokemon", "VIP"))
+                    .then(Commands.argument("target", StringArgumentType.greedyString())
+                            .requires(source -> source.hasPermission(4))
+                            .executes(ctx -> runRaw(ctx.getSource(), "cobblemon:healpokemon " + StringArgumentType.getString(ctx, "target")))));
             dispatcher.register(Commands.literal("pokeivs")
                     .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeivs", "cobblemonextras:pokeivs", "VIP+"))
                     .then(Commands.argument("args", StringArgumentType.greedyString())
@@ -40,9 +45,28 @@ public final class AccessCommandWrappers {
         return runRaw(source, namespacedCommand);
     }
 
+    private static int runAny(net.minecraft.commands.CommandSourceStack source, String permission, String featureName, String... commands) {
+        if (source == null) return 0;
+        if (!PermissionUtil.has(source, permission)) {
+            try {
+                ServerPlayer player = source.getPlayerOrException();
+                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. Unlock it with /accountupgrade."));
+            } catch (Exception ignored) {}
+            return 0;
+        }
+        int result = 0;
+        for (String command : commands) {
+            try {
+                result = runRaw(source, command);
+                if (result > 0) return result;
+            } catch (Throwable ignored) {
+            }
+        }
+        return result;
+    }
+
     private static int runRaw(net.minecraft.commands.CommandSourceStack source, String command) {
         if (source.getServer() == null) return 0;
-        source.getServer().getCommands().performPrefixedCommand(source.withSuppressedOutput().withPermission(4), command);
-        return 1;
+        return source.getServer().getCommands().performPrefixedCommand(source.withSuppressedOutput().withPermission(4), command);
     }
 }

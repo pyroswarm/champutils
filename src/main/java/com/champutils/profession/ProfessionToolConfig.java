@@ -577,30 +577,31 @@ public class ProfessionToolConfig {
             Map<String, StatRange> ranges = new LinkedHashMap<>();
             if (pickaxe) {
                 ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
-                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
             } else if (axe) {
                 ranges.put("chopSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
-                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
             } else if (hoe) {
                 ranges.put("farmingSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
-                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch"));
             } else if (shovel) {
                 ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("fossilFinderChance", range(rarity, 0.01, 0.05, 0.02, 0.08, 0.04, 0.15, 0.08, 0.25, 0.15, 0.40, 0.25, 0.75));
-                tool.passives = new ArrayList<>(List.of("durability_save", "fossil_finder"));
+                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "fossil_finder"));
             }
             tool.statRanges = ranges;
             tool.stats = new LinkedHashMap<>();
@@ -901,27 +902,27 @@ public class ProfessionToolConfig {
 
         costs.put(
                 "UNCOMMON",
-                300L
+                250L
         );
 
         costs.put(
                 "RARE",
-                750L
+                500L
         );
 
         costs.put(
                 "EPIC",
-                1000L
+                900L
         );
 
         costs.put(
                 "LEGENDARY",
-                2500L
+                1500L
         );
 
         costs.put(
                 "MYTHIC",
-                7500L
+                2500L
         );
 
         return costs;

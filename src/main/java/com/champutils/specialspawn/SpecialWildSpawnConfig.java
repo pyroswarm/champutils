@@ -38,6 +38,7 @@ public final class SpecialWildSpawnConfig {
         if (DATA.legendarySpawns == null) DATA.legendarySpawns = d.legendarySpawns;
         if (DATA.paradoxSpawns == null) DATA.paradoxSpawns = d.paradoxSpawns;
         if (DATA.ultraBeastSpawns == null) DATA.ultraBeastSpawns = d.ultraBeastSpawns;
+        if (DATA.mythicalSpawns == null) DATA.mythicalSpawns = d.mythicalSpawns;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = d.disabledDimensions;
         if (DATA.islanderWorldPrefix == null || DATA.islanderWorldPrefix.isBlank()) DATA.islanderWorldPrefix = d.islanderWorldPrefix;
         if (DATA.islanderMinimumProfilePlaytimeSeconds < 0L) DATA.islanderMinimumProfilePlaytimeSeconds = d.islanderMinimumProfilePlaytimeSeconds;
@@ -45,9 +46,11 @@ public final class SpecialWildSpawnConfig {
         if (DATA.islanderLegendaryChancePerCheck <= 0.0D) DATA.islanderLegendaryChancePerCheck = d.islanderLegendaryChancePerCheck;
         if (DATA.islanderParadoxChancePerCheck <= 0.0D) DATA.islanderParadoxChancePerCheck = d.islanderParadoxChancePerCheck;
         if (DATA.islanderUltraBeastChancePerCheck <= 0.0D) DATA.islanderUltraBeastChancePerCheck = d.islanderUltraBeastChancePerCheck;
+        if (DATA.islanderMythicalChancePerCheck <= 0.0D) DATA.islanderMythicalChancePerCheck = d.islanderMythicalChancePerCheck;
         if (DATA.islanderLegendarySpawns == null || DATA.islanderLegendarySpawns.isEmpty()) DATA.islanderLegendarySpawns = DATA.legendarySpawns;
         if (DATA.islanderParadoxSpawns == null || DATA.islanderParadoxSpawns.isEmpty()) DATA.islanderParadoxSpawns = DATA.paradoxSpawns;
         if (DATA.islanderUltraBeastSpawns == null || DATA.islanderUltraBeastSpawns.isEmpty()) DATA.islanderUltraBeastSpawns = DATA.ultraBeastSpawns;
+        if (DATA.islanderMythicalSpawns == null || DATA.islanderMythicalSpawns.isEmpty()) DATA.islanderMythicalSpawns = DATA.mythicalSpawns;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = d.checkIntervalTicks;
         if (DATA.minDistanceFromPlayer < 8) DATA.minDistanceFromPlayer = d.minDistanceFromPlayer;
         if (DATA.maxDistanceFromPlayer < DATA.minDistanceFromPlayer) DATA.maxDistanceFromPlayer = d.maxDistanceFromPlayer;
@@ -62,7 +65,7 @@ public final class SpecialWildSpawnConfig {
         if (DATA.rareTripleSpawnEventEnabled && DATA.maxAliveSpecialWildPokemon < DATA.rareTripleSpawnEventSpawnCount) {
             DATA.maxAliveSpecialWildPokemon = DATA.rareTripleSpawnEventSpawnCount;
         }
-        if (DATA.removeBiomeRequirements) clearBiomeRequirements(DATA.legendarySpawns, DATA.paradoxSpawns, DATA.ultraBeastSpawns);
+        DATA.removeBiomeRequirements = false;
     }
 
     private static Data defaults() {
@@ -70,13 +73,13 @@ public final class SpecialWildSpawnConfig {
         root.enabled = true;
         root.disableVanillaAndAllTheMonsSpecialSpawns = true;
         root.broadcastLegendarySpawns = true;
-        root.broadcastParadoxAndUltraBeastSpawns = false;
+        root.broadcastParadoxAndUltraBeastSpawns = true;
         root.checkIntervalTicks = 12000; // 10 minutes
         root.targetAverageSpawnMinutes = 120.0; // global average target across all special spawns
         root.baseChanceMultiplier = 1.0;
         root.pityChanceIncreasePerTargetWindow = 1.0;
         root.maxPityMultiplier = 6.0;
-        root.removeBiomeRequirements = true;
+        root.removeBiomeRequirements = false;
         root.rareTripleSpawnEventEnabled = true;
         root.rareTripleSpawnEventChance = 0.01;
         root.rareTripleSpawnEventSpawnCount = 3;
@@ -84,12 +87,14 @@ public final class SpecialWildSpawnConfig {
         root.legendaryChancePerCheck = 0.0025; // now used as the legendary bucket weight
         root.paradoxChancePerCheck = 0.0080; // now used as the paradox bucket weight
         root.ultraBeastChancePerCheck = 0.0080; // now used as the ultra beast bucket weight
+        root.mythicalChancePerCheck = 0.0040; // now used as the mythical bucket weight
         root.minDistanceFromPlayer = 48;
         root.maxDistanceFromPlayer = 96;
         root.maxAliveSpecialWildPokemon = 3;
         root.levelRangeLegendary = "60-80";
         root.levelRangeParadox = "45-65";
         root.levelRangeUltraBeast = "50-70";
+        root.levelRangeMythical = "50-70";
         root.islanderSpecialSpawnsEnabled = true;
         root.islanderWorldPrefix = "islander_";
         root.islanderOnlyNotifyIslanders = true;
@@ -98,6 +103,7 @@ public final class SpecialWildSpawnConfig {
         root.islanderLegendaryChancePerCheck = root.legendaryChancePerCheck;
         root.islanderParadoxChancePerCheck = root.paradoxChancePerCheck;
         root.islanderUltraBeastChancePerCheck = root.ultraBeastChancePerCheck;
+        root.islanderMythicalChancePerCheck = root.mythicalChancePerCheck;
         root.disabledDimensions = new ArrayList<>(List.of("multiworld:spawn1", "multiworld:spawn", "minecraft:the_end"));
 
         root.legendarySpawns = new ArrayList<>(List.of(
@@ -129,6 +135,27 @@ public final class SpecialWildSpawnConfig {
                 entry("eternatus", tags("#cobblemon:is_deep_dark", "#cobblemon:is_nether"), times("night")),
                 entry("koraidon", tags("#cobblemon:is_mountain", "#cobblemon:is_badlands"), times("day")),
                 entry("miraidon", tags("#cobblemon:is_mountain", "#cobblemon:is_plains"), times("night"))
+        ));
+
+        root.mythicalSpawns = new ArrayList<>(List.of(
+                entry("mew", tags("#cobblemon:is_jungle", "#cobblemon:is_forest"), times("dawn", "day")),
+                entry("celebi", tags("#cobblemon:is_forest", "#cobblemon:is_floral"), times("dawn", "day")),
+                entry("jirachi", tags("#cobblemon:is_mountain", "#cobblemon:is_sky"), times("night")),
+                entry("deoxys", tags("#cobblemon:is_mountain", "#cobblemon:is_end"), times("night")),
+                entry("darkrai", tags("#cobblemon:is_dark_forest", "#cobblemon:is_deep_dark"), times("night")),
+                entry("shaymin", tags("#cobblemon:is_floral", "#cobblemon:is_plains"), times("day")),
+                entry("victini", tags("#cobblemon:is_plains", "#cobblemon:is_savanna"), times("day")),
+                entry("keldeo", tags("#cobblemon:is_river", "#cobblemon:is_lake"), times("day")),
+                entry("meloetta", tags("#cobblemon:is_forest", "#cobblemon:is_floral"), times("dusk", "night")),
+                entry("genesect", tags("#cobblemon:is_cave", "#cobblemon:is_deep_dark"), times("night")),
+                entry("diancie", tags("#cobblemon:is_cave", "#cobblemon:is_mountain"), times("day", "night")),
+                entry("hoopa", tags("#cobblemon:is_desert", "#cobblemon:is_deep_dark"), times("dusk", "night")),
+                entry("volcanion", tags("#cobblemon:is_volcanic", "#cobblemon:is_badlands"), times("day")),
+                entry("magearna", tags("#cobblemon:is_plains", "#cobblemon:is_mountain"), times("day")),
+                entry("marshadow", tags("#cobblemon:is_dark_forest", "#cobblemon:is_deep_dark"), times("night")),
+                entry("zeraora", tags("#cobblemon:is_savanna", "#cobblemon:is_plains"), times("night")),
+                entry("zarude", tags("#cobblemon:is_jungle", "#cobblemon:is_forest"), times("day")),
+                entry("pecharunt", tags("#cobblemon:is_swamp", "#cobblemon:is_dark_forest"), times("night"))
         ));
 
         root.paradoxSpawns = new ArrayList<>(List.of(
@@ -164,10 +191,11 @@ public final class SpecialWildSpawnConfig {
                 entry("stakataka", tags("#cobblemon:is_mountain", "#cobblemon:is_cave"), times("night")),
                 entry("blacephalon", tags("#cobblemon:is_dark_forest", "#cobblemon:is_nether"), times("night"))
         ));
-        if (root.removeBiomeRequirements) clearBiomeRequirements(root.legendarySpawns, root.paradoxSpawns, root.ultraBeastSpawns);
+        if (root.removeBiomeRequirements) clearBiomeRequirements(root.legendarySpawns, root.paradoxSpawns, root.ultraBeastSpawns, root.mythicalSpawns);
         root.islanderLegendarySpawns = new ArrayList<>(root.legendarySpawns);
         root.islanderParadoxSpawns = new ArrayList<>(root.paradoxSpawns);
         root.islanderUltraBeastSpawns = new ArrayList<>(root.ultraBeastSpawns);
+        root.islanderMythicalSpawns = new ArrayList<>(root.mythicalSpawns);
 
         return root;
     }
@@ -206,12 +234,14 @@ public final class SpecialWildSpawnConfig {
         public double legendaryChancePerCheck;
         public double paradoxChancePerCheck;
         public double ultraBeastChancePerCheck;
+        public double mythicalChancePerCheck;
         public int minDistanceFromPlayer;
         public int maxDistanceFromPlayer;
         public int maxAliveSpecialWildPokemon;
         public String levelRangeLegendary;
         public String levelRangeParadox;
         public String levelRangeUltraBeast;
+        public String levelRangeMythical;
         public boolean islanderSpecialSpawnsEnabled;
         public String islanderWorldPrefix;
         public boolean islanderOnlyNotifyIslanders;
@@ -220,13 +250,16 @@ public final class SpecialWildSpawnConfig {
         public double islanderLegendaryChancePerCheck;
         public double islanderParadoxChancePerCheck;
         public double islanderUltraBeastChancePerCheck;
+        public double islanderMythicalChancePerCheck;
         public List<String> disabledDimensions;
         public List<SpawnEntry> legendarySpawns;
         public List<SpawnEntry> paradoxSpawns;
         public List<SpawnEntry> ultraBeastSpawns;
+        public List<SpawnEntry> mythicalSpawns;
         public List<SpawnEntry> islanderLegendarySpawns;
         public List<SpawnEntry> islanderParadoxSpawns;
         public List<SpawnEntry> islanderUltraBeastSpawns;
+        public List<SpawnEntry> islanderMythicalSpawns;
     }
 
     public static final class SpawnEntry {

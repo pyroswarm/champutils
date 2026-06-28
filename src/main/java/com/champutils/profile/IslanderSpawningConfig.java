@@ -158,16 +158,17 @@ public final class IslanderSpawningConfig {
         c.closeSpawnerZoneHeight = 24;
         c.spawnablePositionTypes = set("grounded", "surface", "submerged", "seafloor");
         c.progressionTiers = new ArrayList<>();
-        c.progressionTiers.add(tier("hour_0", "Islander Hour 0", 0L * 3600L, 1, 10, 0, 1.00F));
-        c.progressionTiers.add(tier("hour_1", "Islander Hour 1", 1L * 3600L, 1, 20, 0, 1.00F));
-        c.progressionTiers.add(tier("hour_2", "Islander Hour 2", 2L * 3600L, 1, 30, 1, 1.00F));
-        c.progressionTiers.add(tier("hour_3", "Islander Hour 3", 3L * 3600L, 1, 40, 1, 1.00F));
-        c.progressionTiers.add(tier("hour_4", "Islander Hour 4", 4L * 3600L, 1, 50, 2, 1.00F));
-        c.progressionTiers.add(tier("hour_5", "Islander Hour 5", 5L * 3600L, 1, 60, 2, 1.00F));
-        c.progressionTiers.add(tier("hour_6", "Islander Hour 6", 6L * 3600L, 1, 70, 2, 1.00F));
-        c.progressionTiers.add(tier("hour_7", "Islander Hour 7", 7L * 3600L, 1, 80, 2, 1.00F));
-        c.progressionTiers.add(tier("hour_8", "Islander Hour 8", 8L * 3600L, 1, 90, 2, 1.00F));
-        c.progressionTiers.add(tier("hour_9", "Islander Hour 9", 9L * 3600L, 1, 100, 2, 1.00F));
+        // Historical playtime tiers were intentionally replaced by badge-style level brackets.
+        // Active Islander spawning uses tierForBadgeCount(...), not tierForPlaytime(...).
+        c.progressionTiers.add(tier("badge_0", "0 Badges", 0L, 1, 20, 0, 1.00F));
+        c.progressionTiers.add(tier("badge_1", "1 Badge", 0L, 1, 30, 0, 1.00F));
+        c.progressionTiers.add(tier("badge_2", "2 Badges", 0L, 1, 40, 1, 1.00F));
+        c.progressionTiers.add(tier("badge_3", "3 Badges", 0L, 1, 50, 1, 1.00F));
+        c.progressionTiers.add(tier("badge_4", "4 Badges", 0L, 1, 60, 2, 1.00F));
+        c.progressionTiers.add(tier("badge_5", "5 Badges", 0L, 1, 70, 2, 1.00F));
+        c.progressionTiers.add(tier("badge_6", "6 Badges", 0L, 1, 80, 2, 1.00F));
+        c.progressionTiers.add(tier("badge_7", "7 Badges", 0L, 1, 90, 2, 1.00F));
+        c.progressionTiers.add(tier("badge_8", "8 Badges", 0L, 1, 100, 2, 1.00F));
         c.legendarySpecies = set("articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","ho_oh","hooh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","type_null","typenull","silvally","tapu_koko","tapukoko","tapu_lele","tapulele","tapu_bulu","tapubulu","tapu_fini","tapufini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wo_chien","wochien","chien_pao","chienpao","ting_lu","tinglu","chi_yu","chiyu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon");
         c.mythicalSpecies = set("mew","celebi","jirachi","deoxys","phione","manaphy","darkrai","shaymin","arceus","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt");
         c.ultraBeastSpecies = set("nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon");

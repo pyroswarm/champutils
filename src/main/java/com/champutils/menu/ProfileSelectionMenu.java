@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 public final class ProfileSelectionMenu {
     private ProfileSelectionMenu() {}
 
-    private static final long SNAPSHOT_TTL_MILLIS = 1500L;
+    private static final long SNAPSHOT_TTL_MILLIS = 60_000L;
     private static final long FINALIZE_CHECK_TTL_MILLIS = 10_000L;
     private static final ConcurrentMap<UUID, MenuSnapshot> SNAPSHOTS = new ConcurrentHashMap<>();
     private static final ConcurrentMap<UUID, Long> LAST_FINALIZE_CHECK = new ConcurrentHashMap<>();
@@ -562,13 +562,15 @@ public final class ProfileSelectionMenu {
     private static Set<String> usedProfileNames(ServerPlayer player) {
         Set<String> used = new HashSet<>();
         MenuSnapshot snapshot = cachedSnapshot(player);
+        List<PlayerProfileManager.ProfileRecord> profiles;
         if (snapshot == null) {
-            // Do not block the server thread here. The color menu is only reached after the
-            // root profile menu has loaded a snapshot, but fall back safely if it was invalidated.
-            open(player);
-            return used;
+            // Keep the color chooser stable. Reopening the root menu here made players get only
+            // a split second to pick a color whenever the snapshot expired or was invalidated.
+            profiles = PlayerProfileManager.listBlocking(player);
+        } else {
+            profiles = snapshot.profiles();
         }
-        for (PlayerProfileManager.ProfileRecord profile : snapshot.profiles()) {
+        for (PlayerProfileManager.ProfileRecord profile : profiles) {
             if (profile != null && !profile.pendingDelete()) used.add(profile.profileName().toLowerCase(Locale.ROOT));
         }
         return used;

@@ -18,6 +18,10 @@ public final class ProfessionForemanMenu {
     private ProfessionForemanMenu() {}
 
     public static void open(ServerPlayer player) {
+        open(player, false);
+    }
+
+    private static void open(ServerPlayer player, boolean confirmingSellAll) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
         gui.setTitle(Component.literal("Profession Foreman"));
         MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
@@ -27,16 +31,28 @@ public final class ProfessionForemanMenu {
                 .addLoreLine(Component.literal("§7Sell chunks, trade chunks, or"))
                 .addLoreLine(Component.literal("§7exchange backpack materials.")));
 
-        gui.setSlot(20, new GuiElementBuilder(Items.GOLD_INGOT).hideDefaultTooltip()
-                .setName(Component.literal("§6Sell All Chunks"))
-                .addLoreLine(Component.literal("§7Converts all stored chunks into Credits."))
-                .addLoreLine(Component.literal("§eClick to sell all."))
-                .setCallback((i,c,t) -> {
-                    long cents = ProfessionChunkManager.sellAll(player);
-                    if (cents <= 0L) player.sendSystemMessage(Component.literal("§cYou do not have any sellable chunks."));
-                    else player.sendSystemMessage(Component.literal("§aSold all chunks for §6" + EconomyManager.format(cents) + "§a."));
-                    open(player);
-                }));
+        long sellAllPreview = ProfessionChunkManager.sellAllValueCents(player);
+        if (confirmingSellAll) {
+            gui.setSlot(20, new GuiElementBuilder(Items.GREEN_STAINED_GLASS_PANE).hideDefaultTooltip()
+                    .setName(Component.literal("§aConfirm Sell All Chunks"))
+                    .addLoreLine(Component.literal("§7This will sell every stored chunk."))
+                    .addLoreLine(Component.literal("§7Total: §6" + EconomyManager.format(sellAllPreview)))
+                    .addLoreLine(Component.literal("§cThis cannot be undone."))
+                    .addLoreLine(Component.literal("§eClick again to confirm."))
+                    .setCallback((i,c,t) -> {
+                        long cents = ProfessionChunkManager.sellAll(player);
+                        if (cents <= 0L) player.sendSystemMessage(Component.literal("§cYou do not have any sellable chunks."));
+                        else player.sendSystemMessage(Component.literal("§aSold all chunks for §6" + EconomyManager.format(cents) + "§a."));
+                        open(player);
+                    }));
+        } else {
+            gui.setSlot(20, new GuiElementBuilder(Items.GOLD_INGOT).hideDefaultTooltip()
+                    .setName(Component.literal("§6Sell All Chunks"))
+                    .addLoreLine(Component.literal("§7Converts all stored chunks into Credits."))
+                    .addLoreLine(Component.literal("§7Total: §6" + EconomyManager.format(sellAllPreview)))
+                    .addLoreLine(Component.literal("§eClick to review and confirm."))
+                    .setCallback((i,c,t) -> open(player, true)));
+        }
 
         gui.setSlot(22, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
                 .setName(Component.literal("§dTrade Chunks for Fragments"))

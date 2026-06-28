@@ -4,7 +4,9 @@ import com.champutils.buff.BuffContext;
 import com.champutils.buff.BuffManager;
 import com.champutils.buff.BuffType;
 import com.champutils.xplock.XpLockManager;
+import com.champutils.battle.BattleContextManager;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionTrinketManager;
 import com.champutils.profession.ProfessionType;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.pokemon.ExperienceGainedEvent;
@@ -36,7 +38,12 @@ public final class PokemonExperienceBuffListener {
             );
             int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
             double battlingBonus = Math.max(0, Math.min(100, battlingLevel)) / 100.0D;
-            double totalBonus = Math.max(0.0D, bonus) + battlingBonus;
+            BattleContextManager.BattleType battleType = BattleContextManager.getContext(player.getUUID());
+            double pvpBonus = battleType == BattleContextManager.BattleType.RANKED
+                    ? 2.0D
+                    : battleType == BattleContextManager.BattleType.CASUAL ? 1.0D : 0.0D;
+            double trinketBonus = ProfessionTrinketManager.pokemonXpBonus(player);
+            double totalBonus = Math.max(0.0D, bonus) + battlingBonus + pvpBonus + trinketBonus;
             if (totalBonus <= 0.0D) return;
             int boosted = (int) Math.round(pre.getExperience() * (1.0D + totalBonus));
             pre.setExperience(Math.max(pre.getExperience(), boosted));

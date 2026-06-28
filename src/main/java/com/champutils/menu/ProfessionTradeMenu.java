@@ -69,9 +69,10 @@ public final class ProfessionTradeMenu {
     private static List<ProfessionBackpackConfig.ItemData> tradeItems(ProfessionType profession, ServerPlayer player) {
         Map<String, Long> balances = ProfessionBackpackManager.balances(player);
         return ProfessionBackpackConfig.CONFIG.items.values().stream()
+                .filter(data -> data != null && data.enabled)
                 .filter(data -> profession.name().equalsIgnoreCase(data.profession))
                 .filter(data -> balances.getOrDefault(data.item, 0L) > 0L)
-                .filter(data -> data.tradeEnabled)
+                .filter(data -> ProfessionBackpackConfig.isTradeEnabled(data.item))
                 .sorted(Comparator.comparingInt((ProfessionBackpackConfig.ItemData d) -> d.sort).thenComparing(d -> d.displayName))
                 .toList();
     }

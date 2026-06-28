@@ -293,6 +293,7 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ProfessionToolConfig.load();
         ProfessionFragmentConfig.load();
+        RankedTokenManager.register();
         ActiveAbilityRegistry.registerDefaults();
         PassiveRegistry.registerDefaults();
         ProfessionFragmentManager.registerFragments();
@@ -312,6 +313,12 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionSalvageCommand.register();
         RunningShoeManager.registerItems();
         RunningShoeManager.registerEffects();
+        ProfessionGearConfig.load();
+        ProfessionGearManager.registerItems();
+        ProfessionGearManager.registerEffects();
+        ProfessionTrinketConfig.load();
+        ProfessionTrinketManager.registerItems();
+        ProfessionTrinketManager.registerEffects();
 
         /*
          Profession loot config
@@ -667,6 +674,7 @@ public class ChampUtilsMod implements ModInitializer {
         TerritoryCommand.register();
         ChatCommand.register();
         PrivateMessageCommand.register();
+        RankedShopCommand.register();
         DiscordCommand.register();
         TitleCommand.register();
         WorldFirstCommand.register();

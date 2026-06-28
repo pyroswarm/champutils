@@ -55,7 +55,7 @@ public final class ProfessionBackpackManager {
         if (!ProfessionBackpackConfig.CONFIG.enabled || !isAutopickupEnabled(player)) return false;
         if (!isSafeBackpackStack(stack)) return false;
         String itemId = itemId(stack);
-        return ProfessionBackpackConfig.get(itemId) != null;
+        return ProfessionBackpackConfig.isCollectableConfigured(itemId);
     }
 
     public static int capturePickup(ServerPlayer player, ItemStack stack) {
@@ -123,7 +123,7 @@ public final class ProfessionBackpackManager {
     public static TradeResult trade(ServerPlayer player, String itemId) {
         ProfessionBackpackConfig.ItemData data = ProfessionBackpackConfig.get(itemId);
         if (data == null) return new TradeResult(false, "This item is not configured for profession trades.");
-        if (!data.tradeEnabled) return new TradeResult(false, "This trade is disabled.");
+        if (!ProfessionBackpackConfig.isTradeEnabled(itemId)) return new TradeResult(false, "This trade is disabled by the backpack trade config.");
         long cost = java.lang.Math.max(1, data.tradeCost);
         if (count(player, itemId) < cost) return new TradeResult(false, "You need " + cost + "x " + data.displayName + ".");
         Item reward = item(data.rewardItem);

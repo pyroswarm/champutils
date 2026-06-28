@@ -249,6 +249,10 @@ public class ProfessionToolUtil {
             return 0D;
         }
 
+        boolean fortuneStat =
+                stat.equalsIgnoreCase("fortuneChance") ||
+                        stat.equalsIgnoreCase("fortuneBonus");
+
         Map<String, Double> rolledStats =
                 ProfessionToolMetadata.getRolledStats(
                         stack
@@ -259,8 +263,12 @@ public class ProfessionToolUtil {
                         stat
                 );
 
+        if (rolledValue == null && fortuneStat) {
+            rolledValue = rolledStats.get(stat.equalsIgnoreCase("fortuneChance") ? "fortuneBonus" : "fortuneChance");
+        }
+
         if (rolledValue != null) {
-            return rolledValue;
+            return fortuneStat ? normalizedFortuneChance(stack, rolledValue) : rolledValue;
         }
 
         ProfessionToolConfig.ToolData data =
@@ -280,8 +288,35 @@ public class ProfessionToolUtil {
                         stat
                 );
 
-        return value == null
-                ? 0D
-                : value;
+        if (value == null && fortuneStat) {
+            value = data.stats.get(stat.equalsIgnoreCase("fortuneChance") ? "fortuneBonus" : "fortuneChance");
+        }
+
+        if (value == null) return 0D;
+        return fortuneStat ? normalizedFortuneChance(stack, value) : value;
     }
+    private static double normalizedFortuneChance(ItemStack stack, double value) {
+        ProfessionToolConfig.ToolData data =
+                getToolData(stack);
+
+        if (data == null || data.statRanges == null) {
+            return value;
+        }
+
+        ProfessionToolConfig.StatRange range =
+                data.statRanges.get("fortuneChance");
+
+        if (range == null) {
+            range = data.statRanges.get("fortuneBonus");
+        }
+
+        if (range == null) {
+            return value;
+        }
+
+        double min = Math.min(range.min, range.max);
+        double max = Math.max(range.min, range.max);
+        return Math.max(min, Math.min(max, value));
+    }
+
 }

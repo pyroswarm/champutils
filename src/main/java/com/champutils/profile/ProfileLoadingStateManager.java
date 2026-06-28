@@ -45,7 +45,7 @@ public final class ProfileLoadingStateManager {
     }
 
     public static void begin(ServerPlayer player, String profileName) {
-        begin(player, profileName, false);
+        begin(player, profileName, false, true);
     }
 
     /**
@@ -55,10 +55,14 @@ public final class ProfileLoadingStateManager {
      * hydration is still in progress.
      */
     public static void beginBlank(ServerPlayer player, String profileName) {
-        begin(player, profileName, true);
+        begin(player, profileName, true, true);
     }
 
-    private static void begin(ServerPlayer player, String profileName, boolean blankLiveState) {
+    public static void beginBlankSilent(ServerPlayer player, String profileName) {
+        begin(player, profileName, true, false);
+    }
+
+    private static void begin(ServerPlayer player, String profileName, boolean blankLiveState, boolean showInitialTitle) {
         if (player == null) return;
         String clean = profileName == null || profileName.isBlank() ? "Profile" : profileName.trim();
         // Dedicated profile_lobby backend may use the isolated lobby world as the lock target.
@@ -80,7 +84,7 @@ public final class ProfileLoadingStateManager {
                 teleportToLoadingTarget(player);
             }
         }
-        apply(player, clean, true);
+        if (showInitialTitle) apply(player, clean, true);
     }
 
     public static void end(ServerPlayer player) {

@@ -47,6 +47,11 @@ public final class CommandBlocker {
         // Ops/console stay able to use the real command paths for admin work and internal server actions.
         if (source.getEntity() == null || source.hasPermission(4)) return false;
 
+        if (isVanillaPrivateMessageRoot(parsed.root)) {
+            deny(source, Component.literal("§cVanilla private messaging is disabled. Use §d/pm <player> <message>§c."));
+            return true;
+        }
+
         String permission = requiredPermission(parsed.root);
         if (permission == null) return false;
 
@@ -74,7 +79,11 @@ public final class CommandBlocker {
     public static boolean isBlockedRoot(String command) {
         if (command == null) return false;
         String root = ParsedCommand.parse(command).root;
-        return root.equals("script") || root.equals("trigger");
+        return root.equals("script") || root.equals("trigger") || isVanillaPrivateMessageRoot(root);
+    }
+
+    private static boolean isVanillaPrivateMessageRoot(String root) {
+        return root != null && (root.equals("msg") || root.equals("tell") || root.equals("w"));
     }
 
     private static String requiredPermission(String root) {

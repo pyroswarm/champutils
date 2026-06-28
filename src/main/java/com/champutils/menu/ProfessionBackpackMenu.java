@@ -22,37 +22,39 @@ public final class ProfessionBackpackMenu {
 
     public static void open(ServerPlayer player) { open(player, ProfessionType.MINING, 0, ""); }
 
-    public static void open(ServerPlayer player, String search) { open(player, ProfessionType.MINING, 0, search); }
+    public static void open(ServerPlayer player, String search) { open(player, null, 0, search); }
 
     public static void open(ServerPlayer player, ProfessionType profession, int page) { open(player, profession, page, ""); }
 
     public static void open(ServerPlayer player, ProfessionType profession, int page, String search) {
+        boolean searching = search != null && !search.isBlank();
+        ProfessionType selected = profession == null ? ProfessionType.MINING : profession;
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
-        gui.setTitle(Component.literal(search == null || search.isBlank() ? "Profession Backpack" : "Backpack Search: " + search));
+        gui.setTitle(Component.literal(searching ? "Backpack Search: " + search : "Profession Backpack"));
         MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43,45,49,53);
 
         gui.setSlot(4, new GuiElementBuilder(Items.CHEST).hideDefaultTooltip()
                 .setName(Component.literal("§6Profession Backpack"))
                 .addLoreLine(Component.literal("§7Profile-bound digital profession storage."))
-                .addLoreLine(Component.literal("§7Items appear after players collect them."))
-                .addLoreLine(Component.literal("§7Search: §f/backpack search <item>")));
+                .addLoreLine(Component.literal("§7Only Mining, Forestry, and Farming items are collectable."))
+                .addLoreLine(Component.literal("§7Search names with §f/bp search <item>§7.")));
 
-        tab(gui, 0, player, profession, ProfessionType.MINING, Items.IRON_PICKAXE);
-        tab(gui, 1, player, profession, ProfessionType.FORESTRY, Items.OAK_LOG);
-        tab(gui, 2, player, profession, ProfessionType.FARMING, Items.WHEAT);
+        tab(gui, 0, player, selected, ProfessionType.MINING, Items.IRON_PICKAXE);
+        tab(gui, 1, player, selected, ProfessionType.FORESTRY, Items.OAK_LOG);
+        tab(gui, 2, player, selected, ProfessionType.FARMING, Items.WHEAT);
 
         boolean auto = ProfessionBackpackManager.isAutopickupEnabled(player);
         gui.setSlot(8, new GuiElementBuilder(auto ? Items.LIME_DYE : Items.RED_DYE).hideDefaultTooltip()
                 .setName(Component.literal(auto ? "§aAutopickup: ON" : "§cAutopickup: OFF"))
-                .addLoreLine(Component.literal("§7When on, profession drops are stored digitally."))
+                .addLoreLine(Component.literal("§7When on, allowed profession drops are stored digitally."))
                 .addLoreLine(Component.literal("§eClick to toggle."))
                 .setCallback((i,c,t) -> {
                     boolean enabled = ProfessionBackpackManager.toggleAutopickup(player);
                     player.sendSystemMessage(Component.literal(enabled ? "§aProfession backpack autopickup enabled." : "§cProfession backpack autopickup disabled."));
-                    open(player, profession, page, search);
+                    open(player, searching ? null : selected, page, search);
                 }));
 
-        List<ProfessionBackpackConfig.ItemData> items = visibleItems(profession, player, search);
+        List<ProfessionBackpackConfig.ItemData> items = searching ? searchItems(player, search) : visibleItems(selected, player, "");
         int maxPage = Math.max(0, (items.size() - 1) / CONTENT.length);
         int fixedPage = Math.max(0, Math.min(page, maxPage));
         int start = fixedPage * CONTENT.length;
@@ -61,6 +63,7 @@ public final class ProfessionBackpackMenu {
             long have = ProfessionBackpackManager.count(player, data.item);
             gui.setSlot(CONTENT[idx], new GuiElementBuilder(icon(data.item)).hideDefaultTooltip()
                     .setName(Component.literal("§e" + data.displayName))
+                    .addLoreLine(Component.literal("§7Profession: §f" + label(ProfessionBackpackManager.parseProfession(data.profession))))
                     .addLoreLine(Component.literal("§7Stored: §a" + have))
                     .addLoreLine(Component.literal("§7Left Click: withdraw §f1"))
                     .addLoreLine(Component.literal("§7Shift Click: withdraw §f64"))
@@ -69,13 +72,19 @@ public final class ProfessionBackpackMenu {
                         if (!ProfessionBackpackManager.withdraw(player, data.item, amount)) {
                             player.sendSystemMessage(Component.literal("§cYou do not have enough " + data.displayName + "."));
                         }
-                        open(player, profession, fixedPage, search);
+                        open(player, searching ? null : selected, fixedPage, search);
                     }));
         }
 
-        if (fixedPage > 0) gui.setSlot(45, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§ePrevious Page")).setCallback((i,c,t) -> open(player, profession, fixedPage - 1, search)));
+        if (items.isEmpty()) {
+            gui.setSlot(22, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                    .setName(Component.literal(searching ? "§cNo matching stored items" : "§cNo stored items yet"))
+                    .addLoreLine(Component.literal(searching ? "§7Search uses display names like Apple, Wheat, or Apricorn." : "§7Allowed items appear here after collection.")));
+        }
+
+        if (fixedPage > 0) gui.setSlot(45, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§ePrevious Page")).setCallback((i,c,t) -> open(player, searching ? null : selected, fixedPage - 1, search)));
         gui.setSlot(49, new GuiElementBuilder(Items.BOOK).hideDefaultTooltip().setName(Component.literal("§7Page §f" + (fixedPage + 1) + "§7/§f" + (maxPage + 1))));
-        if (fixedPage < maxPage) gui.setSlot(53, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eNext Page")).setCallback((i,c,t) -> open(player, profession, fixedPage + 1, search)));
+        if (fixedPage < maxPage) gui.setSlot(53, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eNext Page")).setCallback((i,c,t) -> open(player, searching ? null : selected, fixedPage + 1, search)));
         gui.open();
     }
 
@@ -90,15 +99,22 @@ public final class ProfessionBackpackMenu {
 
     static List<ProfessionBackpackConfig.ItemData> visibleItems(ProfessionType profession, ServerPlayer player, String search) {
         Map<String, Long> balances = ProfessionBackpackManager.balances(player);
+        String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
         return ProfessionBackpackConfig.CONFIG.items.values().stream()
-                .filter(data -> profession.name().equalsIgnoreCase(data.profession))
+                .filter(data -> data != null && data.enabled && ProfessionBackpackConfig.isBackpackProfession(data.profession))
+                .filter(data -> profession == null || profession.name().equalsIgnoreCase(data.profession))
                 .filter(data -> balances.getOrDefault(data.item, 0L) > 0L)
-                .filter(data -> search == null || search.isBlank() || data.displayName.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT)) || data.item.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT)))
+                .filter(data -> needle.isBlank() || data.displayName.toLowerCase(Locale.ROOT).contains(needle))
                 .sorted(Comparator.comparing((ProfessionBackpackConfig.ItemData d) -> d.displayName.toLowerCase(Locale.ROOT)).thenComparing(d -> d.item))
                 .toList();
     }
 
+    public static List<ProfessionBackpackConfig.ItemData> searchItems(ServerPlayer player, String search) {
+        return visibleItems(null, player, search);
+    }
+
     private static String label(ProfessionType type) {
+        if (type == null) return "Unknown";
         return switch (type) { case MINING -> "Mining"; case FORESTRY -> "Forestry"; case FARMING -> "Farming"; default -> type.name(); };
     }
 

@@ -122,6 +122,8 @@ public class BattleListener {
             return;
         }
 
+        com.champutils.rank.RankedTokenManager.awardRankedVictory(winner, loser);
+
         RewardTrackCommand.addXp(winner, 250, "ranked_win");
         RewardTrackCommand.addXp(loser, 100, "ranked_play");
 
@@ -240,7 +242,17 @@ public class BattleListener {
         switch (type) {
 
             case RANKED:
+                xp = Math.max(1, getBattleXp("ranked_pvp"));
+                if (xp <= 1) xp = Math.max(1, getBattleXp("pvp"));
+                xp *= 5;
+                break;
+
             case CASUAL:
+                xp = Math.max(1, getBattleXp("casual_pvp"));
+                if (xp <= 1) xp = Math.max(1, getBattleXp("pvp"));
+                xp *= 3;
+                break;
+
             case GYM:
             case ELITE_FOUR:
             case TOURNAMENT:

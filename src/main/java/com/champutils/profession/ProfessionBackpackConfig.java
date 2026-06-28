@@ -7,8 +7,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class ProfessionBackpackConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -22,6 +24,13 @@ public final class ProfessionBackpackConfig {
         public String defaultRewardItem = "cobblemon:rare_candy";
         public int defaultTradeCost = 1000;
         public int defaultTradeRewardAmount = 1;
+        /**
+         * Items in this set can still be stored in the backpack, but they cannot be traded
+         * through the Profession Trade/Rare Candy exchange. This is intentionally separate
+         * from ItemData.enabled so junk materials can be collected safely without becoming
+         * an economy exploit.
+         */
+        public Set<String> tradeDisabledItems = defaultTradeDisabledItems();
         public Map<String, ItemData> items = new LinkedHashMap<>();
     }
 
@@ -29,6 +38,7 @@ public final class ProfessionBackpackConfig {
         public String profession;
         public String item;
         public String displayName;
+        public boolean enabled = true;
         public String rewardItem = "cobblemon:rare_candy";
         public int tradeCost = 1000;
         public int rewardAmount = 1;
@@ -58,6 +68,7 @@ public final class ProfessionBackpackConfig {
             }
             mergeMissingDefaults();
             normalize();
+            save();
         } catch (Exception e) {
             e.printStackTrace();
             CONFIG = defaults();
@@ -85,8 +96,85 @@ public final class ProfessionBackpackConfig {
         return CONFIG.items.get(normalizeItem(itemId));
     }
 
+    public static boolean isBackpackProfession(String profession) {
+        if (profession == null) return false;
+        String normalized = profession.trim().toUpperCase(Locale.ROOT);
+        return normalized.equals(ProfessionType.MINING.name()) || normalized.equals(ProfessionType.FORESTRY.name()) || normalized.equals(ProfessionType.FARMING.name());
+    }
+
+    public static boolean isBackpackProfession(ProfessionType profession) {
+        return profession == ProfessionType.MINING || profession == ProfessionType.FORESTRY || profession == ProfessionType.FARMING;
+    }
+
+    public static boolean isCollectableConfigured(String itemId) {
+        ItemData data = get(itemId);
+        return data != null && data.enabled && isBackpackProfession(data.profession);
+    }
+
+    public static boolean allowItem(String itemId, ProfessionType profession, String displayName) {
+        if (itemId == null || itemId.isBlank() || !isBackpackProfession(profession)) return false;
+        String id = normalizeItem(itemId);
+        ItemData data = CONFIG.items.get(id);
+        if (data == null) data = new ItemData(profession, id, displayName == null || displayName.isBlank() ? formatName(id) : displayName, CONFIG.items.size() + 1);
+        data.item = id;
+        data.profession = profession.name();
+        data.displayName = displayName == null || displayName.isBlank() ? formatName(id) : displayName;
+        data.enabled = true;
+        data.tradeCost = Math.max(1, data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost);
+        data.rewardItem = data.rewardItem == null || data.rewardItem.isBlank() ? CONFIG.defaultRewardItem : normalizeItem(data.rewardItem);
+        data.rewardAmount = Math.max(1, data.rewardAmount <= 0 ? CONFIG.defaultTradeRewardAmount : data.rewardAmount);
+        CONFIG.items.put(id, data);
+        save();
+        return true;
+    }
+
+    public static boolean setEnabled(String itemId, boolean enabled) {
+        ItemData data = get(itemId);
+        if (data == null) return false;
+        data.enabled = enabled;
+        save();
+        return true;
+    }
+
+    public static boolean isTradeDisabled(String itemId) {
+        if (itemId == null || itemId.isBlank()) return false;
+        if (CONFIG.tradeDisabledItems == null) CONFIG.tradeDisabledItems = defaultTradeDisabledItems();
+        return CONFIG.tradeDisabledItems.contains(normalizeTradeItemId(itemId));
+    }
+
+    public static boolean isTradeEnabled(String itemId) {
+        ItemData data = get(itemId);
+        return data != null && data.enabled && data.tradeEnabled && !isTradeDisabled(itemId);
+    }
+
+    public static boolean setTradeDisabled(String itemId, boolean disabled) {
+        if (itemId == null || itemId.isBlank()) return false;
+        String id = normalizeTradeItemId(itemId);
+        if (id.isBlank()) return false;
+        if (CONFIG.tradeDisabledItems == null) CONFIG.tradeDisabledItems = new LinkedHashSet<>();
+        if (disabled) {
+            CONFIG.tradeDisabledItems.add(id);
+        } else {
+            CONFIG.tradeDisabledItems.remove(id);
+        }
+        ItemData data = get(id);
+        if (data != null) {
+            data.tradeEnabled = !disabled;
+        }
+        save();
+        return true;
+    }
+
+    public static boolean removeItem(String itemId) {
+        if (itemId == null) return false;
+        boolean removed = CONFIG.items.remove(normalizeItem(itemId)) != null;
+        if (removed) save();
+        return removed;
+    }
+
     public static ItemData ensureDiscovered(ProfessionType profession, String itemId) {
         if (profession == null || itemId == null || itemId.isBlank()) return null;
+        if (!isBackpackProfession(profession)) return null;
         String id = normalizeItem(itemId);
         ItemData existing = CONFIG.items.get(id);
         if (existing != null) return existing;
@@ -104,11 +192,31 @@ public final class ProfessionBackpackConfig {
         return itemId.trim().toLowerCase(Locale.ROOT);
     }
 
+    public static String normalizeTradeItemId(String itemId) {
+        if (itemId == null) return "";
+        String id = itemId.trim().toLowerCase(Locale.ROOT);
+        if (id.isBlank()) return "";
+        if (!id.contains(":")) id = "minecraft:" + id;
+        if (id.equals("minecraft:netherack")) id = "minecraft:netherrack";
+        return id;
+    }
+
     private static File file() {
         return new File("config/champutils/profession_backpack.json");
     }
 
     private static void normalize() {
+        if (CONFIG.defaultRewardItem == null || CONFIG.defaultRewardItem.isBlank()) CONFIG.defaultRewardItem = "cobblemon:rare_candy";
+        CONFIG.defaultRewardItem = normalizeTradeItemId(CONFIG.defaultRewardItem);
+        CONFIG.defaultTradeCost = Math.max(1, CONFIG.defaultTradeCost);
+        CONFIG.defaultTradeRewardAmount = Math.max(1, CONFIG.defaultTradeRewardAmount);
+        if (CONFIG.tradeDisabledItems == null) CONFIG.tradeDisabledItems = defaultTradeDisabledItems();
+        LinkedHashSet<String> fixedDisabledTrades = new LinkedHashSet<>();
+        for (String itemId : CONFIG.tradeDisabledItems) {
+            String id = normalizeTradeItemId(itemId);
+            if (!id.isBlank()) fixedDisabledTrades.add(id);
+        }
+        CONFIG.tradeDisabledItems = fixedDisabledTrades;
         if (CONFIG.items == null) CONFIG.items = new LinkedHashMap<>();
         LinkedHashMap<String, ItemData> fixed = new LinkedHashMap<>();
         for (Map.Entry<String, ItemData> entry : CONFIG.items.entrySet()) {
@@ -119,8 +227,9 @@ public final class ProfessionBackpackConfig {
             if (data.profession == null || data.profession.isBlank()) data.profession = ProfessionType.FARMING.name();
             data.profession = data.profession.trim().toUpperCase(Locale.ROOT);
             if (data.displayName == null || data.displayName.isBlank()) data.displayName = formatName(id);
+            if (!isBackpackProfession(data.profession)) data.enabled = false;
             if (data.rewardItem == null || data.rewardItem.isBlank()) data.rewardItem = CONFIG.defaultRewardItem;
-            data.rewardItem = normalizeItem(data.rewardItem);
+            data.rewardItem = normalizeTradeItemId(data.rewardItem);
             data.tradeCost = Math.max(1, data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost);
             data.rewardAmount = Math.max(1, data.rewardAmount <= 0 ? CONFIG.defaultTradeRewardAmount : data.rewardAmount);
             fixed.put(id, data);
@@ -197,7 +306,20 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.FARMING, "cobblemon:vivichoke_seeds", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:medicinal_leek", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:pep_up_flower", ++s);
+        c.tradeDisabledItems = defaultTradeDisabledItems();
         return c;
+    }
+
+    private static Set<String> defaultTradeDisabledItems() {
+        LinkedHashSet<String> disabled = new LinkedHashSet<>();
+        disabled.add("minecraft:dirt");
+        disabled.add("minecraft:coarse_dirt");
+        disabled.add("minecraft:rooted_dirt");
+        disabled.add("minecraft:grass_block");
+        disabled.add("minecraft:podzol");
+        disabled.add("minecraft:mycelium");
+        disabled.add("minecraft:netherrack");
+        return disabled;
     }
 
     private static void add(Config c, ProfessionType type, String item, int sort) {

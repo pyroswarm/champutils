@@ -57,7 +57,7 @@ public final class RunningShoeManager {
 
     private static void register(String id, String rarity, Item base) {
         if (REGISTERED.containsKey(id)) return;
-        Item item = new RunningShoeItem(base, new Item.Properties().stacksTo(1).rarity(rarity(rarity)).durability(512));
+        Item item = new RunningShoeItem(base, new Item.Properties().stacksTo(1).rarity(rarity(rarity)));
         try {
             Registry.register(BuiltInRegistries.ITEM, ResourceLocation.fromNamespaceAndPath("champutils", id), item);
             REGISTERED.put(id, item);
@@ -88,6 +88,7 @@ public final class RunningShoeManager {
         }
         ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
         if (!isRunningShoes(boots)) return;
+        makeStackUnbreakable(boots);
         double speedPercent = getDouble(boots, "speedPercent");
         if (speedPercent > 0 && player.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
             player.getAttribute(Attributes.MOVEMENT_SPEED).addTransientModifier(new AttributeModifier(SPEED_MODIFIER_ID, speedPercent / 100.0D, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
@@ -116,6 +117,7 @@ public final class RunningShoeManager {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
         stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(modelData(normalized)));
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(ProfessionFragmentManager.formatWords(normalized) + " Running Shoes").withStyle(color(normalized)));
+        makeStackUnbreakable(stack);
         List<Component> lore = new ArrayList<>();
         lore.add(Component.literal("§7Movement-focused profession gear."));
         lore.add(Component.literal("§7Move Speed: §a+" + String.format(Locale.US, "%.1f", speed) + "% §8(range " + speedRange(normalized) + ")"));
@@ -150,6 +152,12 @@ public final class RunningShoeManager {
         CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
         if (customData == null) return 0;
         return customData.copyTag().getInt(key);
+    }
+
+    private static void makeStackUnbreakable(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return;
+        stack.remove(DataComponents.MAX_DAMAGE);
+        stack.remove(DataComponents.DAMAGE);
     }
 
     private static double rollSpeed(String rarity) {
@@ -237,25 +245,27 @@ public final class RunningShoeManager {
             }
 
             if (!level.isClientSide()) {
-                ItemStack currentBoots = player.getItemBySlot(EquipmentSlot.FEET);
+                ItemStack currentBoots = player.getItemBySlot(EquipmentSlot.FEET).copy();
                 ItemStack shoesToEquip = held.copy();
                 shoesToEquip.setCount(1);
-
-                player.setItemSlot(EquipmentSlot.FEET, shoesToEquip);
+                RunningShoeManager.makeStackUnbreakable(shoesToEquip);
 
                 if (!player.getAbilities().instabuild) {
                     held.shrink(1);
-                    if (!currentBoots.isEmpty()) {
-                        if (held.isEmpty()) {
-                            player.setItemInHand(hand, currentBoots);
-                        } else if (!player.getInventory().add(currentBoots)) {
-                            player.drop(currentBoots, false);
-                        }
+                }
+
+                player.setItemSlot(EquipmentSlot.FEET, shoesToEquip);
+
+                if (!currentBoots.isEmpty()) {
+                    if (!player.getAbilities().instabuild && held.isEmpty()) {
+                        player.setItemInHand(hand, currentBoots);
+                    } else if (!player.getInventory().add(currentBoots)) {
+                        player.drop(currentBoots, false);
                     }
                 }
             }
 
-            return InteractionResultHolder.sidedSuccess(held, level.isClientSide());
+            return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide());
         }
 
         @Override public Item getPolymerItem(ItemStack stack, ServerPlayer player) { return base; }

@@ -33,8 +33,14 @@ public final class ProfessionChunkManager {
             String chunk = normalizeChunk(entry.getKey());
             ProfessionChunkConfig.RollData roll = entry.getValue();
             if (roll == null || !ProfessionChunkConfig.CONFIG.chunks.containsKey(chunk)) continue;
-            double chance = Math.min(roll.maxChancePercent, roll.baseChancePercent + (roll.chancePerLevelPercent * Math.max(0, level - 1)));
+            int minLevel = Math.max(1, roll.minProfessionLevel);
+            if (level < minLevel) continue;
+            int scalingStart = Math.max(1, roll.levelScalingStart);
+            int scaledLevels = Math.max(0, level - scalingStart);
+            double chance = Math.min(roll.maxChancePercent, roll.baseChancePercent + (roll.chancePerLevelPercent * scaledLevels));
             chance *= multiplier;
+            chance *= (1.0D + ProfessionTrinketManager.chunkChanceBonus(player));
+            chance = Math.min(100.0D, chance);
             if (chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance) {
                 addChunk(player, chunk, 1, true);
                 found++;
@@ -75,6 +81,21 @@ public final class ProfessionChunkManager {
         ProfessionChunkConfig.ChunkData config = ProfessionChunkConfig.CONFIG.chunks.get(normalizeChunk(chunk));
         if (config == null || config.sellCredits <= 0.0D) return 0L;
         return EconomyManager.creditsToCents(config.sellCredits);
+    }
+
+    public static long sellAllValueCents(ServerPlayer player) {
+        if (player == null) return 0L;
+        Map<String, Integer> chunks = ProfessionManager.getChunkBalances(player);
+        if (chunks.isEmpty()) return 0L;
+        long totalCents = 0L;
+        for (Map.Entry<String, Integer> entry : chunks.entrySet()) {
+            String chunk = normalizeChunk(entry.getKey());
+            int amount = Math.max(0, entry.getValue() == null ? 0 : entry.getValue());
+            ProfessionChunkConfig.ChunkData config = ProfessionChunkConfig.CONFIG.chunks.get(chunk);
+            if (amount <= 0 || config == null || config.sellCredits <= 0.0D) continue;
+            totalCents += EconomyManager.creditsToCents(config.sellCredits) * amount;
+        }
+        return Math.max(0L, totalCents);
     }
 
     public static long sellAll(ServerPlayer player) {

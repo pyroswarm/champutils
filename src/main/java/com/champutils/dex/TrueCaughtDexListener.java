@@ -35,6 +35,7 @@ public final class TrueCaughtDexListener {
                     ServerPlayer player = PokemonHuntReflection.extractPlayer(event);
                     Object pokemon = PokemonHuntReflection.extractPokemon(event);
                     if (player != null && pokemon != null) {
+                        com.champutils.profession.ProfessionTrinketManager.tryApplyShinyCharm(player, pokemon);
                         TrueCaughtDexManager.markTrueCaught(player, pokemon);
                         CatchStreakManager.handleCatch(player, pokemon);
                         com.champutils.worldfirst.WorldFirstManager.handleCatch(player, pokemon);

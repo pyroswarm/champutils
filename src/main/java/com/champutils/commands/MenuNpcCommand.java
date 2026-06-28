@@ -31,8 +31,6 @@ public final class MenuNpcCommand {
                                             builder.suggest("gearappraiser");
                                             builder.suggest("tmcrafter");
                                             builder.suggest("pvp");
-                                            builder.suggest("pvp");
-                                            builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
@@ -43,6 +41,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("chunks");
                                             builder.suggest("accountupgrade");
                                             builder.suggest("vip");
+                                            builder.suggest("rankedshop");
+                                            builder.suggest("rankedtokens");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -73,6 +73,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("chunks");
                                             builder.suggest("accountupgrade");
                                             builder.suggest("vip");
+                                            builder.suggest("rankedshop");
+                                            builder.suggest("rankedtokens");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -97,6 +99,7 @@ public final class MenuNpcCommand {
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
             case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> "megashop";
             case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "accountupgrade";
+            case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
             default -> menu.toLowerCase();
         };
     }

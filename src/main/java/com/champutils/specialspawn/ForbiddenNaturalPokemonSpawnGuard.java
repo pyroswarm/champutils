@@ -4,6 +4,10 @@ import com.champutils.dex.CatchStreakManager;
 import com.champutils.dex.TrueCaughtDexManager;
 import com.champutils.emblem.EmblemManager;
 import com.champutils.util.CobblemonEventReflection;
+import com.champutils.badge.BadgeManager;
+import com.champutils.badge.BadgeType;
+import com.champutils.gym.GymConfig;
+import com.champutils.profession.ProfessionTrinketManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -50,10 +54,17 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
         String species = TrueCaughtDexManager.normalizeSpecies(TrueCaughtDexManager.speciesId(pokemon));
         if (isForbiddenSpecialSpecies(species) && !hasAllowedSpecialTag(entity)) {
             String dim = level.dimension().location().toString().toLowerCase(Locale.ROOT);
-            if (dim.contains("the_end") || dim.endsWith(":end") || dim.contains("spawn1") || true) {
+            if (dim.contains("the_end") || dim.endsWith(":end") || dim.contains("spawn1")) {
                 entity.discard();
                 return;
             }
+        }
+
+        ServerPlayer nearest = nearestPlayer(level, entity);
+        if (nearest != null && !entity.getTags().contains("champutils_spawn_boost_checked")) {
+            ProfessionTrinketManager.tryApplyWildSpawnShiny(nearest, pokemon);
+            applyLevelCharm(nearest, pokemon);
+            entity.addTag("champutils_spawn_boost_checked");
         }
 
         if (CatchStreakManager.isShiny(pokemon)) {
@@ -81,6 +92,62 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
             if (lower.contains("champutils_special_spawn") || lower.contains("champutils_mega_boss") || lower.contains("champutils_world_boss") || lower.contains("champutils_guild_boss")) return true;
         }
         return false;
+    }
+
+
+    private static ServerPlayer nearestPlayer(ServerLevel level, Entity entity) {
+        ServerPlayer best = null;
+        double bestDistance = SHINY_NOTIFY_RADIUS * SHINY_NOTIFY_RADIUS;
+        for (ServerPlayer player : level.players()) {
+            double distance = player.distanceToSqr(entity);
+            if (distance <= bestDistance) {
+                bestDistance = distance;
+                best = player;
+            }
+        }
+        return best;
+    }
+
+    private static void applyLevelCharm(ServerPlayer player, Object pokemon) {
+        double percent = ProfessionTrinketManager.levelCharmGymCapPercent(player);
+        if (percent <= 0.0D) return;
+        int cap = currentGymCap(player);
+        if (cap <= 0) return;
+        int minimumLevel = Math.max(1, Math.min(100, (int)Math.floor(cap * percent)));
+        int current = readLevel(pokemon);
+        if (current >= minimumLevel) return;
+        setLevel(pokemon, minimumLevel);
+    }
+
+    private static int currentGymCap(ServerPlayer player) {
+        try {
+            java.util.Set<BadgeType> earned = BadgeManager.getBadges(player);
+            int bestEarnedCap = 0;
+            int nextCap = 0;
+            for (BadgeType badge : BadgeType.values()) {
+                GymConfig.GymDefinition gym = GymConfig.getGym(badge);
+                if (gym == null || gym.levelCap <= 0) continue;
+                if (earned.contains(badge)) bestEarnedCap = Math.max(bestEarnedCap, gym.levelCap);
+                else if (nextCap == 0 || gym.levelCap < nextCap) nextCap = gym.levelCap;
+            }
+            return nextCap > 0 ? Math.max(bestEarnedCap, nextCap) : Math.max(bestEarnedCap, 100);
+        } catch (Throwable ignored) {
+            return 50;
+        }
+    }
+
+    private static int readLevel(Object pokemon) {
+        Object value = firstValue(pokemon, "getLevel", "level");
+        return value instanceof Number n ? n.intValue() : 1;
+    }
+
+    private static void setLevel(Object pokemon, int level) {
+        try { Method method = pokemon.getClass().getMethod("setLevel", int.class); method.invoke(pokemon, level); return; } catch (Throwable ignored) {}
+        try { Method method = pokemon.getClass().getMethod("setLevel", Integer.class); method.invoke(pokemon, level); return; } catch (Throwable ignored) {}
+        Class<?> c = pokemon.getClass();
+        while (c != null) {
+            try { Field f = c.getDeclaredField("level"); f.setAccessible(true); f.setInt(pokemon, level); return; } catch (Throwable ignored) { c = c.getSuperclass(); }
+        }
     }
 
     private static void announceShiny(ServerLevel level, Entity entity, String species) {

@@ -38,9 +38,13 @@ public final class ProfessionChunkConfig {
     }
 
     public static class RollData {
-        /** Percent chance at profession level 1. */
+        /** Minimum profession level required before this chunk can roll. */
+        public int minProfessionLevel = 1;
+        /** Level where per-level scaling begins. Use this with minProfessionLevel for late-game chunks. */
+        public int levelScalingStart = 1;
+        /** Percent chance at/after the minimum level before per-level scaling is applied. */
         public double baseChancePercent = 0.01D;
-        /** Percent chance added per profession level. */
+        /** Percent chance added per profession level after levelScalingStart. */
         public double chancePerLevelPercent = 0.0D;
         /** Hard percent cap after level scaling. */
         public double maxChancePercent = 100.0D;
@@ -102,6 +106,8 @@ public final class ProfessionChunkConfig {
             activity.activityMultiplier = Math.max(0.0D, activity.activityMultiplier);
             for (RollData roll : activity.rolls.values()) {
                 if (roll == null) continue;
+                roll.minProfessionLevel = Math.max(1, roll.minProfessionLevel);
+                roll.levelScalingStart = Math.max(1, roll.levelScalingStart);
                 roll.baseChancePercent = Math.max(0.0D, roll.baseChancePercent);
                 roll.chancePerLevelPercent = Math.max(0.0D, roll.chancePerLevelPercent);
                 roll.maxChancePercent = Math.max(0.0D, Math.min(100.0D, roll.maxChancePercent));
@@ -111,18 +117,19 @@ public final class ProfessionChunkConfig {
 
     private static ConfigRoot defaultConfig() {
         ConfigRoot root = new ConfigRoot();
-        addChunk(root, "COBBLESTONE", "Cobblestone Chunk", "COMMON", 1.0D);
-        addChunk(root, "COPPER", "Copper Chunk", "UNCOMMON", 5.0D);
-        addChunk(root, "IRON", "Iron Chunk", "RARE", 15.0D);
-        addChunk(root, "GOLD", "Gold Chunk", "EPIC", 50.0D);
-        addChunk(root, "DIAMOND", "Diamond Chunk", "LEGENDARY", 150.0D);
-        addChunk(root, "NETHERITE", "Netherite Chunk", "MYTHIC", 500.0D);
+        addChunk(root, "COBBLESTONE", "Cobblestone Chunk", "COMMON", 2.0D);
+        addChunk(root, "COPPER", "Copper Chunk", "UNCOMMON", 10.0D);
+        addChunk(root, "IRON", "Iron Chunk", "RARE", 25.0D);
+        addChunk(root, "GOLD", "Gold Chunk", "EPIC", 100.0D);
+        addChunk(root, "DIAMOND", "Diamond Chunk", "LEGENDARY", 300.0D);
+        addChunk(root, "NETHERITE", "Netherite Chunk", "MYTHIC", 1000.0D);
 
-        // Each chunk rolls independently. Level 100 mining roughly lands at 25/10/5/2/1/0.5 percent.
-        addActivity(root, "MINING", 1.0D, 0.10D, 0.2515D, 25.0D, 0.01D, 0.1010D, 10.0D, 0.005D, 0.0505D, 5.0D, 0.002D, 0.0202D, 2.0D, 0.001D, 0.0101D, 1.0D, 0.0005D, 0.00505D, 0.5D);
-        addActivity(root, "FORESTRY", 0.45D, 0.10D, 0.2515D, 25.0D, 0.01D, 0.1010D, 10.0D, 0.005D, 0.0505D, 5.0D, 0.002D, 0.0202D, 2.0D, 0.001D, 0.0101D, 1.0D, 0.0005D, 0.00505D, 0.5D);
-        addActivity(root, "FARMING", 0.20D, 0.10D, 0.2515D, 25.0D, 0.01D, 0.1010D, 10.0D, 0.005D, 0.0505D, 5.0D, 0.002D, 0.0202D, 2.0D, 0.001D, 0.0101D, 1.0D, 0.0005D, 0.00505D, 0.5D);
-        addActivity(root, "BATTLING", 0.35D, 0.10D, 0.2515D, 25.0D, 0.01D, 0.1010D, 10.0D, 0.005D, 0.0505D, 5.0D, 0.002D, 0.0202D, 2.0D, 0.001D, 0.0101D, 1.0D, 0.0005D, 0.00505D, 0.5D);
+        // Each chunk rolls independently. These odds are tuned around action speed:
+        // farming is almost instant, forestry/mining are steady, and battling is intentionally best.
+        addActivity(root, "MINING", 0.45D);
+        addActivity(root, "FORESTRY", 0.70D);
+        addActivity(root, "FARMING", 0.08D);
+        addActivity(root, "BATTLING", 40.0D);
         return root;
     }
 
@@ -136,29 +143,26 @@ public final class ProfessionChunkConfig {
         root.chunks.put(id, data);
     }
 
-    private static void addActivity(ConfigRoot root, String id, double multiplier,
-                                    double cBase, double cPer, double cMax,
-                                    double cuBase, double cuPer, double cuMax,
-                                    double iBase, double iPer, double iMax,
-                                    double gBase, double gPer, double gMax,
-                                    double dBase, double dPer, double dMax,
-                                    double nBase, double nPer, double nMax) {
+    private static void addActivity(ConfigRoot root, String id, double multiplier) {
         ActivityData activity = new ActivityData();
         activity.activityMultiplier = multiplier;
-        addRoll(activity, "COBBLESTONE", cBase, cPer, cMax);
-        addRoll(activity, "COPPER", cuBase, cuPer, cuMax);
-        addRoll(activity, "IRON", iBase, iPer, iMax);
-        addRoll(activity, "GOLD", gBase, gPer, gMax);
-        addRoll(activity, "DIAMOND", dBase, dPer, dMax);
-        addRoll(activity, "NETHERITE", nBase, nPer, nMax);
+        addRoll(activity, "COBBLESTONE", 0.25D, 0.18000D, 18.0D, 1, 1);
+        addRoll(activity, "COPPER", 0.050D, 0.08000D, 8.0D, 1, 1);
+        addRoll(activity, "IRON", 0.010D, 0.03500D, 3.5D, 15, 15);
+        addRoll(activity, "GOLD", 0.004D, 0.01800D, 1.5D, 25, 25);
+        addRoll(activity, "DIAMOND", 0.0015D, 0.00800D, 0.65D, 40, 40);
+        addRoll(activity, "NETHERITE", 0.040D, 0.00080D, 0.080D, 50, 50);
         root.activities.put(id, activity);
     }
 
-    private static void addRoll(ActivityData activity, String chunk, double base, double per, double max) {
+    private static void addRoll(ActivityData activity, String chunk, double base, double per, double max, int minLevel, int scalingStart) {
         RollData roll = new RollData();
+        roll.minProfessionLevel = minLevel;
+        roll.levelScalingStart = scalingStart;
         roll.baseChancePercent = base;
         roll.chancePerLevelPercent = per;
         roll.maxChancePercent = max;
         activity.rolls.put(chunk, roll);
     }
+
 }

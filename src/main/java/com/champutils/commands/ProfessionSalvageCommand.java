@@ -129,7 +129,13 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
                                                                                         builder.suggest("shovel");
+                                                                                        builder.suggest("helmet");
+                                                                                        builder.suggest("chestplate");
+                                                                                        builder.suggest("leggings");
                                                                                         builder.suggest("boots");
+                                                                                        builder.suggest("magnet");
+                                                                                        builder.suggest("shiny_charm");
+                                                                                        builder.suggest("trinket_pouch");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -183,7 +189,13 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
                                                                                         builder.suggest("shovel");
+                                                                                        builder.suggest("helmet");
+                                                                                        builder.suggest("chestplate");
+                                                                                        builder.suggest("leggings");
                                                                                         builder.suggest("boots");
+                                                                                        builder.suggest("magnet");
+                                                                                        builder.suggest("shiny_charm");
+                                                                                        builder.suggest("trinket_pouch");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -418,7 +430,7 @@ public class ProfessionSalvageCommand {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§aCrafted an unidentified tool using §6" +
+                        "§aCrafted using §6" +
                                 result.cost() +
                                 "x " +
                                 ProfessionFragmentManager.formatWords(result.fragmentKey()) +

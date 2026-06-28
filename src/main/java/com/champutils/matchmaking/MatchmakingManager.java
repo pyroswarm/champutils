@@ -195,6 +195,13 @@ public class MatchmakingManager {
                                 : "§aJoined casual queue."
                 )
         );
+
+        if (rankedType(type) && player.getServer() != null) {
+            player.getServer().getPlayerList().broadcastSystemMessage(
+                    Component.literal("§dA trainer has entered the Ranked Queue!"),
+                    false
+            );
+        }
     }
 
     public static void leaveQueue(

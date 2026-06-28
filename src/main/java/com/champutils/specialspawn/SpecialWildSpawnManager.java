@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +20,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.Level;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
@@ -355,6 +357,7 @@ public final class SpecialWildSpawnManager {
         addBucket(buckets, islanderRoll ? "islander legendary" : "legendary", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendaryChancePerCheck : SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendarySpawns : SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
         addBucket(buckets, islanderRoll ? "islander paradox" : "paradox", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxChancePerCheck : SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxSpawns : SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox);
         addBucket(buckets, islanderRoll ? "islander ultra beast" : "ultra beast", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastChancePerCheck : SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastSpawns : SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
+        addBucket(buckets, islanderRoll ? "islander mythical" : "mythical", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderMythicalChancePerCheck : SpecialWildSpawnConfig.DATA.mythicalChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderMythicalSpawns : SpecialWildSpawnConfig.DATA.mythicalSpawns, SpecialWildSpawnConfig.DATA.levelRangeMythical);
         if (buckets.isEmpty()) return null;
 
         double total = 0.0D;
@@ -398,7 +401,13 @@ public final class SpecialWildSpawnManager {
             }
             if (pos == null || !isSafeSpawnSpace(level, pos)) continue;
 
-            SpecialWildSpawnConfig.SpawnEntry picked = pickWeighted(valid);
+            List<SpecialWildSpawnConfig.SpawnEntry> validAtPos = new ArrayList<>();
+            for (SpecialWildSpawnConfig.SpawnEntry entry : valid) {
+                if (matchesBiome(level, pos, entry)) validAtPos.add(entry);
+            }
+            if (validAtPos.isEmpty()) continue;
+
+            SpecialWildSpawnConfig.SpawnEntry picked = pickWeighted(validAtPos);
             if (picked == null) continue;
 
             int pokemonLevel = pickLevel(bucket.levelRange);
@@ -576,6 +585,29 @@ public final class SpecialWildSpawnManager {
         return valid;
     }
 
+
+    private static boolean matchesBiome(ServerLevel level, BlockPos pos, SpecialWildSpawnConfig.SpawnEntry entry) {
+        if (entry == null || entry.biomes == null || entry.biomes.isEmpty()) return true;
+        try {
+            var holder = level.getBiome(pos);
+            ResourceLocation biomeId = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(holder.value());
+            String biomeString = biomeId == null ? "" : biomeId.toString();
+            for (String raw : entry.biomes) {
+                if (raw == null || raw.isBlank()) continue;
+                String value = raw.trim();
+                if (value.startsWith("#")) {
+                    ResourceLocation tagId = ResourceLocation.parse(value.substring(1));
+                    if (holder.is(TagKey.create(Registries.BIOME, tagId))) return true;
+                } else if (biomeString.equalsIgnoreCase(value) || biomeString.endsWith(":" + value.toLowerCase(Locale.ROOT))) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            return true;
+        }
+        return false;
+    }
+
     private static String timeName(ServerLevel level) {
         long t = level.getDayTime() % 24000L;
         if (t >= 23000 || t < 1000) return "dawn";
@@ -624,10 +656,9 @@ public final class SpecialWildSpawnManager {
             entity.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, entity.getYRot(), entity.getXRot());
             entity.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.COMMAND, null);
 
-            if (!level.addFreshEntity(entity)) return false;
-
             long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
             markSpecialSpawnEntity(entity, expiresAt);
+            if (!level.addFreshEntity(entity)) return false;
             return true;
         } catch (Exception e) {
             System.err.println("[ChampUtils] Direct special wild spawn failed for " + species + " level " + pokemonLevel + ". Falling back to command spawn.");
@@ -723,11 +754,21 @@ public final class SpecialWildSpawnManager {
     }
 
     private static void announce(MinecraftServer server, String type, String species, ServerLevel level, BlockPos pos) {
-        boolean broadcast = type.equals("legendary") ? SpecialWildSpawnConfig.DATA.broadcastLegendarySpawns : SpecialWildSpawnConfig.DATA.broadcastParadoxAndUltraBeastSpawns;
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        boolean paradox = normalizedType.contains("paradox");
+        boolean broadcast = paradox ? true : (normalizedType.contains("legendary") ? SpecialWildSpawnConfig.DATA.broadcastLegendarySpawns : SpecialWildSpawnConfig.DATA.broadcastParadoxAndUltraBeastSpawns);
         if (!broadcast) return;
         String name = pretty(species);
         String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
         Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ") §e[X: " + pos.getX() + ", Y: " + pos.getY() + ", Z: " + pos.getZ() + "] §cDespawns in 15 minutes!");
+
+        if (paradox) {
+            double radiusSq = 128.0D * 128.0D;
+            for (ServerPlayer player : level.players()) {
+                if (player.distanceToSqr(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D) <= radiusSq) player.sendSystemMessage(msg);
+            }
+            return;
+        }
 
         if (isIslanderSpecialSpawnLevel(level) && SpecialWildSpawnConfig.DATA.islanderOnlyNotifyIslanders) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {

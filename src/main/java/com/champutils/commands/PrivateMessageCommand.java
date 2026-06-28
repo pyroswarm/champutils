@@ -18,7 +18,7 @@ public final class PrivateMessageCommand {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            var msgNode = dispatcher.register(Commands.literal("msg")
+            dispatcher.register(Commands.literal("pm")
                     .then(Commands.argument("player", StringArgumentType.word())
                             .then(Commands.argument("message", StringArgumentType.greedyString())
                                     .executes(ctx -> send(
@@ -27,12 +27,6 @@ public final class PrivateMessageCommand {
                                             StringArgumentType.getString(ctx, "message")
                                     )))));
 
-            var replyNode = dispatcher.register(Commands.literal("r")
-                    .then(Commands.argument("message", StringArgumentType.greedyString())
-                            .executes(ctx -> reply(
-                                    ctx.getSource().getPlayerOrException(),
-                                    StringArgumentType.getString(ctx, "message")
-                            ))));
             dispatcher.register(Commands.literal("reply")
                     .then(Commands.argument("message", StringArgumentType.greedyString())
                             .executes(ctx -> reply(
@@ -45,7 +39,7 @@ public final class PrivateMessageCommand {
     private static int send(ServerPlayer sender, String targetName, String message) {
         if (sender == null || sender.server == null) return 0;
         if (message == null || message.isBlank()) {
-            sender.sendSystemMessage(Component.literal("Usage: /msg <player> <message>").withStyle(ChatFormatting.RED));
+            sender.sendSystemMessage(Component.literal("Usage: /pm <player> <message>").withStyle(ChatFormatting.RED));
             return 0;
         }
         ServerPlayer target = sender.server.getPlayerList().getPlayerByName(targetName);
@@ -77,8 +71,8 @@ public final class PrivateMessageCommand {
         // /r should target the player who most recently messaged you. Sending a message should not
         // steal your incoming reply target unless the target replies back.
         LAST_REPLY.put(target.getUUID(), sender.getUUID());
-        Component toTarget = Component.literal("§5[Private] §d" + sender.getGameProfile().getName() + " -> you: §d" + message);
-        Component toSender = Component.literal("§5[Private] §dyou -> " + target.getGameProfile().getName() + ": §d" + message);
+        Component toTarget = Component.literal("§d§l[PM] §d" + sender.getGameProfile().getName() + " → you: §d" + message);
+        Component toSender = Component.literal("§d§l[PM] §dyou → " + target.getGameProfile().getName() + ": §d" + message);
         target.sendSystemMessage(toTarget);
         sender.sendSystemMessage(toSender);
     }
