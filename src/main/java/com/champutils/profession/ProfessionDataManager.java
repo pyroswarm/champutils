@@ -36,6 +36,17 @@ public class ProfessionDataManager {
 
         public Map<String, Integer> fragments =
                 new HashMap<>();
+
+        /** Digital profession sellables. These are not physical items. */
+        public Map<String, Integer> chunks =
+                new HashMap<>();
+
+        /** Digital profile-bound profession backpack item balances. Key = item id, value = amount. */
+        public Map<String, Long> backpack =
+                new HashMap<>();
+
+        public boolean backpackAutopickup =
+                ProfessionBackpackConfig.CONFIG.defaultAutopickup;
     }
 
     private static File professionDir() {
@@ -260,6 +271,16 @@ public class ProfessionDataManager {
 
         if (data.fragments == null) {
             data.fragments =
+                    new HashMap<>();
+        }
+
+        if (data.chunks == null) {
+            data.chunks =
+                    new HashMap<>();
+        }
+
+        if (data.backpack == null) {
+            data.backpack =
                     new HashMap<>();
         }
 

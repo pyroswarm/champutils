@@ -1,0 +1,66 @@
+{
+  "uuid": "cd4e0954-8f6b-4213-b3e4-4b2a4d30d8b7",
+  "name": "Unkn0wnErrrrror",
+  "levels": {
+    "BATTLING": 22,
+    "FARMING": 1,
+    "FORESTRY": 43,
+    "MINING": 38
+  },
+  "xp": {
+    "BATTLING": 15,
+    "FARMING": 0,
+    "FORESTRY": 736,
+    "MINING": 473
+  },
+  "fragments": {
+    "RARE": 18,
+    "EPIC": 13,
+    "UNCOMMON": 71,
+    "COMMON": 246,
+    "MYTHIC": 2,
+    "LEGENDARY": 1
+  },
+  "chunks": {
+    "GOLD": 1,
+    "COPPER": 1,
+    "COBBLESTONE": 3
+  },
+  "backpack": {
+    "minecraft:oak_log": 215,
+    "minecraft:apple": 25,
+    "minecraft:birch_log": 6,
+    "minecraft:cocoa_beans": 2,
+    "minecraft:spruce_sapling": 14,
+    "minecraft:spruce_log": 852,
+    "minecraft:cobblestone": 56,
+    "cobblemon:absorb_bulb": 1,
+    "minecraft:diorite": 5,
+    "minecraft:cobbled_deepslate": 811,
+    "minecraft:tuff": 95,
+    "minecraft:raw_gold": 8,
+    "minecraft:raw_iron": 5,
+    "minecraft:redstone": 70,
+    "minecraft:deepslate": 12,
+    "minecraft:gravel": 2,
+    "minecraft:ender_pearl": 6,
+    "cobblemon:big_root": 4,
+    "cobblemon:silver_powder": 2,
+    "cobblemon:yellow_apricorn": 3,
+    "cobblemon:oran_berry": 2,
+    "minecraft:stick": 5,
+    "minecraft:stripped_spruce_log": 6,
+    "minecraft:moss_block": 2,
+    "minecraft:cherry_log": 85,
+    "cobblemon:persim_berry": 2,
+    "minecraft:potato": 202,
+    "cobblemon:grassy_seed": 1,
+    "cobblemon:white_apricorn_seed": 2,
+    "cobblemon:medicinal_leek": 110,
+    "minecraft:wheat_seeds": 187,
+    "minecraft:wheat": 63,
+    "minecraft:carrot": 180,
+    "minecraft:dirt": 2
+  },
+  "backpackAutopickup": true
+}

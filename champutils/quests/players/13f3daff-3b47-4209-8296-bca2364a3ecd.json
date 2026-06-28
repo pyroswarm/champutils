@@ -1,0 +1,89 @@
+{
+  "uuid": "13f3daff-3b47-4209-8296-bca2364a3ecd",
+  "name": "elliottrip",
+  "daily": {
+    "periodKey": "2026-06-26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_defeat_electric",
+        "description": "Defeat 16 Electric-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "electric",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_gold",
+        "description": "Mine 40 gold ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:gold_ore",
+        "required": 40,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_beetroot",
+        "description": "Harvest 64 beetroot",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:beetroots",
+        "required": 64,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_fairy",
+        "description": "Defeat 120 Fairy-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fairy",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 153,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_iron",
+        "description": "Mine 500 iron ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:iron_ore",
+        "required": 500,
+        "progress": 109,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

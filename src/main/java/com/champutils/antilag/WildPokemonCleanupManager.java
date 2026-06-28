@@ -104,7 +104,10 @@ public final class WildPokemonCleanupManager {
                     if (result.totalRemoved() >= options.maxRemovals) break;
                     if (entity == null || !entity.isAlive()) continue;
 
-                    if (options.clearDroppedItems && entity instanceof ItemEntity) {
+                    if (options.clearDroppedItems && entity instanceof ItemEntity itemEntity) {
+                        if (isProtectedDroppedItem(itemEntity)) {
+                            continue;
+                        }
                         entity.remove(RemovalReason.DISCARDED);
                         result.droppedItems++;
                         continue;
@@ -150,6 +153,8 @@ public final class WildPokemonCleanupManager {
         String activeStateProtection = activeStateProtectionReason(entity, pokemon);
         if (activeStateProtection != null) return Safety.protectedBecause(activeStateProtection);
         if (pokemon.getShiny()) return Safety.protectedBecause("shiny");
+        String speciesProtection = speciesLabelProtectionReason(pokemon);
+        if (speciesProtection != null) return Safety.protectedBecause(speciesProtection);
         if (isSpecialPokemon(entity, pokemon)) return Safety.protectedBecause("special pokemon");
 
         return Safety.SAFE;
@@ -230,6 +235,15 @@ public final class WildPokemonCleanupManager {
             for (String marker : PROTECTED_MARKERS) if (lower.contains(marker)) return true;
         }
         return false;
+    }
+
+    private static String speciesLabelProtectionReason(Pokemon pokemon) {
+        if (pokemon == null || pokemon.getSpecies() == null) return null;
+        String labels = String.valueOf(pokemon.getSpecies().getLabels()).toLowerCase(Locale.ROOT);
+        if (labels.contains("legendary")) return "legendary";
+        if (labels.contains("mythical")) return "mythical";
+        if (labels.contains("ultra_beast") || labels.contains("ultrabeast")) return "ultra beast";
+        return null;
     }
 
     private static boolean isSpecialPokemon(PokemonEntity entity, Pokemon pokemon) {

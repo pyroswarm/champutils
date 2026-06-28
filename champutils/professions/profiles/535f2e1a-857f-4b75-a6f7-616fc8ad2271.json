@@ -1,0 +1,17 @@
+{
+  "uuid": "535f2e1a-857f-4b75-a6f7-616fc8ad2271",
+  "name": "elliottrip",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 40,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

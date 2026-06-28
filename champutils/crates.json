@@ -1,0 +1,3240 @@
+{
+  "crates": {
+    "common": {
+      "enabled": true,
+      "displayName": "Common Crate",
+      "iconItem": "cobblemon:gilded_chest",
+      "guaranteedShardRarity": "COMMON",
+      "guaranteedShardMin": 0,
+      "guaranteedShardMax": 0,
+      "minPokemonLevel": 5,
+      "maxPokemonLevel": 18,
+      "shinyChance": 0.05,
+      "pokemon": [
+        {
+          "species": "pidgey",
+          "weight": 35,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "rattata",
+          "weight": 35,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "caterpie",
+          "weight": 25,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "weedle",
+          "weight": 25,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "zigzagoon",
+          "weight": 25,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "bidoof",
+          "weight": 20,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "sentret",
+          "weight": 20,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "wurmple",
+          "weight": 20,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "patrat",
+          "weight": 15,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "poochyena",
+          "weight": 15,
+          "pool": "REGULAR"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:poke_ball",
+          "amountMin": 4,
+          "amountMax": 10,
+          "weight": 45
+        },
+        {
+          "itemId": "cobblemon:potion",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 30
+        },
+        {
+          "itemId": "cobblemon:oran_berry",
+          "amountMin": 3,
+          "amountMax": 8,
+          "weight": 25
+        },
+        {
+          "itemId": "champutils:random_tm_common",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "rookie_s_pick",
+          "weight": 1
+        },
+        {
+          "toolId": "coalbite_pick",
+          "weight": 1
+        },
+        {
+          "toolId": "tunneler_s_grip",
+          "weight": 1
+        },
+        {
+          "toolId": "stonevein_pick",
+          "weight": 1
+        },
+        {
+          "toolId": "coppercore_pick",
+          "weight": 1
+        },
+        {
+          "toolId": "sapling_splitter",
+          "weight": 1
+        },
+        {
+          "toolId": "barkbite_axe",
+          "weight": 1
+        },
+        {
+          "toolId": "lumberjack_s_friend",
+          "weight": 1
+        },
+        {
+          "toolId": "mosswood_axe",
+          "weight": 1
+        },
+        {
+          "toolId": "timber_trail_axe",
+          "weight": 1
+        },
+        {
+          "toolId": "rookie_s_hoe",
+          "weight": 1
+        },
+        {
+          "toolId": "harvest_sprout",
+          "weight": 1
+        },
+        {
+          "toolId": "soilturn_hoe",
+          "weight": 1
+        },
+        {
+          "toolId": "cropkeeper_hoe",
+          "weight": 1
+        },
+        {
+          "toolId": "wheatwarden_hoe",
+          "weight": 1
+        },
+        {
+          "toolId": "trail_spade",
+          "weight": 2
+        },
+        {
+          "toolId": "gravelbite_shovel",
+          "weight": 2
+        },
+        {
+          "toolId": "clayfinder_spade",
+          "weight": 2
+        },
+        {
+          "toolId": "sandshaper_shovel",
+          "weight": 2
+        },
+        {
+          "toolId": "tunnel_paw_shovel",
+          "weight": 2
+        },
+        {
+          "toolId": "trailblazer_shovel",
+          "weight": 2
+        }
+      ]
+    },
+    "uncommon": {
+      "enabled": true,
+      "displayName": "Uncommon Crate",
+      "iconItem": "cobblemon:yellow_gilded_chest",
+      "guaranteedShardRarity": "UNCOMMON",
+      "guaranteedShardMin": 0,
+      "guaranteedShardMax": 0,
+      "minPokemonLevel": 15,
+      "maxPokemonLevel": 32,
+      "shinyChance": 0.1,
+      "pokemon": [
+        {
+          "species": "pidgey",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "rattata",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "eevee",
+          "weight": 16,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "growlithe",
+          "weight": 14,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "magikarp",
+          "weight": 16,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "shinx",
+          "weight": 14,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "riolu",
+          "weight": 10,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "mareep",
+          "weight": 14,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "sandile",
+          "weight": 10,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "starly",
+          "weight": 12,
+          "pool": "REGULAR"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:great_ball",
+          "amountMin": 3,
+          "amountMax": 8,
+          "weight": 35
+        },
+        {
+          "itemId": "cobblemon:super_potion",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 25
+        },
+        {
+          "itemId": "cobblemon:exp_candy_s",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 20
+        },
+        {
+          "itemId": "cobblemon:link_cable",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 5
+        },
+        {
+          "itemId": "champutils:random_tm_uncommon",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "molten_chisel",
+          "weight": 2
+        },
+        {
+          "toolId": "ironroot_breaker",
+          "weight": 2
+        },
+        {
+          "toolId": "emberfang_pick",
+          "weight": 2
+        },
+        {
+          "toolId": "cavestone_ripper",
+          "weight": 2
+        },
+        {
+          "toolId": "orehound_pick",
+          "weight": 2
+        },
+        {
+          "toolId": "molten_timber_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "rootbreaker_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "whisperbark_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "forest_fang",
+          "weight": 2
+        },
+        {
+          "toolId": "bloomcutter_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "bloomshaper_hoe",
+          "weight": 2
+        },
+        {
+          "toolId": "rootsong_hoe",
+          "weight": 2
+        },
+        {
+          "toolId": "harvester_s_grace",
+          "weight": 2
+        },
+        {
+          "toolId": "verdant_tiller",
+          "weight": 2
+        },
+        {
+          "toolId": "soilkeeper_hoe",
+          "weight": 2
+        },
+        {
+          "toolId": "ironburrow_spade",
+          "weight": 2
+        },
+        {
+          "toolId": "siltbreaker_shovel",
+          "weight": 2
+        },
+        {
+          "toolId": "orewash_shovel",
+          "weight": 2
+        },
+        {
+          "toolId": "buried_cache_spade",
+          "weight": 2
+        },
+        {
+          "toolId": "cavern_scoop",
+          "weight": 2
+        },
+        {
+          "toolId": "riverbed_spade",
+          "weight": 2
+        }
+      ]
+    },
+    "rare": {
+      "enabled": true,
+      "displayName": "Rare Crate",
+      "iconItem": "cobblemon:green_gilded_chest",
+      "guaranteedShardRarity": "RARE",
+      "guaranteedShardMin": 0,
+      "guaranteedShardMax": 0,
+      "minPokemonLevel": 25,
+      "maxPokemonLevel": 50,
+      "shinyChance": 0.25,
+      "pokemon": [
+        {
+          "species": "eevee",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "riolu",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "larvitar",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "bagon",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "beldum",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "gible",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dratini",
+          "weight": 8,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "axew",
+          "weight": 7,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "goomy",
+          "weight": 7,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "deino",
+          "weight": 7,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "rotom",
+          "weight": 6,
+          "pool": "REGULAR"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:ultra_ball",
+          "amountMin": 3,
+          "amountMax": 8,
+          "weight": 30
+        },
+        {
+          "itemId": "cobblemon:rare_candy",
+          "amountMin": 1,
+          "amountMax": 4,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_m",
+          "amountMin": 2,
+          "amountMax": 6,
+          "weight": 20
+        },
+        {
+          "itemId": "cobblemon:ability_capsule",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:choice_scarf",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 4
+        },
+        {
+          "itemId": "champutils:random_tm_rare",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "miner_s_fang",
+          "weight": 3
+        },
+        {
+          "toolId": "deep_prospector_pick",
+          "weight": 3
+        },
+        {
+          "toolId": "crystal_maul",
+          "weight": 3
+        },
+        {
+          "toolId": "quarry_king_s_pick",
+          "weight": 3
+        },
+        {
+          "toolId": "grove_cleaver",
+          "weight": 3
+        },
+        {
+          "toolId": "thornsplitter",
+          "weight": 3
+        },
+        {
+          "toolId": "verdant_reaper",
+          "weight": 3
+        },
+        {
+          "toolId": "timberlord_axe",
+          "weight": 3
+        },
+        {
+          "toolId": "harvest_moon_hoe",
+          "weight": 3
+        },
+        {
+          "toolId": "cropstorm_hoe",
+          "weight": 3
+        },
+        {
+          "toolId": "sunpetal_tiller",
+          "weight": 3
+        },
+        {
+          "toolId": "greenwarden_hoe",
+          "weight": 3
+        },
+        {
+          "toolId": "diamond_dredger",
+          "weight": 3
+        },
+        {
+          "toolId": "deep_sands_spade",
+          "weight": 3
+        },
+        {
+          "toolId": "quarry_spade",
+          "weight": 3
+        },
+        {
+          "toolId": "excavator_s_edge",
+          "weight": 3
+        },
+        {
+          "toolId": "sandsweeper",
+          "weight": 3
+        }
+      ]
+    },
+    "epic": {
+      "enabled": true,
+      "displayName": "Epic Crate",
+      "iconItem": "cobblemon:blue_gilded_chest",
+      "guaranteedShardRarity": "EPIC",
+      "guaranteedShardMin": 4,
+      "guaranteedShardMax": 8,
+      "minPokemonLevel": 40,
+      "maxPokemonLevel": 65,
+      "shinyChance": 0.5,
+      "pokemon": [
+        {
+          "species": "larvitar",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "bagon",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "beldum",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "gible",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dratini",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "axew",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "goomy",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "deino",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dreepy",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "charizard",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dragonite",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "metagross",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "tyranitar",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "garchomp",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "hydreigon",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dragapult",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lucario",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "absol",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "zoroark",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "arcanine",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "gyarados",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "milotic",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "rotom",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "eevee",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "riolu",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "pidgeot",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "raichu",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "nidoking",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "nidoqueen",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lapras",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "snorlax",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "heracross",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "scizor",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "houndoom",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "flygon",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "aggron",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "altaria",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "luxray",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "staraptor",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "toxicroak",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "krookodile",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "talonflame",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lycanroc",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "corviknight",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "toxtricity",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "annihilape",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "clodsire",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "roaring_moon",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "iron_valiant",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "iron_hands",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "flutter_mane",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "great_tusk",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "kartana",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "buzzwole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "guzzlord",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "articuno",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zapdos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "moltres",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "raikou",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "entei",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "suicune",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regirock",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regice",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "registeel",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latias",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latios",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:ultra_ball",
+          "amountMin": 5,
+          "amountMax": 12,
+          "weight": 24
+        },
+        {
+          "itemId": "cobblemon:luxury_ball",
+          "amountMin": 3,
+          "amountMax": 8,
+          "weight": 14
+        },
+        {
+          "itemId": "cobblemon:rare_candy",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_l",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_xl",
+          "amountMin": 1,
+          "amountMax": 3,
+          "weight": 9
+        },
+        {
+          "itemId": "cobblemon:ability_capsule",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        },
+        {
+          "itemId": "cobblemon:ability_patch",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:leftovers",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:life_orb",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 5
+        },
+        {
+          "itemId": "cobblemon:choice_band",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 4
+        },
+        {
+          "itemId": "cobblemon:choice_specs",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 4
+        },
+        {
+          "itemId": "cobblemon:choice_scarf",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 4
+        },
+        {
+          "itemId": "cobblemon:focus_sash",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 4
+        },
+        {
+          "itemId": "cobblemon:master_ball",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 1
+        },
+        {
+          "itemId": "minecraft:diamond",
+          "amountMin": 2,
+          "amountMax": 6,
+          "weight": 8
+        },
+        {
+          "itemId": "champutils:random_tm_epic",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "miners_fang",
+          "weight": 4
+        },
+        {
+          "toolId": "deep_prospector",
+          "weight": 3
+        },
+        {
+          "toolId": "cavern_breaker",
+          "weight": 2
+        },
+        {
+          "toolId": "woodcleaver",
+          "weight": 4
+        },
+        {
+          "toolId": "worldtree_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "gaias_blessing",
+          "weight": 3
+        }
+      ]
+    },
+    "legendary": {
+      "enabled": true,
+      "displayName": "Legendary Crate",
+      "iconItem": "cobblemon:pink_gilded_chest",
+      "guaranteedShardRarity": "LEGENDARY",
+      "guaranteedShardMin": 6,
+      "guaranteedShardMax": 12,
+      "minPokemonLevel": 65,
+      "maxPokemonLevel": 90,
+      "shinyChance": 2.5,
+      "pokemon": [
+        {
+          "species": "articuno",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zapdos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "moltres",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mewtwo",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "raikou",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "entei",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "suicune",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lugia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ho_oh",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regirock",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regice",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "registeel",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latias",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latios",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyogre",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "groudon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "rayquaza",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "uxie",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mesprit",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "azelf",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "dialga",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "palkia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "heatran",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regigigas",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "giratina",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cresselia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cobalion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terrakion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "virizion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tornadus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "thundurus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "reshiram",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zekrom",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "landorus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyurem",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "xerneas",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "yveltal",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zygarde",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "type_null",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "silvally",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_koko",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_lele",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_bulu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_fini",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmog",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmoem",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "solgaleo",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lunala",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "necrozma",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zacian",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zamazenta",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "eternatus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kubfu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "urshifu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regieleki",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regidrago",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "glastrier",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "spectrier",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "calyrex",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "enamorus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "wo_chien",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chien_pao",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ting_lu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chi_yu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "okidogi",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "munkidori",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "fezandipiti",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ogerpon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terapagos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "koraidon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "miraidon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mew",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "celebi",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "jirachi",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "deoxys",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "phione",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "manaphy",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "darkrai",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "shaymin",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "arceus",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "victini",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "keldeo",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meloetta",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "genesect",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "diancie",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "hoopa",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "volcanion",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "magearna",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "marshadow",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zeraora",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meltan",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "melmetal",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zarude",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "pecharunt",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "nihilego",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "buzzwole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "pheromosa",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "xurkitree",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "celesteela",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "kartana",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "guzzlord",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "poipole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "naganadel",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "stakataka",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "blacephalon",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:master_ball",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:dream_ball",
+          "amountMin": 2,
+          "amountMax": 4,
+          "weight": 12
+        },
+        {
+          "itemId": "cobblemon:beast_ball",
+          "amountMin": 2,
+          "amountMax": 4,
+          "weight": 12
+        },
+        {
+          "itemId": "cobblemon:rare_candy",
+          "amountMin": 4,
+          "amountMax": 8,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_xl",
+          "amountMin": 2,
+          "amountMax": 6,
+          "weight": 16
+        },
+        {
+          "itemId": "cobblemon:ability_patch",
+          "amountMin": 1,
+          "amountMax": 2,
+          "weight": 16
+        },
+        {
+          "itemId": "cobblemon:leftovers",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:life_orb",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:choice_band",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:choice_specs",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:choice_scarf",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:focus_sash",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:eviolite",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 5
+        },
+        {
+          "itemId": "cobblemon:heavy_duty_boots",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 5
+        },
+        {
+          "itemId": "minecraft:netherite_ingot",
+          "amountMin": 1,
+          "amountMax": 2,
+          "weight": 6
+        },
+        {
+          "itemId": "champutils:random_tm_legendary",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 14
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "lodestone_maw",
+          "weight": 3
+        },
+        {
+          "toolId": "treasure_seer",
+          "weight": 2
+        },
+        {
+          "toolId": "obsidian_edge",
+          "weight": 2
+        },
+        {
+          "toolId": "titanbreaker",
+          "weight": 2
+        },
+        {
+          "toolId": "worldtree_axe",
+          "weight": 3
+        },
+        {
+          "toolId": "gaias_blessing",
+          "weight": 3
+        }
+      ]
+    },
+    "mythic": {
+      "enabled": true,
+      "displayName": "Mythic Crate",
+      "iconItem": "cobblemon:black_gilded_chest",
+      "guaranteedShardRarity": "MYTHIC",
+      "guaranteedShardMin": 10,
+      "guaranteedShardMax": 18,
+      "minPokemonLevel": 75,
+      "maxPokemonLevel": 100,
+      "shinyChance": 25.0,
+      "pokemon": [
+        {
+          "species": "articuno",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zapdos",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "moltres",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mewtwo",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "raikou",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "entei",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "suicune",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lugia",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ho_oh",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regirock",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regice",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "registeel",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latias",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latios",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyogre",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "groudon",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "rayquaza",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "uxie",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mesprit",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "azelf",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "dialga",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "palkia",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "heatran",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regigigas",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "giratina",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cresselia",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cobalion",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terrakion",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "virizion",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tornadus",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "thundurus",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "reshiram",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zekrom",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "landorus",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyurem",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "xerneas",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "yveltal",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zygarde",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "type_null",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "silvally",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_koko",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_lele",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_bulu",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_fini",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmog",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmoem",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "solgaleo",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lunala",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "necrozma",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zacian",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zamazenta",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "eternatus",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kubfu",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "urshifu",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regieleki",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regidrago",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "glastrier",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "spectrier",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "calyrex",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "enamorus",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "wo_chien",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chien_pao",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ting_lu",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chi_yu",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "okidogi",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "munkidori",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "fezandipiti",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ogerpon",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terapagos",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "koraidon",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "miraidon",
+          "weight": 2,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mew",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "celebi",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "jirachi",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "deoxys",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "phione",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "manaphy",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "darkrai",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "shaymin",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "arceus",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "victini",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "keldeo",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meloetta",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "genesect",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "diancie",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "hoopa",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "volcanion",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "magearna",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "marshadow",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zeraora",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meltan",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "melmetal",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zarude",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "pecharunt",
+          "weight": 2,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "nihilego",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "buzzwole",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "pheromosa",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "xurkitree",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "celesteela",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "kartana",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "guzzlord",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "poipole",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "naganadel",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "stakataka",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "blacephalon",
+          "weight": 3,
+          "pool": "ULTRA_BEAST"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:ability_patch",
+          "amountMin": 1,
+          "amountMax": 3,
+          "weight": 35
+        },
+        {
+          "itemId": "cobblemon:master_ball",
+          "amountMin": 1,
+          "amountMax": 2,
+          "weight": 25
+        },
+        {
+          "itemId": "champutils:random_tm_mythic",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 40
+        }
+      ],
+      "tools": []
+    },
+    "guild": {
+      "enabled": true,
+      "displayName": "Guild Crate",
+      "iconItem": "cobblemon:white_gilded_chest",
+      "guaranteedShardRarity": "EPIC",
+      "guaranteedShardMin": 4,
+      "guaranteedShardMax": 8,
+      "minPokemonLevel": 40,
+      "maxPokemonLevel": 65,
+      "shinyChance": 0.5,
+      "pokemon": [
+        {
+          "species": "larvitar",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "bagon",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "beldum",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "gible",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dratini",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "axew",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "goomy",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "deino",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dreepy",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "charizard",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dragonite",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "metagross",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "tyranitar",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "garchomp",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "hydreigon",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "dragapult",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lucario",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "absol",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "zoroark",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "arcanine",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "gyarados",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "milotic",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "rotom",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "eevee",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "riolu",
+          "weight": 4,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "pidgeot",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "raichu",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "nidoking",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "nidoqueen",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lapras",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "snorlax",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "heracross",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "scizor",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "houndoom",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "flygon",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "aggron",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "altaria",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "luxray",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "staraptor",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "toxicroak",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "krookodile",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "talonflame",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "lycanroc",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "corviknight",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "toxtricity",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "annihilape",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "clodsire",
+          "weight": 2,
+          "pool": "REGULAR"
+        },
+        {
+          "species": "roaring_moon",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "iron_valiant",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "iron_hands",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "flutter_mane",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "great_tusk",
+          "weight": 2,
+          "pool": "PARADOX"
+        },
+        {
+          "species": "kartana",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "buzzwole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "guzzlord",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "articuno",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zapdos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "moltres",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "raikou",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "entei",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "suicune",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:ultra_ball",
+          "amountMin": 5,
+          "amountMax": 12,
+          "weight": 24
+        },
+        {
+          "itemId": "cobblemon:luxury_ball",
+          "amountMin": 3,
+          "amountMax": 8,
+          "weight": 14
+        },
+        {
+          "itemId": "cobblemon:rare_candy",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_l",
+          "amountMin": 2,
+          "amountMax": 5,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:ability_capsule",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 10
+        },
+        {
+          "itemId": "cobblemon:ability_patch",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:master_ball",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 1
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "deep_prospector",
+          "weight": 3
+        },
+        {
+          "toolId": "cavern_breaker",
+          "weight": 2
+        },
+        {
+          "toolId": "woodcleaver",
+          "weight": 3
+        },
+        {
+          "toolId": "worldtree_axe",
+          "weight": 2
+        },
+        {
+          "toolId": "gaias_blessing",
+          "weight": 3
+        }
+      ]
+    },
+    "world_boss": {
+      "enabled": true,
+      "displayName": "World Boss Crate",
+      "iconItem": "cobblemon:white_gilded_chest",
+      "guaranteedShardRarity": "LEGENDARY",
+      "guaranteedShardMin": 6,
+      "guaranteedShardMax": 12,
+      "minPokemonLevel": 65,
+      "maxPokemonLevel": 90,
+      "shinyChance": 2.5,
+      "pokemon": [
+        {
+          "species": "articuno",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zapdos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "moltres",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mewtwo",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "raikou",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "entei",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "suicune",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lugia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ho_oh",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regirock",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regice",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "registeel",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latias",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "latios",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyogre",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "groudon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "rayquaza",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "uxie",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mesprit",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "azelf",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "dialga",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "palkia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "heatran",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regigigas",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "giratina",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cresselia",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cobalion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terrakion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "virizion",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tornadus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "thundurus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "reshiram",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zekrom",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "landorus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kyurem",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "xerneas",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "yveltal",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zygarde",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "type_null",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "silvally",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_koko",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_lele",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_bulu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "tapu_fini",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmog",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "cosmoem",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "solgaleo",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "lunala",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "necrozma",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zacian",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "zamazenta",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "eternatus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "kubfu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "urshifu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regieleki",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "regidrago",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "glastrier",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "spectrier",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "calyrex",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "enamorus",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "wo_chien",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chien_pao",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ting_lu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "chi_yu",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "okidogi",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "munkidori",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "fezandipiti",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "ogerpon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "terapagos",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "koraidon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "miraidon",
+          "weight": 1,
+          "pool": "LEGENDARY"
+        },
+        {
+          "species": "mew",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "celebi",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "jirachi",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "deoxys",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "phione",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "manaphy",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "darkrai",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "shaymin",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "arceus",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "victini",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "keldeo",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meloetta",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "genesect",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "diancie",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "hoopa",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "volcanion",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "magearna",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "marshadow",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zeraora",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "meltan",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "melmetal",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "zarude",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "pecharunt",
+          "weight": 1,
+          "pool": "MYTHICAL"
+        },
+        {
+          "species": "nihilego",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "buzzwole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "pheromosa",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "xurkitree",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "celesteela",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "kartana",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "guzzlord",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "poipole",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "naganadel",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "stakataka",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        },
+        {
+          "species": "blacephalon",
+          "weight": 2,
+          "pool": "ULTRA_BEAST"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "cobblemon:master_ball",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 5
+        },
+        {
+          "itemId": "cobblemon:dream_ball",
+          "amountMin": 2,
+          "amountMax": 4,
+          "weight": 12
+        },
+        {
+          "itemId": "cobblemon:beast_ball",
+          "amountMin": 2,
+          "amountMax": 4,
+          "weight": 12
+        },
+        {
+          "itemId": "cobblemon:rare_candy",
+          "amountMin": 4,
+          "amountMax": 8,
+          "weight": 18
+        },
+        {
+          "itemId": "cobblemon:exp_candy_xl",
+          "amountMin": 2,
+          "amountMax": 6,
+          "weight": 16
+        },
+        {
+          "itemId": "cobblemon:ability_patch",
+          "amountMin": 1,
+          "amountMax": 2,
+          "weight": 10
+        },
+        {
+          "itemId": "cobblemon:leftovers",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:life_orb",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 8
+        },
+        {
+          "itemId": "cobblemon:choice_band",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:choice_specs",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        },
+        {
+          "itemId": "cobblemon:choice_scarf",
+          "amountMin": 1,
+          "amountMax": 1,
+          "weight": 6
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "lodestone_maw",
+          "weight": 3
+        },
+        {
+          "toolId": "treasure_seer",
+          "weight": 2
+        },
+        {
+          "toolId": "obsidian_edge",
+          "weight": 2
+        },
+        {
+          "toolId": "titanbreaker",
+          "weight": 2
+        },
+        {
+          "toolId": "worldtree_axe",
+          "weight": 3
+        },
+        {
+          "toolId": "gaias_blessing",
+          "weight": 3
+        }
+      ]
+    }
+  }
+}

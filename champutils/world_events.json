@@ -1,0 +1,4865 @@
+{
+  "enabled": true,
+  "checkIntervalMinutes": 30,
+  "eventChance": 0.08333333333333333,
+  "maxActiveEvents": 5,
+  "overworldOnly": true,
+  "requireLandClaimUnclaimed": true,
+  "announceTeleportButton": true,
+  "blockProtectionRadius": 24,
+  "repeatEventWeightMultiplier": 0.15,
+  "events": {
+    "molten_siege": {
+      "enabled": true,
+      "displayName": "Molten Siege",
+      "tier": "COMMON",
+      "weight": 30,
+      "bossName": "Inferno Warlord",
+      "spawnName": "",
+      "skin": "",
+      "spawnSkin": "",
+      "playerSkin": "",
+      "skinPlayer": "",
+      "texture": "",
+      "world": "minecraft:overworld",
+      "spawnRadiusMin": 1500,
+      "spawnRadiusMax": 8000,
+      "avoidClaimRadius": 48,
+      "safeSpawnAttempts": 100,
+      "despawnMinutes": 75,
+      "teleportYOffset": 1,
+      "rewardMoney": 50000,
+      "rewards": {
+        "minFragments": 1,
+        "maxFragments": 3,
+        "crateCreditId": "common",
+        "crateCredits": 1,
+        "fragmentWeights": {
+          "COMMON": 85,
+          "UNCOMMON": 15
+        }
+      },
+      "teams": [
+        {
+          "name": "Molten Siege 32-Pokémon Common Event Pool",
+          "weight": 1,
+          "levelCap": 55,
+          "partySize": 6,
+          "itemsAllowed": true,
+          "party": [
+            {
+              "species": "arcanine",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "intimidate",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "flare_blitz",
+                "wild_charge",
+                "extreme_speed",
+                "crunch"
+              ]
+            },
+            {
+              "species": "charizard",
+              "level": 100,
+              "nature": "timid",
+              "ability": "blaze",
+              "heldItem": "heavy_duty_boots",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "flamethrower",
+                "air_slash",
+                "dragon_pulse",
+                "roost"
+              ]
+            },
+            {
+              "species": "talonflame",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "flame_body",
+              "heldItem": "heavy_duty_boots",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "brave_bird",
+                "flare_blitz",
+                "roost",
+                "u_turn"
+              ]
+            },
+            {
+              "species": "coalossal",
+              "level": 100,
+              "nature": "careful",
+              "ability": "flame_body",
+              "heldItem": "leftovers",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "stealth_rock",
+                "heat_crash",
+                "rock_slide",
+                "rapid_spin"
+              ]
+            },
+            {
+              "species": "centiskorch",
+              "level": 100,
+              "nature": "adamant",
+              "ability": "flash_fire",
+              "heldItem": "silver_powder",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fire_lash",
+                "leech_life",
+                "power_whip",
+                "coil"
+              ]
+            },
+            {
+              "species": "houndoom",
+              "level": 100,
+              "nature": "timid",
+              "ability": "flash_fire",
+              "heldItem": "choice_specs",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "dark_pulse",
+                "flamethrower",
+                "sludge_bomb",
+                "nasty_plot"
+              ]
+            },
+            {
+              "species": "magmortar",
+              "level": 100,
+              "nature": "modest",
+              "ability": "flame_body",
+              "heldItem": "choice_specs",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fire_blast",
+                "thunderbolt",
+                "psychic",
+                "focus_blast"
+              ]
+            },
+            {
+              "species": "ninetales",
+              "level": 100,
+              "nature": "timid",
+              "ability": "drought",
+              "heldItem": "heat_rock",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "flamethrower",
+                "solar_beam",
+                "will_o_wisp",
+                "nasty_plot"
+              ]
+            },
+            {
+              "species": "rapidash",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "flash_fire",
+              "heldItem": "choice_band",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "flare_blitz",
+                "wild_charge",
+                "high_horsepower",
+                "megahorn"
+              ]
+            },
+            {
+              "species": "delphox",
+              "level": 100,
+              "nature": "timid",
+              "ability": "blaze",
+              "heldItem": "wise_glasses",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fire_blast",
+                "psychic",
+                "grass_knot",
+                "calm_mind"
+              ]
+            },
+            {
+              "species": "infernape",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "blaze",
+              "heldItem": "focus_sash",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "close_combat",
+                "flare_blitz",
+                "mach_punch",
+                "stealth_rock"
+              ]
+            },
+            {
+              "species": "blaziken",
+              "level": 100,
+              "nature": "adamant",
+              "ability": "speed_boost",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "swords_dance",
+                "flare_blitz",
+                "close_combat",
+                "thunder_punch"
+              ]
+            },
+            {
+              "species": "typhlosion",
+              "level": 100,
+              "nature": "timid",
+              "ability": "blaze",
+              "heldItem": "choice_specs",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "eruption",
+                "flamethrower",
+                "extrasensory",
+                "focus_blast"
+              ]
+            },
+            {
+              "species": "skeledirge",
+              "level": 100,
+              "nature": "bold",
+              "ability": "unaware",
+              "heldItem": "leftovers",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "torch_song",
+                "shadow_ball",
+                "will_o_wisp",
+                "slack_off"
+              ]
+            },
+            {
+              "species": "chandelure",
+              "level": 100,
+              "nature": "timid",
+              "ability": "flash_fire",
+              "heldItem": "choice_scarf",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "shadow_ball",
+                "fire_blast",
+                "energy_ball",
+                "trick"
+              ]
+            },
+            {
+              "species": "volcarona",
+              "level": 100,
+              "nature": "timid",
+              "ability": "flame_body",
+              "heldItem": "heavy_duty_boots",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "quiver_dance",
+                "fiery_dance",
+                "bug_buzz",
+                "giga_drain"
+              ]
+            },
+            {
+              "species": "torkoal",
+              "level": 100,
+              "nature": "bold",
+              "ability": "drought",
+              "heldItem": "heat_rock",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "lava_plume",
+                "rapid_spin",
+                "stealth_rock",
+                "yawn"
+              ]
+            },
+            {
+              "species": "rotom_heat",
+              "level": 100,
+              "nature": "timid",
+              "ability": "levitate",
+              "heldItem": "choice_scarf",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "overheat",
+                "volt_switch",
+                "thunderbolt",
+                "trick"
+              ]
+            },
+            {
+              "species": "salazzle",
+              "level": 100,
+              "nature": "timid",
+              "ability": "corrosion",
+              "heldItem": "black_sludge",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "nasty_plot",
+                "sludge_wave",
+                "flamethrower",
+                "toxic"
+              ]
+            },
+            {
+              "species": "ceruledge",
+              "level": 100,
+              "nature": "adamant",
+              "ability": "flash_fire",
+              "heldItem": "heavy_duty_boots",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "bitter_blade",
+                "shadow_sneak",
+                "swords_dance",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "armarouge",
+              "level": 100,
+              "nature": "modest",
+              "ability": "flash_fire",
+              "heldItem": "weakness_policy",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "armor_cannon",
+                "psychic",
+                "aura_sphere",
+                "calm_mind"
+              ]
+            },
+            {
+              "species": "scovillain",
+              "level": 100,
+              "nature": "timid",
+              "ability": "chlorophyll",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fire_blast",
+                "energy_ball",
+                "growth",
+                "stomping_tantrum"
+              ]
+            },
+            {
+              "species": "camerupt",
+              "level": 100,
+              "nature": "modest",
+              "ability": "solid_rock",
+              "heldItem": "leftovers",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earth_power",
+                "flamethrower",
+                "stealth_rock",
+                "will_o_wisp"
+              ]
+            },
+            {
+              "species": "flareon",
+              "level": 100,
+              "nature": "adamant",
+              "ability": "guts",
+              "heldItem": "flame_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "facade",
+                "flare_blitz",
+                "quick_attack",
+                "superpower"
+              ]
+            },
+            {
+              "species": "pyroar",
+              "level": 100,
+              "nature": "timid",
+              "ability": "unnerve",
+              "heldItem": "choice_specs",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "hyper_voice",
+                "flamethrower",
+                "dark_pulse",
+                "will_o_wisp"
+              ]
+            },
+            {
+              "species": "darmanitan",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "sheer_force",
+              "heldItem": "choice_scarf",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "flare_blitz",
+                "earthquake",
+                "rock_slide",
+                "u_turn"
+              ]
+            },
+            {
+              "species": "turtonator",
+              "level": 100,
+              "nature": "modest",
+              "ability": "shell_armor",
+              "heldItem": "white_herb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "shell_smash",
+                "fire_blast",
+                "dragon_pulse",
+                "flash_cannon"
+              ]
+            },
+            {
+              "species": "incineroar",
+              "level": 100,
+              "nature": "careful",
+              "ability": "intimidate",
+              "heldItem": "sitrus_berry",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fake_out",
+                "flare_blitz",
+                "knock_off",
+                "parting_shot"
+              ]
+            },
+            {
+              "species": "heatmor",
+              "level": 100,
+              "nature": "modest",
+              "ability": "flash_fire",
+              "heldItem": "expert_belt",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "fire_blast",
+                "giga_drain",
+                "focus_blast",
+                "sucker_punch"
+              ]
+            },
+            {
+              "species": "simisear",
+              "level": 100,
+              "nature": "timid",
+              "ability": "gluttony",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "nasty_plot",
+                "fire_blast",
+                "grass_knot",
+                "focus_blast"
+              ]
+            },
+            {
+              "species": "oricorio_baile",
+              "level": 100,
+              "nature": "timid",
+              "ability": "dancer",
+              "heldItem": "heavy_duty_boots",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "revelation_dance",
+                "hurricane",
+                "roost",
+                "quiver_dance"
+              ]
+            },
+            {
+              "species": "houndstone",
+              "level": 100,
+              "nature": "adamant",
+              "ability": "sand_rush",
+              "heldItem": "spell_tag",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "last_respects",
+                "play_rough",
+                "will_o_wisp",
+                "shadow_sneak"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "abyssal_storm": {
+      "enabled": true,
+      "displayName": "Abyssal Storm",
+      "tier": "UNCOMMON",
+      "weight": 25,
+      "bossName": "Abyssal Tyrant",
+      "spawnName": "",
+      "skin": "",
+      "spawnSkin": "",
+      "playerSkin": "",
+      "skinPlayer": "",
+      "texture": "",
+      "world": "minecraft:overworld",
+      "spawnRadiusMin": 1500,
+      "spawnRadiusMax": 8000,
+      "avoidClaimRadius": 48,
+      "safeSpawnAttempts": 100,
+      "despawnMinutes": 75,
+      "teleportYOffset": 1,
+      "rewardMoney": 50000,
+      "rewards": {
+        "minFragments": 2,
+        "maxFragments": 4,
+        "crateCreditId": "uncommon",
+        "crateCredits": 1,
+        "fragmentWeights": {
+          "UNCOMMON": 80,
+          "RARE": 20
+        }
+      },
+      "teams": [
+        {
+          "name": "Abyssal Storm 32-Pokémon Uncommon Event Pool",
+          "weight": 1,
+          "levelCap": 65,
+          "partySize": 6,
+          "itemsAllowed": true,
+          "party": [
+            {
+              "species": "gyarados",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "milotic",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "lapras",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kingdra",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "swampert",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "greninja",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "empoleon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "samurott",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "feraligatr",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "primarina",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "slowbro",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "slowking",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "starmie",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "cloyster",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "toxapex",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "tentacruel",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "pelipper",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "barraskewda",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dondozo",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "veluza",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "gastrodon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "quagsire",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "rotom_wash",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "vaporeon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "azumarill",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "crawdaunt",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "politoed",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "alomomola",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "walrein",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "floatzel",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "sharpedo",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "golisopod",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "verdant_collapse": {
+      "enabled": true,
+      "displayName": "Verdant Collapse",
+      "tier": "RARE",
+      "weight": 20,
+      "bossName": "Elder Bloom Tyrant",
+      "spawnName": "",
+      "skin": "",
+      "spawnSkin": "",
+      "playerSkin": "",
+      "skinPlayer": "",
+      "texture": "",
+      "world": "minecraft:overworld",
+      "spawnRadiusMin": 1500,
+      "spawnRadiusMax": 8000,
+      "avoidClaimRadius": 48,
+      "safeSpawnAttempts": 100,
+      "despawnMinutes": 75,
+      "teleportYOffset": 1,
+      "rewardMoney": 50000,
+      "rewards": {
+        "minFragments": 3,
+        "maxFragments": 6,
+        "crateCreditId": "rare",
+        "crateCredits": 1,
+        "fragmentWeights": {
+          "RARE": 75,
+          "EPIC": 22,
+          "LEGENDARY": 3
+        }
+      },
+      "teams": [
+        {
+          "name": "Verdant Collapse 32-Pokémon Rare Event Pool",
+          "weight": 1,
+          "levelCap": 75,
+          "partySize": 6,
+          "itemsAllowed": true,
+          "party": [
+            {
+              "species": "venusaur",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "meowscarada",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "rillaboom",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "serperior",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "amoonguss",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "breloom",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "ferrothorn",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kartana",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "tsareena",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "decidueye",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "chesnaught",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "roserade",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "trevenant",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "tangrowth",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "abomasnow",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "lilligant",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "sceptile",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "torterra",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "goodra",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dragonite",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kommo_o",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "hydreigon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "garchomp",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "tyranitar",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "metagross",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "salamence",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dragapult",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "haxorus",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "noivern",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "volcarona",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "gliscor",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "mamoswine",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "void_invasion": {
+      "enabled": true,
+      "displayName": "Void Invasion",
+      "tier": "EPIC",
+      "weight": 15,
+      "bossName": "Void Rift Monarch",
+      "spawnName": "",
+      "skin": "",
+      "spawnSkin": "",
+      "playerSkin": "",
+      "skinPlayer": "",
+      "texture": "",
+      "world": "minecraft:overworld",
+      "spawnRadiusMin": 1500,
+      "spawnRadiusMax": 8000,
+      "avoidClaimRadius": 48,
+      "safeSpawnAttempts": 100,
+      "despawnMinutes": 75,
+      "teleportYOffset": 1,
+      "rewardMoney": 50000,
+      "rewards": {
+        "minFragments": 4,
+        "maxFragments": 8,
+        "crateCreditId": "epic",
+        "crateCredits": 1,
+        "fragmentWeights": {
+          "EPIC": 75,
+          "LEGENDARY": 22,
+          "MYTHIC": 3
+        }
+      },
+      "teams": [
+        {
+          "name": "Void Invasion 32-Pokémon Epic Event Pool",
+          "weight": 1,
+          "levelCap": 85,
+          "partySize": 6,
+          "itemsAllowed": true,
+          "party": [
+            {
+              "species": "flutter_mane",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_bundle",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_valiant",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "roaring_moon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "walking_wake",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "gouging_fire",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "raging_bolt",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_crown",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_boulder",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_moth",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_hands",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "iron_treads",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "sandy_shocks",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "scream_tail",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "brute_bonnet",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "slither_wing",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "great_tusk",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "gholdengo",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kingambit",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "annihilape",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dragapult",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "garchomp",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dragonite",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "ursaluna",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "basculegion",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "ceruledge",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "armarouge",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "skeledirge",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "greninja",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "volcarona",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "toxapex",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "glimmora",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "iron_uprising": {
+      "enabled": true,
+      "displayName": "Iron Uprising",
+      "tier": "LEGENDARY",
+      "weight": 10,
+      "bossName": "Chrome Apex",
+      "spawnName": "",
+      "skin": "",
+      "spawnSkin": "",
+      "playerSkin": "",
+      "skinPlayer": "",
+      "texture": "",
+      "world": "minecraft:overworld",
+      "spawnRadiusMin": 1500,
+      "spawnRadiusMax": 8000,
+      "avoidClaimRadius": 48,
+      "safeSpawnAttempts": 100,
+      "despawnMinutes": 75,
+      "teleportYOffset": 1,
+      "rewardMoney": 50000,
+      "rewards": {
+        "minFragments": 5,
+        "maxFragments": 10,
+        "crateCreditId": "legendary",
+        "crateCredits": 1,
+        "fragmentWeights": {
+          "LEGENDARY": 80,
+          "MYTHIC": 20
+        }
+      },
+      "teams": [
+        {
+          "name": "Iron Uprising 32-Pokémon Legendary Event Pool",
+          "weight": 1,
+          "levelCap": 100,
+          "partySize": 6,
+          "itemsAllowed": true,
+          "party": [
+            {
+              "species": "mewtwo",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "rayquaza",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kyogre",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "groudon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "lugia",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "ho_oh",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "dialga",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "palkia",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "giratina",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "reshiram",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "zekrom",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kyurem",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "xerneas",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "yveltal",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "zygarde",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "solgaleo",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "lunala",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "necrozma",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "zacian",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "zamazenta",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "eternatus",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "koraidon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "miraidon",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "calyrex",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "landorus",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "thundurus",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "tornadus",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "urshifu",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "kartana",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "guzzlord",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "celesteela",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            },
+            {
+              "species": "magearna",
+              "level": 100,
+              "nature": "jolly",
+              "ability": "",
+              "heldItem": "life_orb",
+              "ivs": {
+                "hp": 31,
+                "atk": 31,
+                "def": 31,
+                "spa": 31,
+                "spd": 31,
+                "spe": 31
+              },
+              "evs": {
+                "hp": 252,
+                "atk": 252,
+                "def": 252,
+                "spa": 252,
+                "spd": 252,
+                "spe": 252
+              },
+              "moves": [
+                "earthquake",
+                "shadow_ball",
+                "thunderbolt",
+                "close_combat"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -459,7 +459,7 @@ public final class ProfessionToolRollService {
 
     private static void rollAscendedOnIdentify(ItemStack stack) {
         if (stack == null || stack.isEmpty() || ProfessionToolMetadata.isAscended(stack)) return;
-        if (RANDOM.nextDouble() < 0.001D) {
+        if (RANDOM.nextDouble() < 0.01D) {
             ProfessionToolMetadata.setAscended(stack, true);
             ProfessionToolMetadata.setDiscoveryAnnouncementEligible(stack, true);
         }
@@ -496,7 +496,7 @@ public final class ProfessionToolRollService {
         );
     }
 
-    private static String rollMiningTrackerId() {
+    public static String rollMiningTrackerId() {
 
         double roll =
                 RANDOM.nextDouble() * 100.0D;

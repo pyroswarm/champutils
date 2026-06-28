@@ -32,8 +32,8 @@ public final class BattleProfileRecoveryManager {
             statement.executeUpdate("create table if not exists profile_battle_recovery (" +
                     "id uuid primary key default gen_random_uuid(), " +
                     "battle_id text not null, " +
-                    "profile_id uuid not null references player_profiles(id) on delete cascade, " +
-                    "player_uuid uuid references players(uuid) on delete set null, " +
+                    "profile_id uuid not null, " +
+                    "player_uuid uuid, " +
                     "server_id text not null default '', " +
                     "battle_type text not null default 'UNKNOWN', " +
                     "status text not null default 'OPEN' check (status in ('OPEN','WON','LOST','FLED','CRASHED','RECOVERED','EXPIRED')), " +
@@ -138,9 +138,16 @@ public final class BattleProfileRecoveryManager {
         BATTLE_PROFILE_BY_PLAYER.clear();
         BATTLE_ID_BY_PLAYER.clear();
         RECOVERY_ID_BY_PLAYER.clear();
-        PlayerProfileManager.recoverInterruptedProfileGuardsAsync();
         if (!DatabaseManager.isEnabled()) return;
         DatabaseManager.executeAsync("recover open battle recovery rows", connection -> {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_reason text");
+                statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_updated_at timestamptz");
+                statement.executeUpdate("update player_profiles set is_locked = false, profile_guard_reason = null, profile_guard_updated_at = null where is_locked = true or profile_guard_reason is not null");
+            } catch (Throwable t) {
+                System.err.println("[ChampUtils] Could not clear stale profile guards during battle recovery startup: " + t.getMessage());
+            }
+
             ensureSchema(connection);
             try (var ps = connection.prepareStatement("update profile_battle_recovery set status = 'CRASHED', ended_at = now(), metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('startup_recovered', true) where status = 'OPEN'")) {
                 ps.executeUpdate();

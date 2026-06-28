@@ -61,7 +61,14 @@ public final class ProfileLoadingStateManager {
     private static void begin(ServerPlayer player, String profileName, boolean blankLiveState) {
         if (player == null) return;
         String clean = profileName == null || profileName.isBlank() ? "Profile" : profileName.trim();
-        LockTarget target = blankLiveState ? loadingTarget(player) : currentTarget(player);
+        // Dedicated profile_lobby backend may use the isolated lobby world as the lock target.
+        // SURVIVAL must not bounce a joining player into multiworld:profile_lobby just to wait for
+        // hydration. That extra cross-dimension teleport forces chunk/dimension work on the survival
+        // tick, then the final saved-location teleport does it again. Freeze the player exactly where
+        // Velocity placed them, blank stale state, and only do the final saved-location teleport after
+        // the profile is fully hydrated and the destination chunk is preloaded.
+        boolean localSurvivalQuarantine = blankLiveState && ProfileNetworkTransferFlow.isSurvivalServer();
+        LockTarget target = blankLiveState && !localSurvivalQuarantine ? loadingTarget(player) : currentTarget(player);
         LOADING.compute(player.getUUID(), (uuid, existing) -> {
             long started = existing == null ? System.currentTimeMillis() : existing.startedAtMillis;
             LockTarget effectiveTarget = existing == null || blankLiveState ? target : new LockTarget(existing.dimension, existing.x, existing.y, existing.z, existing.yaw, existing.pitch);
@@ -69,7 +76,9 @@ public final class ProfileLoadingStateManager {
         });
         if (blankLiveState) {
             blankLiveState(player);
-            teleportToLoadingTarget(player);
+            if (!localSurvivalQuarantine) {
+                teleportToLoadingTarget(player);
+            }
         }
         apply(player, clean, true);
     }

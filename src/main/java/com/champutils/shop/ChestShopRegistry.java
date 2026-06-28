@@ -10,6 +10,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import com.champutils.profile.PlayerProfileManager;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -154,6 +156,7 @@ public final class ChestShopRegistry {
         shop.y = pos.getY();
         shop.z = pos.getZ();
         shop.ownerId = ownerId.toString();
+        shop.ownerProfileId = PlayerProfileManager.activeProfileId(ownerId).toString();
         shop.ownerName = ownerName == null ? "Unknown" : ownerName;
         shop.itemId = itemId.toString();
         shop.itemName = template.getHoverName().getString();
@@ -275,7 +278,10 @@ public final class ChestShopRegistry {
         public int x;
         public int y;
         public int z;
+        /** Minecraft account UUID of the shop owner. Kept for ownership checks and online notifications. */
         public String ownerId;
+        /** Profile UUID whose economy balance backs this shop. Older shops may not have this yet. */
+        public String ownerProfileId;
         public String ownerName;
         public String itemId;
         public String itemName;
@@ -299,6 +305,18 @@ public final class ChestShopRegistry {
             } catch (Exception ignored) {
                 return null;
             }
+        }
+
+        public UUID ownerProfileUuid() {
+            try {
+                return ownerProfileId == null || ownerProfileId.isBlank() ? null : UUID.fromString(ownerProfileId);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+
+        public void setOwnerProfileUuid(UUID profileId) {
+            ownerProfileId = profileId == null ? null : profileId.toString();
         }
 
         public boolean isOwner(UUID uuid) {

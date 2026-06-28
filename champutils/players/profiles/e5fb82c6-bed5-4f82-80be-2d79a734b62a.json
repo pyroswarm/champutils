@@ -1,0 +1,16 @@
+{
+  "uuid": "e5fb82c6-bed5-4f82-80be-2d79a734b62a",
+  "name": "LanLanoo",
+  "rp": 300,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 0,
+  "casualWins": 0,
+  "casualLosses": 0,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 0,
+  "playtimeSeconds": 0
+}

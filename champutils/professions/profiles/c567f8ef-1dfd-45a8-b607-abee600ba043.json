@@ -1,0 +1,17 @@
+{
+  "uuid": "c567f8ef-1dfd-45a8-b607-abee600ba043",
+  "name": "NotMagics",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 2,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 24,
+    "FARMING": 0,
+    "FORESTRY": 73,
+    "MINING": 82
+  },
+  "fragments": {}
+}

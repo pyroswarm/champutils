@@ -1,0 +1,89 @@
+{
+  "uuid": "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5",
+  "name": "Alathreon",
+  "daily": {
+    "periodKey": "2026-06-22",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_defeat_rock",
+        "description": "Defeat 16 Rock-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "rock",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_copper",
+        "description": "Mine 96 copper ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:copper_ore",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_chop_oak",
+        "description": "Chop 80 oak logs",
+        "objectiveType": "CHOP_BLOCK_CONTAINS",
+        "profession": "FORESTRY",
+        "target": "oak_log",
+        "required": 80,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_mine_iron",
+        "description": "Mine 500 iron ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:iron_ore",
+        "required": 500,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_defeat_fighting",
+        "description": "Defeat 120 Fighting-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fighting",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

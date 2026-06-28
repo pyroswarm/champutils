@@ -1,0 +1,19 @@
+{
+  "uuid": "7373fae4-2e7b-4a78-b034-50f4df0278a9",
+  "name": "Tatubola8358",
+  "levels": {
+    "BATTLING": 7,
+    "FARMING": 1,
+    "FORESTRY": 3,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 195,
+    "FARMING": 0,
+    "FORESTRY": 60,
+    "MINING": 110
+  },
+  "fragments": {
+    "COMMON": 1
+  }
+}

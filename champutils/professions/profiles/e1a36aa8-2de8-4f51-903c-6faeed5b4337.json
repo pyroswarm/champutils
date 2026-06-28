@@ -1,0 +1,17 @@
+{
+  "uuid": "e1a36aa8-2de8-4f51-903c-6faeed5b4337",
+  "name": "FruitCup525",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

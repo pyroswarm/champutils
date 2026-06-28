@@ -108,7 +108,7 @@ public final class OpenCratesMenu {
             Item icon = crateIconItem(id, crate);
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Credits: " + credits).withStyle(credits > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
-            lore.add(Component.literal("Guaranteed: " + crate.guaranteedShardMin + "-" + crate.guaranteedShardMax + " " + ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity) + " shards").withStyle(ChatFormatting.GRAY));
+            lore.add(Component.literal("No guaranteed fragments. Main reward only.").withStyle(ChatFormatting.GRAY));
             if ("mythic".equals(id)) lore.add(Component.literal("Mythic Pokémon have a 10% shiny chance.").withStyle(ChatFormatting.LIGHT_PURPLE));
             lore.add(Component.literal("Roulette opening animation.").withStyle(ChatFormatting.DARK_GRAY));
             lore.add(Component.literal("Click to open.").withStyle(ChatFormatting.YELLOW));
@@ -300,7 +300,7 @@ public final class OpenCratesMenu {
         if (crate == null || !crate.enabled) { player.sendSystemMessage(Component.literal("That crate is not enabled.").withStyle(ChatFormatting.RED)); return; }
         if (!CrateCreditManager.spendCredit(player, id)) { player.sendSystemMessage(Component.literal("You do not have a " + crate.displayName + " credit.").withStyle(ChatFormatting.RED)); return; }
 
-        RewardPlan shards = planGuaranteedShards(crate);
+        RewardPlan shards = null;
         RewardPlan main = rollMainReward(crate, id);
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setTitle(Component.literal(crate.displayName + " Roulette"));
@@ -339,7 +339,7 @@ public final class OpenCratesMenu {
             if (opening.tick >= TOTAL_TICKS) {
                 iterator.remove();
                 player.closeContainer();
-                grantReward(player, opening.guaranteedShards);
+                // Guaranteed crate fragments removed; main reward only.
                 String actualMainReward = grantReward(player, opening.mainReward);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
@@ -391,12 +391,10 @@ public final class OpenCratesMenu {
     private static RewardPlan rollMainReward(CrateConfig.CrateDefinition crate, String crateId) {
         int pokemonWeight = pokemonCategoryWeight(crateId);
         int itemWeight = itemCategoryWeight(crateId);
-        int toolWeight = toolCategoryWeight(crate);
-        int total = pokemonWeight + itemWeight + toolWeight;
+        int total = pokemonWeight + itemWeight;
         int roll = RANDOM.nextInt(Math.max(1, total));
         if ((roll -= pokemonWeight) < 0) return planPokemon(crate, crateId);
-        if ((roll -= itemWeight) < 0) return planItem(crate);
-        return planTool(crate);
+        return planItem(crate);
     }
 
     private static RewardPlan planPokemon(CrateConfig.CrateDefinition crate, String crateId) {

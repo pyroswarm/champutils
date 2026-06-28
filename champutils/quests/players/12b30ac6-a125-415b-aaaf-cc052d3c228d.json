@@ -1,0 +1,89 @@
+{
+  "uuid": "12b30ac6-a125-415b-aaaf-cc052d3c228d",
+  "name": "Oill",
+  "daily": {
+    "periodKey": "2026-06-25",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_defeat_rock",
+        "description": "Defeat 16 Rock-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "rock",
+        "required": 16,
+        "progress": 8,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_chop_oak",
+        "description": "Chop 80 oak logs",
+        "objectiveType": "CHOP_BLOCK_CONTAINS",
+        "profession": "FORESTRY",
+        "target": "oak_log",
+        "required": 80,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_carrots",
+        "description": "Harvest 96 carrots",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:carrots",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_chop_logs",
+        "description": "Chop 1200 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 1200,
+        "progress": 13,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_defeat_fairy",
+        "description": "Defeat 120 Fairy-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fairy",
+        "required": 120,
+        "progress": 2,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_any",
+        "description": "Harvest 1500 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 1500,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

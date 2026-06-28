@@ -1,6 +1,7 @@
 package com.champutils.menu;
 
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.database.DatabaseManager;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileNetworkTransferFlow;
@@ -41,21 +42,30 @@ public final class ProfileSelectionMenu {
             long createdAtMillis
     ) {}
 
-    private static MenuSnapshot snapshot(ServerPlayer player) {
+    private static MenuSnapshot cachedSnapshot(ServerPlayer player) {
         UUID playerId = player.getUUID();
         long now = System.currentTimeMillis();
         MenuSnapshot cached = SNAPSHOTS.get(playerId);
         if (cached != null && now - cached.createdAtMillis() <= SNAPSHOT_TTL_MILLIS) {
             return cached;
         }
+        return null;
+    }
 
-        MenuSnapshot fresh = new MenuSnapshot(
-                List.copyOf(PlayerProfileManager.listBlocking(player)),
-                PlayerProfileManager.limitBlocking(player),
+    private static CompletableFuture<MenuSnapshot> loadSnapshotAsync(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        if (!DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(new MenuSnapshot(
+                    List.copyOf(PlayerProfileManager.listBlocking(player)),
+                    PlayerProfileManager.limitBlocking(player),
+                    now
+            ));
+        }
+        return DatabaseManager.supplyAsync("load profile selection snapshot", connection -> new MenuSnapshot(
+                List.copyOf(PlayerProfileManager.readProfiles(connection, player.getUUID())),
+                PlayerProfileManager.readLimit(connection, player),
                 now
-        );
-        SNAPSHOTS.put(playerId, fresh);
-        return fresh;
+        ));
     }
 
     private static void invalidateSnapshot(ServerPlayer player) {
@@ -108,10 +118,32 @@ public final class ProfileSelectionMenu {
         if (player == null) return;
         finalizePendingDeletesIfDueAsync(player);
 
+        MenuSnapshot snapshot = cachedSnapshot(player);
+        if (snapshot == null) {
+            SimpleGui loadingGui = createForcedGui(MenuType.GENERIC_9x3, player, () -> open(player));
+            loadingGui.setTitle(Component.literal("Select Profile"));
+            MenuUtil.fillBorders(loadingGui, 0,1,2,3,4,5,6,7,8,18,19,20,21,22,23,24,25,26);
+            loadingGui.setSlot(13, new GuiElementBuilder(Items.CLOCK)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("Loading Profiles...").withStyle(ChatFormatting.YELLOW))
+                    .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+            loadingGui.open();
+            loadSnapshotAsync(player).whenComplete((fresh, error) -> player.server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                if (error != null || fresh == null) {
+                    player.sendSystemMessage(Component.literal("Could not load profiles. Check console.").withStyle(ChatFormatting.RED));
+                    if (error != null) error.printStackTrace();
+                    return;
+                }
+                SNAPSHOTS.put(player.getUUID(), fresh);
+                open(player);
+            }));
+            return;
+        }
+
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> open(player));
         gui.setTitle(Component.literal("Select Profile"));
 
-        MenuSnapshot snapshot = snapshot(player);
         List<PlayerProfileManager.ProfileRecord> profiles = snapshot.profiles();
         PlayerProfileManager.ProfileLimit limit = snapshot.limit();
 
@@ -313,9 +345,32 @@ public final class ProfileSelectionMenu {
     }
 
     private static void openDeleteMenu(ServerPlayer player) {
+        MenuSnapshot snapshot = cachedSnapshot(player);
+        if (snapshot == null) {
+            SimpleGui loadingGui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openDeleteMenu(player));
+            loadingGui.setTitle(Component.literal("Delete Profile"));
+            MenuUtil.fillBorders(loadingGui, 0,1,2,3,4,5,6,7,8,18,19,20,21,22,23,24,25,26);
+            loadingGui.setSlot(13, new GuiElementBuilder(Items.CLOCK)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("Loading Profiles...").withStyle(ChatFormatting.YELLOW))
+                    .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+            loadingGui.open();
+            loadSnapshotAsync(player).whenComplete((fresh, error) -> player.server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                if (error != null || fresh == null) {
+                    player.sendSystemMessage(Component.literal("Could not load profiles. Check console.").withStyle(ChatFormatting.RED));
+                    if (error != null) error.printStackTrace();
+                    return;
+                }
+                SNAPSHOTS.put(player.getUUID(), fresh);
+                openDeleteMenu(player);
+            }));
+            return;
+        }
+
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openDeleteMenu(player));
         gui.setTitle(Component.literal("Delete Profile"));
-        List<PlayerProfileManager.ProfileRecord> profiles = snapshot(player).profiles();
+        List<PlayerProfileManager.ProfileRecord> profiles = snapshot.profiles();
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
             var profile = profiles.get(i);
@@ -506,7 +561,14 @@ public final class ProfileSelectionMenu {
 
     private static Set<String> usedProfileNames(ServerPlayer player) {
         Set<String> used = new HashSet<>();
-        for (PlayerProfileManager.ProfileRecord profile : snapshot(player).profiles()) {
+        MenuSnapshot snapshot = cachedSnapshot(player);
+        if (snapshot == null) {
+            // Do not block the server thread here. The color menu is only reached after the
+            // root profile menu has loaded a snapshot, but fall back safely if it was invalidated.
+            open(player);
+            return used;
+        }
+        for (PlayerProfileManager.ProfileRecord profile : snapshot.profiles()) {
             if (profile != null && !profile.pendingDelete()) used.add(profile.profileName().toLowerCase(Locale.ROOT));
         }
         return used;

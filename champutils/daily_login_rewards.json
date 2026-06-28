@@ -1,0 +1,229 @@
+{
+  "settings": {
+    "enabled": true,
+    "requiredOnlineMinutes": 30,
+    "trackLengthDays": 20,
+    "autoOpenMenuOnEarn": false,
+    "announceProgressEveryFiveMinutes": true
+  },
+  "track": [
+    {
+      "day": 1,
+      "displayName": "§aStarter Login",
+      "description": [
+        "§7A simple welcome reward."
+      ],
+      "commands": [
+        "give %player% cobblemon:poke_ball 16",
+        "give %player% minecraft:bread 16"
+      ]
+    },
+    {
+      "day": 2,
+      "displayName": "§aHelpful Supplies",
+      "description": [
+        "§7More early-game supplies."
+      ],
+      "commands": [
+        "give %player% cobblemon:great_ball 8",
+        "give %player% cobblemon:potion 8"
+      ]
+    },
+    {
+      "day": 3,
+      "displayName": "§aBerry Bundle",
+      "description": [
+        "§7Useful Cobblemon berries."
+      ],
+      "commands": [
+        "give %player% cobblemon:oran_berry 8",
+        "give %player% cobblemon:sitrus_berry 4"
+      ]
+    },
+    {
+      "day": 4,
+      "displayName": "§aTravel Kit",
+      "description": [
+        "§7Good balls for exploring."
+      ],
+      "commands": [
+        "give %player% cobblemon:quick_ball 6",
+        "give %player% cobblemon:dusk_ball 6"
+      ]
+    },
+    {
+      "day": 5,
+      "displayName": "§bFirst Milestone",
+      "description": [
+        "§7A better day-five reward."
+      ],
+      "commands": [
+        "give %player% cobblemon:ultra_ball 8",
+        "give %player% cobblemon:exp_candy_s 4"
+      ]
+    },
+    {
+      "day": 6,
+      "displayName": "§aHealing Cache",
+      "description": [
+        "§7Battle recovery supplies."
+      ],
+      "commands": [
+        "give %player% cobblemon:super_potion 8",
+        "give %player% cobblemon:revive 3"
+      ]
+    },
+    {
+      "day": 7,
+      "displayName": "§aStone Shards",
+      "description": [
+        "§7A small evolution boost."
+      ],
+      "commands": [
+        "give %player% cobblemon:fire_stone 1",
+        "give %player% cobblemon:water_stone 1"
+      ]
+    },
+    {
+      "day": 8,
+      "displayName": "§bTrainer Pack",
+      "description": [
+        "§7A stronger capture bundle."
+      ],
+      "commands": [
+        "give %player% cobblemon:ultra_ball 10",
+        "give %player% cobblemon:timer_ball 6"
+      ]
+    },
+    {
+      "day": 9,
+      "displayName": "§bEXP Day",
+      "description": [
+        "§7Candy for party growth."
+      ],
+      "commands": [
+        "give %player% cobblemon:exp_candy_m 4"
+      ]
+    },
+    {
+      "day": 10,
+      "displayName": "§dHalfway Reward",
+      "description": [
+        "§7The track starts getting stronger."
+      ],
+      "commands": [
+        "give %player% cobblemon:rare_candy 1",
+        "give %player% cobblemon:luxury_ball 8"
+      ]
+    },
+    {
+      "day": 11,
+      "displayName": "§bMint Leaves",
+      "description": [
+        "§7Useful crafting materials."
+      ],
+      "commands": [
+        "give %player% cobblemon:blue_mint_leaf 3",
+        "give %player% cobblemon:red_mint_leaf 3"
+      ]
+    },
+    {
+      "day": 12,
+      "displayName": "§bHeld Item Sampler",
+      "description": [
+        "§7A light competitive item."
+      ],
+      "commands": [
+        "give %player% cobblemon:muscle_band 1"
+      ]
+    },
+    {
+      "day": 13,
+      "displayName": "§bEvolution Help",
+      "description": [
+        "§7More evolution materials."
+      ],
+      "commands": [
+        "give %player% cobblemon:thunder_stone 1",
+        "give %player% cobblemon:leaf_stone 1"
+      ]
+    },
+    {
+      "day": 14,
+      "displayName": "§dBattle Prep",
+      "description": [
+        "§7Mid-late track battle supplies."
+      ],
+      "commands": [
+        "give %player% cobblemon:hyper_potion 6",
+        "give %player% cobblemon:revive 5"
+      ]
+    },
+    {
+      "day": 15,
+      "displayName": "§dMajor Milestone",
+      "description": [
+        "§7A strong day-fifteen reward."
+      ],
+      "commands": [
+        "give %player% cobblemon:rare_candy 2",
+        "give %player% cobblemon:ability_capsule 1"
+      ]
+    },
+    {
+      "day": 16,
+      "displayName": "§dPremium Balls",
+      "description": [
+        "§7High-quality capture tools."
+      ],
+      "commands": [
+        "give %player% cobblemon:ultra_ball 16",
+        "give %player% cobblemon:luxury_ball 10"
+      ]
+    },
+    {
+      "day": 17,
+      "displayName": "§dCompetitive Prep",
+      "description": [
+        "§7Useful training items."
+      ],
+      "commands": [
+        "give %player% cobblemon:pp_up 1",
+        "give %player% cobblemon:protein 1"
+      ]
+    },
+    {
+      "day": 18,
+      "displayName": "§5Rare Utility",
+      "description": [
+        "§7A stronger late-track item."
+      ],
+      "commands": [
+        "give %player% cobblemon:lucky_egg 1"
+      ]
+    },
+    {
+      "day": 19,
+      "displayName": "§5Final Stretch",
+      "description": [
+        "§7Almost at the monthly finish."
+      ],
+      "commands": [
+        "give %player% cobblemon:rare_candy 3",
+        "give %player% cobblemon:max_revive 3"
+      ]
+    },
+    {
+      "day": 20,
+      "displayName": "§6Monthly Champion",
+      "description": [
+        "§7Best reward on the monthly track."
+      ],
+      "commands": [
+        "give %player% cobblemon:ability_patch 1",
+        "give %player% cobblemon:rare_candy 5",
+        "give %player% cobblemon:master_ball 1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "uuid": "ebba4914-27f7-4391-bf45-a0126c0b7a2b",
+  "name": "zypology",
+  "levels": {
+    "BATTLING": 2,
+    "FARMING": 9,
+    "FORESTRY": 10,
+    "MINING": 28
+  },
+  "xp": {
+    "BATTLING": 125,
+    "FARMING": 190,
+    "FORESTRY": 120,
+    "MINING": 632
+  },
+  "fragments": {
+    "COMMON": 7,
+    "UNCOMMON": 2
+  }
+}

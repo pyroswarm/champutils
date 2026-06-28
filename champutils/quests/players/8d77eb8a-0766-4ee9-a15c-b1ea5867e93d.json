@@ -1,0 +1,89 @@
+{
+  "uuid": "8d77eb8a-0766-4ee9-a15c-b1ea5867e93d",
+  "name": "IAmTrains",
+  "daily": {
+    "periodKey": "2026-06-24",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_harvest_wheat",
+        "description": "Harvest 96 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_defeat_dark",
+        "description": "Defeat 16 Dark-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "dark",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_coal",
+        "description": "Mine 96 coal ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:coal_ore",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_harvest_any",
+        "description": "Harvest 1500 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 1500,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_chop_logs",
+        "description": "Chop 1200 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 1200,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_defeat_grass",
+        "description": "Defeat 120 Grass-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "grass",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

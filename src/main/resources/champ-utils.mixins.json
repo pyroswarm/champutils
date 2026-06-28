@@ -19,7 +19,9 @@
     "EndermanNoBlockPlaceMixin",
     "ProfileLoadingContainerLockMixin",
     "ProfileLoadingDropLockMixin",
-    "ProfileLoadingPickupLockMixin"
+    "ProfileLoadingPickupLockMixin",
+    "ProfessionBackpackPickupMixin",
+    "FarmlandNoTrampleMixin"
   ],
   "injectors": {
     "defaultRequire": 1

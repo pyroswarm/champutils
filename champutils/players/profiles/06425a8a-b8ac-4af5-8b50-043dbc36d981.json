@@ -1,0 +1,16 @@
+{
+  "uuid": "06425a8a-b8ac-4af5-8b50-043dbc36d981",
+  "name": "Pyro_Swarm",
+  "rp": 300,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 0,
+  "casualWins": 0,
+  "casualLosses": 0,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 1,
+  "playtimeSeconds": 0
+}

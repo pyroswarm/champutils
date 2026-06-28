@@ -4,6 +4,7 @@ import com.champutils.profession.ItemSafetyService;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.menu.FragmentCraftingMenu;
+import com.champutils.menu.ProfessionCurrencyInventoryMenu;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -43,6 +44,29 @@ public class ProfessionSalvageCommand {
                                                                 player,
                                                                 true
                                                         );
+                                                    })
+                                    )
+                    );
+
+                    dispatcher.register(
+                            Commands.literal("chunks")
+                                    .executes(context -> {
+                                        ServerPlayer player =
+                                                context.getSource()
+                                                        .getPlayerOrException();
+
+                                        ProfessionCurrencyInventoryMenu.openChunks(player);
+                                        return 1;
+                                    })
+                                    .then(
+                                            Commands.literal("inventory")
+                                                    .executes(context -> {
+                                                        ServerPlayer player =
+                                                                context.getSource()
+                                                                        .getPlayerOrException();
+
+                                                        ProfessionCurrencyInventoryMenu.openChunks(player);
+                                                        return 1;
                                                     })
                                     )
                     );
@@ -105,6 +129,7 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
                                                                                         builder.suggest("shovel");
+                                                                                        builder.suggest("boots");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -158,6 +183,7 @@ public class ProfessionSalvageCommand {
                                                                                         builder.suggest("axe");
                                                                                         builder.suggest("hoe");
                                                                                         builder.suggest("shovel");
+                                                                                        builder.suggest("boots");
 
                                                                                         return builder.buildFuture();
                                                                                     })
@@ -240,6 +266,17 @@ public class ProfessionSalvageCommand {
                                                                         .getPlayerOrException();
 
                                                         FragmentCraftingMenu.open(player);
+                                                        return 1;
+                                                    })
+                                    )
+                                    .then(
+                                            Commands.literal("inventory")
+                                                    .executes(context -> {
+                                                        ServerPlayer player =
+                                                                context.getSource()
+                                                                        .getPlayerOrException();
+
+                                                        ProfessionCurrencyInventoryMenu.openFragments(player);
                                                         return 1;
                                                     })
                                     )

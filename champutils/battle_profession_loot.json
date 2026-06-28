@@ -1,0 +1,3855 @@
+{
+  "enabled": true,
+  "wildBattleRewardChance": 0.05,
+  "baseRollChance": 0.06,
+  "rollChancePerBattlingLevel": 0.01,
+  "maxRollChance": 1,
+  "baseRolls": 1,
+  "bonusRollEveryLevels": 10,
+  "maxRolls": 3,
+  "announceRewards": true,
+  "superRareItemIds": [
+    "cobblemon:master_ball",
+    "cobblemon:dream_ball",
+    "cobblemon:beast_ball",
+    "cobblemon:cherish_ball",
+    "cobblemon:ancient_origin_ball",
+    "cobblemon:life_orb",
+    "cobblemon:focus_sash",
+    "cobblemon:choice_band",
+    "cobblemon:choice_specs",
+    "cobblemon:choice_scarf",
+    "cobblemon:assault_vest",
+    "cobblemon:heavy_duty_boots",
+    "cobblemon:weakness_policy",
+    "cobblemon:lucky_egg",
+    "cobblemon:eviolite",
+    "cobblemon:ability_shield",
+    "cobblemon:destiny_knot",
+    "genesisforms:red_orb",
+    "genesisforms:blue_orb",
+    "genesisforms:tera_orb",
+    "genesisforms:griseous_orb",
+    "genesisforms:griseous_core",
+    "genesisforms:lustrous_orb",
+    "genesisforms:lustrous_globe",
+    "genesisforms:adamant_orb",
+    "genesisforms:reins_of_unity",
+    "genesisforms:zygarde_cube",
+    "genesisforms:dna_splicers",
+    "genesisforms:n_lunarizer",
+    "genesisforms:n_solarizer",
+    "genesisforms:reveal_glass",
+    "genesisforms:prison_bottle",
+    "genesisforms:sparkling_stone",
+    "genesisforms:wishing_star",
+    "genesisforms:booster_energy",
+    "genesisforms:rusted_sword",
+    "genesisforms:rusted_shield",
+    "genesisforms:legend_plate",
+    "genesisforms:ultranecrozium-z",
+    "genesisforms:abomasite",
+    "genesisforms:absolite",
+    "genesisforms:absolite-z",
+    "genesisforms:adrenaline_orb",
+    "genesisforms:aerodactylite",
+    "genesisforms:aggronite",
+    "genesisforms:alakazite",
+    "genesisforms:aloraichium-z",
+    "genesisforms:altarianite",
+    "genesisforms:ampharosite",
+    "genesisforms:audinite",
+    "genesisforms:banettite",
+    "genesisforms:barbaracite",
+    "genesisforms:baxcalibrite",
+    "genesisforms:beedrillite",
+    "genesisforms:blank_plate",
+    "genesisforms:blastoisinite",
+    "genesisforms:blazikenite",
+    "genesisforms:bug_memory",
+    "genesisforms:buginium-z",
+    "genesisforms:cameruptite",
+    "genesisforms:chandelurite",
+    "genesisforms:charizardite-x",
+    "genesisforms:charizardite-y",
+    "genesisforms:chesnaughtite",
+    "genesisforms:chimechite",
+    "genesisforms:clefablite",
+    "genesisforms:cornerstone_mask",
+    "genesisforms:crabominite",
+    "genesisforms:dark_memory",
+    "genesisforms:darkinium-z",
+    "genesisforms:darkranite",
+    "genesisforms:decidium-z",
+    "genesisforms:delphoxite",
+    "genesisforms:diancite",
+    "genesisforms:draco_plate",
+    "genesisforms:dragalgite",
+    "genesisforms:dragon_memory",
+    "genesisforms:dragoninite",
+    "genesisforms:dragonium-z",
+    "genesisforms:drampanite",
+    "genesisforms:dread_plate",
+    "genesisforms:earth_plate",
+    "genesisforms:eelektrossite",
+    "genesisforms:eevium-z",
+    "genesisforms:electric_memory",
+    "genesisforms:electrium-z",
+    "genesisforms:emboarite",
+    "genesisforms:excadrite",
+    "genesisforms:fairium-z",
+    "genesisforms:fairy_memory",
+    "genesisforms:falinksite",
+    "genesisforms:feraligite",
+    "genesisforms:fighting_memory",
+    "genesisforms:fightinium-z",
+    "genesisforms:fire_memory",
+    "genesisforms:firium-z",
+    "genesisforms:fist_plate",
+    "genesisforms:flame_plate",
+    "genesisforms:floettite",
+    "genesisforms:flying_memory",
+    "genesisforms:flyinium-z",
+    "genesisforms:froslassite",
+    "genesisforms:galladite",
+    "genesisforms:garchompite",
+    "genesisforms:garchompite-z",
+    "genesisforms:gardevoirite",
+    "genesisforms:gengarite",
+    "genesisforms:ghost_memory",
+    "genesisforms:ghostium-z",
+    "genesisforms:glalitite",
+    "genesisforms:glimmoranite",
+    "genesisforms:golisopite",
+    "genesisforms:golurkite",
+    "genesisforms:gracidea_flower",
+    "genesisforms:grass_memory",
+    "genesisforms:grassium-z",
+    "genesisforms:greninjite",
+    "genesisforms:ground_memory",
+    "genesisforms:groundium-z",
+    "genesisforms:gyaradosite",
+    "genesisforms:hawluchanite",
+    "genesisforms:hearthflame_mask",
+    "genesisforms:heatranite",
+    "genesisforms:heracronite",
+    "genesisforms:houndoominite",
+    "genesisforms:ice_memory",
+    "genesisforms:icicle_plate",
+    "genesisforms:icium-z",
+    "genesisforms:incinium-z",
+    "genesisforms:insect_plate",
+    "genesisforms:iron_plate",
+    "genesisforms:kangaskhanite",
+    "genesisforms:kommonium-z",
+    "genesisforms:latiasite",
+    "genesisforms:latiosite",
+    "genesisforms:lopunnite",
+    "genesisforms:lucarionite",
+    "genesisforms:lucarionite-z",
+    "genesisforms:lunalium-z",
+    "genesisforms:lycanium-z",
+    "genesisforms:magearnite",
+    "genesisforms:malamarite",
+    "genesisforms:manectite",
+    "genesisforms:marshadium-z",
+    "genesisforms:mawilite",
+    "genesisforms:max_honey",
+    "genesisforms:max_mushrooms",
+    "genesisforms:max_soup",
+    "genesisforms:meadow_plate",
+    "genesisforms:medichamite",
+    "genesisforms:meganiumite",
+    "genesisforms:meowsticite",
+    "genesisforms:metagrossite",
+    "genesisforms:meteorite",
+    "genesisforms:mewnium-z",
+    "genesisforms:mewtwonite-x",
+    "genesisforms:mewtwonite-y",
+    "genesisforms:mimikium-z",
+    "genesisforms:mind_plate",
+    "genesisforms:normalium-z",
+    "genesisforms:pidgeotite",
+    "genesisforms:pikanium-z",
+    "genesisforms:pikashunium-z",
+    "genesisforms:pink_nectar",
+    "genesisforms:pinsirite",
+    "genesisforms:pixie_plate",
+    "genesisforms:poison_memory",
+    "genesisforms:poisonium-z",
+    "genesisforms:primarium-z",
+    "genesisforms:psychic_memory",
+    "genesisforms:psychium-z",
+    "genesisforms:purple_nectar",
+    "genesisforms:pyroarite",
+    "genesisforms:raichunite-x",
+    "genesisforms:raichunite-y",
+    "genesisforms:red_nectar",
+    "genesisforms:rock_memory",
+    "genesisforms:rockium-z",
+    "genesisforms:rotom_catalog",
+    "genesisforms:sablenite",
+    "genesisforms:salamencite",
+    "genesisforms:sceptilite",
+    "genesisforms:scizorite",
+    "genesisforms:scolipite",
+    "genesisforms:scovillainite",
+    "genesisforms:scraftinite",
+    "genesisforms:sharpedonite",
+    "genesisforms:skarmorite",
+    "genesisforms:sky_plate",
+    "genesisforms:slowbronite",
+    "genesisforms:snorlium-z",
+    "genesisforms:solganium-z",
+    "genesisforms:splash_plate",
+    "genesisforms:spooky_plate",
+    "genesisforms:staraptite",
+    "genesisforms:starminite",
+    "genesisforms:steel_memory",
+    "genesisforms:steelium-z",
+    "genesisforms:steelixite",
+    "genesisforms:stone_plate",
+    "genesisforms:swampertite",
+    "genesisforms:tapunium-z",
+    "genesisforms:tatsugirinite",
+    "genesisforms:teal_mask",
+    "genesisforms:toxic_plate",
+    "genesisforms:tyranitarite",
+    "genesisforms:venusaurite",
+    "genesisforms:victreebelite",
+    "genesisforms:water_memory",
+    "genesisforms:waterium-z",
+    "genesisforms:yellow_nectar",
+    "genesisforms:zap_plate",
+    "genesisforms:zeraorite",
+    "genesisforms:zygardite",
+    "champutils:random_tm_epic",
+    "champutils:random_tm_legendary",
+    "champutils:random_tm_mythic"
+  ],
+  "fragmentJackpots": {
+    "enabled": true,
+    "baseChance": 0.0006,
+    "chancePerBattlingLevel": 4e-05,
+    "maxChance": 0.006,
+    "minBattlingLevel": 1,
+    "allowMythic": false,
+    "rarityWeights": {
+      "COMMON": 70,
+      "UNCOMMON": 22,
+      "RARE": 6,
+      "EPIC": 2,
+      "LEGENDARY": 1
+    }
+  },
+  "dungeonKeys": {
+    "enabled": false,
+    "chancePerBattleLevelMultiplier": 0.0,
+    "drops": []
+  },
+  "rewards": [
+    {
+      "itemId": "cobblemon:poke_ball",
+      "minBattlingLevel": 1,
+      "minAmount": 2,
+      "maxAmount": 5,
+      "weight": 120,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:premier_ball",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 70,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:heal_ball",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 70,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:nest_ball",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 55,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:great_ball",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 95,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_poke_ball",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_great_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dive_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:net_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:timer_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:quick_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dusk_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ultra_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 65,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_ultra_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:repeat_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 32,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:luxury_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 26,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:level_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 22,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:lure_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 22,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:moon_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:friend_ball",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:love_ball",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:heavy_ball",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fast_ball",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:sport_ball",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 12,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:safari_ball",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 12,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dream_ball",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:beast_ball",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:cherish_ball",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 4,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:master_ball",
+      "minBattlingLevel": 100,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 1,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:azure_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_azure_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:citrine_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_citrine_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ivory_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_ivory_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:roseate_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_roseate_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:slate_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_slate_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:verdant_ball",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_verdant_ball",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:park_ball",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_heavy_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_leaden_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 14,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_gigaton_ball",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_feather_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_wing_ball",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 14,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_jet_ball",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ancient_origin_ball",
+      "minBattlingLevel": 100,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 1,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:potion",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 90,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:antidote",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:awakening",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:burn_heal",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ice_heal",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:paralyze_heal",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:super_potion",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 75,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:remedy",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 40,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ether",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:revive",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 45,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dire_hit",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:guard_spec",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_accuracy",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_attack",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_defence",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_special_attack",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_special_defence",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:x_speed",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:hyper_potion",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 58,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fine_remedy",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 28,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:full_heal",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 35,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:max_ether",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:max_potion",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 20,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:full_restore",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 12,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:max_elixir",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:max_revive",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:elixir",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 14,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:superb_remedy",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 14,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:heal_powder",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 25,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:charcoal_stick",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:miracle_seed",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:mystic_water",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:magnet",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:hard_stone",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:soft_sand",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:never_melt_ice",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:black_belt",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:sharp_beak",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:poison_barb",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:twisted_spoon",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:silver_powder",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dragon_fang",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:black_glasses",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:spell_tag",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:metal_coat",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:silk_scarf",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fairy_feather",
+      "minBattlingLevel": 20,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 24,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:absorb_bulb",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:cell_battery",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:mental_herb",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:mirror_herb",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_herb",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:white_herb",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:quick_claw",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:scope_lens",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:wide_lens",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:zoom_lens",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:wise_glasses",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:muscle_band",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:expert_belt",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:shell_bell",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:big_root",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:binding_band",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:cleanse_tag",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:smoke_ball",
+      "minBattlingLevel": 40,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 15,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:leftovers",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:focus_band",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:kings_rock",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:loaded_dice",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:metronome",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:protective_pads",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:punching_glove",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:rocky_helmet",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:shed_shell",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:smooth_rock",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:damp_rock",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:heat_rock",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:icy_rock",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:light_clay",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:terrain_extender",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:utility_umbrella",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:room_service",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:throat_spray",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:eject_button",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:eject_pack",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:life_orb",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:focus_sash",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:choice_band",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:choice_scarf",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:choice_specs",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:assault_vest",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:heavy_duty_boots",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:safety_goggles",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:weakness_policy",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:red_card",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:air_balloon",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:float_stone",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:iron_ball",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ring_target",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:sticky_barb",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:toxic_orb",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:flame_orb",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:blunder_policy",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:covert_cloak",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 5,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ability_shield",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:bright_powder",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:destiny_knot",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:eviolite",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:exp_share",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:lucky_egg",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:light_ball",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:metal_powder",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:quick_powder",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:scope_lens",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:razor_claw",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:razor_fang",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:deep_sea_scale",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:deep_sea_tooth",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:black_sludge",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:everstone",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:medicinal_leek",
+      "minBattlingLevel": 90,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_anklet",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_band",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_belt",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_bracer",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_lens",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:power_weight",
+      "minBattlingLevel": 70,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "minecraft:bone",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 3,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "minecraft:snowball",
+      "minBattlingLevel": 10,
+      "minAmount": 1,
+      "maxAmount": 4,
+      "weight": 16,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:electric_seed",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:grassy_seed",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:misty_seed",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:psychic_seed",
+      "minBattlingLevel": 50,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 10,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:bug_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dark_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:dragon_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:electric_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fairy_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fighting_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:fire_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:flying_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ghost_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:grass_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ground_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:ice_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:normal_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:poison_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:psychic_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:rock_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:steel_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "cobblemon:water_gem",
+      "minBattlingLevel": 30,
+      "minAmount": 1,
+      "maxAmount": 2,
+      "weight": 18,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:abomasite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:absolite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:adamant_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:adrenaline_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:aerodactylite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:aggronite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:alakazite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:altarianite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ampharosite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:audinite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:banettite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:barbaracite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:baxcalibrite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:beedrillite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:berserk_gene",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:blank_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:blastoisinite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:blazikenite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:blue_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:booster_energy",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:bug_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:bug_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:burn_drive",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:cameruptite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:chandelurite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:charizardite-x",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:charizardite-y",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:chesnaughtite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:chill_drive",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:chimechite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:clefablite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:cornerstone_mask",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:crabominite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dark_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dark_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:darkranite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:delphoxite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:diancite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dna_splicers",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:douse_drive",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:draco_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dragalgite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dragon_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dragon_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dragoninite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:drampanite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dread_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:dynamax_candy",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:earth_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:eelektrossite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:electric_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:electric_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:emboarite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:excadrite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fairy_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fairy_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:falinksite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:feraligite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fighting_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fighting_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fire_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fire_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:fist_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:flame_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:floettite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:flying_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:flying_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:froslassite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:galladite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:garchompite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:gardevoirite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:gengarite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ghost_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ghost_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:glalitite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:glimmoranite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:golisopite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:golurkite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:gracidea_flower",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:grass_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:grass_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:greninjite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:griseous_core",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:griseous_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ground_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ground_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:gyaradosite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:hawluchanite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:hearthflame_mask",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:heatranite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:heracronite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:houndoominite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ice_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:ice_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:icicle_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:insect_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:iron_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:kangaskhanite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:latiasite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:latiosite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:legend_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:lopunnite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:lucarionite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:lucky_punch",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:lustrous_globe",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:lustrous_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:macho_brace",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:magearnite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:malamarite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:manectite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:mawilite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:max_honey",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:max_mushrooms",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:max_soup",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:meadow_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:medichamite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:meganiumite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:meowsticite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:metagrossite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:meteorite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:mewtwonite-x",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:mewtwonite-y",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:mind_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:n_lunarizer",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:n_solarizer",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:normal_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:pidgeotite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:pink_nectar",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:pinsirite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:pixie_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:poison_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:poison_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:prison_bottle",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:psychic_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:psychic_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:purple_nectar",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:pyroarite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:raichunite-x",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:raichunite-y",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:red_nectar",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:red_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:reins_of_unity",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:reveal_glass",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rock_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rock_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_catalog",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_fan",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_lawn_mower",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_light_bulb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_microwave_oven",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_refrigerator",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rotom_washing_machine",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rusted_shield",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:rusted_sword",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:sablenite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:salamencite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:sceptilite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:scizorite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:scolipite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:scovillainite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:scraftinite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:sharpedonite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:shock_drive",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:skarmorite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:sky_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:slowbronite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:soul_dew",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:sparkling_stone",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:splash_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:spooky_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:staraptite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:starminite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:steel_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:steel_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:steelixite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:stellar_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:stone_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:swampertite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:tatsugirinite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:teal_mask",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:tera_orb",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:toxic_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:tyranitarite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:venusaurite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:victreebelite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:water_memory",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:water_tera_shard",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:wishing_star",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:yellow_nectar",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:zap_plate",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:zeraorite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:zygarde_cube",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "genesisforms:zygardite",
+      "minBattlingLevel": 25,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 2,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_common",
+      "minBattlingLevel": 1,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 75,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_uncommon",
+      "minBattlingLevel": 15,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 46,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_rare",
+      "minBattlingLevel": 35,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 22,
+      "weightPerLevelAboveUnlock": 1,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_epic",
+      "minBattlingLevel": 60,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 8,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_legendary",
+      "minBattlingLevel": 80,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 3,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    },
+    {
+      "itemId": "champutils:random_tm_mythic",
+      "minBattlingLevel": 95,
+      "minAmount": 1,
+      "maxAmount": 1,
+      "weight": 1,
+      "weightPerLevelAboveUnlock": 0,
+      "enabled": true
+    }
+  ],
+  "moneyRewards": {
+    "enabled": true,
+    "wildBattlesOnly": true,
+    "guaranteedOnWildBattleWin": true,
+    "baseMin": 0.85,
+    "baseMax": 1.15,
+    "perBattlingLevelMin": 0.035,
+    "perBattlingLevelMax": 0.055,
+    "maxReward": 7.5,
+    "roundToDecimals": 2,
+    "message": "\u00a7a+$%amount% \u00a77for winning a wild battle."
+  }
+}

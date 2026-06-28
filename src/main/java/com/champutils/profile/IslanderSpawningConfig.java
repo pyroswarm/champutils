@@ -50,6 +50,24 @@ public final class IslanderSpawningConfig {
         }
     }
 
+    public static Tier tierForBadgeCount(int badgeCount) {
+        int badges = Math.max(0, Math.min(8, badgeCount));
+        int maxLevel = 20 + (badges * 10);
+        Tier best = new Tier();
+        best.enabled = true;
+        best.id = "badge_" + badges;
+        best.displayName = badges + " Badge" + (badges == 1 ? "" : "s");
+        best.minPlaytimeSeconds = 0L;
+        best.minLevel = 1;
+        best.maxLevel = Math.min(100, maxLevel);
+        best.maxEvolutionStage = badges <= 1 ? 0 : (badges <= 3 ? 1 : 2);
+        best.weightMultiplier = 1.0F;
+        best.allowSpecies = new LinkedHashSet<>();
+        best.denySpecies = new LinkedHashSet<>();
+        return best;
+    }
+
+    @Deprecated
     public static Tier tierForPlaytime(long playtimeSeconds) {
         Tier best = null;
         for (Tier tier : CONFIG.progressionTiers) {

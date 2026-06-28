@@ -1,0 +1,112 @@
+{
+  "uuid": "c6cbc781-e34a-431a-856a-c7b7bdbe6192",
+  "name": "ObxM",
+  "daily": {
+    "periodKey": "2026-06-27",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_harvest_potatoes",
+        "description": "Harvest 96 potatoes",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:potatoes",
+        "required": 96,
+        "progress": 96,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_chop_apricorn",
+        "description": "Chop 40 apricorn logs",
+        "objectiveType": "CHOP_BLOCK_CONTAINS",
+        "profession": "FORESTRY",
+        "target": "apricorn",
+        "required": 40,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_lapis",
+        "description": "Mine 48 lapis ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:lapis_ore",
+        "required": 48,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 900,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_npc_wins",
+        "description": "Win 75 NPC trainer battles",
+        "objectiveType": "WIN_BATTLE",
+        "profession": "BATTLING",
+        "target": "NPC",
+        "required": 75,
+        "progress": 5,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_coal",
+        "description": "Mine 800 coal ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:coal_ore",
+        "required": 800,
+        "progress": 185,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "purchasedAtMillis": 1782603666928,
+      "expiresAtMillis": 1782632466928,
+      "creditCost": 75,
+      "rewardCredits": 700,
+      "difficulty": "RARE",
+      "completed": false,
+      "rewardCommands": [
+        "give %player% minecraft:golden_carrot 16",
+        "give %player% cobblemon:luxury_ball 3"
+      ],
+      "id": "contract_golden_crop",
+      "description": "Harvest 400 carrots",
+      "objectiveType": "HARVEST_CROP",
+      "profession": "FARMING",
+      "target": "minecraft:carrots",
+      "required": 400,
+      "progress": 185,
+      "requiredPlayers": 0,
+      "playerProgress": {},
+      "completedPlayers": []
+    }
+  ]
+}

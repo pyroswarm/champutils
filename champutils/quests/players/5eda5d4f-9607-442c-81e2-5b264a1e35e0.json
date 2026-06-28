@@ -1,0 +1,89 @@
+{
+  "uuid": "5eda5d4f-9607-442c-81e2-5b264a1e35e0",
+  "name": "Awsomeman47",
+  "daily": {
+    "periodKey": "2026-06-21",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_chop_logs",
+        "description": "Chop 128 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 128,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_defeat_poison",
+        "description": "Defeat 16 Poison-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "poison",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_any",
+        "description": "Harvest 128 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 128,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W25",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_rock",
+        "description": "Defeat 120 Rock-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "rock",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_chop_logs",
+        "description": "Chop 1200 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 1200,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

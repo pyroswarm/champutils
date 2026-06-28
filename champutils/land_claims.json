@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "costPerBlockCents": 100,
+  "minArea": 25,
+  "maxArea": 250000,
+  "maxClaimsPerProfile": 8
+}

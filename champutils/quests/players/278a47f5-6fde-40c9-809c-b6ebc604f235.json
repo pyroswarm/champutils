@@ -1,0 +1,89 @@
+{
+  "uuid": "278a47f5-6fde-40c9-809c-b6ebc604f235",
+  "name": "IAmTrains",
+  "daily": {
+    "periodKey": "2026-06-24",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_harvest_any",
+        "description": "Harvest 128 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 128,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_defeat_fairy",
+        "description": "Defeat 16 Fairy-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fairy",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_chop_logs",
+        "description": "Chop 128 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 128,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_steel",
+        "description": "Defeat 120 Steel-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "steel",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_iron",
+        "description": "Mine 500 iron ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:iron_ore",
+        "required": 500,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_any",
+        "description": "Harvest 1500 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 1500,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

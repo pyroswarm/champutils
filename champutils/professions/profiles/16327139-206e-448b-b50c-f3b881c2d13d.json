@@ -1,0 +1,17 @@
+{
+  "uuid": "16327139-206e-448b-b50c-f3b881c2d13d",
+  "name": "BerryFree14",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

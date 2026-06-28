@@ -1,0 +1,20 @@
+{
+  "uuid": "e5a26eec-ce74-452c-9baf-8312d4990ec9",
+  "name": "pokeking1234",
+  "levels": {
+    "BATTLING": 3,
+    "FARMING": 1,
+    "FORESTRY": 7,
+    "MINING": 3
+  },
+  "xp": {
+    "BATTLING": 105,
+    "FARMING": 0,
+    "FORESTRY": 45,
+    "MINING": 108
+  },
+  "fragments": {
+    "COMMON": 8,
+    "UNCOMMON": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "table": {
+    "dropChance": 1.0,
+    "items": [
+      {
+        "itemId": "cobblemon:poke_ball",
+        "weight": 100,
+        "minAmount": 1,
+        "maxAmount": 1
+      }
+    ]
+  }
+}

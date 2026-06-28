@@ -1,0 +1,19 @@
+{
+  "uuid": "79a73ada-b8a1-45b5-acf9-55a44dfe183e",
+  "name": "Oill",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 6
+  },
+  "xp": {
+    "BATTLING": 20,
+    "FARMING": 0,
+    "FORESTRY": 20,
+    "MINING": 197
+  },
+  "fragments": {
+    "COMMON": 2
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "uuid": "873f3609-a04c-42d2-bb57-cf9a6155e629",
+  "name": "yNeath",
+  "daily": {
+    "periodKey": "2026-06-27",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_battle_wild",
+        "description": "Win 24 wild battles",
+        "objectiveType": "WIN_BATTLE",
+        "profession": "BATTLING",
+        "target": "UNKNOWN",
+        "required": 24,
+        "progress": 23,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_beetroot",
+        "description": "Harvest 64 beetroot",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:beetroots",
+        "required": 64,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_redstone",
+        "description": "Mine 80 redstone ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:redstone_ore",
+        "required": 80,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_fire",
+        "description": "Defeat 120 Fire-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fire",
+        "required": 120,
+        "progress": 48,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_chop_logs",
+        "description": "Chop 1200 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 1200,
+        "progress": 146,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_iron",
+        "description": "Mine 500 iron ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:iron_ore",
+        "required": 500,
+        "progress": 66,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "purchasedAtMillis": 1782585112786,
+      "expiresAtMillis": 1782621112786,
+      "creditCost": 125,
+      "rewardCredits": 1400,
+      "difficulty": "EPIC",
+      "completed": false,
+      "rewardCommands": [
+        "give %player% cobblemon:ultra_ball 12",
+        "give %player% cobblemon:dragon_fang 1"
+      ],
+      "id": "contract_dragon_hunter",
+      "description": "Defeat 45 Dragon-type Pokémon",
+      "objectiveType": "DEFEAT_TYPE",
+      "profession": "BATTLING",
+      "target": "dragon",
+      "required": 45,
+      "progress": 1,
+      "requiredPlayers": 0,
+      "playerProgress": {},
+      "completedPlayers": []
+    }
+  ]
+}

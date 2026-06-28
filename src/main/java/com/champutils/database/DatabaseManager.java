@@ -33,6 +33,9 @@ public final class DatabaseManager {
     private static boolean enabled = false;
     private static ExecutorService executor;
     private static final Map<String, AtomicLong> COALESCED_TASK_GENERATIONS = new ConcurrentHashMap<>();
+    private static final AtomicLong SUBMITTED_TASKS = new AtomicLong();
+    private static final AtomicLong COMPLETED_TASKS = new AtomicLong();
+    private static volatile long lastServerThreadWarningAtMillis = 0L;
     private static String lastStatus = "Database has not initialized yet.";
 
     private DatabaseManager() {
@@ -129,6 +132,7 @@ public final class DatabaseManager {
     }
 
     public static synchronized Connection getConnection() throws SQLException {
+        warnIfServerThreadConnection();
         if (config == null) {
             init();
         }
@@ -195,6 +199,7 @@ public final class DatabaseManager {
             return;
         }
 
+        SUBMITTED_TASKS.incrementAndGet();
         executor.submit(() -> {
             try {
                 task.run(getAsyncConnection());
@@ -202,6 +207,9 @@ public final class DatabaseManager {
             catch (Exception e) {
                 System.err.println("[ChampUtils] Database task failed: " + description);
                 e.printStackTrace();
+            }
+            finally {
+                COMPLETED_TASKS.incrementAndGet();
             }
         });
     }
@@ -247,14 +255,88 @@ public final class DatabaseManager {
             return failed;
         }
 
+        SUBMITTED_TASKS.incrementAndGet();
         return CompletableFuture.runAsync(() -> {
             try {
                 task.run(getAsyncConnection());
             } catch (Exception e) {
                 System.err.println("[ChampUtils] Database task failed: " + description);
                 throw new CompletionException(e);
+            } finally {
+                COMPLETED_TASKS.incrementAndGet();
             }
         }, executor);
+    }
+
+
+    @FunctionalInterface
+    public interface SqlSupplier<T> {
+        T get(Connection connection) throws Exception;
+    }
+
+    public static <T> CompletableFuture<T> supplyAsync(String description, SqlSupplier<T> task) {
+        if (task == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (config == null) {
+            init();
+        }
+
+        if (!isEnabled() || executor == null) {
+            CompletableFuture<T> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new SQLException(lastStatus));
+            return failed;
+        }
+
+        SUBMITTED_TASKS.incrementAndGet();
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return task.get(getAsyncConnection());
+            } catch (Exception e) {
+                System.err.println("[ChampUtils] Database task failed: " + description);
+                throw new CompletionException(e);
+            } finally {
+                COMPLETED_TASKS.incrementAndGet();
+            }
+        }, executor);
+    }
+
+    /**
+     * Blocks the caller until all database tasks submitted before this call have completed, or the timeout expires.
+     * Use this only on lifecycle safety points such as /forcesaverestart, player disconnect cleanup, and server stop.
+     */
+    public static boolean flushSubmittedTasks(long timeout, TimeUnit unit) {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        long target = SUBMITTED_TASKS.get();
+        while (COMPLETED_TASKS.get() < target) {
+            if (System.nanoTime() >= deadline) {
+                System.err.println("[ChampUtils] Database flush timed out. completed=" + COMPLETED_TASKS.get() + " target=" + target);
+                return false;
+            }
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void warnIfServerThreadConnection() {
+        String threadName = Thread.currentThread().getName();
+        if (threadName == null || !threadName.equalsIgnoreCase("Server thread")) return;
+        long now = System.currentTimeMillis();
+        if (now - lastServerThreadWarningAtMillis < 5_000L) return;
+        lastServerThreadWarningAtMillis = now;
+        System.err.println("[ChampUtils][PERF] DatabaseManager.getConnection() was called on the Minecraft server thread. Move this call to DatabaseManager.runAsync/executeAsync.");
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            String line = element.toString();
+            if (line.contains("com.champutils")) {
+                System.err.println("[ChampUtils][PERF]   at " + line);
+            }
+        }
     }
 
     public static boolean isEnabled() {

@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "minimumMessageStreak": 3,
+  "minimumBonusStreak": 3,
+  "baseShinyChance": 2.44140625E-4,
+  "bonusPerCatch": 2.44140625E-4,
+  "maxShinyChance": 0.0078125,
+  "nearbyPlayerSpawnRadius": 96,
+  "announceShinyBoostProc": true
+}

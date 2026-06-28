@@ -1,0 +1,38 @@
+{
+  "uuid": "47d1bbd3-cf83-4c4f-896f-caeb5d2f8d8a",
+  "name": "Alathreon",
+  "levels": {
+    "BATTLING": 8,
+    "FARMING": 3,
+    "FORESTRY": 4,
+    "MINING": 11
+  },
+  "xp": {
+    "BATTLING": 70,
+    "FARMING": 125,
+    "FORESTRY": 8,
+    "MINING": 297
+  },
+  "fragments": {
+    "COMMON": 9,
+    "UNCOMMON": 2
+  },
+  "chunks": {},
+  "backpack": {
+    "cobblemon:blue_apricorn_seed": 7,
+    "cobblemon:chople_berry": 1,
+    "minecraft:brown_wool": 2,
+    "cobblemon:absorb_bulb": 2,
+    "cobblemon:miracle_seed": 5,
+    "minecraft:beef": 5,
+    "cobblemon:white_apricorn_seed": 2,
+    "cobblemon:yellow_apricorn": 24,
+    "minecraft:leather": 2,
+    "cobblemon:silver_powder": 1,
+    "minecraft:rotten_flesh": 2,
+    "cobblemon:pink_apricorn_seed": 2,
+    "minecraft:rabbit": 1,
+    "minecraft:sunflower": 1
+  },
+  "backpackAutopickup": true
+}

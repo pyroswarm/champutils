@@ -1,0 +1,17 @@
+{
+  "uuid": "ea621751-966b-4e18-beea-2095821061a2",
+  "name": "joshkorea",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

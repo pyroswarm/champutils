@@ -15,424 +15,155 @@ import net.minecraft.world.item.Items;
 
 import java.util.function.Consumer;
 
-
 public final class FragmentCraftingMenu {
+    private FragmentCraftingMenu() {}
 
-    private FragmentCraftingMenu() {
+    public static void open(ServerPlayer player) { open(player, GearWorkshopMenu::open); }
+
+    public static void open(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
+        openTabs(player, backTarget);
     }
 
-    public static void open(
-            ServerPlayer player
-    ) {
-        open(player, GearWorkshopMenu::open);
-    }
+    private static void openTabs(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
+        SimpleGui gui = base(player, "Fragment Crafting");
+        gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
+                .setName(Component.literal("§aFragment Crafting"))
+                .addLoreLine(Component.literal("§7Choose an item type or fragment action.")));
 
-    public static void open(
-            ServerPlayer player,
-            Consumer<ServerPlayer> backTarget
-    ) {
-        SimpleGui gui =
-                new SimpleGui(
-                        MenuType.GENERIC_9x6,
-                        player,
-                        false
-                );
+        addTab(gui, player, 10, "Pickaxe", Items.DIAMOND_PICKAXE, () -> openCraft(player, backTarget, "pickaxe", "Pickaxe", Items.DIAMOND_PICKAXE));
+        addTab(gui, player, 11, "Axe", Items.DIAMOND_AXE, () -> openCraft(player, backTarget, "axe", "Axe", Items.DIAMOND_AXE));
+        addTab(gui, player, 12, "Hoe", Items.DIAMOND_HOE, () -> openCraft(player, backTarget, "hoe", "Hoe", Items.DIAMOND_HOE));
+        addTab(gui, player, 13, "Shovel", Items.DIAMOND_SHOVEL, () -> openCraft(player, backTarget, "shovel", "Shovel", Items.DIAMOND_SHOVEL));
+        addTab(gui, player, 14, "Boots", Items.DIAMOND_BOOTS, () -> openCraft(player, backTarget, "boots", "Running Shoes", Items.DIAMOND_BOOTS));
+        addTab(gui, player, 20, "Upgrade Fragment", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget, false));
+        addTab(gui, player, 21, "Downgrade Fragment", Items.PAPER, () -> openUpgrade(player, backTarget, true));
+        addTab(gui, player, 22, "Withdraw Fragment", Items.CHEST, () -> openWithdraw(player, backTarget));
 
-        gui.setTitle(
-                Component.literal(
-                        "Fragment Crafting"
-                )
-        );
-
-        MenuUtil.fillBorders(
-                gui,
-                4,
-                10,11,12,13,14,15,16,
-                19,20,21,22,23,24,25,
-                28,29,30,31,32,33,34,
-                37,38,39,40,41,42,43,
-                49
-        );
-
-        gui.setSlot(
-                4,
-                new GuiElementBuilder(
-                        Items.EMERALD
-                )
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "§aFragment Crafting"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Upgrade fragments and craft mystery tools."
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Shows upgrade costs and craft costs for fragments."
-                                )
-                        )
-        );
-
-        addUpgradeColumn(gui, player);
-        addToolCraftingGrid(gui, player);
-        addWithdrawRow(gui, player);
-
-        MenuUtil.addBackButton(
-                gui,
-                49,
-                () -> {
-                    if (backTarget != null) {
-                        backTarget.accept(player);
-                    } else {
-                        GearWorkshopMenu.open(player);
-                    }
-                }
-        );
-
+        MenuUtil.addBackButton(gui, 49, () -> { if (backTarget != null) backTarget.accept(player); else GearWorkshopMenu.open(player); });
         gui.open();
     }
 
-    private static void addUpgradeColumn(
-            SimpleGui gui,
-            ServerPlayer player
-    ) {
-        addUpgradeButton(gui, player, 10, "COMMON_TO_UNCOMMON", Items.PAPER);
-        addUpgradeButton(gui, player, 19, "UNCOMMON_TO_RARE", Items.PAPER);
-        addUpgradeButton(gui, player, 28, "RARE_TO_EPIC", Items.PAPER);
-        addUpgradeButton(gui, player, 37, "EPIC_TO_LEGENDARY", Items.PAPER);
-        addUpgradeButton(gui, player, 46, "LEGENDARY_TO_MYTHIC", Items.PAPER);
+    private static SimpleGui base(ServerPlayer player, String title) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
+        gui.setTitle(Component.literal(title));
+        MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
+        return gui;
     }
 
-    private static void addToolCraftingGrid(
-            SimpleGui gui,
-            ServerPlayer player
-    ) {
-        // Layout:
-        // Row 1 = Pickaxes, Row 2 = Axes, Row 3 = Hoes, Row 4 = Shovels
-        // Columns = Common, Uncommon, Rare, Epic, Legendary, Mythic
-        addToolTypeRow(
-                gui,
-                player,
-                "pickaxe",
-                12,
-                Items.STONE_PICKAXE,
-                Items.IRON_PICKAXE,
-                Items.DIAMOND_PICKAXE,
-                Items.DIAMOND_PICKAXE,
-                Items.NETHERITE_PICKAXE,
-                Items.NETHERITE_PICKAXE
-        );
-
-        addToolTypeRow(
-                gui,
-                player,
-                "axe",
-                21,
-                Items.STONE_AXE,
-                Items.IRON_AXE,
-                Items.DIAMOND_AXE,
-                Items.DIAMOND_AXE,
-                Items.NETHERITE_AXE,
-                Items.NETHERITE_AXE
-        );
-
-        addToolTypeRow(
-                gui,
-                player,
-                "hoe",
-                30,
-                Items.STONE_HOE,
-                Items.IRON_HOE,
-                Items.DIAMOND_HOE,
-                Items.DIAMOND_HOE,
-                Items.NETHERITE_HOE,
-                Items.NETHERITE_HOE
-        );
-
-        addToolTypeRow(
-                gui,
-                player,
-                "shovel",
-                39,
-                Items.STONE_SHOVEL,
-                Items.IRON_SHOVEL,
-                Items.DIAMOND_SHOVEL,
-                Items.DIAMOND_SHOVEL,
-                Items.NETHERITE_SHOVEL,
-                Items.NETHERITE_SHOVEL
-        );
+    private static void addTab(SimpleGui gui, ServerPlayer player, int slot, String name, Item icon, Runnable callback) {
+        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal("§e" + name))
+                .addLoreLine(Component.literal("§7Click to open."))
+                .setCallback((i,c,t) -> callback.run()));
     }
 
-    private static void addToolTypeRow(
-            SimpleGui gui,
-            ServerPlayer player,
-            String toolType,
-            int startSlot,
-            Item commonIcon,
-            Item uncommonIcon,
-            Item rareIcon,
-            Item epicIcon,
-            Item legendaryIcon,
-            Item mythicIcon
-    ) {
-        addToolCraftButton(gui, player, startSlot, "COMMON", toolType, commonIcon);
-        addToolCraftButton(gui, player, startSlot + 1, "UNCOMMON", toolType, uncommonIcon);
-        addToolCraftButton(gui, player, startSlot + 2, "RARE", toolType, rareIcon);
-        addToolCraftButton(gui, player, startSlot + 3, "EPIC", toolType, epicIcon);
-        addToolCraftButton(gui, player, startSlot + 4, "LEGENDARY", toolType, legendaryIcon);
-        addToolCraftButton(gui, player, startSlot + 5, "MYTHIC", toolType, mythicIcon);
+    private static void openCraft(ServerPlayer player, Consumer<ServerPlayer> backTarget, String toolType, String title, Item icon) {
+        SimpleGui gui = base(player, "Craft " + title);
+        gui.setSlot(4, new GuiElementBuilder(icon).hideDefaultTooltip().setName(Component.literal("§aCraft " + title))
+                .addLoreLine(Component.literal("§7Craft using stored fragments.")));
+        int[] slots = {20,21,22,23,24,25};
+        String[] rarities = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
+        Item[] icons = iconsFor(toolType);
+        for (int i = 0; i < rarities.length; i++) addCraftButton(gui, player, slots[i], rarities[i], toolType, icons[i]);
+        MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
+        gui.open();
     }
 
-    private static void addUpgradeButton(
-            SimpleGui gui,
-            ServerPlayer player,
-            int slot,
-            String upgradeId,
-            Item icon
-    ) {
-        ProfessionFragmentConfig.UpgradeData upgrade =
-                ProfessionFragmentConfig.UPGRADES.get(upgradeId);
-
-        if (upgrade == null) {
-            gui.setSlot(
-                    slot,
-                    new GuiElementBuilder(Items.BARRIER)
-                            .hideDefaultTooltip()
-                            .setName(Component.literal("§cMissing Upgrade"))
-                            .addLoreLine(Component.literal("§7Missing config key: §f" + upgradeId))
-            );
-            return;
-        }
-
-        String from =
-                ProfessionFragmentConfig.normalizeRarity(upgrade.fromFragment);
-        String to =
-                ProfessionFragmentConfig.normalizeRarity(upgrade.toFragment);
-        int cost =
-                Math.max(1, upgrade.cost);
-        int output =
-                Math.max(1, upgrade.output);
-        int available =
-                ProfessionFragmentManager.countFragments(player, from);
-
-        gui.setSlot(
-                slot,
-                new GuiElementBuilder(icon)
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "Upgrade " + ProfessionFragmentManager.formatWords(from) + " → " + ProfessionFragmentManager.formatWords(to)
-                                ).withStyle(getRarityColor(to))
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(from) + " Fragment"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(to) + " Fragment"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7You have: §e" + available
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        available >= cost ? "§eClick to upgrade" : "§cNot enough fragments"
-                                )
-                        )
-                        .setCallback(
-                                (i, c, t) -> {
-                                    player.closeContainer();
-                                    player.getServer()
-                                            .getCommands()
-                                            .performPrefixedCommand(
-                                                    player.createCommandSourceStack(),
-                                                    "fragments upgrade " + upgradeId
-                                            );
-                                }
-                        )
-        );
+    private static Item[] iconsFor(String toolType) {
+        return switch (toolType) {
+            case "axe" -> new Item[]{Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.NETHERITE_AXE};
+            case "hoe" -> new Item[]{Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.NETHERITE_HOE};
+            case "shovel" -> new Item[]{Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.NETHERITE_SHOVEL};
+            case "boots" -> new Item[]{Items.LEATHER_BOOTS, Items.IRON_BOOTS, Items.DIAMOND_BOOTS, Items.DIAMOND_BOOTS, Items.NETHERITE_BOOTS, Items.NETHERITE_BOOTS};
+            default -> new Item[]{Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.NETHERITE_PICKAXE};
+        };
     }
 
-    private static void addToolCraftButton(
-            SimpleGui gui,
-            ServerPlayer player,
-            int slot,
-            String rarity,
-            String toolType,
-            Item icon
-    ) {
-        String normalizedRarity =
-                ProfessionFragmentConfig.normalizeRarity(rarity);
-
-        ProfessionFragmentConfig.ToolCraftingData trade =
-                ProfessionFragmentConfig.TOOL_CRAFTING.get(normalizedRarity);
-
+    private static void addCraftButton(SimpleGui gui, ServerPlayer player, int slot, String rarity, String toolType, Item icon) {
+        String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
+        ProfessionFragmentConfig.ToolCraftingData trade = ProfessionFragmentConfig.TOOL_CRAFTING.get(normalizedRarity);
         if (trade == null) {
-            gui.setSlot(
-                    slot,
-                    new GuiElementBuilder(Items.BARRIER)
-                            .hideDefaultTooltip()
-                            .setName(Component.literal("§cMissing Tool Craft"))
-                            .addLoreLine(Component.literal("§7Missing toolCrafting config for: §f" + normalizedRarity))
-            );
+            gui.setSlot(slot, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("§cMissing Craft Config")));
             return;
         }
-
-        String fragmentKey =
-                ProfessionFragmentConfig.normalizeRarity(trade.fragment);
-        int cost =
-                Math.max(1, trade.cost);
-        int available =
-                ProfessionFragmentManager.countFragments(player, fragmentKey);
-
-        gui.setSlot(
-                slot,
-                new GuiElementBuilder(icon)
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "Craft " +
-                                                ProfessionFragmentManager.formatWords(normalizedRarity) +
-                                                " Mystery " +
-                                                ProfessionFragmentManager.formatWords(toolType)
-                                ).withStyle(getRarityColor(normalizedRarity))
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Fragment"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7You have: §e" + available
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§8Random tool from this rarity and type."
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§8The exact item stays hidden until identified."
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        available >= cost ? "§eClick to craft" : "§cNot enough fragments"
-                                )
-                        )
-                        .setCallback(
-                                (i, c, t) -> {
-                                    player.closeContainer();
-                                    player.getServer()
-                                            .getCommands()
-                                            .performPrefixedCommand(
-                                                    player.createCommandSourceStack(),
-                                                    "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType
-                                            );
-                                }
-                        )
-        );
+        String fragmentKey = ProfessionFragmentConfig.normalizeRarity(trade.fragment);
+        int cost = Math.max(1, trade.cost);
+        int available = ProfessionFragmentManager.countFragments(player, fragmentKey);
+        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal("Craft " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(toolType)).withStyle(getRarityColor(normalizedRarity)))
+                .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Fragment"))
+                .addLoreLine(Component.literal("§7You have: §e" + available))
+                .addLoreLine(Component.literal(available >= cost ? "§eClick to craft" : "§cNot enough fragments"))
+                .setCallback((i,c,t) -> {
+                    player.closeContainer();
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType);
+                }));
     }
 
-    private static void addWithdrawRow(
-            SimpleGui gui,
-            ServerPlayer player
-    ) {
-        addWithdrawButton(gui, player, 47, "COMMON", Items.PAPER);
-        addWithdrawButton(gui, player, 48, "UNCOMMON", Items.PAPER);
-        addWithdrawButton(gui, player, 50, "RARE", Items.PAPER);
-        addWithdrawButton(gui, player, 51, "EPIC", Items.PAPER);
-        addWithdrawButton(gui, player, 52, "LEGENDARY", Items.PAPER);
-        addWithdrawButton(gui, player, 53, "MYTHIC", Items.PAPER);
+    private static void openUpgrade(ServerPlayer player, Consumer<ServerPlayer> backTarget, boolean downgrade) {
+        SimpleGui gui = base(player, downgrade ? "Downgrade Fragments" : "Upgrade Fragments");
+        gui.setSlot(4, new GuiElementBuilder(downgrade ? Items.PAPER : Items.AMETHYST_SHARD).hideDefaultTooltip()
+                .setName(Component.literal(downgrade ? "§cDowngrade Fragments" : "§aUpgrade Fragments"))
+                .addLoreLine(Component.literal(downgrade ? "§7Downgrades return half of upgrade value." : "§7Upgrade stored fragments.")));
+        String[] ids = downgrade
+                ? new String[]{"UNCOMMON_TO_COMMON_DOWNGRADE","RARE_TO_UNCOMMON_DOWNGRADE","EPIC_TO_RARE_DOWNGRADE","LEGENDARY_TO_EPIC_DOWNGRADE","MYTHIC_TO_LEGENDARY_DOWNGRADE"}
+                : new String[]{"COMMON_TO_UNCOMMON","UNCOMMON_TO_RARE","RARE_TO_EPIC","EPIC_TO_LEGENDARY","LEGENDARY_TO_MYTHIC"};
+        int[] slots = {20,21,22,23,24};
+        for (int i = 0; i < ids.length; i++) addUpgradeButton(gui, player, slots[i], ids[i], downgrade ? Items.PAPER : Items.AMETHYST_SHARD);
+        MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
+        gui.open();
     }
 
-    private static void addWithdrawButton(
-            SimpleGui gui,
-            ServerPlayer player,
-            int slot,
-            String rarity,
-            Item icon
-    ) {
-        String normalizedRarity =
-                ProfessionFragmentConfig.normalizeRarity(rarity);
-
-        if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(normalizedRarity)) {
-            gui.setSlot(
-                    slot,
-                    new GuiElementBuilder(Items.BARRIER)
-                            .hideDefaultTooltip()
-                            .setName(Component.literal("§cMissing Fragment"))
-                            .addLoreLine(Component.literal("§7Missing fragment config for: §f" + normalizedRarity))
-            );
+    private static void addUpgradeButton(SimpleGui gui, ServerPlayer player, int slot, String upgradeId, Item icon) {
+        ProfessionFragmentConfig.UpgradeData upgrade = ProfessionFragmentConfig.UPGRADES.get(upgradeId);
+        if (upgrade == null) {
+            gui.setSlot(slot, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("§cMissing Upgrade")).addLoreLine(Component.literal("§7" + upgradeId)));
             return;
         }
-
-        int available =
-                ProfessionFragmentManager.countFragments(player, normalizedRarity);
-
-        int amount =
-                Math.min(16, Math.max(1, available));
-
-        gui.setSlot(
-                slot,
-                new GuiElementBuilder(icon)
-                        .hideDefaultTooltip()
-                        .setName(
-                                Component.literal(
-                                        "Withdraw " + ProfessionFragmentManager.formatWords(normalizedRarity) + " Fragments"
-                                ).withStyle(getRarityColor(normalizedRarity))
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§7You have stored: §e" + available
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        available > 0 ? "§eClick to withdraw " + amount : "§cNo stored fragments"
-                                )
-                        )
-                        .addLoreLine(
-                                Component.literal(
-                                        "§8Use /fragments withdraw <rarity> <amount> for exact amounts."
-                                )
-                        )
-                        .setCallback(
-                                (i, c, t) -> {
-                                    if (available <= 0) {
-                                        return;
-                                    }
-
-                                    player.closeContainer();
-                                    player.getServer()
-                                            .getCommands()
-                                            .performPrefixedCommand(
-                                                    player.createCommandSourceStack(),
-                                                    "fragments withdraw " + normalizedRarity.toLowerCase() + " " + amount
-                                            );
-                                }
-                        )
-        );
+        String from = ProfessionFragmentConfig.normalizeRarity(upgrade.fromFragment);
+        String to = ProfessionFragmentConfig.normalizeRarity(upgrade.toFragment);
+        int cost = Math.max(1, upgrade.cost);
+        int output = Math.max(1, upgrade.output);
+        int available = ProfessionFragmentManager.countFragments(player, from);
+        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal(ProfessionFragmentManager.formatWords(from) + " → " + ProfessionFragmentManager.formatWords(to)).withStyle(getRarityColor(to)))
+                .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(from) + " Fragment"))
+                .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(to) + " Fragment"))
+                .addLoreLine(Component.literal("§7You have: §e" + available))
+                .addLoreLine(Component.literal(available >= cost ? "§eClick to convert" : "§cNot enough fragments"))
+                .setCallback((i,c,t) -> {
+                    player.closeContainer();
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments upgrade " + upgradeId);
+                }));
     }
 
-    private static ChatFormatting getRarityColor(
-            String rarity
-    ) {
-        if (rarity == null) {
-            return ChatFormatting.WHITE;
-        }
+    private static void openWithdraw(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
+        SimpleGui gui = base(player, "Withdraw Fragments");
+        gui.setSlot(4, new GuiElementBuilder(Items.CHEST).hideDefaultTooltip().setName(Component.literal("§aWithdraw Fragments")));
+        int[] slots = {20,21,22,23,24,25};
+        String[] rarities = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
+        for (int i = 0; i < rarities.length; i++) addWithdrawButton(gui, player, slots[i], rarities[i], Items.PAPER);
+        MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
+        gui.open();
+    }
 
+    private static void addWithdrawButton(SimpleGui gui, ServerPlayer player, int slot, String rarity, Item icon) {
+        String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
+        int available = ProfessionFragmentManager.countFragments(player, normalizedRarity);
+        int amount = Math.min(16, Math.max(1, available));
+        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal("Withdraw " + ProfessionFragmentManager.formatWords(normalizedRarity) + " Fragments").withStyle(getRarityColor(normalizedRarity)))
+                .addLoreLine(Component.literal("§7Stored: §e" + available))
+                .addLoreLine(Component.literal(available > 0 ? "§eClick to withdraw " + amount : "§cNo stored fragments"))
+                .setCallback((i,c,t) -> {
+                    if (available <= 0) return;
+                    player.closeContainer();
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments withdraw " + normalizedRarity.toLowerCase() + " " + amount);
+                }));
+    }
+
+    private static ChatFormatting getRarityColor(String rarity) {
+        if (rarity == null) return ChatFormatting.WHITE;
         return switch (rarity.trim().toUpperCase()) {
             case "UNCOMMON" -> ChatFormatting.GREEN;
             case "RARE" -> ChatFormatting.BLUE;

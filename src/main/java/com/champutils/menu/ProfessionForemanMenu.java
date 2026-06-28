@@ -1,0 +1,108 @@
+package com.champutils.menu;
+
+import com.champutils.economy.EconomyManager;
+import com.champutils.profession.ProfessionChunkConfig;
+import com.champutils.profession.ProfessionChunkManager;
+import com.champutils.profession.ProfessionFragmentManager;
+import eu.pb4.sgui.api.elements.GuiElementBuilder;
+import eu.pb4.sgui.api.gui.SimpleGui;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Items;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class ProfessionForemanMenu {
+    private ProfessionForemanMenu() {}
+
+    public static void open(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
+        gui.setTitle(Component.literal("Profession Foreman"));
+        MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
+
+        gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
+                .setName(Component.literal("§aProfession Foreman"))
+                .addLoreLine(Component.literal("§7Sell chunks, trade chunks, or"))
+                .addLoreLine(Component.literal("§7exchange backpack materials.")));
+
+        gui.setSlot(20, new GuiElementBuilder(Items.GOLD_INGOT).hideDefaultTooltip()
+                .setName(Component.literal("§6Sell All Chunks"))
+                .addLoreLine(Component.literal("§7Converts all stored chunks into Credits."))
+                .addLoreLine(Component.literal("§eClick to sell all."))
+                .setCallback((i,c,t) -> {
+                    long cents = ProfessionChunkManager.sellAll(player);
+                    if (cents <= 0L) player.sendSystemMessage(Component.literal("§cYou do not have any sellable chunks."));
+                    else player.sendSystemMessage(Component.literal("§aSold all chunks for §6" + EconomyManager.format(cents) + "§a."));
+                    open(player);
+                }));
+
+        gui.setSlot(22, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
+                .setName(Component.literal("§dTrade Chunks for Fragments"))
+                .addLoreLine(Component.literal("§7Use chunk currencies for tool fragments."))
+                .addLoreLine(Component.literal("§eClick to choose a chunk tier."))
+                .setCallback((i,c,t) -> openTrade(player)));
+
+        gui.setSlot(24, new GuiElementBuilder(Items.EXPERIENCE_BOTTLE).hideDefaultTooltip()
+                .setName(Component.literal("§dProfession Trade"))
+                .addLoreLine(Component.literal("§7Trade backpack materials for rewards."))
+                .addLoreLine(Component.literal("§7Default: high-cost Rare Candy trades."))
+                .addLoreLine(Component.literal("§eClick to open."))
+                .setCallback((i,c,t) -> ProfessionTradeMenu.open(player)));
+
+        int slot = 29;
+        for (String chunk : ProfessionChunkConfig.CONFIG.chunks.keySet()) {
+            int amount = ProfessionChunkManager.count(player, chunk);
+            gui.setSlot(slot++, new GuiElementBuilder(icon(chunk)).hideDefaultTooltip()
+                    .setName(Component.literal(ProfessionChunkManager.formatChunk(chunk)).withStyle(ProfessionChunkManager.color(chunk)))
+                    .addLoreLine(Component.literal("§7Stored: §e" + amount))
+                    .addLoreLine(Component.literal("§7Sell Value Each: §6" + EconomyManager.format(ProfessionChunkManager.valueCents(chunk))))
+                    .addLoreLine(Component.literal("§7Total Value: §6" + EconomyManager.format((long) amount * ProfessionChunkManager.valueCents(chunk)))));
+            if (slot == 35) break;
+        }
+
+        gui.open();
+    }
+
+    private static void openTrade(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
+        gui.setTitle(Component.literal("Chunk Fragment Trades"));
+        MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
+        List<String> chunks = new ArrayList<>(ProfessionChunkConfig.CONFIG.chunks.keySet());
+        int[] slots = {20,21,22,23,24,25};
+        for (int idx = 0; idx < chunks.size() && idx < slots.length; idx++) {
+            String chunk = chunks.get(idx);
+            ProfessionChunkConfig.ChunkData data = ProfessionChunkConfig.CONFIG.chunks.get(chunk);
+            int have = ProfessionChunkManager.count(player, chunk);
+            int cost = data == null ? 1 : Math.max(1, data.chunksPerFragment);
+            int output = data == null ? 1 : Math.max(1, data.fragmentsPerTrade);
+            String rarity = data == null ? "COMMON" : data.fragmentRarity;
+            gui.setSlot(slots[idx], new GuiElementBuilder(icon(chunk)).hideDefaultTooltip()
+                    .setName(Component.literal(ProfessionChunkManager.formatChunk(chunk) + " → " + ProfessionFragmentManager.formatWords(rarity) + " Fragment").withStyle(ProfessionChunkManager.color(chunk)))
+                    .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionChunkManager.formatChunk(chunk)))
+                    .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(rarity) + " Fragment"))
+                    .addLoreLine(Component.literal("§7You have: §e" + have))
+                    .addLoreLine(Component.literal(have >= cost ? "§eClick to trade once" : "§cNot enough chunks"))
+                    .setCallback((i,c,t) -> {
+                        ProfessionChunkManager.TradeResult result = ProfessionChunkManager.tradeChunkForFragments(player, chunk, 1);
+                        if (!result.success()) player.sendSystemMessage(Component.literal("§c" + result.error()));
+                        else player.sendSystemMessage(Component.literal("§aTraded chunks for §6" + result.fragments() + "x " + ProfessionFragmentManager.formatWords(result.rarity()) + " Fragment§a."));
+                        openTrade(player);
+                    }));
+        }
+        MenuUtil.addBackButton(gui, 49, () -> open(player));
+        gui.open();
+    }
+
+    private static net.minecraft.world.item.Item icon(String chunk) {
+        return switch (ProfessionChunkManager.normalizeChunk(chunk)) {
+            case "COPPER" -> Items.COPPER_INGOT;
+            case "IRON" -> Items.IRON_INGOT;
+            case "GOLD" -> Items.GOLD_INGOT;
+            case "DIAMOND" -> Items.DIAMOND;
+            case "NETHERITE" -> Items.NETHERITE_INGOT;
+            default -> Items.COBBLESTONE;
+        };
+    }
+}

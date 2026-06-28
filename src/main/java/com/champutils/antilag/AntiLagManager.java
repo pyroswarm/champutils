@@ -27,6 +27,7 @@ public final class AntiLagManager {
     private static int ticksUntilCleanup=-1;
     private static int ticksUntilOverloadedChunkCleanup=20*300;
     private static boolean cleanupWarningSent=false;
+    private static final Set<Integer> cleanupBroadcastSecondsSent = new HashSet<>();
     private static int lastCleanupCountdownSecond=-1;
     private static long lastTickNanos=System.nanoTime();
     private static final ArrayDeque<Long> tickHistoryMs=new ArrayDeque<>(); private static final Map<UUID,ThrowWindow> snowballThrows=new HashMap<>(); private static final Map<UUID,Violation> violations=new HashMap<>(); private static long resetKey= DailyResetManager.currentResetKeyMillis();
@@ -71,6 +72,7 @@ public final class AntiLagManager {
         }
         if(!AntiLagConfig.DATA.entityCleanupEnabled){
             cleanupWarningSent=false;
+            cleanupBroadcastSecondsSent.clear();
             lastCleanupCountdownSecond=-1;
             ticksUntilCleanup=cleanupIntervalTicks();
             return;
@@ -79,18 +81,21 @@ public final class AntiLagManager {
         int warningTicks=Math.max(0,AntiLagConfig.DATA.cleanupWarningSeconds)*20;
         if(!cleanupWarningSent && warningTicks>0 && ticksUntilCleanup<=warningTicks){
             cleanupWarningSent=true;
-            warnCleanup(server);
+            cleanupBroadcastSecondsSent.add(AntiLagConfig.DATA.cleanupWarningSeconds);
+            warnCleanup(server, AntiLagConfig.DATA.cleanupWarningSeconds);
         }
 
         int countdownSecond=(int)Math.ceil(Math.max(0,ticksUntilCleanup)/20.0D);
+        broadcastCleanupCountdown(server, countdownSecond);
         if(countdownSecond>=1 && countdownSecond<=3 && countdownSecond!=lastCleanupCountdownSecond){
             lastCleanupCountdownSecond=countdownSecond;
-            server.getPlayerList().broadcastSystemMessage(Component.literal("§c[Cleanup] §eClearing lag entities in §c"+countdownSecond+"§e..."), false);
+            server.getPlayerList().broadcastSystemMessage(Component.literal("§c[Cleanup] §eClearing ordinary lag entities in §c"+countdownSecond+"§e..."), false);
         }
 
         if(--ticksUntilCleanup<=0){
             ticksUntilCleanup=cleanupIntervalTicks();
             cleanupWarningSent=false;
+            cleanupBroadcastSecondsSent.clear();
             lastCleanupCountdownSecond=-1;
             cleanupEntities(server,true);
         }
@@ -116,7 +121,20 @@ public final class AntiLagManager {
     private static int cleanupIntervalTicks(){
         return Math.max(18000, AntiLagConfig.DATA.cleanupIntervalMinutes*60*20);
     }
-    private static void warnCleanup(MinecraftServer server){ String msg="§6[Cleanup] §eDropped items and natural wild Pokémon will be cleared in §c"+AntiLagConfig.DATA.cleanupWarningSeconds+" seconds§e. Pokémon currently in battle/capture are protected."; server.getPlayerList().broadcastSystemMessage(Component.literal(msg), false); }
+    private static void warnCleanup(MinecraftServer server, int seconds){
+        String msg="§6[Cleanup] §eDropped items and ordinary natural wild Pokémon will be cleared in §c"+seconds+" seconds§e. §aShiny, Legendary, Mythical, Ultra Beast, Boss/Event, owned, captured, and battling Pokémon are protected.§e";
+        server.getPlayerList().broadcastSystemMessage(Component.literal(msg), false);
+    }
+
+    private static void broadcastCleanupCountdown(MinecraftServer server, int countdownSecond){
+        int[] checkpoints = {60, 30, 10};
+        for(int checkpoint : checkpoints){
+            if(countdownSecond == checkpoint && cleanupBroadcastSecondsSent.add(checkpoint)){
+                warnCleanup(server, checkpoint);
+                return;
+            }
+        }
+    }
     private static void recordTick(){ long now=System.nanoTime(); long ms=(now-lastTickNanos)/1_000_000L; lastTickNanos=now; tickHistoryMs.addLast(ms); while(tickHistoryMs.size()>240) tickHistoryMs.removeFirst(); }
     private static boolean hasTpsSpike(){ return tickHistoryMs.stream().anyMatch(v->v>=AntiLagConfig.DATA.tpsSpikeMsThreshold); }
     private static double avgMs(){ return tickHistoryMs.stream().mapToLong(Long::longValue).average().orElse(50.0); }

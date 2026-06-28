@@ -28,7 +28,7 @@ public final class ProfileLeaderboardRepository {
         PROFESSIONS_FORESTRY("leaderboard_professions_forestry", "level", "Forestry Level"),
         PROFESSIONS_FARMING("leaderboard_professions_farming", "level", "Farming Level"),
         PROFESSIONS_BATTLING("leaderboard_professions_battling", "level", "Battle Level"),
-        ECONOMY("leaderboard_economy_profiles", "credits_cents", "Credits"),
+        ECONOMY("leaderboard_economy_profiles", "credits", "Credits"),
         PLAYTIME("leaderboard_playtime_profiles", "playtime_hours", "Hours"),
         POKEDEX("leaderboard_pokedex_profiles", "caught_species", "Caught Species"),
         GYMS("leaderboard_gym_profiles", "badges", "Badges"),
@@ -116,10 +116,22 @@ public final class ProfileLeaderboardRepository {
     }
 
     public static List<Entry> topFresh(Board board, int limit) {
-        // Keep menu opens and other server-thread callers non-blocking.
-        // This schedules a refresh and immediately returns the last cached snapshot.
         refreshAllAsync(false);
         return top(board, limit);
+    }
+
+    public static java.util.concurrent.CompletableFuture<List<Entry>> topAsync(Board board, int limit) {
+        int safeLimit = Math.max(1, Math.min(100, limit));
+        if (!DatabaseManager.isEnabled()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(List.of());
+        }
+        return DatabaseManager.supplyAsync("load " + board + " leaderboard", connection -> {
+            List<Entry> fresh = loadFresh(connection, board, safeLimit);
+            synchronized (CACHE) {
+                CACHE.put(board, fresh);
+            }
+            return fresh;
+        });
     }
 
     private static List<Entry> loadFresh(Connection connection, Board board, int limit) throws Exception {

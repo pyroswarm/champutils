@@ -1,6 +1,8 @@
 package com.champutils.shop;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.economy.EconomyManager;
+import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileRestrictions;
 
 import net.minecraft.ChatFormatting;
@@ -159,7 +161,15 @@ public final class ChestShopService {
             return;
         }
 
-        EconomyManager.deposit(shop.ownerUuid(), shop.ownerName, shop.price, "chest_shop_sale");
+        UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
+        EconomyManager.TransactionResult depositOwner = EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_sale");
+        if (!depositOwner.success) {
+            addItem(chest, new ItemStack(item, amount));
+            EconomyManager.deposit(buyer, shop.price, "chest_shop_refund_failed_owner_credit");
+            buyer.sendSystemMessage(Component.literal("Transaction failed because the shop owner could not be credited. You were refunded.").withStyle(ChatFormatting.RED));
+            return;
+        }
+
         ItemStack purchased = new ItemStack(item, amount);
         addItem(buyer.getInventory(), purchased);
         chest.setChanged();
@@ -194,12 +204,13 @@ public final class ChestShopService {
         }
 
         UUID ownerId = shop.ownerUuid();
-        if (ownerId == null) {
+        UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
+        if (ownerId == null || ownerEconomyId == null) {
             seller.sendSystemMessage(Component.literal("This shop owner is invalid.").withStyle(ChatFormatting.RED));
             return;
         }
 
-        EconomyManager.TransactionResult withdrawOwner = EconomyManager.withdraw(ownerId, shop.ownerName, shop.price, "chest_shop_buy_order");
+        EconomyManager.TransactionResult withdrawOwner = EconomyManager.withdraw(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_buy_order");
         if (!withdrawOwner.success) {
             seller.sendSystemMessage(Component.literal("This buy shop does not have enough owner funds right now.").withStyle(ChatFormatting.RED));
             return;
@@ -208,13 +219,21 @@ public final class ChestShopService {
         int removed = removeItem(seller.getInventory(), item, amount);
         if (removed < amount) {
             addItem(seller.getInventory(), new ItemStack(item, removed));
-            EconomyManager.deposit(ownerId, shop.ownerName, shop.price, "chest_shop_refund_failed_seller_items");
+            EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_refund_failed_seller_items");
             seller.sendSystemMessage(Component.literal("Transaction failed because your inventory changed. The owner was refunded.").withStyle(ChatFormatting.RED));
             return;
         }
 
         addItem(chest, new ItemStack(item, amount));
-        EconomyManager.deposit(seller, shop.price, "chest_shop_sell_to_buy_order");
+        EconomyManager.TransactionResult depositSeller = EconomyManager.deposit(seller, shop.price, "chest_shop_sell_to_buy_order");
+        if (!depositSeller.success) {
+            removeItem(chest, item, amount);
+            addItem(seller.getInventory(), new ItemStack(item, amount));
+            EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_refund_failed_seller_credit");
+            seller.sendSystemMessage(Component.literal("Transaction failed because you could not be credited. Your items were returned.").withStyle(ChatFormatting.RED));
+            return;
+        }
+
         chest.setChanged();
         seller.getInventory().setChanged();
 
@@ -322,6 +341,61 @@ public final class ChestShopService {
 
         container.setChanged();
         return remaining.isEmpty();
+    }
+
+    private static UUID resolveOwnerEconomyId(MinecraftServer server, ChestShopRegistry.ChestShop shop) {
+        if (shop == null) {
+            return null;
+        }
+
+        UUID storedProfileId = shop.ownerProfileUuid();
+        if (storedProfileId != null) {
+            return storedProfileId;
+        }
+
+        UUID ownerPlayerId = shop.ownerUuid();
+        if (ownerPlayerId == null) {
+            return null;
+        }
+
+        // Legacy shops only stored the Minecraft account UUID. Resolve those to the
+        // owner profile that should actually receive/pay credits, then persist the
+        // resolved profile ID so future offline transactions hit the right account.
+        ServerPlayer onlineOwner = server == null ? null : server.getPlayerList().getPlayer(ownerPlayerId);
+        UUID resolvedProfileId = onlineOwner == null
+                ? resolveActiveProfileIdFromDatabase(ownerPlayerId)
+                : PlayerProfileManager.activeProfileId(onlineOwner);
+
+        if (resolvedProfileId == null) {
+            resolvedProfileId = PlayerProfileManager.activeProfileId(ownerPlayerId);
+        }
+        if (resolvedProfileId == null) {
+            resolvedProfileId = ownerPlayerId;
+        }
+
+        shop.setOwnerProfileUuid(resolvedProfileId);
+        ChestShopRegistry.save();
+        return resolvedProfileId;
+    }
+
+    private static UUID resolveActiveProfileIdFromDatabase(UUID ownerPlayerId) {
+        if (ownerPlayerId == null || !DatabaseManager.isEnabled()) {
+            return null;
+        }
+
+        try (var connection = DatabaseManager.getConnection();
+             var statement = connection.prepareStatement("select profile_id from player_active_profiles where player_uuid = ?")) {
+            statement.setObject(1, ownerPlayerId);
+            try (var result = statement.executeQuery()) {
+                if (result.next()) {
+                    return (UUID) result.getObject(1);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     private static void notifyOwner(MinecraftServer server, UUID ownerId, String message) {

@@ -650,6 +650,29 @@ public class ProfessionToolManager {
             String toolId,
             boolean ascended
     ) {
+        return createTool(
+                toolId,
+                ascended,
+                true
+        );
+    }
+
+    public static ItemStack createToolWithoutAscendedRoll(
+            String toolId,
+            boolean ascended
+    ) {
+        return createTool(
+                toolId,
+                ascended,
+                false
+        );
+    }
+
+    private static ItemStack createTool(
+            String toolId,
+            boolean ascended,
+            boolean allowAscendedRoll
+    ) {
 
         ProfessionToolConfig.ToolData toolData =
                 ProfessionToolConfig.TOOLS.get(
@@ -666,8 +689,11 @@ public class ProfessionToolManager {
 
         boolean finalAscended =
                 ascended ||
-                        shouldRollAscendedUnidentified(
-                                toolData
+                        (
+                                allowAscendedRoll &&
+                                        shouldRollAscendedUnidentified(
+                                                toolData
+                                        )
                         );
 
         if (
@@ -738,11 +764,34 @@ public class ProfessionToolManager {
                 finalAscended
         );
 
+        Map<String, Double> rolledStats =
+                ProfessionToolRollService.rollStats(
+                        toolData
+                );
+
+        double quality =
+                ProfessionToolRollService.calculateQuality(
+                        toolData,
+                        rolledStats
+                );
+
+        ProfessionToolMetadata.applyRoll(
+                stack,
+                rolledStats,
+                quality,
+                false
+        );
+
         if (finalAscended) {
             ProfessionToolMetadata.setDiscoveryAnnouncementEligible(
                     stack,
                     true
             );
+            if (toolData.profession != null && toolData.profession.equalsIgnoreCase("MINING")) {
+                String trackerId = ProfessionToolRollService.rollMiningTrackerId();
+                ProfessionToolMetadata.setSelectedTracker(stack, trackerId);
+                ProfessionToolMetadata.setTracker(stack, trackerId, 0L);
+            }
         }
 
         initializeDurabilityIfNeeded(
@@ -823,24 +872,17 @@ public class ProfessionToolManager {
                 stack
         );
 
-        boolean identified =
-                ProfessionToolMetadata.isIdentified(
-                        stack
-                );
-
-        if (identified) {
-            applyIdentifiedDisplay(
-                    stack,
-                    toolId,
-                    toolData
-            );
-        } else {
-            applyUnidentifiedDisplay(
-                    stack,
-                    toolId,
-                    toolData
-            );
+        if (!ProfessionToolMetadata.isIdentified(stack)) {
+            Map<String, Double> rolledStats = ProfessionToolRollService.rollStats(toolData);
+            double quality = ProfessionToolRollService.calculateQuality(toolData, rolledStats);
+            ProfessionToolMetadata.applyRoll(stack, rolledStats, quality, false);
         }
+
+        applyIdentifiedDisplay(
+                stack,
+                toolId,
+                toolData
+        );
     }
 
     private static void applyUnidentifiedDisplay(

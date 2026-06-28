@@ -1,0 +1,20 @@
+{
+  "uuid": "48572f4b-e0f0-44d4-b21e-dcb1541c7150",
+  "name": "TheGreatOlm",
+  "levels": {
+    "BATTLING": 3,
+    "FARMING": 1,
+    "FORESTRY": 4,
+    "MINING": 3
+  },
+  "xp": {
+    "BATTLING": 105,
+    "FARMING": 0,
+    "FORESTRY": 110,
+    "MINING": 173
+  },
+  "fragments": {
+    "COMMON": 2,
+    "EPIC": 1
+  }
+}

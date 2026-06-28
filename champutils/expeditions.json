@@ -1,0 +1,44 @@
+{
+  "low": {
+    "hours": 2,
+    "credits": 500,
+    "items": [
+      {
+        "id": "cobblemon:potion",
+        "count": 4
+      },
+      {
+        "id": "cobblemon:poke_ball",
+        "count": 8
+      }
+    ]
+  },
+  "mid": {
+    "hours": 4,
+    "credits": 750,
+    "items": [
+      {
+        "id": "cobblemon:super_potion",
+        "count": 4
+      },
+      {
+        "id": "cobblemon:great_ball",
+        "count": 8
+      }
+    ]
+  },
+  "high": {
+    "hours": 8,
+    "credits": 1500,
+    "items": [
+      {
+        "id": "cobblemon:hyper_potion",
+        "count": 4
+      },
+      {
+        "id": "cobblemon:quick_ball",
+        "count": 12
+      }
+    ]
+  }
+}

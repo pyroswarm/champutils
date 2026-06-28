@@ -1,0 +1,1748 @@
+{
+  "players": {
+    "4435154d-74f5-4ad4-8e80-04ab5fb54ca8": {
+      "username": "sedinen",
+      "balance": 5200,
+      "lifetimeEarned": 5200,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-26T18:16:33.212952740Z",
+      "updatedAt": "2026-05-26T18:28:28.877769787Z"
+    },
+    "53d08c7f-e53e-4476-afe0-a3aa5e45c266": {
+      "username": "DrGREEN__",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-26T13:30:46.939353833Z",
+      "updatedAt": "2026-05-26T23:23:57.037101129Z"
+    },
+    "d9a64fee-0257-4403-89cd-1bea68a49946": {
+      "username": "Pyro_Swarm",
+      "balance": 105000,
+      "lifetimeEarned": 145000,
+      "lifetimeSpent": 40000,
+      "createdAt": "2026-05-26T23:54:31.243975205Z",
+      "updatedAt": "2026-05-27T11:24:38.173225061Z"
+    },
+    "38e991bf-8a53-4603-aef8-572131830d7f": {
+      "username": "Pyro_Swarm",
+      "balance": 10000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T00:20:54.040416800Z",
+      "updatedAt": "2026-05-27T10:57:29.603229167Z"
+    },
+    "80b0e340-da41-46c6-98b6-5975019d9120": {
+      "username": "DrGREEN__",
+      "balance": 4950,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 50,
+      "createdAt": "2026-05-27T00:26:06.545106954Z",
+      "updatedAt": "2026-06-14T23:07:01.522063033Z"
+    },
+    "d62d486f-fe31-432d-8dd6-329369d9aeee": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T08:44:47.907078738Z",
+      "updatedAt": "2026-05-27T08:57:13.420804146Z"
+    },
+    "eb152a6a-2e2a-4951-aca3-5c1e8d2f8b9d": {
+      "username": "ObxM",
+      "balance": 4892,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 108,
+      "createdAt": "2026-05-27T08:52:50.068194810Z",
+      "updatedAt": "2026-06-21T12:39:21.016841964Z"
+    },
+    "a38c8cb9-e6b0-4748-beab-830611a76fb8": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T08:52:55.908437659Z",
+      "updatedAt": "2026-05-27T08:55:53.031152980Z"
+    },
+    "2d8a870f-f4c8-4315-92be-435e3e41b1a8": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T08:54:34.050286056Z",
+      "updatedAt": "2026-05-27T08:59:18.886881695Z"
+    },
+    "7911f53d-058c-42b7-ace0-61db59a42571": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T10:27:48.316684394Z",
+      "updatedAt": "2026-05-27T10:27:48.316737534Z"
+    },
+    "1b5ce262-8d5e-4ab8-b7b7-801752a5898f": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T10:55:04.466157103Z",
+      "updatedAt": "2026-05-27T10:55:04.466211303Z"
+    },
+    "81ed17c6-776e-49e7-a880-60076ee133f0": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:15:33.677185850Z",
+      "updatedAt": "2026-05-27T11:18:42.056883240Z"
+    },
+    "439ef805-f63b-4a84-aba9-aa49da6fc6a8": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:17:30.264810551Z",
+      "updatedAt": "2026-05-27T11:18:07.468975547Z"
+    },
+    "1284767e-2412-44f0-90f3-4ca69ca23464": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:25:09.846201240Z",
+      "updatedAt": "2026-05-27T11:25:09.846245280Z"
+    },
+    "56e53eea-9166-41b0-a6bf-033ccb780f41": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:27:01.329081587Z",
+      "updatedAt": "2026-05-27T11:32:26.219874300Z"
+    },
+    "c01637b5-4306-4618-9cb1-6c15b0d5aba4": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:32:08.163317789Z",
+      "updatedAt": "2026-05-27T11:32:08.163378749Z"
+    },
+    "6bbb3e95-5e95-4e82-a9cd-cb85636bbf84": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:43:48.742718076Z",
+      "updatedAt": "2026-05-27T11:43:48.742778686Z"
+    },
+    "60e6f516-3cee-410b-aa05-cdbf3eac54cb": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:45:19.098138224Z",
+      "updatedAt": "2026-05-27T11:52:12.776535941Z"
+    },
+    "7f6d8ff7-70c1-46b3-b2d8-c411d1d7e2a4": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:52:36.270058366Z",
+      "updatedAt": "2026-05-27T11:52:36.270112886Z"
+    },
+    "bf315d46-0d8c-4011-bfda-c91d76524841": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-27T11:57:25.887628335Z",
+      "updatedAt": "2026-05-28T01:28:48.817400690Z"
+    },
+    "39f6ce61-e80b-4c81-adac-af3b98737818": {
+      "username": "John_Melee",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T01:32:42.077886993Z",
+      "updatedAt": "2026-05-31T00:33:09.458286333Z"
+    },
+    "4b37eca6-78a0-49b4-b84e-f006c69f95d9": {
+      "username": "John_Melee",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T01:36:51.057447598Z",
+      "updatedAt": "2026-05-28T01:36:51.057490038Z"
+    },
+    "40e2cfc8-7d67-4334-a474-006bc42da9a3": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T01:40:48.896704137Z",
+      "updatedAt": "2026-05-28T01:40:48.896735577Z"
+    },
+    "2248a0b7-81e4-4ab7-823c-a27e7935937e": {
+      "username": "John_Melee",
+      "balance": 4974,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 26,
+      "createdAt": "2026-05-28T01:42:41.479204877Z",
+      "updatedAt": "2026-05-28T01:55:26.397950358Z"
+    },
+    "b7b6a5bb-f16a-475d-a2a3-a8fd3d31fc8a": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T01:42:45.333200584Z",
+      "updatedAt": "2026-05-29T13:53:43.435597697Z"
+    },
+    "d3012576-dc9f-41f4-baac-e926f3e053c2": {
+      "username": "Pyro_Swarm",
+      "balance": 5026,
+      "lifetimeEarned": 5026,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T01:54:53.653152816Z",
+      "updatedAt": "2026-05-28T01:55:26.398428658Z"
+    },
+    "b5a73da2-1ea1-45ff-bd36-350391fde028": {
+      "username": "Pyro_Swarm",
+      "balance": 99905000,
+      "lifetimeEarned": 100105000,
+      "lifetimeSpent": 200000,
+      "createdAt": "2026-05-28T02:00:19.080601631Z",
+      "updatedAt": "2026-05-29T13:53:47.797816871Z"
+    },
+    "8047b598-57a1-4168-8c8f-48ddd1532168": {
+      "username": "IAmTrains",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T02:20:03.634877721Z",
+      "updatedAt": "2026-05-28T02:48:51.974312865Z"
+    },
+    "278a47f5-6fde-40c9-809c-b6ebc604f235": {
+      "username": "IAmTrains",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T02:48:47.177286040Z",
+      "updatedAt": "2026-05-28T02:48:47.177310300Z"
+    },
+    "8f7942bc-03cf-4053-9696-0b46d701e85a": {
+      "username": "Psyronyx",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T09:53:58.744112176Z",
+      "updatedAt": "2026-06-14T21:08:20.024385664Z"
+    },
+    "9c02c4c8-58dc-4aa2-9b24-863775fc9b2e": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-28T09:58:46.434384751Z",
+      "updatedAt": "2026-05-29T13:53:52.123800381Z"
+    },
+    "f7e84c1a-2e5e-41eb-840d-12959ed720ad": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T13:04:34.192180904Z",
+      "updatedAt": "2026-05-29T13:53:56.611924929Z"
+    },
+    "afe350f8-6976-49d2-94de-2a11932e6d49": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T13:54:06.593503632Z",
+      "updatedAt": "2026-05-29T13:54:06.593533962Z"
+    },
+    "4ea7b802-1312-4175-baac-f4cc0dee8432": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T13:54:17.845986381Z",
+      "updatedAt": "2026-05-29T14:12:43.524681358Z"
+    },
+    "30c39979-1fa6-4399-884f-ee9bdd68c1f5": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:03:45.391575553Z",
+      "updatedAt": "2026-05-29T14:12:31.505363591Z"
+    },
+    "d993a2d4-43ab-4abf-aac8-df8c271b50b1": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:03:51.772894837Z",
+      "updatedAt": "2026-05-29T14:23:51.197761872Z"
+    },
+    "eb67aec5-b028-495e-8c3a-30f20dc95a5a": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:03:56.302726825Z",
+      "updatedAt": "2026-05-29T14:22:39.913281251Z"
+    },
+    "c6b02482-54b7-4e01-a25b-92eb0bcf6adc": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:23:28.427266865Z",
+      "updatedAt": "2026-05-29T14:23:28.695654529Z"
+    },
+    "88eeb3a8-75b4-4964-8a0c-9e40caa4f1b7": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:23:36.265247729Z",
+      "updatedAt": "2026-05-29T14:24:02.452968784Z"
+    },
+    "cacf4966-51cf-4b11-88f0-7b500f32d80d": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:23:39.944162670Z",
+      "updatedAt": "2026-05-29T14:23:43.558217234Z"
+    },
+    "c4322b01-1981-4add-8a31-da467180275a": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T14:23:47.492976787Z",
+      "updatedAt": "2026-05-29T15:53:11.737825216Z"
+    },
+    "fe75ad3e-14f8-49a6-8cba-6d962041b062": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T15:53:43.318851300Z",
+      "updatedAt": "2026-05-30T23:55:33.917334397Z"
+    },
+    "085129e4-b529-4313-99ee-3991f90948b5": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-29T18:08:10.420760173Z",
+      "updatedAt": "2026-05-29T21:42:25.990402176Z"
+    },
+    "4dad4e70-5dc3-4293-b787-221ad1a20c93": {
+      "username": "Pyro_Swarm",
+      "balance": 4950,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 50,
+      "createdAt": "2026-05-31T00:06:36.660479463Z",
+      "updatedAt": "2026-06-14T12:50:18.950633329Z"
+    },
+    "7e293416-47ef-48b5-b33a-33a33ebc0816": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T00:11:57.363828660Z",
+      "updatedAt": "2026-05-31T17:59:39.169841829Z"
+    },
+    "d5b7cf8a-8fd0-41f5-9fac-4662c98f0f6c": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T01:04:36.468763286Z",
+      "updatedAt": "2026-05-31T14:37:05.093714708Z"
+    },
+    "d9ad8d36-4e60-409a-93ea-bbcf91b8c588": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:14:03.095314291Z",
+      "updatedAt": "2026-05-31T14:30:05.823245645Z"
+    },
+    "41823992-0c43-491a-aec0-e79c6e0d62c4": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:15:38.556113296Z",
+      "updatedAt": "2026-05-31T14:30:14.698539823Z"
+    },
+    "095b06d6-2c7e-4a80-b8f8-b48c5b35b727": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:15:47.575048921Z",
+      "updatedAt": "2026-05-31T14:15:47.575090931Z"
+    },
+    "1d338d4b-0be1-4153-a97f-c12d395e6f41": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:16:11.538598416Z",
+      "updatedAt": "2026-05-31T14:30:24.727944156Z"
+    },
+    "b0eaa429-2879-4e8c-9040-de9554aba170": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:16:23.064633507Z",
+      "updatedAt": "2026-05-31T14:30:19.087144048Z"
+    },
+    "156a08ec-3f08-4faa-8656-f054c28148be": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:18:07.482364384Z",
+      "updatedAt": "2026-05-31T14:29:31.703626447Z"
+    },
+    "334fd350-fe6d-4061-a218-ff4508efb68e": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:18:30.069733643Z",
+      "updatedAt": "2026-05-31T14:18:30.069771523Z"
+    },
+    "58333197-2569-4e0b-8638-27c0db51259d": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:19:59.366917759Z",
+      "updatedAt": "2026-05-31T14:32:04.797256614Z"
+    },
+    "22283808-9043-4f74-a9ca-cfb6d2428923": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:31:04.045993773Z",
+      "updatedAt": "2026-05-31T14:31:04.046034973Z"
+    },
+    "dc229f99-e574-4a98-a2ae-601ae64d720d": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:33:41.806592620Z",
+      "updatedAt": "2026-05-31T14:33:41.806623710Z"
+    },
+    "46aa7bce-3eb4-450b-bf23-35d8bdc5b30c": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:33:49.085550910Z",
+      "updatedAt": "2026-05-31T14:34:41.283449244Z"
+    },
+    "fb4fcefd-f6d9-4f07-97b2-c2f89d0d57c8": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:34:36.353628543Z",
+      "updatedAt": "2026-05-31T14:34:45.647786067Z"
+    },
+    "68653866-fa0b-4f6d-8a37-c14e0f2605e1": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:34:54.804006353Z",
+      "updatedAt": "2026-05-31T14:34:54.804050553Z"
+    },
+    "c34f7e06-2e1f-4cbe-929c-aae2d3853964": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:35:02.433761041Z",
+      "updatedAt": "2026-05-31T15:31:07.060729528Z"
+    },
+    "de03dfb9-099d-43c4-a999-a904fd2e7edc": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:35:42.802814646Z",
+      "updatedAt": "2026-05-31T15:18:12.010072882Z"
+    },
+    "2d9cc481-bce9-4748-9085-e85fe57199c3": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:49:04.620390228Z",
+      "updatedAt": "2026-05-31T15:44:01.905205899Z"
+    },
+    "832eeebb-d795-4278-b27a-294f86a152da": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:50:13.713526312Z",
+      "updatedAt": "2026-05-31T15:15:48.549858811Z"
+    },
+    "8922a7dc-0ed2-493e-be64-dc2377f932d5": {
+      "username": "ObxM",
+      "balance": 17500,
+      "lifetimeEarned": 17500,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T14:51:14.102874175Z",
+      "updatedAt": "2026-05-31T15:49:30.535266989Z"
+    },
+    "f2732a2e-4c06-4fb6-8514-7e1883c892c2": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T15:05:42.141362428Z",
+      "updatedAt": "2026-05-31T15:19:43.389050877Z"
+    },
+    "71ebe7a3-7564-4a42-808b-f97457f0cb29": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T15:07:26.569800246Z",
+      "updatedAt": "2026-05-31T19:05:20.823312940Z"
+    },
+    "79d84c2e-5304-45fd-8c25-6b744633b02a": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T19:35:38.306417486Z",
+      "updatedAt": "2026-05-31T19:45:50.125885532Z"
+    },
+    "169a5a04-2b38-482d-98e8-6da20907a868": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-05-31T19:46:12.280896058Z",
+      "updatedAt": "2026-05-31T19:46:12.280935958Z"
+    },
+    "808469d8-6e0d-41f2-bc9b-f3831573dd24": {
+      "username": "Pyro_Swarm",
+      "balance": 53900,
+      "lifetimeEarned": 105000,
+      "lifetimeSpent": 51100,
+      "createdAt": "2026-06-14T12:59:15.714818318Z",
+      "updatedAt": "2026-06-14T13:35:38.407984462Z"
+    },
+    "0d9ae1bb-93c1-471d-a93c-7fccbb074bd2": {
+      "username": "ObxM",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T14:04:34.226254573Z",
+      "updatedAt": "2026-06-14T14:14:45.324649725Z"
+    },
+    "61a2a856-f0b5-4343-be50-867a7dec5680": {
+      "username": "ObxM",
+      "balance": 4999,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 1,
+      "createdAt": "2026-06-14T14:07:01.038966621Z",
+      "updatedAt": "2026-06-14T15:34:42.832914779Z"
+    },
+    "8ae4dea5-f55d-4963-b761-2d33ff7bc636": {
+      "username": "Pyro_Swarm",
+      "balance": 4850,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 150,
+      "createdAt": "2026-06-14T14:13:47.706539629Z",
+      "updatedAt": "2026-06-14T14:13:56.690030482Z"
+    },
+    "1e46cdf5-4e70-4d05-a22f-3eda9ee36ee2": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T14:15:34.550422183Z",
+      "updatedAt": "2026-06-14T14:15:34.550462083Z"
+    },
+    "0796bb7b-ae16-40c3-889c-2446f521a6f0": {
+      "username": "ObxM",
+      "balance": 369271,
+      "lifetimeEarned": 390121,
+      "lifetimeSpent": 20850,
+      "createdAt": "2026-06-14T14:16:22.608235906Z",
+      "updatedAt": "2026-06-14T15:27:08.798096359Z"
+    },
+    "6feddf1e-c9e6-49be-927a-10422d2942f6": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T14:45:27.858085377Z",
+      "updatedAt": "2026-06-14T15:09:14.684650324Z"
+    },
+    "fc728334-8880-4086-b09b-6e70bde6ac1c": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T15:12:04.540771302Z",
+      "updatedAt": "2026-06-14T15:12:04.540820122Z"
+    },
+    "b34d3a79-0f80-43e9-a10e-f28b808c3336": {
+      "username": "Pyro_Swarm",
+      "balance": 5009,
+      "lifetimeEarned": 5009,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T15:31:25.093303894Z",
+      "updatedAt": "2026-06-15T19:18:50.717640793Z"
+    },
+    "ce36a292-317a-4e92-a7a7-878b46df5b22": {
+      "username": "Pyro_Swarm",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T19:09:17.745168560Z",
+      "updatedAt": "2026-06-15T20:19:08.625538459Z"
+    },
+    "2837e541-1e05-4fd3-9e72-b4451803ebcb": {
+      "username": "Psyronyx",
+      "balance": 18411,
+      "lifetimeEarned": 128411,
+      "lifetimeSpent": 110000,
+      "createdAt": "2026-06-14T21:09:04.259622605Z",
+      "updatedAt": "2026-06-15T16:21:35.382999262Z"
+    },
+    "ae23e36b-2d8b-460d-819c-35bae4038399": {
+      "username": "Psyronyx",
+      "balance": 5050,
+      "lifetimeEarned": 5050,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T23:07:01.523157944Z",
+      "updatedAt": "2026-06-14T23:07:01.523180074Z"
+    },
+    "5bd4a6ca-7bf5-4b55-95f2-409649147aec": {
+      "username": "Psyronyx",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T23:10:43.091844164Z",
+      "updatedAt": "2026-06-14T23:10:43.091878824Z"
+    },
+    "b0b655b0-7f39-4f54-ad11-f480f7bb7fc0": {
+      "username": "Psyronyx",
+      "balance": 5000,
+      "lifetimeEarned": 5000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-14T23:39:34.794357367Z",
+      "updatedAt": "2026-06-14T23:39:34.794392477Z"
+    },
+    "87a4e80c-ff69-4ba7-a22c-8fc18f33eebf": {
+      "username": "Pyro_Swarm",
+      "balance": 2200,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22800,
+      "createdAt": "2026-06-15T20:20:54.142672320Z",
+      "updatedAt": "2026-06-15T23:41:07.920490858Z"
+    },
+    "06425a8a-b8ac-4af5-8b50-043dbc36d981": {
+      "username": "Pyro_Swarm",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-15T23:47:34.317674706Z",
+      "updatedAt": "2026-06-16T04:06:00.241262629Z"
+    },
+    "469d0c8f-9cb5-4474-86c6-85dd6ed11d2c": {
+      "username": "John_Melee",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-16T02:13:50.745590955Z",
+      "updatedAt": "2026-06-22T14:12:31.448856795Z"
+    },
+    "801b392f-e443-48a0-b391-e3b4c695d829": {
+      "username": "John_Melee",
+      "balance": 516000,
+      "lifetimeEarned": 525000,
+      "lifetimeSpent": 9000,
+      "createdAt": "2026-06-16T02:22:03.711010608Z",
+      "updatedAt": "2026-06-21T15:18:01.460976910Z"
+    },
+    "4b281bf9-8341-4a27-bc7a-d638d03d59c8": {
+      "username": "Pyro_Swarm",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-16T04:08:12.726371425Z",
+      "updatedAt": "2026-06-17T23:06:20.692414203Z"
+    },
+    "c078e752-2137-47cc-b574-ea44adf57fd5": {
+      "username": "Pyro_Swarm",
+      "balance": 2752,
+      "lifetimeEarned": 25252,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-17T23:07:45.761158465Z",
+      "updatedAt": "2026-06-26T03:51:47.229556425Z"
+    },
+    "f88ab915-85b7-4eca-ba6a-9b9e1cdcbd65": {
+      "username": "Bloodfreya",
+      "balance": 5768417,
+      "lifetimeEarned": 22277178,
+      "lifetimeSpent": 16508761,
+      "createdAt": "2026-06-18T23:14:29.356389328Z",
+      "updatedAt": "2026-06-27T23:51:36.802496402Z"
+    },
+    "43495e57-7298-4fb5-9caa-7a4e586ffb56": {
+      "username": "Pyro_Swarm",
+      "balance": 295560,
+      "lifetimeEarned": 2626560,
+      "lifetimeSpent": 2331000,
+      "createdAt": "2026-06-19T10:13:28.745913248Z",
+      "updatedAt": "2026-06-26T17:50:34.984921131Z"
+    },
+    "17874302-3a1b-447f-8907-7d75f35748ee": {
+      "username": "Magister_1",
+      "balance": 158952,
+      "lifetimeEarned": 181452,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T10:41:54.824379032Z",
+      "updatedAt": "2026-06-19T13:04:33.639196078Z"
+    },
+    "c735fad8-a2d6-468e-875e-f1ee19a65030": {
+      "username": "ObxM",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T11:28:38.017175046Z",
+      "updatedAt": "2026-06-19T11:28:38.017194896Z"
+    },
+    "c6cbc781-e34a-431a-856a-c7b7bdbe6192": {
+      "username": "ObxM",
+      "balance": 458987,
+      "lifetimeEarned": 3424237,
+      "lifetimeSpent": 2965250,
+      "createdAt": "2026-06-19T11:32:31.224237565Z",
+      "updatedAt": "2026-06-27T23:41:06.928032870Z"
+    },
+    "82b30f7c-649f-4c74-9e02-5eb4a666ef19": {
+      "username": "DrGREEN__",
+      "balance": 17905,
+      "lifetimeEarned": 70105,
+      "lifetimeSpent": 52200,
+      "createdAt": "2026-06-19T11:49:48.655491720Z",
+      "updatedAt": "2026-06-23T15:09:08.272389762Z"
+    },
+    "45df2deb-9b12-47d3-9626-e0124a51c57c": {
+      "username": "SomethingDerp",
+      "balance": 3214,
+      "lifetimeEarned": 25714,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T12:00:11.593403941Z",
+      "updatedAt": "2026-06-20T21:56:20.729025709Z"
+    },
+    "21382f53-5f2d-458d-91c1-b832106b14b8": {
+      "username": "Hadiluc",
+      "balance": 2046,
+      "lifetimeEarned": 41046,
+      "lifetimeSpent": 39000,
+      "createdAt": "2026-06-19T12:07:33.076160306Z",
+      "updatedAt": "2026-06-20T13:46:13.874974820Z"
+    },
+    "47d1bbd3-cf83-4c4f-896f-caeb5d2f8d8a": {
+      "username": "Alathreon",
+      "balance": 43436,
+      "lifetimeEarned": 249936,
+      "lifetimeSpent": 206500,
+      "createdAt": "2026-06-19T12:22:46.695337152Z",
+      "updatedAt": "2026-06-27T19:19:33.923146230Z"
+    },
+    "85b5c5d7-9843-409e-b95b-01e0957a2789": {
+      "username": "Oill",
+      "balance": 30702,
+      "lifetimeEarned": 10016302,
+      "lifetimeSpent": 9985600,
+      "createdAt": "2026-06-19T13:11:52.526298379Z",
+      "updatedAt": "2026-06-26T00:13:21.609332932Z"
+    },
+    "d1201883-528c-497b-bbe4-04bad2c68b21": {
+      "username": "DelAcido",
+      "balance": 2513,
+      "lifetimeEarned": 25113,
+      "lifetimeSpent": 22600,
+      "createdAt": "2026-06-19T13:16:02.667324362Z",
+      "updatedAt": "2026-06-19T13:21:55.324466432Z"
+    },
+    "cd4e0954-8f6b-4213-b3e4-4b2a4d30d8b7": {
+      "username": "Unkn0wnErrrrror",
+      "balance": 0,
+      "lifetimeEarned": 4245282,
+      "lifetimeSpent": 4245282,
+      "createdAt": "2026-06-19T13:52:10.581901955Z",
+      "updatedAt": "2026-06-27T23:51:36.802496402Z"
+    },
+    "2d210247-e410-4dbc-b666-6c5c938560eb": {
+      "username": "ThetaArmourious",
+      "balance": 1361145,
+      "lifetimeEarned": 2581845,
+      "lifetimeSpent": 1220700,
+      "createdAt": "2026-06-19T13:55:10.740020858Z",
+      "updatedAt": "2026-06-24T03:14:03.394879657Z"
+    },
+    "96973fe4-6b64-4ce5-bc80-091555858df0": {
+      "username": "Bloodfreya",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T14:00:50.342296185Z",
+      "updatedAt": "2026-06-19T14:00:50.342307645Z"
+    },
+    "ebba4914-27f7-4391-bf45-a0126c0b7a2b": {
+      "username": "zypology",
+      "balance": 68642,
+      "lifetimeEarned": 98742,
+      "lifetimeSpent": 30100,
+      "createdAt": "2026-06-19T14:29:23.501252224Z",
+      "updatedAt": "2026-06-25T00:51:07.807869650Z"
+    },
+    "600a5978-785b-4b50-8e69-403956a297db": {
+      "username": "Araya7",
+      "balance": 1603,
+      "lifetimeEarned": 25103,
+      "lifetimeSpent": 23500,
+      "createdAt": "2026-06-19T14:54:02.265432999Z",
+      "updatedAt": "2026-06-19T19:59:49.864570677Z"
+    },
+    "c0ebf6fa-8ad8-4c04-8413-1a01d3735bed": {
+      "username": "IAmTrains",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T15:28:52.669069396Z",
+      "updatedAt": "2026-06-25T17:56:47.687120824Z"
+    },
+    "6e7d9c10-d91e-4783-9111-3298133cee15": {
+      "username": "Araya7",
+      "balance": 2693,
+      "lifetimeEarned": 35393,
+      "lifetimeSpent": 32700,
+      "createdAt": "2026-06-19T16:21:14.091577079Z",
+      "updatedAt": "2026-06-19T19:35:15.178330237Z"
+    },
+    "9429c0f5-df7e-48a4-9146-be803a110beb": {
+      "username": "Fajitah",
+      "balance": 9962,
+      "lifetimeEarned": 2133762,
+      "lifetimeSpent": 2123800,
+      "createdAt": "2026-06-19T16:22:43.246126014Z",
+      "updatedAt": "2026-06-23T19:46:22.995660943Z"
+    },
+    "873f3609-a04c-42d2-bb57-cf9a6155e629": {
+      "username": "yNeath",
+      "balance": 9722892,
+      "lifetimeEarned": 21777602,
+      "lifetimeSpent": 12054710,
+      "createdAt": "2026-06-19T16:26:49.902168543Z",
+      "updatedAt": "2026-06-27T23:44:14.574972467Z"
+    },
+    "5a06fb61-8a1a-48c7-b942-d952e30bb368": {
+      "username": "TankManBeats",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T17:42:32.015131946Z",
+      "updatedAt": "2026-06-19T17:42:32.015165026Z"
+    },
+    "d114740a-7a08-4306-b7f6-518a025ff070": {
+      "username": "CobblemonX",
+      "balance": 133739,
+      "lifetimeEarned": 218739,
+      "lifetimeSpent": 85000,
+      "createdAt": "2026-06-19T18:01:43.067257165Z",
+      "updatedAt": "2026-06-23T19:48:59.943755016Z"
+    },
+    "18ffd82d-bd7c-4b76-9a0a-e341e54cfb08": {
+      "username": "MythicMythic",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T18:28:06.713203297Z",
+      "updatedAt": "2026-06-19T18:42:04.964098247Z"
+    },
+    "398ace8f-49e1-4e2b-9dbb-c20be9947ee7": {
+      "username": "ArtistNikki",
+      "balance": 9991,
+      "lifetimeEarned": 25091,
+      "lifetimeSpent": 15100,
+      "createdAt": "2026-06-19T18:51:30.663002502Z",
+      "updatedAt": "2026-06-19T19:17:43.270876839Z"
+    },
+    "7daab874-5205-4cee-8b1a-87cbaa71b7a0": {
+      "username": "Unkn0wnErrrrror",
+      "balance": 28000,
+      "lifetimeEarned": 28000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T19:08:09.776225652Z",
+      "updatedAt": "2026-06-27T15:31:37.189008628Z"
+    },
+    "4f88bc9a-ef5e-4225-ad4e-517d7d205ca5": {
+      "username": "ItzSem",
+      "balance": 2699,
+      "lifetimeEarned": 25199,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T20:04:08.196469998Z",
+      "updatedAt": "2026-06-19T20:52:02.768118693Z"
+    },
+    "4c75a5aa-fc6e-465d-8bba-af2976516b49": {
+      "username": "Araya7",
+      "balance": 2612,
+      "lifetimeEarned": 25112,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T20:08:31.594135254Z",
+      "updatedAt": "2026-06-19T20:14:04.786630591Z"
+    },
+    "cffbc728-8bdb-48b3-8331-44c96732bcb6": {
+      "username": "Fajitah",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T20:12:15.519154717Z",
+      "updatedAt": "2026-06-19T20:12:15.519163307Z"
+    },
+    "b7813e6f-d197-4705-87f4-0b9575866de7": {
+      "username": "Mr_Spade55",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T20:15:23.788233928Z",
+      "updatedAt": "2026-06-19T20:15:23.788260848Z"
+    },
+    "bf7ace96-44a2-4362-8b7d-1359cb464536": {
+      "username": "dingkaicheng",
+      "balance": 26951,
+      "lifetimeEarned": 139451,
+      "lifetimeSpent": 112500,
+      "createdAt": "2026-06-19T22:12:24.348081164Z",
+      "updatedAt": "2026-06-20T00:13:26.122108920Z"
+    },
+    "65eb85c7-3832-408f-be3d-25e167d07eb4": {
+      "username": "Ebrons",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T22:16:20.197509424Z",
+      "updatedAt": "2026-06-19T22:16:20.197518414Z"
+    },
+    "9e2f70d5-164f-4a93-bbd4-8ebf325547d9": {
+      "username": "BastionCraft",
+      "balance": 2880,
+      "lifetimeEarned": 25380,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T22:37:29.723294098Z",
+      "updatedAt": "2026-06-19T23:30:42.263348998Z"
+    },
+    "5f06c4fa-a9d2-4423-b64e-fc924955d8f0": {
+      "username": "IndyGold1111",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T22:49:58.825174497Z",
+      "updatedAt": "2026-06-19T22:49:58.825184157Z"
+    },
+    "3630735d-e54f-40e9-812a-44ffd46c3f80": {
+      "username": "IndyGold1111",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-19T22:56:47.065510999Z",
+      "updatedAt": "2026-06-19T22:56:47.065520909Z"
+    },
+    "180d36cd-ee07-478e-83d7-10553f4f06e8": {
+      "username": "MildFlames",
+      "balance": 157306,
+      "lifetimeEarned": 199806,
+      "lifetimeSpent": 42500,
+      "createdAt": "2026-06-19T23:01:30.232700452Z",
+      "updatedAt": "2026-06-22T20:45:52.274707Z"
+    },
+    "a83af16e-ea0d-45e6-8a2a-3ff3c9ea7f9e": {
+      "username": "Mujaj",
+      "balance": 2590,
+      "lifetimeEarned": 25090,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-19T23:46:08.949808403Z",
+      "updatedAt": "2026-06-19T23:51:48.762859281Z"
+    },
+    "9e696cad-86f2-4ba4-b8be-b8ef97fdf0a7": {
+      "username": "BubbyBoy1",
+      "balance": 3792,
+      "lifetimeEarned": 34092,
+      "lifetimeSpent": 30300,
+      "createdAt": "2026-06-20T03:21:51.167478085Z",
+      "updatedAt": "2026-06-20T13:24:15.909761102Z"
+    },
+    "fa746bb7-6b15-4725-a1b7-8f6a6828d6df": {
+      "username": "Endymoin",
+      "balance": 97076,
+      "lifetimeEarned": 562276,
+      "lifetimeSpent": 465200,
+      "createdAt": "2026-06-20T09:29:47.218420891Z",
+      "updatedAt": "2026-06-23T20:04:54.939918400Z"
+    },
+    "8da26bc6-1ca6-4f4f-b007-a4476beeb2ba": {
+      "username": "BastionCraft",
+      "balance": 503902,
+      "lifetimeEarned": 3518302,
+      "lifetimeSpent": 3014400,
+      "createdAt": "2026-06-20T09:50:40.812948116Z",
+      "updatedAt": "2026-06-27T22:30:50.347609453Z"
+    },
+    "0c97aa39-7856-400b-b475-e4ba97b9f227": {
+      "username": "void_gem",
+      "balance": 10000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 15000,
+      "createdAt": "2026-06-20T10:40:20.609521549Z",
+      "updatedAt": "2026-06-20T10:57:31.327066908Z"
+    },
+    "88707914-c234-413d-a955-2afcfdc822fa": {
+      "username": "Psyronyx",
+      "balance": 726186,
+      "lifetimeEarned": 127380486,
+      "lifetimeSpent": 126654300,
+      "createdAt": "2026-06-20T11:20:16.043592571Z",
+      "updatedAt": "2026-06-27T23:50:39.986893007Z"
+    },
+    "741876ab-4d92-4eb8-ac16-4ec73e94fd58": {
+      "username": "Endymoin",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T11:36:38.648599414Z",
+      "updatedAt": "2026-06-20T11:36:38.648629534Z"
+    },
+    "958bf5aa-b074-43d2-8dc4-c82077816fdc": {
+      "username": "SomethingDerp",
+      "balance": 2788,
+      "lifetimeEarned": 25288,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-20T11:51:23.869452416Z",
+      "updatedAt": "2026-06-20T12:13:33.483441630Z"
+    },
+    "ba4717f7-565d-4961-833a-5a852e46a0d3": {
+      "username": "ItzSem",
+      "balance": 58401,
+      "lifetimeEarned": 264601,
+      "lifetimeSpent": 206200,
+      "createdAt": "2026-06-20T11:52:56.105506784Z",
+      "updatedAt": "2026-06-27T18:32:56.483654269Z"
+    },
+    "7373fae4-2e7b-4a78-b034-50f4df0278a9": {
+      "username": "Tatubola8358",
+      "balance": 7539,
+      "lifetimeEarned": 45339,
+      "lifetimeSpent": 37800,
+      "createdAt": "2026-06-20T12:11:53.411966452Z",
+      "updatedAt": "2026-06-20T13:30:24.307490565Z"
+    },
+    "588c10fd-526f-42ce-986a-39f52916640a": {
+      "username": "ToadBC",
+      "balance": 66261,
+      "lifetimeEarned": 558752,
+      "lifetimeSpent": 492491,
+      "createdAt": "2026-06-20T12:19:33.119149479Z",
+      "updatedAt": "2026-06-27T18:45:59.280141224Z"
+    },
+    "09602b5a-e926-4e2c-b6c8-b91fd0319a58": {
+      "username": "Herobline",
+      "balance": 2827,
+      "lifetimeEarned": 25327,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-20T13:13:27.803033656Z",
+      "updatedAt": "2026-06-20T14:03:43.374988813Z"
+    },
+    "d0f8448d-9d37-41f8-a301-72967123e29f": {
+      "username": "Halikon",
+      "balance": 66210,
+      "lifetimeEarned": 222310,
+      "lifetimeSpent": 156100,
+      "createdAt": "2026-06-20T13:16:08.696245010Z",
+      "updatedAt": "2026-06-25T04:27:31.738490274Z"
+    },
+    "18a782da-8bb3-4ae5-b2eb-92fe12963083": {
+      "username": "sw0rdtail",
+      "balance": 26658,
+      "lifetimeEarned": 26658,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T13:25:49.080573859Z",
+      "updatedAt": "2026-06-21T18:33:22.237004375Z"
+    },
+    "c02cee8b-1b27-463b-9ca7-6a843043a479": {
+      "username": "Psyronyx",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T13:38:05.915001894Z",
+      "updatedAt": "2026-06-26T20:23:52.042157087Z"
+    },
+    "ce2abb82-6358-4373-aead-279631801f0e": {
+      "username": "ToadBC",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T13:41:02.634999822Z",
+      "updatedAt": "2026-06-20T13:41:02.635007612Z"
+    },
+    "bccd2cc9-24ed-4e9d-867e-f9fc09a52bba": {
+      "username": "ToadBC",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T13:43:01.338809551Z",
+      "updatedAt": "2026-06-20T13:43:03.121987180Z"
+    },
+    "8590df3c-3628-4af0-8b3b-83778b1c96f9": {
+      "username": "ItzSem",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T15:30:33.846730996Z",
+      "updatedAt": "2026-06-20T15:30:33.846740296Z"
+    },
+    "8e660d9f-c5fe-4e3a-a8b8-1128b9308e06": {
+      "username": "Travelle007",
+      "balance": 116851,
+      "lifetimeEarned": 168951,
+      "lifetimeSpent": 52100,
+      "createdAt": "2026-06-20T16:35:32.314266417Z",
+      "updatedAt": "2026-06-27T18:30:26.484238580Z"
+    },
+    "81473cb7-f40c-4ed8-a4a4-abd7d255cad2": {
+      "username": "TheVulkann",
+      "balance": 91852,
+      "lifetimeEarned": 1988928,
+      "lifetimeSpent": 1897076,
+      "createdAt": "2026-06-20T17:03:01.535532868Z",
+      "updatedAt": "2026-06-25T20:41:57.130275699Z"
+    },
+    "37e4a37f-3e40-42e6-8f8c-82bf5ba36d63": {
+      "username": "Awsomeman47",
+      "balance": 87,
+      "lifetimeEarned": 25088,
+      "lifetimeSpent": 25001,
+      "createdAt": "2026-06-20T17:22:07.509809309Z",
+      "updatedAt": "2026-06-24T22:58:20.742052775Z"
+    },
+    "48572f4b-e0f0-44d4-b21e-dcb1541c7150": {
+      "username": "TheGreatOlm",
+      "balance": 780,
+      "lifetimeEarned": 36280,
+      "lifetimeSpent": 35500,
+      "createdAt": "2026-06-20T17:34:32.415979992Z",
+      "updatedAt": "2026-06-20T18:33:34.457563945Z"
+    },
+    "f14e9be6-996e-4dac-9a70-1b6395c25d00": {
+      "username": "TheVulkann",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T18:25:18.652162905Z",
+      "updatedAt": "2026-06-20T18:25:18.652193925Z"
+    },
+    "e815213a-4536-4d83-9903-1fdb280ad03c": {
+      "username": "TheVulkann",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T18:27:22.382257016Z",
+      "updatedAt": "2026-06-20T18:27:22.382282026Z"
+    },
+    "bb8a487c-8f97-49fb-878c-db14236e2994": {
+      "username": "zypology",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T18:52:38.164161645Z",
+      "updatedAt": "2026-06-20T18:52:38.164168455Z"
+    },
+    "ee56130b-2a5b-4a85-a437-9063eef6ae8c": {
+      "username": "INDUCOLTECH2014",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T19:17:30.195774165Z",
+      "updatedAt": "2026-06-20T19:17:30.195790335Z"
+    },
+    "b2fc95a7-cf90-4d35-88ac-d8f5ac0d6ea7": {
+      "username": "SlofiXD",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-20T21:28:26.390654505Z",
+      "updatedAt": "2026-06-20T21:36:02.654177845Z"
+    },
+    "32b63a5c-6375-4190-9d33-1ef6fbf854d1": {
+      "username": "ObxM",
+      "balance": 14200,
+      "lifetimeEarned": 92200,
+      "lifetimeSpent": 78000,
+      "createdAt": "2026-06-20T21:36:46.118451365Z",
+      "updatedAt": "2026-06-26T06:33:20.309710120Z"
+    },
+    "629eb505-a5ca-4fc9-b867-f16924f31497": {
+      "username": "SomethingDerp",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T21:56:10.566886225Z",
+      "updatedAt": "2026-06-20T21:56:10.566894515Z"
+    },
+    "cd7c854a-ff17-4778-9775-30a41277ffbe": {
+      "username": "Katannus24",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-20T23:52:28.097402741Z",
+      "updatedAt": "2026-06-20T23:52:28.097422711Z"
+    },
+    "fb0f0a4b-9405-46d0-9944-82ddbd2c892d": {
+      "username": "BerryFree14",
+      "balance": 1421,
+      "lifetimeEarned": 25921,
+      "lifetimeSpent": 24500,
+      "createdAt": "2026-06-20T23:55:10.193144993Z",
+      "updatedAt": "2026-06-26T01:07:56.692116845Z"
+    },
+    "01a36857-36c6-4108-b0ff-8f3321885788": {
+      "username": "Jeeeeeeeeeeeeef",
+      "balance": 0,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 25000,
+      "createdAt": "2026-06-21T00:07:55.223950247Z",
+      "updatedAt": "2026-06-21T00:27:03.599779450Z"
+    },
+    "5367d2d7-219e-4e4d-b620-2d6c4d2ffec7": {
+      "username": "ThetaArmourious",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T00:23:40.552233739Z",
+      "updatedAt": "2026-06-21T00:23:40.552289039Z"
+    },
+    "90631653-0a4c-43fb-a7c2-00872764cf78": {
+      "username": "Aplebred",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-21T03:44:53.182733252Z",
+      "updatedAt": "2026-06-21T05:00:55.985543893Z"
+    },
+    "5623c611-6aa0-4d4c-9f19-bd7661be75cf": {
+      "username": "dinomewmew",
+      "balance": 367301,
+      "lifetimeEarned": 859801,
+      "lifetimeSpent": 492500,
+      "createdAt": "2026-06-21T05:02:40.101986476Z",
+      "updatedAt": "2026-06-27T20:01:08.636116380Z"
+    },
+    "79a73ada-b8a1-45b5-acf9-55a44dfe183e": {
+      "username": "Oill",
+      "balance": 10928,
+      "lifetimeEarned": 33428,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-21T05:04:48.011521878Z",
+      "updatedAt": "2026-06-21T05:16:13.957960295Z"
+    },
+    "f23ce6b3-b859-4bdc-99f6-12af789ebfe4": {
+      "username": "yNeath",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T07:18:30.912987318Z",
+      "updatedAt": "2026-06-23T06:23:29.977228983Z"
+    },
+    "6936e08a-3f60-4fac-82a3-bbf0886d5875": {
+      "username": "Alphonzus",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T12:43:35.032985816Z",
+      "updatedAt": "2026-06-21T12:43:35.033020076Z"
+    },
+    "83f30f61-75bb-4863-86f7-068679395434": {
+      "username": "Kayblondie87",
+      "balance": 3311,
+      "lifetimeEarned": 25811,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-21T13:52:34.582409911Z",
+      "updatedAt": "2026-06-23T00:42:02.629976182Z"
+    },
+    "fb63c0d6-4aa8-4899-847f-2f66f486d935": {
+      "username": "Kayblondie87",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T14:21:56.828439178Z",
+      "updatedAt": "2026-06-21T14:21:56.828460748Z"
+    },
+    "680aaa7d-af65-497a-96ec-7a32f412b1a8": {
+      "username": "Oill",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T14:24:22.518832212Z",
+      "updatedAt": "2026-06-21T14:24:22.518853112Z"
+    },
+    "68cde10c-7a9c-414a-b0e0-b0c92b31408d": {
+      "username": "MildFlames",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T15:15:28.166334808Z",
+      "updatedAt": "2026-06-21T15:15:28.166371078Z"
+    },
+    "db657cc0-7361-465f-bcb4-fbe01deb2ca7": {
+      "username": "IAmTrains",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T15:17:40.468909222Z",
+      "updatedAt": "2026-06-24T18:58:14.861482274Z"
+    },
+    "ba8fc063-29ae-4d89-9e28-407e1c7a7d62": {
+      "username": "John_Melee",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T15:17:43.818531689Z",
+      "updatedAt": "2026-06-21T15:17:43.818551569Z"
+    },
+    "ea621751-966b-4e18-beea-2095821061a2": {
+      "username": "joshkorea",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T15:20:43.788940203Z",
+      "updatedAt": "2026-06-21T15:20:43.788958443Z"
+    },
+    "94fdf72b-3f39-43da-99e7-c086af140cde": {
+      "username": "joshkorea",
+      "balance": 352500,
+      "lifetimeEarned": 2525000,
+      "lifetimeSpent": 2172500,
+      "createdAt": "2026-06-21T15:20:47.845442364Z",
+      "updatedAt": "2026-06-27T15:06:24.056668815Z"
+    },
+    "57553b26-d806-4ab5-a301-1dbfb4db4390": {
+      "username": "dinomewmew",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T16:15:13.571964471Z",
+      "updatedAt": "2026-06-21T16:15:13.571973171Z"
+    },
+    "a27366e4-f8c2-4428-b45d-bfc864d4c462": {
+      "username": "sw0rdtail",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T17:51:40.824624426Z",
+      "updatedAt": "2026-06-21T17:51:40.824636546Z"
+    },
+    "d99070ec-4b2b-44ad-9457-937e702bd779": {
+      "username": "BastionCraft",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T18:38:12.813885164Z",
+      "updatedAt": "2026-06-21T18:38:12.813893484Z"
+    },
+    "5eda5d4f-9607-442c-81e2-5b264a1e35e0": {
+      "username": "Awsomeman47",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-21T23:53:31.092814935Z",
+      "updatedAt": "2026-06-21T23:53:31.092820855Z"
+    },
+    "a066d48d-f549-483d-b850-fa14711d5219": {
+      "username": "Halikon",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T03:10:58.688465840Z",
+      "updatedAt": "2026-06-22T03:10:58.688475270Z"
+    },
+    "10f3d7af-8422-4af8-bb00-e4b09fb1d222": {
+      "username": "ObxM",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T03:38:19.541701769Z",
+      "updatedAt": "2026-06-22T03:38:19.541721679Z"
+    },
+    "72744bdd-36ef-41bd-a930-d4d9333b701d": {
+      "username": "joshkorea",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T13:12:48.128355343Z",
+      "updatedAt": "2026-06-22T13:12:48.128421973Z"
+    },
+    "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5": {
+      "username": "Alathreon",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T14:04:08.315431259Z",
+      "updatedAt": "2026-06-22T14:04:08.315445109Z"
+    },
+    "c19d8cbf-cfe9-40ac-b808-5b54e9b8ae31": {
+      "username": "undeadgamer039",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T20:40:12.384370293Z",
+      "updatedAt": "2026-06-22T20:40:12.384390293Z"
+    },
+    "dc1465dc-109e-4e63-bde4-21b409d5a75a": {
+      "username": "undeadgamer039",
+      "balance": 2792,
+      "lifetimeEarned": 25292,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-22T20:40:54.973829187Z",
+      "updatedAt": "2026-06-22T21:10:30.821439721Z"
+    },
+    "1db6673c-b4b4-4420-ba05-359d6383198f": {
+      "username": "elliottrip",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T23:11:25.674697231Z",
+      "updatedAt": "2026-06-22T23:11:25.674723061Z"
+    },
+    "13f3daff-3b47-4209-8296-bca2364a3ecd": {
+      "username": "elliottrip",
+      "balance": 36761,
+      "lifetimeEarned": 277951,
+      "lifetimeSpent": 241190,
+      "createdAt": "2026-06-22T23:11:35.521236730Z",
+      "updatedAt": "2026-06-27T11:43:18.138419813Z"
+    },
+    "e1a36aa8-2de8-4f51-903c-6faeed5b4337": {
+      "username": "FruitCup525",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-22T23:35:37.874503775Z",
+      "updatedAt": "2026-06-22T23:35:37.874518545Z"
+    },
+    "0141c1a6-0c76-4968-b6ab-fa971a80369d": {
+      "username": "FruitCup525",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-22T23:35:43.877355728Z",
+      "updatedAt": "2026-06-27T22:47:55.579647577Z"
+    },
+    "ad927f93-e18d-40fd-8a9a-be7515341440": {
+      "username": "Travelle007",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T01:50:08.733334027Z",
+      "updatedAt": "2026-06-23T01:50:08.733342597Z"
+    },
+    "98943bb5-feb1-4f08-b8f5-e53883208a02": {
+      "username": "Jack_Kak",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T03:00:33.359352807Z",
+      "updatedAt": "2026-06-23T03:00:33.359361547Z"
+    },
+    "f028f10f-d175-4a8b-8f90-9087e22a7ff9": {
+      "username": "Jack_Kak",
+      "balance": 2700,
+      "lifetimeEarned": 25200,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-23T03:00:39.350198023Z",
+      "updatedAt": "2026-06-23T03:09:17.234041914Z"
+    },
+    "535f2e1a-857f-4b75-a6f7-616fc8ad2271": {
+      "username": "elliottrip",
+      "balance": 25387,
+      "lifetimeEarned": 25387,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T05:22:07.853143880Z",
+      "updatedAt": "2026-06-26T03:38:52.951431754Z"
+    },
+    "268b527c-269d-4452-aad9-0dc03f1bde50": {
+      "username": "iglwillis",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T19:00:11.854459771Z",
+      "updatedAt": "2026-06-23T19:00:11.854479801Z"
+    },
+    "5b88cc63-d63c-4df2-ac11-c2ac999cbfaa": {
+      "username": "iglwillis",
+      "balance": 29473,
+      "lifetimeEarned": 61973,
+      "lifetimeSpent": 32500,
+      "createdAt": "2026-06-23T19:00:17.344960687Z",
+      "updatedAt": "2026-06-25T19:36:07.083409394Z"
+    },
+    "c0a71409-ead2-4f3c-ac41-e6f3baa28bae": {
+      "username": "CobblemonX",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T19:48:24.777045630Z",
+      "updatedAt": "2026-06-23T19:48:24.777055670Z"
+    },
+    "5d90e1c5-016a-4c65-9cec-986600aabba1": {
+      "username": "SilverWolf582",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T20:12:34.435366189Z",
+      "updatedAt": "2026-06-23T20:12:34.435375519Z"
+    },
+    "4f8b620d-5a08-4a87-a20b-40a589e79f8b": {
+      "username": "SilverWolf582",
+      "balance": 10000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 15000,
+      "createdAt": "2026-06-23T20:12:54.538872385Z",
+      "updatedAt": "2026-06-23T20:15:30.704101206Z"
+    },
+    "62d98625-614f-4698-8209-5b795c1c84c0": {
+      "username": "pokeking1234",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T20:52:44.324148910Z",
+      "updatedAt": "2026-06-23T20:52:44.324158770Z"
+    },
+    "e5a26eec-ce74-452c-9baf-8312d4990ec9": {
+      "username": "pokeking1234",
+      "balance": 14071,
+      "lifetimeEarned": 58871,
+      "lifetimeSpent": 44800,
+      "createdAt": "2026-06-23T20:52:51.886379502Z",
+      "updatedAt": "2026-06-24T11:33:48.896328435Z"
+    },
+    "ff1f8781-b776-46ed-b439-c6604dad6427": {
+      "username": "lofi_waffle",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T21:44:40.343253439Z",
+      "updatedAt": "2026-06-23T21:44:40.343261179Z"
+    },
+    "2108262e-85bc-491c-aacd-19e4bf814300": {
+      "username": "lofi_waffle",
+      "balance": 25279,
+      "lifetimeEarned": 25279,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T21:46:46.289687936Z",
+      "updatedAt": "2026-06-23T22:14:08.897164144Z"
+    },
+    "0acd372d-92a6-4302-9975-29fe240d982a": {
+      "username": "Unkn0wnErrrrror",
+      "balance": 17500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 7500,
+      "createdAt": "2026-06-23T22:24:27.087983878Z",
+      "updatedAt": "2026-06-23T22:31:44.646710647Z"
+    },
+    "e22fe5b0-aa2f-42c4-8128-de47fa56fdfa": {
+      "username": "LanLanoo",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-23T22:54:38.508341012Z",
+      "updatedAt": "2026-06-23T22:54:38.508379462Z"
+    },
+    "e5fb82c6-bed5-4f82-80be-2d79a734b62a": {
+      "username": "LanLanoo",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-23T22:55:35.187323327Z",
+      "updatedAt": "2026-06-23T23:05:02.231949467Z"
+    },
+    "34579b8b-2e67-4b3b-975a-a25748b505ea": {
+      "username": "pokeking1234",
+      "balance": 218025,
+      "lifetimeEarned": 326525,
+      "lifetimeSpent": 108500,
+      "createdAt": "2026-06-24T12:30:42.107515104Z",
+      "updatedAt": "2026-06-27T20:02:52.276576804Z"
+    },
+    "214a0030-d0da-4d03-87d7-62ab409b2d64": {
+      "username": "Danzen_KORO",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T17:23:46.139589516Z",
+      "updatedAt": "2026-06-24T17:23:46.139594856Z"
+    },
+    "f9709ee1-ab4e-4155-9854-268059f277d6": {
+      "username": "Danzen_KORO",
+      "balance": 5000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 20000,
+      "createdAt": "2026-06-24T17:24:02.144563876Z",
+      "updatedAt": "2026-06-24T17:34:35.063357908Z"
+    },
+    "2b9c7d11-a248-4987-842d-77f2ae0dd909": {
+      "username": "YaBoiUnder",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T19:01:51.055070194Z",
+      "updatedAt": "2026-06-24T19:01:51.055075604Z"
+    },
+    "e7e836b6-1a84-46e2-8fe4-6a2d7a2a4048": {
+      "username": "YaBoiUnder",
+      "balance": 16005,
+      "lifetimeEarned": 42105,
+      "lifetimeSpent": 26100,
+      "createdAt": "2026-06-24T19:02:00.653147698Z",
+      "updatedAt": "2026-06-24T19:53:40.588369408Z"
+    },
+    "722f13aa-b0dd-440a-845a-4a6c0de57498": {
+      "username": "IAmTrains",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T19:07:00.062623473Z",
+      "updatedAt": "2026-06-24T19:07:00.062638043Z"
+    },
+    "8d77eb8a-0766-4ee9-a15c-b1ea5867e93d": {
+      "username": "IAmTrains",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T19:08:22.585169803Z",
+      "updatedAt": "2026-06-24T19:08:22.585175703Z"
+    },
+    "a9858749-aa4a-4b04-86dd-4b15c63fc297": {
+      "username": "NotMagics",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T21:45:18.797829430Z",
+      "updatedAt": "2026-06-24T21:45:18.797851950Z"
+    },
+    "c567f8ef-1dfd-45a8-b607-abee600ba043": {
+      "username": "NotMagics",
+      "balance": 2997,
+      "lifetimeEarned": 25497,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-24T21:45:39.494035627Z",
+      "updatedAt": "2026-06-24T23:29:10.982856200Z"
+    },
+    "12b30ac6-a125-415b-aaaf-cc052d3c228d": {
+      "username": "Oill",
+      "balance": 68420,
+      "lifetimeEarned": 68420,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T23:12:55.333049793Z",
+      "updatedAt": "2026-06-26T00:14:32.587480665Z"
+    },
+    "6e4b19d9-3584-4b7c-9415-f78d7682a7c9": {
+      "username": "Awakend_Nova",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T23:57:07.381436364Z",
+      "updatedAt": "2026-06-24T23:57:07.381452104Z"
+    },
+    "8a4d885d-92aa-4899-a335-4a6bcb3a20fc": {
+      "username": "Awakend_Nova",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-24T23:57:19.841324459Z",
+      "updatedAt": "2026-06-24T23:57:20.296169433Z"
+    },
+    "690d7c5d-4cc3-491f-9f45-48810791cf42": {
+      "username": "RoastedKetchup",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-25T04:52:44.261617840Z",
+      "updatedAt": "2026-06-25T04:52:44.261626090Z"
+    },
+    "343c9b3f-cdb0-4387-93ed-d6b32977174d": {
+      "username": "RoastedKetchup",
+      "balance": 2500,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 22500,
+      "createdAt": "2026-06-25T04:53:29.209197287Z",
+      "updatedAt": "2026-06-25T05:02:57.451605675Z"
+    },
+    "a488f2e3-31af-49c3-9102-62b8fc322a9c": {
+      "username": "MrShanmao",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-25T07:59:43.632956990Z",
+      "updatedAt": "2026-06-25T07:59:43.632978370Z"
+    },
+    "eb71c523-2415-4261-8c00-6138226deb2b": {
+      "username": "MrShanmao",
+      "balance": 10000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 15000,
+      "createdAt": "2026-06-25T08:01:09.531294501Z",
+      "updatedAt": "2026-06-25T08:05:23.055775215Z"
+    },
+    "16327139-206e-448b-b50c-f3b881c2d13d": {
+      "username": "BerryFree14",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-26T00:38:41.789624358Z",
+      "updatedAt": "2026-06-26T00:38:41.789649108Z"
+    },
+    "6ecf618b-0564-4b2f-a59a-ea3e39d14238": {
+      "username": "JalenHimBrunson",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-27T17:06:34.785589408Z",
+      "updatedAt": "2026-06-27T17:06:34.785605458Z"
+    },
+    "9fbc7c6b-9f28-416f-bde2-8bc58405a993": {
+      "username": "JalenHimBrunson",
+      "balance": 25000,
+      "lifetimeEarned": 25000,
+      "lifetimeSpent": 0,
+      "createdAt": "2026-06-27T17:06:46.783848785Z",
+      "updatedAt": "2026-06-27T17:06:47.379220678Z"
+    }
+  }
+}

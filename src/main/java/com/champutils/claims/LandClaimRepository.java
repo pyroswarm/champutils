@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -137,14 +138,16 @@ public final class LandClaimRepository {
 
     public static Claim findAt(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return null;
-        String serverId = NetworkServerConfig.serverId();
         String worldName = level.dimension().location().toString();
-        Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
-        if (chunks == null) return null;
-        List<Claim> candidates = chunks.get(chunkKey(pos.getX() >> 4, pos.getZ() >> 4));
-        if (candidates == null) return null;
-        for (Claim claim : candidates) {
-            if (claim.contains(serverId, worldName, pos)) return claim;
+        long chunk = chunkKey(pos.getX() >> 4, pos.getZ() >> 4);
+        for (String serverId : serverIdAliases()) {
+            Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
+            if (chunks == null) continue;
+            List<Claim> candidates = chunks.get(chunk);
+            if (candidates == null) continue;
+            for (Claim claim : candidates) {
+                if (claim.contains(serverId, worldName, pos)) return claim;
+            }
         }
         return null;
     }
@@ -170,19 +173,21 @@ public final class LandClaimRepository {
 
     public static boolean overlapsCached(ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
         if (level == null) return false;
-        String key = worldKey(NetworkServerConfig.serverId(), level.dimension().location().toString());
-        Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(key);
-        if (chunks == null) return false;
+        String worldName = level.dimension().location().toString();
         int minChunkX = minX >> 4;
         int maxChunkX = maxX >> 4;
         int minChunkZ = minZ >> 4;
         int maxChunkZ = maxZ >> 4;
-        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                List<Claim> list = chunks.get(chunkKey(cx, cz));
-                if (list == null) continue;
-                for (Claim claim : list) {
-                    if (claim.maxX >= minX && claim.minX <= maxX && claim.maxZ >= minZ && claim.minZ <= maxZ) return true;
+        for (String serverId : serverIdAliases()) {
+            Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
+            if (chunks == null) continue;
+            for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+                for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                    List<Claim> list = chunks.get(chunkKey(cx, cz));
+                    if (list == null) continue;
+                    for (Claim claim : list) {
+                        if (claim.maxX >= minX && claim.minX <= maxX && claim.maxZ >= minZ && claim.minZ <= maxZ) return true;
+                    }
                 }
             }
         }
@@ -193,6 +198,7 @@ public final class LandClaimRepository {
         if (player == null || level == null) return CreateResult.fail("Player/world missing.");
         if (!DatabaseManager.isEnabled()) return CreateResult.fail("Land claims require the SQL database.");
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return CreateResult.fail("You must select and load a profile before creating land claims.");
         int area = (Math.abs(maxX - minX) + 1) * (Math.abs(maxZ - minZ) + 1);
         if (area < LandClaimConfig.minArea()) return CreateResult.fail("Claim is too small. Minimum area is " + LandClaimConfig.minArea() + " blocks.");
         if (area > LandClaimConfig.maxArea()) return CreateResult.fail("Claim is too large. Maximum area is " + LandClaimConfig.maxArea() + " blocks.");
@@ -204,8 +210,8 @@ public final class LandClaimRepository {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
             try (PreparedStatement overlap = connection.prepareStatement(
-                    "select id from profile_land_claims where server_id = ? and world_name = ? and max_x >= ? and min_x <= ? and max_z >= ? and min_z <= ? limit 1")) {
-                overlap.setString(1, NetworkServerConfig.serverId());
+                    "select id from profile_land_claims where server_id = any(?) and world_name = ? and max_x >= ? and min_x <= ? and max_z >= ? and min_z <= ? limit 1")) {
+                overlap.setArray(1, connection.createArrayOf("text", serverIdAliases().toArray(new String[0])));
                 overlap.setString(2, level.dimension().location().toString());
                 overlap.setInt(3, minX);
                 overlap.setInt(4, maxX);
@@ -277,9 +283,9 @@ public final class LandClaimRepository {
         try {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
-            try (PreparedStatement overlap = connection.prepareStatement("select id from profile_land_claims where id <> ? and server_id = ? and world_name = ? and max_x >= ? and min_x <= ? and max_z >= ? and min_z <= ? limit 1")) {
+            try (PreparedStatement overlap = connection.prepareStatement("select id from profile_land_claims where id <> ? and server_id = any(?) and world_name = ? and max_x >= ? and min_x <= ? and max_z >= ? and min_z <= ? limit 1")) {
                 overlap.setObject(1, claim.id, Types.OTHER);
-                overlap.setString(2, NetworkServerConfig.serverId());
+                overlap.setArray(2, connection.createArrayOf("text", serverIdAliases().toArray(new String[0])));
                 overlap.setString(3, player.serverLevel().dimension().location().toString());
                 overlap.setInt(4, minX); overlap.setInt(5, maxX); overlap.setInt(6, minZ); overlap.setInt(7, maxZ);
                 try (ResultSet rs = overlap.executeQuery()) { if (rs.next()) return CreateResult.fail("That resized area overlaps another claim."); }
@@ -334,16 +340,18 @@ public final class LandClaimRepository {
 
     public static boolean overlapsCachedExcept(ServerLevel level, UUID exceptClaimId, int minX, int maxX, int minZ, int maxZ) {
         if (level == null) return false;
-        String key = worldKey(NetworkServerConfig.serverId(), level.dimension().location().toString());
-        Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(key);
-        if (chunks == null) return false;
-        for (int cx = minX >> 4; cx <= maxX >> 4; cx++) {
-            for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++) {
-                List<Claim> list = chunks.get(chunkKey(cx, cz));
-                if (list == null) continue;
-                for (Claim claim : list) {
-                    if (claim.id.equals(exceptClaimId)) continue;
-                    if (claim.maxX >= minX && claim.minX <= maxX && claim.maxZ >= minZ && claim.minZ <= maxZ) return true;
+        String worldName = level.dimension().location().toString();
+        for (String serverId : serverIdAliases()) {
+            Map<Long, List<Claim>> chunks = CLAIMS_BY_WORLD_CHUNK.get(worldKey(serverId, worldName));
+            if (chunks == null) continue;
+            for (int cx = minX >> 4; cx <= maxX >> 4; cx++) {
+                for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++) {
+                    List<Claim> list = chunks.get(chunkKey(cx, cz));
+                    if (list == null) continue;
+                    for (Claim claim : list) {
+                        if (claim.id.equals(exceptClaimId)) continue;
+                        if (claim.maxX >= minX && claim.minX <= maxX && claim.maxZ >= minZ && claim.minZ <= maxZ) return true;
+                    }
                 }
             }
         }
@@ -482,6 +490,24 @@ public final class LandClaimRepository {
         CLAIMS_BY_WORLD_CHUNK.putAll(chunkIndex);
         CLAIMS_BY_PROFILE.clear();
         CLAIMS_BY_PROFILE.putAll(profileIndex);
+    }
+
+    private static Set<String> serverIdAliases() {
+        LinkedHashSet<String> aliases = new LinkedHashSet<>();
+        addAlias(aliases, NetworkServerConfig.serverId());
+        NetworkServerConfig config = NetworkServerConfig.get();
+        if (config != null) addAlias(aliases, config.survivalServerId);
+
+        // Cobble Champs migrated the Velocity/backend id between survival-1 and survival.
+        // Old claims in SQL are still valid, so protection must read both names on survival worlds.
+        if (aliases.contains("survival")) addAlias(aliases, "survival-1");
+        if (aliases.contains("survival-1")) addAlias(aliases, "survival");
+        return aliases;
+    }
+
+    private static void addAlias(Set<String> aliases, String value) {
+        if (value == null || value.isBlank()) return;
+        aliases.add(value.trim().toLowerCase(Locale.ROOT));
     }
 
     private static long chunkKey(int chunkX, int chunkZ) { return (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL); }

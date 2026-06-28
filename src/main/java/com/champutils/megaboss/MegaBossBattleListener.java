@@ -2,7 +2,6 @@ package com.champutils.megaboss;
 
 import com.champutils.battle.BattleContextManager;
 import com.champutils.economy.EconomyManager;
-import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionType;
@@ -129,7 +128,7 @@ public final class MegaBossBattleListener {
                 if (!(playerActor.getEntity() instanceof ServerPlayer player)) continue;
                 ACTIVE_PLAYER_BOSS.put(player.getUUID(), boss.getUUID());
                 BattleContextManager.setContext(player.getUUID(), BattleContextManager.BattleType.MEGA_BOSS);
-                player.sendSystemMessage(Component.literal("§5§lMega Boss Challenge! §cThis Pokémon cannot be caught. Defeat it for fragments, extra Battling XP, and a chance at its Mega Stone."));
+                player.sendSystemMessage(Component.literal("§5§lMega Boss Challenge! §cThis Pokémon cannot be caught. Defeat it for credits, extra Battling XP, and a chance at its Mega Stone."));
             }
         }
     }
@@ -186,15 +185,14 @@ public final class MegaBossBattleListener {
         int xp = Math.max(0, MegaBossConfig.DATA.battlingXpReward);
         if (xp > 0) ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
 
-        int min = Math.max(0, MegaBossConfig.DATA.fragmentMin);
-        int max = Math.max(min, MegaBossConfig.DATA.fragmentMax);
-        int fragments = max <= 0 ? 0 : min + ThreadLocalRandom.current().nextInt(max - min + 1);
-        if (fragments > 0) ProfessionFragmentManager.giveFragments(player, rarity, fragments);
+        // Mega Bosses intentionally no longer award profession fragments.
+        // Keep fragments exclusive to profession gameplay so Mega Bosses stay focused on
+        // credits, Battling XP, and Mega Stone/prestige rewards.
 
         double chance = megaStoneChance();
         String stoneItem = pickStone(stoneItems);
         double roll = ThreadLocalRandom.current().nextDouble();
-        // Exactly one independent 10% Mega Stone roll per rewarded player per megaboss victory.
+        // Exactly one independent 50% Mega Stone roll per rewarded player per megaboss victory.
         boolean gotStone = stoneItem != null && !stoneItem.isBlank() && roll < chance;
         if (gotStone) giveItem(player, stoneItem, 1);
 
@@ -207,7 +205,7 @@ public final class MegaBossBattleListener {
         // Battling profession's post-battle random loot roll.
         WildBattleRewardManager.rollRewardNoMoney(player);
 
-        player.sendSystemMessage(Component.literal("§dMega Boss defeated! §a+" + EconomyManager.formatWholeCredits(creditReward) + " §7| §b+" + xp + " Battling XP §7| §6" + fragments + " " + pretty(rarity) + " Fragments §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
+        player.sendSystemMessage(Component.literal("§dMega Boss defeated! §a+" + EconomyManager.formatWholeCredits(creditReward) + " §7| §b+" + xp + " Battling XP §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
         if (gotStone && MegaBossConfig.DATA.broadcastMegaStoneDrops && player.getServer() != null) {
             player.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§6§lMega Stone Drop! §e" + player.getName().getString() + " obtained §b" + prettyItemName(stoneItem) + " §efrom a Mega Boss!"), false);
         }
@@ -227,9 +225,9 @@ public final class MegaBossBattleListener {
     }
 
     private static double megaStoneChance() {
-        // Fixed design rule: megaboss wins have a stronger flat 15% Mega Stone chance.
+        // Fixed design rule: megaboss wins have a flat 50% Mega Stone chance.
         // This intentionally ignores profession level and any stale config values.
-        return 0.15D;
+        return 0.50D;
     }
 
     private static String pickStone(List<String> stoneItems) {

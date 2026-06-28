@@ -35,6 +35,7 @@ public final class BadgeUnlockConfig {
             e.printStackTrace();
             DATA = defaults();
         }
+        normalizeRequiredUnlocks();
         rebuildIndex();
     }
 
@@ -66,6 +67,29 @@ public final class BadgeUnlockConfig {
             if (BadgeManager.hasBadge(player, badge)) return true;
         }
         return false;
+    }
+
+    private static void normalizeRequiredUnlocks() {
+        if (DATA == null || DATA.badges == null) DATA = defaults();
+        for (BadgeType badge : BadgeType.values()) DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
+        addPermission(BadgeType.CASCADE, "champutils.command.pc");
+        addPermission(BadgeType.CASCADE, "cobblemonextras.cobblemonextras.command.pc");
+        addCommand(BadgeType.CASCADE, "/pc");
+        addPermission(BadgeType.THUNDER, "champutils.command.pokeheal");
+        addPermission(BadgeType.THUNDER, "command.healpokemon.self");
+        addCommand(BadgeType.THUNDER, "/pokeheal");
+    }
+
+    private static void addPermission(BadgeType badge, String permission) {
+        BadgeUnlock unlock = DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
+        if (unlock.permissions == null) unlock.permissions = new ArrayList<>();
+        if (unlock.permissions.stream().noneMatch(p -> p.equalsIgnoreCase(permission))) unlock.permissions.add(permission);
+    }
+
+    private static void addCommand(BadgeType badge, String command) {
+        BadgeUnlock unlock = DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
+        if (unlock.commands == null) unlock.commands = new ArrayList<>();
+        if (unlock.commands.stream().noneMatch(c -> c.equalsIgnoreCase(command))) unlock.commands.add(command);
     }
 
     private static BadgeUnlock unlock(BadgeType badge) {

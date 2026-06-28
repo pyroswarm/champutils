@@ -1,0 +1,42 @@
+{
+  "enabled": false,
+  "debug": false,
+  "defaultAiSkill": 5,
+  "wildBattles": {
+    "enabled": true,
+    "skill": 5,
+    "competitiveLayer": false,
+    "antiSpamLayer": true
+  },
+  "trainerBattles": {
+    "enabled": true,
+    "skill": 5,
+    "competitiveLayer": true,
+    "antiSpamLayer": true
+  },
+  "gymBattles": {
+    "enabled": true,
+    "skill": 5,
+    "competitiveLayer": true,
+    "antiSpamLayer": true
+  },
+  "guildBossBattles": {
+    "enabled": true,
+    "skill": 5,
+    "competitiveLayer": true,
+    "antiSpamLayer": true
+  },
+  "worldBossBattles": {
+    "enabled": true,
+    "skill": 5,
+    "competitiveLayer": true,
+    "antiSpamLayer": true
+  },
+  "antiSpam": {
+    "protectRepeatPenaltyTurns": 3,
+    "sameMoveSoftLimit": 3,
+    "preventProtectSpam": true,
+    "preventLowValueProtect": true,
+    "preventSameMoveLoops": true
+  }
+}

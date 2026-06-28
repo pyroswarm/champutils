@@ -21,18 +21,19 @@ import net.minecraft.core.BlockPos;
 public final class ProfileLobbyManager {
     public static final String PROFILE_LOBBY_DIMENSION = "multiworld:profile_lobby";
 
-    public static final double LOBBY_X = 100.5D;
-    public static final double LOBBY_Y = 100.0D;
+    public static final double LOBBY_X = 107.5D;
+    public static final double LOBBY_Y = 65.0D;
     public static final double LOBBY_Z = 0.5D;
 
-    public static final int LOBBY_SPAWN_X = 100;
-    public static final int LOBBY_SPAWN_Y = 100;
+    public static final int LOBBY_SPAWN_X = 107;
+    public static final int LOBBY_SPAWN_Y = 65;
     public static final int LOBBY_SPAWN_Z = 0;
 
-    public static final double PROFILE_NPC_X = 100.5D;
-    public static final double PROFILE_NPC_Y = 100.0D;
+    public static final double PROFILE_NPC_X = 107.5D;
+    public static final double PROFILE_NPC_Y = 65.0D;
     public static final double PROFILE_NPC_Z = 0.5D;
-    public static final float LOBBY_YAW = 90.0F;
+    /** Minecraft yaw for facing east. */
+    public static final float LOBBY_YAW = -90.0F;
     public static final float LOBBY_PITCH = 0.0F;
 
     private ProfileLobbyManager() {}
@@ -90,7 +91,10 @@ public final class ProfileLobbyManager {
 
     public static void applyProfileWorldSpawn(ServerLevel level) {
         if (level == null) return;
-        if (!PROFILE_LOBBY_DIMENSION.equals(level.dimension().location().toString())) return;
+        boolean networkProfileOverworld = ProfileNetworkTransferFlow.isProfileLobbyServer()
+                && level.dimension() == Level.OVERWORLD;
+        boolean allInOneProfileDimension = PROFILE_LOBBY_DIMENSION.equals(level.dimension().location().toString());
+        if (!networkProfileOverworld && !allInOneProfileDimension) return;
         try {
             level.setDefaultSpawnPos(new BlockPos(LOBBY_SPAWN_X, LOBBY_SPAWN_Y, LOBBY_SPAWN_Z), LOBBY_YAW);
         } catch (Exception ignored) {
@@ -102,19 +106,25 @@ public final class ProfileLobbyManager {
     }
 
     public static ServerLevel resolveLobbyLevel(ServerPlayer player) {
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            return player.server.overworld();
+        }
+
         ResourceKey<Level> key = resolveLobbyKey();
         ServerLevel lobby = player.server.getLevel(key);
         if (lobby != null) {
             return lobby;
         }
 
-        throw new IllegalStateException("Profile lobby dimension is missing: " + PROFILE_LOBBY_DIMENSION + ". Refusing to fall back to overworld.");
+        throw new IllegalStateException("Profile lobby dimension is missing: " + PROFILE_LOBBY_DIMENSION + ". Refusing to fall back to overworld outside PROFILE_LOBBY mode.");
     }
 
     private static boolean isInProfileLobbyDimension(ServerPlayer player) {
-        return player != null
-                && player.serverLevel() != null
-                && PROFILE_LOBBY_DIMENSION.equals(player.serverLevel().dimension().location().toString());
+        if (player == null || player.serverLevel() == null) return false;
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            return player.serverLevel().dimension() == Level.OVERWORLD;
+        }
+        return PROFILE_LOBBY_DIMENSION.equals(player.serverLevel().dimension().location().toString());
     }
 
     public static void applyLobbyProtections(ServerPlayer player) {

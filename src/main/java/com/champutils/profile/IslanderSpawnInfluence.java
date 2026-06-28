@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.badge.BadgeManager;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.api.spawning.SpawnBucket;
 import com.cobblemon.mod.common.api.spawning.detail.PokemonSpawnDetail;
@@ -52,10 +53,8 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         if (!IslanderSpawningConfig.CONFIG.spawnablePositionTypes.contains(typeName)) return null;
 
         ServerPlayer activePlayer = playerUuid == null || level.getServer() == null ? null : level.getServer().getPlayerList().getPlayer(playerUuid);
-        long playtimeSeconds = activePlayer == null
-                ? 0L
-                : ProfilePlaytimeManager.getDisplayPlaytimeSeconds(activePlayer);
-        IslanderSpawningConfig.Tier tier = IslanderSpawningConfig.tierForPlaytime(playtimeSeconds);
+        int badgeCount = activePlayer == null ? 0 : BadgeManager.getBadgeCount(activePlayer);
+        IslanderSpawningConfig.Tier tier = IslanderSpawningConfig.tierForBadgeCount(badgeCount);
 
         String bucketKey = String.valueOf(bucket);
         String cacheKey = typeName + "|" + bucketKey + "|" + tier.id;

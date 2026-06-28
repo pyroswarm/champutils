@@ -251,6 +251,7 @@ public class ProfessionToolConfig {
             }
 
             ensureDefaultShovelTools();
+            applyCobbleChampsProfessionToolRework();
 
             ENCHANTING =
                     new LinkedHashMap<>();
@@ -559,6 +560,71 @@ public class ProfessionToolConfig {
         }
     }
 
+
+    private static void applyCobbleChampsProfessionToolRework() {
+        if (TOOLS == null) return;
+        for (Map.Entry<String, ToolData> entry : TOOLS.entrySet()) {
+            ToolData tool = entry.getValue();
+            if (tool == null) continue;
+            String base = tool.baseItem == null ? "" : tool.baseItem.toLowerCase();
+            String rarity = normalizeRarity(tool.rarity);
+            boolean pickaxe = base.contains("pickaxe");
+            boolean axe = !pickaxe && base.contains("axe");
+            boolean hoe = base.contains("hoe");
+            boolean shovel = base.contains("shovel");
+            if (!pickaxe && !axe && !hoe && !shovel) continue;
+
+            Map<String, StatRange> ranges = new LinkedHashMap<>();
+            if (pickaxe) {
+                ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                ranges.put("stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
+            } else if (axe) {
+                ranges.put("chopSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                ranges.put("apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
+                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
+            } else if (hoe) {
+                ranges.put("farmingSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("fortuneChance", range(rarity, 1, 3, 2, 5, 4, 8, 6, 12, 10, 18, 15, 25));
+                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch"));
+            } else if (shovel) {
+                ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                ranges.put("fossilFinderChance", range(rarity, 0.01, 0.05, 0.02, 0.08, 0.04, 0.15, 0.08, 0.25, 0.15, 0.40, 0.25, 0.75));
+                tool.passives = new ArrayList<>(List.of("durability_save", "fossil_finder"));
+            }
+            tool.statRanges = ranges;
+            tool.stats = new LinkedHashMap<>();
+        }
+    }
+
+    private static String normalizeRarity(String rarity) {
+        if (rarity == null || rarity.isBlank()) return "COMMON";
+        return rarity.trim().toUpperCase();
+    }
+
+    private static StatRange range(String rarity,
+                                   double cMin, double cMax, double uMin, double uMax,
+                                   double rMin, double rMax, double eMin, double eMax,
+                                   double lMin, double lMax, double mMin, double mMax) {
+        return switch (normalizeRarity(rarity)) {
+            case "UNCOMMON" -> new StatRange(uMin, uMax, 1.0D);
+            case "RARE" -> new StatRange(rMin, rMax, 1.0D);
+            case "EPIC" -> new StatRange(eMin, eMax, 1.0D);
+            case "LEGENDARY" -> new StatRange(lMin, lMax, 1.0D);
+            case "MYTHIC" -> new StatRange(mMin, mMax, 1.0D);
+            default -> new StatRange(cMin, cMax, 1.0D);
+        };
+    }
 
     private static void ensureDefaultShovelTools() {
         if (TOOLS == null) {

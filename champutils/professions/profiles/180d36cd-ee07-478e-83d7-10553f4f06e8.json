@@ -1,0 +1,22 @@
+{
+  "uuid": "180d36cd-ee07-478e-83d7-10553f4f06e8",
+  "name": "MildFlames",
+  "levels": {
+    "BATTLING": 16,
+    "FARMING": 4,
+    "FORESTRY": 4,
+    "MINING": 3
+  },
+  "xp": {
+    "BATTLING": 257,
+    "FARMING": 140,
+    "FORESTRY": 70,
+    "MINING": 115
+  },
+  "fragments": {
+    "COMMON": 40,
+    "LEGENDARY": 16,
+    "MYTHIC": 1,
+    "UNCOMMON": 9
+  }
+}

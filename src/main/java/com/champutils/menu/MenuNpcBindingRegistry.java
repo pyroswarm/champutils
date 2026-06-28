@@ -132,16 +132,26 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "profiles", "profile", "profilemenu", "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds" -> true;
+            case "profiles", "profile", "profilemenu", "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "megashop", "genesis", "mega_shop", "mega", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "profiles, gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
+        return "profiles, gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, megashop, professionforeman, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {
-        return menu == null ? "" : menu.trim().toLowerCase();
+        if (menu == null) return "";
+        String value = menu.trim().toLowerCase();
+        return switch (value) {
+            case "genesis", "mega_shop", "mega", "megashop" -> "megashop";
+            case "pvp", "battle", "battles" -> "battles";
+            case "profile", "profiles", "profilemenu" -> "profiles";
+            case "guild", "guilds" -> "guilds";
+            case "foreman", "professionforeman", "profession_foreman", "chunks" -> "professionforeman";
+            case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
+            default -> value;
+        };
     }
 }

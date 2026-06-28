@@ -1,0 +1,17 @@
+{
+  "uuid": "469d0c8f-9cb5-4474-86c6-85dd6ed11d2c",
+  "name": "John_Melee",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 4,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 145,
+    "MINING": 0
+  },
+  "fragments": {}
+}

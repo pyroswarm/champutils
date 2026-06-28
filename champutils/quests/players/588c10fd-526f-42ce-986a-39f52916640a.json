@@ -1,0 +1,89 @@
+{
+  "uuid": "588c10fd-526f-42ce-986a-39f52916640a",
+  "name": "ToadBC",
+  "daily": {
+    "periodKey": "2026-06-27",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_chop_spruce",
+        "description": "Chop 80 spruce logs",
+        "objectiveType": "CHOP_BLOCK_CONTAINS",
+        "profession": "FORESTRY",
+        "target": "spruce_log",
+        "required": 80,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_redstone",
+        "description": "Mine 80 redstone ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:redstone_ore",
+        "required": 80,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_battle_npc",
+        "description": "Win 8 NPC trainer battles",
+        "objectiveType": "WIN_BATTLE",
+        "profession": "BATTLING",
+        "target": "NPC",
+        "required": 8,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_psychic",
+        "description": "Defeat 120 Psychic-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "psychic",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_evolution_ore",
+        "description": "Mine 100 Cobblemon evolution stone ores",
+        "objectiveType": "MINE_BLOCK_CONTAINS",
+        "profession": "MINING",
+        "target": "stone_ore",
+        "required": 100,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 38,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

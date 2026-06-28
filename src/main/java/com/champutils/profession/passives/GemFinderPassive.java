@@ -1,184 +1,44 @@
 package com.champutils.profession.passives;
 
-import com.champutils.profession.ProfessionBlockTracker;
-import com.champutils.profession.ProfessionNotificationSettings;
-import com.champutils.profession.ProfessionRewardPassiveConfig;
-import com.champutils.profession.ProfessionSpecialCelebration;
-import com.champutils.profession.ProfessionToolUtil;
+import com.champutils.profession.*;
 import com.champutils.profession.actives.ActiveEffectManager;
 import com.champutils.profession.actives.MiningBlockUtil;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 import java.util.Random;
 
 public class GemFinderPassive implements ProfessionPassive {
-
-    public static final String STAT_ID = "gemFinderChance";
-
-    private static final Random RANDOM =
-            new Random();
+    private static final Random RANDOM = new Random();
+    private static final List<String> STONES = List.of(
+            "cobblemon:fire_stone", "cobblemon:water_stone", "cobblemon:thunder_stone", "cobblemon:leaf_stone",
+            "cobblemon:moon_stone", "cobblemon:sun_stone", "cobblemon:dawn_stone", "cobblemon:dusk_stone",
+            "cobblemon:shiny_stone", "cobblemon:ice_stone"
+    );
+    private static final List<String> FOSSILS = List.of(
+            "cobblemon:armor_fossil", "cobblemon:claw_fossil", "cobblemon:cover_fossil", "cobblemon:dome_fossil",
+            "cobblemon:helix_fossil", "cobblemon:jaw_fossil", "cobblemon:old_amber_fossil", "cobblemon:plume_fossil",
+            "cobblemon:root_fossil", "cobblemon:sail_fossil", "cobblemon:skull_fossil"
+    );
 
     @Override
-    public void apply(
-            ServerPlayer player,
-            ItemStack stack,
-            ServerLevel level,
-            BlockPos pos,
-            String blockId
-    ) {
-
-        if (
-                player == null ||
-                        stack == null ||
-                        stack.isEmpty() ||
-                        level == null ||
-                        pos == null ||
-                        blockId == null ||
-                        blockId.isBlank()
-        ) {
-            return;
-        }
-
-        /*
-         * Economy guard: Gem Finder must only trigger from natural stone-like
-         * mining blocks. PassiveRegistry already checks this, but this keeps
-         * the passive safe if it is ever called directly later.
-         */
-        if (
-                ProfessionBlockTracker.isPlayerPlaced(
-                        level,
-                        pos
-                )
-        ) {
-            return;
-        }
-
-        if (
-                !isValidGemSource(
-                        level,
-                        pos,
-                        blockId
-                )
-        ) {
-            return;
-        }
-
-        double chancePercent =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        STAT_ID
-                );
-
-        if (chancePercent <= 0.0D) {
-            return;
-        }
-
-        double focusMultiplier =
-                ActiveEffectManager.getMiningPassiveChanceMultiplier(
-                        player,
-                        stack
-                );
-
-        if (
-                RANDOM.nextDouble() >=
-                        Math.min(
-                                100.0D,
-                                chancePercent * focusMultiplier
-                        ) / 100.0D
-        ) {
-            return;
-        }
-
-        ItemStack reward =
-                rollReward(
-                        player,
-                        stack
-                );
-
-        if (reward.isEmpty()) {
-            return;
-        }
-
-        String rewardName =
-                reward.getHoverName()
-                        .getString();
-
-        ItemStack rewardToGive =
-                reward.copy();
-
-        if (
-                !player.getInventory()
-                        .add(
-                                rewardToGive
-                        )
-        ) {
-            player.drop(
-                    rewardToGive,
-                    false
-            );
-        }
-
+    public void apply(ServerPlayer player, ItemStack stack, ServerLevel level, BlockPos pos, String blockId) {
+        if (player == null || stack == null || stack.isEmpty() || level == null || pos == null) return;
+        if (ProfessionBlockTracker.isPlayerPlaced(level, pos)) return;
+        boolean shovel = MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos));
+        String stat = shovel ? "fossilFinderChance" : "stoneFinderChance";
+        double chance = ProfessionToolUtil.getStat(stack, stat);
+        if (chance <= 0.0D) return;
+        chance *= ActiveEffectManager.getMiningPassiveChanceMultiplier(player, stack);
+        if (RANDOM.nextDouble() >= Math.min(100.0D, chance) / 100.0D) return;
+        String itemId = shovel ? FOSSILS.get(RANDOM.nextInt(FOSSILS.size())) : STONES.get(RANDOM.nextInt(STONES.size()));
+        player.getServer().getCommands().performPrefixedCommand(player.getServer().createCommandSourceStack(), "give " + player.getName().getString() + " " + itemId + " 1");
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(
-                    Component.literal(
-                            "§bGem Finder: §fFound " +
-                                    rewardName +
-                                    "!"
-                    ),
-                    true
-            );
+            player.displayClientMessage(Component.literal((shovel ? "§6Fossil Finder" : "§bStone Finder") + ": §fFound something!"), true);
         }
-
-        ProfessionSpecialCelebration.celebrateSpecialActive(
-                player,
-                "§bGem Finder!",
-                "§fFound " + rewardName
-        );
-    }
-
-    private static ItemStack rollReward(
-            ServerPlayer player,
-            ItemStack stack
-    ) {
-
-        return ProfessionRewardPassiveConfig.rollReward(
-                "gemFinder",
-                player,
-                com.champutils.profession.ProfessionType.MINING,
-                stack
-        );
-    }
-
-    private static boolean isValidGemSource(
-            ServerLevel level,
-            BlockPos pos,
-            String blockId
-    ) {
-
-        if (MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos))) {
-            return true;
-        }
-
-        return switch (blockId) {
-            case "minecraft:stone",
-                 "minecraft:deepslate",
-                 "minecraft:granite",
-                 "minecraft:diorite",
-                 "minecraft:andesite",
-                 "minecraft:tuff",
-                 "minecraft:calcite",
-                 "minecraft:dripstone_block",
-                 "minecraft:blackstone",
-                 "minecraft:basalt",
-                 "minecraft:smooth_basalt" ->
-                    true;
-
-            default ->
-                    false;
-        };
     }
 }

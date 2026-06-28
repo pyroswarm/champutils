@@ -1,0 +1,20 @@
+{
+  "guildXp": {
+    "rankedWin": 50,
+    "casualWin": 15,
+    "worldEventCommon": 100,
+    "worldEventUncommon": 175,
+    "worldEventRare": 300,
+    "worldEventEpic": 750,
+    "worldEventLegendary": 2000
+  },
+  "guildLevels": {
+    "baseXp": 1000,
+    "scalingMultiplier": 1.35,
+    "maxLevel": 100
+  },
+  "guildCreation": {
+    "createCostCredits": 10000,
+    "disbandCreateCooldownMinutes": 30
+  }
+}

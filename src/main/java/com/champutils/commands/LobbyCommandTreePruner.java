@@ -29,6 +29,8 @@ public final class LobbyCommandTreePruner {
         ALLOWED_ROOTS.add("profiles");
         ALLOWED_ROOTS.add("menunpc");
         ALLOWED_ROOTS.add("spawnblanknpc");
+        ALLOWED_ROOTS.add("npcedit");
+        ALLOWED_ROOTS.add("npcdelete");
 
         // Common vanilla setup/admin commands needed to build and manage the lobby.
         ALLOWED_ROOTS.add("advancement");

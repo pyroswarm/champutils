@@ -29,6 +29,7 @@ import com.champutils.economy.SellPriceConfig;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.auction.*;
 import com.champutils.shop.*;
+import com.champutils.genesis.*;
 import com.champutils.teleport.*;
 import com.champutils.hunt.*;
 import com.champutils.quest.*;
@@ -121,6 +122,7 @@ public class ChampUtilsMod implements ModInitializer {
                 MenuNpcBindingRegistry.save();
             } catch (Exception ignored) {
             }
+            DatabaseManager.flushSubmittedTasks(15, java.util.concurrent.TimeUnit.SECONDS);
             DatabaseManager.shutdown();
         });
 
@@ -141,6 +143,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfileCommand.register();
         MenuNpcCommand.register();
         BlankNpcCommand.register();
+        NpcAdminCommand.register();
         MenuNpcInteractionListener.register();
         ProfileLobbySetupManager.register();
         ProfileLoadingStateManager.register();
@@ -227,6 +230,7 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
         NpcShopConfig.load();
+        MegaShopConfig.load();
         ChestShopRegistry.load();
         FirstJoinKitManager.load();
         PokemonHuntConfig.load();
@@ -280,6 +284,8 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         ProfessionConfig.load();
+        ProfessionChunkConfig.load();
+        ProfessionBackpackConfig.load();
 
         /*
          Custom tools
@@ -303,17 +309,19 @@ public class ChampUtilsMod implements ModInitializer {
         ExplorationProtectionListener.register();
         ItemRollCommand.register();
         ProfessionSalvageCommand.register();
+        RunningShoeManager.registerItems();
+        RunningShoeManager.registerEffects();
 
         /*
          Profession loot config
          */
-        ProfessionLootConfig.load();
+        ProfessionLootConfig.load(); // legacy file kept readable; profession item drops are disabled by ProfessionLootManager.
         ProfessionRewardPassiveConfig.load();
 
         /*
          Battle profession loot config
          */
-        BattleProfessionLootConfig.load();
+        BattleProfessionLootConfig.load(); // legacy file kept readable; battle item/money loot disabled by managers.
 
         /*
          Anti exploit block tracking
@@ -338,6 +346,7 @@ public class ChampUtilsMod implements ModInitializer {
 
         AuctionHouseNpcBindingRegistry.load();
         MenuNpcBindingRegistry.load();
+        MegaShopConfig.load();
 
         /*
          =========================
@@ -416,7 +425,8 @@ public class ChampUtilsMod implements ModInitializer {
                     FirstJoinKitManager.save();
                     ChestShopRegistry.save();
                     ServerStatusDatabaseRepository.markOffline(server);
-                    DatabaseManager.shutdown();
+                    DatabaseManager.flushSubmittedTasks(15, java.util.concurrent.TimeUnit.SECONDS);
+            DatabaseManager.shutdown();
 
                     System.out.println(
                             "[ChampUtils] Saved profession data."
@@ -605,6 +615,10 @@ public class ChampUtilsMod implements ModInitializer {
         EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
+        ProfessionToolsCommand.register();
+        BackpackCommand.register();
+        ChunksCommand.register();
+        ProfessionTradeCommand.register();
         ChampReloadCommand.register();
         DatabaseTestCommand.register();
         NetworkDatabaseCommand.register();
@@ -616,14 +630,16 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
+        MegaShopCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
+        NpcAdminCommand.register();
         ArenaCommand.register();
         PokemonHuntCommand.register();
         QuestCommand.register();
         ChestShopCommand.register();
-        ServerSellCommand.register();
+        // /serversell removed: economy now uses digital chunks sold through the Profession Foreman.
         DexRewardCommand.register();
         TextCommand.register();
         WonderTradeCommand.register();

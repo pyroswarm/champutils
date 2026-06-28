@@ -1,25 +1,28 @@
 package com.champutils.profile;
 
 import com.champutils.menu.MenuNpcBindingRegistry;
-import com.champutils.trainer.ChampTrainerSpawner;
-import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 
 /**
  * Lightweight profile-lobby world bootstrap.
- * Keeps the dedicated profile_lobby backend deterministic and packet-quiet:
- * fixed spawn, adventure mode, invisible players, and one bound profile NPC.
+ *
+ * The profile selection NPC intentionally lives in vanilla minecraft:overworld on the
+ * profile_lobby backend. Do not resolve the MultiWorld profile_lobby dimension for this
+ * NPC, or startup binding can point at the wrong world and leave the NPC unbound.
  */
 public final class ProfileLobbySetupManager {
+    private static final String PROFILE_MENU = "profiles";
+    private static final int RETRY_TICKS = 20;
+    private static final int WATCHDOG_TICKS = 20 * 30;
+
     private static boolean registered = false;
-    private static boolean ensuredThisRun = false;
+    private static boolean boundThisRun = false;
+    private static int tickCounter = 0;
 
     private ProfileLobbySetupManager() {}
 
@@ -27,27 +30,39 @@ public final class ProfileLobbySetupManager {
         if (registered) return;
         registered = true;
 
-        ServerLifecycleEvents.SERVER_STARTED.register(ProfileLobbySetupManager::ensure);
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            boundThisRun = false;
+            tickCounter = 0;
+            ensure(server);
+        });
+
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (!ProfileNetworkTransferFlow.isProfileLobbyServer()) return;
-            if (!ensuredThisRun) ensure(server);
+
+            tickCounter++;
+            if (!boundThisRun && tickCounter % RETRY_TICKS == 0) {
+                ensure(server);
+            } else if (boundThisRun && tickCounter % WATCHDOG_TICKS == 0) {
+                ensure(server);
+            }
+
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (player == null || player.serverLevel() == null) continue;
-                if (!ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(player.serverLevel().dimension().location().toString())) continue;
+                // The network profile_lobby backend uses overworld as the lobby world.
+                if (player.serverLevel().dimension() != Level.OVERWORLD) continue;
                 applyPlayerRules(player);
             }
         });
     }
 
     public static void ensure(MinecraftServer server) {
+        // Manual NPC mode: do not spawn, move, rotate, or auto-repair the profile NPC.
+        // Ops should place it with /spawnblanknpc, bind it with /menunpc bind profiles,
+        // and manage it with /npcedit or /npcdelete. The binding registry is persisted
+        // separately, so startup does not need to touch the NPC entity.
         if (server == null || !ProfileNetworkTransferFlow.isProfileLobbyServer()) return;
-        ServerLevel level = server.getLevel(ProfileLobbyManager.resolveLobbyKey());
-        if (level == null) level = server.overworld();
-        if (level == null) return;
-
-        ProfileLobbyManager.applyProfileWorldSpawn(level);
-        ensureProfileNpc(level);
-        ensuredThisRun = true;
+        ProfileLobbyManager.applyProfileWorldSpawn(server.overworld());
+        boundThisRun = MenuNpcBindingRegistry.getAll().containsKey(PROFILE_MENU);
     }
 
     public static void applyPlayerRules(ServerPlayer player) {
@@ -62,39 +77,4 @@ public final class ProfileLobbySetupManager {
         if (player.getHealth() < player.getMaxHealth()) player.setHealth(player.getMaxHealth());
     }
 
-    private static void ensureProfileNpc(ServerLevel level) {
-        MenuNpcBindingRegistry.Binding existing = MenuNpcBindingRegistry.getAll().get("profiles");
-        if (existing != null && existing.uuid() != null && level.getEntity(existing.uuid()) instanceof NPCEntity) {
-            return;
-        }
-
-        NPCEntity npc = ChampTrainerSpawner.createProtectedNpc(
-                level,
-                new Vec3(ProfileLobbyManager.PROFILE_NPC_X, ProfileLobbyManager.PROFILE_NPC_Y, ProfileLobbyManager.PROFILE_NPC_Z),
-                270.0F,
-                "Select a Profile",
-                ""
-        );
-        if (npc == null) return;
-
-        makeLobbyNpc(npc);
-        MenuNpcBindingRegistry.bind("profiles", npc);
-        System.out.println("[ChampUtils][ProfileLobby] Spawned and bound Select a Profile NPC at 108 65 0 uuid=" + npc.getUUID());
-    }
-
-    private static void makeLobbyNpc(NPCEntity npc) {
-        if (npc == null) return;
-        try { npc.setCustomName(Component.literal("Select a Profile")); } catch (Exception ignored) {}
-        try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
-        try { npc.setBattle(null); } catch (Exception ignored) {}
-        try { npc.setParty(null); } catch (Exception ignored) {}
-        try { npc.setInteraction(null); } catch (Exception ignored) {}
-        try { npc.setSkill(null); } catch (Exception ignored) {}
-        try { npc.setNoAi(true); } catch (Exception ignored) {}
-        try { npc.setInvulnerable(Boolean.TRUE); } catch (Exception ignored) {}
-        try { npc.setAllowProjectileHits(Boolean.FALSE); } catch (Exception ignored) {}
-        try { npc.setMovable(Boolean.FALSE); } catch (Exception ignored) {}
-        try { ((net.minecraft.world.entity.Entity) npc).setInvulnerable(true); } catch (Exception ignored) {}
-        try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
-    }
 }

@@ -1,0 +1,17 @@
+{
+  "uuid": "b7813e6f-d197-4705-87f4-0b9575866de7",
+  "name": "Mr_Spade55",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

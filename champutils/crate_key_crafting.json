@@ -1,0 +1,185 @@
+{
+  "enabled": true,
+  "recipes": {
+    "common": {
+      "crateId": "common",
+      "outputKeys": 1,
+      "fragment": "COMMON",
+      "fragmentCost": 20,
+      "items": [
+        {
+          "item": "minecraft:coal",
+          "amount": 64
+        },
+        {
+          "item": "minecraft:copper_ingot",
+          "amount": 32
+        },
+        {
+          "item": "cobblemon:tumblestone",
+          "amount": 32
+        },
+        {
+          "item": "cobblemon:poke_ball",
+          "amount": 8
+        }
+      ]
+    },
+    "uncommon": {
+      "crateId": "uncommon",
+      "outputKeys": 1,
+      "fragment": "UNCOMMON",
+      "fragmentCost": 20,
+      "items": [
+        {
+          "item": "minecraft:iron_ingot",
+          "amount": 64
+        },
+        {
+          "item": "minecraft:gold_ingot",
+          "amount": 32
+        },
+        {
+          "item": "minecraft:redstone",
+          "amount": 64
+        },
+        {
+          "item": "cobblemon:great_ball",
+          "amount": 12
+        }
+      ]
+    },
+    "rare": {
+      "crateId": "rare",
+      "outputKeys": 1,
+      "fragment": "RARE",
+      "fragmentCost": 20,
+      "items": [
+        {
+          "item": "minecraft:diamond",
+          "amount": 12
+        },
+        {
+          "item": "minecraft:emerald",
+          "amount": 8
+        },
+        {
+          "item": "minecraft:lapis_lazuli",
+          "amount": 64
+        },
+        {
+          "item": "minecraft:gold_ingot",
+          "amount": 64
+        },
+        {
+          "item": "cobblemon:ultra_ball",
+          "amount": 8
+        }
+      ]
+    },
+    "epic": {
+      "crateId": "epic",
+      "outputKeys": 1,
+      "fragment": "EPIC",
+      "fragmentCost": 56,
+      "items": [
+        {
+          "item": "minecraft:diamond",
+          "amount": 32
+        },
+        {
+          "item": "minecraft:emerald",
+          "amount": 24
+        },
+        {
+          "item": "minecraft:ancient_debris",
+          "amount": 2
+        },
+        {
+          "item": "minecraft:netherite_scrap",
+          "amount": 2
+        },
+        {
+          "item": "cobblemon:rare_candy",
+          "amount": 8
+        },
+        {
+          "item": "cobblemon:ability_capsule",
+          "amount": 1
+        },
+        {
+          "item": "cobblemon:exp_candy_l",
+          "amount": 16
+        }
+      ]
+    },
+    "legendary": {
+      "crateId": "legendary",
+      "outputKeys": 1,
+      "fragment": "LEGENDARY",
+      "fragmentCost": 20,
+      "items": [
+        {
+          "item": "minecraft:netherite_ingot",
+          "amount": 1
+        },
+        {
+          "item": "minecraft:ancient_debris",
+          "amount": 8
+        },
+        {
+          "item": "minecraft:diamond_block",
+          "amount": 8
+        },
+        {
+          "item": "minecraft:emerald_block",
+          "amount": 4
+        },
+        {
+          "item": "cobblemon:ability_patch",
+          "amount": 1
+        },
+        {
+          "item": "cobblemon:rare_candy",
+          "amount": 16
+        }
+      ]
+    },
+    "mythic": {
+      "crateId": "mythic",
+      "outputKeys": 1,
+      "fragment": "MYTHIC",
+      "fragmentCost": 20,
+      "items": [
+        {
+          "item": "minecraft:netherite_ingot",
+          "amount": 4
+        },
+        {
+          "item": "minecraft:netherite_block",
+          "amount": 1
+        },
+        {
+          "item": "minecraft:ancient_debris",
+          "amount": 16
+        },
+        {
+          "item": "minecraft:diamond_block",
+          "amount": 16
+        },
+        {
+          "item": "minecraft:emerald_block",
+          "amount": 8
+        },
+        {
+          "item": "cobblemon:ability_patch",
+          "amount": 2
+        },
+        {
+          "item": "cobblemon:master_ball",
+          "amount": 1
+        }
+      ]
+    }
+  }
+}

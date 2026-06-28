@@ -1,0 +1,104 @@
+{
+  "players": {
+    "ae23e36b-2d8b-460d-819c-35bae4038399": {
+      "uuid": "ae23e36b-2d8b-460d-819c-35bae4038399",
+      "name": "Psyronyx",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": false,
+      "autoRepair": true
+    },
+    "68cde10c-7a9c-414a-b0e0-b0c92b31408d": {
+      "uuid": "68cde10c-7a9c-414a-b0e0-b0c92b31408d",
+      "name": "MildFlames",
+      "professionPopups": false,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": false
+    },
+    "278a47f5-6fde-40c9-809c-b6ebc604f235": {
+      "uuid": "278a47f5-6fde-40c9-809c-b6ebc604f235",
+      "name": "IAmTrains",
+      "professionPopups": false,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": false
+    },
+    "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5": {
+      "uuid": "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5",
+      "name": "Alathreon",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": true
+    },
+    "62d98625-614f-4698-8209-5b795c1c84c0": {
+      "uuid": "62d98625-614f-4698-8209-5b795c1c84c0",
+      "name": "pokeking1234",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": false,
+      "autoRepair": true
+    },
+    "629eb505-a5ca-4fc9-b867-f16924f31497": {
+      "uuid": "629eb505-a5ca-4fc9-b867-f16924f31497",
+      "name": "SomethingDerp",
+      "professionPopups": false,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": false
+    },
+    "a066d48d-f549-483d-b850-fa14711d5219": {
+      "uuid": "a066d48d-f549-483d-b850-fa14711d5219",
+      "name": "Halikon",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": false
+    },
+    "680aaa7d-af65-497a-96ec-7a32f412b1a8": {
+      "uuid": "680aaa7d-af65-497a-96ec-7a32f412b1a8",
+      "name": "Oill",
+      "professionPopups": false,
+      "soundEffects": false,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": false,
+      "autoRepair": true
+    },
+    "d99070ec-4b2b-44ad-9457-937e702bd779": {
+      "uuid": "d99070ec-4b2b-44ad-9457-937e702bd779",
+      "name": "BastionCraft",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": false,
+      "autoRepair": true
+    },
+    "96973fe4-6b64-4ce5-bc80-091555858df0": {
+      "uuid": "96973fe4-6b64-4ce5-bc80-091555858df0",
+      "name": "Bloodfreya",
+      "professionPopups": true,
+      "soundEffects": true,
+      "broadcastMessages": true,
+      "queueNotifications": true,
+      "repairConfirmation": true,
+      "autoRepair": false
+    }
+  }
+}

@@ -26,8 +26,10 @@ public final class ProfileNetworkTransferFlow {
     private static final ConcurrentHashMap<UUID, AcceptedTransferSession> ACCEPTED_SURVIVAL_SESSIONS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Boolean> SURVIVAL_CONSUME_IN_FLIGHT = new ConcurrentHashMap<>();
     private static final long ACCEPTED_SESSION_TTL_MS = 120_000L;
-    private static final int SURVIVAL_TOKEN_WAIT_ATTEMPTS = 75;
-    private static final long SURVIVAL_TOKEN_WAIT_SLEEP_MS = 1000L;
+    private static final int SURVIVAL_TOKEN_WAIT_ATTEMPTS = 20;
+    private static final long SURVIVAL_TOKEN_WAIT_SLEEP_MS = 250L;
+    private static final ConcurrentHashMap<UUID, Long> LOBBY_TRANSFER_IN_FLIGHT = new ConcurrentHashMap<>();
+    private static final long LOBBY_TRANSFER_DEDUPE_MS = 15_000L;
 
     private ProfileNetworkTransferFlow() {}
 
@@ -61,6 +63,13 @@ public final class ProfileNetworkTransferFlow {
 
         NetworkServerConfig config = NetworkServerConfig.get();
         UUID playerUuid = player.getUUID();
+        long now = System.currentTimeMillis();
+        Long existingTransfer = LOBBY_TRANSFER_IN_FLIGHT.get(playerUuid);
+        if (existingTransfer != null && now - existingTransfer < LOBBY_TRANSFER_DEDUPE_MS) {
+            if (callback != null) callback.accept("Profile transfer is already in progress.");
+            return;
+        }
+        LOBBY_TRANSFER_IN_FLIGHT.put(playerUuid, now);
         net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
         AtomicReference<String> issuedWireToken = new AtomicReference<>("");
 
@@ -84,8 +93,12 @@ public final class ProfileNetworkTransferFlow {
             // Do not write a second row with the same transfer_id because older beta schemas
             // may still have a unique transfer_id audit index.
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
-            if (player.hasDisconnected()) return;
+            if (player.hasDisconnected()) {
+                LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
+                return;
+            }
             if (error != null) {
+                LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
                 error.printStackTrace();
                 if (callback != null) callback.accept("Could not create profile transfer token. Check profileTransferSecret/database logs.");
                 return;
@@ -111,16 +124,41 @@ public final class ProfileNetworkTransferFlow {
         final String playerName = player.getGameProfile().getName();
 
         java.util.concurrent.CompletableFuture
-                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(3000, java.util.concurrent.TimeUnit.MILLISECONDS))
+                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(500, java.util.concurrent.TimeUnit.MILLISECONDS))
                 .thenRun(() -> player.server.execute(() -> {
                     ServerPlayer live = player.server.getPlayerList().getPlayer(playerUuid);
                     if (live == null || live.hasDisconnected()) {
+                        LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
                         return;
                     }
+
+                    // Velocity's /server command is a proxy/player command, not a normal backend
+                    // console command. The old fallback tried to run "server {player} survival"
+                    // from the profile_lobby backend, which can silently do nothing. Always request
+                    // the proxy transfer through the standard BungeeCord/Velocity plugin-message
+                    // channel first. Keep the configured command only as a last-resort fallback for
+                    // unusual proxy setups that expose a real backend command.
                     boolean transferRequested = executeProxyTransfer(live, config);
                     if (!transferRequested) {
                         executeLobbyTransferCommand(live, profile, config, wireToken);
+                    } else {
+                        // If the proxy plugin-message channel is disabled/misconfigured, the send call
+                        // can succeed locally but the player will still be sitting in profile_lobby.
+                        // Give the proxy a moment, then run the configured fallback only if the player
+                        // is still connected to this backend.
+                        java.util.concurrent.CompletableFuture
+                                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(1500, java.util.concurrent.TimeUnit.MILLISECONDS))
+                                .thenRun(() -> live.server.execute(() -> {
+                                    ServerPlayer stillHere = live.server.getPlayerList().getPlayer(playerUuid);
+                                    if (stillHere != null && !stillHere.hasDisconnected()) {
+                                        executeLobbyTransferCommand(stillHere, profile, config, wireToken);
+                                    }
+                                }));
                     }
+
+                    java.util.concurrent.CompletableFuture
+                            .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(10, java.util.concurrent.TimeUnit.SECONDS))
+                            .thenRun(() -> LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid));
                 }));
     }
 
@@ -236,6 +274,7 @@ public final class ProfileNetworkTransferFlow {
         if (playerUuid == null) return;
         ACCEPTED_SURVIVAL_SESSIONS.remove(playerUuid);
         SURVIVAL_CONSUME_IN_FLIGHT.remove(playerUuid);
+        LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
     }
 
     public static void sendLoadingTitle(ServerPlayer player, String profileName) {

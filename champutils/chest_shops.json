@@ -1,0 +1,36 @@
+{
+  "shops": {
+    "multiworld:territories_1:0:81:5996": {
+      "mode": "SELL",
+      "dimension": "multiworld:territories_1",
+      "x": 0,
+      "y": 81,
+      "z": 5996,
+      "ownerId": "7daab874-5205-4cee-8b1a-87cbaa71b7a0",
+      "ownerName": "Unkn0wnErrrrror",
+      "itemId": "cobblemon:ultra_ball",
+      "itemName": "Ultra Ball",
+      "amount": 1,
+      "price": 1000,
+      "createdAt": "2026-06-27T15:33:09.470089332Z",
+      "updatedAt": "2026-06-27T15:33:09.470089332Z",
+      "displayEntityId": "c31263f8-bb36-47b5-8126-30a13ba66826"
+    },
+    "multiworld:territories_1:3:81:5996": {
+      "mode": "SELL",
+      "dimension": "multiworld:territories_1",
+      "x": 3,
+      "y": 81,
+      "z": 5996,
+      "ownerId": "7daab874-5205-4cee-8b1a-87cbaa71b7a0",
+      "ownerName": "Unkn0wnErrrrror",
+      "itemId": "cobblemon:quick_ball",
+      "itemName": "Quick Ball",
+      "amount": 1,
+      "price": 1000,
+      "createdAt": "2026-06-27T15:35:20.353621986Z",
+      "updatedAt": "2026-06-27T15:35:20.353621986Z",
+      "displayEntityId": "796efbb2-45b4-4898-b408-a62088d815a6"
+    }
+  }
+}

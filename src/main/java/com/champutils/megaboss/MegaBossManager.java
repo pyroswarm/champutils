@@ -229,7 +229,11 @@ public final class MegaBossManager {
     }
 
     private static MegaBossConfig.BossEntry pickBoss() {
-        return pickBoss(pickRarity(), true);
+        List<MegaBossConfig.BossEntry> valid = new ArrayList<>();
+        for (MegaBossConfig.BossEntry entry : MegaBossConfig.DATA.bosses) {
+            if (entry != null && entry.enabled && entry.species != null && !entry.species.isBlank()) valid.add(entry);
+        }
+        return valid.isEmpty() ? null : valid.get(RANDOM.nextInt(valid.size()));
     }
 
     private static MegaBossConfig.BossEntry pickBoss(String rarity, boolean fallbackToAnyRarity) {
@@ -248,17 +252,11 @@ public final class MegaBossManager {
     }
 
     private static String pickRarity() {
-        MegaBossConfig.RarityWeights w = MegaBossConfig.DATA.rarityWeights;
-        int common = Math.max(0, w.COMMON), uncommon = Math.max(0, w.UNCOMMON), rare = Math.max(0, w.RARE), epic = Math.max(0, w.EPIC), legendary = Math.max(0, w.LEGENDARY), mythic = Math.max(0, w.MYTHIC);
-        int total = common + uncommon + rare + epic + legendary + mythic;
-        if (total <= 0) return "RARE";
-        int roll = RANDOM.nextInt(total);
-        if ((roll -= common) < 0) return "COMMON";
-        if ((roll -= uncommon) < 0) return "UNCOMMON";
-        if ((roll -= rare) < 0) return "RARE";
-        if ((roll -= epic) < 0) return "EPIC";
-        if ((roll -= legendary) < 0) return "LEGENDARY";
-        return "MYTHIC";
+        // Deprecated natural-spawn helper. Natural megabosses are now selected uniformly
+        // from the enabled boss list so rarity no longer changes spawn rarity.
+        // This method remains only for compatibility with any older internal calls.
+        List<String> rarities = validRarities();
+        return rarities.get(RANDOM.nextInt(rarities.size()));
     }
 
     private static Entity spawnViaCommand(MinecraftServer server, ServerLevel level, BlockPos pos, MegaBossConfig.BossEntry boss, int pokemonLevel) {

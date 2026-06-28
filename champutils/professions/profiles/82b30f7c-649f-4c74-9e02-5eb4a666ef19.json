@@ -1,0 +1,20 @@
+{
+  "uuid": "82b30f7c-649f-4c74-9e02-5eb4a666ef19",
+  "name": "DrGREEN__",
+  "levels": {
+    "BATTLING": 2,
+    "FARMING": 2,
+    "FORESTRY": 14,
+    "MINING": 13
+  },
+  "xp": {
+    "BATTLING": 81,
+    "FARMING": 35,
+    "FORESTRY": 227,
+    "MINING": 328
+  },
+  "fragments": {
+    "UNCOMMON": 7,
+    "COMMON": 19
+  }
+}

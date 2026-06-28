@@ -71,7 +71,7 @@ public class ForestryProfessionListener {
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FORESTRY, blockId);
         rollXpSurge(player, tool, xp, extraMultiplier);
         ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
-        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
         rollDropMultiplier(player, state, tool, extraMultiplier);
         rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder", extraMultiplier);
         rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder", extraMultiplier);

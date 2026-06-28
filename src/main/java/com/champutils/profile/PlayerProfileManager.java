@@ -432,6 +432,9 @@ public static void saveAndUnloadForDisconnect(ServerPlayer player) {
     try { ChatPreferenceManager.saveAsync(playerUuid, ChatPreferenceManager.get(playerUuid)); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to queue chat preference save before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
+    try { DatabaseManager.flushSubmittedTasks(8, java.util.concurrent.TimeUnit.SECONDS); }
+    catch (Exception e) { System.err.println("[ChampUtils] Database flush failed before disconnect unload for " + player.getGameProfile().getName()); e.printStackTrace(); }
+
     try { ProfileSessionLoader.unload(player); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to unload profile session before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
@@ -642,6 +645,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             cacheProfile(active);
             updateCachedActive(player.getUUID(), active.profileId());
             ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+            try { com.champutils.cosmetic.TitleManager.preloadAsync(active.profileId()); } catch (Exception ignored) {}
             ProfilePlaytimeManager.recordCurrentSession(player);
             ProfileLobbyManager.leaveLobby(player);
             VanillaProfileStateManager.load(player);
@@ -776,6 +780,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
             long playtimeLoadStart = System.currentTimeMillis();
             ProfilePlaytimeManager.loadCacheBlocking(connection, target.profileId());
+            try { com.champutils.cosmetic.TitleManager.preloadAsync(target.profileId()); } catch (Exception ignored) {}
             System.out.println("[PROFILE-TIMING] SQL profile playtime preload took " + (System.currentTimeMillis() - playtimeLoadStart) + "ms");
 
             long partyPrefetchStart = System.currentTimeMillis();
@@ -881,14 +886,60 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     private static void releaseLoadedProfile(ServerPlayer player, SavedLocationSnapshot snapshot) {
         if (player == null || player.server == null) return;
 
-        ProfileLoadingStateManager.end(player);
-        ProfileLobbyManager.leaveLobby(player);
-        teleportToSavedLocationSnapshot(player, snapshot);
-        ProfileLobbyManager.leaveLobby(player);
+        // The final saved-location teleport is the one unavoidable world operation left on a
+        // survival join. Request the destination chunk first and keep the player quarantined until
+        // that async chunk future completes, so teleportTo does not synchronously generate/load the
+        // chunk on the server tick. Loaded chunks complete almost immediately; unloaded chunks are
+        // prepared before the release step instead of spiking the join tick.
+        prewarmSavedLocationChunk(player, snapshot).whenComplete((ignored, error) -> player.server.execute(() -> {
+            if (player.hasDisconnected()) return;
+            if (error != null) {
+                System.err.println("[ChampUtils] Saved-location chunk prewarm failed for " + player.getGameProfile().getName() + ": " + error.getMessage());
+            }
 
-        scheduleReleaseVerify(player, snapshot, 1);
-        scheduleReleaseVerify(player, snapshot, 5);
-        scheduleReleaseVerify(player, snapshot, 20);
+            ProfileLoadingStateManager.end(player);
+            ProfileLobbyManager.leaveLobby(player);
+            teleportToSavedLocationSnapshot(player, snapshot);
+            ProfileLobbyManager.leaveLobby(player);
+
+            scheduleReleaseVerify(player, snapshot, 1);
+            scheduleReleaseVerify(player, snapshot, 5);
+            scheduleReleaseVerify(player, snapshot, 20);
+        }));
+    }
+
+    private static CompletableFuture<Void> prewarmSavedLocationChunk(ServerPlayer player, SavedLocationSnapshot snapshot) {
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        if (player == null || player.server == null || snapshot == null || snapshot.useFallback() || snapshot.dimension() == null || snapshot.dimension().isBlank()) {
+            done.complete(null);
+            return done;
+        }
+        try {
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
+                    net.minecraft.resources.ResourceKey.create(
+                            net.minecraft.core.registries.Registries.DIMENSION,
+                            net.minecraft.resources.ResourceLocation.parse(snapshot.dimension())
+                    );
+            net.minecraft.server.level.ServerLevel level = player.server.getLevel(key);
+            if (level == null) {
+                done.complete(null);
+                return done;
+            }
+            int chunkX = net.minecraft.util.Mth.floor(snapshot.x()) >> 4;
+            int chunkZ = net.minecraft.util.Mth.floor(snapshot.z()) >> 4;
+            long start = System.currentTimeMillis();
+            level.getChunkSource()
+                    .getChunkFuture(chunkX, chunkZ, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, true)
+                    .whenComplete((chunkResult, chunkError) -> {
+                        long elapsed = System.currentTimeMillis() - start;
+                        System.out.println("[PROFILE-TIMING] saved-location chunk prewarm took " + elapsed + "ms chunk=" + chunkX + "," + chunkZ + " dim=" + snapshot.dimension());
+                        if (chunkError != null) done.completeExceptionally(chunkError);
+                        else done.complete(null);
+                    });
+        } catch (Throwable t) {
+            done.completeExceptionally(t);
+        }
+        return done;
     }
 
     private static void scheduleReleaseVerify(ServerPlayer player, SavedLocationSnapshot snapshot, int ticks) {
@@ -952,6 +1003,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         updateCachedActive(playerUuid, active.profileId());
         persistActiveProfileAsync(playerUuid, active.profileId(), player.getGameProfile().getName());
         ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+            try { com.champutils.cosmetic.TitleManager.preloadAsync(active.profileId()); } catch (Exception ignored) {}
         ProfilePlaytimeManager.recordCurrentSession(player);
 
         return cobblemonSync;
@@ -1344,7 +1396,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         }
     }
 
-    private static List<ProfileRecord> readProfiles(Connection connection, UUID playerUuid) throws Exception {
+    public static List<ProfileRecord> readProfiles(Connection connection, UUID playerUuid) throws Exception {
         List<ProfileRecord> profiles = new ArrayList<>();
         try (var statement = connection.prepareStatement(
                 "select p.id, p.player_uuid, p.name, p.mode, p.monotype, (a.profile_id is not null) as active, p.is_pending_delete, p.delete_available_at " +
@@ -1359,7 +1411,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         return profiles;
     }
 
-    private static ProfileLimit readLimit(Connection connection, ServerPlayer player) throws Exception {
+    public static ProfileLimit readLimit(Connection connection, ServerPlayer player) throws Exception {
         ensurePlayerRow(connection, player);
         syncLimitFromLuckPerms(connection, player);
         try (var ps = connection.prepareStatement("select max_profiles, instant_delete, fast_delete, deletion_delay_minutes from player_profile_limits where player_uuid = ?")) {

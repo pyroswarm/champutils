@@ -36,6 +36,11 @@ public final class MenuNpcCommand {
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
+                                            builder.suggest("megashop");
+                                            builder.suggest("genesis");
+                                            builder.suggest("professionforeman");
+                                            builder.suggest("foreman");
+                                            builder.suggest("chunks");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -59,6 +64,11 @@ public final class MenuNpcCommand {
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
+                                            builder.suggest("megashop");
+                                            builder.suggest("genesis");
+                                            builder.suggest("professionforeman");
+                                            builder.suggest("foreman");
+                                            builder.suggest("chunks");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -81,6 +91,7 @@ public final class MenuNpcCommand {
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
+            case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> "megashop";
             default -> menu.toLowerCase();
         };
     }

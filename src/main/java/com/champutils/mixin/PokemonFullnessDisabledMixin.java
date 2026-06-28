@@ -7,13 +7,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Server config expects Pokémon fullness to be disabled. Feeding should not mutate
- * the stored fullness value, which also prevents berries/food from filling Pokémon.
+ * Server config expects Pokémon fullness to be disabled. Cobblemon 1.7.x stores
+ * fullness in the Kotlin currentFullness property, whose JVM setter is
+ * setCurrentFullness(int). Blocking the old setFullness name did nothing.
  */
 @Mixin(Pokemon.class)
 public abstract class PokemonFullnessDisabledMixin {
-    @Inject(method = "setFullness", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
-    private void champutils$disableFullnessChanges(int fullness, CallbackInfo ci) {
+    @Inject(method = "setCurrentFullness", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private void champutils$disableCurrentFullnessChanges(int fullness, CallbackInfo ci) {
+        ci.cancel();
+    }
+
+    @Inject(method = "feedPokemon", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private void champutils$disableFeedFullness(int feedCount, boolean playSound, CallbackInfo ci) {
         ci.cancel();
     }
 }

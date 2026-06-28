@@ -1,0 +1,17 @@
+{
+  "uuid": "4f8b620d-5a08-4a87-a20b-40a589e79f8b",
+  "name": "SilverWolf582",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 40,
+    "MINING": 0
+  },
+  "fragments": {}
+}

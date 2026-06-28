@@ -26,7 +26,7 @@ public final class NetworkServerConfig {
     public String profileTransferSecret = "CHANGE_ME_TO_A_32_PLUS_CHARACTER_RANDOM_SECRET";
 
     /** Server id that PROFILE_LOBBY should issue profile transfer tokens for. */
-    public String survivalServerId = "survival-1";
+    public String survivalServerId = "survival";
 
     /** Velocity backend name for the profile lobby. Used by /profiles on SURVIVAL. */
     public String profileLobbyServerId = "profile_lobby";
@@ -38,7 +38,7 @@ public final class NetworkServerConfig {
      * Command run by the lobby server after token issue. Use {player}, {target_server},
      * {profile}, and {token}. For Bungee/Velocity setups, usually: server {player} survival
      */
-    public String lobbyTransferCommand = "server {player} survival";
+    public String lobbyTransferCommand = "server {player} {target_server}";
 
     /** Command run by SURVIVAL when a player uses /profiles to return to profile selection. */
     public String returnToProfileLobbyCommand = "server {player} {target_server}";
@@ -48,6 +48,14 @@ public final class NetworkServerConfig {
      * is live so players cannot bypass token-gated profile loading.
      */
     public boolean allowSurvivalDirectProfileMenu = true;
+
+    /**
+     * Prefer the configured proxy command for lobby -> survival movement.
+     * Keep this false unless you have confirmed your proxy intercepts backend plugin messages reliably.
+     * Sending both a plugin-message transfer and a /server-style transfer can create duplicate connect
+     * attempts, which is a common cause of intermittent getsockopt/connect failures.
+     */
+    public boolean useProxyPluginMessageTransfer = true;
 
     public enum ServerRole {
         ALL_IN_ONE,
@@ -100,13 +108,25 @@ public final class NetworkServerConfig {
         }
 
         if (survivalServerId == null || survivalServerId.isBlank()) {
-            survivalServerId = "survival-1";
+            survivalServerId = "survival";
+        }
+        // Current Cobble Champs Velocity backend is named "survival".
+        // Older generated configs used "survival-1", which makes the lobby issue a transfer
+        // to the wrong backend even though manual /server survival works.
+        if ("survival-1".equalsIgnoreCase(survivalServerId.trim())) {
+            survivalServerId = "survival";
         }
         if (profileLobbyServerId == null || profileLobbyServerId.isBlank()) {
             profileLobbyServerId = "profile_lobby";
         }
         if (lobbyTransferCommand == null || lobbyTransferCommand.isBlank()) {
-            lobbyTransferCommand = "server {player} survival";
+            lobbyTransferCommand = "server {player} {target_server}";
+        }
+        // Earlier builds generated "server {player} survival", which hard-coded the old
+        // Velocity backend name and ignored survivalServerId. Migrate that exact legacy default
+        // so switching configs back to survival-1 actually sends players to survival-1.
+        if ("server {player} survival".equalsIgnoreCase(lobbyTransferCommand.trim())) {
+            lobbyTransferCommand = "server {player} {target_server}";
         }
         if (returnToProfileLobbyCommand == null || returnToProfileLobbyCommand.isBlank()) {
             returnToProfileLobbyCommand = "server {player} {target_server}";

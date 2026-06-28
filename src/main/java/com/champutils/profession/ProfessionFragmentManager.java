@@ -620,7 +620,7 @@ public final class ProfessionFragmentManager {
         }
 
         ProfessionFragmentConfig.UpgradeData upgrade =
-                ProfessionFragmentConfig.UPGRADES.get(upgradeId);
+                ProfessionFragmentConfig.UPGRADES.get(upgradeId == null ? "" : upgradeId.trim().toUpperCase(java.util.Locale.ROOT));
 
         if (upgrade == null) {
             return UpgradeResult.fail("Unknown upgrade: " + upgradeId);
@@ -660,8 +660,10 @@ public final class ProfessionFragmentManager {
                 output
         );
 
+        ProfessionManager.savePlayer(player);
+
         return UpgradeResult.success(
-                upgradeId,
+                upgradeId == null ? "" : upgradeId.trim().toUpperCase(java.util.Locale.ROOT),
                 from,
                 cost,
                 to,
@@ -685,9 +687,10 @@ public final class ProfessionFragmentManager {
                 !normalizedToolType.equals("pickaxe") &&
                         !normalizedToolType.equals("axe") &&
                         !normalizedToolType.equals("hoe") &&
-                        !normalizedToolType.equals("shovel")
+                        !normalizedToolType.equals("shovel") &&
+                        !normalizedToolType.equals("boots")
         ) {
-            return CraftResult.fail("Choose pickaxe, axe, hoe, or shovel.");
+            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, or boots.");
         }
 
         String normalizedRarity =
@@ -715,6 +718,26 @@ public final class ProfessionFragmentManager {
         if (available < cost) {
             return CraftResult.fail(
                     "You need " + cost + " " + formatWords(fragmentKey) + " fragments. You have " + available + "."
+            );
+        }
+
+        if (normalizedToolType.equals("boots")) {
+            ItemStack reward = RunningShoeManager.create(normalizedRarity);
+            if (reward.isEmpty()) {
+                return CraftResult.fail("Could not create running shoes for rarity: " + normalizedRarity);
+            }
+            if (!removeFragments(player, fragmentKey, cost)) {
+                return CraftResult.fail("Could not remove fragments.");
+            }
+            boolean added = player.getInventory().add(reward);
+            if (!added) player.drop(reward, false);
+            return CraftResult.success(
+                    normalizedRarity.toLowerCase() + "_running_shoes",
+                    formatWords(normalizedRarity) + " Running Shoes",
+                    normalizedRarity,
+                    normalizedToolType,
+                    fragmentKey,
+                    cost
             );
         }
 
@@ -851,6 +874,10 @@ public final class ProfessionFragmentManager {
 
         if (normalized.equals("spade") || normalized.equals("spades") || normalized.equals("shovels")) {
             return "shovel";
+        }
+
+        if (normalized.equals("boot") || normalized.equals("boots") || normalized.equals("shoes") || normalized.equals("running_shoes")) {
+            return "boots";
         }
 
         return normalized;

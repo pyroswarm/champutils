@@ -1,0 +1,53 @@
+{
+  "COMMON": [
+    "swift",
+    "facade",
+    "mudslap",
+    "protect",
+    "rest"
+  ],
+  "UNCOMMON": [
+    "brickbreak",
+    "thief",
+    "bulldoze",
+    "uturn",
+    "voltswitch",
+    "drainingkiss"
+  ],
+  "RARE": [
+    "thunderwave",
+    "roost",
+    "willowisp",
+    "toxic",
+    "substitute",
+    "stealthrock",
+    "spikes"
+  ],
+  "EPIC": [
+    "swordsdance",
+    "calmmind",
+    "nastyplot",
+    "dragondance",
+    "raindance",
+    "sunnyday"
+  ],
+  "LEGENDARY": [
+    "earthquake",
+    "thunderbolt",
+    "icebeam",
+    "flamethrower",
+    "psychic",
+    "shadowball",
+    "sludgebomb",
+    "stoneedge",
+    "surf"
+  ],
+  "MYTHIC": [
+    "dracometeor",
+    "tailwind",
+    "closecombat",
+    "leafstorm",
+    "overheat",
+    "focusblast"
+  ]
+}

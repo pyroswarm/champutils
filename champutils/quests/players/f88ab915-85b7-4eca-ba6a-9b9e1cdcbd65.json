@@ -1,0 +1,89 @@
+{
+  "uuid": "f88ab915-85b7-4eca-ba6a-9b9e1cdcbd65",
+  "name": "Bloodfreya",
+  "daily": {
+    "periodKey": "2026-06-27",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_defeat_fairy",
+        "description": "Defeat 16 Fairy-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "fairy",
+        "required": 16,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_mine_redstone",
+        "description": "Mine 80 redstone ore",
+        "objectiveType": "MINE_BLOCK",
+        "profession": "MINING",
+        "target": "minecraft:redstone_ore",
+        "required": 80,
+        "progress": 56,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_potatoes",
+        "description": "Harvest 96 potatoes",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:potatoes",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 81,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_defeat_water",
+        "description": "Defeat 120 Water-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "water",
+        "required": 120,
+        "progress": 38,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_mine_evolution_ore",
+        "description": "Mine 100 Cobblemon evolution stone ores",
+        "objectiveType": "MINE_BLOCK_CONTAINS",
+        "profession": "MINING",
+        "target": "stone_ore",
+        "required": 100,
+        "progress": 92,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

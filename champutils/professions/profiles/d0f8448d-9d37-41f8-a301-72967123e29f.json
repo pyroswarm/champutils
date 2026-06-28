@@ -1,0 +1,21 @@
+{
+  "uuid": "d0f8448d-9d37-41f8-a301-72967123e29f",
+  "name": "Halikon",
+  "levels": {
+    "BATTLING": 13,
+    "FARMING": 1,
+    "FORESTRY": 9,
+    "MINING": 9
+  },
+  "xp": {
+    "BATTLING": 4,
+    "FARMING": 40,
+    "FORESTRY": 45,
+    "MINING": 24
+  },
+  "fragments": {
+    "COMMON": 32,
+    "UNCOMMON": 11,
+    "RARE": 10
+  }
+}

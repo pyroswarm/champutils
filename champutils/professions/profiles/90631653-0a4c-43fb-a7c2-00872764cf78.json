@@ -1,0 +1,17 @@
+{
+  "uuid": "90631653-0a4c-43fb-a7c2-00872764cf78",
+  "name": "Aplebred",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 85,
+    "MINING": 0
+  },
+  "fragments": {}
+}

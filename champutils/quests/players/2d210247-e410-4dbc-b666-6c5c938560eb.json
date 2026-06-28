@@ -1,0 +1,89 @@
+{
+  "uuid": "2d210247-e410-4dbc-b666-6c5c938560eb",
+  "name": "ThetaArmourious",
+  "daily": {
+    "periodKey": "2026-06-23",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_mine_evolution_ore",
+        "description": "Mine 12 Cobblemon evolution stone ores",
+        "objectiveType": "MINE_BLOCK_CONTAINS",
+        "profession": "MINING",
+        "target": "stone_ore",
+        "required": 12,
+        "progress": 12,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_battle_casual",
+        "description": "Win 5 casual battles",
+        "objectiveType": "WIN_BATTLE",
+        "profession": "BATTLING",
+        "target": "CASUAL",
+        "required": 5,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_harvest_carrots",
+        "description": "Harvest 96 carrots",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:carrots",
+        "required": 96,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_harvest_roots",
+        "description": "Harvest 900 carrots or potatoes",
+        "objectiveType": "HARVEST_CROP_CONTAINS",
+        "profession": "FARMING",
+        "target": "to",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_defeat_steel",
+        "description": "Defeat 120 Steel-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "steel",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_chop_dark_oak",
+        "description": "Chop 700 dark oak logs",
+        "objectiveType": "CHOP_BLOCK_CONTAINS",
+        "profession": "FORESTRY",
+        "target": "dark_oak_log",
+        "required": 700,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": []
+}

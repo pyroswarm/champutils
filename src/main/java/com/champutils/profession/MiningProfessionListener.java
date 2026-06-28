@@ -258,11 +258,7 @@ public class MiningProfessionListener {
                             serverPlayer,
                             ProfessionType.MINING
                     );
-
-                    ProfessionWeaponFragmentDropManager.rollReward(
-                            serverPlayer,
-                            ProfessionType.MINING
-                    );
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
 
                     if (!isBreakingExtraBlock(
                             serverPlayer
@@ -355,11 +351,7 @@ public class MiningProfessionListener {
                 ProfessionType.MINING,
                 blockId
         );
-
-        ProfessionWeaponFragmentDropManager.rollReward(
-                player,
-                ProfessionType.MINING
-        );
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
     }
 
     private static void handleShovelDiggingProgress(
@@ -526,11 +518,7 @@ public class MiningProfessionListener {
                     player,
                     ProfessionType.MINING
             );
-
-            ProfessionWeaponFragmentDropManager.rollReward(
-                    player,
-                    ProfessionType.MINING
-            );
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
         }
 
         removeBlockWithoutDrops(
@@ -948,11 +936,7 @@ public class MiningProfessionListener {
                     player,
                     ProfessionType.MINING
             );
-
-            ProfessionWeaponFragmentDropManager.rollReward(
-                    player,
-                    ProfessionType.MINING
-            );
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
         }
 
         if (ActiveEffectManager.hasAutoSmelt(
@@ -1346,7 +1330,7 @@ public class MiningProfessionListener {
                         ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
                         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
                         ProfessionLootManager.rollReward(player, ProfessionType.MINING);
-                        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.MINING);
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
                     }
                 }
 

@@ -1,0 +1,49 @@
+{
+  "guildId": "e3c7983b-b942-471e-b929-63ef3d2e0b32",
+  "guildName": "FEMBOYLICKERS",
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "guild_weekly_chop_logs",
+        "description": "Guild members chop 900 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {
+          "5623c611-6aa0-4d4c-9f19-bd7661be75cf": 280
+        },
+        "completedPlayers": []
+      },
+      {
+        "id": "guild_weekly_harvest_crops",
+        "description": "Guild members harvest 1200 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 1200,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "guild_weekly_defeat_dragons",
+        "description": "Guild members defeat 60 Dragon-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "dragon",
+        "required": 60,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "claimedWeekly": []
+}

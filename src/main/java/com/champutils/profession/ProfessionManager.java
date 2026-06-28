@@ -63,6 +63,11 @@ public class ProfessionManager {
             return;
         }
 
+        ProfessionBackpackManager.markProfessionAction(
+                player,
+                profession
+        );
+
         amount = ProfessionXpBoostManager.applyBoosts(
                 player,
                 profession,
@@ -174,6 +179,97 @@ public class ProfessionManager {
 
 
 
+
+    public static int getChunks(
+            ServerPlayer player,
+            String chunkKey
+    ) {
+        if (player == null || chunkKey == null || chunkKey.isBlank()) {
+            return 0;
+        }
+
+        String normalizedChunkKey = ProfessionChunkManager.normalizeChunk(chunkKey);
+        ProfessionDataManager.ProfessionData data = getData(player);
+        if (data.chunks == null) {
+            data.chunks = new HashMap<>();
+        }
+
+        return Math.max(0, data.chunks.getOrDefault(normalizedChunkKey, 0));
+    }
+
+    public static void addChunks(
+            ServerPlayer player,
+            String chunkKey,
+            int amount
+    ) {
+        if (player == null || chunkKey == null || chunkKey.isBlank() || amount <= 0) {
+            return;
+        }
+
+        String normalizedChunkKey = ProfessionChunkManager.normalizeChunk(chunkKey);
+        ProfessionDataManager.ProfessionData data = getData(player);
+        if (data.chunks == null) {
+            data.chunks = new HashMap<>();
+        }
+
+        int current = Math.max(0, data.chunks.getOrDefault(normalizedChunkKey, 0));
+        data.chunks.put(normalizedChunkKey, current + amount);
+
+        markDirty(PlayerProfileManager.activeProfileId(player));
+    }
+
+    public static int removeChunks(
+            ServerPlayer player,
+            String chunkKey,
+            int amount
+    ) {
+        if (player == null || chunkKey == null || chunkKey.isBlank() || amount <= 0) {
+            return 0;
+        }
+
+        String normalizedChunkKey = ProfessionChunkManager.normalizeChunk(chunkKey);
+        ProfessionDataManager.ProfessionData data = getData(player);
+        if (data.chunks == null) {
+            data.chunks = new HashMap<>();
+        }
+
+        int current = Math.max(0, data.chunks.getOrDefault(normalizedChunkKey, 0));
+        int removed = Math.min(current, amount);
+        if (removed <= 0) {
+            return 0;
+        }
+
+        int remaining = current - removed;
+        if (remaining <= 0) {
+            data.chunks.remove(normalizedChunkKey);
+        } else {
+            data.chunks.put(normalizedChunkKey, remaining);
+        }
+
+        markDirty(PlayerProfileManager.activeProfileId(player));
+        return removed;
+    }
+
+    public static Map<String, Integer> getChunkBalances(
+            ServerPlayer player
+    ) {
+        ProfessionDataManager.ProfessionData data = getData(player);
+        if (data.chunks == null) {
+            data.chunks = new HashMap<>();
+        }
+        return new HashMap<>(data.chunks);
+    }
+
+    public static Map<String, Integer> getFragmentBalances(
+            ServerPlayer player
+    ) {
+        ProfessionDataManager.ProfessionData data = getData(player);
+        if (data.fragments == null) {
+            data.fragments = new HashMap<>();
+        }
+        return new HashMap<>(data.fragments);
+    }
+
     public static int getFragments(
             ServerPlayer player,
             String fragmentKey
@@ -262,6 +358,14 @@ public class ProfessionManager {
             UUID uuid
     ) {
         DIRTY_PLAYERS.add(uuid);
+    }
+
+    public static void markDirtyProfile(
+            UUID uuid
+    ) {
+        if (uuid != null) {
+            markDirty(uuid);
+        }
     }
 
     public static void savePlayer(

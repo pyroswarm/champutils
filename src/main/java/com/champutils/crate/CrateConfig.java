@@ -102,13 +102,11 @@ public final class CrateConfig {
                     applyGildedChestIcons(root.crates);
                     applySeasonCrateBalance(root.crates);
                     applyLegendaryMythicHighValueOnly(root.crates);
-                    applyProfessionToolLootPools(root.crates);
                     CRATES = root.crates;
                 }
                 applyGildedChestIcons(CRATES);
                 applySeasonCrateBalance(CRATES);
                 applyLegendaryMythicHighValueOnly(CRATES);
-                applyProfessionToolLootPools(CRATES);
                 // Event crate was removed. World events now award regular crate credits by event tier.
                 CRATES.remove("event");
                 Root saved = new Root();
@@ -223,29 +221,14 @@ public final class CrateConfig {
                 listI("cobblemon:master_ball:1:1:5","cobblemon:dream_ball:2:4:12","cobblemon:beast_ball:2:4:12","cobblemon:rare_candy:4:8:18","cobblemon:exp_candy_xl:2:6:16","cobblemon:ability_patch:1:2:10","cobblemon:leftovers:1:1:8","cobblemon:life_orb:1:1:8","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6"),
                 listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2","titanbreaker:2","worldtree_axe:3","gaias_blessing:3"));
         applySeasonCrateBalance(root.crates);
-        applyProfessionToolLootPools(root.crates);
         return root;
     }
 
 
     private static void applyProfessionToolLootPools(Map<String, CrateDefinition> crates) {
-        if (crates == null || crates.isEmpty()) return;
-        if (ProfessionToolConfig.TOOLS == null || ProfessionToolConfig.TOOLS.isEmpty()) {
-            try { ProfessionToolConfig.load(); } catch (Throwable ignored) {}
-        }
-        if (ProfessionToolConfig.TOOLS == null || ProfessionToolConfig.TOOLS.isEmpty()) return;
-
-        for (Map.Entry<String, CrateDefinition> crateEntry : crates.entrySet()) {
-            CrateDefinition crate = crateEntry.getValue();
-            if (crate == null) continue;
-            String crateRarity = normalizeRarity(crate.guaranteedShardRarity);
-            for (Map.Entry<String, ProfessionToolConfig.ToolData> toolEntry : ProfessionToolConfig.TOOLS.entrySet()) {
-                String toolId = toolEntry.getKey();
-                ProfessionToolConfig.ToolData toolData = toolEntry.getValue();
-                if (toolId == null || toolId.isBlank() || toolData == null) continue;
-                if (!crateRarity.equals(normalizeRarity(toolData.rarity))) continue;
-                addToolOnce(crate, toolId, defaultToolWeight(crateRarity, toolData));
-            }
+        if (crates == null) return;
+        for (CrateDefinition crate : crates.values()) {
+            if (crate != null) crate.tools = new ArrayList<>();
         }
     }
 

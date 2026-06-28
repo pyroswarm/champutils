@@ -75,10 +75,8 @@ public class FarmingProfessionListener {
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FARMING, blockId);
         rollXpSurge(player, tool, xp);
         ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
-        ProfessionWeaponFragmentDropManager.rollReward(player, ProfessionType.FARMING);
+                // Profession fragment drops removed; use chunks -> Foreman trades instead.
         rollHarvestMultiplier(player, state.getBlock(), tool);
-        rollRewardPassive(player, tool, "seedSaverChance", "farming_seed_saver");
-        rollRewardPassive(player, tool, "goldenHarvestChance", "farming_golden_harvest");
     }
 
 
@@ -159,9 +157,12 @@ public class FarmingProfessionListener {
     }
 
     private static void rollHarvestMultiplier(ServerPlayer player, Block cropBlock, ItemStack tool) {
-        int multiplier = 1;
-        if (roll(player, tool, "tripleHarvestChance")) multiplier = 3;
-        else if (roll(player, tool, "doubleHarvestChance")) multiplier = 2;
+        double chance = ProfessionToolUtil.getStat(tool, "fortuneChance");
+        if (chance <= 0.0D) {
+            chance = Math.max(ProfessionToolUtil.getStat(tool, "tripleHarvestChance"), ProfessionToolUtil.getStat(tool, "doubleHarvestChance"));
+        }
+        if (chance <= 0.0D || RANDOM.nextDouble() * 100.0D >= chance) return;
+        int multiplier = rollFortuneHarvestMultiplier(player, tool);
         if (multiplier <= 1) return;
         Item item = cropReward(cropBlock);
         if (item == Items.AIR) return;
@@ -171,6 +172,19 @@ public class FarmingProfessionListener {
             player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
         }
+    }
+
+    private static int rollFortuneHarvestMultiplier(ServerPlayer player, ItemStack tool) {
+        ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(tool);
+        String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
+        int level = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.FARMING));
+        int max = switch (rarity) { case "MYTHIC" -> 5; case "LEGENDARY" -> 4; case "RARE", "EPIC" -> 3; default -> 2; };
+        double highBonus = Math.min(0.25D, level / 400.0D);
+        double r = RANDOM.nextDouble();
+        if (max >= 5 && r < 0.08D + highBonus) return 5;
+        if (max >= 4 && r < 0.18D + highBonus) return 4;
+        if (max >= 3 && r < 0.40D + highBonus) return 3;
+        return 2;
     }
 
     private static void rollXpSurge(ServerPlayer player, ItemStack tool, int baseXp) {

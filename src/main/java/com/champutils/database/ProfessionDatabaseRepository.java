@@ -27,6 +27,18 @@ public final class ProfessionDatabaseRepository {
                         "profile_id uuid not null references player_profiles(id) on delete cascade, fragment_id text not null, amount integer not null default 0, " +
                         "updated_at timestamptz not null default now(), primary key(profile_id, fragment_id))"
         )) { ensure.executeUpdate(); }
+
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create table if not exists profile_chunks (" +
+                        "profile_id uuid not null references player_profiles(id) on delete cascade, chunk_id text not null, amount integer not null default 0, " +
+                        "updated_at timestamptz not null default now(), primary key(profile_id, chunk_id))"
+        )) { ensure.executeUpdate(); }
+
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create table if not exists profile_profession_backpack (" +
+                        "profile_id uuid not null references player_profiles(id) on delete cascade, item_id text not null, amount bigint not null default 0, " +
+                        "updated_at timestamptz not null default now(), primary key(profile_id, item_id))"
+        )) { ensure.executeUpdate(); }
         schemaEnsured = true;
     }
 
@@ -63,6 +75,37 @@ public final class ProfessionDatabaseRepository {
                     fragmentStatement.addBatch();
                 }
                 fragmentStatement.executeBatch();
+            }
+
+            try (PreparedStatement chunkStatement = connection.prepareStatement(
+                    "insert into profile_chunks (profile_id, chunk_id, amount, updated_at) values (?, ?, ?, now()) " +
+                            "on conflict (profile_id, chunk_id) do update set amount = excluded.amount, updated_at = now()"
+            )) {
+                if (data.chunks != null) {
+                    for (var entry : data.chunks.entrySet()) {
+                        chunkStatement.setObject(1, profileId);
+                        chunkStatement.setString(2, entry.getKey());
+                        chunkStatement.setInt(3, Math.max(0, entry.getValue()));
+                        chunkStatement.addBatch();
+                    }
+                }
+                chunkStatement.executeBatch();
+            }
+
+            try (PreparedStatement backpackStatement = connection.prepareStatement(
+                    "insert into profile_profession_backpack (profile_id, item_id, amount, updated_at) values (?, ?, ?, now()) " +
+                            "on conflict (profile_id, item_id) do update set amount = excluded.amount, updated_at = now()"
+            )) {
+                if (data.backpack != null) {
+                    for (var entry : data.backpack.entrySet()) {
+                        long amount = Math.max(0L, entry.getValue());
+                        backpackStatement.setObject(1, profileId);
+                        backpackStatement.setString(2, entry.getKey());
+                        backpackStatement.setLong(3, amount);
+                        backpackStatement.addBatch();
+                    }
+                }
+                backpackStatement.executeBatch();
             }
         });
     }

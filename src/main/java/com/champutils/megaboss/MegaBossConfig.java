@@ -67,11 +67,11 @@ public final class MegaBossConfig {
         if (DATA.maxSpawnedPlayersPerCheck <= 0) DATA.maxSpawnedPlayersPerCheck = defaultData.maxSpawnedPlayersPerCheck;
         if (DATA.spawnChancePerPlayerCheck <= 0.0D || DATA.spawnChancePerPlayerCheck > 1.0D || DATA.spawnChancePerPlayerCheck == 0.25D) DATA.spawnChancePerPlayerCheck = defaultData.spawnChancePerPlayerCheck;
         if (DATA.levelsAbovePlayerHighest < 0) DATA.levelsAbovePlayerHighest = 0;
-        // Mega Stones are intentionally fixed at 10% per megaboss win.
-        // Do not allow old configs or manual edits to raise/lower this rate.
-        DATA.megaStoneDropChance = 0.10D;
-        DATA.megaStoneBaseChance = 0.10D;
-        DATA.megaStoneChanceAtLevel100 = 0.10D;
+        // Mega Stones are intentionally fixed at 50% per megaboss win.
+        // Keep deprecated config fields aligned so old configs deserialize safely.
+        DATA.megaStoneDropChance = 0.50D;
+        DATA.megaStoneBaseChance = 0.50D;
+        DATA.megaStoneChanceAtLevel100 = 0.50D;
         if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
         if (DATA.rarityWeights == null) DATA.rarityWeights = defaultData.rarityWeights;
@@ -186,13 +186,15 @@ public final class MegaBossConfig {
         public double scaleModifier = 1.7D;
         public long despawnMinutes = 30L;
         public int battlingXpReward = 350;
-        public int fragmentMin = 2;
-        public int fragmentMax = 4;
-        public double megaStoneDropChance = 0.10D;
+        /** Deprecated: Mega Bosses no longer grant profession fragments. */
+        public int fragmentMin = 0;
+        /** Deprecated: Mega Bosses no longer grant profession fragments. */
+        public int fragmentMax = 0;
+        public double megaStoneDropChance = 0.50D;
         /** Deprecated: kept so old configs still deserialize safely. */
-        public double megaStoneBaseChance = 0.10D;
+        public double megaStoneBaseChance = 0.50D;
         /** Deprecated: kept so old configs still deserialize safely. */
-        public double megaStoneChanceAtLevel100 = 0.10D;
+        public double megaStoneChanceAtLevel100 = 0.50D;
         public boolean broadcastSpawns = true;
         public boolean broadcastMegaStoneDrops = true;
         /** Logs one compact line per natural spawn check plus detailed spawn failures. */
@@ -203,12 +205,16 @@ public final class MegaBossConfig {
     }
 
     public static final class RarityWeights {
-        public int COMMON = 8000;
-        public int UNCOMMON = 1000;
-        public int RARE = 500;
-        public int EPIC = 80;
-        public int LEGENDARY = 25;
-        public int MYTHIC = 5;
+        /**
+         * Deprecated: natural megaboss selection no longer uses rarity weights.
+         * Rarity is still used for difficulty/reward scaling and /megaboss force.
+         */
+        public int COMMON = 1;
+        public int UNCOMMON = 1;
+        public int RARE = 1;
+        public int EPIC = 1;
+        public int LEGENDARY = 1;
+        public int MYTHIC = 1;
     }
 
     public static final class BossEntry {

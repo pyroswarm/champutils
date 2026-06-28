@@ -132,6 +132,8 @@ public class ActiveEffectManager {
             return;
         }
 
+        clearOtherEffects(player, normalize(effectId));
+
         TimedEffect effect =
                 new TimedEffect(
                         normalize(effectId),
@@ -174,6 +176,8 @@ public class ActiveEffectManager {
             return;
         }
 
+        clearOtherEffects(player, normalize(effectId));
+
         TimedEffect effect =
                 new TimedEffect(
                         normalize(effectId),
@@ -193,6 +197,20 @@ public class ActiveEffectManager {
                 normalize(effectId),
                 effect
         );
+    }
+
+    private static void clearOtherEffects(ServerPlayer player, String keepEffectId) {
+        UUID id = player.getUUID();
+        Map<String, TimedEffect> timed = TIMED_EFFECTS.get(id);
+        if (timed != null) {
+            timed.entrySet().removeIf(e -> !e.getKey().equals(keepEffectId));
+            if (timed.isEmpty()) TIMED_EFFECTS.remove(id);
+        }
+        Map<String, ToggleEffect> toggles = TOGGLED_EFFECTS.get(id);
+        if (toggles != null) {
+            toggles.entrySet().removeIf(e -> !e.getKey().equals(keepEffectId));
+            if (toggles.isEmpty()) TOGGLED_EFFECTS.remove(id);
+        }
     }
 
     public static double getMiningPassiveChanceMultiplier(
@@ -490,6 +508,8 @@ public class ActiveEffectManager {
                 !currentlyEnabled;
 
         if (nowEnabled) {
+            clearOtherEffects(player, normalized);
+            effects = TOGGLED_EFFECTS.computeIfAbsent(player.getUUID(), id -> new HashMap<>());
             effects.put(
                     normalized,
                     new ToggleEffect(

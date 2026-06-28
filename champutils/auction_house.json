@@ -1,0 +1,5 @@
+{
+  "maxActiveListingsPerPlayer": 10,
+  "maxListingPrice": 9000000000000000,
+  "listingDurationDays": 7
+}

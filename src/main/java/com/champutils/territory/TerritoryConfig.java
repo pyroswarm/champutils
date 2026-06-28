@@ -8,6 +8,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public final class TerritoryConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -17,7 +18,7 @@ public final class TerritoryConfig {
 
     private TerritoryConfig() {}
 
-    public static void load() {
+    public static synchronized void load() {
         try {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
@@ -36,7 +37,7 @@ public final class TerritoryConfig {
         }
     }
 
-    public static void save() {
+    public static synchronized void save() {
         try {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
@@ -49,7 +50,7 @@ public final class TerritoryConfig {
         }
     }
 
-    public static Data get() {
+    public static synchronized Data get() {
         return data.withDefaults();
     }
 
@@ -178,14 +179,16 @@ public final class TerritoryConfig {
             }
             // Migrate older generated configs to the correct Multiworld 1.13.1 syntax. Multiworld creates by
             // plain world name (territories_1), while Minecraft stores the dimension as multiworld:territories_1.
-            worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                    .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw load {world_key}", "mw load {world_id}")
-                    .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
-                    .replace("mw load {world}", "mw load {world_id}")
-                    .replace("multiworld:{world_id}", "{world_id}"));
+            worldCreateCommands = worldCreateCommands.stream()
+                    .map(command -> command == null ? "" : command
+                            .replace("mw create {world_key} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                            .replace("mw create {world_key}", "mw create {world_id} NORMAL -g=NORMAL")
+                            .replace("mw load {world_key}", "mw load {world_id}")
+                            .replace("mw create {world} NORMAL", "mw create {world_id} NORMAL -g=NORMAL")
+                            .replace("mw create {world}", "mw create {world_id} NORMAL -g=NORMAL")
+                            .replace("mw load {world}", "mw load {world_id}")
+                            .replace("multiworld:{world_id}", "{world_id}"))
+                    .collect(Collectors.toCollection(ArrayList::new));
             if (chunkyPregenerationCommands == null) chunkyPregenerationCommands = new ArrayList<>();
             // Important: Chunky is intentionally not used for territories. Existing configs may still contain
             // old Chunky commands, so clear them on load to avoid territories getting stuck in GENERATING.
@@ -194,9 +197,11 @@ public final class TerritoryConfig {
             // Biome painting is intentionally disabled. Multiworld 1.13.1 is created with its known-good NORMAL generator syntax.
             paintVoidTerritoryBiomes = false;
             if (skyblockTerritoryWorlds) {
-                worldCreateCommands.replaceAll(command -> command == null ? "" : command
-                        .replace("-g=NORMAL", "-g=VOID")
-                        .replace("-g=FLAT", "-g=VOID"));
+                worldCreateCommands = worldCreateCommands.stream()
+                        .map(command -> command == null ? "" : command
+                                .replace("-g=NORMAL", "-g=VOID")
+                                .replace("-g=FLAT", "-g=VOID"))
+                        .collect(Collectors.toCollection(ArrayList::new));
             }
             if (skyblockInitialClearRadius < skyblockIslandRadius + 8) skyblockInitialClearRadius = skyblockIslandRadius + 8;
             if (skyblockInitialClearRadius > defaultRadius) skyblockInitialClearRadius = defaultRadius;
@@ -228,7 +233,7 @@ public final class TerritoryConfig {
         }
     }
 
-    public static void setRecreateCooldownMinutes(int minutes) {
+    public static synchronized void setRecreateCooldownMinutes(int minutes) {
         data.withDefaults().recreateCooldownMinutes = Math.max(0, minutes);
         save();
     }

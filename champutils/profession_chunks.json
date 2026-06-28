@@ -1,0 +1,191 @@
+{
+  "enabled": true,
+  "announceFinds": true,
+  "chunks": {
+    "COBBLESTONE": {
+      "displayName": "Cobblestone Chunk",
+      "fragmentRarity": "COMMON",
+      "sellCredits": 1.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    },
+    "COPPER": {
+      "displayName": "Copper Chunk",
+      "fragmentRarity": "UNCOMMON",
+      "sellCredits": 5.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    },
+    "IRON": {
+      "displayName": "Iron Chunk",
+      "fragmentRarity": "RARE",
+      "sellCredits": 15.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    },
+    "GOLD": {
+      "displayName": "Gold Chunk",
+      "fragmentRarity": "EPIC",
+      "sellCredits": 50.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    },
+    "DIAMOND": {
+      "displayName": "Diamond Chunk",
+      "fragmentRarity": "LEGENDARY",
+      "sellCredits": 150.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    },
+    "NETHERITE": {
+      "displayName": "Netherite Chunk",
+      "fragmentRarity": "MYTHIC",
+      "sellCredits": 500.0,
+      "chunksPerFragment": 2,
+      "fragmentsPerTrade": 1
+    }
+  },
+  "activities": {
+    "MINING": {
+      "activityMultiplier": 1.0,
+      "rolls": {
+        "COBBLESTONE": {
+          "baseChancePercent": 0.1,
+          "chancePerLevelPercent": 0.2515,
+          "maxChancePercent": 25.0
+        },
+        "COPPER": {
+          "baseChancePercent": 0.01,
+          "chancePerLevelPercent": 0.101,
+          "maxChancePercent": 10.0
+        },
+        "IRON": {
+          "baseChancePercent": 0.005,
+          "chancePerLevelPercent": 0.0505,
+          "maxChancePercent": 5.0
+        },
+        "GOLD": {
+          "baseChancePercent": 0.002,
+          "chancePerLevelPercent": 0.0202,
+          "maxChancePercent": 2.0
+        },
+        "DIAMOND": {
+          "baseChancePercent": 0.001,
+          "chancePerLevelPercent": 0.0101,
+          "maxChancePercent": 1.0
+        },
+        "NETHERITE": {
+          "baseChancePercent": 5.0E-4,
+          "chancePerLevelPercent": 0.00505,
+          "maxChancePercent": 0.5
+        }
+      }
+    },
+    "FORESTRY": {
+      "activityMultiplier": 0.45,
+      "rolls": {
+        "COBBLESTONE": {
+          "baseChancePercent": 0.1,
+          "chancePerLevelPercent": 0.2515,
+          "maxChancePercent": 25.0
+        },
+        "COPPER": {
+          "baseChancePercent": 0.01,
+          "chancePerLevelPercent": 0.101,
+          "maxChancePercent": 10.0
+        },
+        "IRON": {
+          "baseChancePercent": 0.005,
+          "chancePerLevelPercent": 0.0505,
+          "maxChancePercent": 5.0
+        },
+        "GOLD": {
+          "baseChancePercent": 0.002,
+          "chancePerLevelPercent": 0.0202,
+          "maxChancePercent": 2.0
+        },
+        "DIAMOND": {
+          "baseChancePercent": 0.001,
+          "chancePerLevelPercent": 0.0101,
+          "maxChancePercent": 1.0
+        },
+        "NETHERITE": {
+          "baseChancePercent": 5.0E-4,
+          "chancePerLevelPercent": 0.00505,
+          "maxChancePercent": 0.5
+        }
+      }
+    },
+"FARMING": {
+  "activityMultiplier": 0.06,
+  "rolls": {
+    "COBBLESTONE": {
+      "baseChancePercent": 0.03,
+      "chancePerLevelPercent": 0.12,
+      "maxChancePercent": 12.0
+    },
+    "COPPER": {
+      "baseChancePercent": 0.003,
+      "chancePerLevelPercent": 0.045,
+      "maxChancePercent": 4.5
+    },
+    "IRON": {
+      "baseChancePercent": 0.0015,
+      "chancePerLevelPercent": 0.0225,
+      "maxChancePercent": 2.25
+    },
+    "GOLD": {
+      "baseChancePercent": 0.00075,
+      "chancePerLevelPercent": 0.009,
+      "maxChancePercent": 0.9
+    },
+    "DIAMOND": {
+      "baseChancePercent": 0.00035,
+      "chancePerLevelPercent": 0.0045,
+      "maxChancePercent": 0.45
+    },
+    "NETHERITE": {
+      "baseChancePercent": 0.00015,
+      "chancePerLevelPercent": 0.00225,
+      "maxChancePercent": 0.225
+    }
+  }
+}
+    },
+    "BATTLING": {
+      "activityMultiplier": 0.35,
+      "rolls": {
+        "COBBLESTONE": {
+          "baseChancePercent": 0.1,
+          "chancePerLevelPercent": 0.2515,
+          "maxChancePercent": 25.0
+        },
+        "COPPER": {
+          "baseChancePercent": 0.01,
+          "chancePerLevelPercent": 0.101,
+          "maxChancePercent": 10.0
+        },
+        "IRON": {
+          "baseChancePercent": 0.005,
+          "chancePerLevelPercent": 0.0505,
+          "maxChancePercent": 5.0
+        },
+        "GOLD": {
+          "baseChancePercent": 0.002,
+          "chancePerLevelPercent": 0.0202,
+          "maxChancePercent": 2.0
+        },
+        "DIAMOND": {
+          "baseChancePercent": 0.001,
+          "chancePerLevelPercent": 0.0101,
+          "maxChancePercent": 1.0
+        },
+        "NETHERITE": {
+          "baseChancePercent": 5.0E-4,
+          "chancePerLevelPercent": 0.00505,
+          "maxChancePercent": 0.5
+        }
+      }
+    }
+  }
+}

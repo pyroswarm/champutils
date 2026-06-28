@@ -1,0 +1,17 @@
+{
+  "uuid": "a488f2e3-31af-49c3-9102-62b8fc322a9c",
+  "name": "MrShanmao",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

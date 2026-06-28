@@ -84,6 +84,7 @@ public final class MenuNpcInteractionListener {
             case "battles", "pvp" -> BattleMenu.open(player);
             case "auction" -> AuctionHouseGui.openMain(player);
             case "shop", "essentials" -> NpcShopMenu.open(player);
+            case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> MegaShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
             case "quests", "quest" -> QuestMenu.open(player);
             case "contracts", "contract" -> ContractMenu.open(player);
@@ -93,6 +94,7 @@ public final class MenuNpcInteractionListener {
             case "pterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.PERSONAL, "", 0);
             case "gterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.GUILD, "", 0);
             case "guild", "guilds" -> GuildMenu.open(player);
+            case "professionforeman", "foreman", "chunks" -> ProfessionForemanMenu.open(player);
             default -> player.sendSystemMessage(Component.literal("This NPC is bound to an unknown menu: " + menu).withStyle(ChatFormatting.RED));
         }
     }

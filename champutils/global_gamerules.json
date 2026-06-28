@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "doDaylightCycle": true,
+  "doWeatherCycle": true,
+  "keepInventory": true,
+  "mobGriefing": false,
+  "doMobSpawning": false,
+  "doInsomnia": false,
+  "doBedGriefing": false,
+  "doTntGriefing": false,
+  "doFireTick": false,
+  "doEndCrystalGriefing": false,
+  "announceAdvancements": false
+
+}

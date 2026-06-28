@@ -83,10 +83,19 @@ public class LeaderboardMenu {
         }
 
         if (rows.isEmpty()) {
-            gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
+            gui.setSlot(22, new GuiElementBuilder(Items.CLOCK)
                     .hideDefaultTooltip()
-                    .setName(Component.literal("§cNo leaderboard data yet"))
-                    .addLoreLine(Component.literal("§7Run the SQL views first, then let data sync.")));
+                    .setName(Component.literal("§eLoading leaderboard..."))
+                    .addLoreLine(Component.literal("§7This loads asynchronously so /baltop never freezes the server.")));
+            ProfileLeaderboardRepository.topAsync(board, 28).whenComplete((freshRows, error) -> player.server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                if (error != null) {
+                    error.printStackTrace();
+                    player.sendSystemMessage(Component.literal("Could not load leaderboard. Check console."));
+                    return;
+                }
+                open(player, board);
+            }));
         }
 
         MenuUtil.addBackButton(gui, 45, () -> MainMenu.open(player));

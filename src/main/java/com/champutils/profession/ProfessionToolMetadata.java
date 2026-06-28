@@ -29,8 +29,46 @@ public final class ProfessionToolMetadata {
     private static final String LOCKED_KEY = "Locked";
     private static final String ACTIVE_INSTANCE_ID_KEY = "ActiveInstanceId";
     private static final String ACTIVE_TOGGLES_KEY = "ActiveToggles";
+    private static final String TOOL_VERSION_KEY = "ToolVersion";
+
+    public static final int CURRENT_TOOL_VERSION = 1;
 
     private ProfessionToolMetadata() {
+    }
+
+
+    public static int getToolVersion(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(TOOL_VERSION_KEY)) {
+            return 0;
+        }
+
+        return Math.max(
+                0,
+                root.getInt(TOOL_VERSION_KEY)
+        );
+    }
+
+    public static void setToolVersion(
+            ItemStack stack,
+            int version
+    ) {
+
+        updateRoot(
+                stack,
+                root -> root.putInt(
+                        TOOL_VERSION_KEY,
+                        Math.max(
+                                0,
+                                version
+                        )
+                )
+        );
     }
 
     public static boolean isProfessionTool(
@@ -1016,6 +1054,11 @@ public final class ProfessionToolMetadata {
                             LOCKED_KEY,
                             false
                     );
+
+                    root.putInt(
+                            TOOL_VERSION_KEY,
+                            CURRENT_TOOL_VERSION
+                    );
                 }
         );
     }
@@ -1070,6 +1113,11 @@ public final class ProfessionToolMetadata {
                                             quality
                                     )
                             )
+                    );
+
+                    root.putInt(
+                            TOOL_VERSION_KEY,
+                            CURRENT_TOOL_VERSION
                     );
 
                     if (incrementReroll) {

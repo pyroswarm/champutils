@@ -1,0 +1,16 @@
+{
+  "uuid": "fa746bb7-6b15-4725-a1b7-8f6a6828d6df",
+  "name": "Endymoin",
+  "rp": 276,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 1,
+  "casualWins": 0,
+  "casualLosses": 1,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 0,
+  "playtimeSeconds": 0
+}

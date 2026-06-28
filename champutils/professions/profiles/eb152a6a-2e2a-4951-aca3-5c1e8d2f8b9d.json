@@ -1,0 +1,17 @@
+{
+  "uuid": "eb152a6a-2e2a-4951-aca3-5c1e8d2f8b9d",
+  "name": "ObxM",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

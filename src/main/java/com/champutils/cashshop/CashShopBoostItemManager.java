@@ -22,7 +22,7 @@ public final class CashShopBoostItemManager {
     static {
         add("shiny_surge", "§dServer Shiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Increases the current shiny chance by +1% for the whole server for 15 minutes.");
         add("special_surge", "§5Server Special Spawn Surge", null, 0.50D, "Adds +50% special wild spawn chance for the whole server for 15 minutes.");
-        add("pokemon_xp_surge", "§bServer Pokémon XP Surge", BuffType.BATTLING_XP, 0.25D, "Adds +25% battling/Pokémon reward XP for 15 minutes.");
+        add("pokemon_xp_surge", "§bServer Pokémon XP Surge", BuffType.POKEMON_XP, 0.25D, "Adds +25% Pokémon battle XP for 15 minutes.");
         add("mining_xp_surge", "§3Server Mining XP Surge", BuffType.MINING_XP, 0.50D, "Adds +50% Mining profession XP for the whole server for 15 minutes.");
         add("forestry_xp_surge", "§aServer Forestry XP Surge", BuffType.FORESTRY_XP, 0.50D, "Adds +50% Forestry profession XP for the whole server for 15 minutes.");
         add("farming_xp_surge", "§eServer Farming XP Surge", BuffType.FARMING_XP, 0.50D, "Adds +50% Farming profession XP for the whole server for 15 minutes.");

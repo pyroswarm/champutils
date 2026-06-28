@@ -1,0 +1,118 @@
+{
+  "xp": 0,
+  "claimedLevel": 0,
+  "dailyKey": 20629,
+  "lastWeeklyKey": 202626,
+  "missions": [
+    {
+      "id": "daily_play_20629",
+      "daily": true,
+      "week": 0,
+      "type": "PLAY",
+      "title": "Play 3 ranked PvP matches",
+      "target": 3,
+      "progress": 0,
+      "xp": 250,
+      "claimed": false
+    },
+    {
+      "id": "daily_win_20629",
+      "daily": true,
+      "week": 0,
+      "type": "WIN",
+      "title": "Win 1 ranked PvP matches",
+      "target": 1,
+      "progress": 0,
+      "xp": 350,
+      "claimed": false
+    },
+    {
+      "id": "daily_practice_20629",
+      "daily": true,
+      "week": 0,
+      "type": "PLAY",
+      "title": "Play 1 ranked PvP matches using your chosen lead Pokémon",
+      "target": 1,
+      "progress": 0,
+      "xp": 300,
+      "claimed": false
+    },
+    {
+      "id": "weekly_play_202626",
+      "daily": false,
+      "week": 202626,
+      "type": "PLAY",
+      "title": "Play 15 ranked PvP matches",
+      "target": 15,
+      "progress": 0,
+      "xp": 900,
+      "claimed": false
+    },
+    {
+      "id": "weekly_win_202626",
+      "daily": false,
+      "week": 202626,
+      "type": "WIN",
+      "title": "Win 5 ranked PvP matches",
+      "target": 5,
+      "progress": 0,
+      "xp": 1100,
+      "claimed": false
+    },
+    {
+      "id": "weekly_202626_var_0",
+      "daily": false,
+      "week": 202626,
+      "type": "PLAY",
+      "title": "Play 4 ranked PvP matches with no duplicate held items",
+      "target": 4,
+      "progress": 0,
+      "xp": 800,
+      "claimed": false
+    },
+    {
+      "id": "weekly_202626_var_1",
+      "daily": false,
+      "week": 202626,
+      "type": "WIN",
+      "title": "Win 5 ranked PvP matches",
+      "target": 5,
+      "progress": 0,
+      "xp": 1000,
+      "claimed": false
+    },
+    {
+      "id": "weekly_202626_var_2",
+      "daily": false,
+      "week": 202626,
+      "type": "WIN",
+      "title": "Win 4 ranked PvP matches",
+      "target": 4,
+      "progress": 0,
+      "xp": 1000,
+      "claimed": false
+    },
+    {
+      "id": "weekly_202626_var_3",
+      "daily": false,
+      "week": 202626,
+      "type": "WIN",
+      "title": "Win 2 ranked PvP matches",
+      "target": 2,
+      "progress": 0,
+      "xp": 1000,
+      "claimed": false
+    },
+    {
+      "id": "weekly_202626_var_4",
+      "daily": false,
+      "week": 202626,
+      "type": "PLAY",
+      "title": "Play 3 ranked PvP matches with no duplicate held items",
+      "target": 3,
+      "progress": 0,
+      "xp": 800,
+      "claimed": false
+    }
+  ]
+}

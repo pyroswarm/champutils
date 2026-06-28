@@ -1,0 +1,112 @@
+{
+  "uuid": "6e7d9c10-d91e-4783-9111-3298133cee15",
+  "name": "Araya7",
+  "daily": {
+    "periodKey": "2026-06-19",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "daily_harvest_any",
+        "description": "Harvest 128 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 128,
+        "progress": 2,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_defeat_psychic",
+        "description": "Defeat 16 Psychic-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "psychic",
+        "required": 16,
+        "progress": 1,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "daily_chop_logs",
+        "description": "Chop 128 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 128,
+        "progress": 55,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "weekly": {
+    "periodKey": "2026-W25",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "weekly_defeat_rock",
+        "description": "Defeat 120 Rock-type Pokémon",
+        "objectiveType": "DEFEAT_TYPE",
+        "profession": "BATTLING",
+        "target": "rock",
+        "required": 120,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_chop_logs",
+        "description": "Chop 1200 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 1200,
+        "progress": 55,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "weekly_harvest_wheat",
+        "description": "Harvest 900 wheat",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "minecraft:wheat",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 0,
+        "playerProgress": {},
+        "completedPlayers": []
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "purchasedAtMillis": 1781888659921,
+      "expiresAtMillis": 1781913859921,
+      "creditCost": 50,
+      "rewardCredits": 150,
+      "difficulty": "UNCOMMON",
+      "completed": false,
+      "rewardCommands": [
+        "give %player% cobblemon:miracle_seed 1",
+        "give %player% cobblemon:friend_ball 4"
+      ],
+      "id": "contract_grove_clear",
+      "description": "Chop 600 natural logs",
+      "objectiveType": "CHOP_BLOCK_TAG",
+      "profession": "FORESTRY",
+      "target": "logs",
+      "required": 600,
+      "progress": 55,
+      "requiredPlayers": 0,
+      "playerProgress": {},
+      "completedPlayers": []
+    }
+  ]
+}

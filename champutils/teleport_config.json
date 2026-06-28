@@ -1,0 +1,97 @@
+{
+  "spawn": {
+    "dimension": "multiworld:spawn1",
+    "x": -125.49748384207132,
+    "y": 95.0,
+    "z": 38.625951705877966,
+    "yaw": -5.725026E-5,
+    "pitch": -1.0499787
+  },
+  "warps": {
+    "auction": {
+      "dimension": "multiworld:spawn1",
+      "x": -173.54902722203286,
+      "y": 95.0,
+      "z": -72.42132169465901,
+      "yaw": 90.17377,
+      "pitch": 0.14276233
+    },
+    "gyms": {
+      "dimension": "multiworld:spawn1",
+      "x": -247.86541181437596,
+      "y": 95.0,
+      "z": 38.15606605134123,
+      "yaw": -59.987915,
+      "pitch": -0.38734293
+    },
+    "elite4": {
+      "dimension": "multiworld:spawn1",
+      "x": -125.49471749632447,
+      "y": 111.1875,
+      "z": -210.10491020697197,
+      "yaw": -179.93105,
+      "pitch": -0.18854581
+    },
+    "pokecenter": {
+      "dimension": "multiworld:spawn1",
+      "x": -21.819206063690707,
+      "y": 96.0,
+      "z": -72.558407010659,
+      "yaw": -88.89786,
+      "pitch": -0.51985264
+    },
+    "pokemart": {
+      "dimension": "multiworld:spawn1",
+      "x": -208.58717421971323,
+      "y": 97.0625,
+      "z": 157.4761379115438,
+      "yaw": 89.90457,
+      "pitch": 1.2691562
+    },
+    "worldboss": {
+      "dimension": "multiworld:spawn1",
+      "x": -64.25135998387826,
+      "y": 97.0,
+      "z": 157.46254674860845,
+      "yaw": -89.73276,
+      "pitch": -0.9837602
+    },
+    "tower": {
+      "dimension": "multiworld:spawn1",
+      "x": -125.47027744889779,
+      "y": 94.0,
+      "z": 185.41496439023018,
+      "yaw": 0.5044978,
+      "pitch": -4.4999967
+    },
+    "rotom": {
+      "dimension": "multiworld:spawn1",
+      "x": -197.21357468555252,
+      "y": 97.0,
+      "z": 150.52555760560213,
+      "yaw": -179.71803,
+      "pitch": 8.558047
+    }
+  },
+  "rtpCooldownSeconds": 30,
+  "rtpBlockedDimensions": [
+    "minecraft:spawn1",
+    "multiworld:spawn1"
+  ],
+  "rtpFallbackDimension": "minecraft:overworld",
+  "portals": {
+    "rtp": {
+      "dimension": "multiworld:spawn1",
+      "x1": -126,
+      "y1": 103,
+      "z1": -17,
+      "x2": -126,
+      "y2": 103,
+      "z2": -17,
+      "command": "rtp",
+      "hasPos1": true,
+      "hasPos2": true
+    }
+  },
+  "rtpWorldUnlockPassword": "CHANGE_ME"
+}

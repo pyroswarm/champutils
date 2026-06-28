@@ -1,0 +1,17 @@
+{
+  "uuid": "398ace8f-49e1-4e2b-9dbb-c20be9947ee7",
+  "name": "ArtistNikki",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 10,
+    "FARMING": 0,
+    "FORESTRY": 30,
+    "MINING": 0
+  },
+  "fragments": {}
+}
