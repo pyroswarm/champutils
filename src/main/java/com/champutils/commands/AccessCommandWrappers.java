@@ -7,28 +7,33 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
-/** Profile-aware wrappers for external Cobblemon utility commands gated by gym rewards. */
+/** Wrappers for external Cobblemon utility commands gated by LuckPerms/VIP permissions. */
 public final class AccessCommandWrappers {
     private AccessCommandWrappers() {}
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("pc")
-                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pc", "cobblemonextras:pc")));
+                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pc", "cobblemonextras:pc", "VIP")));
             dispatcher.register(Commands.literal("pokeheal")
-                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeheal", "cobblemonextras:pokeheal"))
+                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeheal", "healpokemon", "VIP"))
                     .then(Commands.argument("target", StringArgumentType.greedyString())
                             .requires(source -> source.hasPermission(4))
                             .executes(ctx -> runRaw(ctx.getSource(), "cobblemonextras:pokeheal " + StringArgumentType.getString(ctx, "target")))));
+            dispatcher.register(Commands.literal("pokeivs")
+                    .executes(ctx -> run(ctx.getSource(), "champutils.command.pokeivs", "cobblemonextras:pokeivs", "VIP+"))
+                    .then(Commands.argument("args", StringArgumentType.greedyString())
+                            .requires(source -> source.hasPermission(4))
+                            .executes(ctx -> runRaw(ctx.getSource(), "cobblemonextras:pokeivs " + StringArgumentType.getString(ctx, "args")))));
         });
     }
 
-    private static int run(net.minecraft.commands.CommandSourceStack source, String permission, String namespacedCommand) {
+    private static int run(net.minecraft.commands.CommandSourceStack source, String permission, String namespacedCommand, String featureName) {
         if (source == null) return 0;
         if (!PermissionUtil.has(source, permission)) {
             try {
                 ServerPlayer player = source.getPlayerOrException();
-                player.sendSystemMessage(Component.literal("§cYou have not unlocked this command yet."));
+                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. Unlock it with /accountupgrade."));
             } catch (Exception ignored) {}
             return 0;
         }

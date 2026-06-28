@@ -41,6 +41,7 @@ public final class TitleMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal((active ? "§aSelected §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(def.id).replace('&','§')))
                     .addLoreLine(Component.literal("§7Objective: §f" + (def.description == null ? "Unknown" : def.description)))
+                    .addLoreLine(Component.literal("§7Scope: §f" + (TitleConfig.isAccountBound(def.id) ? "Account" : "Profile")))
                     .addLoreLine(Component.literal("§7Passive: §a" + TitleConfig.buffText(def)))
                     .addLoreLine(Component.literal(unlocked ? "§eClick to select" : "§8Locked"));
             if (unlocked) b.setCallback((i,c,t) -> { TitleManager.select(player, def.id); open(player, requestedPage); });

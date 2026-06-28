@@ -261,6 +261,7 @@ public class ChampUtilsMod implements ModInitializer {
         SurvivalWorldManager.load();
         HomeCommand.load();
         BoosterCreditManager.load();
+        com.champutils.account.AccountUpgradeConfig.load();
         CrateConfig.load();
         CrateCreditManager.load();
         CrateKeyCraftingConfig.load();
@@ -671,6 +672,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldFirstCommand.register();
         CashShopCommand.register();
         BoosterCommand.register();
+        com.champutils.account.AccountUpgradeCommand.register();
         PartyCommand.register();
         AutoModCommand.register();
         DailyLoginCommand.register();

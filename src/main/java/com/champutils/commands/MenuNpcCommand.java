@@ -41,6 +41,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
                                             builder.suggest("chunks");
+                                            builder.suggest("accountupgrade");
+                                            builder.suggest("vip");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -69,6 +71,8 @@ public final class MenuNpcCommand {
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
                                             builder.suggest("chunks");
+                                            builder.suggest("accountupgrade");
+                                            builder.suggest("vip");
                                             builder.suggest("territories");
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
@@ -92,6 +96,7 @@ public final class MenuNpcCommand {
             case "guild" -> "guilds";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
             case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> "megashop";
+            case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "accountupgrade";
             default -> menu.toLowerCase();
         };
     }

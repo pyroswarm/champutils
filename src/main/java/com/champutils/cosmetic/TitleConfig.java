@@ -66,6 +66,9 @@ public final class TitleConfig {
             if (def.display == null || def.display.isBlank()) def.display = formatDisplay(def);
             if (def.unlock == null) def.unlock = new UnlockCondition();
             if (def.buffs == null) def.buffs = new ArrayList<>();
+            def.scope = normalizeScope(def.scope);
+            def.accountBound = def.accountBound || "ACCOUNT".equalsIgnoreCase(def.scope);
+            if (def.accountBound) def.scope = "ACCOUNT";
             BY_ID.put(def.id, def);
         }
     }
@@ -75,6 +78,23 @@ public final class TitleConfig {
     public static String display(String id) {
         TitleDef def = get(id);
         return def == null ? null : def.display;
+    }
+
+    public static boolean isAccountBound(String id) {
+        TitleDef def = get(normalizeId(id));
+        if (def == null) return false;
+        return def.accountBound || "ACCOUNT".equalsIgnoreCase(def.scope);
+    }
+
+    public static synchronized boolean setScope(String id, String scope) {
+        TitleDef def = get(normalizeId(id));
+        if (def == null) return false;
+        String normalized = normalizeScope(scope);
+        def.scope = normalized;
+        def.accountBound = "ACCOUNT".equals(normalized);
+        rebuildIndex();
+        save();
+        return true;
     }
 
 
@@ -92,6 +112,8 @@ public final class TitleConfig {
         def.description = "Manual admin title.";
         def.unlock = new UnlockCondition();
         def.unlock.type = "manual";
+        def.scope = "PROFILE";
+        def.accountBound = false;
         def.buffs = new ArrayList<>();
         def.display = formatDisplay(def);
         def.passiveDescription = buffText(def);
@@ -186,6 +208,7 @@ public final class TitleConfig {
         StringBuilder text = new StringBuilder();
         text.append("&6").append(def.name == null ? id : def.name).append("\n");
         text.append("&7Obtained: &f").append(def.description == null || def.description.isBlank() ? describeUnlock(def.unlock) : def.description).append("\n");
+        text.append("&7Scope: &f").append(isAccountBound(id) ? "Account" : "Profile").append("\n");
         String passive = def.passiveDescription == null || def.passiveDescription.isBlank() ? buffText(def) : def.passiveDescription;
         text.append("&7Passive: &a").append(passive);
         return com.champutils.chat.ChatTagResolver.legacy(text.toString());
@@ -233,6 +256,13 @@ public final class TitleConfig {
 
     private static String normalizeId(String id) {
         return id == null ? "" : id.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "_");
+    }
+
+    private static String normalizeScope(String scope) {
+        if (scope == null || scope.isBlank()) return "PROFILE";
+        String normalized = scope.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        if (normalized.equals("ACCOUNT") || normalized.equals("ACCOUNT_BOUND") || normalized.equals("GLOBAL")) return "ACCOUNT";
+        return "PROFILE";
     }
 
     private static String formatPercent(double value) {
@@ -357,6 +387,8 @@ public final class TitleConfig {
         d.unlock.battleType = battleType;
         d.unlock.profession = profession;
         d.unlock.level = level;
+        d.scope = "PROFILE";
+        d.accountBound = false;
         if ("profession_level".equalsIgnoreCase(type) && profession != null) {
             d.passive = new PassiveBonus();
             d.passive.profession = profession;
@@ -402,6 +434,10 @@ public final class TitleConfig {
         public String icon;
         public String display;
         public String description;
+        /** PROFILE or ACCOUNT. ACCOUNT titles are owned by the player account and persist through all profiles. */
+        public String scope = "PROFILE";
+        /** Backwards-friendly boolean alias for scope = ACCOUNT. */
+        public boolean accountBound = false;
         public String passiveDescription;
         public PassiveBonus passive;
         public List<TitleBuff> buffs = new ArrayList<>();

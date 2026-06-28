@@ -7,6 +7,8 @@ import net.luckperms.api.LuckPermsProvider;
 
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.track.Track;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.types.InheritanceNode;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -179,6 +181,50 @@ public class LuckPermsHook {
                             && node.getValue()
             );
         } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+
+    public static boolean hasGroup(
+            ServerPlayer player,
+            String group
+    ){
+        if (player == null || group == null || group.isBlank()) return false;
+        if (player.hasPermissions(4)) return true;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUUID());
+            if (user == null) user = lp.getUserManager().loadUser(player.getUUID()).join();
+            String wanted = group.trim().toLowerCase(java.util.Locale.ROOT);
+            if (user.getPrimaryGroup() != null && user.getPrimaryGroup().equalsIgnoreCase(wanted)) return true;
+            return user.resolveInheritedNodes(user.getQueryOptions()).stream().anyMatch(node ->
+                    node instanceof InheritanceNode
+                            && ((InheritanceNode) node).getGroupName() != null
+                            && ((InheritanceNode) node).getGroupName().equalsIgnoreCase(wanted)
+                            && node.getValue()
+            );
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+
+    public static boolean addGroup(
+            ServerPlayer player,
+            String group
+    ){
+        if (player == null || group == null || group.isBlank()) return false;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().loadUser(player.getUUID()).join();
+            String safeGroup = group.trim().toLowerCase(java.util.Locale.ROOT);
+            Node node = InheritanceNode.builder(safeGroup).value(true).build();
+            user.data().add(node);
+            lp.getUserManager().saveUser(user);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }

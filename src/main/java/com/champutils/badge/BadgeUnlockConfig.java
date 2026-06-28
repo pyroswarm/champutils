@@ -72,24 +72,6 @@ public final class BadgeUnlockConfig {
     private static void normalizeRequiredUnlocks() {
         if (DATA == null || DATA.badges == null) DATA = defaults();
         for (BadgeType badge : BadgeType.values()) DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
-        addPermission(BadgeType.CASCADE, "champutils.command.pc");
-        addPermission(BadgeType.CASCADE, "cobblemonextras.cobblemonextras.command.pc");
-        addCommand(BadgeType.CASCADE, "/pc");
-        addPermission(BadgeType.THUNDER, "champutils.command.pokeheal");
-        addPermission(BadgeType.THUNDER, "command.healpokemon.self");
-        addCommand(BadgeType.THUNDER, "/pokeheal");
-    }
-
-    private static void addPermission(BadgeType badge, String permission) {
-        BadgeUnlock unlock = DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
-        if (unlock.permissions == null) unlock.permissions = new ArrayList<>();
-        if (unlock.permissions.stream().noneMatch(p -> p.equalsIgnoreCase(permission))) unlock.permissions.add(permission);
-    }
-
-    private static void addCommand(BadgeType badge, String command) {
-        BadgeUnlock unlock = DATA.badges.computeIfAbsent(badge.name(), k -> new BadgeUnlock());
-        if (unlock.commands == null) unlock.commands = new ArrayList<>();
-        if (unlock.commands.stream().noneMatch(c -> c.equalsIgnoreCase(command))) unlock.commands.add(command);
     }
 
     private static BadgeUnlock unlock(BadgeType badge) {
@@ -122,11 +104,7 @@ public final class BadgeUnlockConfig {
             c.badges.put(badge.name(), u);
         }
         c.badges.get("BOULDER").titles.add("boulder_badge");
-        c.badges.get("CASCADE").permissions.add("champutils.command.pc");
-        c.badges.get("CASCADE").commands.add("/pc");
         c.badges.get("CASCADE").titles.add("cascade_badge");
-        c.badges.get("THUNDER").permissions.add("champutils.command.pokeheal");
-        c.badges.get("THUNDER").commands.add("/pokeheal");
         c.badges.get("THUNDER").titles.add("thunder_badge");
         c.badges.get("RAINBOW").titles.add("rainbow_badge");
         c.badges.get("SOUL").titles.add("soul_badge");

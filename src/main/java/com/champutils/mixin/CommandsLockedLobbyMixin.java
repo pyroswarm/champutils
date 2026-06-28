@@ -26,8 +26,7 @@ public abstract class CommandsLockedLobbyMixin {
             return;
         }
 
-        if (CommandBlocker.isBlockedRoot(command) && !source.hasPermission(4)) {
-            player.sendSystemMessage(CommandBlocker.denyMessage());
+        if (CommandBlocker.denyIfBlocked(source, command)) {
             ci.cancel();
             return;
         }

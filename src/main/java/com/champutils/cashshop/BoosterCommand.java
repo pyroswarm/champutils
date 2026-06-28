@@ -63,9 +63,9 @@ public final class BoosterCommand {
                                                         .executes(ctx -> {
                                                             ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
                                                             int amount = IntegerArgumentType.getInteger(ctx, "amount");
-                                                            BoosterCreditManager.addCredits(target.getUUID(), amount);
-                                                            target.sendSystemMessage(Component.literal("You received " + amount + " booster credit(s)."));
-                                                            ctx.getSource().sendSuccess(() -> Component.literal("Gave " + amount + " booster credit(s) to " + target.getName().getString() + "."), true);
+                                                            BoosterCreditManager.addPurchasedCredits(target.getUUID(), amount);
+                                                            target.sendSystemMessage(Component.literal("You received " + amount + " purchased booster credit(s)."));
+                                                            ctx.getSource().sendSuccess(() -> Component.literal("Gave " + amount + " purchased booster credit(s) to " + target.getName().getString() + "."), true);
                                                             return 1;
                                                         })))))
                         .then(Commands.literal("activate")

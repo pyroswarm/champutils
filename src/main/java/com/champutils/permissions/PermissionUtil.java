@@ -1,6 +1,5 @@
 package com.champutils.permissions;
 
-import com.champutils.badge.BadgeUnlockManager;
 import com.champutils.network.NetworkServerConfig;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -48,6 +47,6 @@ public final class PermissionUtil {
             return true;
         }
 
-        return LuckPermsHook.hasPermission(player, permission) || BadgeUnlockManager.grantsPermission(player, permission);
+        return LuckPermsHook.hasPermission(player, permission);
     }
 }

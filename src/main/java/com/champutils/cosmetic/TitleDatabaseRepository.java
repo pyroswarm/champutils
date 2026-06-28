@@ -31,6 +31,10 @@ public final class TitleDatabaseRepository {
             s.executeUpdate("create table if not exists profile_selected_title (profile_id uuid primary key, title_id text, updated_at timestamptz not null default now())");
             s.executeUpdate("alter table profile_selected_title add column if not exists title_id text");
             s.executeUpdate("alter table profile_selected_title add column if not exists updated_at timestamptz not null default now()");
+            s.executeUpdate("create table if not exists account_titles (account_uuid uuid not null, title_id text not null, display text not null default '', unlocked_at timestamptz not null default now(), primary key (account_uuid, title_id))");
+            s.executeUpdate("alter table account_titles add column if not exists display text not null default ''");
+            s.executeUpdate("alter table account_titles add column if not exists unlocked_at timestamptz not null default now()");
+            s.executeUpdate("create index if not exists idx_account_titles_account on account_titles(account_uuid)");
         }
         schemaEnsured = true;
     }
@@ -54,6 +58,25 @@ public final class TitleDatabaseRepository {
             }
         }).thenApply(ignored -> true).exceptionally(error -> {
             System.err.println("[ChampUtils] Failed to unlock SQL title " + normalized + " for profile " + profileId);
+            error.printStackTrace();
+            return false;
+        });
+    }
+
+    public static CompletableFuture<Boolean> unlockAccountAsync(UUID accountUuid, String titleId) {
+        if (!DatabaseManager.isEnabled() || accountUuid == null || titleId == null || titleId.isBlank()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        final String normalized = titleId.trim();
+        return DatabaseManager.runAsync("unlock account title", connection -> {
+            ensureSchema(connection);
+            try (var ps = connection.prepareStatement("insert into account_titles (account_uuid, title_id) values (?, ?) on conflict (account_uuid, title_id) do nothing")) {
+                ps.setObject(1, accountUuid);
+                ps.setString(2, normalized);
+                ps.executeUpdate();
+            }
+        }).thenApply(ignored -> true).exceptionally(error -> {
+            System.err.println("[ChampUtils] Failed to unlock SQL account title " + normalized + " for account " + accountUuid);
             error.printStackTrace();
             return false;
         });
@@ -83,6 +106,33 @@ public final class TitleDatabaseRepository {
                     error.printStackTrace();
                     return new TitleSnapshot(new TreeSet<>(), "");
                 });
+    }
+
+    public static CompletableFuture<Set<String>> loadAccountTitlesAsync(UUID accountUuid) {
+        if (!DatabaseManager.isEnabled() || accountUuid == null) {
+            return CompletableFuture.completedFuture(new TreeSet<>());
+        }
+        final java.util.concurrent.atomic.AtomicReference<Set<String>> out = new java.util.concurrent.atomic.AtomicReference<>(new TreeSet<>());
+        return DatabaseManager.runAsync("load account title snapshot", connection -> out.set(loadAccountTitles(connection, accountUuid)))
+                .thenApply(ignored -> out.get())
+                .exceptionally(error -> {
+                    System.err.println("[ChampUtils] Failed to load SQL account titles for account " + accountUuid);
+                    error.printStackTrace();
+                    return new TreeSet<>();
+                });
+    }
+
+    public static Set<String> loadAccountTitles(Connection connection, UUID accountUuid) throws Exception {
+        Set<String> titles = new TreeSet<>();
+        if (connection == null || accountUuid == null) return titles;
+        ensureSchema(connection);
+        try (var ps = connection.prepareStatement("select title_id from account_titles where account_uuid = ? order by title_id")) {
+            ps.setObject(1, accountUuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) titles.add(rs.getString(1));
+            }
+        }
+        return titles;
     }
 
     public static TitleSnapshot loadSnapshot(Connection connection, UUID profileId) throws Exception {

@@ -13,10 +13,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CocoaBlock;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.NetherWartBlock;
@@ -38,6 +40,10 @@ public class FarmingProfessionListener {
             if (!(player instanceof ServerPlayer serverPlayer)) return true;
             ItemStack tool = serverPlayer.getMainHandItem();
             if (!isChampUtilsHoeTool(tool)) return true;
+            if (world instanceof ServerLevel serverLevel && isLeafBlock(state)) {
+                silkShearLeaf(serverPlayer, serverLevel, pos, state);
+                return false;
+            }
             if (!isFarmingBlock(state)) return true;
             if (isMatureFarmingBlock(state)) return true;
 
@@ -51,10 +57,7 @@ public class FarmingProfessionListener {
 
             ItemStack tool = serverPlayer.getMainHandItem();
             String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault(
-                    blockId,
-                    ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
-            );
+            int xp = 1;
             processFarmingRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
@@ -68,12 +71,26 @@ public class FarmingProfessionListener {
     }
 
 
+    private static boolean isLeafBlock(BlockState state) {
+        return state != null && !state.isAir() && state.is(BlockTags.LEAVES);
+    }
+
+    private static void silkShearLeaf(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+        if (player == null || level == null || pos == null || state == null || state.isAir()) return;
+        Item item = state.getBlock().asItem();
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3 | 16);
+        if (item != Items.AIR) {
+            Block.popResource(level, pos, new ItemStack(item, 1));
+        }
+        level.playSound(null, pos, SoundEvents.GRASS_BREAK, SoundSource.BLOCKS, 0.8F, 1.0F);
+    }
+
 
     private static void processFarmingRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
         int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
         ProfessionManager.addXp(player, ProfessionType.FARMING, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FARMING, blockId);
-        rollXpSurge(player, tool, xp);
+        // Farming was intentionally nerfed: one mature crop = one base XP.
         ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
         rollHarvestMultiplier(player, state.getBlock(), tool);
@@ -231,10 +248,7 @@ public class FarmingProfessionListener {
             if (!isMatureFarmingBlock(state)) continue;
             String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
             if (isCobblemonBerryBush(blockId)) continue;
-            int xp = ProfessionConfig.SETTINGS.farmingXp.getOrDefault(
-                    blockId,
-                    ProfessionConfig.SETTINGS.farmingXp.getOrDefault("default", 10)
-            );
+            int xp = 1;
             processFarmingRewards(player, state, blockId, player.getMainHandItem(), xp, true);
             MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, pos));
             level.destroyBlock(pos.immutable(), true, player);

@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "profiles", "profile", "profilemenu", "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "megashop", "genesis", "mega_shop", "mega", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks" -> true;
+            case "profiles", "profile", "profilemenu", "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "megashop", "genesis", "mega_shop", "mega", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "profiles, gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, megashop, professionforeman, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
+        return "profiles, gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, megashop, professionforeman, accountupgrade, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {
@@ -151,6 +151,7 @@ public final class MenuNpcBindingRegistry {
             case "guild", "guilds" -> "guilds";
             case "foreman", "professionforeman", "profession_foreman", "chunks" -> "professionforeman";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
+            case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "accountupgrade";
             default -> value;
         };
     }

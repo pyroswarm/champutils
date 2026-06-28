@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.antilag.AntiLagConfig;
+import com.champutils.account.AccountUpgradeConfig;
 import com.champutils.auction.AuctionHouseConfig;
 import com.champutils.auction.AuctionHouseNpcBindingRegistry;
 import com.champutils.badge.BadgeUnlockConfig;
@@ -108,6 +109,7 @@ public class ChampReloadCommand {
              * Those affect proxy routing, profile handoff, or live storage connections and should stay restart-only.
              */
 
+            reloadConfig(reloaded, "account_upgrades.json", AccountUpgradeConfig::load);
             reloadConfig(reloaded, "anti_lag.json", AntiLagConfig::load);
             reloadConfig(reloaded, "arena_locations.json", ArenaLocationConfig::load);
             reloadConfig(reloaded, "auction_house.json", AuctionHouseConfig::reload);

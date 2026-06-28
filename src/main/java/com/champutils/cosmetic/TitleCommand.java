@@ -84,6 +84,20 @@ public final class TitleCommand {
                                             .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(TitleConfig.titles().stream().map(t -> t.id), builder))
                                             .then(Commands.argument("description", StringArgumentType.greedyString())
                                                     .executes(ctx -> update(ctx.getSource().getPlayerOrException(), StringArgumentType.getString(ctx, "id"), null, null, null, StringArgumentType.getString(ctx, "description"))))))
+                            .then(Commands.literal("scope")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(TitleConfig.titles().stream().map(t -> t.id), builder))
+                                            .then(Commands.argument("scope", StringArgumentType.word())
+                                                    .suggests((ctx, builder) -> {
+                                                        builder.suggest("profile");
+                                                        builder.suggest("account");
+                                                        return builder.buildFuture();
+                                                    })
+                                                    .executes(ctx -> setScope(
+                                                            ctx.getSource().getPlayerOrException(),
+                                                            StringArgumentType.getString(ctx, "id"),
+                                                            StringArgumentType.getString(ctx, "scope")
+                                                    )))))
                             .then(Commands.literal("buff")
                                     .then(Commands.literal("list")
                                             .executes(ctx -> listBuffs(ctx.getSource().getPlayerOrException())))
@@ -122,7 +136,7 @@ public final class TitleCommand {
             admin.sendSystemMessage(Component.literal("Could not create title.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        admin.sendSystemMessage(Component.literal("Created manual title " + def.id + ". Use /titles admin buff set " + def.id + " SHINY_CHANCE 0.01").withStyle(ChatFormatting.GREEN));
+        admin.sendSystemMessage(Component.literal("Created manual title " + def.id + ". Use /titles admin scope " + def.id + " account to make it account-bound, or /titles admin buff set " + def.id + " SHINY_CHANCE 0.01.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -132,6 +146,21 @@ public final class TitleCommand {
             return 0;
         }
         admin.sendSystemMessage(Component.literal("Updated title " + id + ".").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+    private static int setScope(ServerPlayer admin, String id, String scope) {
+        String normalized = scope == null ? "" : scope.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!normalized.equals("profile") && !normalized.equals("account") && !normalized.equals("account_bound") && !normalized.equals("global")) {
+            admin.sendSystemMessage(Component.literal("Scope must be profile or account.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        if (!TitleConfig.setScope(id, normalized)) {
+            admin.sendSystemMessage(Component.literal("Unknown title: " + id).withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        String finalScope = TitleConfig.isAccountBound(id) ? "account-bound" : "profile-bound";
+        admin.sendSystemMessage(Component.literal("Set " + id + " to " + finalScope + ".").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 

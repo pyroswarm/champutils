@@ -15,8 +15,10 @@ public final class CashShopMenu {
         gui.setTitle(Component.literal("Server Boosters"));
         gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
                 .setName(Component.literal("§aBooster Credits: §f" + BoosterCreditManager.credits(player)))
-                .addLoreLine(Component.literal("§7VIP+ receives 1 credit each day."))
-                .addLoreLine(Component.literal("§7Credits may also be granted from store purchases.")));
+                .addLoreLine(Component.literal("§7Purchased: §f" + BoosterCreditManager.purchasedCredits(player)))
+                .addLoreLine(Component.literal("§7VIP+ Earned: §d" + BoosterCreditManager.vipPlusCredits(player) + "§7/§d10"))
+                .addLoreLine(Component.literal("§7VIP+ earns up to 3 per day:"))
+                .addLoreLine(Component.literal("§7join, +1h played, +2h played.")));
         int slot = 10;
         for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
             gui.setSlot(slot++, new GuiElementBuilder(Items.NETHER_STAR).hideDefaultTooltip()
@@ -24,6 +26,8 @@ public final class CashShopMenu {
                     .addLoreLine(Component.literal("§7" + def.lore))
                     .addLoreLine(Component.literal("§7Duration: §f15 minutes"))
                     .addLoreLine(Component.literal("§7Cost: §f1 Booster Credit"))
+                    .addLoreLine(Component.literal("§7Spends purchased credits first,"))
+                    .addLoreLine(Component.literal("§7then VIP+ earned credits."))
                     .addLoreLine(Component.literal("§eClick to activate for the whole server"))
                     .setCallback((i, c, t) -> {
                         if (BoosterCreditManager.credits(player) < 1) {

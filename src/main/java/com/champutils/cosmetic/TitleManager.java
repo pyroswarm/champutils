@@ -24,6 +24,11 @@ public final class TitleManager {
     private static final Set<UUID> sqlLoadedProfiles = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> sqlLoadingProfiles = ConcurrentHashMap.newKeySet();
 
+    /** SQL account-bound ownership cache keyed by real Minecraft account UUID. */
+    private static final Map<UUID, Set<String>> sqlAccountUnlockedCache = new ConcurrentHashMap<>();
+    private static final Set<UUID> sqlLoadedAccounts = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> sqlLoadingAccounts = ConcurrentHashMap.newKeySet();
+
     /** Equipped title is local/cache-backed so SQL only stores ownership. Keyed by profile id, not account uuid. */
     private static final Map<String, String> selectedByProfile = new ConcurrentHashMap<>();
 
@@ -50,6 +55,9 @@ public final class TitleManager {
         sqlUnlockedCache.clear();
         sqlLoadedProfiles.clear();
         sqlLoadingProfiles.clear();
+        sqlAccountUnlockedCache.clear();
+        sqlLoadedAccounts.clear();
+        sqlLoadingAccounts.clear();
         TitleDatabaseRepository.ensureSchemaAsync();
         loadSelections();
     }
@@ -70,13 +78,16 @@ public final class TitleManager {
         if (display == null || display.isBlank()) display = "&7[" + normalizedId + "]";
 
         UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
+        UUID accountUuid = player.getUUID();
+        boolean accountBound = TitleConfig.isAccountBound(normalizedId);
         boolean changed;
 
         if (com.champutils.database.DatabaseManager.isEnabled()) {
-            Set<String> owned = cachedSqlTitles(profileId);
+            Set<String> owned = accountBound ? cachedSqlAccountTitles(accountUuid) : cachedSqlTitles(profileId);
             changed = owned.add(normalizedId);
             if (changed) {
-                TitleDatabaseRepository.unlockAsync(profileId, normalizedId);
+                if (accountBound) TitleDatabaseRepository.unlockAccountAsync(accountUuid, normalizedId);
+                else TitleDatabaseRepository.unlockAsync(profileId, normalizedId);
                 if (selectedForProfile(profileId).isBlank()) {
                     selectedByProfile.put(profileId.toString(), normalizedId);
                     TitleDatabaseRepository.selectAsync(profileId, normalizedId);
@@ -84,9 +95,11 @@ public final class TitleManager {
                 }
             }
         } else {
-            PlayerTitles data = data(player.getUUID());
+            PlayerTitles data = dataForKey(accountBound ? accountUuid.toString() : profileId.toString());
             changed = data.unlocked.add(normalizedId);
-            if (changed && (data.selected == null || data.selected.isBlank())) data.selected = normalizedId;
+            if (changed && selectedLocal(profileId).isBlank()) {
+                dataForKey(profileId.toString()).selected = normalizedId;
+            }
         }
 
         if (!changed) return false;
@@ -102,19 +115,25 @@ public final class TitleManager {
 
     public static Set<String> unlocked(UUID uuid) {
         UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        TreeSet<String> out = new TreeSet<>();
         if (com.champutils.database.DatabaseManager.isEnabled()) {
-            return new TreeSet<>(cachedSqlTitles(profileId));
+            out.addAll(cachedSqlTitles(profileId));
+            out.addAll(cachedSqlAccountTitles(uuid));
+            return out;
         }
-        return new TreeSet<>(data(uuid).unlocked);
+        out.addAll(dataForKey(profileId.toString()).unlocked);
+        out.addAll(dataForKey(uuid.toString()).unlocked);
+        return out;
     }
 
     public static String selected(UUID uuid) {
         UUID profileId = PlayerProfileManager.activeProfileId(uuid);
         if (com.champutils.database.DatabaseManager.isEnabled()) {
             String selected = selectedForProfile(profileId);
-            return cachedSqlTitles(profileId).contains(selected) ? selected : "";
+            return unlocked(uuid).contains(selected) ? selected : "";
         }
-        return data(uuid).selected;
+        String selected = selectedLocal(profileId);
+        return unlocked(uuid).contains(selected) ? selected : "";
     }
 
     public static void select(ServerPlayer player, String id) {
@@ -127,7 +146,7 @@ public final class TitleManager {
                 saveSelections();
                 com.champutils.chat.ChatTagResolver.invalidate(player);
             } else {
-                data(player.getUUID()).selected = "";
+                dataForKey(profileId.toString()).selected = "";
             }
             player.sendSystemMessage(Component.literal("Title hidden.").withStyle(ChatFormatting.GRAY));
             return;
@@ -144,7 +163,7 @@ public final class TitleManager {
             TitleDatabaseRepository.selectAsync(profileId, normalizedId);
             saveSelections();
         } else {
-            data(player.getUUID()).selected = normalizedId;
+            dataForKey(profileId.toString()).selected = normalizedId;
         }
         com.champutils.chat.ChatTagResolver.invalidate(player);
         player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
@@ -189,14 +208,39 @@ public final class TitleManager {
         return existing;
     }
 
+    public static void preloadAccountAsync(UUID accountUuid) {
+        if (accountUuid == null || !com.champutils.database.DatabaseManager.isEnabled()) return;
+        if (sqlLoadedAccounts.contains(accountUuid) || !sqlLoadingAccounts.add(accountUuid)) return;
+        TitleDatabaseRepository.loadAccountTitlesAsync(accountUuid).thenAccept(snapshot -> {
+            Set<String> existing = sqlAccountUnlockedCache.computeIfAbsent(accountUuid, ignored -> ConcurrentHashMap.newKeySet());
+            existing.addAll(snapshot);
+            sqlLoadedAccounts.add(accountUuid);
+            sqlLoadingAccounts.remove(accountUuid);
+        }).exceptionally(error -> {
+            sqlLoadingAccounts.remove(accountUuid);
+            return null;
+        });
+    }
+
+    private static Set<String> cachedSqlAccountTitles(UUID accountUuid) {
+        if (accountUuid == null) return new TreeSet<>();
+        Set<String> existing = sqlAccountUnlockedCache.computeIfAbsent(accountUuid, ignored -> ConcurrentHashMap.newKeySet());
+        preloadAccountAsync(accountUuid);
+        return existing;
+    }
+
     private static String selectedForProfile(UUID profileId) {
         if (profileId == null) return "";
         preloadAsync(profileId);
         return selectedByProfile.getOrDefault(profileId.toString(), "");
     }
 
-    private static PlayerTitles data(UUID uuid) {
-        return state.players.computeIfAbsent(PlayerProfileManager.activeProfileId(uuid).toString(), k -> new PlayerTitles());
+    private static PlayerTitles dataForKey(String key) {
+        return state.players.computeIfAbsent(key, k -> new PlayerTitles());
+    }
+
+    private static String selectedLocal(UUID profileId) {
+        return dataForKey(profileId.toString()).selected == null ? "" : dataForKey(profileId.toString()).selected;
     }
 
     private static synchronized void loadSelections() {
