@@ -8,6 +8,8 @@ import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
 import com.champutils.profession.ProfessionTrinketManager;
+import com.champutils.profile.IslanderSpawnInfluence;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -19,6 +21,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 
 /** Blocks natural forbidden spawns and announces shiny spawns near players. */
 public final class ForbiddenNaturalPokemonSpawnGuard {
@@ -113,10 +116,17 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
         if (percent <= 0.0D) return;
         int cap = currentGymCap(player);
         if (cap <= 0) return;
-        int minimumLevel = Math.max(1, Math.min(100, (int)Math.floor(cap * percent)));
-        int current = readLevel(pokemon);
-        if (current >= minimumLevel) return;
-        setLevel(pokemon, minimumLevel);
+
+        int minimumLevel = Math.max(1, Math.min(cap, (int)Math.floor(cap * percent)));
+        int targetLevel = ThreadLocalRandom.current().nextInt(minimumLevel, cap + 1);
+        Object target = CatchStreakManager.unwrapPokemon(pokemon);
+        if (target instanceof Pokemon typedPokemon) {
+            IslanderSpawnInfluence.normalizeEvolutionForLevel(typedPokemon, targetLevel);
+            typedPokemon.setLevel(targetLevel);
+        } else {
+            setLevel(target, targetLevel);
+        }
+        // Level Charm level corrections are intentionally quiet to avoid chat spam.
     }
 
     private static int currentGymCap(ServerPlayer player) {

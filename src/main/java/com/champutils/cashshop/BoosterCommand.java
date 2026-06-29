@@ -12,11 +12,30 @@ import net.minecraft.server.level.ServerPlayer;
 public final class BoosterCommand {
     private BoosterCommand() {}
 
+    private static int sendActiveList(net.minecraft.commands.CommandSourceStack source) {
+        var active = ServerBuffManager.activeBoostViews();
+        if (active.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No server boosters are active right now."), false);
+            return 1;
+        }
+        StringBuilder builder = new StringBuilder("Active server boosters:");
+        for (var boost : active) {
+            builder.append("\n- ").append(boost.displayName()).append(" by ").append(boost.activatorName()).append(" - ").append(ServerBuffManager.formatDuration(boost.remainingMillis())).append(" left");
+        }
+        source.sendSuccess(() -> Component.literal(builder.toString()), false);
+        return 1;
+    }
+
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("booster")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .executes(ctx -> sendActiveList(ctx.getSource()))
                         .then(Commands.literal("list")
+                                .executes(ctx -> sendActiveList(ctx.getSource())))
+                        .then(Commands.literal("active")
+                                .executes(ctx -> sendActiveList(ctx.getSource())))
+                        .then(Commands.literal("ids")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(ctx -> {
                                     StringBuilder builder = new StringBuilder("Booster ids:");
                                     for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
@@ -25,21 +44,8 @@ public final class BoosterCommand {
                                     ctx.getSource().sendSuccess(() -> Component.literal(builder.toString()), false);
                                     return 1;
                                 }))
-                        .then(Commands.literal("active")
-                                .executes(ctx -> {
-                                    var active = ServerBuffManager.activeBoostViews();
-                                    if (active.isEmpty()) {
-                                        ctx.getSource().sendSuccess(() -> Component.literal("Current Booster None"), false);
-                                        return 1;
-                                    }
-                                    StringBuilder builder = new StringBuilder("Active boosters:");
-                                    for (var boost : active) {
-                                        builder.append("\n- ").append(boost.displayName()).append(" by ").append(boost.activatorName()).append(" - ").append(ServerBuffManager.formatDuration(boost.remainingMillis())).append(" left");
-                                    }
-                                    ctx.getSource().sendSuccess(() -> Component.literal(builder.toString()), false);
-                                    return 1;
-                                }))
                         .then(Commands.literal("give")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .then(Commands.argument("id", StringArgumentType.word())
                                                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 64))
@@ -49,7 +55,7 @@ public final class BoosterCommand {
                                                             int count = IntegerArgumentType.getInteger(ctx, "count");
                                                             var stack = CashShopBoostItemManager.createItem(id, count);
                                                             if (stack.isEmpty()) {
-                                                                ctx.getSource().sendFailure(Component.literal("Unknown booster id. Use /booster list."));
+                                                                ctx.getSource().sendFailure(Component.literal("Unknown booster id. Use /booster ids."));
                                                                 return 0;
                                                             }
                                                             target.getInventory().add(stack);
@@ -57,6 +63,7 @@ public final class BoosterCommand {
                                                             return 1;
                                                         })))))
                         .then(Commands.literal("credits")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .then(Commands.literal("give")
                                         .then(Commands.argument("player", EntityArgument.player())
                                                 .then(Commands.argument("amount", IntegerArgumentType.integer(1, 999))
@@ -69,6 +76,7 @@ public final class BoosterCommand {
                                                             return 1;
                                                         })))))
                         .then(Commands.literal("activate")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(ctx -> {
                                             String id = StringArgumentType.getString(ctx, "id");
@@ -82,6 +90,7 @@ public final class BoosterCommand {
                                             return 1;
                                         })))
                         .then(Commands.literal("stop")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(ctx -> {
                                             String id = StringArgumentType.getString(ctx, "id");
@@ -90,6 +99,7 @@ public final class BoosterCommand {
                                             return 1;
                                         })))
                         .then(Commands.literal("stopall")
+                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                                 .executes(ctx -> {
                                     for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
                                         CashShopBoostItemManager.deactivateAdmin(def.id);

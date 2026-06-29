@@ -82,6 +82,16 @@ public class SettingsMenu {
         setToggle(
                 gui,
                 6,
+                "Trinket Success Messages",
+                "Controls chat messages from trinket procs that matter.",
+                ProfessionNotificationSettings.areTrinketMessagesEnabled(player),
+                () -> ProfessionNotificationSettings.toggleTrinketMessages(player),
+                player
+        );
+
+        setToggle(
+                gui,
+                7,
                 "Scoreboard Display",
                 "Shows money, RP, dex progress, and skill levels in the sidebar.",
                 ScoreboardPreferenceManager.isEnabled(player.getUUID()),

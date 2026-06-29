@@ -153,7 +153,7 @@ public class ProfessionToolActiveAbilityListener {
                     setCooldown(
                             serverPlayer,
                             ability,
-                            toolData.activeCooldownSeconds
+                            getCooldownAfterDurationSeconds(serverPlayer, toolData)
                     );
 
                     return InteractionResult.SUCCESS;
@@ -187,6 +187,20 @@ public class ProfessionToolActiveAbilityListener {
         }
 
         return true;
+    }
+
+    private static int getCooldownAfterDurationSeconds(ServerPlayer player, ProfessionToolConfig.ToolData toolData) {
+        int cooldown = Math.max(0, toolData.activeCooldownSeconds);
+        int duration = Math.max(0, toolData.activeDurationSeconds);
+        int perLevel = Math.max(0, toolData.activeDurationSecondsPerLevel);
+        if (perLevel > 0 && toolData.profession != null && !toolData.profession.isBlank()) {
+            try {
+                ProfessionType profession = ProfessionType.valueOf(toolData.profession.trim().toUpperCase(java.util.Locale.ROOT));
+                duration += Math.max(0, ProfessionManager.getLevel(player, profession) - 1) * perLevel;
+            } catch (Exception ignored) {
+            }
+        }
+        return duration + cooldown;
     }
 
     private static void setCooldown(

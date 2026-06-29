@@ -293,6 +293,10 @@ public class ProfessionToolManager {
                         baseItemId
                 );
 
+        boolean sword =
+                baseItemId != null &&
+                        baseItemId.toLowerCase().contains("sword");
+
         return ItemAttributeModifiers.builder()
                 .add(
                         Attributes.ATTACK_DAMAGE,
@@ -313,7 +317,7 @@ public class ProfessionToolManager {
                                         "champutils",
                                         "profession_tool_attack_speed"
                                 ),
-                                -2.8D,
+                                sword ? -2.4D : -2.8D,
                                 AttributeModifier.Operation.ADD_VALUE
                         ),
                         EquipmentSlotGroup.MAINHAND
@@ -342,7 +346,7 @@ public class ProfessionToolManager {
         } else if (base.contains("shovel")) {
             damage = 1.5D;
         } else if (base.contains("sword")) {
-            damage = 3.0D;
+            damage = 4.0D;
         } else {
             damage = 1.0D;
         }
@@ -1096,6 +1100,11 @@ public class ProfessionToolManager {
                         ChatFormatting.GRAY
                 )
         );
+        long nextRerollCost = ProfessionToolRollService.getRerollCost(stack);
+        lore.add(
+                Component.literal("Next Reroll Cost: " + com.champutils.economy.EconomyCraftHook.formatMoney(nextRerollCost))
+                        .withStyle(ChatFormatting.GOLD)
+        );
 
         addRolledStatsLore(
                 lore,
@@ -1135,11 +1144,9 @@ public class ProfessionToolManager {
                         formatRarity(
                                 toolData.rarity
                         ) +
-                                " " +
-                                formatWords(
-                                        toolData.profession
-                                ) +
-                                " Tool"
+                                (toolData.profession == null || toolData.profession.isBlank()
+                                        ? " Combat Weapon"
+                                        : " " + formatWords(toolData.profession) + " Tool")
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
@@ -2387,6 +2394,8 @@ public class ProfessionToolManager {
 
         return switch (stat) {
             case "damage", "slayingDamage", "damageBonus" -> "Damage";
+            case "sharpnessPercent" -> "Sharpness";
+            case "lootingChance" -> "Looting Chance";
             case "critChance" -> "Crit Chance";
             case "lifestealChance" -> "Lifesteal Chance";
             default -> formatWords(
@@ -2523,6 +2532,15 @@ public class ProfessionToolManager {
             ItemStack stack,
             float baseSpeed
     ) {
+        return applyToolSpeedStat(stack, baseSpeed, "miningSpeed");
+    }
+
+    public static float applyToolSpeedStat(
+            ItemStack stack,
+            float baseSpeed,
+            String primarySpeedStat,
+            String... fallbackStats
+    ) {
 
         if (
                 stack == null ||
@@ -2535,22 +2553,44 @@ public class ProfessionToolManager {
             return baseSpeed;
         }
 
-        double miningSpeed =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        "miningSpeed"
-                );
+        float effectiveBaseSpeed = applyRarePlusBaselineSpeed(stack, baseSpeed);
 
-        if (miningSpeed <= 0.0D) {
-            return baseSpeed;
+        double speedStat = ProfessionToolUtil.getStat(stack, primarySpeedStat);
+        if (speedStat <= 0.0D && fallbackStats != null) {
+            for (String fallback : fallbackStats) {
+                speedStat = ProfessionToolUtil.getStat(stack, fallback);
+                if (speedStat > 0.0D) break;
+            }
+        }
+
+        if (speedStat <= 0.0D) {
+            return effectiveBaseSpeed;
         }
 
         return (float) (
-                baseSpeed +
+                effectiveBaseSpeed +
                         getEfficiencyStyleMiningSpeedBonus(
-                                miningSpeed
+                                speedStat
                         )
         );
+    }
+
+    private static float applyRarePlusBaselineSpeed(ItemStack stack, float baseSpeed) {
+        // Profession tools now use vanilla netherite speed as their stable base.
+        // Rarity affects visuals, durability, passives, and actives, not hidden baseline speed spikes.
+        return baseSpeed;
+    }
+
+    private static int rarityTier(String rarity) {
+        if (rarity == null) return 1;
+        return switch (rarity.trim().toUpperCase()) {
+            case "UNCOMMON" -> 2;
+            case "RARE" -> 3;
+            case "EPIC" -> 4;
+            case "LEGENDARY" -> 5;
+            case "MYTHIC" -> 6;
+            default -> 1;
+        };
     }
 
     public static double getMiningSpeedMultiplier(
@@ -2584,12 +2624,12 @@ public class ProfessionToolManager {
          *   level 5 -> +26
          *
          * ChampUtils keeps the config/display as percentages, then converts
-         * every 50% miningSpeed into one virtual Efficiency level. Fractional
+         * every 25% miningSpeed/chopSpeed/diggingSpeed into one virtual Efficiency level. Fractional
          * values are allowed so 23% and 230% are no longer in the same
          * barely-noticeable vanilla multiplier bucket.
          */
         double virtualEfficiencyLevel =
-                miningSpeedPercent / 50.0D;
+                miningSpeedPercent / 25.0D;
 
         return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
     }
@@ -2680,6 +2720,16 @@ public class ProfessionToolManager {
         ) {
 
             if (!attacker.level().isClientSide) {
+                if (
+                        attacker instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurabilityForCombat(
+                                        serverPlayer,
+                                        stack
+                                )
+                ) {
+                    return false;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1
@@ -2735,12 +2785,14 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyMiningSpeedStat(
+            return ProfessionToolManager.applyToolSpeedStat(
                     stack,
                     super.getDestroySpeed(
                             stack,
                             state
-                    )
+                    ),
+                    "chopSpeed",
+                    "miningSpeed"
             );
         }
 
@@ -2784,6 +2836,16 @@ public class ProfessionToolManager {
         ) {
 
             if (!attacker.level().isClientSide) {
+                if (
+                        attacker instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurabilityForCombat(
+                                        serverPlayer,
+                                        stack
+                                )
+                ) {
+                    return false;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1
@@ -2839,12 +2901,14 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyMiningSpeedStat(
+            return ProfessionToolManager.applyToolSpeedStat(
                     stack,
                     super.getDestroySpeed(
                             stack,
                             state
-                    )
+                    ),
+                    "farmingSpeed",
+                    "miningSpeed"
             );
         }
 
@@ -2875,6 +2939,16 @@ public class ProfessionToolManager {
         ) {
 
             if (!attacker.level().isClientSide) {
+                if (
+                        attacker instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurabilityForCombat(
+                                        serverPlayer,
+                                        stack
+                                )
+                ) {
+                    return false;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1
@@ -2931,12 +3005,14 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyMiningSpeedStat(
+            return ProfessionToolManager.applyToolSpeedStat(
                     stack,
                     super.getDestroySpeed(
                             stack,
                             state
-                    )
+                    ),
+                    "diggingSpeed",
+                    "miningSpeed"
             );
         }
 
@@ -2980,6 +3056,16 @@ public class ProfessionToolManager {
         ) {
 
             if (!attacker.level().isClientSide) {
+                if (
+                        attacker instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurabilityForCombat(
+                                        serverPlayer,
+                                        stack
+                                )
+                ) {
+                    return false;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1
@@ -3034,6 +3120,16 @@ public class ProfessionToolManager {
         ) {
 
             if (!attacker.level().isClientSide) {
+                if (
+                        attacker instanceof ServerPlayer serverPlayer &&
+                                DurabilitySavePassive.shouldPreserveDurabilityForCombat(
+                                        serverPlayer,
+                                        stack
+                                )
+                ) {
+                    return false;
+                }
+
                 ProfessionToolManager.damageTool(
                         stack,
                         1

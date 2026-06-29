@@ -2,6 +2,7 @@ package com.champutils.gym;
 
 import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeManager;
+import com.champutils.badge.BadgeUnlockManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.PvPBattleFormatRules;
@@ -151,6 +152,15 @@ NPCBattleActor gymNpc = null;
                     );
 
             if(gym == null){
+                return;
+            }
+
+            if (isEliteChallenge(badge) && !BadgeUnlockManager.hasEliteFourAccess(player)) {
+                BattleStateManager.setInBattle(player, false);
+                player.sendSystemMessage(Component.literal("§cCollect all 8 gym badges before challenging the Elite Four."));
+                ServerPlayer p = player;
+                p.server.execute(() -> p.closeContainer());
+                pre.cancel();
                 return;
             }
 
@@ -327,6 +337,14 @@ NPCBattleActor gymNpc = null;
         };
     }
 
+
+    private static boolean isEliteChallenge(BadgeType badge) {
+        return badge == BadgeType.LORELEI
+                || badge == BadgeType.BRUNO
+                || badge == BadgeType.AGATHA
+                || badge == BadgeType.LANCE
+                || badge == BadgeType.CHAMPION;
+    }
 
 
     private static boolean hasGroup(

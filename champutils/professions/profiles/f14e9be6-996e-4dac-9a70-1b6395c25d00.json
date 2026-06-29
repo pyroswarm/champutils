@@ -1,0 +1,17 @@
+{
+  "uuid": "f14e9be6-996e-4dac-9a70-1b6395c25d00",
+  "name": "TheVulkann",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

@@ -1,0 +1,21 @@
+{
+  "uuid": "588c10fd-526f-42ce-986a-39f52916640a",
+  "name": "ToadBC",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 4,
+    "FORESTRY": 21,
+    "MINING": 27
+  },
+  "xp": {
+    "BATTLING": 80,
+    "FARMING": 160,
+    "FORESTRY": 37,
+    "MINING": 295
+  },
+  "fragments": {
+    "COMMON": 12,
+    "UNCOMMON": 21,
+    "RARE": 7
+  }
+}

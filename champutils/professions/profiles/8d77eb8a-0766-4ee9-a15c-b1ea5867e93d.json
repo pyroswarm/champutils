@@ -1,0 +1,17 @@
+{
+  "uuid": "8d77eb8a-0766-4ee9-a15c-b1ea5867e93d",
+  "name": "IAmTrains",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

@@ -1,0 +1,24 @@
+{
+  "uuid": "94fdf72b-3f39-43da-99e7-c086af140cde",
+  "name": "joshkorea",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 30,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 477,
+    "MINING": 0
+  },
+  "fragments": {
+    "COMMON": 138,
+    "UNCOMMON": 26,
+    "RARE": 18,
+    "EPIC": 9,
+    "LEGENDARY": 11,
+    "MYTHIC": 40
+  }
+}

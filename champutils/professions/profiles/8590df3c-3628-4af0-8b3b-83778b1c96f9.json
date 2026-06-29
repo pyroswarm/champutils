@@ -1,0 +1,17 @@
+{
+  "uuid": "8590df3c-3628-4af0-8b3b-83778b1c96f9",
+  "name": "ItzSem",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

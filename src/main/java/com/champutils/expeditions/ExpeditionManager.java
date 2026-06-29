@@ -3,6 +3,7 @@ package com.champutils.expeditions;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profession.ProfessionChunkManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -95,6 +96,22 @@ public final class ExpeditionManager {
         ExpeditionConfig.Tier tier = ExpeditionConfig.tier(save.level);
         if (tier.credits > 0L) EconomyManager.deposit(player, tier.credits, "expedition_reward");
         for (ItemStack stack : rewards) player.getInventory().add(stack.copy());
+
+        List<ExpeditionConfig.ChunkReward> chunkRewards = ExpeditionConfig.chunkRewards(save.level);
+        if (!chunkRewards.isEmpty()) {
+            StringBuilder chunkSummary = new StringBuilder();
+            for (ExpeditionConfig.ChunkReward reward : chunkRewards) {
+                String chunk = reward.chunk == null ? "" : reward.chunk.trim();
+                if (chunk.isEmpty()) continue;
+                int amount = Math.max(1, reward.amount);
+                ProfessionChunkManager.addChunk(player, chunk, amount, false);
+                if (chunkSummary.length() > 0) chunkSummary.append(", ");
+                chunkSummary.append(amount).append("x ").append(chunk.toLowerCase(java.util.Locale.ROOT));
+            }
+            if (chunkSummary.length() > 0) {
+                player.sendSystemMessage(Component.literal("Expedition chunk rewards: " + chunkSummary).withStyle(ChatFormatting.GOLD));
+            }
+        }
 
         save.active = false;
         save(player, save);

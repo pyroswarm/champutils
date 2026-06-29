@@ -16,10 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TitleManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File SELECTED_FILE = new File("config/champutils/title_selections.json");
+    private static final int MAX_SUB_TITLES = 3;
 
     private static State state = new State();
 
-    /** SQL ownership cache keyed by active profile id. Keeps chat/menu paths off the database. */
+    /** SQL ownership cache keyed by active profile id. Keeps chat/menu/title rendering off the database. */
     private static final Map<UUID, Set<String>> sqlUnlockedCache = new ConcurrentHashMap<>();
     private static final Set<UUID> sqlLoadedProfiles = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> sqlLoadingProfiles = ConcurrentHashMap.newKeySet();
@@ -29,8 +30,9 @@ public final class TitleManager {
     private static final Set<UUID> sqlLoadedAccounts = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> sqlLoadingAccounts = ConcurrentHashMap.newKeySet();
 
-    /** Equipped title is local/cache-backed so SQL only stores ownership. Keyed by profile id, not account uuid. */
+    /** Equipped main title and hidden sub titles are profile scoped. */
     private static final Map<String, String> selectedByProfile = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> subtitlesByProfile = new ConcurrentHashMap<>();
 
     private TitleManager() {}
 
@@ -44,13 +46,10 @@ public final class TitleManager {
                 return TitleConfig.activeBuff(context.player, type);
             }
         });
-        com.champutils.profession.ProfessionXpBoostManager.registerSource(new com.champutils.profession.ProfessionXpBoostManager.ProfessionXpBoostSource() {
-            @Override public String id() { return "active_title"; }
-            @Override public int priority() { return 50; }
-            @Override public double getBonus(ServerPlayer player, com.champutils.profession.ProfessionType profession) {
-                return TitleConfig.activeProfessionXpBonus(player, profession);
-            }
-        });
+        // BuffManager already feeds profession XP through ProfessionXpBoostManager. Keeping the legacy
+        // profession source registered double-counted title XP, especially once sub titles were added.
+        com.champutils.profession.ProfessionXpBoostManager.unregisterSource("active_title");
+
         state = new State();
         sqlUnlockedCache.clear();
         sqlLoadedProfiles.clear();
@@ -58,6 +57,7 @@ public final class TitleManager {
         sqlAccountUnlockedCache.clear();
         sqlLoadedAccounts.clear();
         sqlLoadingAccounts.clear();
+        subtitlesByProfile.clear();
         TitleDatabaseRepository.ensureSchemaAsync();
         loadSelections();
     }
@@ -136,6 +136,63 @@ public final class TitleManager {
         return unlocked(uuid).contains(selected) ? selected : "";
     }
 
+    public static Set<String> subtitles(UUID uuid) {
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+        if (profileId == null) return new LinkedHashSet<>();
+        String selected = selected(uuid);
+        Set<String> owned = unlocked(uuid);
+        Set<String> raw = subtitleSetForProfile(profileId);
+        LinkedHashSet<String> clean = new LinkedHashSet<>();
+        for (String titleId : raw) {
+            if (titleId == null || titleId.isBlank()) continue;
+            if (titleId.equals(selected)) continue;
+            if (!owned.contains(titleId)) continue;
+            clean.add(titleId);
+            if (clean.size() >= MAX_SUB_TITLES) break;
+        }
+        if (!clean.equals(raw)) {
+            raw.clear();
+            raw.addAll(clean);
+            saveSubtitles(profileId, raw);
+        }
+        return clean;
+    }
+
+    public static boolean isSubTitle(UUID uuid, String id) {
+        return id != null && subtitles(uuid).contains(id.trim());
+    }
+
+    public static void toggleSubTitle(ServerPlayer player, String id) {
+        if (player == null || id == null || id.isBlank()) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
+        String normalizedId = id.trim();
+        Set<String> owned = unlocked(player.getUUID());
+        if (!owned.contains(normalizedId)) {
+            player.sendSystemMessage(Component.literal("You have not unlocked that title.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        String selected = selected(player.getUUID());
+        if (normalizedId.equals(selected)) {
+            player.sendSystemMessage(Component.literal("Your shown title cannot also be a hidden sub title.").withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        Set<String> subtitles = subtitleSetForProfile(profileId);
+        if (subtitles.remove(normalizedId)) {
+            saveSubtitles(profileId, subtitles);
+            player.sendSystemMessage(Component.literal("Removed hidden sub title: ").withStyle(ChatFormatting.GRAY).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
+            return;
+        }
+        subtitles.removeIf(titleId -> titleId == null || titleId.isBlank() || titleId.equals(selected) || !owned.contains(titleId));
+        if (subtitles.size() >= MAX_SUB_TITLES) {
+            player.sendSystemMessage(Component.literal("You already have 3/3 hidden sub titles. Right-click one of your current sub titles to unequip it first.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        subtitles.add(normalizedId);
+        saveSubtitles(profileId, subtitles);
+        player.sendSystemMessage(Component.literal("Equipped hidden sub title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))).append(Component.literal(" §7(50% buff power)")));
+    }
+
     public static void select(ServerPlayer player, String id) {
         UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
         Set<String> unlocked = unlocked(player.getUUID());
@@ -144,10 +201,10 @@ public final class TitleManager {
                 selectedByProfile.put(profileId.toString(), "");
                 TitleDatabaseRepository.selectAsync(profileId, "");
                 saveSelections();
-                com.champutils.chat.ChatTagResolver.invalidate(player);
             } else {
                 dataForKey(profileId.toString()).selected = "";
             }
+            com.champutils.chat.ChatTagResolver.invalidate(player);
             player.sendSystemMessage(Component.literal("Title hidden.").withStyle(ChatFormatting.GRAY));
             return;
         }
@@ -158,6 +215,8 @@ public final class TitleManager {
             return;
         }
 
+        Set<String> subtitles = subtitleSetForProfile(profileId);
+        boolean removedFromSubtitles = subtitles.remove(normalizedId);
         if (com.champutils.database.DatabaseManager.isEnabled()) {
             selectedByProfile.put(profileId.toString(), normalizedId);
             TitleDatabaseRepository.selectAsync(profileId, normalizedId);
@@ -165,6 +224,7 @@ public final class TitleManager {
         } else {
             dataForKey(profileId.toString()).selected = normalizedId;
         }
+        if (removedFromSubtitles) saveSubtitles(profileId, subtitles);
         com.champutils.chat.ChatTagResolver.invalidate(player);
         player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
     }
@@ -193,6 +253,10 @@ public final class TitleManager {
             // cannot disappear from the live cache before its queued SQL write completes.
             existing.addAll(snapshot.unlocked());
             selectedByProfile.putIfAbsent(profileId.toString(), snapshot.selected() == null ? "" : snapshot.selected());
+            if (snapshot.subtitles() != null) {
+                Set<String> subtitles = subtitleSetForProfile(profileId);
+                subtitles.addAll(snapshot.subtitles());
+            }
             sqlLoadedProfiles.add(profileId);
             sqlLoadingProfiles.remove(profileId);
         }).exceptionally(error -> {
@@ -235,6 +299,23 @@ public final class TitleManager {
         return selectedByProfile.getOrDefault(profileId.toString(), "");
     }
 
+    private static Set<String> subtitleSetForProfile(UUID profileId) {
+        if (profileId == null) return new LinkedHashSet<>();
+        if (com.champutils.database.DatabaseManager.isEnabled()) preloadAsync(profileId);
+        return subtitlesByProfile.computeIfAbsent(profileId.toString(), ignored -> ConcurrentHashMap.newKeySet());
+    }
+
+    private static void saveSubtitles(UUID profileId, Set<String> subtitles) {
+        if (profileId == null) return;
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            TitleDatabaseRepository.saveSubtitlesAsync(profileId, subtitles);
+        } else {
+            dataForKey(profileId.toString()).subtitles.clear();
+            dataForKey(profileId.toString()).subtitles.addAll(subtitles);
+        }
+        saveSelections();
+    }
+
     private static PlayerTitles dataForKey(String key) {
         return state.players.computeIfAbsent(key, k -> new PlayerTitles());
     }
@@ -245,6 +326,7 @@ public final class TitleManager {
 
     private static synchronized void loadSelections() {
         selectedByProfile.clear();
+        subtitlesByProfile.clear();
         try {
             SELECTED_FILE.getParentFile().mkdirs();
             if (!SELECTED_FILE.exists()) return;
@@ -252,6 +334,15 @@ public final class TitleManager {
                 SelectionState loaded = GSON.fromJson(reader, SelectionState.class);
                 if (loaded != null && loaded.selectedByProfile != null) {
                     selectedByProfile.putAll(loaded.selectedByProfile);
+                }
+                if (loaded != null && loaded.subtitlesByProfile != null) {
+                    for (Map.Entry<String, Set<String>> entry : loaded.subtitlesByProfile.entrySet()) {
+                        Set<String> clean = subtitlesByProfile.computeIfAbsent(entry.getKey(), ignored -> ConcurrentHashMap.newKeySet());
+                        if (entry.getValue() == null) continue;
+                        for (String titleId : entry.getValue()) {
+                            if (titleId != null && !titleId.isBlank() && clean.size() < MAX_SUB_TITLES) clean.add(titleId.trim());
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -265,6 +356,9 @@ public final class TitleManager {
             SELECTED_FILE.getParentFile().mkdirs();
             SelectionState out = new SelectionState();
             out.selectedByProfile.putAll(selectedByProfile);
+            for (Map.Entry<String, Set<String>> entry : subtitlesByProfile.entrySet()) {
+                out.subtitlesByProfile.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
+            }
             try (FileWriter writer = new FileWriter(SELECTED_FILE)) {
                 GSON.toJson(out, writer);
             }
@@ -275,6 +369,6 @@ public final class TitleManager {
     }
 
     private static final class State { Map<String, PlayerTitles> players = new ConcurrentHashMap<>(); }
-    private static final class PlayerTitles { Set<String> unlocked = new TreeSet<>(); String selected = ""; }
-    private static final class SelectionState { Map<String, String> selectedByProfile = new TreeMap<>(); }
+    private static final class PlayerTitles { Set<String> unlocked = new TreeSet<>(); String selected = ""; Set<String> subtitles = new LinkedHashSet<>(); }
+    private static final class SelectionState { Map<String, String> selectedByProfile = new TreeMap<>(); Map<String, Set<String>> subtitlesByProfile = new TreeMap<>(); }
 }

@@ -150,6 +150,60 @@ public final class DurabilitySavePassive {
         return preserved;
     }
 
+
+    public static boolean shouldPreserveDurabilityForCombat(
+            ServerPlayer player,
+            ItemStack stack
+    ) {
+
+        if (
+                player == null ||
+                        stack == null ||
+                        stack.isEmpty()
+        ) {
+            return false;
+        }
+
+        if (
+                !ProfessionToolMetadata.isProfessionTool(
+                        stack
+                ) ||
+                        !ProfessionToolMetadata.isIdentified(
+                                stack
+                        ) ||
+                        ProfessionToolMetadata.isBroken(
+                                stack
+                        )
+        ) {
+            return false;
+        }
+
+        double chancePercent =
+                ProfessionToolUtil.getStat(
+                        stack,
+                        STAT_ID
+                );
+
+        if (chancePercent <= 0.0D) {
+            return false;
+        }
+
+        boolean preserved =
+                RANDOM.nextDouble() <
+                        Math.min(
+                                100.0D,
+                                chancePercent
+                        ) / 100.0D;
+
+        if (preserved) {
+            celebrate(
+                    player
+            );
+        }
+
+        return preserved;
+    }
+
     private static boolean isNaturalRecentBreak(
             ServerPlayer player,
             ServerLevel level,

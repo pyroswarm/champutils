@@ -1,0 +1,4650 @@
+{
+  "rerollCostMultiplier": 1.75,
+  "rarityCosts": {
+    "COMMON": 7500,
+    "UNCOMMON": 25000,
+    "RARE": 75000,
+    "EPIC": 225000,
+    "LEGENDARY": 750000,
+    "MYTHIC": 2000000
+  },
+  "tools": {
+    "rookie_s_pick": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Rookie's Pick",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_pickaxe",
+      "customModelData": 1010,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "doubleDropChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1.0,
+          "max": 1.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 10,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 10
+    },
+    "coalbite_pick": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Coalbite Pick",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_pickaxe",
+      "customModelData": 1011,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 1,
+          "max": 6,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 20,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 0.75
+        },
+        "autoSmeltEfficiency": {
+          "min": 5.0,
+          "max": 15.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "auto_smelt_burst",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 10
+    },
+    "tunneler_s_grip": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Tunneler's Grip",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_pickaxe",
+      "customModelData": 1012,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 3,
+          "max": 9,
+          "weight": 1.25
+        },
+        "durabilitySaveChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 18,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10
+    },
+    "stonevein_pick": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Stonevein Pick",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_pickaxe",
+      "customModelData": 1013,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 25,
+          "weight": 1
+        },
+        "doubleDropChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        },
+        "stonebreakerRadius": {
+          "min": 2.0,
+          "max": 3.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "stonebreaker",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 10
+    },
+    "coppercore_pick": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Coppercore Pick",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_pickaxe",
+      "customModelData": 1014,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 1,
+          "max": 5,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 0.25,
+          "max": 1.5,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "prospect",
+      "activeCooldownSeconds": 25,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "repairCreditCost": 10
+    },
+    "molten_chisel": {
+      "profession": "MINING",
+      "requiredLevel": 12,
+      "displayName": "Molten Chisel",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_pickaxe",
+      "customModelData": 1015,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 8,
+          "max": 20,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 40,
+          "weight": 1
+        },
+        "autoSmeltEfficiency": {
+          "min": 5.0,
+          "max": 15.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "auto_smelt_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 30,
+      "repairCreditCost": 20
+    },
+    "ironroot_breaker": {
+      "profession": "MINING",
+      "requiredLevel": 15,
+      "displayName": "Ironroot Breaker",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_pickaxe",
+      "customModelData": 1016,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 6,
+          "max": 16,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 25,
+          "max": 70,
+          "weight": 1.5
+        },
+        "durabilitySaveChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1.0,
+          "max": 1.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 20
+    },
+    "emberfang_pick": {
+      "profession": "MINING",
+      "requiredLevel": 18,
+      "displayName": "Emberfang Pick",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_pickaxe",
+      "customModelData": 1017,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 10,
+          "max": 24,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 1.5,
+          "max": 5,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 20
+    },
+    "cavestone_ripper": {
+      "profession": "MINING",
+      "requiredLevel": 20,
+      "displayName": "Cavestone Ripper",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_pickaxe",
+      "customModelData": 1018,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 5,
+          "max": 15,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "treasure_sense",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "treasureSenseRadius": 48,
+      "repairCreditCost": 20
+    },
+    "orehound_pick": {
+      "profession": "MINING",
+      "requiredLevel": 22,
+      "displayName": "Orehound Pick",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_pickaxe",
+      "customModelData": 1019,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 7,
+          "max": 18,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 0.5,
+          "max": 3,
+          "weight": 0.75
+        },
+        "oreMagnetRadius": {
+          "min": 6.0,
+          "max": 10.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "ore_magnet_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "repairCreditCost": 20
+    },
+    "miner_s_fang": {
+      "profession": "MINING",
+      "requiredLevel": 25,
+      "displayName": "Miner's Fang",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1020,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 15,
+          "max": 100,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 1.55,
+          "max": 7.75,
+          "weight": 2
+        },
+        "durabilityBonus": {
+          "min": 50,
+          "max": 150,
+          "weight": 1
+        },
+        "veinChainChance": {
+          "min": 3.1,
+          "max": 9.3,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "vein_miner_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "maxVeinBlocks": 30,
+      "repairCreditCost": 35
+    },
+    "deep_prospector_pick": {
+      "profession": "MINING",
+      "requiredLevel": 28,
+      "displayName": "Deep Prospector Pick",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1021,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 15,
+          "max": 45,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 3.1,
+          "max": 9.3,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 30,
+          "max": 100,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "prospect",
+      "activeCooldownSeconds": 20,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "repairCreditCost": 35
+    },
+    "crystal_maul": {
+      "profession": "MINING",
+      "requiredLevel": 30,
+      "displayName": "Crystal Maul",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1022,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 20,
+          "max": 70,
+          "weight": 1.5
+        },
+        "gemFinderChance": {
+          "min": 4.65,
+          "max": 12.4,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 3.1,
+          "max": 10.85,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 35
+    },
+    "quarry_king_s_pick": {
+      "profession": "MINING",
+      "requiredLevel": 32,
+      "displayName": "Quarry King's Pick",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1023,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 18,
+          "max": 65,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1.5
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 175,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1.0,
+          "max": 1.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 35
+    },
+    "cavern_breaker": {
+      "profession": "MINING",
+      "requiredLevel": 35,
+      "displayName": "Cavern Breaker",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1024,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 35,
+          "max": 90,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 0.45,
+          "max": 2.7,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 200,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 1.8,
+          "max": 9.0,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1.0,
+          "max": 2.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 45,
+      "repairCreditCost": 50
+    },
+    "stonebreaker_pick": {
+      "profession": "MINING",
+      "requiredLevel": 38,
+      "displayName": "Stonebreaker Pick",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1025,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 45,
+          "max": 110,
+          "weight": 2
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 225,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 10.8,
+          "max": 32.4,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 7.2,
+          "max": 21.6,
+          "weight": 1
+        },
+        "stonebreakerRadius": {
+          "min": 2.0,
+          "max": 3.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "stonebreaker",
+      "activeCooldownSeconds": 65,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 50
+    },
+    "treasure_seer_pick": {
+      "profession": "MINING",
+      "requiredLevel": 40,
+      "displayName": "Treasure Seer Pick",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1026,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 25,
+          "max": 70,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 5.4,
+          "max": 16.2,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        }
+      },
+      "activeAbility": "treasure_sense",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "treasureSenseRadius": 80,
+      "repairCreditCost": 50
+    },
+    "focus_crystal_pick": {
+      "profession": "MINING",
+      "requiredLevel": 42,
+      "displayName": "Focus Crystal Pick",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_pickaxe",
+      "customModelData": 1027,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 35,
+          "max": 100,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 12.6,
+          "max": 28.8,
+          "weight": 1.5
+        },
+        "xpSurgeChance": {
+          "min": 9.0,
+          "max": 27.0,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 9.0,
+          "max": 25.2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 50
+    },
+    "lodestone_maw": {
+      "profession": "MINING",
+      "requiredLevel": 50,
+      "displayName": "Lodestone Maw",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1028,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 45,
+          "max": 120,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21.0,
+          "max": 46.2,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 1.05,
+          "max": 4.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 250,
+          "weight": 1
+        },
+        "oreMagnetRadius": {
+          "min": 10.0,
+          "max": 18.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "ore_magnet_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100
+    },
+    "crystal_mauler": {
+      "profession": "MINING",
+      "requiredLevel": 55,
+      "displayName": "Crystal Mauler",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1029,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 55,
+          "max": 130,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21.0,
+          "max": 46.2,
+          "weight": 2.5
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 2.1,
+          "max": 6.3,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 300,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 21.0,
+          "max": 52.5,
+          "weight": 1.5
+        },
+        "shardFinderChance": {
+          "min": 4.2,
+          "max": 16.8,
+          "weight": 1.25
+        },
+        "oreMagnetRadius": {
+          "min": 10.0,
+          "max": 18.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "ore_magnet_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100
+    },
+    "infernal_core_pick": {
+      "profession": "MINING",
+      "requiredLevel": 60,
+      "displayName": "Infernal Core Pick",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1030,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 60,
+          "max": 140,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21.0,
+          "max": 48.3,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1.5
+        },
+        "quadrupleDropChance": {
+          "min": 1.58,
+          "max": 5.25,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 12.6,
+          "max": 37.8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 325,
+          "weight": 1
+        },
+        "autoSmeltEfficiency": {
+          "min": 31.5,
+          "max": 73.5,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "auto_smelt_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100
+    },
+    "vein_reaper": {
+      "profession": "MINING",
+      "requiredLevel": 65,
+      "displayName": "Vein Reaper",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1031,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 75,
+          "max": 160,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 29.4,
+          "max": 61.25,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 12.25,
+          "max": 24.5,
+          "weight": 2
+        },
+        "durabilitySaveChance": {
+          "min": 24.5,
+          "max": 61.25,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 7.35,
+          "max": 19.6,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 7.35,
+          "max": 19.6,
+          "weight": 1
+        },
+        "veinChainChance": {
+          "min": 19.6,
+          "max": 44.1,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "vein_miner_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 20,
+      "maxVeinBlocks": 40,
+      "repairCreditCost": 250
+    },
+    "blastcore_pick": {
+      "profession": "MINING",
+      "requiredLevel": 70,
+      "displayName": "Blastcore Pick",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1032,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 80,
+          "max": 170,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 29.4,
+          "max": 61.25,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1.5
+        },
+        "durabilitySaveChance": {
+          "min": 19.6,
+          "max": 49.0,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 12.25,
+          "max": 44.1,
+          "weight": 1
+        },
+        "blastMineRadius": {
+          "min": 2.0,
+          "max": 3.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "blast_mine",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 14,
+      "repairCreditCost": 250
+    },
+    "voidrift_excavator": {
+      "profession": "MINING",
+      "requiredLevel": 75,
+      "displayName": "Voidrift Excavator",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_pickaxe",
+      "customModelData": 1033,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 90,
+          "max": 185,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 34.3,
+          "max": 68.6,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 14.7,
+          "max": 29.4,
+          "weight": 1.75
+        },
+        "quadrupleDropChance": {
+          "min": 3.68,
+          "max": 9.8,
+          "weight": 1
+        },
+        "quintupleDropChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        },
+        "treasurePingChance": {
+          "min": 7.35,
+          "max": 19.6,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 2.0,
+          "max": 3.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 60,
+      "repairCreditCost": 250
+    },
+    "sapling_splitter": {
+      "profession": "FORESTRY",
+      "requiredLevel": 1,
+      "displayName": "Sapling Splitter",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_axe",
+      "customModelData": 2010,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "doubleChopChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "maxTimberBlocks": 16,
+      "repairCreditCost": 10
+    },
+    "barkbite_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 1,
+      "displayName": "Barkbite Axe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_axe",
+      "customModelData": 2011,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 3,
+          "max": 9,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 18,
+          "weight": 0.75
+        },
+        "forestersFocusBoost": {
+          "min": 35.0,
+          "max": 65.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "foresters_focus",
+      "activeCooldownSeconds": 55,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10
+    },
+    "lumberjack_s_friend": {
+      "profession": "FORESTRY",
+      "requiredLevel": 1,
+      "displayName": "Lumberjack's Friend",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_axe",
+      "customModelData": 2012,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 1,
+          "max": 6,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 25,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "maxTimberBlocks": 18,
+      "repairCreditCost": 10
+    },
+    "mosswood_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 1,
+      "displayName": "Mosswood Axe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_axe",
+      "customModelData": 2013,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "tree_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "repairCreditCost": 10
+    },
+    "timber_trail_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 1,
+      "displayName": "Timber Trail Axe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_axe",
+      "customModelData": 2014,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 4,
+          "max": 10,
+          "weight": 1.25
+        },
+        "doubleChopChance": {
+          "min": 0.5,
+          "max": 2.5,
+          "weight": 0.75
+        },
+        "forestryXpSurgeChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10
+    },
+    "molten_timber_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 12,
+      "displayName": "Molten Timber Axe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_axe",
+      "customModelData": 2015,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 8,
+          "max": 20,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 40,
+          "weight": 1
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "maxTimberBlocks": 24,
+      "repairCreditCost": 20
+    },
+    "rootbreaker_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 15,
+      "displayName": "Rootbreaker Axe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_axe",
+      "customModelData": 2016,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 6,
+          "max": 16,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 25,
+          "max": 70,
+          "weight": 1.5
+        },
+        "sapFinderChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "leafstorm",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "leafstormRadius": 4,
+      "repairCreditCost": 20
+    },
+    "whisperbark_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 18,
+      "displayName": "Whisperbark Axe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_axe",
+      "customModelData": 2017,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 5,
+          "max": 15,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "forestersFocusBoost": {
+          "min": 45.0,
+          "max": 85.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "foresters_focus",
+      "activeCooldownSeconds": 65,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 20
+    },
+    "forest_fang": {
+      "profession": "FORESTRY",
+      "requiredLevel": 20,
+      "displayName": "Forest Fang",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_axe",
+      "customModelData": 2018,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 10,
+          "max": 24,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 1.5,
+          "max": 5,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 20
+    },
+    "bloomcutter_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 22,
+      "displayName": "Bloomcutter Axe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_axe",
+      "customModelData": 2019,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 7,
+          "max": 18,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 3,
+          "max": 8,
+          "weight": 1
+        },
+        "doubleChopChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "tree_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "repairCreditCost": 20
+    },
+    "grove_cleaver": {
+      "profession": "FORESTRY",
+      "requiredLevel": 25,
+      "displayName": "Grove Cleaver",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2020,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 15,
+          "max": 75,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 2
+        },
+        "sapFinderChance": {
+          "min": 3.1,
+          "max": 12.4,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 3.1,
+          "max": 12.4,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 1
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "maxTimberBlocks": 32,
+      "repairCreditCost": 35
+    },
+    "thornsplitter": {
+      "profession": "FORESTRY",
+      "requiredLevel": 28,
+      "displayName": "Thornsplitter",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2021,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 20,
+          "max": 70,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1.5
+        },
+        "tripleChopChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 50,
+          "max": 150,
+          "weight": 1
+        }
+      },
+      "activeAbility": "leafstorm",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "leafstormRadius": 5,
+      "repairCreditCost": 35
+    },
+    "verdant_reaper": {
+      "profession": "FORESTRY",
+      "requiredLevel": 30,
+      "displayName": "Verdant Reaper",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2022,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 15,
+          "max": 60,
+          "weight": 1.5
+        },
+        "sapFinderChance": {
+          "min": 6.2,
+          "max": 15.5,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 6.2,
+          "max": 15.5,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1
+        },
+        "forestersFocusBoost": {
+          "min": 60.0,
+          "max": 110.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "foresters_focus",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 35
+    },
+    "timberlord_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 32,
+      "displayName": "Timberlord Axe",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2023,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 25,
+          "max": 80,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 7.75,
+          "max": 21.7,
+          "weight": 1.5
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 175,
+          "weight": 1
+        },
+        "tripleChopChance": {
+          "min": 1.55,
+          "max": 7.75,
+          "weight": 1
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 35
+    },
+    "leafstorm_hatchet": {
+      "profession": "FORESTRY",
+      "requiredLevel": 35,
+      "displayName": "Leafstorm Hatchet",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2024,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 25,
+          "max": 90,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 1.8,
+          "max": 9.0,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 5.4,
+          "max": 16.2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "leafstorm",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "leafstormRadius": 6,
+      "repairCreditCost": 50
+    },
+    "ancientwood_splitter": {
+      "profession": "FORESTRY",
+      "requiredLevel": 38,
+      "displayName": "Ancientwood Splitter",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2025,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 35,
+          "max": 100,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 12.6,
+          "max": 28.8,
+          "weight": 1.5
+        },
+        "tripleChopChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 225,
+          "weight": 1
+        },
+        "megaTreeBurst": {
+          "min": 5.0,
+          "max": 15.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "maxTimberBlocks": 42,
+      "repairCreditCost": 50
+    },
+    "spiritbark_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 40,
+      "displayName": "Spiritbark Axe",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2026,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 25,
+          "max": 75,
+          "weight": 1.5
+        },
+        "sapFinderChance": {
+          "min": 9.0,
+          "max": 23.4,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 9.0,
+          "max": 23.4,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 9.0,
+          "max": 27.0,
+          "weight": 1
+        },
+        "forestersFocusBoost": {
+          "min": 75.0,
+          "max": 140.0,
+          "weight": 1.0
+        }
+      },
+      "activeAbility": "foresters_focus",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 50
+    },
+    "canopy_ripper": {
+      "profession": "FORESTRY",
+      "requiredLevel": 42,
+      "displayName": "Canopy Ripper",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_axe",
+      "customModelData": 2027,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 40,
+          "max": 110,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 7.2,
+          "max": 19.8,
+          "weight": 1
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 50
+    },
+    "worldroot_splitter": {
+      "profession": "FORESTRY",
+      "requiredLevel": 50,
+      "displayName": "Worldroot Splitter",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2028,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 45,
+          "max": 130,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 21.0,
+          "max": 50.4,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 8.4,
+          "max": 25.2,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 8.4,
+          "max": 25.2,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 12.6,
+          "max": 37.8,
+          "weight": 1
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 80,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 100
+    },
+    "evergreen_planter": {
+      "profession": "FORESTRY",
+      "requiredLevel": 55,
+      "displayName": "Evergreen Planter",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2029,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 40,
+          "max": 110,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 16.8,
+          "max": 42.0,
+          "weight": 2
+        },
+        "seedFinderChance": {
+          "min": 10.5,
+          "max": 31.5,
+          "weight": 1
+        },
+        "sapFinderChance": {
+          "min": 10.5,
+          "max": 25.2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "tree_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100
+    },
+    "elderbloom_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 60,
+      "displayName": "Elderbloom Axe",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2030,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 55,
+          "max": 135,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 21.0,
+          "max": 48.3,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1.5
+        },
+        "forestryXpSurgeChance": {
+          "min": 14.7,
+          "max": 42.0,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 325,
+          "weight": 1
+        }
+      },
+      "activeAbility": "leafstorm",
+      "activeCooldownSeconds": 80,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 30,
+      "leafstormRadius": 7,
+      "repairCreditCost": 100
+    },
+    "wildheart_cleaver": {
+      "profession": "FORESTRY",
+      "requiredLevel": 65,
+      "displayName": "Wildheart Cleaver",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2031,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 75,
+          "max": 160,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 29.4,
+          "max": 63.7,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 12.25,
+          "max": 26.95,
+          "weight": 1.5
+        },
+        "sapFinderChance": {
+          "min": 14.7,
+          "max": 39.2,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 19.6,
+          "max": 58.8,
+          "weight": 1
+        },
+        "megaTreeBurst": {
+          "min": 5.0,
+          "max": 15.0,
+          "weight": 1.0
+        },
+        "megaTreeChance": {
+          "min": 7.35,
+          "max": 24.5,
+          "weight": 1.0
+        },
+        "megaTreeBlocks": {
+          "min": 18.0,
+          "max": 36.0,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "timber_burst",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 30,
+      "maxTimberBlocks": 56,
+      "repairCreditCost": 250
+    },
+    "nature_s_wrath_axe": {
+      "profession": "FORESTRY",
+      "requiredLevel": 70,
+      "displayName": "Nature's Wrath Axe",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2032,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 85,
+          "max": 175,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 34.3,
+          "max": 68.6,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 12.25,
+          "max": 29.4,
+          "weight": 1.5
+        },
+        "seedFinderChance": {
+          "min": 17.15,
+          "max": 44.1,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 200,
+          "max": 400,
+          "weight": 1
+        },
+        "quintupleChopChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        }
+      },
+      "activeAbility": "leafstorm",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 35,
+      "leafstormRadius": 8,
+      "repairCreditCost": 250
+    },
+    "yggdrasil_fang": {
+      "profession": "FORESTRY",
+      "requiredLevel": 75,
+      "displayName": "Yggdrasil Fang",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_axe",
+      "customModelData": 2033,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "chopSpeed": {
+          "min": 90,
+          "max": 185,
+          "weight": 2
+        },
+        "doubleChopChance": {
+          "min": 36.75,
+          "max": 73.5,
+          "weight": 2
+        },
+        "tripleChopChance": {
+          "min": 14.7,
+          "max": 31.85,
+          "weight": 1.5
+        },
+        "sapFinderChance": {
+          "min": 19.6,
+          "max": 49.0,
+          "weight": 1
+        },
+        "seedFinderChance": {
+          "min": 19.6,
+          "max": 49.0,
+          "weight": 1
+        },
+        "forestryXpSurgeChance": {
+          "min": 24.5,
+          "max": 61.25,
+          "weight": 1
+        },
+        "megaTreeChance": {
+          "min": 7.35,
+          "max": 24.5,
+          "weight": 1.0
+        },
+        "megaTreeBlocks": {
+          "min": 18.0,
+          "max": 36.0,
+          "weight": 0.75
+        },
+        "quintupleChopChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        }
+      },
+      "activeAbility": "lumberjack_focus",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 250
+    },
+    "rookie_s_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 1,
+      "displayName": "Rookie's Hoe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_hoe",
+      "customModelData": 4010,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 55,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10
+    },
+    "harvest_sprout": {
+      "profession": "FARMING",
+      "requiredLevel": 1,
+      "displayName": "Harvest Sprout",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_hoe",
+      "customModelData": 4011,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 0.5,
+          "max": 2.5,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "repairCreditCost": 10
+    },
+    "soilturn_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 1,
+      "displayName": "Soilturn Hoe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_hoe",
+      "customModelData": 4012,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 1,
+          "max": 3.5,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 20,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10
+    },
+    "cropkeeper_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 1,
+      "displayName": "Cropkeeper Hoe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_hoe",
+      "customModelData": 4013,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "seedSaverChance": {
+          "min": 2,
+          "max": 5,
+          "weight": 1
+        },
+        "doubleHarvestChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 25,
+          "weight": 1
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "repairCreditCost": 10
+    },
+    "wheatwarden_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 1,
+      "displayName": "Wheatwarden Hoe",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_hoe",
+      "customModelData": 4014,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 1.5,
+          "max": 4,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 0.25,
+          "max": 1,
+          "weight": 0.75
+        },
+        "farmingXpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 10
+    },
+    "bloomshaper_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 12,
+      "displayName": "Bloomshaper Hoe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_hoe",
+      "customModelData": 4015,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1.5
+        },
+        "seedSaverChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 20
+    },
+    "rootsong_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 15,
+      "displayName": "Rootsong Hoe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_hoe",
+      "customModelData": 4016,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 1.5,
+          "max": 5,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 4,
+          "max": 9,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 15,
+          "max": 50,
+          "weight": 1
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "repairCreditCost": 20
+    },
+    "harvester_s_grace": {
+      "profession": "FARMING",
+      "requiredLevel": 18,
+      "displayName": "Harvester's Grace",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_hoe",
+      "customModelData": 4017,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 3,
+          "max": 8,
+          "weight": 1.5
+        },
+        "goldenHarvestChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 20
+    },
+    "verdant_tiller": {
+      "profession": "FARMING",
+      "requiredLevel": 20,
+      "displayName": "Verdant Tiller",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_hoe",
+      "customModelData": 4018,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 3,
+          "max": 8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 25,
+          "max": 70,
+          "weight": 1
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "repairCreditCost": 20
+    },
+    "soilkeeper_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 22,
+      "displayName": "Soilkeeper Hoe",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_hoe",
+      "customModelData": 4019,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 3,
+          "max": 8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 20,
+          "max": 60,
+          "weight": 1
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 65,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 22,
+      "repairCreditCost": 20
+    },
+    "harvest_moon_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 25,
+      "displayName": "Harvest Moon Hoe",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4020,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 2
+        },
+        "seedSaverChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.05,
+          "max": 0.15,
+          "weight": 0.35
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 35
+    },
+    "cropstorm_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 28,
+      "displayName": "Cropstorm Hoe",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4021,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 9.3,
+          "max": 24.8,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.05,
+          "max": 0.15,
+          "weight": 0.35
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 35
+    },
+    "sunpetal_tiller": {
+      "profession": "FARMING",
+      "requiredLevel": 30,
+      "displayName": "Sunpetal Tiller",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4022,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 7.75,
+          "max": 21.7,
+          "weight": 1.5
+        },
+        "goldenHarvestChance": {
+          "min": 3.1,
+          "max": 9.3,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 6.2,
+          "max": 15.5,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.05,
+          "max": 0.15,
+          "weight": 0.35
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 80,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 22,
+      "repairCreditCost": 35
+    },
+    "greenwarden_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 32,
+      "displayName": "Greenwarden Hoe",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4023,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1.5
+        },
+        "seedSaverChance": {
+          "min": 9.3,
+          "max": 21.7,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 175,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 6.2,
+          "max": 15.5,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.05,
+          "max": 0.15,
+          "weight": 0.35
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "repairCreditCost": 35
+    },
+    "verdant_bloom": {
+      "profession": "FARMING",
+      "requiredLevel": 35,
+      "displayName": "Verdant Bloom",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4024,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 1.8,
+          "max": 9.0,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 9.0,
+          "max": 27.0,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 9.0,
+          "max": 27.0,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.1,
+          "max": 0.3,
+          "weight": 0.45
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "repairCreditCost": 50
+    },
+    "thornvine_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 38,
+      "displayName": "Thornvine Hoe",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4025,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 16.2,
+          "max": 36.0,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 225,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 9.0,
+          "max": 21.6,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.1,
+          "max": 0.3,
+          "weight": 0.45
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 30,
+      "repairCreditCost": 50
+    },
+    "emerald_harvester": {
+      "profession": "FARMING",
+      "requiredLevel": 40,
+      "displayName": "Emerald Harvester",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4026,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 1.5
+        },
+        "goldenHarvestChance": {
+          "min": 5.4,
+          "max": 14.4,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 10.8,
+          "max": 32.4,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 7.2,
+          "max": 18.0,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.1,
+          "max": 0.3,
+          "weight": 0.45
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 85,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 50
+    },
+    "raincaller_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 42,
+      "displayName": "Raincaller Hoe",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_hoe",
+      "customModelData": 4027,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 12.6,
+          "max": 30.6,
+          "weight": 1.5
+        },
+        "tripleHarvestChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 12.6,
+          "max": 36.0,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.1,
+          "max": 0.3,
+          "weight": 0.45
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 80,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 30,
+      "repairCreditCost": 50
+    },
+    "sunroot_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 50,
+      "displayName": "Sunroot Hoe",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4028,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 21.0,
+          "max": 50.4,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 6.3,
+          "max": 21.0,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 16.8,
+          "max": 46.2,
+          "weight": 1
+        },
+        "villagerEggChance": {
+          "min": 0.2,
+          "max": 0.6,
+          "weight": 0.6
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 80,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 100
+    },
+    "golden_grove_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 55,
+      "displayName": "Golden Grove Hoe",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4029,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 23.1,
+          "max": 52.5,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 10.5,
+          "max": 27.3,
+          "weight": 1
+        },
+        "seedSaverChance": {
+          "min": 16.8,
+          "max": 37.8,
+          "weight": 1
+        },
+        "autoReplantEfficiency": {
+          "min": 6.3,
+          "max": 25.2,
+          "weight": 1.0
+        },
+        "villagerEggChance": {
+          "min": 0.2,
+          "max": 0.6,
+          "weight": 0.6
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100
+    },
+    "harvest_king_s_scythe": {
+      "profession": "FARMING",
+      "requiredLevel": 60,
+      "displayName": "Harvest King's Scythe",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4030,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 25.2,
+          "max": 54.6,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 8.4,
+          "max": 21.0,
+          "weight": 1.5
+        },
+        "farmingXpSurgeChance": {
+          "min": 18.9,
+          "max": 50.4,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 325,
+          "weight": 1
+        },
+        "megaHarvestRadius": {
+          "min": 5.0,
+          "max": 7.0,
+          "weight": 1.0
+        },
+        "villagerEggChance": {
+          "min": 0.2,
+          "max": 0.6,
+          "weight": 0.6
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 85,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 100
+    },
+    "worldseed_hoe": {
+      "profession": "FARMING",
+      "requiredLevel": 65,
+      "displayName": "Worldseed Hoe",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4031,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 34.3,
+          "max": 68.6,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 12.25,
+          "max": 29.4,
+          "weight": 1.5
+        },
+        "seedSaverChance": {
+          "min": 24.5,
+          "max": 58.8,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 24.5,
+          "max": 61.25,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 12.25,
+          "max": 34.3,
+          "weight": 1
+        },
+        "autoReplantEfficiency": {
+          "min": 7.35,
+          "max": 29.4,
+          "weight": 1.0
+        },
+        "quintupleHarvestChance": {
+          "min": 0.61,
+          "max": 3.68,
+          "weight": 0.5
+        },
+        "villagerEggChance": {
+          "min": 0.35,
+          "max": 1.0,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "auto_replant_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 250
+    },
+    "celestial_harvest": {
+      "profession": "FARMING",
+      "requiredLevel": 70,
+      "displayName": "Celestial Harvest",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4032,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 36.75,
+          "max": 73.5,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 14.7,
+          "max": 31.85,
+          "weight": 1.5
+        },
+        "goldenHarvestChance": {
+          "min": 17.15,
+          "max": 44.1,
+          "weight": 1
+        },
+        "farmingXpSurgeChance": {
+          "min": 29.4,
+          "max": 68.6,
+          "weight": 1
+        },
+        "quintupleHarvestChance": {
+          "min": 0.61,
+          "max": 3.68,
+          "weight": 0.5
+        },
+        "villagerEggChance": {
+          "min": 0.35,
+          "max": 1.0,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "golden_rain",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 250
+    },
+    "verdant_genesis": {
+      "profession": "FARMING",
+      "requiredLevel": 75,
+      "displayName": "Verdant Genesis",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_hoe",
+      "customModelData": 4033,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "doubleHarvestChance": {
+          "min": 39.2,
+          "max": 78.4,
+          "weight": 2
+        },
+        "tripleHarvestChance": {
+          "min": 14.7,
+          "max": 34.3,
+          "weight": 1.5
+        },
+        "seedSaverChance": {
+          "min": 29.4,
+          "max": 63.7,
+          "weight": 1
+        },
+        "goldenHarvestChance": {
+          "min": 14.7,
+          "max": 39.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 200,
+          "max": 400,
+          "weight": 1
+        },
+        "megaHarvestRadius": {
+          "min": 5.0,
+          "max": 7.0,
+          "weight": 1.0
+        },
+        "quintupleHarvestChance": {
+          "min": 0.61,
+          "max": 3.68,
+          "weight": 0.5
+        },
+        "villagerEggChance": {
+          "min": 0.35,
+          "max": 1.0,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "harvest_wave",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 40,
+      "repairCreditCost": 250
+    },
+    "trail_spade": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Trail Spade",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_shovel",
+      "customModelData": 4010,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "doubleDropChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "soilYieldChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 10,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 10,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "gravelbite_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Gravelbite Shovel",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_shovel",
+      "customModelData": 4011,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 3,
+          "max": 9,
+          "weight": 1.25
+        },
+        "durabilitySaveChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 18,
+          "weight": 0.75
+        },
+        "diggingSpeed": {
+          "min": 3,
+          "max": 9,
+          "weight": 1.25
+        },
+        "softTouchDurabilityChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 15,
+      "repairCreditCost": 10,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Earthworker"
+      ]
+    },
+    "clayfinder_spade": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Clayfinder Spade",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_shovel",
+      "customModelData": 4012,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 1,
+          "max": 6,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 0.25,
+          "max": 1.5,
+          "weight": 0.75
+        },
+        "diggingSpeed": {
+          "min": 1,
+          "max": 6,
+          "weight": 1
+        },
+        "siltGemChance": {
+          "min": 0.25,
+          "max": 1.5,
+          "weight": 0.75
+        },
+        "buriedTreasureChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "prospect",
+      "activeCooldownSeconds": 25,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "repairCreditCost": 10,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "sandshaper_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Sandshaper Shovel",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_shovel",
+      "customModelData": 4013,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 25,
+          "weight": 1
+        },
+        "doubleDropChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        },
+        "stonebreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "soilYieldChance": {
+          "min": 0.5,
+          "max": 2,
+          "weight": 0.75
+        },
+        "earthbreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "stonebreaker",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 10,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Earthworker",
+        "Earthbreaker"
+      ]
+    },
+    "tunnel_paw_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 1,
+      "displayName": "Tunnel Paw Shovel",
+      "rarity": "COMMON",
+      "baseItem": "minecraft:stone_shovel",
+      "customModelData": 4014,
+      "baseDurability": 131,
+      "repairDurabilityPercent": 35.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 5,
+          "max": 20,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 0.75
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 2,
+          "max": 8,
+          "weight": 1
+        },
+        "excavationXpSurgeChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 0.75
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 35,
+      "hasAscendedVariant": false,
+      "toolTier": "STONE",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 10,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Earthworker"
+      ]
+    },
+    "ironburrow_spade": {
+      "profession": "MINING",
+      "requiredLevel": 12,
+      "displayName": "Ironburrow Spade",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_shovel",
+      "customModelData": 4015,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 8,
+          "max": 20,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 10,
+          "max": 40,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 8,
+          "max": 20,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 20,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "siltbreaker_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 15,
+      "displayName": "Siltbreaker Shovel",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_shovel",
+      "customModelData": 4016,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 10,
+          "max": 24,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 1.5,
+          "max": 5,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 10,
+          "max": 24,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 1.5,
+          "max": 5,
+          "weight": 1
+        },
+        "excavationXpSurgeChance": {
+          "min": 2,
+          "max": 6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 60,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 18,
+      "repairCreditCost": 20,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "orewash_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 18,
+      "displayName": "Orewash Shovel",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_shovel",
+      "customModelData": 4017,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 5,
+          "max": 15,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 5,
+          "max": 15,
+          "weight": 1
+        },
+        "siltGemChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "buriedTreasureChance": {
+          "min": 1,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "treasure_sense",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "treasureSenseRadius": 48,
+      "repairCreditCost": 20,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "buried_cache_spade": {
+      "profession": "MINING",
+      "requiredLevel": 20,
+      "displayName": "Buried Cache Spade",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_shovel",
+      "customModelData": 4018,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 7,
+          "max": 18,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 0.5,
+          "max": 3,
+          "weight": 0.75
+        },
+        "diggingSpeed": {
+          "min": 7,
+          "max": 18,
+          "weight": 1
+        },
+        "siltGemChance": {
+          "min": 0.5,
+          "max": 3,
+          "weight": 0.75
+        },
+        "buriedShardChance": {
+          "min": 1,
+          "max": 4,
+          "weight": 1
+        }
+      },
+      "activeAbility": "prospect",
+      "activeCooldownSeconds": 20,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "repairCreditCost": 20,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "cavern_scoop": {
+      "profession": "MINING",
+      "requiredLevel": 22,
+      "displayName": "Cavern Scoop",
+      "rarity": "UNCOMMON",
+      "baseItem": "minecraft:iron_shovel",
+      "customModelData": 4019,
+      "baseDurability": 250,
+      "repairDurabilityPercent": 30.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 6,
+          "max": 16,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 25,
+          "max": 70,
+          "weight": 1.5
+        },
+        "durabilitySaveChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "stonebreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 6,
+          "max": 16,
+          "weight": 1
+        },
+        "softTouchDurabilityChance": {
+          "min": 2,
+          "max": 7,
+          "weight": 1
+        },
+        "earthbreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "stonebreaker",
+      "activeCooldownSeconds": 55,
+      "hasAscendedVariant": false,
+      "toolTier": "IRON",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 20,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Earthworker",
+        "Earthbreaker"
+      ]
+    },
+    "diamond_dredger": {
+      "profession": "MINING",
+      "requiredLevel": 25,
+      "displayName": "Diamond Dredger",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4020,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 18,
+          "max": 65,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1.5
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 175,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 18,
+          "max": 65,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 6.2,
+          "max": 18.6,
+          "weight": 1.5
+        },
+        "softTouchDurabilityChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 35,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "deep_sands_spade": {
+      "profession": "MINING",
+      "requiredLevel": 28,
+      "displayName": "Deep Sands Spade",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4021,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 15,
+          "max": 45,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 3.1,
+          "max": 9.3,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 30,
+          "max": 100,
+          "weight": 0.75
+        },
+        "diggingSpeed": {
+          "min": 15,
+          "max": 45,
+          "weight": 1
+        },
+        "siltGemChance": {
+          "min": 3.1,
+          "max": 9.3,
+          "weight": 1
+        },
+        "buriedTreasureChance": {
+          "min": 1.55,
+          "max": 6.2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "prospect",
+      "activeCooldownSeconds": 20,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "repairCreditCost": 35,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "quarry_spade": {
+      "profession": "MINING",
+      "requiredLevel": 30,
+      "displayName": "Quarry Spade",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4022,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 20,
+          "max": 70,
+          "weight": 1.5
+        },
+        "gemFinderChance": {
+          "min": 4.65,
+          "max": 12.4,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 3.1,
+          "max": 10.85,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 20,
+          "max": 70,
+          "weight": 1.5
+        },
+        "siltGemChance": {
+          "min": 4.65,
+          "max": 12.4,
+          "weight": 1
+        },
+        "buriedShardChance": {
+          "min": 3.1,
+          "max": 10.85,
+          "weight": 1
+        },
+        "excavationXpSurgeChance": {
+          "min": 4.65,
+          "max": 15.5,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 35,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "excavator_s_edge": {
+      "profession": "MINING",
+      "requiredLevel": 32,
+      "displayName": "Excavator's Edge",
+      "rarity": "RARE",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4023,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 15,
+          "max": 100,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 1.55,
+          "max": 7.75,
+          "weight": 2
+        },
+        "durabilityBonus": {
+          "min": 50,
+          "max": 150,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 2,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 15,
+          "max": 100,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 7.75,
+          "max": 23.25,
+          "weight": 3
+        },
+        "richSoilYieldChance": {
+          "min": 1.55,
+          "max": 7.75,
+          "weight": 2
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 50,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 35,
+      "repairCreditCost": 35,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "earthsplitter_spade": {
+      "profession": "MINING",
+      "requiredLevel": 35,
+      "displayName": "Earthsplitter Spade",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4024,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 35,
+          "max": 90,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 0.45,
+          "max": 2.7,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 75,
+          "max": 200,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 1,
+          "max": 2,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 35,
+          "max": 90,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 14.4,
+          "max": 32.4,
+          "weight": 3
+        },
+        "richSoilYieldChance": {
+          "min": 3.6,
+          "max": 12.6,
+          "weight": 2
+        },
+        "buriedCacheChance": {
+          "min": 0.45,
+          "max": 2.7,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 45,
+      "repairCreditCost": 50,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "treasure_dredge": {
+      "profession": "MINING",
+      "requiredLevel": 38,
+      "displayName": "Treasure Dredge",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4025,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 25,
+          "max": 70,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 5.4,
+          "max": 16.2,
+          "weight": 1
+        },
+        "treasurePingChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "shardFinderChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 25,
+          "max": 70,
+          "weight": 1
+        },
+        "siltGemChance": {
+          "min": 5.4,
+          "max": 16.2,
+          "weight": 1
+        },
+        "buriedShardChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        },
+        "buriedTreasureChance": {
+          "min": 3.6,
+          "max": 10.8,
+          "weight": 1
+        }
+      },
+      "activeAbility": "treasure_sense",
+      "activeCooldownSeconds": 45,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "treasureSenseRadius": 80,
+      "repairCreditCost": 50,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "focus_spade": {
+      "profession": "MINING",
+      "requiredLevel": 40,
+      "displayName": "Focus Spade",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4026,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 35,
+          "max": 100,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 12.6,
+          "max": 28.8,
+          "weight": 1.5
+        },
+        "xpSurgeChance": {
+          "min": 9,
+          "max": 27,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 9,
+          "max": 25.2,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 35,
+          "max": 100,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 12.6,
+          "max": 28.8,
+          "weight": 1.5
+        },
+        "excavationXpSurgeChance": {
+          "min": 9,
+          "max": 27,
+          "weight": 1
+        },
+        "softTouchDurabilityChance": {
+          "min": 9,
+          "max": 25.2,
+          "weight": 1
+        }
+      },
+      "activeAbility": "miners_focus",
+      "activeCooldownSeconds": 75,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 20,
+      "repairCreditCost": 50,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "stonewash_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 42,
+      "displayName": "Stonewash Shovel",
+      "rarity": "EPIC",
+      "baseItem": "minecraft:diamond_shovel",
+      "customModelData": 4027,
+      "baseDurability": 1561,
+      "repairDurabilityPercent": 25.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 45,
+          "max": 110,
+          "weight": 2
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 225,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 10.8,
+          "max": 32.4,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 7.2,
+          "max": 21.6,
+          "weight": 1
+        },
+        "stonebreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 45,
+          "max": 110,
+          "weight": 2
+        },
+        "excavationXpSurgeChance": {
+          "min": 7.2,
+          "max": 21.6,
+          "weight": 1
+        },
+        "softTouchDurabilityChance": {
+          "min": 10.8,
+          "max": 32.4,
+          "weight": 1
+        },
+        "earthbreakerRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "stonebreaker",
+      "activeCooldownSeconds": 65,
+      "hasAscendedVariant": true,
+      "toolTier": "DIAMOND",
+      "activeDurationSeconds": 25,
+      "repairCreditCost": 50,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Earthworker",
+        "Earthbreaker"
+      ]
+    },
+    "lodestone_spade": {
+      "profession": "MINING",
+      "requiredLevel": 50,
+      "displayName": "Lodestone Spade",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4028,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 45,
+          "max": 120,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21,
+          "max": 46.2,
+          "weight": 3
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 1.05,
+          "max": 4.2,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 100,
+          "max": 250,
+          "weight": 1
+        },
+        "oreMagnetRadius": {
+          "min": 10,
+          "max": 18,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 45,
+          "max": 120,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 21,
+          "max": 46.2,
+          "weight": 3
+        },
+        "richSoilYieldChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "buriedCacheChance": {
+          "min": 1.05,
+          "max": 4.2,
+          "weight": 1
+        },
+        "buriedOreSenseRadius": {
+          "min": 10,
+          "max": 18,
+          "weight": 1
+        }
+      },
+      "activeAbility": "ore_magnet_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "infernal_dredger": {
+      "profession": "MINING",
+      "requiredLevel": 55,
+      "displayName": "Infernal Dredger",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4029,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 60,
+          "max": 140,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21,
+          "max": 48.3,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1.5
+        },
+        "quadrupleDropChance": {
+          "min": 1.58,
+          "max": 5.25,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 12.6,
+          "max": 37.8,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 325,
+          "weight": 1
+        },
+        "autoSmeltEfficiency": {
+          "min": 31.5,
+          "max": 73.5,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 60,
+          "max": 140,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 21,
+          "max": 48.3,
+          "weight": 2
+        },
+        "richSoilYieldChance": {
+          "min": 6.3,
+          "max": 18.9,
+          "weight": 1.5
+        },
+        "buriedCacheChance": {
+          "min": 1.58,
+          "max": 5.25,
+          "weight": 1
+        },
+        "excavationXpSurgeChance": {
+          "min": 12.6,
+          "max": 37.8,
+          "weight": 1
+        },
+        "heatedSandEfficiency": {
+          "min": 31.5,
+          "max": 73.5,
+          "weight": 1
+        }
+      },
+      "activeAbility": "auto_smelt_toggle",
+      "activeCooldownSeconds": 0,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "repairCreditCost": 100,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "crystal_excavator": {
+      "profession": "MINING",
+      "requiredLevel": 60,
+      "displayName": "Crystal Excavator",
+      "rarity": "LEGENDARY",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4030,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 20.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 55,
+          "max": 130,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 21,
+          "max": 46.2,
+          "weight": 2.5
+        },
+        "tripleDropChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "quadrupleDropChance": {
+          "min": 2.1,
+          "max": 6.3,
+          "weight": 1
+        },
+        "durabilityBonus": {
+          "min": 150,
+          "max": 300,
+          "weight": 1
+        },
+        "durabilitySaveChance": {
+          "min": 21,
+          "max": 52.5,
+          "weight": 1.5
+        },
+        "excavationRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 55,
+          "max": 130,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 21,
+          "max": 46.2,
+          "weight": 2.5
+        },
+        "richSoilYieldChance": {
+          "min": 6.3,
+          "max": 16.8,
+          "weight": 2
+        },
+        "buriedCacheChance": {
+          "min": 2.1,
+          "max": 6.3,
+          "weight": 1
+        },
+        "softTouchDurabilityChance": {
+          "min": 21,
+          "max": 52.5,
+          "weight": 1.5
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 55,
+      "repairCreditCost": 100,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Earthworker"
+      ]
+    },
+    "voidrift_shovel": {
+      "profession": "MINING",
+      "requiredLevel": 65,
+      "displayName": "Voidrift Shovel",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4031,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 90,
+          "max": 185,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 34.3,
+          "max": 68.6,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 14.7,
+          "max": 29.4,
+          "weight": 1.75
+        },
+        "quadrupleDropChance": {
+          "min": 3.68,
+          "max": 9.8,
+          "weight": 1
+        },
+        "quintupleDropChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        },
+        "treasurePingChance": {
+          "min": 7.35,
+          "max": 19.6,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 90,
+          "max": 185,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 34.3,
+          "max": 68.6,
+          "weight": 2
+        },
+        "richSoilYieldChance": {
+          "min": 14.7,
+          "max": 29.4,
+          "weight": 1.75
+        },
+        "buriedCacheChance": {
+          "min": 3.68,
+          "max": 9.8,
+          "weight": 1
+        },
+        "ancientCacheChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        },
+        "siltGemChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "buriedTreasureChance": {
+          "min": 7.35,
+          "max": 19.6,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 60,
+      "repairCreditCost": 250,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Buried Finds",
+        "Earthworker"
+      ]
+    },
+    "blastcore_spade": {
+      "profession": "MINING",
+      "requiredLevel": 70,
+      "displayName": "Blastcore Spade",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4032,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 80,
+          "max": 170,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 29.4,
+          "max": 61.25,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1.5
+        },
+        "durabilitySaveChance": {
+          "min": 19.6,
+          "max": 49,
+          "weight": 1
+        },
+        "xpSurgeChance": {
+          "min": 12.25,
+          "max": 44.1,
+          "weight": 1
+        },
+        "blastMineRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 80,
+          "max": 170,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 29.4,
+          "max": 61.25,
+          "weight": 2
+        },
+        "richSoilYieldChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1.5
+        },
+        "excavationXpSurgeChance": {
+          "min": 12.25,
+          "max": 44.1,
+          "weight": 1
+        },
+        "softTouchDurabilityChance": {
+          "min": 19.6,
+          "max": 49,
+          "weight": 1
+        },
+        "caveInRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        }
+      },
+      "activeAbility": "blast_mine",
+      "activeCooldownSeconds": 90,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 14,
+      "repairCreditCost": 250,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Soil Yield",
+        "Earthworker",
+        "Earthbreaker"
+      ]
+    },
+    "worldcore_excavator": {
+      "profession": "MINING",
+      "requiredLevel": 75,
+      "displayName": "Worldcore Excavator",
+      "rarity": "MYTHIC",
+      "baseItem": "minecraft:netherite_shovel",
+      "customModelData": 4033,
+      "baseDurability": 2031,
+      "repairDurabilityPercent": 15.0,
+      "repairMaterials": {},
+      "statRanges": {
+        "miningSpeed": {
+          "min": 95,
+          "max": 190,
+          "weight": 2
+        },
+        "doubleDropChance": {
+          "min": 36.75,
+          "max": 71.05,
+          "weight": 2
+        },
+        "tripleDropChance": {
+          "min": 14.7,
+          "max": 31.85,
+          "weight": 1.75
+        },
+        "quadrupleDropChance": {
+          "min": 3.68,
+          "max": 10.4,
+          "weight": 1
+        },
+        "quintupleDropChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        },
+        "shardFinderChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "gemFinderChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "excavationRadius": {
+          "min": 2,
+          "max": 3,
+          "weight": 1
+        },
+        "diggingSpeed": {
+          "min": 95,
+          "max": 190,
+          "weight": 2
+        },
+        "soilYieldChance": {
+          "min": 36.75,
+          "max": 71.05,
+          "weight": 2
+        },
+        "richSoilYieldChance": {
+          "min": 14.7,
+          "max": 31.85,
+          "weight": 1.75
+        },
+        "buriedCacheChance": {
+          "min": 3.68,
+          "max": 10.4,
+          "weight": 1
+        },
+        "ancientCacheChance": {
+          "min": 0.61,
+          "max": 3.06,
+          "weight": 0.5
+        },
+        "siltGemChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        },
+        "buriedShardChance": {
+          "min": 9.8,
+          "max": 24.5,
+          "weight": 1
+        }
+      },
+      "activeAbility": "excavation",
+      "activeCooldownSeconds": 70,
+      "hasAscendedVariant": true,
+      "toolTier": "NETHERITE",
+      "activeDurationSeconds": 60,
+      "repairCreditCost": 250,
+      "toolType": "SHOVEL",
+      "passives": [
+        "Shovel Excavation",
+        "Soil Yield",
+        "Buried Finds",
+        "Earthworker"
+      ]
+    }
+  },
+  "repairCreditCosts": {
+    "COMMON": 10,
+    "UNCOMMON": 20,
+    "RARE": 35,
+    "EPIC": 50,
+    "LEGENDARY": 100,
+    "MYTHIC": 250
+  },
+  "seedSaverAllowedBerries": [
+    "cobblemon:roseli_berry",
+    "cobblemon:chilan_berry",
+    "cobblemon:babiri_berry",
+    "cobblemon:colbur_berry",
+    "cobblemon:haban_berry",
+    "cobblemon:kasib_berry",
+    "cobblemon:charti_berry",
+    "cobblemon:tanga_berry",
+    "cobblemon:payapa_berry",
+    "cobblemon:coba_berry",
+    "cobblemon:shuca_berry",
+    "cobblemon:kebia_berry",
+    "cobblemon:chople_berry",
+    "cobblemon:yache_berry",
+    "cobblemon:rindo_berry",
+    "cobblemon:wacan_berry",
+    "cobblemon:passho_berry",
+    "cobblemon:occa_berry",
+    "cobblemon:pinap_berry",
+    "cobblemon:wepear_berry",
+    "cobblemon:nanab_berry",
+    "cobblemon:bluk_berry",
+    "cobblemon:razz_berry",
+    "cobblemon:persim_berry",
+    "cobblemon:aspear_berry",
+    "cobblemon:rawst_berry",
+    "cobblemon:pecha_berry",
+    "cobblemon:chesto_berry",
+    "cobblemon:cheri_berry",
+    "cobblemon:oran_berry"
+  ]
+}

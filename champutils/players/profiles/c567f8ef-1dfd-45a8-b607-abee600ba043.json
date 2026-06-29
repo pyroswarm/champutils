@@ -1,0 +1,16 @@
+{
+  "uuid": "c567f8ef-1dfd-45a8-b607-abee600ba043",
+  "name": "NotMagics",
+  "rp": 300,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 0,
+  "casualWins": 0,
+  "casualLosses": 0,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 0,
+  "playtimeSeconds": 0
+}

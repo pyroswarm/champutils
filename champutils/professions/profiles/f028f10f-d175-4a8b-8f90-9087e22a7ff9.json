@@ -1,0 +1,17 @@
+{
+  "uuid": "f028f10f-d175-4a8b-8f90-9087e22a7ff9",
+  "name": "Jack_Kak",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 20,
+    "FARMING": 0,
+    "FORESTRY": 35,
+    "MINING": 0
+  },
+  "fragments": {}
+}

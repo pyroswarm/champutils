@@ -1,0 +1,17 @@
+{
+  "uuid": "0c97aa39-7856-400b-b475-e4ba97b9f227",
+  "name": "void_gem",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 50,
+    "MINING": 0
+  },
+  "fragments": {}
+}

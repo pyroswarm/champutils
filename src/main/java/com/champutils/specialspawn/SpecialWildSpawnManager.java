@@ -34,6 +34,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -59,6 +60,8 @@ public final class SpecialWildSpawnManager {
     private static double cashShopChanceBoost = 0.0D;
     private static long cashShopChanceBoostExpiresAt = 0L;
     private static UUID lastSpecialSpawnPlayer = null;
+    private static final double PLAYER_PITY_PER_MISSED_ROLL = 0.005D; // +0.5% player priority per missed eligible roll
+    private static final double PLAYER_PITY_MAX = 0.50D; // capped at +50% priority weight
 
     private SpecialWildSpawnManager() {}
 
@@ -95,7 +98,10 @@ public final class SpecialWildSpawnManager {
         if (players.isEmpty()) return;
 
         double chance = currentGlobalChancePerCheck(intervalTicks, islanderRoll);
-        if (RANDOM.nextDouble() >= chance) return;
+        if (RANDOM.nextDouble() >= chance) {
+            recordPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
 
         Collections.shuffle(players, RANDOM);
         if (players.size() > 1 && lastSpecialSpawnPlayer != null) {
@@ -110,9 +116,14 @@ public final class SpecialWildSpawnManager {
             return;
         }
 
-        ServerPlayer player = players.get(0);
+        ServerPlayer player = pickPlayerByPity(players, islanderRoll);
+        if (player == null) return;
+
         SpawnBucket bucket = pickBucket(islanderRoll);
-        if (bucket == null) return;
+        if (bucket == null) {
+            recordPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
 
         SpawnResult result = trySpawnFor(player, bucket, false);
         if (result == null) {
@@ -123,9 +134,12 @@ public final class SpecialWildSpawnManager {
             }
         }
         if (result != null) {
+            recordPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
             lastSpecialSpawnPlayer = result.playerUuid;
             markSpawned(result.type, result.species, false, islanderRoll);
             announce(server, result.type, result.species, result.level, result.pos);
+        } else {
+            recordPityOutcome(players, Collections.emptySet(), islanderRoll);
         }
     }
 
@@ -152,6 +166,7 @@ public final class SpecialWildSpawnManager {
             return ForceSpawnResult.fail("No safe spawn position was found nearby, or the selected Pokémon failed to spawn. I tried expanded islander-safe fallback placement, loaded chunks, surface scans, and direct Cobblemon spawning. Check the server log for the exact direct spawn error.");
         }
 
+        recordPityOutcome(List.of(player), Set.of(result.playerUuid), islanderRoll);
         markSpawned(result.type, result.species, false, islanderRoll);
         announce(player.getServer(), result.type, result.species, result.level, result.pos);
         return ForceSpawnResult.ok(result.type, result.species, result.pos);
@@ -179,7 +194,14 @@ public final class SpecialWildSpawnManager {
             }
         }
 
-        if (results.isEmpty()) return;
+        if (results.isEmpty()) {
+            recordPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
+
+        Set<UUID> spawnedPlayers = new HashSet<>();
+        for (SpawnResult result : results) spawnedPlayers.add(result.playerUuid);
+        recordPityOutcome(players, spawnedPlayers, islanderRoll);
 
         SpawnResult last = results.get(results.size() - 1);
         markSpawned(last.type, last.species, true, islanderRoll);
@@ -352,6 +374,91 @@ public final class SpecialWildSpawnManager {
         return Math.max(0.0D, Math.min(1.0D, base * multiplier * (1.0D + activeCashShopChanceBoost())));
     }
 
+
+    public static PityView pityView(ServerPlayer player) {
+        ensureStateLoaded();
+        if (player == null || player.serverLevel() == null) {
+            return new PityView(false, false, "No player/world loaded.", 0, 0.0D, 1.0D, 0.0D, 0.0D, "Never");
+        }
+
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        String failure = eligibilityFailureReason(player, islanderRoll);
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.checkIntervalTicks);
+        double globalChance = currentGlobalChancePerCheck(intervalTicks, islanderRoll);
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderMisses : pity.normalMisses;
+        double pityPercent = playerPityPercent(player, islanderRoll);
+        double ownWeight = playerPriorityWeight(player, islanderRoll);
+
+        double totalWeight = 0.0D;
+        MinecraftServer server = player.getServer();
+        if (server != null) {
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                if (online == null || online.isSpectator() || !isEligibleSpecialSpawnPlayer(online, islanderRoll)) continue;
+                totalWeight += playerPriorityWeight(online, islanderRoll);
+            }
+        }
+        double personalChance = failure == null && totalWeight > 0.0D ? globalChance * (ownWeight / totalWeight) : 0.0D;
+        return new PityView(islanderRoll, failure == null, failure == null ? "Eligible" : failure, misses, pityPercent, ownWeight, globalChance, personalChance, islanderRoll ? formatLastIslanderSpawnAgo() : formatLastNormalSpawnAgo());
+    }
+
+    private static PlayerPity pityData(UUID uuid) {
+        ensureStateLoaded();
+        if (state.playerPity == null) state.playerPity = new HashMap<>();
+        return state.playerPity.computeIfAbsent(uuid.toString(), ignored -> new PlayerPity());
+    }
+
+    private static double playerPityPercent(ServerPlayer player, boolean islanderRoll) {
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderMisses : pity.normalMisses;
+        return Math.max(0.0D, Math.min(PLAYER_PITY_MAX, misses * PLAYER_PITY_PER_MISSED_ROLL));
+    }
+
+    private static double playerPriorityWeight(ServerPlayer player, boolean islanderRoll) {
+        return 1.0D + playerPityPercent(player, islanderRoll);
+    }
+
+    private static ServerPlayer pickPlayerByPity(List<ServerPlayer> players, boolean islanderRoll) {
+        if (players == null || players.isEmpty()) return null;
+        double total = 0.0D;
+        for (ServerPlayer player : players) total += playerPriorityWeight(player, islanderRoll);
+        double roll = RANDOM.nextDouble() * Math.max(0.000001D, total);
+        for (ServerPlayer player : players) {
+            roll -= playerPriorityWeight(player, islanderRoll);
+            if (roll <= 0.0D) return player;
+        }
+        return players.get(0);
+    }
+
+    private static void recordPityOutcome(List<ServerPlayer> eligiblePlayers, Set<UUID> spawnedPlayers, boolean islanderRoll) {
+        if (eligiblePlayers == null || eligiblePlayers.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        Set<UUID> spawned = spawnedPlayers == null ? Collections.emptySet() : spawnedPlayers;
+        for (ServerPlayer player : eligiblePlayers) {
+            if (player == null) continue;
+            PlayerPity pity = pityData(player.getUUID());
+            if (islanderRoll) {
+                pity.islanderLastEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.islanderMisses = 0;
+                    pity.islanderLastSpawnMillis = now;
+                } else {
+                    pity.islanderMisses = Math.min(10000, pity.islanderMisses + 1);
+                }
+            } else {
+                pity.normalLastEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.normalMisses = 0;
+                    pity.normalLastSpawnMillis = now;
+                } else {
+                    pity.normalMisses = Math.min(10000, pity.normalMisses + 1);
+                }
+            }
+            changed = true;
+        }
+        if (changed) saveState();
+    }
     private static SpawnBucket pickBucket(boolean islanderRoll) {
         List<SpawnBucket> buckets = new ArrayList<>();
         addBucket(buckets, islanderRoll ? "islander legendary" : "legendary", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendaryChancePerCheck : SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendarySpawns : SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
@@ -884,12 +991,14 @@ public final class SpecialWildSpawnManager {
             if (!STATE_FILE.getParentFile().exists()) STATE_FILE.getParentFile().mkdirs();
             if (!STATE_FILE.exists()) {
                 state = new State();
+                if (state.playerPity == null) state.playerPity = new HashMap<>();
                 saveState();
                 return;
             }
             try (FileReader reader = new FileReader(STATE_FILE)) {
                 State loaded = GSON.fromJson(reader, State.class);
                 state = loaded == null ? new State() : loaded;
+                if (state.playerPity == null) state.playerPity = new HashMap<>();
             }
         } catch (Exception e) {
             state = new State();
@@ -944,8 +1053,18 @@ public final class SpecialWildSpawnManager {
         }
     }
 
+    public record PityView(boolean islanderRoll, boolean eligible, String eligibilityMessage, int missedEligibleRolls, double pityPercent, double priorityWeight, double globalChancePerCheck, double estimatedPersonalChancePerCheck, String lastSpecialSpawnAgo) {}
     private record SpawnBucket(String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {}
     private record SpawnResult(String type, String species, ServerLevel level, BlockPos pos, UUID playerUuid) {}
+
+    private static final class PlayerPity {
+        int normalMisses = 0;
+        int islanderMisses = 0;
+        long normalLastEligibleMillis = 0L;
+        long islanderLastEligibleMillis = 0L;
+        long normalLastSpawnMillis = 0L;
+        long islanderLastSpawnMillis = 0L;
+    }
 
     private static final class State {
         long lastSpawnEpochMillis = 0L;
@@ -956,5 +1075,6 @@ public final class SpecialWildSpawnManager {
         String islanderLastSpawnType = "";
         String islanderLastSpawnSpecies = "";
         boolean islanderLastSpawnWasRareTripleEvent = false;
+        Map<String, PlayerPity> playerPity = new HashMap<>();
     }
 }

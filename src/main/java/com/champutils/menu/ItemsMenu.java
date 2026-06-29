@@ -12,7 +12,7 @@ import net.minecraft.world.item.Items;
  * Legacy item hub kept as a clean fallback.
  * The intended player-facing flow is now two separate NPCs:
  * - Gear Workshop: crafting / salvage / repair
- * - Gear Appraiser: identify / reroll
+ * - Gear Workshop: identify / reroll now live here too
  */
 public final class ItemsMenu {
 
@@ -37,10 +37,10 @@ public final class ItemsMenu {
                 5,
                 new GuiElementBuilder(Items.AMETHYST_SHARD)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§dGear Appraiser"))
-                        .addLoreLine(Component.literal("§7Identify and reroll gear."))
+                        .setName(Component.literal("§dIdentify / Reroll Gear"))
+                        .addLoreLine(Component.literal("§7Now handled inside Gear Workshop."))
                         .addLoreLine(Component.literal("§eClick to open"))
-                        .setCallback((i, c, t) -> GearAppraiserMenu.open(player))
+                        .setCallback((i, c, t) -> GearWorkshopMenu.open(player))
         );
 
         gui.setSlot(

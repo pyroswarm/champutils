@@ -1,0 +1,44 @@
+{
+  "buffs": {
+    "shinyChance": {
+      "enabled": true,
+      "unlockLevel": 10,
+      "chancePerLevel": 1.0E-4,
+      "maxBonus": 0.0025
+    },
+    "perfectIvChance": {
+      "enabled": true,
+      "unlockLevel": 20,
+      "chancePerLevel": 1.0E-4,
+      "maxBonus": 0.0025
+    },
+    "miningProfessionXp": {
+      "enabled": true,
+      "unlockLevel": 5,
+      "maxLevel": 100,
+      "startingBonus": 0.01,
+      "maxBonus": 0.1
+    },
+    "forestryProfessionXp": {
+      "enabled": true,
+      "unlockLevel": 10,
+      "maxLevel": 100,
+      "startingBonus": 0.01,
+      "maxBonus": 0.1
+    },
+    "farmingProfessionXp": {
+      "enabled": true,
+      "unlockLevel": 15,
+      "maxLevel": 100,
+      "startingBonus": 0.01,
+      "maxBonus": 0.1
+    },
+    "battlingProfessionXp": {
+      "enabled": true,
+      "unlockLevel": 20,
+      "maxLevel": 100,
+      "startingBonus": 0.01,
+      "maxBonus": 0.1
+    }
+  }
+}

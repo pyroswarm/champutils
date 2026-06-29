@@ -11,6 +11,7 @@ import com.champutils.claims.LandClaimConfig;
 import com.champutils.claims.LandClaimRepository;
 import com.champutils.config.Config;
 import com.champutils.cosmetic.TitleConfig;
+import com.champutils.crafting.ChampCraftingConfig;
 import com.champutils.crate.CrateConfig;
 import com.champutils.crate.CrateKeyCraftingConfig;
 import com.champutils.dailylogin.DailyLoginConfig;
@@ -122,6 +123,7 @@ public class ChampReloadCommand {
             reloadConfig(reloaded, "boss_config.json", BossConfig::load);
             reloadConfig(reloaded, "chat_tags.json", ChatTagConfig::load);
             reloadConfig(reloaded, "chest_shops.json", ChestShopRegistry::load);
+            reloadConfig(reloaded, "champ_crafting.json", ChampCraftingConfig::load);
             reloadConfig(reloaded, "crate_key_crafting.json", CrateKeyCraftingConfig::load);
             reloadConfig(reloaded, "crates.json", CrateConfig::load);
             reloadConfig(reloaded, "daily_login.json", DailyLoginConfig::load);

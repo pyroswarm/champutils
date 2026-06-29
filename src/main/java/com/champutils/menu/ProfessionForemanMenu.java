@@ -8,6 +8,7 @@ import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 
@@ -67,6 +68,13 @@ public final class ProfessionForemanMenu {
                 .addLoreLine(Component.literal("§eClick to open."))
                 .setCallback((i,c,t) -> ProfessionTradeMenu.open(player)));
 
+        gui.setSlot(26, new GuiElementBuilder(Items.CRAFTING_TABLE).hideDefaultTooltip()
+                .setName(Component.literal("§6Champ Crafting"))
+                .addLoreLine(Component.literal("§7Craft rare Genesis and competitive items."))
+                .addLoreLine(Component.literal("§7Uses huge profession backpack costs."))
+                .addLoreLine(Component.literal("§eClick to open."))
+                .setCallback((i,c,t) -> ChampCraftingMenu.open(player, ProfessionForemanMenu::open)));
+
         int slot = 29;
         for (String chunk : ProfessionChunkConfig.CONFIG.chunks.keySet()) {
             int amount = ProfessionChunkManager.count(player, chunk);
@@ -94,14 +102,18 @@ public final class ProfessionForemanMenu {
             int cost = data == null ? 1 : Math.max(1, data.chunksPerFragment);
             int output = data == null ? 1 : Math.max(1, data.fragmentsPerTrade);
             String rarity = data == null ? "COMMON" : data.fragmentRarity;
+            int maxTrades = cost <= 0 ? 0 : have / cost;
             gui.setSlot(slots[idx], new GuiElementBuilder(icon(chunk)).hideDefaultTooltip()
                     .setName(Component.literal(ProfessionChunkManager.formatChunk(chunk) + " → " + ProfessionFragmentManager.formatWords(rarity) + " Fragment").withStyle(ProfessionChunkManager.color(chunk)))
                     .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionChunkManager.formatChunk(chunk)))
                     .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(rarity) + " Fragment"))
                     .addLoreLine(Component.literal("§7You have: §e" + have))
-                    .addLoreLine(Component.literal(have >= cost ? "§eClick to trade once" : "§cNot enough chunks"))
+                    .addLoreLine(Component.literal("§7Max right now: §e" + maxTrades + " trades"))
+                    .addLoreLine(Component.literal(have >= cost ? "§eLeft Click: trade once" : "§cNot enough chunks"))
+                    .addLoreLine(Component.literal(have >= cost ? "§eShift Click: trade up to 64 times" : "§8Shift Click trades your maximum when possible"))
                     .setCallback((i,c,t) -> {
-                        ProfessionChunkManager.TradeResult result = ProfessionChunkManager.tradeChunkForFragments(player, chunk, 1);
+                        int requestedTrades = t == ClickType.QUICK_MOVE ? 64 : 1;
+                        ProfessionChunkManager.TradeResult result = ProfessionChunkManager.tradeChunkForFragments(player, chunk, requestedTrades);
                         if (!result.success()) player.sendSystemMessage(Component.literal("§c" + result.error()));
                         else player.sendSystemMessage(Component.literal("§aTraded chunks for §6" + result.fragments() + "x " + ProfessionFragmentManager.formatWords(result.rarity()) + " Fragment§a."));
                         openTrade(player);

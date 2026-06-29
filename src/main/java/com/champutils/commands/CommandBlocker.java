@@ -44,20 +44,25 @@ public final class CommandBlocker {
         ParsedCommand parsed = ParsedCommand.parse(command);
         if (parsed.root.isEmpty()) return false;
 
-        // Ops/console stay able to use the real command paths for admin work and internal server actions.
-        if (source.getEntity() == null || source.hasPermission(4)) return false;
+        // Console stays able to use real command paths for internal server actions.
+        if (source.getEntity() == null) return false;
 
+        // /msg, /tell and /w are intentionally gone for every player, including OPs.
+        // Staff should use /pm too so there is only one private messaging path to support.
         if (isVanillaPrivateMessageRoot(parsed.root)) {
-            deny(source, Component.literal("§cVanilla private messaging is disabled. Use §d/pm <player> <message>§c."));
+            deny(source, Component.literal("§c/msg is disabled on this server. Use §d/pm <player> <message>§c or §d/r <message>§c."));
             return true;
         }
+
+        // Ops keep access to other real command paths for admin work.
+        if (source.hasPermission(4)) return false;
 
         String permission = requiredPermission(parsed.root);
         if (permission == null) return false;
 
         // /pokeheal <player> and /healpokemon <player> should remain staff/admin only.
         // VIP should only get self-heal.
-        if ((parsed.root.equals("pokeheal") || parsed.root.equals("healpokemon")) && !parsed.arguments.isBlank()) {
+        if ((parsed.root.equals("pokeheal") || parsed.root.equals("healpokemon") || parsed.root.equals("healparty")) && !parsed.arguments.isBlank()) {
             deny(source, Component.literal("§cYou can only use /pokeheal on yourself."));
             return true;
         }
@@ -90,7 +95,7 @@ public final class CommandBlocker {
         return switch (root) {
             case "ec", "enderchest" -> "champutils.command.ec";
             case "pc" -> "champutils.command.pc";
-            case "pokeheal", "healpokemon" -> "champutils.command.pokeheal";
+            case "pokeheal", "healpokemon", "healparty" -> "champutils.command.pokeheal";
             case "pokeivs", "ivs" -> "champutils.command.pokeivs";
             default -> null;
         };
@@ -98,7 +103,7 @@ public final class CommandBlocker {
 
     private static Component denyMessageFor(String root) {
         String feature = switch (root) {
-            case "ec", "enderchest", "pc", "pokeheal", "healpokemon" -> "VIP";
+            case "ec", "enderchest", "pc", "pokeheal", "healpokemon", "healparty" -> "VIP";
             case "pokeivs", "ivs" -> "VIP+";
             default -> "locked";
         };

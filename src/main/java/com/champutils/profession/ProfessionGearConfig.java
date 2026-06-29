@@ -36,6 +36,7 @@ public final class ProfessionGearConfig {
         public int strength = 0;
         public int haste = 0;
         public double blockReach = 0.0D;
+        public double damageReduction = 0.0D;
         public double fireReduction = 0.0D;
         public double stepHeight = 0.0D;
         public double knockbackResistance = 0.0D;
@@ -91,18 +92,19 @@ public final class ProfessionGearConfig {
             if (tier.helmet == null) tier.helmet = entry.getValue().helmet;
             if (tier.chestplate == null) tier.chestplate = entry.getValue().chestplate;
             if (tier.leggings == null) tier.leggings = entry.getValue().leggings;
+            if (tier.chestplate.damageReduction <= 0.0D) tier.chestplate.damageReduction = entry.getValue().chestplate.damageReduction;
         }
         return c;
     }
 
     private static Config defaults() {
         Config c = new Config();
-        add(c, "COMMON", helmet(1,0,0,0,0), chest(1,0,0.0), legs(33,0.0,0.0));
-        add(c, "UNCOMMON", helmet(1,1,0,0,0), chest(1,1,0.0), legs(50,0.6,0.0));
-        add(c, "RARE", helmet(1,1,1,0,0), chest(1,1,1.0), legs(66,0.6,0.5));
-        add(c, "EPIC", helmet(1,1,1,1,0), chest(1,1,1.0), legs(75,0.6,0.5));
-        add(c, "LEGENDARY", helmet(1,1,1,1,1), chest(1,1,1.5), legs(90,0.6,0.75));
-        add(c, "MYTHIC", helmet(1,1,1,1,1), chest(2,2,2.0), legs(100,0.8,1.0));
+        add(c, "COMMON", helmet(1,0,0,0,0), chest(1,0,0.0,5.0), legs(33,0.0,0.0));
+        add(c, "UNCOMMON", helmet(1,1,0,0,0), chest(1,1,0.0,10.0), legs(50,0.6,0.0));
+        add(c, "RARE", helmet(1,1,1,0,0), chest(1,1,1.0,20.0), legs(66,0.6,0.5));
+        add(c, "EPIC", helmet(1,1,1,1,0), chest(1,1,1.0,32.5), legs(75,0.6,0.5));
+        add(c, "LEGENDARY", helmet(1,1,1,1,1), chest(1,1,1.5,50.0), legs(90,0.6,0.75));
+        add(c, "MYTHIC", helmet(1,1,1,1,1), chest(2,2,2.0,75.0), legs(100,0.8,1.0));
         return c;
     }
 
@@ -124,11 +126,12 @@ public final class ProfessionGearConfig {
         return s;
     }
 
-    private static ArmorStats chest(int strength, int haste, double reach) {
+    private static ArmorStats chest(int strength, int haste, double reach, double damageReduction) {
         ArmorStats s = new ArmorStats();
         s.strength = strength;
         s.haste = haste;
         s.blockReach = reach;
+        s.damageReduction = damageReduction;
         return s;
     }
 

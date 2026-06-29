@@ -1,0 +1,891 @@
+{
+  "configVersion": 8,
+  "enabled": true,
+  "checkIntervalTicks": 1200,
+  "maxAliveBosses": 6,
+  "maxAliveMegaBossesPerNearbyPlayer": 1,
+  "nearbyPlayerBossRadius": 192,
+  "maxSpawnedPlayersPerCheck": 1,
+  "spawnChancePerPlayerCheck": 0.125,
+  "nameTagFormat": "§5§lMega Boss §8| §d{species} §7[{rarity}] §fLv.{level}",
+  "minDistanceFromPlayer": 32,
+  "maxDistanceFromPlayer": 96,
+  "levelsAbovePlayerHighest": 5,
+  "scaleModifier": 2.5,
+  "despawnMinutes": 30,
+  "battlingXpReward": 250,
+  "fragmentMin": 1,
+  "fragmentMax": 3,
+  "megaStoneDropChance": 0.1,
+  "megaStoneBaseChance": 0.1,
+  "megaStoneChanceAtLevel100": 0.1,
+  "broadcastSpawns": true,
+  "broadcastMegaStoneDrops": true,
+  "debugSpawning": true,
+  "disabledDimensions": [
+    "minecraft:the_end"
+  ],
+  "bosses": [
+    {
+      "enabled": true,
+      "species": "abomasnow",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:abomasite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "snowwarning",
+      "nature": "modest",
+      "moves": [
+        "blizzard",
+        "gigadrain",
+        "earthpower",
+        "iceshard"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "audino",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:audinite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "healer",
+      "nature": "bold",
+      "moves": [
+        "wish",
+        "protect",
+        "dazzlinggleam",
+        "calmmind"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "banette",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:banettite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "prankster",
+      "nature": "adamant",
+      "moves": [
+        "shadowsneak",
+        "willowisp",
+        "destinybond",
+        "poltergeist"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "beedrill",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:beedrillite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "adaptability",
+      "nature": "jolly",
+      "moves": [
+        "poisonjab",
+        "uturn",
+        "knockoff",
+        "drillrun"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "camerupt",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:cameruptite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "sheerforce",
+      "nature": "quiet",
+      "moves": [
+        "fireblast",
+        "earthpower",
+        "flashcannon",
+        "stealthrock"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "glalie",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:glalitite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "refrigerate",
+      "nature": "jolly",
+      "moves": [
+        "doubledge",
+        "earthquake",
+        "explosion",
+        "iceshard"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "houndoom",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:houndoominite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "solarpower",
+      "nature": "timid",
+      "moves": [
+        "nastyplot",
+        "fireblast",
+        "darkpulse",
+        "sludgebomb"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "manectric",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:manectite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "intimidate",
+      "nature": "timid",
+      "moves": [
+        "thunderbolt",
+        "overheat",
+        "voltswitch",
+        "hiddenpowerice"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "pidgeot",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:pidgeotite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "noguard",
+      "nature": "timid",
+      "moves": [
+        "hurricane",
+        "heatwave",
+        "roost",
+        "uturn"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "sharpedo",
+      "rarity": "COMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:sharpedonite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "strongjaw",
+      "nature": "adamant",
+      "moves": [
+        "protect",
+        "crunch",
+        "psychicfangs",
+        "waterfall"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "absol",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:absolite",
+        "genesisforms:absolite-z"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "magicbounce",
+      "nature": "jolly",
+      "moves": [
+        "swordsdance",
+        "knockoff",
+        "suckerpunch",
+        "playrough"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "aerodactyl",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:aerodactylite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "toughclaws",
+      "nature": "jolly",
+      "moves": [
+        "stoneedge",
+        "dualwingbeat",
+        "earthquake",
+        "dragondance"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "aggron",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:aggronite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "filter",
+      "nature": "impish",
+      "moves": [
+        "heavyslam",
+        "bodypress",
+        "earthquake",
+        "stealthrock"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "altaria",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:altarianite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "pixilate",
+      "nature": "adamant",
+      "moves": [
+        "dragondance",
+        "return",
+        "earthquake",
+        "roost"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "ampharos",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:ampharosite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "moldbreaker",
+      "nature": "modest",
+      "moves": [
+        "thunderbolt",
+        "dragonpulse",
+        "focusblast",
+        "voltswitch"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "blastoise",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:blastoisinite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "megalauncher",
+      "nature": "modest",
+      "moves": [
+        "waterpulse",
+        "darkpulse",
+        "aurasphere",
+        "icebeam"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "sableye",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:sablenite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "magicbounce",
+      "nature": "careful",
+      "moves": [
+        "recover",
+        "willowisp",
+        "knockoff",
+        "calmmind"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "slowbro",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:slowbronite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "shellarmor",
+      "nature": "timid",
+      "moves": [
+        "calmmind",
+        "scald",
+        "psyshock",
+        "slackoff"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "steelix",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:steelixite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "sandforce",
+      "nature": "impish",
+      "moves": [
+        "earthquake",
+        "heavyslam",
+        "bodypress",
+        "stealthrock"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "venusaur",
+      "rarity": "UNCOMMON",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:venusaurite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "thickfat",
+      "nature": "timid",
+      "moves": [
+        "gigadrain",
+        "sludgebomb",
+        "synthesis",
+        "leechseed"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "alakazam",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:alakazite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "trace",
+      "nature": "timid",
+      "moves": [
+        "psychic",
+        "focusblast",
+        "shadowball",
+        "nastyplot"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "gallade",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:galladite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "innerfocus",
+      "nature": "jolly",
+      "moves": [
+        "swordsdance",
+        "closecombat",
+        "psychocut",
+        "knockoff"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "gardevoir",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:gardevoirite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "pixilate",
+      "nature": "timid",
+      "moves": [
+        "hypervoice",
+        "psyshock",
+        "focusblast",
+        "calmmind"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "heracross",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:heracronite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "skilllink",
+      "nature": "adamant",
+      "moves": [
+        "pinmissile",
+        "rockblast",
+        "closecombat",
+        "swordsdance"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "lopunny",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:lopunnite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "scrappy",
+      "nature": "jolly",
+      "moves": [
+        "fakeout",
+        "closecombat",
+        "return",
+        "uturn"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "medicham",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:medichamite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "purepower",
+      "nature": "jolly",
+      "moves": [
+        "fakeout",
+        "highjumpkick",
+        "zenheadbutt",
+        "icepunch"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "pinsir",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:pinsirite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "aerilate",
+      "nature": "jolly",
+      "moves": [
+        "swordsdance",
+        "return",
+        "quickattack",
+        "earthquake"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "scizor",
+      "rarity": "RARE",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:scizorite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "technician",
+      "nature": "adamant",
+      "moves": [
+        "swordsdance",
+        "bulletpunch",
+        "knockoff",
+        "roost"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "blaziken",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:blazikenite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "speedboost",
+      "nature": "adamant",
+      "moves": [
+        "swordsdance",
+        "flareblitz",
+        "closecombat",
+        "protect"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "charizard",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:charizardite-x",
+        "genesisforms:charizardite-y"
+      ],
+      "extraProperties": "mega_x\u003dtrue",
+      "ability": "toughclaws",
+      "nature": "jolly",
+      "moves": [
+        "dragondance",
+        "flareblitz",
+        "dragonclaw",
+        "earthquake"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "charizard",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:charizardite-x",
+        "genesisforms:charizardite-y"
+      ],
+      "extraProperties": "mega_y\u003dtrue",
+      "ability": "drought",
+      "nature": "timid",
+      "moves": [
+        "fireblast",
+        "solarbeam",
+        "airslash",
+        "focusblast"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "garchomp",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:garchompite",
+        "genesisforms:garchompite-z"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "sandforce",
+      "nature": "jolly",
+      "moves": [
+        "swordsdance",
+        "earthquake",
+        "scaleshot",
+        "stoneedge"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "gyarados",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:gyaradosite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "moldbreaker",
+      "nature": "jolly",
+      "moves": [
+        "dragondance",
+        "waterfall",
+        "crunch",
+        "earthquake"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "lucario",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:lucarionite",
+        "genesisforms:lucarionite-z"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "adaptability",
+      "nature": "jolly",
+      "moves": [
+        "swordsdance",
+        "closecombat",
+        "meteormash",
+        "extremespeed"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "mawile",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:mawilite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "hugepower",
+      "nature": "adamant",
+      "moves": [
+        "swordsdance",
+        "playrough",
+        "suckerpunch",
+        "knockoff"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "sceptile",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:sceptilite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "lightningrod",
+      "nature": "timid",
+      "moves": [
+        "leafstorm",
+        "dragonpulse",
+        "focusblast",
+        "substitute"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "swampert",
+      "rarity": "EPIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:swampertite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "swiftswim",
+      "nature": "adamant",
+      "moves": [
+        "raindance",
+        "waterfall",
+        "earthquake",
+        "icepunch"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "diancie",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:diancite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "magicbounce",
+      "nature": "naive",
+      "moves": [
+        "diamondstorm",
+        "moonblast",
+        "earthpower",
+        "stealthrock"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "gengar",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:gengarite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "shadowtag",
+      "nature": "timid",
+      "moves": [
+        "shadowball",
+        "sludgewave",
+        "focusblast",
+        "nastyplot"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "kangaskhan",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:kangaskhanite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "parentalbond",
+      "nature": "jolly",
+      "moves": [
+        "fakeout",
+        "poweruppunch",
+        "return",
+        "suckerpunch"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "metagross",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:metagrossite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "toughclaws",
+      "nature": "jolly",
+      "moves": [
+        "meteormash",
+        "zenheadbutt",
+        "earthquake",
+        "agility"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "salamence",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:salamencite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "aerilate",
+      "nature": "jolly",
+      "moves": [
+        "dragondance",
+        "return",
+        "earthquake",
+        "roost"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "tyranitar",
+      "rarity": "LEGENDARY",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:tyranitarite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "sandstream",
+      "nature": "jolly",
+      "moves": [
+        "dragondance",
+        "stoneedge",
+        "crunch",
+        "earthquake"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "latias",
+      "rarity": "MYTHIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:latiasite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "levitate",
+      "nature": "timid",
+      "moves": [
+        "calmmind",
+        "storedpower",
+        "aurasphere",
+        "recover"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "latios",
+      "rarity": "MYTHIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:latiosite"
+      ],
+      "extraProperties": "mega\u003dtrue",
+      "ability": "levitate",
+      "nature": "timid",
+      "moves": [
+        "dracometeor",
+        "lusterpurge",
+        "aurasphere",
+        "calmmind"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "mewtwo",
+      "rarity": "MYTHIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:mewtwonite-x",
+        "genesisforms:mewtwonite-y"
+      ],
+      "extraProperties": "mega_x\u003dtrue",
+      "ability": "pressure",
+      "nature": "jolly",
+      "moves": [
+        "bulkup",
+        "drainpunch",
+        "psystrike",
+        "icepunch"
+      ]
+    },
+    {
+      "enabled": true,
+      "species": "mewtwo",
+      "rarity": "MYTHIC",
+      "megaStoneItem": "",
+      "megaStoneItems": [
+        "genesisforms:mewtwonite-x",
+        "genesisforms:mewtwonite-y"
+      ],
+      "extraProperties": "mega_y\u003dtrue",
+      "ability": "pressure",
+      "nature": "timid",
+      "moves": [
+        "psystrike",
+        "fireblast",
+        "icebeam",
+        "nastyplot"
+      ]
+    }
+  ],
+  "rarityWeights": {
+    "COMMON": 7000,
+    "UNCOMMON": 2000,
+    "RARE": 500,
+    "EPIC": 200,
+    "LEGENDARY": 75,
+    "MYTHIC": 25
+  }
+}

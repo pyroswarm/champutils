@@ -21,7 +21,10 @@
     "ProfileLoadingDropLockMixin",
     "ProfileLoadingPickupLockMixin",
     "ProfessionBackpackPickupMixin",
-    "FarmlandNoTrampleMixin"
+    "FarmlandNoTrampleMixin",
+    "MobSpawnerDisabledMixin",
+    "CraftingArmorBlockerMixin",
+    "ProfessionArmorDamageReductionMixin"
   ],
   "injectors": {
     "defaultRequire": 1

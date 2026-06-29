@@ -81,6 +81,8 @@ public final class BattleProfessionLootConfig {
             rewards = loaded.rewards != null
                     ? loaded.rewards
                     : new ArrayList<>();
+            rewards.removeIf(entry -> entry != null && entry.itemId != null && entry.itemId.trim().toLowerCase().startsWith("champutils:random_tm_"));
+            superRareItemIds.removeIf(itemId -> itemId != null && itemId.trim().toLowerCase().startsWith("champutils:random_tm_"));
 
             if (rewards.isEmpty()) {
                 rewards = defaultRoot().rewards;
@@ -208,19 +210,11 @@ public final class BattleProfessionLootConfig {
         ids.add("cobblemon:dream_ball");
         ids.add("cobblemon:beast_ball");
         ids.add("cobblemon:cherish_ball");
-        ids.add("champutils:random_tm_epic");
-        ids.add("champutils:random_tm_legendary");
-        ids.add("champutils:random_tm_mythic");
         return ids;
     }
 
     private static void addRandomTms(ConfigRoot root) {
-        entry(root, "champutils:random_tm_common", 1, 1, 1, 75, 1);
-        entry(root, "champutils:random_tm_uncommon", 15, 1, 1, 46, 1);
-        entry(root, "champutils:random_tm_rare", 35, 1, 1, 22, 1);
-        entry(root, "champutils:random_tm_epic", 60, 1, 1, 8, 0);
-        entry(root, "champutils:random_tm_legendary", 80, 1, 1, 3, 0);
-        entry(root, "champutils:random_tm_mythic", 95, 1, 1, 1, 0);
+        // Random TMs are retired; exact TMs come only from the TM Shop.
     }
 
     private static void addPokeBalls(ConfigRoot root) {

@@ -1264,7 +1264,7 @@ public final class GuildRepository {
     }
 
     public static boolean canBuildInGuildTerritory(Role role) {
-        return role == Role.LEADER || role == Role.OFFICER || role == Role.VETERAN;
+        return role != null;
     }
 
     public static boolean canUseGuildTerritory(Role role) {

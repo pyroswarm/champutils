@@ -4,12 +4,16 @@ import com.champutils.profession.*;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.Random;
 
@@ -30,10 +34,13 @@ public class DropMultiplierPassive implements ProfessionPassive {
 
         int multiplier = rollMultiplier(player, stack, ProfessionType.MINING);
         if (multiplier <= 1) return;
-        int extraAmount = multiplier - 1;
+        int extraAmount = estimateBaseDropCount(blockId) * (multiplier - 1);
+        if (extraAmount <= 0) return;
 
-        player.getServer().getCommands().performPrefixedCommand(player.getServer().createCommandSourceStack(),
-                "give " + player.getName().getString() + " " + bonusDrop + " " + extraAmount);
+        Item item;
+        try { item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(bonusDrop)); } catch (Exception ignored) { return; }
+        if (item == null || item == Items.AIR) return;
+        ProfessionBackpackManager.giveOrDrop(player, new ItemStack(item, extraAmount), true);
 
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§bFortune Chance: §f" + multiplier + "x ore!"), true);
@@ -57,6 +64,15 @@ public class DropMultiplierPassive implements ProfessionPassive {
         if (max >= 4 && r < 0.18D + highBonus) return 4;
         if (max >= 3 && r < 0.40D + highBonus) return 3;
         return 2;
+    }
+
+    private int estimateBaseDropCount(String blockId) {
+        return switch (blockId) {
+            case "minecraft:lapis_ore", "minecraft:deepslate_lapis_ore" -> 4 + RANDOM.nextInt(6);
+            case "minecraft:copper_ore", "minecraft:deepslate_copper_ore" -> 2 + RANDOM.nextInt(4);
+            case "minecraft:redstone_ore", "minecraft:deepslate_redstone_ore" -> 4 + RANDOM.nextInt(2);
+            default -> 1;
+        };
     }
 
     private String getBonusDrop(ServerPlayer player, String blockId) {

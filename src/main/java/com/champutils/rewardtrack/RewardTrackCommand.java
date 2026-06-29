@@ -1,6 +1,7 @@
 package com.champutils.rewardtrack;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.rank.RankedTokenManager;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -75,6 +76,9 @@ public final class RewardTrackCommand {
             RewardTrackConfig.Reward reward = RewardTrackConfig.reward(level);
             if (reward != null && reward.credits > 0) {
                 EconomyManager.deposit(player, reward.credits, "rewardtrack_level_" + level);
+            }
+            if (reward != null && reward.rankedTokens > 0) {
+                RankedTokenManager.grant(player, reward.rankedTokens, "reward track tier " + level);
             }
             for (ItemStack stack : stacks) {
                 player.getInventory().add(stack.copy());

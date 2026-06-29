@@ -63,6 +63,12 @@ public final class ProfessionToolMigrationService {
         return report;
     }
 
+    public static MigrationReport migratePlayerInventory(ServerPlayer player) {
+        MigrationReport report = new MigrationReport();
+        migratePlayer(player, report);
+        return report;
+    }
+
     public static MigrationReport migrateHeld(ServerPlayer player) {
         MigrationReport report = new MigrationReport();
         if (player == null) return report;
@@ -117,6 +123,10 @@ public final class ProfessionToolMigrationService {
         report.stacksScanned++;
         String toolId = ProfessionToolUtil.getToolId(stack);
         if (toolId == null || toolId.isBlank()) {
+            if (isTrinketOrPouch(stack)) {
+                report.needsMigration++;
+                return;
+            }
             report.skipped++;
             return;
         }
@@ -136,6 +146,12 @@ public final class ProfessionToolMigrationService {
 
         String toolId = ProfessionToolUtil.getToolId(original);
         if (toolId == null || toolId.isBlank()) {
+            ItemStack trinketMigrated = ProfessionTrinketManager.migrateStack(original);
+            if (trinketMigrated != original) {
+                report.trinketsUpdated++;
+                report.updated++;
+                return trinketMigrated;
+            }
             report.skipped++;
             return original;
         }
@@ -167,6 +183,14 @@ public final class ProfessionToolMigrationService {
         ProfessionToolManager.refreshToolStack(migrated);
         report.updated++;
         return migrated;
+    }
+
+    private static boolean isTrinketOrPouch(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data == null) return false;
+        CompoundTag tag = data.copyTag();
+        return tag.getBoolean("champutils_trinket") || tag.getBoolean("champutils_trinket_pouch");
     }
 
     private static void copyPersistentProgress(ItemStack from, ItemStack to, ProfessionToolConfig.ToolData toolData) {
@@ -215,6 +239,7 @@ public final class ProfessionToolMigrationService {
         public int needsMigration;
         public int invalidTools;
         public int failed;
+        public int trinketsUpdated;
         public final Map<Integer, Integer> versionCounts = new LinkedHashMap<>();
 
         public Component toComponent(String title) {
@@ -222,6 +247,7 @@ public final class ProfessionToolMigrationService {
                     "Players scanned: " + playersScanned + "\n" +
                     "Stacks scanned: " + stacksScanned + "\n" +
                     "Updated: " + updated + "\n" +
+                    "Trinkets/pouches updated: " + trinketsUpdated + "\n" +
                     "Refreshed current tools: " + refreshed + "\n" +
                     "Needs migration: " + needsMigration + "\n" +
                     "Invalid tools: " + invalidTools + "\n" +

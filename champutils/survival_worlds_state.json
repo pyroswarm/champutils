@@ -1,0 +1,84 @@
+{
+  "worlds": [
+    {
+      "index": 1,
+      "worldName": "multiworld:survival_overworld_1",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 1,
+      "activeForRtp": true
+    },
+    {
+      "index": 2,
+      "worldName": "multiworld:survival_overworld_2",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 2,
+      "activeForRtp": false
+    },
+    {
+      "index": 3,
+      "worldName": "multiworld:survival_overworld_3",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 3,
+      "activeForRtp": false
+    },
+    {
+      "index": 4,
+      "worldName": "multiworld:survival_overworld_4",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 4,
+      "activeForRtp": false
+    },
+    {
+      "index": 5,
+      "worldName": "multiworld:survival_overworld_5",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 5,
+      "activeForRtp": false
+    },
+    {
+      "index": 6,
+      "worldName": "multiworld:survival_overworld_6",
+      "status": "PENDING",
+      "worldType": "overworld",
+      "localIndex": 6,
+      "activeForRtp": false
+    },
+    {
+      "index": 7,
+      "worldName": "multiworld:survival_nether_1",
+      "status": "PENDING",
+      "worldType": "nether",
+      "localIndex": 1,
+      "activeForRtp": true
+    },
+    {
+      "index": 8,
+      "worldName": "multiworld:survival_nether_2",
+      "status": "PENDING",
+      "worldType": "nether",
+      "localIndex": 2,
+      "activeForRtp": false
+    },
+    {
+      "index": 9,
+      "worldName": "multiworld:survival_end_1",
+      "status": "PENDING",
+      "worldType": "end",
+      "localIndex": 1,
+      "activeForRtp": true
+    },
+    {
+      "index": 10,
+      "worldName": "multiworld:survival_end_2",
+      "status": "PENDING",
+      "worldType": "end",
+      "localIndex": 2,
+      "activeForRtp": false
+    }
+  ]
+}

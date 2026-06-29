@@ -13,6 +13,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.exploration.ExplorationLootState;
 import com.champutils.exploration.ExplorationWorldManager;
 import com.champutils.guild.BossConfig;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.hunt.PokemonHuntManager;
 import com.champutils.menu.MenuNpcBindingRegistry;
 import com.champutils.party.PartyManager;
@@ -21,6 +22,9 @@ import com.champutils.profession.ProfessionManager;
 import com.champutils.profile.CobblemonProfileStorageBridge;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfilePlaytimeManager;
+import com.champutils.profile.ProfileLobbyManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
+import com.champutils.profile.ProxyTransferBridge;
 import com.champutils.profile.VanillaProfileStateManager;
 import com.champutils.quest.QuestManager;
 import com.champutils.roaming.RoamingTrainerManager;
@@ -76,6 +80,9 @@ public final class ForceSaveRestartCommand {
             dispatcher.register(literal("champrestart")
                     .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
                     .executes(ctx -> save(ctx.getSource(), true)));
+            dispatcher.register(literal("champpreboot")
+                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .executes(ctx -> preRebootDrain(ctx.getSource().getServer(), ctx.getSource())));
         });
     }
 
@@ -91,6 +98,125 @@ public final class ForceSaveRestartCommand {
         source.sendSuccess(() -> Component.literal("ChampUtils save started in the background. Gameplay should stay smooth.").withStyle(ChatFormatting.YELLOW), true);
         forceSaveAsync(server, source, stopAfterSave);
         return 1;
+    }
+
+
+    public static void broadcastPreRebootWarning(MinecraftServer server, int minutes) {
+        if (server == null || server.getPlayerList() == null) return;
+        if (!ProfileNetworkTransferFlow.isSurvivalServer()) return;
+        String text = minutes <= 0
+                ? "Survival reboot save is starting now. You will be moved to the profile lobby while data saves."
+                : "Survival reboot in " + minutes + " minute" + (minutes == 1 ? "" : "s") + ". You will be moved to the profile lobby while data saves.";
+        Component message = Component.literal(text).withStyle(ChatFormatting.GOLD);
+        server.getPlayerList().broadcastSystemMessage(message, false);
+    }
+
+    /**
+     * Safe host-reboot prep: move players away from survival, snapshot data, flush SQL/world saves,
+     * but do not halt the JVM. The host panel still performs the real reboot.
+     */
+    public static int preRebootDrain(MinecraftServer server, CommandSourceStack source) {
+        if (server == null) return 0;
+        if (!ProfileNetworkTransferFlow.isSurvivalServer()) {
+            if (source != null) {
+                source.sendFailure(Component.literal("Pre-reboot drain only runs on the survival server. The profile lobby should stay online and will not auto-reboot.").withStyle(ChatFormatting.RED));
+            }
+            return 0;
+        }
+        if (!SAVE_RUNNING.compareAndSet(false, true)) {
+            if (source != null) {
+                source.sendFailure(Component.literal("A ChampUtils save is already running. Try again after it finishes.").withStyle(ChatFormatting.RED));
+            }
+            return 0;
+        }
+
+        if (source != null) {
+            source.sendSuccess(() -> Component.literal("ChampUtils pre-reboot drain started. Players will be moved to the profile lobby, then SQL will flush.").withStyle(ChatFormatting.YELLOW), true);
+        }
+        preRebootDrainAsync(server, source);
+        return 1;
+    }
+
+    private static void preRebootDrainAsync(MinecraftServer server, CommandSourceStack source) {
+        long startedAt = System.currentTimeMillis();
+        server.execute(() -> {
+            try {
+                broadcastPreRebootWarning(server, 0);
+                snapshotOnlinePlayers(server);
+                movePlayersToProfileLobby(server);
+            } catch (Throwable t) {
+                System.err.println("[ChampUtils] Pre-reboot drain player phase failed.");
+                t.printStackTrace();
+            }
+
+            SAVE_EXECUTOR.execute(() -> {
+                try {
+                    runSlowSavePipeline(server, false);
+                    runOnServerThreadAndWait(server, () -> {
+                        try { server.saveEverything(false, true, true); } catch (Throwable t) {
+                            System.err.println("[ChampUtils] Minecraft world save failed during pre-reboot drain: " + t.getMessage());
+                        }
+                    });
+                    long elapsed = System.currentTimeMillis() - startedAt;
+                    System.out.println("[ChampUtils] Pre-reboot drain complete in " + elapsed + "ms. Host reboot may proceed safely.");
+                    if (source != null) {
+                        server.execute(() -> source.sendSuccess(() -> Component.literal("ChampUtils pre-reboot drain complete. Host reboot may proceed safely.").withStyle(ChatFormatting.GREEN), true));
+                    }
+                } catch (Throwable t) {
+                    System.err.println("[ChampUtils] Pre-reboot drain failed.");
+                    t.printStackTrace();
+                    if (source != null) {
+                        server.execute(() -> source.sendFailure(Component.literal("ChampUtils pre-reboot drain failed. Check console logs before rebooting.").withStyle(ChatFormatting.RED)));
+                    }
+                } finally {
+                    SAVE_RUNNING.set(false);
+                }
+            });
+        });
+    }
+
+    private static void movePlayersToProfileLobby(MinecraftServer server) {
+        if (server == null || server.getPlayerList() == null) return;
+        if (!ProfileNetworkTransferFlow.isSurvivalServer()) return;
+        NetworkServerConfig config = NetworkServerConfig.get();
+        String target = config.profileLobbyServerId == null || config.profileLobbyServerId.isBlank() ? "profile_lobby" : config.profileLobbyServerId.trim();
+        for (ServerPlayer player : new ArrayList<>(server.getPlayerList().getPlayers())) {
+            if (player == null || player.hasDisconnected()) continue;
+            try {
+                if (player.containerMenu != player.inventoryMenu) {
+                    player.closeContainer();
+                }
+            } catch (Throwable ignored) {}
+            try {
+                player.sendSystemMessage(Component.literal("Daily reboot save is starting. Moving you to the profile lobby now.").withStyle(ChatFormatting.YELLOW));
+            } catch (Throwable ignored) {}
+
+            boolean transferred = false;
+            try {
+                transferred = ProxyTransferBridge.connect(player, target);
+            } catch (Throwable ignored) {}
+
+            if (!transferred) {
+                try {
+                    String command = config.returnToProfileLobbyCommand;
+                    if (command != null && !command.isBlank()) {
+                        command = command
+                                .replace("{player}", player.getGameProfile().getName())
+                                .replace("{target_server}", target);
+                        if (command.startsWith("/")) command = command.substring(1);
+                        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
+                        transferred = true;
+                    }
+                } catch (Throwable ignored) {}
+            }
+
+            if (!transferred) {
+                try { ProfileLobbyManager.sendToLobby(player); } catch (Throwable t) {
+                    System.err.println("[ChampUtils] Failed to move " + player.getGameProfile().getName() + " to profile lobby during pre-reboot drain.");
+                    t.printStackTrace();
+                }
+            }
+        }
     }
 
     /** Backwards-compatible entry point used by scheduled auto-save. Non-blocking by design. */

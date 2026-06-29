@@ -78,12 +78,12 @@ public final class PokemonHuntConfig {
     public static long creditsForDifficulty(String difficulty) {
         String d = difficulty == null ? "" : difficulty.trim().toUpperCase();
         long wholeCredits = switch (d) {
-            case "UNCOMMON" -> 250L;
-            case "RARE" -> 500L;
-            case "EPIC" -> 1000L;
-            case "LEGENDARY" -> 2000L;
-            case "MYTHIC" -> 5000L;
-            default -> 100L;
+            case "UNCOMMON" -> 325L;
+            case "RARE" -> 650L;
+            case "EPIC" -> 1300L;
+            case "LEGENDARY" -> 2600L;
+            case "MYTHIC" -> 5500L;
+            default -> 150L;
         };
         return EconomyManager.wholeCreditsToCents(wholeCredits);
     }

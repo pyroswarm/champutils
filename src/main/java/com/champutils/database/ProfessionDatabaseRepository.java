@@ -7,9 +7,12 @@ import com.champutils.profile.PlayerProfileManager;
 import java.sql.PreparedStatement;
 import java.util.UUID;
 
+import com.google.gson.Gson;
+
 public final class ProfessionDatabaseRepository {
 
     private static volatile boolean schemaEnsured = false;
+    private static final Gson GSON = new Gson();
 
     private ProfessionDatabaseRepository() {}
 
@@ -38,6 +41,17 @@ public final class ProfessionDatabaseRepository {
                 "create table if not exists profile_profession_backpack (" +
                         "profile_id uuid not null references player_profiles(id) on delete cascade, item_id text not null, amount bigint not null default 0, " +
                         "updated_at timestamptz not null default now(), primary key(profile_id, item_id))"
+        )) { ensure.executeUpdate(); }
+
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create table if not exists profile_trinket_pouches (" +
+                        "profile_id uuid primary key references player_profiles(id) on delete cascade, " +
+                        "rarity text not null default '', slots integer not null default 0, " +
+                        "items jsonb not null default '[]'::jsonb, updated_at timestamptz not null default now())"
+        )) { ensure.executeUpdate(); }
+
+        try (PreparedStatement ensure = connection.prepareStatement(
+                "create index if not exists idx_profile_trinket_pouches_updated on profile_trinket_pouches(updated_at)"
         )) { ensure.executeUpdate(); }
         schemaEnsured = true;
     }
@@ -106,6 +120,17 @@ public final class ProfessionDatabaseRepository {
                     }
                 }
                 backpackStatement.executeBatch();
+            }
+
+            try (PreparedStatement pouchStatement = connection.prepareStatement(
+                    "insert into profile_trinket_pouches (profile_id, rarity, slots, items, updated_at) values (?, ?, ?, ?::jsonb, now()) " +
+                            "on conflict (profile_id) do update set rarity = excluded.rarity, slots = excluded.slots, items = excluded.items, updated_at = now()"
+            )) {
+                pouchStatement.setObject(1, profileId);
+                pouchStatement.setString(2, data.trinketPouchRarity == null ? "" : data.trinketPouchRarity);
+                pouchStatement.setInt(3, Math.max(0, data.trinketPouchSlots));
+                pouchStatement.setString(4, GSON.toJson(data.trinketPouchItems == null ? java.util.List.of() : data.trinketPouchItems));
+                pouchStatement.executeUpdate();
             }
         });
     }

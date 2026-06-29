@@ -90,15 +90,20 @@ public final class TerritoryTeleportUtil {
         int minY = level.getMinBuildHeight();
         int maxY = level.getMaxBuildHeight();
 
+        BlockPos exactOrIndoorSpot = safeStandingPosNear(level, ix, iz, (int) Math.floor(preferredY), minY + 1, maxY - 2, 5);
+        if (exactOrIndoorSpot != null) {
+            return centered(exactOrIndoorSpot, x, z);
+        }
+
+        BlockPos preferredSpot = safeStandingPosAtOrBelow(level, ix, iz, Math.min(maxY - 2, (int) Math.ceil(preferredY) + 8), Math.max(minY + 1, (int) Math.floor(preferredY) - 8));
+        if (preferredSpot != null) {
+            return centered(preferredSpot, x, z);
+        }
+
         int heightmapY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ix, iz);
         BlockPos heightmapSpot = safeStandingPosAtOrBelow(level, ix, iz, Math.min(maxY - 2, heightmapY + 4), minY + 1);
         if (heightmapSpot != null) {
             return centered(heightmapSpot, x, z);
-        }
-
-        BlockPos preferredSpot = safeStandingPosAtOrBelow(level, ix, iz, Math.min(maxY - 2, (int) Math.ceil(preferredY) + 8), minY + 1);
-        if (preferredSpot != null) {
-            return centered(preferredSpot, x, z);
         }
 
         BlockPos fullScanSpot = safeStandingPosAtOrBelow(level, ix, iz, maxY - 2, minY + 1);
@@ -108,6 +113,23 @@ public final class TerritoryTeleportUtil {
 
         // Last resort: never use the void/min-build-height for home teleports.
         return new SafeSpot(ix + 0.5D, Math.max(64.0D, minY + 4.0D), iz + 0.5D);
+    }
+
+    private static BlockPos safeStandingPosNear(ServerLevel level, int x, int z, int preferredY, int minY, int maxY, int radius) {
+        int start = Math.max(minY, Math.min(maxY, preferredY - 1));
+        for (int offset = 0; offset <= radius; offset++) {
+            int down = start - offset;
+            if (down >= minY) {
+                BlockPos candidate = safeStandingPosAtOrBelow(level, x, z, down, down);
+                if (candidate != null) return candidate;
+            }
+            int up = start + offset;
+            if (up <= maxY) {
+                BlockPos candidate = safeStandingPosAtOrBelow(level, x, z, up, up);
+                if (candidate != null) return candidate;
+            }
+        }
+        return null;
     }
 
     private static void forceChunk(ServerLevel level, int blockX, int blockZ) {

@@ -54,6 +54,7 @@ import com.champutils.dailylogin.*;
 import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
+import com.champutils.crafting.ChampCraftingConfig;
 import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
 import com.champutils.tm.*;
@@ -287,6 +288,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionConfig.load();
         ProfessionChunkConfig.load();
         ProfessionBackpackConfig.load();
+        ChampCraftingConfig.load();
 
         /*
          Custom tools
@@ -306,6 +308,8 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
         ProfessionToolStatEffectListener.register();
+        VanillaToolRestrictionManager.register();
+        VanillaArmorRestrictionManager.register();
         ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
         ExplorationProtectionListener.register();
@@ -625,6 +629,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionAdminCommand.register();
         ProfessionToolsCommand.register();
         BackpackCommand.register();
+        ChampCraftingCommand.register();
         ChunksCommand.register();
         ProfessionTradeCommand.register();
         ChampReloadCommand.register();
@@ -636,9 +641,9 @@ public class ChampUtilsMod implements ModInitializer {
         NotificationsCommand.register();
         ScoreboardToggleCommand.register();
         ProfessionPopupsCommand.register();
+        AutoStepCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
-        MegaShopCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
@@ -699,6 +704,7 @@ public class ChampUtilsMod implements ModInitializer {
         GymRewardCommand.register();
         ExpeditionCommand.register();
         RewardTrackCommand.register();
+        MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
 
         /*
@@ -790,6 +796,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("PortalManager", () -> PortalManager.tick(server));
                     timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
                     timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
+                    timedTick("ServerBuffManager", () -> com.champutils.buff.ServerBuffManager.tick(server));
                     timedTick("NaturalSpecialSpawnBlocker", () -> NaturalSpecialSpawnBlocker.tick(server));
                     timedTick("MegaBossManager", () -> MegaBossManager.tick(server));
                     timedTick("ChestShopDisplayManager", () -> ChestShopDisplayManager.tick(server));

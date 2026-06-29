@@ -1,0 +1,17 @@
+{
+  "uuid": "01a36857-36c6-4108-b0ff-8f3321885788",
+  "name": "Jeeeeeeeeeeeeef",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 20,
+    "MINING": 0
+  },
+  "fragments": {}
+}

@@ -2,11 +2,11 @@ package com.champutils.badge;
 
 public enum BadgeType {
 
-    CASCADE("Cascade","/pc"),
+    CASCADE("Cascade",""),
     MARSH("Marsh",""),
     EARTH("Earth",""),
     BOULDER("Boulder",""),
-    THUNDER("Thunder","/pokeheal"),
+    THUNDER("Thunder",""),
     RAINBOW("Rainbow",""),
     SOUL("Soul",""),
     VOLCANO("Volcano",""),

@@ -1,6 +1,7 @@
 package com.champutils.tm;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.champutils.economy.EconomyManager;
 import com.cobblemon.mod.common.api.moves.Move;
 import com.cobblemon.mod.common.api.moves.MoveTemplate;
 import com.cobblemon.mod.common.api.moves.Moves;
@@ -42,11 +43,13 @@ import java.util.Set;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.lang.reflect.Method;
 
 public final class TMManager {
     private static final Map<String, Item> REGISTERED = new HashMap<>();
     private static final Map<String, String> RARITY_BY_MOVE = new LinkedHashMap<>();
     private static final Map<String, List<String>> MOVES_BY_RARITY = new LinkedHashMap<>();
+    private static final Map<String, List<String>> MOVES_BY_TYPE = new LinkedHashMap<>();
     private static final Random RANDOM = new Random();
     private static Item TM_ITEM;
     private static boolean ITEM_REGISTERED = false;
@@ -96,44 +99,31 @@ public final class TMManager {
             REGISTERED.clear();
             RARITY_BY_MOVE.clear();
             MOVES_BY_RARITY.clear();
+            MOVES_BY_TYPE.clear();
             for (String rarity : TMConfig.RARITIES) MOVES_BY_RARITY.put(rarity, new ArrayList<>());
 
             for (String moveId : officialTmMoveIds()) {
                 MoveTemplate template = Moves.getByName(moveId);
                 if (template == null) continue;
                 REGISTERED.put(moveId, TM_ITEM);
+                MOVES_BY_TYPE.computeIfAbsent(typeForMove(moveId), k -> new ArrayList<>()).add(moveId);
             }
 
-            TMConfig.pruneConfiguredRarities(REGISTERED.keySet());
             assignRarities();
-            System.out.println("[ChampUtils] Registered " + REGISTERED.size() + " official Cobblemon-supported TM moves using one Polymer TM item (" + reason + ").");
+            for (List<String> moves : MOVES_BY_TYPE.values()) moves.sort(java.util.Comparator.comparing(TMManager::prettyMove, String.CASE_INSENSITIVE_ORDER));
+            System.out.println("[ChampUtils] Registered " + REGISTERED.size() + " official Cobblemon-supported TM shop moves using one Polymer TM item (" + reason + ").");
         } finally {
             REGISTRY_REBUILDING = false;
         }
     }
 
     private static void assignRarities() {
+        // Rarity is intentionally retired. Keep legacy maps populated as COMMON so old admin commands/configs do not crash.
         for (String moveId : REGISTERED.keySet()) {
-            String rarity = TMConfig.configuredRarityForMove(moveId);
-            if (rarity == null) rarity = automaticRarity(moveId);
-            RARITY_BY_MOVE.put(moveId, rarity);
-            MOVES_BY_RARITY.computeIfAbsent(rarity, k -> new ArrayList<>()).add(moveId);
+            RARITY_BY_MOVE.put(moveId, "COMMON");
+            MOVES_BY_RARITY.computeIfAbsent("COMMON", k -> new ArrayList<>()).add(moveId);
         }
-        for (List<String> moves : MOVES_BY_RARITY.values()) Collections.sort(moves);
-    }
-
-    private static String automaticRarity(String moveId) {
-        MoveTemplate t = Moves.getByName(moveId);
-        if (t == null) return "COMMON";
-        int power = 0;
-        try { power = (int) t.getPower(); } catch (Throwable ignored) {}
-        String id = sanitizeMove(moveId);
-        if (List.of("dracometeor", "trickroom", "tailwind", "terablast", "steelbeam").contains(id)) return "MYTHIC";
-        if (List.of("earthquake", "thunderbolt", "icebeam", "flamethrower", "fireblast", "blizzard", "thunder", "hydropump", "surf", "stoneedge", "closecombat").contains(id)) return "LEGENDARY";
-        if (List.of("swordsdance", "calmmind", "nastyplot", "dragondance", "willowisp", "toxic", "stealthrock", "spikes", "toxicspikes").contains(id)) return "EPIC";
-        if (List.of("protect", "thunderwave", "roost", "substitute", "shadowball", "psychic", "darkpulse", "energyball", "aurasphere", "dazzlinggleam").contains(id) || power >= 90) return "RARE";
-        if (power >= 60 || List.of("rest", "brickbreak", "lightscreen", "reflect", "raindance", "sunnyday", "sleeptalk").contains(id)) return "UNCOMMON";
-        return "COMMON";
+        for (List<String> moves : MOVES_BY_RARITY.values()) moves.sort(java.util.Comparator.comparing(TMManager::prettyMove, String.CASE_INSENSITIVE_ORDER));
     }
 
     public static ItemStack createTMStack(String rawMove, int amount) {
@@ -185,98 +175,145 @@ public final class TMManager {
         return MOVES_BY_RARITY.getOrDefault(TMConfig.normalizeRarity(rawRarity), List.of());
     }
 
+    public static List<String> moveTypes() {
+        ensureRegistryReady();
+        List<String> types = new ArrayList<>(MOVES_BY_TYPE.keySet());
+        types.sort(String.CASE_INSENSITIVE_ORDER);
+        return types;
+    }
+
+    public static List<String> movesForType(String rawType) {
+        ensureRegistryReady();
+        return MOVES_BY_TYPE.getOrDefault(normalizeType(rawType), List.of());
+    }
+
+    public static String typeForMove(String rawMove) {
+        MoveTemplate template = Moves.getByName(sanitizeMove(rawMove));
+        if (template == null) return "NORMAL";
+        for (String methodName : List.of("getElementalType", "getType")) {
+            try {
+                Method method = template.getClass().getMethod(methodName);
+                Object type = method.invoke(template);
+                String name = elementalTypeName(type);
+                if (!name.isBlank()) return normalizeType(name);
+            } catch (Throwable ignored) {}
+        }
+        return "NORMAL";
+    }
+
+    private static String elementalTypeName(Object type) {
+        if (type == null) return "";
+        for (String methodName : List.of("getName", "name")) {
+            try {
+                Object value = type.getClass().getMethod(methodName).invoke(type);
+                if (value != null) return String.valueOf(value);
+            } catch (Throwable ignored) {}
+        }
+        return String.valueOf(type);
+    }
+
+    public static String normalizeType(String rawType) {
+        if (rawType == null || rawType.isBlank()) return "NORMAL";
+        String clean = rawType.trim().toUpperCase(Locale.ROOT).replace("ELEMENTALTYPES.", "").replace("ELEMENTALTYPES", "").replace('-', '_').replace(' ', '_');
+        clean = clean.replaceAll("[^A-Z_]", "");
+        return clean.isBlank() ? "NORMAL" : clean;
+    }
+
+    public static String prettyType(String rawType) {
+        String type = normalizeType(rawType).toLowerCase(Locale.ROOT).replace('_', ' ');
+        StringBuilder out = new StringBuilder();
+        for (String part : type.split("\\s+")) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(part.charAt(0))).append(part.length() > 1 ? part.substring(1) : "");
+        }
+        return out.length() == 0 ? "Normal" : out.toString();
+    }
+
+    public static long priceCentsForMove(String rawMove) {
+        ensureRegistryReady();
+        return EconomyManager.creditsToCents(TMConfig.priceCreditsForMove(rawMove));
+    }
+
+    public static boolean canAfford(ServerPlayer player, String rawMove) {
+        return player != null && EconomyManager.getBalance(player) >= priceCentsForMove(rawMove);
+    }
+
     public static ItemStack createRandomTMStack(String rawRarity, int amount) {
-        List<String> pool = movesForRarity(rawRarity);
-        if (pool.isEmpty()) return ItemStack.EMPTY;
-        return createTMStack(pool.get(RANDOM.nextInt(pool.size())), amount);
+        return ItemStack.EMPTY;
     }
 
     public static CraftResult craftRandom(ServerPlayer player, String rawRarity) {
-        ensureRegistryReady();
-        String rarity = TMConfig.normalizeRarity(rawRarity);
-        List<String> pool = movesForRarity(rarity);
-        if (pool.isEmpty()) return CraftResult.fail("No TMs are available in rarity " + prettyRarity(rarity) + ".");
-        String move = pool.get(RANDOM.nextInt(pool.size()));
-        Map<String, Integer> cost = randomCostForRarity(rarity);
-        return craftWithCost(player, move, rarity, cost, false);
+        return CraftResult.fail("Random TM crafting has been retired. Buy exact TMs from the TM Shop.");
     }
 
     public static CraftResult craftSpecific(ServerPlayer player, String rawMove) {
-        ensureRegistryReady();
-        String moveId = sanitizeMove(rawMove);
-        if (!REGISTERED.containsKey(moveId)) return CraftResult.fail("Unknown/unregistered TM move: " + rawMove);
-        String rarity = rarityForMove(moveId);
-        Map<String, Integer> cost = specificCostForRarity(rarity);
-        return craftWithCost(player, moveId, rarity, cost, true);
+        return purchaseSpecific(player, rawMove);
     }
 
-    private static CraftResult craftWithCost(ServerPlayer player, String moveId, String rarity, Map<String, Integer> cost, boolean specific) {
-        for (Map.Entry<String, Integer> entry : cost.entrySet()) {
-            int have = com.champutils.profession.ProfessionFragmentManager.countFragments(player, entry.getKey());
-            if (have < entry.getValue()) {
-                return CraftResult.fail("You need " + costText(cost) + ". Missing " + (entry.getValue() - have) + " " + com.champutils.profession.ProfessionFragmentManager.formatWords(entry.getKey()) + " fragments.");
-            }
-        }
-        for (Map.Entry<String, Integer> entry : cost.entrySet()) {
-            if (!com.champutils.profession.ProfessionFragmentManager.removeFragments(player, entry.getKey(), entry.getValue())) {
-                return CraftResult.fail("Could not remove required fragments.");
-            }
-        }
+    public static CraftResult purchaseSpecific(ServerPlayer player, String rawMove) {
+        ensureRegistryReady();
+        if (player == null) return CraftResult.fail("Player not found.");
+        String moveId = sanitizeMove(rawMove);
+        if (!REGISTERED.containsKey(moveId)) return CraftResult.fail("Unknown/unregistered TM move: " + rawMove);
+        long price = priceCentsForMove(moveId);
+        EconomyManager.TransactionResult withdraw = EconomyManager.withdraw(player, price, "TM shop purchase: " + prettyMove(moveId));
+        if (!withdraw.success) return CraftResult.fail(withdraw.error == null ? "You cannot afford that TM." : withdraw.error);
         ItemStack stack = createTMStack(moveId, 1);
+        if (stack.isEmpty()) return CraftResult.fail("Could not create that TM.");
         if (!player.getInventory().add(stack)) player.drop(stack, false);
-        return CraftResult.success(moveId, rarity, cost, specific);
+        return CraftResult.success(moveId, price);
     }
 
     public static Map<String, Integer> randomCostForRarity(String rawRarity) {
-        ensureRegistryReady();
-        return new LinkedHashMap<>(TMConfig.randomCosts.getOrDefault(TMConfig.normalizeRarity(rawRarity), Map.of()));
+        return Map.of();
     }
 
     public static Map<String, Integer> specificCostForRarity(String rawRarity) {
-        ensureRegistryReady();
-        return new LinkedHashMap<>(TMConfig.selectedCosts.getOrDefault(TMConfig.normalizeRarity(rawRarity), Map.of()));
+        return Map.of();
     }
 
     public static Map<String, Integer> specificCostForMove(String rawMove) {
-        return specificCostForRarity(rarityForMove(rawMove));
-    }
-
-    private static Map<String, Integer> multiplyCost(Map<String, Integer> source, int multiplier) {
-        Map<String, Integer> out = new LinkedHashMap<>();
-        if (source == null) return out;
-        for (Map.Entry<String, Integer> entry : source.entrySet()) {
-            int amount = Math.max(0, entry.getValue() == null ? 0 : entry.getValue()) * Math.max(1, multiplier);
-            if (amount > 0) out.put(TMConfig.normalizeRarity(entry.getKey()), amount);
-        }
-        return out;
+        return Map.of();
     }
 
     public static String costText(Map<String, Integer> cost) {
-        if (cost == null || cost.isEmpty()) return "no fragments";
-        List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : cost.entrySet()) {
-            parts.add(entry.getValue() + " " + com.champutils.profession.ProfessionFragmentManager.formatWords(entry.getKey()) + " Fragments");
-        }
-        return String.join(", ", parts);
+        return "Credits";
     }
 
     public static String prettyRarity(String rarity) {
-        return com.champutils.profession.ProfessionFragmentManager.formatWords(TMConfig.normalizeRarity(rarity));
+        return "TM";
     }
 
     public static Item iconForRarity(String rarity) {
-        return switch (TMConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> Items.MUSIC_DISC_BLOCKS;
-            case "RARE" -> Items.MUSIC_DISC_CHIRP;
-            case "EPIC" -> Items.MUSIC_DISC_MALL;
-            case "LEGENDARY" -> Items.MUSIC_DISC_PIGSTEP;
-            case "MYTHIC" -> Items.MUSIC_DISC_OTHERSIDE;
+        return Items.MUSIC_DISC_CAT;
+    }
+
+    public static Item iconForType(String rawType) {
+        return switch (normalizeType(rawType)) {
+            case "FIRE" -> Items.BLAZE_POWDER;
+            case "WATER" -> Items.WATER_BUCKET;
+            case "GRASS" -> Items.OAK_SAPLING;
+            case "ELECTRIC" -> Items.REDSTONE;
+            case "ICE" -> Items.ICE;
+            case "FIGHTING" -> Items.IRON_SWORD;
+            case "POISON" -> Items.SPIDER_EYE;
+            case "GROUND" -> Items.DIRT;
+            case "FLYING" -> Items.FEATHER;
+            case "PSYCHIC" -> Items.AMETHYST_SHARD;
+            case "BUG" -> Items.HONEYCOMB;
+            case "ROCK" -> Items.COBBLESTONE;
+            case "GHOST" -> Items.SOUL_LANTERN;
+            case "DRAGON" -> Items.DRAGON_BREATH;
+            case "DARK" -> Items.ENDER_PEARL;
+            case "STEEL" -> Items.IRON_INGOT;
+            case "FAIRY" -> Items.PINK_DYE;
             default -> Items.MUSIC_DISC_CAT;
         };
     }
 
     public static Item iconForMove(String rawMove) {
-        return iconForRarity(rarityForMove(rawMove));
+        return iconForType(typeForMove(rawMove));
     }
 
     public static int getUsesLeft(ItemStack stack) {
@@ -457,7 +494,7 @@ public final class TMManager {
         stack.set(DataComponents.CUSTOM_NAME, Component.literal("TM - " + prettyMove(moveId)).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         List<Component> lore = new ArrayList<>();
         int usesLeft = getUsesLeft(stack);
-        lore.add(Component.literal("Rarity: " + prettyRarity(rarityForMove(moveId))).withStyle(ChatFormatting.GOLD));
+        lore.add(Component.literal("Type: " + prettyType(typeForMove(moveId))).withStyle(ChatFormatting.GOLD));
         lore.add(Component.literal("Teaches " + prettyMove(moveId) + ".").withStyle(ChatFormatting.GRAY));
         lore.add(Component.literal("Uses Left: " + usesLeft + "/" + MAX_TM_USES).withStyle(ChatFormatting.GREEN));
         lore.add(Component.literal("Command only: /tms teach <partySlot> [replaceMoveSlot]").withStyle(ChatFormatting.DARK_GRAY));
@@ -598,9 +635,11 @@ public final class TMManager {
 
     public record CraftResult(boolean success, String message, String moveId, String rarity) {
         public static CraftResult fail(String message) { return new CraftResult(false, message, null, null); }
+        public static CraftResult success(String moveId, long priceCents) {
+            return new CraftResult(true, "Purchased TM - " + prettyMove(moveId) + " for " + EconomyManager.format(priceCents) + ".", moveId, "TM");
+        }
         public static CraftResult success(String moveId, String rarity, Map<String, Integer> cost, boolean specific) {
-            String mode = specific ? "specific" : "random";
-            return new CraftResult(true, "Crafted " + mode + " TM - " + prettyMove(moveId) + " (" + prettyRarity(rarity) + ") for " + costText(cost) + ".", moveId, rarity);
+            return success(moveId, priceCentsForMove(moveId));
         }
     }
 

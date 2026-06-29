@@ -1,0 +1,17 @@
+{
+  "uuid": "e5fb82c6-bed5-4f82-80be-2d79a734b62a",
+  "name": "LanLanoo",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 2,
+    "MINING": 2
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 67,
+    "MINING": 57
+  },
+  "fragments": {}
+}

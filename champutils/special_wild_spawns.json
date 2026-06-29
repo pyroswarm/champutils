@@ -1,0 +1,971 @@
+{
+  "enabled": true,
+  "disableVanillaAndAllTheMonsSpecialSpawns": true,
+  "broadcastLegendarySpawns": true,
+  "broadcastParadoxAndUltraBeastSpawns": false,
+  "checkIntervalTicks": 12000,
+  "targetAverageSpawnMinutes": 120.0,
+  "baseChanceMultiplier": 1.0,
+  "pityChanceIncreasePerTargetWindow": 1.0,
+  "maxPityMultiplier": 6.0,
+  "removeBiomeRequirements": true,
+  "rareTripleSpawnEventEnabled": true,
+  "rareTripleSpawnEventChance": 0.01,
+  "rareTripleSpawnEventSpawnCount": 3,
+  "rareTripleSpawnEventMessage": "§5§lA COSMIC RIFT HAS OPENED! §dThree special Pokémon have appeared across the world!",
+  "legendaryChancePerCheck": 0.0025,
+  "paradoxChancePerCheck": 0.008,
+  "ultraBeastChancePerCheck": 0.008,
+  "minDistanceFromPlayer": 48,
+  "maxDistanceFromPlayer": 96,
+  "maxAliveSpecialWildPokemon": 3,
+  "levelRangeLegendary": "60-80",
+  "levelRangeParadox": "45-65",
+  "levelRangeUltraBeast": "50-70",
+  "islanderSpecialSpawnsEnabled": true,
+  "islanderWorldPrefix": "islander_",
+  "islanderOnlyNotifyIslanders": true,
+  "islanderMinimumProfilePlaytimeSeconds": 0,
+  "islanderTargetAverageSpawnMinutes": 120.0,
+  "islanderLegendaryChancePerCheck": 0.0025,
+  "islanderParadoxChancePerCheck": 0.008,
+  "islanderUltraBeastChancePerCheck": 0.008,
+  "disabledDimensions": [
+    "multiworld:spawn1",
+    "multiworld:spawn",
+    "minecraft:the_end",
+    "multiworld:profile_lobby"
+  ],
+  "legendarySpawns": [
+    {
+      "species": "articuno",
+      "biomes": [],
+      "times": [
+        "night",
+        "dawn"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zapdos",
+      "biomes": [],
+      "times": [
+        "day",
+        "dusk"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "moltres",
+      "biomes": [],
+      "times": [
+        "day",
+        "dusk"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "mewtwo",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "lugia",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "ho_oh",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "raikou",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "entei",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "suicune",
+      "biomes": [],
+      "times": [
+        "night",
+        "dawn"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "kyogre",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "groudon",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "rayquaza",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "dialga",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "palkia",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "giratina",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "reshiram",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zekrom",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "xerneas",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "yveltal",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zygarde",
+      "biomes": [],
+      "times": [
+        "day",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "solgaleo",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "lunala",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "necrozma",
+      "biomes": [],
+      "times": [
+        "dusk",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zacian",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zamazenta",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "eternatus",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "koraidon",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "miraidon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ],
+  "paradoxSpawns": [
+    {
+      "species": "great_tusk",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "scream_tail",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "brute_bonnet",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "flutter_mane",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "slither_wing",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "sandy_shocks",
+      "biomes": [],
+      "times": [
+        "dusk",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "roaring_moon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "walking_wake",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_treads",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_bundle",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_hands",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_jugulis",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_moth",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_thorns",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_valiant",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_leaves",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_crown",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ],
+  "ultraBeastSpawns": [
+    {
+      "species": "nihilego",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "buzzwole",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "pheromosa",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "xurkitree",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "celesteela",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "kartana",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "guzzlord",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "poipole",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "naganadel",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "stakataka",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "blacephalon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ],
+  "islanderLegendarySpawns": [
+    {
+      "species": "articuno",
+      "biomes": [],
+      "times": [
+        "night",
+        "dawn"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zapdos",
+      "biomes": [],
+      "times": [
+        "day",
+        "dusk"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "moltres",
+      "biomes": [],
+      "times": [
+        "day",
+        "dusk"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "mewtwo",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "lugia",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "ho_oh",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "raikou",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "entei",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "suicune",
+      "biomes": [],
+      "times": [
+        "night",
+        "dawn"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "kyogre",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "groudon",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "rayquaza",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "dialga",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "palkia",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "giratina",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "reshiram",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zekrom",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "xerneas",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "yveltal",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zygarde",
+      "biomes": [],
+      "times": [
+        "day",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "solgaleo",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "lunala",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "necrozma",
+      "biomes": [],
+      "times": [
+        "dusk",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zacian",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "zamazenta",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "eternatus",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "koraidon",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "miraidon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ],
+  "islanderParadoxSpawns": [
+    {
+      "species": "great_tusk",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "scream_tail",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "brute_bonnet",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "flutter_mane",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "slither_wing",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "sandy_shocks",
+      "biomes": [],
+      "times": [
+        "dusk",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "roaring_moon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "walking_wake",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_treads",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_bundle",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_hands",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_jugulis",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_moth",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_thorns",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_valiant",
+      "biomes": [],
+      "times": [
+        "dawn",
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_leaves",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "iron_crown",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ],
+  "islanderUltraBeastSpawns": [
+    {
+      "species": "nihilego",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "buzzwole",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "pheromosa",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "xurkitree",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "celesteela",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "kartana",
+      "biomes": [],
+      "times": [
+        "day"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "guzzlord",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "poipole",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "naganadel",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "stakataka",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    },
+    {
+      "species": "blacephalon",
+      "biomes": [],
+      "times": [
+        "night"
+      ],
+      "weight": 1.0
+    }
+  ]
+}

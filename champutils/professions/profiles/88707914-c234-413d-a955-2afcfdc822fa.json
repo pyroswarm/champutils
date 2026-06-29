@@ -1,0 +1,21 @@
+{
+  "uuid": "88707914-c234-413d-a955-2afcfdc822fa",
+  "name": "Psyronyx",
+  "levels": {
+    "BATTLING": 5,
+    "FARMING": 24,
+    "FORESTRY": 20,
+    "MINING": 9
+  },
+  "xp": {
+    "BATTLING": 119,
+    "FARMING": 10,
+    "FORESTRY": 2,
+    "MINING": 48
+  },
+  "fragments": {
+    "COMMON": 45,
+    "UNCOMMON": 18,
+    "RARE": 13
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "uuid": "d99070ec-4b2b-44ad-9457-937e702bd779",
+  "name": "BastionCraft",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

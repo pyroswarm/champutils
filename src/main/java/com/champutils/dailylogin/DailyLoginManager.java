@@ -27,8 +27,9 @@ public final class DailyLoginManager {
     public static void tick(MinecraftServer server) {
         if (!DailyLoginConfig.DATA.settings.enabled) return;
         if (server.getTickCount() <= 0 || server.getTickCount() % 1200 != 0) return;
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) addOnlineMinute(player);
-        DailyLoginData.save();
+        boolean changed = false;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) changed |= addOnlineMinute(player);
+        if (changed) DailyLoginData.save();
     }
 
     public static DailyLoginData.PlayerState getState(ServerPlayer player) { return ensureCurrent(player); }
@@ -55,9 +56,9 @@ public final class DailyLoginManager {
         return state;
     }
 
-    private static void addOnlineMinute(ServerPlayer player) {
+    private static boolean addOnlineMinute(ServerPlayer player) {
         DailyLoginData.PlayerState state = ensureCurrent(player);
-        if (state.lastQualifiedResetKey == state.activeResetKey) return;
+        if (state.lastQualifiedResetKey == state.activeResetKey) return false;
 
         state.minutesThisReset++;
         int required = Math.max(1, DailyLoginConfig.DATA.settings.requiredOnlineMinutes);
@@ -79,6 +80,7 @@ public final class DailyLoginManager {
                 player.sendSystemMessage(Component.literal("Daily login complete! You already finished this month's reward track.").withStyle(ChatFormatting.GOLD));
             }
         }
+        return true;
     }
 
     public static boolean claim(ServerPlayer player, int day) {

@@ -1354,19 +1354,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     }
 
     private static void syncLimitFromLuckPerms(Connection connection, ServerPlayer player) throws Exception {
-        // PROFILE_LOBBY is intentionally allowed to run without LuckPerms installed.
-        // Do not touch LuckPermsHook here: simply guarantee a safe default profile limit row
-        // so /profiles can build its menu and the player can select/create profiles.
-        if (NetworkServerConfig.serverRole() == NetworkServerConfig.ServerRole.PROFILE_LOBBY) {
-            try (var ps = connection.prepareStatement("insert into player_profile_limits (player_uuid, max_profiles, instant_delete, fast_delete, deletion_delay_minutes, source, updated_at) values (?, ?, false, false, 30, 'PROFILE_LOBBY_DEFAULT', now()) " +
-                    "on conflict (player_uuid) do nothing")) {
-                ps.setObject(1, player.getUUID());
-                ps.setInt(2, DEFAULT_MAX_PROFILES);
-                ps.executeUpdate();
-            }
-            return;
-        }
-
+        // Profile lobby and survival both read LuckPerms into the shared SQL limit row.
+        // If LuckPerms is not installed/connected on this backend, do not overwrite an existing
+        // VIP/VIP+ limit with defaults. Install LuckPerms on both profile and survival servers
+        // with the same storage so this updates immediately everywhere.
+        if (!LuckPermsHook.isAvailable()) return;
         int max = DEFAULT_MAX_PROFILES;
         boolean instant = false;
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) max = Math.max(max, 3);

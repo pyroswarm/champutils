@@ -289,6 +289,34 @@ public class ProfileMenu {
                                                 )
                         )
         );
+
+
+        gui.setSlot(
+                25,
+                new GuiElementBuilder(
+                        Items.CHEST
+                )
+                        .hideDefaultTooltip()
+                        .setName(
+                                Component.literal(
+                                        "§6Reward Track"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§7Ranked PvP missions and tier rewards"
+                                )
+                        )
+                        .addLoreLine(
+                                Component.literal(
+                                        "§eClick to open"
+                                )
+                        )
+                        .setCallback(
+                                (i,c,t)->
+                                        com.champutils.rewardtrack.RewardTrackMenu.open(player)
+                        )
+        );
 MenuUtil.addBackButton(
                 gui,
                 40,

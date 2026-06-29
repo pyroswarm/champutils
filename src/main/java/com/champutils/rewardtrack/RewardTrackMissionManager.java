@@ -97,11 +97,17 @@ public final class RewardTrackMissionManager {
         int weeklyWin = 5 + random.nextInt(4);
         save.missions.add(mission("weekly_play_" + week, false, week, "PLAY", "Play " + weeklyPlay + " ranked PvP matches", weeklyPlay, 900));
         save.missions.add(mission("weekly_win_" + week, false, week, "WIN", "Win " + weeklyWin + " ranked PvP matches", weeklyWin, 1100));
-        for (int i = 0; i < 5; i++) {
-            String title = flavors[Math.floorMod(random.nextInt(), flavors.length)];
+        java.util.LinkedHashSet<String> selected = new java.util.LinkedHashSet<>();
+        int guard = 0;
+        while (selected.size() < 5 && guard++ < 80) {
+            selected.add(flavors[Math.floorMod(random.nextInt(), flavors.length)]);
+        }
+        int i = 0;
+        for (String title : selected) {
             String type = title.toLowerCase(Locale.ROOT).startsWith("win") ? "WIN" : "PLAY";
             int target = "WIN".equals(type) ? 2 + random.nextInt(4) : 3 + random.nextInt(5);
-            save.missions.add(mission("weekly_" + week + "_var_" + i, false, week, type, title.replace("{n}", String.valueOf(target)), target, "WIN".equals(type) ? 1000 : 800));
+            save.missions.add(mission("weekly_" + week + "_var_" + i, false, week, type, title.replace("{n}", String.valueOf(target)), target, "WIN".equals(type) ? 1100 : 850));
+            i++;
         }
     }
 
@@ -130,16 +136,16 @@ public final class RewardTrackMissionManager {
 
     private static String[] weeklyFlavors() {
         return new String[] {
+                "Win {n} ranked PvP matches using a team that all shares one type",
                 "Play {n} ranked PvP matches with a mono-type team",
-                "Win {n} ranked PvP matches",
-                "Play {n} ranked PvP matches with a Normal-type Pokémon on your team",
+                "Win {n} ranked PvP matches with no duplicate held items",
                 "Play {n} ranked PvP matches with a starter Pokémon on your team",
+                "Win {n} ranked PvP matches using the same lead slot all match",
+                "Play {n} ranked PvP matches with at least one support Pokémon",
                 "Win {n} ranked PvP matches",
-                "Play {n} ranked PvP matches with no duplicate held items",
-                "Play {n} ranked PvP matches",
                 "Play {n} ranked PvP matches using the same team",
-                "Win {n} ranked PvP matches",
-                "Play {n} ranked PvP matches and finish each battle"
+                "Play {n} ranked PvP matches and finish each battle",
+                "Win {n} ranked PvP matches after changing at least one team member"
         };
     }
 

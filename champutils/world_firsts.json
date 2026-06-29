@@ -1,0 +1,212 @@
+{
+  "worldFirsts": [
+    {
+      "id": "first_legendary_catch",
+      "name": "First Legendary Catch",
+      "titleId": "wf_first_legendary_catch",
+      "titleDisplay": "\u00266[Legend Seeker]",
+      "rewardText": "+1% permanent bragging-right title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_shiny_catch",
+      "name": "First Shiny Catch",
+      "titleId": "wf_first_shiny_catch",
+      "titleDisplay": "\u0026d[Shiny Pioneer]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_ultra_beast_catch",
+      "name": "First Ultra Beast Catch",
+      "titleId": "wf_first_ultra_beast_catch",
+      "titleDisplay": "\u00265[Beast Breaker]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_starter_catch",
+      "name": "First Starter Catch",
+      "titleId": "wf_first_starter_catch",
+      "titleDisplay": "\u0026a[Starter Scout]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_ditto_catch",
+      "name": "First Ditto Catch",
+      "titleId": "wf_first_ditto_catch",
+      "titleDisplay": "\u0026d[Copycat]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_magikarp_catch",
+      "name": "First Magikarp Catch",
+      "titleId": "wf_first_magikarp_catch",
+      "titleDisplay": "\u00266[Karp King]",
+      "rewardText": "exclusive title and 100 XP",
+      "xpReward": 100
+    },
+    {
+      "id": "first_level_100_catch",
+      "name": "First Level 100 Catch",
+      "titleId": "wf_first_level_100_catch",
+      "titleDisplay": "\u0026c[Apex Hunter]",
+      "rewardText": "exclusive title and 1000 XP",
+      "xpReward": 1000
+    },
+    {
+      "id": "first_any_battle_win",
+      "name": "First Battle Win",
+      "titleId": "wf_first_any_battle_win",
+      "titleDisplay": "\u0026a[First Blood]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_casual_win",
+      "name": "First Casual PvP Win",
+      "titleId": "wf_first_casual_win",
+      "titleDisplay": "\u0026b[Casual Victor]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_ranked_win",
+      "name": "First Ranked PvP Win",
+      "titleId": "wf_first_ranked_win",
+      "titleDisplay": "\u00266[Ranked Pioneer]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_battling_25",
+      "name": "First Battling Level 25",
+      "titleId": "wf_first_battling_25",
+      "titleDisplay": "\u0026a[Battling Trailblazer]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_battling_50",
+      "name": "First Battling Level 50",
+      "titleId": "wf_first_battling_50",
+      "titleDisplay": "\u0026b[Battling Pro]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_battling_75",
+      "name": "First Battling Level 75",
+      "titleId": "wf_first_battling_75",
+      "titleDisplay": "\u0026d[Battling Elite]",
+      "rewardText": "exclusive title and 750 XP",
+      "xpReward": 750
+    },
+    {
+      "id": "first_battling_100",
+      "name": "First Battling Level 100",
+      "titleId": "wf_first_battling_100",
+      "titleDisplay": "\u00266[Battling Master]",
+      "rewardText": "exclusive title and 1000 XP",
+      "xpReward": 1000
+    },
+    {
+      "id": "first_mining_25",
+      "name": "First Mining Level 25",
+      "titleId": "wf_first_mining_25",
+      "titleDisplay": "\u0026a[Mining Trailblazer]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_mining_50",
+      "name": "First Mining Level 50",
+      "titleId": "wf_first_mining_50",
+      "titleDisplay": "\u0026b[Mining Pro]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_mining_75",
+      "name": "First Mining Level 75",
+      "titleId": "wf_first_mining_75",
+      "titleDisplay": "\u0026d[Mining Elite]",
+      "rewardText": "exclusive title and 750 XP",
+      "xpReward": 750
+    },
+    {
+      "id": "first_mining_100",
+      "name": "First Mining Level 100",
+      "titleId": "wf_first_mining_100",
+      "titleDisplay": "\u00266[Mining Master]",
+      "rewardText": "exclusive title and 1000 XP",
+      "xpReward": 1000
+    },
+    {
+      "id": "first_forestry_25",
+      "name": "First Forestry Level 25",
+      "titleId": "wf_first_forestry_25",
+      "titleDisplay": "\u0026a[Forestry Trailblazer]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_forestry_50",
+      "name": "First Forestry Level 50",
+      "titleId": "wf_first_forestry_50",
+      "titleDisplay": "\u0026b[Forestry Pro]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_forestry_75",
+      "name": "First Forestry Level 75",
+      "titleId": "wf_first_forestry_75",
+      "titleDisplay": "\u0026d[Forestry Elite]",
+      "rewardText": "exclusive title and 750 XP",
+      "xpReward": 750
+    },
+    {
+      "id": "first_forestry_100",
+      "name": "First Forestry Level 100",
+      "titleId": "wf_first_forestry_100",
+      "titleDisplay": "\u00266[Forestry Master]",
+      "rewardText": "exclusive title and 1000 XP",
+      "xpReward": 1000
+    },
+    {
+      "id": "first_farming_25",
+      "name": "First Farming Level 25",
+      "titleId": "wf_first_farming_25",
+      "titleDisplay": "\u0026a[Farming Trailblazer]",
+      "rewardText": "exclusive title and 250 XP",
+      "xpReward": 250
+    },
+    {
+      "id": "first_farming_50",
+      "name": "First Farming Level 50",
+      "titleId": "wf_first_farming_50",
+      "titleDisplay": "\u0026b[Farming Pro]",
+      "rewardText": "exclusive title and 500 XP",
+      "xpReward": 500
+    },
+    {
+      "id": "first_farming_75",
+      "name": "First Farming Level 75",
+      "titleId": "wf_first_farming_75",
+      "titleDisplay": "\u0026d[Farming Elite]",
+      "rewardText": "exclusive title and 750 XP",
+      "xpReward": 750
+    },
+    {
+      "id": "first_farming_100",
+      "name": "First Farming Level 100",
+      "titleId": "wf_first_farming_100",
+      "titleDisplay": "\u00266[Farming Master]",
+      "rewardText": "exclusive title and 1000 XP",
+      "xpReward": 1000
+    }
+  ]
+}

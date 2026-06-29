@@ -79,12 +79,10 @@ public final class MenuNpcInteractionListener {
                 ProfileSelectionMenu.open(player);
             }
             case "gearworkshop" -> GearWorkshopMenu.open(player);
-            case "gearappraiser" -> GearAppraiserMenu.open(player);
             case "tmcrafter", "tms" -> TMCrafterMenu.open(player);
             case "battles", "pvp" -> BattleMenu.open(player);
             case "auction" -> AuctionHouseGui.openMain(player);
             case "shop", "essentials" -> NpcShopMenu.open(player);
-            case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> MegaShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
             case "quests", "quest" -> QuestMenu.open(player);
             case "contracts", "contract" -> ContractMenu.open(player);

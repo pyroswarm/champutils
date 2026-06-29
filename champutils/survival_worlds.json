@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "overworldCount": 6,
+  "netherWorldCount": 2,
+  "endWorldCount": 2,
+  "overworldPrefix": "multiworld:survival_overworld",
+  "netherPrefix": "multiworld:survival_nether",
+  "endPrefix": "multiworld:survival_end",
+  "borderRadius": 10000,
+  "spawnY": 100,
+  "runWorldCommands": true,
+  "defaultMaxHomes": 3,
+  "overworldCreateCommands": [
+    "mw create {world_id} NORMAL -g\u003dNORMAL",
+    "mw load {world_id}"
+  ],
+  "netherCreateCommands": [
+    "mw create {world_id} NETHER -g\u003dNETHER",
+    "mw load {world_id}"
+  ],
+  "endCreateCommands": [
+    "mw create {world_id} THE_END -g\u003dTHE_END",
+    "mw load {world_id}"
+  ],
+  "postCreateCommands": [
+    "worldborder center 0 0",
+    "worldborder set {border_diameter}"
+  ]
+}

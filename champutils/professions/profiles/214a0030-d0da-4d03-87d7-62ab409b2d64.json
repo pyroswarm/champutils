@@ -1,0 +1,17 @@
+{
+  "uuid": "214a0030-d0da-4d03-87d7-62ab409b2d64",
+  "name": "Danzen_KORO",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

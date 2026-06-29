@@ -1,0 +1,143 @@
+{
+  "fragments": {
+    "COMMON": {
+      "itemId": "common_tool_fragment",
+      "displayName": "Common Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9101,
+      "color": "WHITE",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    },
+    "UNCOMMON": {
+      "itemId": "uncommon_tool_fragment",
+      "displayName": "Uncommon Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9102,
+      "color": "GREEN",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    },
+    "RARE": {
+      "itemId": "rare_tool_fragment",
+      "displayName": "Rare Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9103,
+      "color": "BLUE",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    },
+    "EPIC": {
+      "itemId": "epic_tool_fragment",
+      "displayName": "Epic Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9104,
+      "color": "LIGHT_PURPLE",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    },
+    "LEGENDARY": {
+      "itemId": "legendary_tool_fragment",
+      "displayName": "Legendary Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9105,
+      "color": "GOLD",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    },
+    "MYTHIC": {
+      "itemId": "mythic_tool_fragment",
+      "displayName": "Mythic Tool Fragment",
+      "baseItem": "minecraft:paper",
+      "customModelData": 9106,
+      "color": "DARK_PURPLE",
+      "lore": "Salvaged profession tool material. Upgrade into higher-tier fragments."
+    }
+  },
+  "salvage": {
+    "COMMON": {
+      "fragment": "COMMON",
+      "min": 4,
+      "max": 7
+    },
+    "UNCOMMON": {
+      "fragment": "UNCOMMON",
+      "min": 3,
+      "max": 6
+    },
+    "RARE": {
+      "fragment": "RARE",
+      "min": 3,
+      "max": 5
+    },
+    "EPIC": {
+      "fragment": "EPIC",
+      "min": 2,
+      "max": 4
+    },
+    "LEGENDARY": {
+      "fragment": "LEGENDARY",
+      "min": 1,
+      "max": 3
+    },
+    "MYTHIC": {
+      "fragment": "MYTHIC",
+      "min": 1,
+      "max": 2
+    }
+  },
+  "upgrades": {
+    "COMMON_TO_UNCOMMON": {
+      "fromFragment": "COMMON",
+      "cost": 48,
+      "toFragment": "UNCOMMON",
+      "output": 1
+    },
+    "UNCOMMON_TO_RARE": {
+      "fromFragment": "UNCOMMON",
+      "cost": 48,
+      "toFragment": "RARE",
+      "output": 1
+    },
+    "RARE_TO_EPIC": {
+      "fromFragment": "RARE",
+      "cost": 40,
+      "toFragment": "EPIC",
+      "output": 1
+    },
+    "EPIC_TO_LEGENDARY": {
+      "fromFragment": "EPIC",
+      "cost": 32,
+      "toFragment": "LEGENDARY",
+      "output": 1
+    },
+    "LEGENDARY_TO_MYTHIC": {
+      "fromFragment": "LEGENDARY",
+      "cost": 24,
+      "toFragment": "MYTHIC",
+      "output": 1
+    }
+  },
+  "toolCrafting": {
+    "COMMON": {
+      "fragment": "COMMON",
+      "cost": 48
+    },
+    "UNCOMMON": {
+      "fragment": "UNCOMMON",
+      "cost": 44
+    },
+    "RARE": {
+      "fragment": "RARE",
+      "cost": 40
+    },
+    "EPIC": {
+      "fragment": "EPIC",
+      "cost": 32
+    },
+    "LEGENDARY": {
+      "fragment": "LEGENDARY",
+      "cost": 24
+    },
+    "MYTHIC": {
+      "fragment": "MYTHIC",
+      "cost": 16
+    }
+  },
+  "trades": {}
+}

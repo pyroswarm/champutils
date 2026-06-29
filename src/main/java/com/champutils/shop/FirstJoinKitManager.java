@@ -83,20 +83,20 @@ public final class FirstJoinKitManager {
         }
 
         UUID profileId = PlayerProfileManager.activeProfileId(player);
-        UUID effectiveProfileId = profileId == null ? player.getUUID() : profileId;
-        String oldProfileKey = effectiveProfileId.toString();
-        String profileKey = "profile:" + effectiveProfileId;
-        String accountKey = "account:" + player.getUUID();
+        if (profileId == null) {
+            // Do not consume the starter kit in the lobby or during profile hydration.
+            return;
+        }
+        String oldProfileKey = profileId.toString();
+        String profileKey = "profile:" + profileId;
 
-        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey) || DATA.claimed.contains(accountKey)) {
-            // Mark the new profile as seen, but do not hand out another starter kit.
+        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey)) {
             DATA.claimed.add(profileKey);
             save();
             return;
         }
 
         DATA.claimed.add(profileKey);
-        DATA.claimed.add(accountKey);
         save();
 
         for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.entries) {

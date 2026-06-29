@@ -93,6 +93,10 @@ public class FarmingProfessionListener {
         // Farming was intentionally nerfed: one mature crop = one base XP.
         ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
+        rollXpSurge(player, tool, xp);
+        rollRewardPassive(player, tool, "seedSaverChance", "farming_seed_saver");
+        rollRewardPassive(player, tool, "goldenHarvestChance", "farming_golden_harvest");
+        rollRewardPassive(player, tool, "berryFinderChance", "farming_seed_saver");
         rollHarvestMultiplier(player, state.getBlock(), tool);
     }
 
@@ -183,12 +187,18 @@ public class FarmingProfessionListener {
         if (multiplier <= 1) return;
         Item item = cropReward(cropBlock);
         if (item == Items.AIR) return;
-        ItemStack reward = new ItemStack(item, multiplier - 1);
-        if (!player.getInventory().add(reward)) player.drop(reward, false);
+        int baseDrops = estimatedBaseCropDrops(cropBlock);
+        ItemStack reward = new ItemStack(item, baseDrops * (multiplier - 1));
+        ProfessionBackpackManager.giveOrDrop(player, reward, true);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§a" + multiplier + "x Harvest!"), true);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
         }
+    }
+
+    private static int estimatedBaseCropDrops(Block block) {
+        if (block == Blocks.POTATOES || block == Blocks.CARROTS || block == Blocks.NETHER_WART || block == Blocks.COCOA) return 3;
+        return 1;
     }
 
     private static int rollFortuneHarvestMultiplier(ServerPlayer player, ItemStack tool) {

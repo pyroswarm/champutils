@@ -1,0 +1,16 @@
+{
+  "uuid": "47d1bbd3-cf83-4c4f-896f-caeb5d2f8d8a",
+  "name": "Alathreon",
+  "rp": 300,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 0,
+  "casualWins": 0,
+  "casualLosses": 0,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 1,
+  "playtimeSeconds": 0
+}

@@ -11,6 +11,17 @@ import java.util.Set;
 
 public class BadgeUnlockManager {
 
+    private static final Set<BadgeType> GYM_BADGES = Set.of(
+            BadgeType.CASCADE,
+            BadgeType.MARSH,
+            BadgeType.EARTH,
+            BadgeType.BOULDER,
+            BadgeType.THUNDER,
+            BadgeType.RAINBOW,
+            BadgeType.SOUL,
+            BadgeType.VOLCANO
+    );
+
     public static void init() {
         BadgeUnlockConfig.load();
         BadgeManager.initSql();
@@ -33,8 +44,8 @@ public class BadgeUnlockManager {
 
         BadgeSqlRepository.saveUnlockSnapshotAsync(player, commands, permissions, titles);
 
-        if (!commands.isEmpty() || !permissions.isEmpty() || !titles.isEmpty()) {
-            player.sendSystemMessage(Component.literal("Badge rewards updated. Unlocked commands: " + (commands.isEmpty() ? "none" : String.join(", ", commands))).withStyle(ChatFormatting.GOLD));
+        if (!titles.isEmpty()) {
+            player.sendSystemMessage(Component.literal("Badge rewards updated. New title rewards have been synced.").withStyle(ChatFormatting.GOLD));
         }
     }
 
@@ -43,10 +54,20 @@ public class BadgeUnlockManager {
     }
 
     public static boolean hasEvTrainingAccess(ServerPlayer player) {
-        return GymProgressRepository.defeatedCount(player) >= 5;
+        return player != null && Math.max(gymBadgeCount(player), GymProgressRepository.defeatedCount(player)) >= 5;
     }
 
     public static boolean hasEliteFourAccess(ServerPlayer player) {
-        return GymProgressRepository.defeatedCount(player) >= 8;
+        return player != null && (BadgeManager.getBadges(player).containsAll(GYM_BADGES) || GymProgressRepository.defeatedCount(player) >= GYM_BADGES.size());
+    }
+
+    private static int gymBadgeCount(ServerPlayer player) {
+        if (player == null) return 0;
+        int count = 0;
+        Set<BadgeType> badges = BadgeManager.getBadges(player);
+        for (BadgeType badge : GYM_BADGES) {
+            if (badges.contains(badge)) count++;
+        }
+        return count;
     }
 }

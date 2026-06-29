@@ -85,7 +85,7 @@ public class ForestryProfessionListener {
         Item item = state.getBlock().asItem();
         if (item == Items.AIR) return;
         ItemStack reward = new ItemStack(item, multiplier - 1);
-        if (!player.getInventory().add(reward)) player.drop(reward, false);
+        ProfessionBackpackManager.giveOrDrop(player, reward, true);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§a" + multiplier + "x Chop!"), true);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);

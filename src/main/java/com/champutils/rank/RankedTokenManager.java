@@ -67,6 +67,20 @@ public final class RankedTokenManager {
         });
     }
 
+    public static void grant(ServerPlayer player, int amount, String reason) {
+        if (player == null || amount <= 0) return;
+        UUID profile = PlayerProfileManager.activeProfileId(player);
+        CACHE.merge(profile, (long) amount, Long::sum);
+        if (DatabaseManager.isEnabled()) DatabaseManager.executeAsync("grant ranked tokens " + profile, connection -> {
+            try (var up = connection.prepareStatement("insert into ranked_token_balances(profile_uuid,tokens,updated_at) values(?,?,now()) on conflict(profile_uuid) do update set tokens = ranked_token_balances.tokens + excluded.tokens, updated_at = now()")) {
+                up.setObject(1, profile);
+                up.setLong(2, amount);
+                up.executeUpdate();
+            }
+        });
+        player.sendSystemMessage(Component.literal("§d+" + amount + " Ranked Token" + (amount == 1 ? "" : "s") + (reason == null || reason.isBlank() ? "" : " §7(" + reason + ")") + "§7."));
+    }
+
     public static boolean spend(ServerPlayer player, int amount) {
         if (player == null || amount <= 0) return false;
         UUID profile = PlayerProfileManager.activeProfileId(player);

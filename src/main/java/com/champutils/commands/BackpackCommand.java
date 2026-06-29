@@ -9,6 +9,9 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
 
 import java.util.Comparator;
 import java.util.Locale;
@@ -95,12 +98,27 @@ public final class BackpackCommand {
             player.sendSystemMessage(Component.literal("§cProfession must be MINING, FORESTRY, or FARMING."));
             return 0;
         }
-        if (ProfessionBackpackConfig.allowItem(item, profession, displayName)) {
-            player.sendSystemMessage(Component.literal("§aAllowed backpack item §f" + ProfessionBackpackConfig.normalizeItem(item) + "§a under §f" + profession.name() + "§a."));
+        String normalizedItem = ProfessionBackpackConfig.normalizeItem(item);
+        if (!isRegisteredItem(normalizedItem)) {
+            player.sendSystemMessage(Component.literal("§cUnknown item id: " + normalizedItem + ". Use a literal item code like minecraft:stick or cobblemon:dawn_stone."));
+            return 0;
+        }
+        if (ProfessionBackpackConfig.allowItem(normalizedItem, profession, displayName)) {
+            player.sendSystemMessage(Component.literal("§aAllowed backpack item §f" + normalizedItem + "§a under §f" + profession.name() + "§a."));
             return 1;
         }
         player.sendSystemMessage(Component.literal("§cCould not allow that item."));
         return 0;
+    }
+
+    private static boolean isRegisteredItem(String itemId) {
+        try {
+            if (itemId == null || itemId.isBlank()) return false;
+            net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+            return item != null && item != Items.AIR;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static int setEnabled(ServerPlayer player, String item, boolean enabled) {

@@ -1,0 +1,17 @@
+{
+  "uuid": "18a782da-8bb3-4ae5-b2eb-92fe12963083",
+  "name": "sw0rdtail",
+  "levels": {
+    "BATTLING": 2,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 40,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

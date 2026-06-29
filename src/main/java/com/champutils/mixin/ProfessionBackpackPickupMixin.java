@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.profession.ProfessionBackpackManager;
+import com.champutils.profile.IronmanItemOwnership;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -16,6 +17,10 @@ public abstract class ProfessionBackpackPickupMixin {
     private void champutils$captureProfessionBackpackPickup(Player player, CallbackInfo ci) {
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         ItemEntity entity = (ItemEntity) (Object) this;
+        if (!IronmanItemOwnership.canPickup(serverPlayer, entity)) {
+            ci.cancel();
+            return;
+        }
         ItemStack stack = entity.getItem();
         int captured = ProfessionBackpackManager.capturePickup(serverPlayer, stack);
         if (captured > 0) {

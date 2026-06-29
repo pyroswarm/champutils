@@ -1,0 +1,16 @@
+{
+  "uuid": "ba8fc063-29ae-4d89-9e28-407e1c7a7d62",
+  "name": "John_Melee",
+  "rp": 300,
+  "peakRp": 300,
+  "rankedWins": 0,
+  "rankedLosses": 0,
+  "casualWins": 0,
+  "casualLosses": 0,
+  "currentStreak": 0,
+  "bestStreak": 0,
+  "upsetWins": 0,
+  "highestRank": 0,
+  "seasonsPlayed": 0,
+  "playtimeSeconds": 0
+}

@@ -1,0 +1,918 @@
+{
+  "players": {
+    "4435154d-74f5-4ad4-8e80-04ab5fb54ca8": {
+      "uuid": "4435154d-74f5-4ad4-8e80-04ab5fb54ca8",
+      "name": "sedinen",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1779775200000,
+      "minutesThisReset": 14,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "53d08c7f-e53e-4476-afe0-a3aa5e45c266": {
+      "uuid": "53d08c7f-e53e-4476-afe0-a3aa5e45c266",
+      "name": "DrGREEN__",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 23,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "d9a64fee-0257-4403-89cd-1bea68a49946": {
+      "uuid": "d9a64fee-0257-4403-89cd-1bea68a49946",
+      "name": "Pyro_Swarm",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": 1779775200000,
+      "activeResetKey": 1779861600000,
+      "minutesThisReset": 1,
+      "trackProgress": 1,
+      "claimedDays": []
+    },
+    "38e991bf-8a53-4603-aef8-572131830d7f": {
+      "uuid": "38e991bf-8a53-4603-aef8-572131830d7f",
+      "name": "Pyro_Swarm",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1779861600000,
+      "minutesThisReset": 5,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "80b0e340-da41-46c6-98b6-5975019d9120": {
+      "uuid": "80b0e340-da41-46c6-98b6-5975019d9120",
+      "name": "DrGREEN__",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": 1779775200000,
+      "activeResetKey": 1779775200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "eb152a6a-2e2a-4951-aca3-5c1e8d2f8b9d": {
+      "uuid": "eb152a6a-2e2a-4951-aca3-5c1e8d2f8b9d",
+      "name": "ObxM",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        4
+      ]
+    },
+    "d62d486f-fe31-432d-8dd6-329369d9aeee": {
+      "uuid": "d62d486f-fe31-432d-8dd6-329369d9aeee",
+      "name": "ObxM",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1779861600000,
+      "minutesThisReset": 11,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "a38c8cb9-e6b0-4748-beab-830611a76fb8": {
+      "uuid": "a38c8cb9-e6b0-4748-beab-830611a76fb8",
+      "name": "ObxM",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1779861600000,
+      "minutesThisReset": 1,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "2d8a870f-f4c8-4315-92be-435e3e41b1a8": {
+      "uuid": "2d8a870f-f4c8-4315-92be-435e3e41b1a8",
+      "name": "ObxM",
+      "monthKey": "2026-05",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1779861600000,
+      "minutesThisReset": 4,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "d3012576-dc9f-41f4-baac-e926f3e053c2": {
+      "uuid": "d3012576-dc9f-41f4-baac-e926f3e053c2",
+      "name": "Pyro_Swarm",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 18,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "ba8fc063-29ae-4d89-9e28-407e1c7a7d62": {
+      "uuid": "ba8fc063-29ae-4d89-9e28-407e1c7a7d62",
+      "name": "John_Melee",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 30,
+      "trackProgress": 3,
+      "claimedDays": []
+    },
+    "278a47f5-6fde-40c9-809c-b6ebc604f235": {
+      "uuid": "278a47f5-6fde-40c9-809c-b6ebc604f235",
+      "name": "IAmTrains",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 7,
+      "trackProgress": 4,
+      "claimedDays": []
+    },
+    "ae23e36b-2d8b-460d-819c-35bae4038399": {
+      "uuid": "ae23e36b-2d8b-460d-819c-35bae4038399",
+      "name": "Psyronyx",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "96973fe4-6b64-4ce5-bc80-091555858df0": {
+      "uuid": "96973fe4-6b64-4ce5-bc80-091555858df0",
+      "name": "Bloodfreya",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "eaff01a2-270e-46a9-ac33-001a882de58f": {
+      "uuid": "eaff01a2-270e-46a9-ac33-001a882de58f",
+      "name": "Magister_1",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781848800000,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "629eb505-a5ca-4fc9-b867-f16924f31497": {
+      "uuid": "629eb505-a5ca-4fc9-b867-f16924f31497",
+      "name": "SomethingDerp",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781848800000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 26,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "5b9c714a-324b-484d-b0c6-a3e1a69e3dd9": {
+      "uuid": "5b9c714a-324b-484d-b0c6-a3e1a69e3dd9",
+      "name": "Hadiluc",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 2,
+      "claimedDays": [
+        1,
+        2
+      ]
+    },
+    "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5": {
+      "uuid": "aac260ac-b1b4-4d1f-9a45-d83db3cfe1f5",
+      "name": "Alathreon",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782194400000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 30,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "680aaa7d-af65-497a-96ec-7a32f412b1a8": {
+      "uuid": "680aaa7d-af65-497a-96ec-7a32f412b1a8",
+      "name": "Oill",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "583961e1-d22d-4362-97f9-9031883c264e": {
+      "uuid": "583961e1-d22d-4362-97f9-9031883c264e",
+      "name": "DelAcido",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 9,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "7daab874-5205-4cee-8b1a-87cbaa71b7a0": {
+      "uuid": "7daab874-5205-4cee-8b1a-87cbaa71b7a0",
+      "name": "Unkn0wnErrrrror",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "5367d2d7-219e-4e4d-b620-2d6c4d2ffec7": {
+      "uuid": "5367d2d7-219e-4e4d-b620-2d6c4d2ffec7",
+      "name": "ThetaArmourious",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782194400000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 30,
+      "trackProgress": 4,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "bb8a487c-8f97-49fb-878c-db14236e2994": {
+      "uuid": "bb8a487c-8f97-49fb-878c-db14236e2994",
+      "name": "zypology",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 2,
+      "claimedDays": [
+        1
+      ]
+    },
+    "63741fcf-39ef-41da-817b-5ca31610444e": {
+      "uuid": "63741fcf-39ef-41da-817b-5ca31610444e",
+      "name": "Araya7",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781848800000,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "cffbc728-8bdb-48b3-8331-44c96732bcb6": {
+      "uuid": "cffbc728-8bdb-48b3-8331-44c96732bcb6",
+      "name": "Fajitah",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 5,
+      "trackProgress": 4,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "f23ce6b3-b859-4bdc-99f6-12af789ebfe4": {
+      "uuid": "f23ce6b3-b859-4bdc-99f6-12af789ebfe4",
+      "name": "yNeath",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "1bc086d5-0ba8-4631-b0ad-91a910ed6e24": {
+      "uuid": "1bc086d5-0ba8-4631-b0ad-91a910ed6e24",
+      "name": "TankManBeats",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 9,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "c0a71409-ead2-4f3c-ac41-e6f3baa28bae": {
+      "uuid": "c0a71409-ead2-4f3c-ac41-e6f3baa28bae",
+      "name": "CobblemonX",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781848800000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 1,
+      "trackProgress": 1,
+      "claimedDays": []
+    },
+    "b2e54777-ea01-444f-8fc2-cdfcff99a210": {
+      "uuid": "b2e54777-ea01-444f-8fc2-cdfcff99a210",
+      "name": "MythicMythic",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 27,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "1d6d9ac7-f9eb-4fe1-ab80-2cfb6f6977ad": {
+      "uuid": "1d6d9ac7-f9eb-4fe1-ab80-2cfb6f6977ad",
+      "name": "ArtistNikki",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 23,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "8590df3c-3628-4af0-8b3b-83778b1c96f9": {
+      "uuid": "8590df3c-3628-4af0-8b3b-83778b1c96f9",
+      "name": "ItzSem",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 30,
+      "trackProgress": 6,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "45b68d16-4cd7-4e57-99cc-661e484671eb": {
+      "uuid": "45b68d16-4cd7-4e57-99cc-661e484671eb",
+      "name": "Mr_Spade55",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 9,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "76404bf8-15b7-4907-bc4e-c136271d75b2": {
+      "uuid": "76404bf8-15b7-4907-bc4e-c136271d75b2",
+      "name": "dingkaicheng",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781848800000,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "65b0188c-e562-472f-b866-4ef65c34bbcc": {
+      "uuid": "65b0188c-e562-472f-b866-4ef65c34bbcc",
+      "name": "Ebrons",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 13,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "d99070ec-4b2b-44ad-9457-937e702bd779": {
+      "uuid": "d99070ec-4b2b-44ad-9457-937e702bd779",
+      "name": "BastionCraft",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 7,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "0faf4f31-66a8-4598-9c0a-d20035fef4f5": {
+      "uuid": "0faf4f31-66a8-4598-9c0a-d20035fef4f5",
+      "name": "IndyGold1111",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 20,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "68cde10c-7a9c-414a-b0e0-b0c92b31408d": {
+      "uuid": "68cde10c-7a9c-414a-b0e0-b0c92b31408d",
+      "name": "MildFlames",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782021600000,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 26,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "350a7f10-8a14-41ab-8a1f-42e6a5d96deb": {
+      "uuid": "350a7f10-8a14-41ab-8a1f-42e6a5d96deb",
+      "name": "Mujaj",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781848800000,
+      "minutesThisReset": 13,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "89dd71e8-6aa5-4ece-a79b-30c29210d859": {
+      "uuid": "89dd71e8-6aa5-4ece-a79b-30c29210d859",
+      "name": "BubbyBoy1",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "741876ab-4d92-4eb8-ac16-4ec73e94fd58": {
+      "uuid": "741876ab-4d92-4eb8-ac16-4ec73e94fd58",
+      "name": "Endymoin",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782194400000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 30,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "5f377e00-174e-41f6-a5e2-b60e2437c850": {
+      "uuid": "5f377e00-174e-41f6-a5e2-b60e2437c850",
+      "name": "void_gem",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 27,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "d01cf1b7-4d84-406f-a5a8-c50990a07d6d": {
+      "uuid": "d01cf1b7-4d84-406f-a5a8-c50990a07d6d",
+      "name": "Tatubola8358",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "ce2abb82-6358-4373-aead-279631801f0e": {
+      "uuid": "ce2abb82-6358-4373-aead-279631801f0e",
+      "name": "ToadBC",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 6,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "90457046-9e31-4376-9176-a314480100f7": {
+      "uuid": "90457046-9e31-4376-9176-a314480100f7",
+      "name": "Herobline",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "a066d48d-f549-483d-b850-fa14711d5219": {
+      "uuid": "a066d48d-f549-483d-b850-fa14711d5219",
+      "name": "Halikon",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 30,
+      "trackProgress": 5,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "a27366e4-f8c2-4428-b45d-bfc864d4c462": {
+      "uuid": "a27366e4-f8c2-4428-b45d-bfc864d4c462",
+      "name": "sw0rdtail",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1782021600000,
+      "minutesThisReset": 1,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "ad927f93-e18d-40fd-8a9a-be7515341440": {
+      "uuid": "ad927f93-e18d-40fd-8a9a-be7515341440",
+      "name": "Travelle007",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "f14e9be6-996e-4dac-9a70-1b6395c25d00": {
+      "uuid": "f14e9be6-996e-4dac-9a70-1b6395c25d00",
+      "name": "TheVulkann",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 5,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "5eda5d4f-9607-442c-81e2-5b264a1e35e0": {
+      "uuid": "5eda5d4f-9607-442c-81e2-5b264a1e35e0",
+      "name": "Awsomeman47",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782194400000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 17,
+      "trackProgress": 4,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "ffb847b7-3855-4ffc-a538-41b1cdef1a78": {
+      "uuid": "ffb847b7-3855-4ffc-a538-41b1cdef1a78",
+      "name": "TheGreatOlm",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "732347a0-a8e8-4e49-bf4e-9b93cc794688": {
+      "uuid": "732347a0-a8e8-4e49-bf4e-9b93cc794688",
+      "name": "INDUCOLTECH2014",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 9,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "1042732b-64c8-4c40-a07f-d3955b396912": {
+      "uuid": "1042732b-64c8-4c40-a07f-d3955b396912",
+      "name": "SlofiXD",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 18,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "16327139-206e-448b-b50c-f3b881c2d13d": {
+      "uuid": "16327139-206e-448b-b50c-f3b881c2d13d",
+      "name": "BerryFree14",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 2,
+      "claimedDays": [
+        1
+      ]
+    },
+    "62c6bbae-a660-4d45-9687-061fa2bbccdc": {
+      "uuid": "62c6bbae-a660-4d45-9687-061fa2bbccdc",
+      "name": "Katannus24",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 1,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "f4bb1892-d638-4387-8d63-bca808a85edb": {
+      "uuid": "f4bb1892-d638-4387-8d63-bca808a85edb",
+      "name": "Jeeeeeeeeeeeeef",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 29,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "995c94d0-0547-4ef1-acc4-2fffddcce3c5": {
+      "uuid": "995c94d0-0547-4ef1-acc4-2fffddcce3c5",
+      "name": "Aplebred",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1781935200000,
+      "activeResetKey": 1781935200000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": []
+    },
+    "57553b26-d806-4ab5-a301-1dbfb4db4390": {
+      "uuid": "57553b26-d806-4ab5-a301-1dbfb4db4390",
+      "name": "dinomewmew",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 6,
+      "claimedDays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "0b5441e0-dc3d-4e0d-a93f-36d6c78548d4": {
+      "uuid": "0b5441e0-dc3d-4e0d-a93f-36d6c78548d4",
+      "name": "Alphonzus",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782021600000,
+      "minutesThisReset": 2,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "fb63c0d6-4aa8-4899-847f-2f66f486d935": {
+      "uuid": "fb63c0d6-4aa8-4899-847f-2f66f486d935",
+      "name": "Kayblondie87",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 30,
+      "trackProgress": 2,
+      "claimedDays": [
+        1
+      ]
+    },
+    "ea621751-966b-4e18-beea-2095821061a2": {
+      "uuid": "ea621751-966b-4e18-beea-2095821061a2",
+      "name": "joshkorea",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 5,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "c19d8cbf-cfe9-40ac-b808-5b54e9b8ae31": {
+      "uuid": "c19d8cbf-cfe9-40ac-b808-5b54e9b8ae31",
+      "name": "undeadgamer039",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782108000000,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "1db6673c-b4b4-4420-ba05-359d6383198f": {
+      "uuid": "1db6673c-b4b4-4420-ba05-359d6383198f",
+      "name": "elliottrip",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 11,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "e1a36aa8-2de8-4f51-903c-6faeed5b4337": {
+      "uuid": "e1a36aa8-2de8-4f51-903c-6faeed5b4337",
+      "name": "FruitCup525",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 19,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "98943bb5-feb1-4f08-b8f5-e53883208a02": {
+      "uuid": "98943bb5-feb1-4f08-b8f5-e53883208a02",
+      "name": "Jack_Kak",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782108000000,
+      "minutesThisReset": 20,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "268b527c-269d-4452-aad9-0dc03f1bde50": {
+      "uuid": "268b527c-269d-4452-aad9-0dc03f1bde50",
+      "name": "iglwillis",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 3,
+      "claimedDays": [
+        1,
+        2,
+        3
+      ]
+    },
+    "5d90e1c5-016a-4c65-9cec-986600aabba1": {
+      "uuid": "5d90e1c5-016a-4c65-9cec-986600aabba1",
+      "name": "SilverWolf582",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 6,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "62d98625-614f-4698-8209-5b795c1c84c0": {
+      "uuid": "62d98625-614f-4698-8209-5b795c1c84c0",
+      "name": "pokeking1234",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782367200000,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 30,
+      "trackProgress": 2,
+      "claimedDays": [
+        1,
+        2
+      ]
+    },
+    "ff1f8781-b776-46ed-b439-c6604dad6427": {
+      "uuid": "ff1f8781-b776-46ed-b439-c6604dad6427",
+      "name": "lofi_waffle",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 28,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "e22fe5b0-aa2f-42c4-8128-de47fa56fdfa": {
+      "uuid": "e22fe5b0-aa2f-42c4-8128-de47fa56fdfa",
+      "name": "LanLanoo",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782194400000,
+      "activeResetKey": 1782194400000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "214a0030-d0da-4d03-87d7-62ab409b2d64": {
+      "uuid": "214a0030-d0da-4d03-87d7-62ab409b2d64",
+      "name": "Danzen_KORO",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 11,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "2b9c7d11-a248-4987-842d-77f2ae0dd909": {
+      "uuid": "2b9c7d11-a248-4987-842d-77f2ae0dd909",
+      "name": "YaBoiUnder",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "a9858749-aa4a-4b04-86dd-4b15c63fc297": {
+      "uuid": "a9858749-aa4a-4b04-86dd-4b15c63fc297",
+      "name": "NotMagics",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": 1782280800000,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 30,
+      "trackProgress": 1,
+      "claimedDays": [
+        1
+      ]
+    },
+    "6e4b19d9-3584-4b7c-9415-f78d7682a7c9": {
+      "uuid": "6e4b19d9-3584-4b7c-9415-f78d7682a7c9",
+      "name": "Awakend_Nova",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 2,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "690d7c5d-4cc3-491f-9f45-48810791cf42": {
+      "uuid": "690d7c5d-4cc3-491f-9f45-48810791cf42",
+      "name": "RoastedKetchup",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782280800000,
+      "minutesThisReset": 18,
+      "trackProgress": 0,
+      "claimedDays": []
+    },
+    "a488f2e3-31af-49c3-9102-62b8fc322a9c": {
+      "uuid": "a488f2e3-31af-49c3-9102-62b8fc322a9c",
+      "name": "MrShanmao",
+      "monthKey": "2026-06",
+      "lastQualifiedResetKey": -1,
+      "activeResetKey": 1782367200000,
+      "minutesThisReset": 21,
+      "trackProgress": 0,
+      "claimedDays": []
+    }
+  }
+}

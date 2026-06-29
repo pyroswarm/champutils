@@ -1,0 +1,17 @@
+{
+  "uuid": "c078e752-2137-47cc-b574-ea44adf57fd5",
+  "name": "Pyro_Swarm",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 2,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 40,
+    "MINING": 0
+  },
+  "fragments": {}
+}

@@ -1,0 +1,17 @@
+{
+  "uuid": "732347a0-a8e8-4e49-bf4e-9b93cc794688",
+  "name": "INDUCOLTECH2014",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

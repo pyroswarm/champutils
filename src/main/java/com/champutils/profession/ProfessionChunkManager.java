@@ -39,11 +39,17 @@ public final class ProfessionChunkManager {
             int scaledLevels = Math.max(0, level - scalingStart);
             double chance = Math.min(roll.maxChancePercent, roll.baseChancePercent + (roll.chancePerLevelPercent * scaledLevels));
             chance *= multiplier;
-            chance *= (1.0D + ProfessionTrinketManager.chunkChanceBonus(player));
+            double preTrinketChance = Math.min(100.0D, chance);
+            double trinketBonus = ProfessionTrinketManager.chunkChanceBonus(player);
+            chance *= (1.0D + trinketBonus);
             chance = Math.min(100.0D, chance);
-            if (chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance) {
+            double rolled = RANDOM.nextDouble() * 100.0D;
+            if (chance > 0.0D && rolled < chance) {
                 addChunk(player, chunk, 1, true);
                 found++;
+                if (trinketBonus > 0.0D && rolled >= preTrinketChance) {
+                    if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] Chunky Brick boosted your odds and found a " + formatChunk(chunk) + "!").withStyle(ChatFormatting.GOLD));
+                }
             }
         }
 
@@ -124,13 +130,22 @@ public final class ProfessionChunkManager {
         if (config == null) return new TradeResult(false, "Unknown chunk tier.", 0, key, "");
         int chunksPer = Math.max(1, config.chunksPerFragment);
         int fragmentsPer = Math.max(1, config.fragmentsPerTrade);
-        int safeTrades = Math.max(1, trades);
-        int needed = chunksPer * safeTrades;
-        int available = count(player, key);
-        if (available < needed) return new TradeResult(false, "You need " + needed + " " + formatChunk(key) + "s. You have " + available + ".", 0, key, config.fragmentRarity);
+        int requestedTrades = Math.max(1, Math.min(64, trades));
+        int available = Math.max(0, count(player, key));
+        int maxTrades = available / chunksPer;
+        int safeTrades = Math.min(requestedTrades, maxTrades);
+        if (safeTrades <= 0) {
+            return new TradeResult(false, "You need " + chunksPer + " " + formatChunk(key) + "s. You have " + available + ".", 0, key, config.fragmentRarity);
+        }
+        long neededLong = (long) chunksPer * safeTrades;
+        long fragmentsLong = (long) fragmentsPer * safeTrades;
+        if (neededLong > Integer.MAX_VALUE || fragmentsLong > Integer.MAX_VALUE) {
+            return new TradeResult(false, "Trade amount is too large.", 0, key, config.fragmentRarity);
+        }
+        int needed = (int) neededLong;
+        int fragments = (int) fragmentsLong;
         int removed = remove(player, key, needed);
-        if (removed < needed) return new TradeResult(false, "Could not remove chunks.", 0, key, config.fragmentRarity);
-        int fragments = fragmentsPer * safeTrades;
+        if (removed < needed) return new TradeResult(false, "Could not remove chunks safely. No fragments were created.", 0, key, config.fragmentRarity);
         ProfessionManager.addFragments(player, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity), fragments);
         ProfessionManager.savePlayer(player);
         return new TradeResult(true, "", fragments, key, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity));

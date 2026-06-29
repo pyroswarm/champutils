@@ -171,7 +171,7 @@ public final class SeasonRewardManager {
     private static void money(List<RewardEntry> out, int credits) { out.add(new RewardEntry("MONEY", "credits", Math.max(1, credits) * 100)); }
     private static void crate(List<RewardEntry> out, String id, int amount) { out.add(new RewardEntry("CRATE", id, amount)); }
     private static void item(List<RewardEntry> out, String id, int amount) { out.add(new RewardEntry("ITEM", id, amount)); }
-    private static void tm(List<RewardEntry> out, String rarity, int amount) { out.add(new RewardEntry("TM", rarity, amount)); }
+    private static void tm(List<RewardEntry> out, String rarity, int amount) { /* TMs are shop-only now. */ }
 
     private static void grant(ServerPlayer player, RewardEntry reward, int season) {
         if (reward == null || reward.amount <= 0) return;

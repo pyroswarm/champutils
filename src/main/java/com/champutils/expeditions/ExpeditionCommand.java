@@ -37,12 +37,11 @@ public final class ExpeditionCommand {
                         .executes(ctx -> { ExpeditionManager.claim(ctx.getSource().getPlayerOrException()); return 1; }))));
     }
 
-    private static void menu(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("Expeditions: /expeditions start <slot>, /expeditions confirm, /expeditions claim.").withStyle(ChatFormatting.GOLD));
-        ExpeditionManager.status(player);
+    static void menu(ServerPlayer player) {
+        ExpeditionMenu.open(player);
     }
 
-    private static void preview(ServerPlayer player, int slot) {
+    static void preview(ServerPlayer player, int slot) {
         if (ExpeditionManager.hasActive(player)) {
             player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             ExpeditionManager.status(player);
@@ -58,11 +57,12 @@ public final class ExpeditionCommand {
 
         ExpeditionConfig.Tier tier = ExpeditionConfig.tier(pokemon.getLevel());
         long hours = Math.max(1, tier.hours);
-        PENDING.put(PlayerProfileManager.activeProfileId(player), new Pending(slot, System.currentTimeMillis() + hours * 3_600_000L));
-        player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " will leave for " + hours + " hour(s). Type /expeditions confirm to send it.").withStyle(ChatFormatting.YELLOW));
+        long endsAt = System.currentTimeMillis() + hours * 3_600_000L;
+        PENDING.put(PlayerProfileManager.activeProfileId(player), new Pending(slot, endsAt));
+        ExpeditionMenu.preview(player, slot, pokemon, endsAt);
     }
 
-    private static void confirm(ServerPlayer player) {
+    static void confirm(ServerPlayer player) {
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         Pending pending = PENDING.remove(profileId);
         if (pending == null) {

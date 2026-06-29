@@ -145,6 +145,7 @@ public final class ProfessionFragmentConfig {
 
             ensureDefaultsIfEmpty();
             TRADES = TOOL_CRAFTING;
+            saveLoaded();
 
             System.out.println(
                     "[ChampUtils] Loaded " +
@@ -192,6 +193,50 @@ public final class ProfessionFragmentConfig {
         if (TOOL_CRAFTING.isEmpty()) {
             TOOL_CRAFTING = defaults.toolCrafting;
         }
+
+        for (Map.Entry<String, FragmentData> entry : defaults.fragments.entrySet()) {
+            FRAGMENTS.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<String, SalvageData> entry : defaults.salvage.entrySet()) {
+            SALVAGE.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<String, UpgradeData> entry : defaults.upgrades.entrySet()) {
+            UPGRADES.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<String, ToolCraftingData> entry : defaults.toolCrafting.entrySet()) {
+            TOOL_CRAFTING.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        for (FragmentData fragment : FRAGMENTS.values()) {
+            if (fragment == null) continue;
+            fragment.baseItem = "minecraft:paper";
+            fragment.customModelData = 0;
+        }
+        // Force the current economy's 1/2-price upgrade and safe downgrade values even on old configs.
+        for (Map.Entry<String, UpgradeData> entry : defaults.upgrades.entrySet()) {
+            UpgradeData loaded = UPGRADES.get(entry.getKey());
+            UpgradeData def = entry.getValue();
+            if (loaded == null || def == null) continue;
+            loaded.fromFragment = def.fromFragment;
+            loaded.cost = def.cost;
+            loaded.toFragment = def.toFragment;
+            loaded.output = def.output;
+        }
+    }
+
+    private static void saveLoaded() {
+        try {
+            File dir = new File("config/champutils");
+            if (!dir.exists()) dir.mkdirs();
+            File file = new File(dir, "profession_fragments.json");
+            ConfigRoot root = new ConfigRoot();
+            root.fragments = FRAGMENTS;
+            root.salvage = SALVAGE;
+            root.upgrades = UPGRADES;
+            root.toolCrafting = TOOL_CRAFTING;
+            try (FileWriter writer = new FileWriter(file)) { GSON.toJson(root, writer); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static void createDefault(File file) {
@@ -206,12 +251,12 @@ public final class ProfessionFragmentConfig {
         ConfigRoot root =
                 new ConfigRoot();
 
-        addFragment(root, "COMMON", "common_tool_fragment", "Common Tool Fragment", "minecraft:paper", 9101, "WHITE");
-        addFragment(root, "UNCOMMON", "uncommon_tool_fragment", "Uncommon Tool Fragment", "minecraft:paper", 9102, "GREEN");
-        addFragment(root, "RARE", "rare_tool_fragment", "Rare Tool Fragment", "minecraft:paper", 9103, "BLUE");
-        addFragment(root, "EPIC", "epic_tool_fragment", "Epic Tool Fragment", "minecraft:paper", 9104, "LIGHT_PURPLE");
-        addFragment(root, "LEGENDARY", "legendary_tool_fragment", "Legendary Tool Fragment", "minecraft:paper", 9105, "GOLD");
-        addFragment(root, "MYTHIC", "mythic_tool_fragment", "Mythic Tool Fragment", "minecraft:paper", 9106, "DARK_PURPLE");
+        addFragment(root, "COMMON", "common_tool_fragment", "Common Tool Fragment", "minecraft:paper", 0, "WHITE");
+        addFragment(root, "UNCOMMON", "uncommon_tool_fragment", "Uncommon Tool Fragment", "minecraft:paper", 0, "GREEN");
+        addFragment(root, "RARE", "rare_tool_fragment", "Rare Tool Fragment", "minecraft:paper", 0, "BLUE");
+        addFragment(root, "EPIC", "epic_tool_fragment", "Epic Tool Fragment", "minecraft:paper", 0, "LIGHT_PURPLE");
+        addFragment(root, "LEGENDARY", "legendary_tool_fragment", "Legendary Tool Fragment", "minecraft:paper", 0, "GOLD");
+        addFragment(root, "MYTHIC", "mythic_tool_fragment", "Mythic Tool Fragment", "minecraft:paper", 0, "DARK_PURPLE");
 
         addSalvage(root, "COMMON", "COMMON", 3, 5);
         addSalvage(root, "UNCOMMON", "UNCOMMON", 3, 5);
@@ -220,16 +265,16 @@ public final class ProfessionFragmentConfig {
         addSalvage(root, "LEGENDARY", "LEGENDARY", 1, 3);
         addSalvage(root, "MYTHIC", "MYTHIC", 1, 2);
 
-        addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 32, "UNCOMMON", 1);
-        addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 32, "RARE", 1);
-        addUpgrade(root, "RARE_TO_EPIC", "RARE", 24, "EPIC", 1);
-        addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 16, "LEGENDARY", 1);
-        addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 24, "MYTHIC", 1);
-        addUpgrade(root, "UNCOMMON_TO_COMMON_DOWNGRADE", "UNCOMMON", 1, "COMMON", 16);
-        addUpgrade(root, "RARE_TO_UNCOMMON_DOWNGRADE", "RARE", 1, "UNCOMMON", 16);
-        addUpgrade(root, "EPIC_TO_RARE_DOWNGRADE", "EPIC", 1, "RARE", 12);
-        addUpgrade(root, "LEGENDARY_TO_EPIC_DOWNGRADE", "LEGENDARY", 1, "EPIC", 8);
-        addUpgrade(root, "MYTHIC_TO_LEGENDARY_DOWNGRADE", "MYTHIC", 1, "LEGENDARY", 12);
+        addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 16, "UNCOMMON", 1);
+        addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 16, "RARE", 1);
+        addUpgrade(root, "RARE_TO_EPIC", "RARE", 12, "EPIC", 1);
+        addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 8, "LEGENDARY", 1);
+        addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 12, "MYTHIC", 1);
+        addUpgrade(root, "UNCOMMON_TO_COMMON_DOWNGRADE", "UNCOMMON", 1, "COMMON", 8);
+        addUpgrade(root, "RARE_TO_UNCOMMON_DOWNGRADE", "RARE", 1, "UNCOMMON", 8);
+        addUpgrade(root, "EPIC_TO_RARE_DOWNGRADE", "EPIC", 1, "RARE", 6);
+        addUpgrade(root, "LEGENDARY_TO_EPIC_DOWNGRADE", "LEGENDARY", 1, "EPIC", 4);
+        addUpgrade(root, "MYTHIC_TO_LEGENDARY_DOWNGRADE", "MYTHIC", 1, "LEGENDARY", 6);
 
         addToolCrafting(root, "COMMON", "COMMON", 64);
         addToolCrafting(root, "UNCOMMON", "UNCOMMON", 64);

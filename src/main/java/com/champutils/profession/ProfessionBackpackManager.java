@@ -71,6 +71,22 @@ public final class ProfessionBackpackManager {
         return amount;
     }
 
+
+    public static boolean addToBackpackIfEnabled(ServerPlayer player, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        if (!shouldCapture(player, stack)) return false;
+        String itemId = itemId(stack);
+        int amount = stack.getCount();
+        add(player, itemId, amount);
+        stack.setCount(0);
+        return amount > 0;
+    }
+
+    public static void giveOrDrop(ServerPlayer player, ItemStack stack, boolean allowBackpack) {
+        if (player == null || stack == null || stack.isEmpty()) return;
+        if (allowBackpack && addToBackpackIfEnabled(player, stack)) return;
+        if (!player.getInventory().add(stack)) player.drop(stack, false);
+    }
     public static long count(ServerPlayer player, String itemId) {
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
         if (data.backpack == null) data.backpack = new HashMap<>();

@@ -1,6 +1,7 @@
 package com.champutils.rewardtrack;
 
 import com.champutils.menu.MenuUtil;
+import com.champutils.economy.EconomyManager;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
@@ -96,7 +97,8 @@ public final class RewardTrackMenu {
                     .setName(Component.literal((claimed ? "§a" : reached ? "§6" : "§e") + "Tier " + rewardLevel))
                     .addLoreLine(Component.literal(claimed ? "§aClaimed" : reached ? "§6Ready to claim" : "§7Locked"));
             if (reward != null) {
-                if (reward.credits > 0) button.addLoreLine(Component.literal("§7Credits: §e" + reward.credits));
+                if (reward.credits > 0) button.addLoreLine(Component.literal("§7Credits: §e" + EconomyManager.format(reward.credits)));
+                if (reward.rankedTokens > 0) button.addLoreLine(Component.literal("§7Ranked Tokens: §d" + reward.rankedTokens));
                 if (reward.items != null) {
                     for (RewardTrackConfig.ItemReward item : reward.items) {
                         if (item != null && item.id != null) button.addLoreLine(Component.literal("§7Item: §f" + item.count + "x " + item.id));

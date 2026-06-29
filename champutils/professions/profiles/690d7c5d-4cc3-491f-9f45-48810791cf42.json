@@ -1,0 +1,17 @@
+{
+  "uuid": "690d7c5d-4cc3-491f-9f45-48810791cf42",
+  "name": "RoastedKetchup",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

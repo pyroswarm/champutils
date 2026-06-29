@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "BBB",
+    "BBB",
+    "BBB"
+  ],
+  "key": {
+    "B": "minecraft:barrier"
+  },
+  "result": {
+    "id": "minecraft:stone_sword",
+    "count": 1
+  },
+  "show_notification": false
+}

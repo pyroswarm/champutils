@@ -17,6 +17,16 @@ public class LuckPermsHook {
     private static final String TRACK_NAME =
             "gymprogress";
 
+    public static boolean isAvailable() {
+        try {
+            LuckPermsProvider.get();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+
 
 
     public static void promoteForBadge(

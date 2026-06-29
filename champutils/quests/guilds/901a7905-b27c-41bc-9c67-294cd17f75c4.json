@@ -1,0 +1,51 @@
+{
+  "guildId": "901a7905-b27c-41bc-9c67-294cd17f75c4",
+  "guildName": "Islanders",
+  "weekly": {
+    "periodKey": "2026-W26",
+    "completed": false,
+    "objectives": [
+      {
+        "id": "guild_weekly_ranked_wins",
+        "description": "Guild members win 15 ranked battles",
+        "objectiveType": "WIN_BATTLE",
+        "profession": "BATTLING",
+        "target": "RANKED",
+        "required": 15,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {},
+        "completedPlayers": []
+      },
+      {
+        "id": "guild_weekly_harvest_crops",
+        "description": "Guild members harvest 1200 fully grown crops",
+        "objectiveType": "HARVEST_CROP",
+        "profession": "FARMING",
+        "target": "any",
+        "required": 1200,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {
+          "8da26bc6-1ca6-4f4f-b007-a4476beeb2ba": 53
+        },
+        "completedPlayers": []
+      },
+      {
+        "id": "guild_weekly_chop_logs",
+        "description": "Guild members chop 900 natural logs",
+        "objectiveType": "CHOP_BLOCK_TAG",
+        "profession": "FORESTRY",
+        "target": "logs",
+        "required": 900,
+        "progress": 0,
+        "requiredPlayers": 10,
+        "playerProgress": {
+          "8da26bc6-1ca6-4f4f-b007-a4476beeb2ba": 300
+        },
+        "completedPlayers": []
+      }
+    ]
+  },
+  "claimedWeekly": []
+}

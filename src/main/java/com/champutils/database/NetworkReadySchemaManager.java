@@ -199,7 +199,8 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_interact_entities boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists visitors_can_use_redstone boolean not null default false");
                 statement.executeUpdate("alter table territories add column if not exists lock_border boolean not null default true");
-                statement.executeUpdate("alter table territories add column if not exists steward_npc_spawned boolean not null default true");
+                statement.executeUpdate("alter table territories add column if not exists steward_npc_spawned boolean not null default false");
+                statement.executeUpdate("alter table territories alter column steward_npc_spawned set default false");
                 statement.executeUpdate("alter table territories add column if not exists steward_npc_x double precision");
                 statement.executeUpdate("alter table territories add column if not exists steward_npc_y double precision");
                 statement.executeUpdate("alter table territories add column if not exists steward_npc_z double precision");
@@ -304,15 +305,24 @@ public final class NetworkReadySchemaManager {
                 statement.executeUpdate("alter table territory_trust add column if not exists created_at timestamptz not null default now()");
                 statement.executeUpdate(
                         "do $$ " +
+                                "declare old_pk text; " +
                                 "begin " +
+                                "select c.conname into old_pk from pg_constraint c join pg_class t on t.oid = c.conrelid join pg_namespace n on n.oid = t.relnamespace where n.nspname = current_schema() and t.relname = 'territory_trust' and c.contype = 'p' and pg_get_constraintdef(c.oid) ilike '%trusted_profile_id%' limit 1; " +
+                                "if old_pk is not null then execute format('alter table territory_trust drop constraint if exists %I', old_pk); end if; " +
                                 "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'trusted_player_uuid') then " +
                                 "execute 'update territory_trust set player_uuid = trusted_player_uuid where player_uuid is null'; " +
+                                "execute 'alter table territory_trust alter column trusted_player_uuid drop not null'; " +
+                                "end if; " +
+                                "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'trusted_profile_id') then " +
+                                "execute 'alter table territory_trust alter column trusted_profile_id drop not null'; " +
                                 "end if; " +
                                 "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'player_id') then " +
                                 "execute 'update territory_trust set player_uuid = player_id where player_uuid is null'; " +
+                                "execute 'alter table territory_trust alter column player_id drop not null'; " +
                                 "end if; " +
                                 "if exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'territory_trust' and column_name = 'trusted_uuid') then " +
                                 "execute 'update territory_trust set player_uuid = trusted_uuid where player_uuid is null'; " +
+                                "execute 'alter table territory_trust alter column trusted_uuid drop not null'; " +
                                 "end if; " +
                                 "end $$"
                 );

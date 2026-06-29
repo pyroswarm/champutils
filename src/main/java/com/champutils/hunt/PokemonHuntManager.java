@@ -3,6 +3,7 @@ package com.champutils.hunt;
 import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.shop.NpcShopService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -326,6 +327,7 @@ public final class PokemonHuntManager {
         }
 
         awardCrateCredit(player, hunt.difficulty);
+        awardHuntChunks(player, hunt.difficulty);
         awardFragments(player, hunt.difficulty);
 
         if (rewards.items != null) {
@@ -333,6 +335,18 @@ public final class PokemonHuntManager {
                 if (reward == null) continue;
                 giveRewardItem(player, reward);
             }
+        }
+    }
+
+    private static void awardHuntChunks(ServerPlayer player, String difficulty) {
+        String tier = difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(Locale.ROOT);
+        switch (tier) {
+            case "UNCOMMON" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
+            case "RARE" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 4, false); ProfessionChunkManager.addChunk(player, "IRON", 1, false); }
+            case "EPIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 16, false); ProfessionChunkManager.addChunk(player, "COPPER", 6, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
+            case "LEGENDARY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 8, false); ProfessionChunkManager.addChunk(player, "IRON", 4, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
+            case "MYTHIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 12, false); ProfessionChunkManager.addChunk(player, "IRON", 6, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); }
+            default -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 6, false); ProfessionChunkManager.addChunk(player, "COPPER", 1, false); }
         }
     }
 

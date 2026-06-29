@@ -5,16 +5,46 @@ import com.champutils.profile.PlayerProfileManager;
 import com.champutils.network.NetworkServerConfig;
 
 import java.sql.PreparedStatement;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerDatabaseRepository {
 
     private static boolean schemaEnsured = false;
+    private static final File PROFILE_DIR = new File("config/champutils/players/profiles");
+    private static final File ORPHANED_PROFILE_DIR = new File("config/champutils/players/orphaned-profiles");
+    private static final Set<UUID> QUARANTINED_MISSING_PROFILES = ConcurrentHashMap.newKeySet();
 
     private PlayerDatabaseRepository() {}
 
     private static String getCurrentSeasonId() {
         return "season_" + Math.max(0, com.champutils.rank.SeasonManager.CURRENT_SEASON);
+    }
+
+
+    private static void quarantineMissingProfile(UUID profileId) {
+        if (profileId == null || !QUARANTINED_MISSING_PROFILES.add(profileId)) {
+            return;
+        }
+
+        try {
+            File source = new File(PROFILE_DIR, profileId + ".json");
+            if (!source.exists()) {
+                return;
+            }
+
+            ORPHANED_PROFILE_DIR.mkdirs();
+            File target = new File(ORPHANED_PROFILE_DIR, profileId + ".json");
+            Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("[ChampUtils] Quarantined local profile data for missing/deleted SQL profile: " + profileId);
+        }
+        catch (Exception e) {
+            System.err.println("[ChampUtils] Could not quarantine missing/deleted profile " + profileId + ": " + e.getMessage());
+        }
     }
 
     private static void ensureSchema(java.sql.Connection connection) throws Exception {
@@ -44,11 +74,7 @@ public final class PlayerDatabaseRepository {
             UUID profileId = UUID.fromString(data.uuid);
             UUID playerUuid = resolvePlayerUuid(connection, profileId);
             if (playerUuid == null) {
-                // The local profile cache/files can briefly contain a profile id that was deleted
-                // from Supabase/player_profiles during a beta wipe, profile deletion, or failed sync.
-                // Do NOT write child rows for missing profiles: that violates FK constraints and can
-                // spam the async DB executor forever with orphan profile_player_stats/profile_ranked_stats writes.
-                System.out.println("[ChampUtils] Skipping database sync for missing/deleted profile: " + profileId);
+                quarantineMissingProfile(profileId);
                 return;
             }
             String username = safeName(data);

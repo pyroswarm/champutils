@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -19,11 +20,11 @@ public final class PrivateMessageCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("pm")
-                    .then(Commands.argument("player", StringArgumentType.word())
+                    .then(Commands.argument("player", EntityArgument.player())
                             .then(Commands.argument("message", StringArgumentType.greedyString())
                                     .executes(ctx -> send(
                                             ctx.getSource().getPlayerOrException(),
-                                            StringArgumentType.getString(ctx, "player"),
+                                            EntityArgument.getPlayer(ctx, "player"),
                                             StringArgumentType.getString(ctx, "message")
                                     )))));
 
@@ -33,16 +34,22 @@ public final class PrivateMessageCommand {
                                     ctx.getSource().getPlayerOrException(),
                                     StringArgumentType.getString(ctx, "message")
                             ))));
+
+            dispatcher.register(Commands.literal("r")
+                    .then(Commands.argument("message", StringArgumentType.greedyString())
+                            .executes(ctx -> reply(
+                                    ctx.getSource().getPlayerOrException(),
+                                    StringArgumentType.getString(ctx, "message")
+                            ))));
         });
     }
 
-    private static int send(ServerPlayer sender, String targetName, String message) {
+    private static int send(ServerPlayer sender, ServerPlayer target, String message) {
         if (sender == null || sender.server == null) return 0;
         if (message == null || message.isBlank()) {
             sender.sendSystemMessage(Component.literal("Usage: /pm <player> <message>").withStyle(ChatFormatting.RED));
             return 0;
         }
-        ServerPlayer target = sender.server.getPlayerList().getPlayerByName(targetName);
         if (target == null) {
             sender.sendSystemMessage(Component.literal("That player is not online.").withStyle(ChatFormatting.RED));
             return 0;

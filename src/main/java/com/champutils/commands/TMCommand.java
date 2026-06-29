@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.menu.TMCrafterMenu;
 import com.champutils.tm.TMManager;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -16,7 +17,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.stream.Collectors;
 
 public final class TMCommand {
@@ -26,8 +26,8 @@ public final class TMCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("tms")
                         .executes(ctx -> usage(ctx.getSource()))
-                        .then(Commands.literal("help")
-                                .executes(ctx -> usage(ctx.getSource())))
+                        .then(Commands.literal("help").executes(ctx -> usage(ctx.getSource())))
+                        .then(Commands.literal("shop").executes(ctx -> openShop(ctx.getSource())))
                         .then(Commands.literal("teach")
                                 .then(Commands.argument("partySlot", IntegerArgumentType.integer(1, 6))
                                         .executes(ctx -> teach(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "partySlot"), 0))
@@ -47,24 +47,30 @@ public final class TMCommand {
                         .then(Commands.literal("list")
                                 .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .executes(ctx -> list(ctx.getSource())))
-                        .then(Commands.literal("rarity")
+                        .then(Commands.literal("buy")
                                 .then(Commands.argument("move", StringArgumentType.word())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(TMManager.registeredMoveIds(), builder))
-                                        .executes(ctx -> rarity(ctx.getSource(), StringArgumentType.getString(ctx, "move")))))
-                        .then(Commands.literal("craft")
-                                .then(Commands.argument("rarity", StringArgumentType.word())
-                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(com.champutils.tm.TMConfig.RARITIES, builder))
-                                        .executes(ctx -> craft(ctx.getSource(), StringArgumentType.getString(ctx, "rarity")))))
+                                        .executes(ctx -> buyMove(ctx.getSource(), StringArgumentType.getString(ctx, "move")))))
                         .then(Commands.literal("craftmove")
                                 .then(Commands.argument("move", StringArgumentType.word())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(TMManager.registeredMoveIds(), builder))
-                                        .executes(ctx -> craftMove(ctx.getSource(), StringArgumentType.getString(ctx, "move")))))
+                                        .executes(ctx -> buyMove(ctx.getSource(), StringArgumentType.getString(ctx, "move")))))
         ));
     }
 
     private static int usage(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("TM commands: /tms teach <partySlot> [replaceMoveSlot], then click Confirm in chat. Admin: /tms give <player> <move> [amount], /tms list, /tms rarity <move>. Craft: /tms craft <rarity> for a random TM, /tms craftmove <move> for an exact TM at the same cost"), false);
+        source.sendSuccess(() -> Component.literal("TM commands: /tms shop, /tms buy <move>, /tms teach <partySlot> [replaceMoveSlot], then click Confirm in chat. Admin: /tms give <player> <move> [amount], /tms list"), false);
         return 1;
+    }
+
+    private static int openShop(CommandSourceStack source) {
+        try {
+            TMCrafterMenu.open(source.getPlayerOrException());
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Only players can open the TM Shop."));
+            return 0;
+        }
     }
 
     private static int teach(CommandSourceStack source, int partySlot, int replaceSlot) {
@@ -121,46 +127,23 @@ public final class TMCommand {
         return 1;
     }
 
-    private static int rarity(CommandSourceStack source, String move) {
-        String moveId = TMManager.sanitizeMove(move);
-        if (!TMManager.isRegisteredMove(moveId)) {
-            source.sendFailure(Component.literal("Unknown/unregistered TM move: " + move));
-            return 0;
-        }
-        String rarity = TMManager.rarityForMove(moveId);
-        source.sendSuccess(() -> Component.literal("TM - " + TMManager.prettyMove(moveId) + " is " + TMManager.prettyRarity(rarity) + "."), false);
-        return 1;
-    }
-
-    private static int craft(CommandSourceStack source, String rarity) {
+    private static int buyMove(CommandSourceStack source, String move) {
         try {
             ServerPlayer player = source.getPlayerOrException();
-            TMManager.CraftResult result = TMManager.craftRandom(player, rarity);
-            player.sendSystemMessage(Component.literal(result.message()));
+            TMManager.CraftResult result = TMManager.purchaseSpecific(player, move);
+            player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
             return result.success() ? 1 : 0;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can craft TMs."));
-            return 0;
-        }
-    }
-
-    private static int craftMove(CommandSourceStack source, String move) {
-        try {
-            ServerPlayer player = source.getPlayerOrException();
-            TMManager.CraftResult result = TMManager.craftSpecific(player, move);
-            player.sendSystemMessage(Component.literal(result.message()));
-            return result.success() ? 1 : 0;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Only players can craft TMs."));
+            source.sendFailure(Component.literal("Only players can buy TMs."));
             return 0;
         }
     }
 
     private static int list(CommandSourceStack source) {
         String moves = TMManager.registeredMoveIds().stream()
-                .sorted(Comparator.naturalOrder())
+                .sorted(Comparator.comparing(TMManager::prettyMove, String.CASE_INSENSITIVE_ORDER))
                 .limit(80)
-                .map(id -> TMManager.prettyMove(id) + " [" + TMManager.prettyRarity(TMManager.rarityForMove(id)) + "]")
+                .map(id -> TMManager.prettyMove(id) + " [" + TMManager.prettyType(TMManager.typeForMove(id)) + "]")
                 .collect(Collectors.joining(", "));
         source.sendSuccess(() -> Component.literal("Registered TMs (" + TMManager.registeredMoveIds().size() + "). First 80: " + moves), false);
         return 1;

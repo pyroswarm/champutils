@@ -76,8 +76,10 @@ public class ProfessionRewardPassiveConfig {
 
             TABLES = readTables(file);
             filterSeedSaverTable();
+            filterHardStoneFromMiningFinderTables();
             mergeMissingDefaultRewardEntries();
             filterSeedSaverTable();
+            filterHardStoneFromMiningFinderTables();
         } catch (Exception e) {
             e.printStackTrace();
             TABLES = new LinkedHashMap<>();
@@ -189,9 +191,7 @@ public class ProfessionRewardPassiveConfig {
         int count = displayStack.getCount();
 
         ItemStack toGive = reward.copy();
-        if (!player.getInventory().add(toGive)) {
-            player.drop(toGive, false);
-        }
+        ProfessionBackpackManager.giveOrDrop(player, toGive, true);
 
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(
@@ -520,6 +520,17 @@ public class ProfessionRewardPassiveConfig {
         return null;
     }
 
+    private static void filterHardStoneFromMiningFinderTables() {
+        removeItemFromTable("gemFinder", "cobblemon:hard_stone");
+        removeItemFromTable("treasurePing", "cobblemon:hard_stone");
+    }
+
+    private static void removeItemFromTable(String table, String itemId) {
+        List<RewardEntry> entries = TABLES.get(table);
+        if (entries == null || entries.isEmpty()) return;
+        entries.removeIf(entry -> entry != null && itemId.equalsIgnoreCase(entry.item));
+    }
+
     private static void createDefault(File file) throws Exception {
         Root root = new Root();
 
@@ -531,7 +542,6 @@ public class ProfessionRewardPassiveConfig {
                 entry("minecraft:redstone", 4, 12, 10),
                 entry("minecraft:diamond", 1, 2, 4),
                 entry("minecraft:emerald", 1, 2, 2),
-                entry("cobblemon:hard_stone", 1, 1, 2),
                 entry("cobblemon:soft_sand", 1, 1, 2),
                 entry("cobblemon:ancient_relic_copper", 1, 1, 1)
         ));
@@ -553,7 +563,6 @@ public class ProfessionRewardPassiveConfig {
         root.tables.put("gemFinder", list(
                 entry("minecraft:diamond", 1, 1, 50),
                 entry("minecraft:emerald", 1, 1, 25),
-                entry("cobblemon:hard_stone", 1, 1, 8),
                 entry("cobblemon:light_clay", 1, 1, 4),
                 entry("cobblemon:metal_coat", 1, 1, 3),
                 fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)

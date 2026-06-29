@@ -13,6 +13,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class FragmentCraftingMenu {
@@ -34,8 +36,9 @@ public final class FragmentCraftingMenu {
         addTab(gui, player, 11, "Axe", Items.DIAMOND_AXE, () -> openCraft(player, backTarget, "axe", "Axe", Items.DIAMOND_AXE));
         addTab(gui, player, 12, "Hoe", Items.DIAMOND_HOE, () -> openCraft(player, backTarget, "hoe", "Hoe", Items.DIAMOND_HOE));
         addTab(gui, player, 13, "Shovel", Items.DIAMOND_SHOVEL, () -> openCraft(player, backTarget, "shovel", "Shovel", Items.DIAMOND_SHOVEL));
-        addTab(gui, player, 14, "Armor", Items.DIAMOND_CHESTPLATE, () -> openArmorTabs(player, backTarget));
-        addTab(gui, player, 15, "Trinkets", Items.AMETHYST_SHARD, () -> openTrinketTabs(player, backTarget));
+        addTab(gui, player, 14, "Sword", Items.DIAMOND_SWORD, () -> openCraft(player, backTarget, "sword", "Sword", Items.DIAMOND_SWORD));
+        addTab(gui, player, 15, "Armor", Items.DIAMOND_CHESTPLATE, () -> openArmorTabs(player, backTarget));
+        addTab(gui, player, 16, "Trinkets", Items.AMETHYST_SHARD, () -> openTrinketTabs(player, backTarget));
         addTab(gui, player, 20, "Upgrade Fragment", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget, false));
         addTab(gui, player, 21, "Downgrade Fragment", Items.PAPER, () -> openUpgrade(player, backTarget, true));
         addTab(gui, player, 22, "Withdraw Fragment", Items.CHEST, () -> openWithdraw(player, backTarget));
@@ -75,13 +78,13 @@ public final class FragmentCraftingMenu {
         SimpleGui gui = base(player, "Profession Trinkets");
         gui.setSlot(4, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
                 .setName(Component.literal("§dProfession Trinkets"))
-                .addLoreLine(Component.literal("§7Right click a trinket while holding it to toggle.")));
+                .addLoreLine(Component.literal("§7Shift right-click a trinket while holding it to toggle.")));
         addTab(gui, player, 10, "Magnet", Items.IRON_INGOT, () -> openCraft(player, backTarget, "magnet", "Magnet", Items.IRON_INGOT));
         addTab(gui, player, 11, "Shiny Charm", Items.AMETHYST_SHARD, () -> openCraft(player, backTarget, "shiny_charm", "Shiny Charm", Items.AMETHYST_SHARD));
         addTab(gui, player, 12, "Profession XP Gem", Items.EMERALD, () -> openCraft(player, backTarget, "profession_xp_gem", "Profession XP Gem", Items.EMERALD));
-        addTab(gui, player, 13, "Pokémon XP Egg", Items.EGG, () -> openCraft(player, backTarget, "pokemon_xp_egg", "Pokémon XP Egg", Items.EGG));
+        addTab(gui, player, 13, "Pokémon XP Egg", Items.PRISMARINE_CRYSTALS, () -> openCraft(player, backTarget, "pokemon_xp_egg", "Pokémon XP Egg", Items.PRISMARINE_CRYSTALS));
         addTab(gui, player, 14, "Friendship Charm", Items.HEART_OF_THE_SEA, () -> openCraft(player, backTarget, "friendship_charm", "Friendship Charm", Items.HEART_OF_THE_SEA));
-        addTab(gui, player, 15, "Level Charm", Items.EXPERIENCE_BOTTLE, () -> openCraft(player, backTarget, "level_charm", "Level Charm", Items.EXPERIENCE_BOTTLE));
+        addTab(gui, player, 15, "Level Charm", Items.NETHER_STAR, () -> openCraft(player, backTarget, "level_charm", "Level Charm", Items.NETHER_STAR));
         addTab(gui, player, 16, "Rare Pokémon Charm", Items.PRISMARINE_CRYSTALS, () -> openCraft(player, backTarget, "rare_pokemon_charm", "Rare Pokémon Charm", Items.PRISMARINE_CRYSTALS));
         addTab(gui, player, 21, "Chunky Brick", Items.BRICK, () -> openCraft(player, backTarget, "chunky_brick", "Chunky Brick", Items.BRICK));
         addTab(gui, player, 22, "Trinket Pouch", Items.ENDER_CHEST, () -> openCraft(player, backTarget, "trinket_pouch", "Trinket Pouch", Items.ENDER_CHEST));
@@ -106,6 +109,7 @@ public final class FragmentCraftingMenu {
             case "axe" -> new Item[]{Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.NETHERITE_AXE};
             case "hoe" -> new Item[]{Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.NETHERITE_HOE};
             case "shovel" -> new Item[]{Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.NETHERITE_SHOVEL};
+            case "sword" -> new Item[]{Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD, Items.NETHERITE_SWORD};
             case "helmet" -> new Item[]{Items.LEATHER_HELMET, Items.IRON_HELMET, Items.DIAMOND_HELMET, Items.DIAMOND_HELMET, Items.NETHERITE_HELMET, Items.NETHERITE_HELMET};
             case "chestplate" -> new Item[]{Items.LEATHER_CHESTPLATE, Items.IRON_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_CHESTPLATE};
             case "leggings" -> new Item[]{Items.LEATHER_LEGGINGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS, Items.NETHERITE_LEGGINGS};
@@ -113,9 +117,9 @@ public final class FragmentCraftingMenu {
             case "magnet" -> new Item[]{Items.IRON_INGOT, Items.IRON_INGOT, Items.GOLD_INGOT, Items.GOLD_INGOT, Items.NETHERITE_INGOT, Items.NETHERITE_INGOT};
             case "shiny_charm" -> new Item[]{Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.ECHO_SHARD, Items.ECHO_SHARD, Items.NETHER_STAR, Items.NETHER_STAR};
             case "profession_xp_gem" -> new Item[]{Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD_BLOCK, Items.EMERALD_BLOCK};
-            case "pokemon_xp_egg" -> new Item[]{Items.EGG, Items.EGG, Items.TURTLE_EGG, Items.TURTLE_EGG, Items.DRAGON_EGG, Items.DRAGON_EGG};
+            case "pokemon_xp_egg" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD};
             case "friendship_charm" -> new Item[]{Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.NETHER_STAR, Items.NETHER_STAR};
-            case "level_charm" -> new Item[]{Items.EXPERIENCE_BOTTLE, Items.EXPERIENCE_BOTTLE, Items.EXPERIENCE_BOTTLE, Items.EXPERIENCE_BOTTLE, Items.DRAGON_BREATH, Items.DRAGON_BREATH};
+            case "level_charm" -> new Item[]{Items.NETHER_STAR, Items.NETHER_STAR, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.DRAGON_BREATH, Items.DRAGON_BREATH};
             case "rare_pokemon_charm" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.NETHER_STAR, Items.NETHER_STAR};
             case "chunky_brick" -> new Item[]{Items.BRICK, Items.BRICK, Items.NETHER_BRICK, Items.NETHER_BRICK, Items.NETHERITE_SCRAP, Items.NETHERITE_SCRAP};
             case "trinket_pouch" -> new Item[]{Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST};
@@ -134,15 +138,69 @@ public final class FragmentCraftingMenu {
         String fragmentKey = trinketCraft ? normalizedRarity : ProfessionFragmentConfig.normalizeRarity(trade.fragment);
         int cost = trinketCraft ? Math.max(1, com.champutils.profession.ProfessionTrinketConfig.tier(normalizedRarity).sameTierFragmentCost) : Math.max(1, trade.cost);
         int available = ProfessionFragmentManager.countFragments(player, fragmentKey);
-        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+        GuiElementBuilder builder = new GuiElementBuilder(icon).hideDefaultTooltip()
                 .setName(Component.literal("Craft " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(toolType)).withStyle(getRarityColor(normalizedRarity)))
                 .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Fragment"))
-                .addLoreLine(Component.literal("§7You have: §e" + available))
-                .addLoreLine(Component.literal(available >= cost ? "§eClick to craft" : "§cNot enough fragments"))
+                .addLoreLine(Component.literal("§7You have: §e" + available));
+        if (trinketCraft) {
+            for (Component line : trinketDescription(toolType, normalizedRarity)) builder.addLoreLine(line);
+        }
+        builder.addLoreLine(Component.literal(available >= cost ? "§eClick to craft" : "§cNot enough fragments"))
                 .setCallback((i,c,t) -> {
                     player.closeContainer();
                     player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType);
-                }));
+                });
+        gui.setSlot(slot, builder);
+    }
+
+    private static List<Component> trinketDescription(String toolType, String rarity) {
+        List<Component> lines = new ArrayList<>();
+        com.champutils.profession.ProfessionTrinketConfig.Tier tier = com.champutils.profession.ProfessionTrinketConfig.tier(rarity);
+        switch (toolType) {
+            case "magnet" -> {
+                lines.add(Component.literal("§7Effect: pulls eligible drops toward you."));
+                lines.add(Component.literal("§7Effectiveness: §a+" + fmt(tier.magnetRadiusBonus) + " block radius"));
+            }
+            case "shiny_charm" -> {
+                lines.add(Component.literal("§7Effect: improves catch/spawn shiny odds."));
+                lines.add(Component.literal("§7Effectiveness: §d+" + fmt(tier.shinyChancePercent) + "% shiny chance"));
+            }
+            case "profession_xp_gem" -> {
+                lines.add(Component.literal("§7Effect: can double profession XP."));
+                lines.add(Component.literal("§7Effectiveness: §a" + fmt(tier.professionXpDoubleChancePercent) + "% double XP chance"));
+            }
+            case "pokemon_xp_egg" -> {
+                lines.add(Component.literal("§7Effect: boosts Pokémon battle XP."));
+                lines.add(Component.literal("§7Effectiveness: §b+" + fmt(tier.pokemonXpBonusPercent) + "% XP"));
+            }
+            case "friendship_charm" -> {
+                lines.add(Component.literal("§7Effect: boosts friendship gains."));
+                lines.add(Component.literal("§7Effectiveness: §d+" + fmt(tier.friendshipBonusPercent) + "% friendship"));
+            }
+            case "level_charm" -> {
+                lines.add(Component.literal("§7Effect: raises nearby wild spawn minimums."));
+                lines.add(Component.literal("§7Effectiveness: §e" + fmt(tier.levelCharmGymCapPercent) + "% of gym cap"));
+            }
+            case "rare_pokemon_charm" -> {
+                lines.add(Component.literal("§7Effect: boosts rare non-special wild spawns."));
+                lines.add(Component.literal("§7Effectiveness: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "% rare weight"));
+            }
+            case "chunky_brick" -> {
+                lines.add(Component.literal("§7Effect: boosts profession chunk odds."));
+                lines.add(Component.literal("§7Effectiveness: §6+" + fmt(tier.chunkChanceBonusPercent) + "% chunk odds"));
+            }
+            case "trinket_pouch" -> {
+                lines.add(Component.literal("§7Effect: unlocks/upgrades digital /tpouch storage."));
+                lines.add(Component.literal("§7Effectiveness: §a" + tier.pouchSlots + " digital slots"));
+                lines.add(Component.literal("§8Crafting an equal/lower pouch is blocked."));
+            }
+            default -> lines.add(Component.literal("§7Effect: profession trinket."));
+        }
+        return lines;
+    }
+
+    private static String fmt(double value) {
+        return String.format(java.util.Locale.US, value >= 10 ? "%.0f" : "%.2f", value).replaceAll("\\.00$", "");
     }
 
     private static void openUpgrade(ServerPlayer player, Consumer<ServerPlayer> backTarget, boolean downgrade) {

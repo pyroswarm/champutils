@@ -71,6 +71,7 @@ public final class GuildBossManager {
 
     public static void spawnBoss(ServerPlayer player) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+        if (guild == null) guild = GuildRepository.loadForPlayerBlocking(player.getUUID(), player.getGameProfile().getName());
         if (guild == null) { msg(player, "You are not in a guild.", ChatFormatting.RED); return; }
         if (!GuildRepository.canManageGuildTerritory(guild.role)) { msg(player, "Only guild leaders and officers can spawn the daily guild boss.", ChatFormatting.RED); return; }
         TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
@@ -94,9 +95,12 @@ public final class GuildBossManager {
             msg(player, "Your guild territory world is not loaded yet. Try again in a moment.", ChatFormatting.RED);
             return;
         }
-        double x = territory.centerX + 0.5D, y = Math.max(territory.spawnY, level.getMinBuildHeight() + 2), z = territory.centerZ + 0.5D;
+        double x = territory.spawnX;
+        double y = Math.max(territory.spawnY, level.getMinBuildHeight() + 2);
+        double z = territory.spawnZ;
+        float yaw = territory.spawnYaw;
         String displayName = guildBossDisplayName(theme);
-        NPCEntity npc = spawnBossTrainer(level, team, BossConfig.DATA.guildBoss, x, y, z, 180.0F, displayName, "swordtap");
+        NPCEntity npc = spawnBossTrainer(level, team, BossConfig.DATA.guildBoss, x, y, z, yaw, displayName, "swordtap");
         if (npc != null) {
             tagBossNpc(npc, GUILD_BOSS_ENTITY_TAG);
         }
@@ -151,6 +155,7 @@ public final class GuildBossManager {
         }
         if (boss == null) return false;
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+        if (guild == null) guild = GuildRepository.loadForPlayerBlocking(player.getUUID(), player.getGameProfile().getName());
         if (guild == null || !boss.guildId.equals(guild.id)) {
             msg(player, "Only members of this guild can fight this boss.", ChatFormatting.RED);
             return false;
@@ -303,6 +308,7 @@ public final class GuildBossManager {
 
     private static void recordGuildVictory(ServerPlayer winner) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(winner.getUUID());
+        if (guild == null) guild = GuildRepository.loadForPlayerBlocking(winner.getUUID(), winner.getGameProfile().getName());
         if (guild == null) return;
         ActiveGuildBoss boss = ACTIVE_GUILD.get(guild.id);
         if (boss == null || !isNear(winner, boss.dimension, boss.x, boss.y, boss.z, BossConfig.DATA.guildBoss.countRadiusBlocks)) return;

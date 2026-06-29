@@ -251,10 +251,14 @@ public class ProfessionToolConfig {
             }
 
             ensureDefaultShovelTools();
+            ensureDefaultSwordTools();
             applyCobbleChampsProfessionToolRework();
+            buffMeaningfulActivesExceptReplant();
 
             ENCHANTING =
                     new LinkedHashMap<>();
+
+            saveLoadedConfig(file);
 
             System.out.println(
                     "[ChampUtils] Loaded " +
@@ -262,6 +266,19 @@ public class ProfessionToolConfig {
                             " profession tools."
             );
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void saveLoadedConfig(File file) {
+        try (FileWriter writer = new FileWriter(file)) {
+            ConfigRoot root = new ConfigRoot();
+            root.tools = TOOLS == null ? new LinkedHashMap<>() : TOOLS;
+            root.rarityCosts = RARITY_COSTS == null ? defaultRarityCosts() : RARITY_COSTS;
+            root.rerollCostMultiplier = REROLL_COST_MULTIPLIER;
+            root.ascendedUnidentifiedChancePercent = ASCENDED_UNIDENTIFIED_CHANCE_PERCENT;
+            GSON.toJson(root, writer);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -389,8 +406,8 @@ public class ProfessionToolConfig {
                             Map.of(
                                     "miningSpeed",
                                     new StatRange(
-                                            10.0D,
-                                            25.0D,
+                                            35.0D,
+                                            75.0D,
                                             2.0D
                                     ),
                                     "fortuneBonus",
@@ -427,8 +444,8 @@ public class ProfessionToolConfig {
                             Map.of(
                                     "miningSpeed",
                                     new StatRange(
-                                            25.0D,
-                                            60.0D,
+                                            120.0D,
+                                            220.0D,
                                             2.0D
                                     ),
                                     "fortuneBonus",
@@ -466,8 +483,8 @@ public class ProfessionToolConfig {
                             Map.of(
                                     "chopSpeed",
                                     new StatRange(
-                                            10.0D,
-                                            25.0D,
+                                            35.0D,
+                                            75.0D,
                                             2.0D
                                     ),
                                     "bonusLogs",
@@ -498,8 +515,8 @@ public class ProfessionToolConfig {
                             Map.of(
                                     "chopSpeed",
                                     new StatRange(
-                                            25.0D,
-                                            60.0D,
+                                            120.0D,
+                                            220.0D,
                                             2.0D
                                     ),
                                     "bonusLogs",
@@ -518,6 +535,7 @@ public class ProfessionToolConfig {
             );
 
             addDefaultShovelTools(root.tools);
+            addDefaultSwordTools(root.tools);
 
             root.tools.put(
                     "gaias_blessing",
@@ -572,40 +590,132 @@ public class ProfessionToolConfig {
             boolean axe = !pickaxe && base.contains("axe");
             boolean hoe = base.contains("hoe");
             boolean shovel = base.contains("shovel");
-            if (!pickaxe && !axe && !hoe && !shovel) continue;
+            boolean sword = base.contains("sword");
+            if (!pickaxe && !axe && !hoe && !shovel && !sword) continue;
+            tool.baseItem = visualBaseItem(rarity, pickaxe, axe, hoe, shovel, sword);
+            tool.toolTier = gameplayTier(rarity);
 
             Map<String, StatRange> ranges = new LinkedHashMap<>();
+            StatRange speedRange = speedRange(rarity);
             if (pickaxe) {
-                ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("miningSpeed", speedRange);
                 ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
             } else if (axe) {
-                ranges.put("chopSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("chopSpeed", speedRange);
                 ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
             } else if (hoe) {
-                ranges.put("farmingSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("farmingSpeed", speedRange);
                 ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch"));
+                ranges.put("berryFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch", "berry_finder"));
             } else if (shovel) {
-                ranges.put("miningSpeed", range(rarity, 0, 10, 10, 15, 15, 20, 20, 25, 30, 40, 40, 50));
+                ranges.put("miningSpeed", speedRange);
                 ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 ranges.put("fossilFinderChance", range(rarity, 0.01, 0.05, 0.02, 0.08, 0.04, 0.15, 0.08, 0.25, 0.15, 0.40, 0.25, 0.75));
                 tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "fossil_finder"));
+            } else if (sword) {
+                ranges.put("sharpnessPercent", range(rarity, 2, 8, 6, 14, 12, 25, 20, 35, 35, 60, 50, 90));
+                ranges.put("lootingChance", range(rarity, 1, 4, 3, 8, 6, 14, 10, 22, 16, 35, 25, 55));
+                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                tool.profession = "";
+                tool.passives = new ArrayList<>(List.of("sharpness_percent", "looting_chance", "durability_save"));
             }
             tool.statRanges = ranges;
             tool.stats = new LinkedHashMap<>();
         }
+    }
+
+
+
+    private static String visualBaseItem(String rarity, boolean pickaxe, boolean axe, boolean hoe, boolean shovel, boolean sword) {
+        String material = switch (normalizeRarity(rarity)) {
+            case "UNCOMMON" -> "stone";
+            case "RARE" -> "golden"; // Copper has no vanilla tool base; this is skinned as the copper-tier tool by the pack.
+            case "EPIC" -> "iron";
+            case "LEGENDARY" -> "diamond";
+            case "MYTHIC" -> "netherite";
+            default -> "wooden";
+        };
+        String type = pickaxe ? "pickaxe" : axe ? "axe" : hoe ? "hoe" : shovel ? "shovel" : sword ? "sword" : "pickaxe";
+        return "minecraft:" + material + "_" + type;
+    }
+
+    private static StatRange speedRange(String rarity) {
+        return range(rarity, 0, 25, 25, 50, 50, 75, 75, 115, 115, 150, 150, 250);
+    }
+
+    private static String gameplayTier(String rarity) {
+        return switch (normalizeRarity(rarity)) {
+            case "COMMON", "UNCOMMON" -> "IRON";
+            default -> "NETHERITE";
+        };
+    }
+
+    private static void ensureDefaultSwordTools() {
+        if (TOOLS == null) TOOLS = new LinkedHashMap<>();
+        addDefaultSwordTools(TOOLS);
+    }
+
+    private static void buffMeaningfulActivesExceptReplant() {
+        if (TOOLS == null) return;
+        for (ToolData tool : TOOLS.values()) {
+            if (tool == null || tool.activeAbility == null || tool.activeAbility.isBlank()) continue;
+            String ability = tool.activeAbility.trim().toLowerCase();
+            if (ability.contains("replant")) continue;
+            String rarity = normalizeRarity(tool.rarity);
+            tool.activeCooldownSeconds = tunedCooldown(ability, rarity, Math.max(1, tool.activeCooldownSeconds));
+            tool.activeDurationSeconds = tunedDuration(ability, rarity, Math.max(0, tool.activeDurationSeconds));
+            if (ability.contains("vein_miner")) tool.maxVeinBlocks = Math.max(tool.maxVeinBlocks, rarityValue(rarity, 48, 64, 80, 112, 160, 220));
+            if (ability.contains("timber")) tool.maxTimberBlocks = Math.max(tool.maxTimberBlocks, rarityValue(rarity, 64, 80, 96, 128, 192, 256));
+            if (ability.contains("leafstorm")) tool.leafstormRadius = Math.max(tool.leafstormRadius, rarityValue(rarity, 5, 6, 7, 8, 10, 12));
+            if (ability.contains("treasure_sense")) tool.treasureSenseRadius = Math.max(tool.treasureSenseRadius, rarityValue(rarity, 96, 112, 128, 160, 192, 224));
+            if (ability.contains("nature_sense")) tool.natureSenseRadius = Math.max(tool.natureSenseRadius, rarityValue(rarity, 96, 112, 128, 160, 192, 224));
+        }
+    }
+
+    private static int tunedCooldown(String ability, String rarity, int current) {
+        int tuned = switch (ability) {
+            case "treasure_sense", "nature_sense", "prospect" -> 30;
+            default -> rarityValue(rarity, 60, 55, 50, 45, 40, 35);
+        };
+        return Math.min(current, tuned);
+    }
+
+    private static int tunedDuration(String ability, String rarity, int current) {
+        int tuned = switch (ability) {
+            case "excavation" -> rarityValue(rarity, 30, 35, 45, 60, 75, 90);
+            case "blast_mine", "stonebreaker" -> rarityValue(rarity, 25, 30, 35, 45, 55, 70);
+            case "vein_miner_burst" -> rarityValue(rarity, 35, 45, 55, 70, 85, 100);
+            case "timber_burst" -> rarityValue(rarity, 30, 40, 50, 65, 80, 100);
+            case "auto_smelt_burst" -> rarityValue(rarity, 40, 50, 60, 75, 90, 110);
+            case "miners_focus", "foresters_focus", "lumberjack_focus", "golden_rain", "harvest_wave" -> rarityValue(rarity, 45, 60, 75, 90, 120, 150);
+            default -> current;
+        };
+        return Math.max(current, tuned);
+    }
+
+    private static int rarityValue(String rarity, int common, int uncommon, int rare, int epic, int legendary, int mythic) {
+        return switch (normalizeRarity(rarity)) {
+            case "UNCOMMON" -> uncommon;
+            case "RARE" -> rare;
+            case "EPIC" -> epic;
+            case "LEGENDARY" -> legendary;
+            case "MYTHIC" -> mythic;
+            default -> common;
+        };
     }
 
     private static String normalizeRarity(String rarity) {
@@ -632,6 +742,35 @@ public class ProfessionToolConfig {
             TOOLS = new LinkedHashMap<>();
         }
         addDefaultShovelTools(TOOLS);
+        addDefaultSwordTools(TOOLS);
+    }
+
+    private static void addDefaultSwordTools(Map<String, ToolData> tools) {
+        if (tools == null) return;
+
+        tools.putIfAbsent("copper_edge", createTool("", 1, "Copper Edge", "COMMON", "minecraft:iron_sword", 6001, false,
+                Map.of("sharpnessPercent", new StatRange(2.0D, 8.0D, 1.0D), "lootingChance", new StatRange(1.0D, 4.0D, 1.0D), "durabilityBonus", new StatRange(10.0D, 40.0D, 1.0D), "durabilitySaveChance", new StatRange(1.0D, 5.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
+
+        tools.putIfAbsent("tempered_edge", createTool("", 10, "Tempered Edge", "UNCOMMON", "minecraft:iron_sword", 6002, false,
+                Map.of("sharpnessPercent", new StatRange(6.0D, 14.0D, 1.0D), "lootingChance", new StatRange(3.0D, 8.0D, 1.0D), "durabilityBonus", new StatRange(25.0D, 75.0D, 1.0D), "durabilitySaveChance", new StatRange(3.0D, 8.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
+
+        tools.putIfAbsent("wardenfang", createTool("", 25, "Wardenfang", "RARE", "minecraft:diamond_sword", 6003, false,
+                Map.of("sharpnessPercent", new StatRange(12.0D, 25.0D, 1.0D), "lootingChance", new StatRange(6.0D, 14.0D, 1.0D), "durabilityBonus", new StatRange(50.0D, 150.0D, 1.0D), "durabilitySaveChance", new StatRange(5.0D, 12.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
+
+        tools.putIfAbsent("voidrender", createTool("", 60, "Voidrender", "EPIC", "minecraft:diamond_sword", 6004, false,
+                Map.of("sharpnessPercent", new StatRange(20.0D, 35.0D, 1.0D), "lootingChance", new StatRange(10.0D, 22.0D, 1.0D), "durabilityBonus", new StatRange(100.0D, 250.0D, 1.0D), "durabilitySaveChance", new StatRange(8.0D, 16.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
+
+        tools.putIfAbsent("champions_blade", createTool("", 100, "Champion's Blade", "LEGENDARY", "minecraft:netherite_sword", 6005, true,
+                Map.of("sharpnessPercent", new StatRange(35.0D, 60.0D, 1.0D), "lootingChance", new StatRange(16.0D, 35.0D, 1.0D), "durabilityBonus", new StatRange(200.0D, 500.0D, 1.0D), "durabilitySaveChance", new StatRange(12.0D, 22.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
+
+        tools.putIfAbsent("mythbreaker", createTool("", 100, "Mythbreaker", "MYTHIC", "minecraft:netherite_sword", 6006, true,
+                Map.of("sharpnessPercent", new StatRange(50.0D, 90.0D, 1.0D), "lootingChance", new StatRange(25.0D, 55.0D, 1.0D), "durabilityBonus", new StatRange(400.0D, 900.0D, 1.0D), "durabilitySaveChance", new StatRange(18.0D, 30.0D, 1.0D)),
+                List.of("sharpness_percent", "looting_chance", "durability_save"), null, 0));
     }
 
     private static void addDefaultShovelTools(Map<String, ToolData> tools) {

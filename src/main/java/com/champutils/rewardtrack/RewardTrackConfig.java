@@ -38,10 +38,39 @@ public final class RewardTrackConfig {
                 if (DATA.rewards == null) DATA.rewards = new LinkedHashMap<>();
                 if (DATA.xpPerLevel <= 0) DATA.xpPerLevel = 1000;
                 if (DATA.maxLevel <= 0) DATA.maxLevel = 50;
+                normalizeRewards();
+                save();
             }
         } catch (Exception e) {
             e.printStackTrace();
             DATA = defaults();
+        }
+    }
+
+
+    private static void normalizeRewards() {
+        Config balanced = defaults();
+        for (int level = 1; level <= DATA.maxLevel; level++) {
+            String key = String.valueOf(level);
+            Reward fallback = balanced.rewards.get(key);
+            Reward reward = DATA.rewards.get(key);
+            if (reward == null) {
+                DATA.rewards.put(key, fallback);
+                continue;
+            }
+            // Older configs had the same reward every tier. Replace only those obvious old flat rewards.
+            boolean oldFlatReward = reward.credits == EconomyManager.wholeCreditsToCents(50L)
+                    || reward.credits == 5000L
+                    || (reward.rankedTokens == 0 && reward.items != null && reward.items.size() == 1 && reward.items.get(0) != null
+                    && ("cobblemon:great_ball".equalsIgnoreCase(reward.items.get(0).id) || "cobblemon:ultra_ball".equalsIgnoreCase(reward.items.get(0).id))
+                    && reward.items.get(0).count == 8);
+            if (oldFlatReward) {
+                DATA.rewards.put(key, fallback);
+                continue;
+            }
+            if (reward.items == null) reward.items = new ArrayList<>();
+            if (reward.credits <= 0L) reward.credits = fallback == null ? 0L : fallback.credits;
+            if (reward.rankedTokens < 0) reward.rankedTokens = 0;
         }
     }
 
@@ -80,8 +109,12 @@ public final class RewardTrackConfig {
         config.rewards = new LinkedHashMap<>();
         for (int level = 1; level <= 50; level++) {
             Reward reward = new Reward();
-            reward.credits = EconomyManager.wholeCreditsToCents(level % 10 == 0 ? 250L : 50L);
-            reward.items.add(new ItemReward(level % 5 == 0 ? "cobblemon:ultra_ball" : "cobblemon:great_ball", level % 10 == 0 ? 16 : 8));
+            long credits = level % 10 == 0 ? 500L + level * 25L : 75L + level * 10L;
+            reward.credits = EconomyManager.wholeCreditsToCents(credits);
+            reward.rankedTokens = level % 5 == 0 ? 1 : 0;
+            if (level % 10 == 0) reward.items.add(new ItemReward(level >= 40 ? "minecraft:netherite_ingot" : "cobblemon:rare_candy", level >= 40 ? 1 : 3));
+            if (level % 7 == 0) reward.items.add(new ItemReward("cobblemon:ability_capsule", 1));
+            reward.items.add(new ItemReward(level % 5 == 0 ? "cobblemon:ultra_ball" : "cobblemon:great_ball", level % 10 == 0 ? 24 : 10 + Math.min(14, level / 2)));
             config.rewards.put(String.valueOf(level), reward);
         }
         return config;
@@ -95,6 +128,7 @@ public final class RewardTrackConfig {
 
     public static final class Reward {
         public long credits = 0L;
+        public int rankedTokens = 0;
         public List<ItemReward> items = new ArrayList<>();
     }
 

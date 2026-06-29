@@ -24,6 +24,7 @@ public final class BadgeSqlRepository {
 
     private static final ConcurrentMap<UUID, Boolean> LOADS_IN_FLIGHT = new ConcurrentHashMap<>();
     private static volatile boolean schemaQueued = false;
+    private static volatile boolean schemaEnsured = false;
 
     private BadgeSqlRepository() {}
 
@@ -101,10 +102,14 @@ public final class BadgeSqlRepository {
         });
     }
 
-    private static void ensureSchema(Connection connection) throws Exception {
+    private static synchronized void ensureSchema(Connection connection) throws Exception {
+        if (schemaEnsured) return;
         try (Statement statement = connection.createStatement()) {
             // Create minimal tables first. If an older/partial profile_badges table already exists, the ALTERs below repair it.
             statement.executeUpdate("create table if not exists profile_badges (profile_id uuid not null)");
+            statement.executeUpdate("alter table profile_badges add column if not exists badge_id text");
+            statement.executeUpdate("alter table profile_badges add column if not exists unlocked_at timestamptz not null default now()");
+            statement.executeUpdate("alter table profile_badges add column if not exists data jsonb not null default '{}'::jsonb");
             statement.executeUpdate("alter table profile_badges add column if not exists badge text");
             statement.executeUpdate("alter table profile_badges add column if not exists earned_at timestamptz not null default now()");
             statement.executeUpdate("alter table profile_badges add column if not exists metadata jsonb not null default '{}'::jsonb");
@@ -114,8 +119,13 @@ public final class BadgeSqlRepository {
                     "if exists (select 1 from information_schema.columns where table_name = 'profile_badges' and column_name = 'badge_id') then " +
                     "execute 'update profile_badges set badge = coalesce(badge, badge_id::text) where badge is null'; " +
                     "end if; end $$");
+            statement.executeUpdate("update profile_badges set badge = coalesce(nullif(badge, ''), badge_id) where badge is null or btrim(badge) = ''");
+            statement.executeUpdate("update profile_badges set badge_id = badge where badge_id is null or btrim(badge_id) = ''");
             statement.executeUpdate("delete from profile_badges where profile_id is null or badge is null or btrim(badge) = ''");
+            statement.executeUpdate("delete from profile_badges a using profile_badges b where a.ctid < b.ctid and a.profile_id = b.profile_id and a.badge = b.badge");
+            statement.executeUpdate("delete from profile_badges a using profile_badges b where a.ctid < b.ctid and a.profile_id = b.profile_id and a.badge_id = b.badge_id");
             statement.executeUpdate("alter table profile_badges alter column badge set not null");
+            statement.executeUpdate("alter table profile_badges alter column badge_id set not null");
             statement.executeUpdate("do $$ begin " +
                     "if not exists (select 1 from pg_constraint where conname = 'profile_badges_profile_fk') then " +
                     "alter table profile_badges add constraint profile_badges_profile_fk foreign key (profile_id) references player_profiles(id) on delete cascade; " +
@@ -124,6 +134,7 @@ public final class BadgeSqlRepository {
                     "if not exists (select 1 from pg_constraint where conname = 'profile_badges_pkey') then " +
                     "alter table profile_badges add constraint profile_badges_pkey primary key (profile_id, badge); " +
                     "end if; end $$");
+            statement.executeUpdate("create unique index if not exists profile_badges_profile_badge_uidx on profile_badges(profile_id, badge)");
             statement.executeUpdate("create index if not exists idx_profile_badges_profile on profile_badges(profile_id)");
             statement.executeUpdate("create index if not exists idx_profile_badges_badge on profile_badges(badge)");
 
@@ -133,6 +144,7 @@ public final class BadgeSqlRepository {
             statement.executeUpdate("alter table profile_badge_unlocks add column if not exists source text not null default 'BADGE_CONFIG'");
             statement.executeUpdate("alter table profile_badge_unlocks add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("delete from profile_badge_unlocks where profile_id is null or unlock_type is null or unlock_key is null");
+            statement.executeUpdate("delete from profile_badge_unlocks a using profile_badge_unlocks b where a.ctid < b.ctid and a.profile_id = b.profile_id and a.unlock_type = b.unlock_type and a.unlock_key = b.unlock_key");
             statement.executeUpdate("alter table profile_badge_unlocks alter column unlock_type set not null");
             statement.executeUpdate("alter table profile_badge_unlocks alter column unlock_key set not null");
             statement.executeUpdate("do $$ begin " +
@@ -147,8 +159,10 @@ public final class BadgeSqlRepository {
                     "if not exists (select 1 from pg_constraint where conname = 'profile_badge_unlocks_pkey') then " +
                     "alter table profile_badge_unlocks add constraint profile_badge_unlocks_pkey primary key (profile_id, unlock_type, unlock_key); " +
                     "end if; end $$");
+            statement.executeUpdate("create unique index if not exists profile_badge_unlocks_profile_type_key_uidx on profile_badge_unlocks(profile_id, unlock_type, unlock_key)");
             statement.executeUpdate("create index if not exists idx_profile_badge_unlocks_profile_type on profile_badge_unlocks(profile_id, unlock_type)");
         }
+        schemaEnsured = true;
     }
 
     private static void ensurePlayer(Connection connection, UUID playerUuid, String playerName) throws Exception {
@@ -179,12 +193,13 @@ public final class BadgeSqlRepository {
     private static void upsertBadge(Connection connection, UUID profileId, BadgeType badge) throws Exception {
         ensureSchema(connection);
         try (PreparedStatement ps = connection.prepareStatement(
-                "insert into profile_badges (profile_id, badge, earned_at) " +
-                        "select ?, ?, now() where exists (select 1 from player_profiles where id = ? and deleted_at is null) " +
+                "insert into profile_badges (profile_id, badge_id, badge, earned_at) " +
+                        "select ?, ?, ?, now() where exists (select 1 from player_profiles where id = ? and deleted_at is null) " +
                         "on conflict (profile_id, badge) do nothing")) {
             ps.setObject(1, profileId);
             ps.setString(2, badge.name());
-            ps.setObject(3, profileId);
+            ps.setString(3, badge.name());
+            ps.setObject(4, profileId);
             ps.executeUpdate();
         }
     }

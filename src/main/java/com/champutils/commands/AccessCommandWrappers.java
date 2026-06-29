@@ -67,6 +67,7 @@ public final class AccessCommandWrappers {
 
     private static int runRaw(net.minecraft.commands.CommandSourceStack source, String command) {
         if (source.getServer() == null) return 0;
-        return source.getServer().getCommands().performPrefixedCommand(source.withSuppressedOutput().withPermission(4), command);
+        source.getServer().getCommands().performPrefixedCommand(source.withSuppressedOutput().withPermission(4), command);
+        return 1;
     }
 }

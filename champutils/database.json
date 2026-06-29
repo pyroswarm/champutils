@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "host": "aws-1-us-west-2.pooler.supabase.com",
+  "port": 5432,
+  "database": "postgres",
+  "username": "postgres.rzztdnkggkkpghkstdfr",
+  "password": "rXb01us1VA0kDgcl",
+  "saveIntervalSeconds": 60
+}

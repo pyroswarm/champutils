@@ -15,7 +15,7 @@ public final class GearWorkshopMenu {
     }
 
     public static void open(ServerPlayer player) {
-        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x1, player, false);
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x2, player, false);
         gui.setTitle(Component.literal("Gear Workshop"));
 
         addCommandButton(
@@ -34,6 +34,18 @@ public final class GearWorkshopMenu {
                 gui,
                 player,
                 3,
+                Items.AMETHYST_SHARD,
+                "§dReroll Gear",
+                "§7Reroll the profession gear in your hand.",
+                "§7Costs materials based on rarity.",
+                "itemroll reroll",
+                true
+        );
+
+        addCommandButton(
+                gui,
+                player,
+                6,
                 Items.GRINDSTONE,
                 "§cSalvage Gear",
                 "§7Salvage the profession gear in your hand.",
@@ -80,7 +92,7 @@ public final class GearWorkshopMenu {
         addCommandButton(
                 gui,
                 player,
-                8,
+                15,
                 Items.PRISMARINE_SHARD,
                 "§6Fragment Storage",
                 "§7View your stored fragment balances.",

@@ -1,0 +1,17 @@
+{
+  "uuid": "68cde10c-7a9c-414a-b0e0-b0c92b31408d",
+  "name": "MildFlames",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

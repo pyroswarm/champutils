@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
+import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -18,6 +19,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
 import net.minecraft.world.item.ArmorMaterials;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -57,7 +59,7 @@ public final class RunningShoeManager {
 
     private static void register(String id, String rarity, Item base) {
         if (REGISTERED.containsKey(id)) return;
-        Item item = new RunningShoeItem(base, new Item.Properties().stacksTo(1).rarity(rarity(rarity)));
+        Item item = new RunningShoeItem(base, armorMaterial(rarity), new Item.Properties().stacksTo(1).rarity(rarity(rarity)));
         try {
             Registry.register(BuiltInRegistries.ITEM, ResourceLocation.fromNamespaceAndPath("champutils", id), item);
             REGISTERED.put(id, item);
@@ -70,6 +72,7 @@ public final class RunningShoeManager {
         if (effectsRegistered) return;
         effectsRegistered = true;
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 60 != 0) return;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) applyMovement(player);
         });
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
@@ -97,7 +100,7 @@ public final class RunningShoeManager {
         if (jumpBoost > 0) {
             // Player jump height is reliably handled by the vanilla Jump Boost effect.
             // The JUMP_STRENGTH attribute is not reliable for normal player movement on all server/client paths.
-            player.addEffect(new MobEffectInstance(MobEffects.JUMP, 40, Math.max(0, jumpBoost - 1), true, false, false));
+            player.addEffect(new MobEffectInstance(MobEffects.JUMP, 100, Math.max(0, jumpBoost - 1), true, false, false));
         }
     }
 
@@ -199,6 +202,15 @@ public final class RunningShoeManager {
         };
     }
 
+    private static Holder<ArmorMaterial> armorMaterial(String rarity) {
+        return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
+            case "UNCOMMON" -> ArmorMaterials.IRON;
+            case "RARE", "EPIC" -> ArmorMaterials.DIAMOND;
+            case "LEGENDARY", "MYTHIC" -> ArmorMaterials.NETHERITE;
+            default -> ArmorMaterials.LEATHER;
+        };
+    }
+
     private static int modelData(String rarity) {
         return switch (rarity) {
             case "UNCOMMON" -> 9962;
@@ -232,8 +244,8 @@ public final class RunningShoeManager {
 
     public static class RunningShoeItem extends ArmorItem implements PolymerItem {
         private final Item base;
-        public RunningShoeItem(Item base, Properties properties) {
-            super(ArmorMaterials.LEATHER, ArmorItem.Type.BOOTS, properties);
+        public RunningShoeItem(Item base, Holder<ArmorMaterial> material, Properties properties) {
+            super(material, ArmorItem.Type.BOOTS, properties);
             this.base = base;
         }
 

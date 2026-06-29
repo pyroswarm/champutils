@@ -398,7 +398,7 @@ public final class TerritoryRepository {
 
     public static Territory cachedGuildForPlayer(ServerPlayer player) {
         if (player == null) return null;
-        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = guildSnapshot(player);
         return guild == null ? null : cachedForOwner(OwnerType.GUILD, guild.id.toString());
     }
 
@@ -406,7 +406,7 @@ public final class TerritoryRepository {
         if (player == null || territory == null) return false;
         UUID playerId = player.getUUID();
         if (territory.ownerType == OwnerType.PLAYER) return territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(playerId).toString());
-        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(playerId);
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = guildSnapshot(player);
         return guild != null && territory.ownerId.equalsIgnoreCase(guild.id.toString());
     }
 
@@ -418,9 +418,17 @@ public final class TerritoryRepository {
 
     private static com.champutils.guild.GuildRepository.GuildSnapshot guildForTerritoryMember(ServerPlayer player, Territory territory) {
         if (player == null || territory == null || territory.ownerType != OwnerType.GUILD) return null;
-        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = guildSnapshot(player);
         if (guild == null || !territory.ownerId.equalsIgnoreCase(guild.id.toString())) return null;
         return guild;
+    }
+
+    private static com.champutils.guild.GuildRepository.GuildSnapshot guildSnapshot(ServerPlayer player) {
+        if (player == null) return null;
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+        if (guild != null) return guild;
+        String name = player.getGameProfile() == null ? player.getUUID().toString() : player.getGameProfile().getName();
+        return com.champutils.guild.GuildRepository.loadForPlayerBlocking(player.getUUID(), name);
     }
 
     public static boolean canManage(ServerPlayer player, Territory territory) {
@@ -431,7 +439,7 @@ public final class TerritoryRepository {
             if (territory.ownerId.equalsIgnoreCase(PlayerProfileManager.activeProfileId(playerId).toString())) return true;
             return getTrust(territory.id, playerId) == TrustLevel.MANAGER;
         }
-        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(playerId);
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = guildSnapshot(player);
         return guild != null
                 && territory.ownerId.equalsIgnoreCase(guild.id.toString())
                 && com.champutils.guild.GuildRepository.canManageGuildTerritory(guild.role);
@@ -450,10 +458,36 @@ public final class TerritoryRepository {
         if (!territory.isReady()) return false;
         if (!IslanderProfileManager.canEnterTerritoryFast(player, territory)) return false;
         if (getTrust(territory.id, player.getUUID()) == TrustLevel.BANNED) return false;
-        if (isOwnerOrGuildMember(player, territory)) return true;
+        if (isOwnerOrGuildMemberFast(player, territory)) return true;
         TrustLevel trust = getTrust(territory.id, player.getUUID());
         if (trust != null && trust != TrustLevel.BANNED) return true;
         return territory.allowVisitors || territory.isPublic;
+    }
+
+    /**
+     * Main-thread safe owner/member check for canEnterFast.
+     *
+     * This MUST NOT call guildSnapshot/loadForPlayerBlocking or any SQL-backed permission/user load.
+     * It only uses profile data and guild data already cached for the online player. If a guild cache
+     * is not loaded yet, the normal canEnter path or the next guild refresh will resolve it without
+     * causing movement/tick lag.
+     */
+    private static boolean isOwnerOrGuildMemberFast(ServerPlayer player, Territory territory) {
+        if (player == null || territory == null) return false;
+
+        UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
+        if (activeProfileId == null) return false;
+
+        if (territory.ownerType == OwnerType.PLAYER) {
+            return territory.ownerId != null && territory.ownerId.equalsIgnoreCase(activeProfileId.toString());
+        }
+
+        if (territory.ownerType == OwnerType.GUILD) {
+            com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+            return guild != null && territory.ownerId != null && territory.ownerId.equalsIgnoreCase(guild.id.toString());
+        }
+
+        return false;
     }
 
     public static boolean canEnter(ServerPlayer player, Territory territory) {
@@ -625,7 +659,12 @@ public final class TerritoryRepository {
     public static void setHome(Territory territory, ServerPlayer player, Callback callback) {
         if (territory == null || player == null) { callback.done(false, "Invalid territory home."); return; }
         BlockPos pos = player.blockPosition();
-        if (!territory.contains(NetworkServerConfig.serverId(), player.serverLevel().dimension().location().toString(), pos)) {
+        String currentWorld = player.serverLevel().dimension().location().toString();
+        Territory territoryAtPlayer = findAt(player.serverLevel(), pos);
+        boolean insideThisTerritory = territory.contains(NetworkServerConfig.serverId(), currentWorld, pos)
+                || (territoryAtPlayer != null && territoryAtPlayer.id != null && territoryAtPlayer.id.equals(territory.id))
+                || (territory.isTerritoryWorld(NetworkServerConfig.serverId(), currentWorld) && territory.containsPositionOnly(pos));
+        if (!insideThisTerritory) {
             callback.done(false, "Stand inside the territory before setting its home.");
             return;
         }
@@ -991,7 +1030,7 @@ public final class TerritoryRepository {
         t.visitorsCanInteractEntities = getBooleanOrDefault(rs, "visitors_can_interact_entities", false);
         t.visitorsCanUseRedstone = getBooleanOrDefault(rs, "visitors_can_use_redstone", false);
         t.lockBorder = getBooleanOrDefault(rs, "lock_border", true);
-        t.stewardNpcSpawned = getBooleanOrDefault(rs, "steward_npc_spawned", true);
+        t.stewardNpcSpawned = getBooleanOrDefault(rs, "steward_npc_spawned", false);
         t.stewardNpcX = getDoubleOrNull(rs, "steward_npc_x");
         t.stewardNpcY = getDoubleOrNull(rs, "steward_npc_y");
         t.stewardNpcZ = getDoubleOrNull(rs, "steward_npc_z");

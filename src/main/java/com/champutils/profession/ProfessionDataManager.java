@@ -45,6 +45,18 @@ public class ProfessionDataManager {
         public Map<String, Long> backpack =
                 new HashMap<>();
 
+        /** Highest trinket pouch tier unlocked on this profile. Empty means no digital pouch yet. */
+        public String trinketPouchRarity =
+                "";
+
+        /** Cached slot count for the unlocked digital trinket pouch. */
+        public int trinketPouchSlots =
+                0;
+
+        /** Stored trinkets as ItemStack SNBT strings. Profile-bound digital storage. */
+        public List<String> trinketPouchItems =
+                new ArrayList<>();
+
         public boolean backpackAutopickup =
                 ProfessionBackpackConfig.CONFIG.defaultAutopickup;
     }
@@ -282,6 +294,21 @@ public class ProfessionDataManager {
         if (data.backpack == null) {
             data.backpack =
                     new HashMap<>();
+        }
+
+        if (data.trinketPouchRarity == null) {
+            data.trinketPouchRarity =
+                    "";
+        }
+
+        if (data.trinketPouchSlots < 0) {
+            data.trinketPouchSlots =
+                    0;
+        }
+
+        if (data.trinketPouchItems == null) {
+            data.trinketPouchItems =
+                    new ArrayList<>();
         }
 
         for (ProfessionType type :

@@ -1,0 +1,3541 @@
+{
+  "enabled": true,
+  "scanIntervalSeconds": 60,
+  "spawnCheckSeconds": 60,
+  "maxTrainersPerPlayer": 1,
+  "maxNearbyPerPlayer": 1,
+  "maxTrainersPerWorld": 50,
+  "maxWorldTotal": 50,
+  "spawnChancePerScan": 0.16,
+  "spawnChancePerCheck": 0.16,
+  "movementEnabled": true,
+  "wanderRadiusBlocks": 18,
+  "wanderEverySecondsMin": 8,
+  "wanderEverySecondsMax": 20,
+  "wanderSpeed": 0.8,
+  "spawnMinDistance": 32,
+  "minimumDistance": 32,
+  "spawnMaxDistance": 96,
+  "maximumDistance": 96,
+  "activePlayerRadius": 64,
+  "despawnAfterNoPlayersSeconds": 1200,
+  "despawnMinutes": 20,
+  "noPlayerNearbyDespawnSeconds": 300,
+  "doNotDespawnWhileInBattle": true,
+  "requireSolidGround": true,
+  "maxSpawnAttemptsPerPlayer": 12,
+  "islanderSpawnMinDistance": 12,
+  "islanderSpawnMaxDistance": 48,
+  "islanderMaxSpawnAttemptsPerPlayer": 48,
+  "blockedDimensions": [
+    "spawn1",
+    "multiworld:spawn1"
+  ],
+  "allowAllPokemonFromCobblemonRegistry": true,
+  "blacklistedPokemon": [
+    "magikarp",
+    "feebas",
+    "unown",
+    "ditto",
+    "wobbuffet",
+    "wynaut",
+    "shedinja",
+    "smeargle",
+    "delibird",
+    "luvdisc"
+  ],
+  "rarities": {
+    "COMMON": {
+      "weight": 70.0,
+      "pokemonCount": 3,
+      "levelOffsetMin": -3,
+      "levelOffsetMax": 1,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.0,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.0,
+      "legendaryPokemonCount": 0,
+      "fragmentMin": 1,
+      "fragmentMax": 2,
+      "rewardCommands": [
+        "eco give %player% 100"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "pidgeotto",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "keeneye",
+          "heldItem": "sharp_beak",
+          "moves": [
+            "aerial_ace",
+            "quick_attack",
+            "u_turn",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "pivot"
+        },
+        {
+          "species": "raticate",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "guts",
+          "heldItem": "flame_orb",
+          "moves": [
+            "facade",
+            "crunch",
+            "quick_attack",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "butterfree",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "compoundeyes",
+          "heldItem": "focus_sash",
+          "moves": [
+            "air_slash",
+            "bug_buzz",
+            "sleep_powder",
+            "quiver_dance"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "arbok",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "intimidate",
+          "heldItem": "black_sludge",
+          "moves": [
+            "poison_jab",
+            "crunch",
+            "glare",
+            "coil"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "sandslash",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "sandrush",
+          "heldItem": "soft_sand",
+          "moves": [
+            "bulldoze",
+            "rock_slide",
+            "rapid_spin",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "golbat",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "innerfocus",
+          "heldItem": "eviolite",
+          "moves": [
+            "wing_attack",
+            "bite",
+            "toxic",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "primeape",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "vitalspirit",
+          "heldItem": "black_belt",
+          "moves": [
+            "karate_chop",
+            "rock_tomb",
+            "u_turn",
+            "bulk_up"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "graveler",
+          "level": 50,
+          "nature": "adamant",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "sturdy",
+          "heldItem": "focus_sash",
+          "moves": [
+            "rock_slide",
+            "bulldoze",
+            "stealth_rock",
+            "explosion"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "haunter",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "levitate",
+          "heldItem": "spell_tag",
+          "moves": [
+            "shadow_ball",
+            "sludge_bomb",
+            "will_o_wisp",
+            "hypnosis"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "kadabra",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "synchronize",
+          "heldItem": "twisted_spoon",
+          "moves": [
+            "psybeam",
+            "shadow_ball",
+            "recover",
+            "calm_mind"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "wartortle",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "torrent",
+          "heldItem": "leftovers",
+          "moves": [
+            "water_pulse",
+            "bite",
+            "rapid_spin",
+            "protect"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "ivysaur",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "overgrow",
+          "heldItem": "eviolite",
+          "moves": [
+            "razor_leaf",
+            "sleep_powder",
+            "leech_seed",
+            "growth"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "charmeleon",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "blaze",
+          "heldItem": "charcoal",
+          "moves": [
+            "fire_fang",
+            "dragon_breath",
+            "slash",
+            "smokescreen"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "flaaffy",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "static",
+          "heldItem": "magnet",
+          "moves": [
+            "spark",
+            "thunder_wave",
+            "power_gem",
+            "charge"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "furret",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "frisk",
+          "heldItem": "silk_scarf",
+          "moves": [
+            "quick_attack",
+            "u_turn",
+            "knock_off",
+            "coil"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        }
+      ],
+      "trainerNames": [
+        "Rookie Trainer",
+        "Youngster",
+        "Camper",
+        "Picnicker",
+        "Bug Catcher"
+      ],
+      "allPokemonChance": 0.0
+    },
+    "UNCOMMON": {
+      "weight": 20.0,
+      "pokemonCount": 3,
+      "levelOffsetMin": -2,
+      "levelOffsetMax": 2,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.15,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.0,
+      "legendaryPokemonCount": 0,
+      "fragmentMin": 1,
+      "fragmentMax": 3,
+      "rewardCommands": [
+        "eco give %player% 250"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "arcanine",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "intimidate",
+          "heldItem": "sitrus_berry",
+          "moves": [
+            "flame_charge",
+            "crunch",
+            "extreme_speed",
+            "will_o_wisp"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "vaporeon",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "waterabsorb",
+          "heldItem": "leftovers",
+          "moves": [
+            "scald",
+            "ice_beam",
+            "toxic",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "jolteon",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "voltabsorb",
+          "heldItem": "magnet",
+          "moves": [
+            "thunderbolt",
+            "volt_switch",
+            "shadow_ball",
+            "thunder_wave"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "venusaur",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "overgrow",
+          "heldItem": "black_sludge",
+          "moves": [
+            "giga_drain",
+            "sludge_bomb",
+            "sleep_powder",
+            "growth"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "blastoise",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "torrent",
+          "heldItem": "leftovers",
+          "moves": [
+            "scald",
+            "ice_beam",
+            "rapid_spin",
+            "protect"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "ninetales",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "flashfire",
+          "heldItem": "heat_rock",
+          "moves": [
+            "flamethrower",
+            "energy_ball",
+            "will_o_wisp",
+            "nasty_plot"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "machamp",
+          "level": 50,
+          "nature": "adamant",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "noguard",
+          "heldItem": "expert_belt",
+          "moves": [
+            "dynamic_punch",
+            "knock_off",
+            "rock_slide",
+            "bulk_up"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "gengar",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "cursedbody",
+          "heldItem": "spell_tag",
+          "moves": [
+            "shadow_ball",
+            "sludge_bomb",
+            "focus_blast",
+            "will_o_wisp"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "scyther",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "technician",
+          "heldItem": "eviolite",
+          "moves": [
+            "aerial_ace",
+            "x_scissor",
+            "quick_attack",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "lapras",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "waterabsorb",
+          "heldItem": "leftovers",
+          "moves": [
+            "surf",
+            "ice_beam",
+            "body_slam",
+            "sing"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "heracross",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "guts",
+          "heldItem": "flame_orb",
+          "moves": [
+            "brick_break",
+            "megahorn",
+            "rock_slide",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "crobat",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "innerfocus",
+          "heldItem": "black_sludge",
+          "moves": [
+            "cross_poison",
+            "brave_bird",
+            "u_turn",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "pivot"
+        },
+        {
+          "species": "ampharos",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "static",
+          "heldItem": "wise_glasses",
+          "moves": [
+            "thunderbolt",
+            "power_gem",
+            "focus_blast",
+            "thunder_wave"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "slowbro",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "regenerator",
+          "heldItem": "leftovers",
+          "moves": [
+            "scald",
+            "psychic",
+            "slack_off",
+            "thunder_wave"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "steelix",
+          "level": 50,
+          "nature": "impish",
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 4,
+            "def": 128,
+            "spa": 0,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "sturdy",
+          "heldItem": "rocky_helmet",
+          "moves": [
+            "earthquake",
+            "iron_head",
+            "stealth_rock",
+            "roar"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        }
+      ],
+      "trainerNames": [
+        "Ace Recruit",
+        "Backpacker",
+        "Hiker",
+        "Rancher",
+        "Pokefan"
+      ],
+      "allPokemonChance": 0.0
+    },
+    "RARE": {
+      "weight": 7.0,
+      "pokemonCount": 3,
+      "levelOffsetMin": 0,
+      "levelOffsetMax": 3,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.35,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.0,
+      "legendaryPokemonCount": 0,
+      "fragmentMin": 2,
+      "fragmentMax": 4,
+      "rewardCommands": [
+        "eco give %player% 750"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "dragonite",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "multiscale",
+          "heldItem": "lum_berry",
+          "moves": [
+            "dragon_dance",
+            "dragon_claw",
+            "earthquake",
+            "extreme_speed"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "gyarados",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "intimidate",
+          "heldItem": "lum_berry",
+          "moves": [
+            "dragon_dance",
+            "waterfall",
+            "ice_fang",
+            "crunch"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "tyranitar",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "sandstream",
+          "heldItem": "smooth_rock",
+          "moves": [
+            "stone_edge",
+            "crunch",
+            "earthquake",
+            "dragon_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "metagross",
+          "level": 50,
+          "nature": "adamant",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "clearbody",
+          "heldItem": "assault_vest",
+          "moves": [
+            "meteor_mash",
+            "zen_headbutt",
+            "earthquake",
+            "bullet_punch"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "garchomp",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "roughskin",
+          "heldItem": "life_orb",
+          "moves": [
+            "earthquake",
+            "dragon_claw",
+            "stone_edge",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "greninja",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "torrent",
+          "heldItem": "expert_belt",
+          "moves": [
+            "hydro_pump",
+            "dark_pulse",
+            "ice_beam",
+            "water_shuriken"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "lucario",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "innerfocus",
+          "heldItem": "focus_sash",
+          "moves": [
+            "swords_dance",
+            "close_combat",
+            "meteor_mash",
+            "extreme_speed"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "volcarona",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "flamebody",
+          "heldItem": "heavy_duty_boots",
+          "moves": [
+            "quiver_dance",
+            "fiery_dance",
+            "bug_buzz",
+            "giga_drain"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "mimikyu",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "disguise",
+          "heldItem": "life_orb",
+          "moves": [
+            "swords_dance",
+            "play_rough",
+            "shadow_claw",
+            "shadow_sneak"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "excadrill",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "sandrush",
+          "heldItem": "air_balloon",
+          "moves": [
+            "earthquake",
+            "iron_head",
+            "rapid_spin",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "rotom_wash",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "levitate",
+          "heldItem": "leftovers",
+          "moves": [
+            "hydro_pump",
+            "volt_switch",
+            "will_o_wisp",
+            "pain_split"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "togekiss",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "serenegrace",
+          "heldItem": "leftovers",
+          "moves": [
+            "air_slash",
+            "dazzling_gleam",
+            "thunder_wave",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "gliscor",
+          "level": 50,
+          "nature": "impish",
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 4,
+            "def": 128,
+            "spa": 0,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "poisonheal",
+          "heldItem": "toxic_orb",
+          "moves": [
+            "earthquake",
+            "roost",
+            "toxic",
+            "protect"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "hydreigon",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "levitate",
+          "heldItem": "choice_specs",
+          "moves": [
+            "dark_pulse",
+            "dragon_pulse",
+            "flamethrower",
+            "u_turn"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "ferrothorn",
+          "level": 50,
+          "nature": "impish",
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 4,
+            "def": 128,
+            "spa": 0,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "ironbarbs",
+          "heldItem": "rocky_helmet",
+          "moves": [
+            "power_whip",
+            "gyro_ball",
+            "leech_seed",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        }
+      ],
+      "trainerNames": [
+        "Ace Trainer",
+        "Veteran",
+        "Black Belt",
+        "Hex Maniac",
+        "Ranger"
+      ],
+      "allPokemonChance": 0.0
+    },
+    "EPIC": {
+      "weight": 2.0,
+      "pokemonCount": 4,
+      "levelOffsetMin": 1,
+      "levelOffsetMax": 4,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.55,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.0,
+      "legendaryPokemonCount": 1,
+      "fragmentMin": 3,
+      "fragmentMax": 5,
+      "rewardCommands": [
+        "eco give %player% 2000"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "zapdos",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "heavy_duty_boots",
+          "moves": [
+            "thunderbolt",
+            "hurricane",
+            "volt_switch",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "pivot"
+        },
+        {
+          "species": "heatran",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "flashfire",
+          "heldItem": "leftovers",
+          "moves": [
+            "magma_storm",
+            "earth_power",
+            "flash_cannon",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "landorus_therian",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "intimidate",
+          "heldItem": "choice_scarf",
+          "moves": [
+            "earthquake",
+            "stone_edge",
+            "u_turn",
+            "knock_off"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "tornadus_therian",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "regenerator",
+          "heldItem": "heavy_duty_boots",
+          "moves": [
+            "hurricane",
+            "heat_wave",
+            "u_turn",
+            "taunt"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "latios",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "levitate",
+          "heldItem": "soul_dew",
+          "moves": [
+            "dragon_pulse",
+            "psychic",
+            "aura_sphere",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "latias",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "levitate",
+          "heldItem": "leftovers",
+          "moves": [
+            "dragon_pulse",
+            "psychic",
+            "calm_mind",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "urshifu",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "unseenfist",
+          "heldItem": "choice_band",
+          "moves": [
+            "wicked_blow",
+            "close_combat",
+            "sucker_punch",
+            "u_turn"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "iron_valiant",
+          "level": 50,
+          "nature": "naive",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "quarkdrive",
+          "heldItem": "booster_energy",
+          "moves": [
+            "moonblast",
+            "close_combat",
+            "thunderbolt",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "great_tusk",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "protosynthesis",
+          "heldItem": "leftovers",
+          "moves": [
+            "earthquake",
+            "close_combat",
+            "rapid_spin",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "gouging_fire",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "protosynthesis",
+          "heldItem": "booster_energy",
+          "moves": [
+            "dragon_dance",
+            "flare_blitz",
+            "dragon_claw",
+            "earthquake"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "roaring_moon",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "protosynthesis",
+          "heldItem": "booster_energy",
+          "moves": [
+            "dragon_dance",
+            "crunch",
+            "dragon_claw",
+            "earthquake"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "walking_wake",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "protosynthesis",
+          "heldItem": "choice_specs",
+          "moves": [
+            "hydro_steam",
+            "dragon_pulse",
+            "flamethrower",
+            "hurricane"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "ogerpon",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "defiant",
+          "heldItem": "miracle_seed",
+          "moves": [
+            "power_whip",
+            "knock_off",
+            "play_rough",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "bloodmoon_ursaluna",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "mindseye",
+          "heldItem": "leftovers",
+          "moves": [
+            "blood_moon",
+            "earth_power",
+            "moonblast",
+            "calm_mind"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "darkrai",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "baddreams",
+          "heldItem": "life_orb",
+          "moves": [
+            "dark_pulse",
+            "sludge_bomb",
+            "focus_blast",
+            "nasty_plot"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        }
+      ],
+      "trainerNames": [
+        "Elite Trainer",
+        "Battle Expert",
+        "Frontier Challenger",
+        "Dragon Tamer"
+      ],
+      "allPokemonChance": 0.0
+    },
+    "LEGENDARY": {
+      "weight": 0.8,
+      "pokemonCount": 5,
+      "levelOffsetMin": 2,
+      "levelOffsetMax": 5,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.75,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.0,
+      "legendaryPokemonCount": 1,
+      "fragmentMin": 4,
+      "fragmentMax": 7,
+      "rewardCommands": [
+        "eco give %player% 5000"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "mewtwo",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "life_orb",
+          "moves": [
+            "psystrike",
+            "aura_sphere",
+            "ice_beam",
+            "calm_mind"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "mew",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "synchronize",
+          "heldItem": "leftovers",
+          "moves": [
+            "psychic",
+            "aura_sphere",
+            "nasty_plot",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "lugia",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "multiscale",
+          "heldItem": "leftovers",
+          "moves": [
+            "aeroblast",
+            "psychic",
+            "toxic",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "ho_oh",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "regenerator",
+          "heldItem": "heavy_duty_boots",
+          "moves": [
+            "sacred_fire",
+            "brave_bird",
+            "earthquake",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "kyogre",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "drizzle",
+          "heldItem": "choice_specs",
+          "moves": [
+            "water_spout",
+            "surf",
+            "ice_beam",
+            "thunder"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "groudon",
+          "level": 50,
+          "nature": "adamant",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "drought",
+          "heldItem": "leftovers",
+          "moves": [
+            "precipice_blades",
+            "fire_punch",
+            "stone_edge",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "rayquaza",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "airlock",
+          "heldItem": "life_orb",
+          "moves": [
+            "dragon_dance",
+            "dragon_ascent",
+            "earthquake",
+            "extreme_speed"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "dialga",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "adamant_orb",
+          "moves": [
+            "flash_cannon",
+            "dragon_pulse",
+            "earth_power",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "palkia",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "lustrous_orb",
+          "moves": [
+            "spacial_rend",
+            "hydro_pump",
+            "thunderbolt",
+            "fire_blast"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "special"
+        },
+        {
+          "species": "giratina",
+          "level": 50,
+          "nature": "bold",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "pressure",
+          "heldItem": "leftovers",
+          "moves": [
+            "shadow_ball",
+            "dragon_pulse",
+            "will_o_wisp",
+            "rest"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "reshiram",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "turboblaze",
+          "heldItem": "choice_specs",
+          "moves": [
+            "blue_flare",
+            "dragon_pulse",
+            "earth_power",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "zekrom",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "teravolt",
+          "heldItem": "life_orb",
+          "moves": [
+            "bolt_strike",
+            "dragon_claw",
+            "crunch",
+            "dragon_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "xerneas",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "fairyaura",
+          "heldItem": "power_herb",
+          "moves": [
+            "geomancy",
+            "moonblast",
+            "thunderbolt",
+            "focus_blast"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "yveltal",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "darkaura",
+          "heldItem": "heavy_duty_boots",
+          "moves": [
+            "dark_pulse",
+            "hurricane",
+            "sucker_punch",
+            "roost"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "solgaleo",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "fullmetalbody",
+          "heldItem": "leftovers",
+          "moves": [
+            "sunsteel_strike",
+            "earthquake",
+            "psychic_fangs",
+            "morning_sun"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        }
+      ],
+      "trainerNames": [
+        "Legend Seeker",
+        "Master Trainer",
+        "Champion\u0027s Rival",
+        "Myth Hunter"
+      ],
+      "allPokemonChance": 0.0
+    },
+    "MYTHIC": {
+      "weight": 0.2,
+      "pokemonCount": 6,
+      "levelOffsetMin": 3,
+      "levelOffsetMax": 6,
+      "aiSkill": 5,
+      "evolvedSpeciesChance": 0.95,
+      "heldItemChance": 1.0,
+      "competitiveNatureChance": 1.0,
+      "shinyChance": 0.01,
+      "legendaryPokemonCount": 3,
+      "fragmentMin": 5,
+      "fragmentMax": 9,
+      "rewardCommands": [
+        "eco give %player% 10000"
+      ],
+      "speciesPool": [],
+      "pool": [
+        {
+          "species": "arceus",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "multitype",
+          "heldItem": "life_orb",
+          "moves": [
+            "swords_dance",
+            "extreme_speed",
+            "earthquake",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "zacian",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "intrepidsword",
+          "heldItem": "rusted_sword",
+          "moves": [
+            "behemoth_blade",
+            "play_rough",
+            "close_combat",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "zamazenta",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 4,
+            "def": 128,
+            "spa": 0,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "dauntlessshield",
+          "heldItem": "rusted_shield",
+          "moves": [
+            "behemoth_bash",
+            "body_press",
+            "crunch",
+            "iron_defense"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "calyrex_shadow",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "asonespectrier",
+          "heldItem": "choice_specs",
+          "moves": [
+            "astral_barrage",
+            "psychic",
+            "draining_kiss",
+            "nasty_plot"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "calyrex_ice",
+          "level": 50,
+          "nature": "adamant",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "asoneglastrier",
+          "heldItem": "leftovers",
+          "moves": [
+            "glacial_lance",
+            "high_horsepower",
+            "trick_room",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "koraidon",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "orichalcumpulse",
+          "heldItem": "life_orb",
+          "moves": [
+            "collision_course",
+            "flare_blitz",
+            "dragon_claw",
+            "swords_dance"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "miraidon",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "hadronengine",
+          "heldItem": "choice_specs",
+          "moves": [
+            "electro_drift",
+            "dragon_pulse",
+            "overheat",
+            "volt_switch"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        },
+        {
+          "species": "necrozma_dusk_mane",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "prismarmor",
+          "heldItem": "weakness_policy",
+          "moves": [
+            "sunsteel_strike",
+            "earthquake",
+            "dragon_dance",
+            "morning_sun"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "eternatus",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 252,
+            "atk": 0,
+            "def": 128,
+            "spa": 4,
+            "spd": 124,
+            "spe": 0
+          },
+          "ability": "pressure",
+          "heldItem": "black_sludge",
+          "moves": [
+            "dynamax_cannon",
+            "sludge_bomb",
+            "flamethrower",
+            "recover"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "anchor"
+          ],
+          "role": "anchor"
+        },
+        {
+          "species": "deoxys_attack",
+          "level": 50,
+          "nature": "naive",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "focus_sash",
+          "moves": [
+            "psycho_boost",
+            "superpower",
+            "extreme_speed",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "deoxys_speed",
+          "level": 50,
+          "nature": "timid",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "pressure",
+          "heldItem": "focus_sash",
+          "moves": [
+            "psycho_boost",
+            "taunt",
+            "spikes",
+            "stealth_rock"
+          ],
+          "weight": 1.0,
+          "tags": [
+            "lead"
+          ],
+          "role": "lead/setup"
+        },
+        {
+          "species": "magearna",
+          "level": 50,
+          "nature": "modest",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 4,
+            "spa": 252,
+            "spd": 0,
+            "spe": 252
+          },
+          "ability": "soulheart",
+          "heldItem": "leftovers",
+          "moves": [
+            "fleur_cannon",
+            "flash_cannon",
+            "aura_sphere",
+            "shift_gear"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "marshadow",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "technician",
+          "heldItem": "life_orb",
+          "moves": [
+            "spectral_thief",
+            "close_combat",
+            "shadow_sneak",
+            "bulk_up"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "sweeper"
+        },
+        {
+          "species": "zeraora",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "voltabsorb",
+          "heldItem": "expert_belt",
+          "moves": [
+            "plasma_fists",
+            "close_combat",
+            "knock_off",
+            "bulk_up"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "pivot"
+        },
+        {
+          "species": "victini",
+          "level": 50,
+          "nature": "jolly",
+          "ivs": {
+            "hp": 31,
+            "atk": 0,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 252,
+            "def": 0,
+            "spa": 0,
+            "spd": 4,
+            "spe": 252
+          },
+          "ability": "victorystar",
+          "heldItem": "choice_scarf",
+          "moves": [
+            "v_create",
+            "bolt_strike",
+            "zen_headbutt",
+            "u_turn"
+          ],
+          "weight": 1.0,
+          "tags": [],
+          "role": "wallbreaker"
+        }
+      ],
+      "trainerNames": [
+        "Mythic Challenger",
+        "Apex Trainer",
+        "World Champion",
+        "Grandmaster"
+      ],
+      "allPokemonChance": 0.0
+    }
+  },
+  "defaultSpeciesPool": [
+    "bulbasaur",
+    "charmander",
+    "squirtle",
+    "pikachu",
+    "eevee",
+    "pidgey",
+    "spearow",
+    "ekans",
+    "sandshrew",
+    "nidoran_f",
+    "nidoran_m",
+    "vulpix",
+    "zubat",
+    "oddish",
+    "paras",
+    "venonat",
+    "diglett",
+    "meowth",
+    "psyduck",
+    "mankey",
+    "poliwag",
+    "machop",
+    "bellsprout",
+    "tentacool",
+    "geodude",
+    "ponyta",
+    "slowpoke",
+    "magnemite",
+    "doduo",
+    "seel",
+    "grimer",
+    "shellder",
+    "gastly",
+    "drowzee",
+    "krabby",
+    "voltorb",
+    "cubone",
+    "horsea"
+  ],
+  "basicSpeciesPool": [
+    "bulbasaur",
+    "charmander",
+    "squirtle",
+    "pikachu",
+    "eevee",
+    "pidgey",
+    "spearow",
+    "ekans",
+    "sandshrew",
+    "nidoran_f",
+    "nidoran_m",
+    "vulpix",
+    "zubat",
+    "oddish",
+    "paras",
+    "venonat",
+    "diglett",
+    "meowth",
+    "psyduck",
+    "mankey",
+    "poliwag",
+    "machop",
+    "bellsprout",
+    "tentacool",
+    "geodude",
+    "ponyta",
+    "slowpoke",
+    "magnemite",
+    "doduo",
+    "seel",
+    "grimer",
+    "shellder",
+    "gastly",
+    "drowzee",
+    "krabby",
+    "voltorb",
+    "cubone",
+    "horsea"
+  ],
+  "strongSpeciesPool": [
+    "ivysaur",
+    "charmeleon",
+    "wartortle",
+    "raichu",
+    "vaporeon",
+    "jolteon",
+    "flareon",
+    "pidgeotto",
+    "fearow",
+    "arbok",
+    "sandslash",
+    "clefable",
+    "ninetales",
+    "golbat",
+    "vileplume",
+    "parasect",
+    "venomoth",
+    "dugtrio",
+    "persian",
+    "golduck",
+    "primeape",
+    "arcanine",
+    "poliwrath",
+    "kadabra",
+    "machoke",
+    "victreebel",
+    "tentacruel",
+    "golem",
+    "rapidash",
+    "slowbro",
+    "magneton",
+    "dodrio",
+    "dewgong",
+    "muk",
+    "cloyster",
+    "haunter",
+    "hypno",
+    "kingler",
+    "electrode",
+    "exeggutor",
+    "marowak",
+    "weezing",
+    "rhydon",
+    "seadra",
+    "starmie",
+    "scyther",
+    "pinsir",
+    "tauros",
+    "gyarados",
+    "lapras",
+    "snorlax",
+    "dragonair"
+  ],
+  "eliteSpeciesPool": [
+    "venusaur",
+    "charizard",
+    "blastoise",
+    "alakazam",
+    "machamp",
+    "gengar",
+    "dragonite",
+    "tyranitar",
+    "metagross",
+    "salamence",
+    "garchomp",
+    "hydreigon",
+    "goodra",
+    "kommo_o",
+    "dragapult",
+    "haxorus",
+    "lucario",
+    "gardevoir",
+    "gallade",
+    "milotic",
+    "kingdra",
+    "scizor",
+    "heracross",
+    "blissey",
+    "mamoswine",
+    "weavile",
+    "togekiss",
+    "excadrill",
+    "volcarona",
+    "greninja",
+    "aegislash",
+    "vikavolt",
+    "toxapex",
+    "mimikyu",
+    "corviknight",
+    "grimmsnarl",
+    "duraludon",
+    "baxcalibur",
+    "annihilape",
+    "ceruledge",
+    "armarouge"
+  ],
+  "legendarySpeciesPool": [
+    "articuno",
+    "zapdos",
+    "moltres",
+    "mewtwo",
+    "mew",
+    "raikou",
+    "entei",
+    "suicune",
+    "lugia",
+    "ho_oh",
+    "celebi",
+    "regirock",
+    "regice",
+    "registeel",
+    "latias",
+    "latios",
+    "kyogre",
+    "groudon",
+    "rayquaza",
+    "jirachi",
+    "deoxys",
+    "uxie",
+    "mesprit",
+    "azelf",
+    "dialga",
+    "palkia",
+    "heatran",
+    "regigigas",
+    "giratina",
+    "cresselia",
+    "darkrai",
+    "shaymin",
+    "arceus",
+    "cobalion",
+    "terrakion",
+    "virizion",
+    "tornadus",
+    "thundurus",
+    "landorus",
+    "reshiram",
+    "zekrom",
+    "kyurem",
+    "xerneas",
+    "yveltal",
+    "zygarde",
+    "solgaleo",
+    "lunala",
+    "necrozma",
+    "zacian",
+    "zamazenta",
+    "eternatus",
+    "kubfu",
+    "urshifu",
+    "regieleki",
+    "regidrago"
+  ],
+  "ultraBeastSpeciesPool": [
+    "nihilego",
+    "buzzwole",
+    "pheromosa",
+    "xurkitree",
+    "celesteela",
+    "kartana",
+    "guzzlord",
+    "poipole",
+    "naganadel",
+    "stakataka",
+    "blacephalon"
+  ],
+  "paradoxSpeciesPool": [
+    "great_tusk",
+    "scream_tail",
+    "brute_bonnet",
+    "flutter_mane",
+    "slither_wing",
+    "sandy_shocks",
+    "roaring_moon",
+    "walking_wake",
+    "gouging_fire",
+    "raging_bolt",
+    "iron_treads",
+    "iron_bundle",
+    "iron_hands",
+    "iron_jugulis",
+    "iron_moth",
+    "iron_thorns",
+    "iron_valiant",
+    "iron_leaves",
+    "iron_boulder",
+    "iron_crown"
+  ],
+  "mythicSpeciesPool": [
+    "mew",
+    "celebi",
+    "jirachi",
+    "deoxys",
+    "phione",
+    "manaphy",
+    "darkrai",
+    "shaymin",
+    "arceus",
+    "victini",
+    "keldeo",
+    "meloetta",
+    "genesect",
+    "diancie",
+    "hoopa",
+    "volcanion",
+    "magearna",
+    "marshadow",
+    "zeraora",
+    "meltan",
+    "melmetal",
+    "zarude",
+    "pecharunt"
+  ],
+  "competitiveHeldItems": [
+    "cobblemon:leftovers",
+    "cobblemon:life_orb",
+    "cobblemon:choice_band",
+    "cobblemon:choice_scarf",
+    "cobblemon:choice_specs",
+    "cobblemon:focus_sash",
+    "cobblemon:expert_belt",
+    "cobblemon:muscle_band",
+    "cobblemon:wise_glasses",
+    "cobblemon:rocky_helmet"
+  ],
+  "competitiveNatures": [
+    "adamant",
+    "modest",
+    "jolly",
+    "timid",
+    "bold",
+    "calm",
+    "impish",
+    "careful"
+  ],
+  "randomTrainerSkins": [
+    "champ_roamer_male_01.png",
+    "champ_roamer_male_02.png",
+    "champ_roamer_male_03.png",
+    "champ_roamer_male_04.png",
+    "champ_roamer_male_05.png",
+    "champ_roamer_male_06.png",
+    "champ_roamer_male_07.png",
+    "champ_roamer_male_08.png",
+    "champ_roamer_male_09.png",
+    "champ_roamer_male_10.png",
+    "champ_roamer_male_11.png",
+    "champ_roamer_male_12.png",
+    "champ_roamer_male_13.png",
+    "champ_roamer_male_14.png",
+    "champ_roamer_male_15.png",
+    "champ_roamer_male_16.png",
+    "champ_roamer_male_17.png",
+    "champ_roamer_female_01.png",
+    "champ_roamer_female_02.png",
+    "champ_roamer_female_03.png",
+    "champ_roamer_female_04.png",
+    "champ_roamer_female_05.png",
+    "champ_roamer_female_06.png",
+    "champ_roamer_female_07.png",
+    "champ_roamer_female_08.png",
+    "champ_roamer_female_09.png",
+    "champ_roamer_female_10.png",
+    "champ_roamer_female_11.png",
+    "champ_roamer_female_12.png",
+    "champ_roamer_female_13.png",
+    "champ_roamer_female_14.png",
+    "champ_roamer_female_15.png"
+  ],
+  "maleTrainerSkins": [
+    "champ_roamer_male_01.png",
+    "champ_roamer_male_02.png",
+    "champ_roamer_male_03.png",
+    "champ_roamer_male_04.png",
+    "champ_roamer_male_05.png",
+    "champ_roamer_male_06.png",
+    "champ_roamer_male_07.png",
+    "champ_roamer_male_08.png",
+    "champ_roamer_male_09.png",
+    "champ_roamer_male_10.png",
+    "champ_roamer_male_11.png",
+    "champ_roamer_male_12.png",
+    "champ_roamer_male_13.png",
+    "champ_roamer_male_14.png",
+    "champ_roamer_male_15.png",
+    "champ_roamer_male_16.png",
+    "champ_roamer_male_17.png"
+  ],
+  "femaleTrainerSkins": [
+    "champ_roamer_female_01.png",
+    "champ_roamer_female_02.png",
+    "champ_roamer_female_03.png",
+    "champ_roamer_female_04.png",
+    "champ_roamer_female_05.png",
+    "champ_roamer_female_06.png",
+    "champ_roamer_female_07.png",
+    "champ_roamer_female_08.png",
+    "champ_roamer_female_09.png",
+    "champ_roamer_female_10.png",
+    "champ_roamer_female_11.png",
+    "champ_roamer_female_12.png",
+    "champ_roamer_female_13.png",
+    "champ_roamer_female_14.png",
+    "champ_roamer_female_15.png"
+  ],
+  "allowCompetitiveMoves": true
+}

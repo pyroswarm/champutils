@@ -1,0 +1,24 @@
+{
+  "uuid": "873f3609-a04c-42d2-bb57-cf9a6155e629",
+  "name": "yNeath",
+  "levels": {
+    "BATTLING": 61,
+    "FARMING": 88,
+    "FORESTRY": 6,
+    "MINING": 28
+  },
+  "xp": {
+    "BATTLING": 1005,
+    "FARMING": 670,
+    "FORESTRY": 140,
+    "MINING": 310
+  },
+  "fragments": {
+    "COMMON": 779,
+    "RARE": 6,
+    "UNCOMMON": 159,
+    "LEGENDARY": 2,
+    "EPIC": 11,
+    "MYTHIC": 4
+  }
+}

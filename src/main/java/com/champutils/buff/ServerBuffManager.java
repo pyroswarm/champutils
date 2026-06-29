@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -82,6 +83,34 @@ public final class ServerBuffManager {
         ACTIVE_BOOSTS.clear();
     }
 
+    /**
+     * Lightweight countdown notifier for visible boosters. Called once per server tick; only
+     * broadcasts at the 10m, 5m, and 1m thresholds for each booster.
+     */
+    public static void tick(MinecraftServer server) {
+        if (server == null) return;
+        clearExpired();
+        long now = System.currentTimeMillis();
+        for (ActiveServerBoost boost : ACTIVE_BOOSTS.values()) {
+            long remaining = Math.max(0L, boost.expiresAt - now);
+            maybeBroadcastReminder(server, boost, remaining, 10);
+            maybeBroadcastReminder(server, boost, remaining, 5);
+            maybeBroadcastReminder(server, boost, remaining, 1);
+        }
+    }
+
+    private static void maybeBroadcastReminder(MinecraftServer server, ActiveServerBoost boost, long remainingMillis, int minutes) {
+        long threshold = minutes * 60_000L;
+        if (remainingMillis <= 0L || remainingMillis > threshold) return;
+        synchronized (boost.remindedMinutes) {
+            if (!boost.remindedMinutes.add(minutes)) return;
+        }
+        server.getPlayerList().broadcastSystemMessage(
+                Component.literal("[Server Boost] " + boost.displayName + " has " + minutes + " minute" + (minutes == 1 ? "" : "s") + " left.").withStyle(ChatFormatting.GOLD),
+                false
+        );
+    }
+
     public static synchronized void clearExpired() {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<String, ActiveServerBuff>> iterator = ACTIVE.entrySet().iterator();
@@ -122,6 +151,6 @@ public final class ServerBuffManager {
     }
 
     private static final class ActiveServerBuff { final String id; final BuffType type; final double amount; final long expiresAt; ActiveServerBuff(String id, BuffType type, double amount, long expiresAt){this.id=id;this.type=type;this.amount=amount;this.expiresAt=expiresAt;} boolean isExpired(){return System.currentTimeMillis() >= expiresAt;} }
-    private static final class ActiveServerBoost { final String id, displayName, activatorName; final double amount; final long expiresAt; ActiveServerBoost(String id, String displayName, String activatorName, double amount, long expiresAt){this.id=id;this.displayName=displayName;this.activatorName=activatorName;this.amount=amount;this.expiresAt=expiresAt;} }
+    private static final class ActiveServerBoost { final String id, displayName, activatorName; final double amount; final long expiresAt; final java.util.Set<Integer> remindedMinutes = new HashSet<>(); ActiveServerBoost(String id, String displayName, String activatorName, double amount, long expiresAt){this.id=id;this.displayName=displayName;this.activatorName=activatorName;this.amount=amount;this.expiresAt=expiresAt;} }
     public record ActiveBoostView(String id, String displayName, String activatorName, double amount, long remainingMillis) {}
 }

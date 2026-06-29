@@ -171,8 +171,6 @@ public final class ExplorationLootConfig {
         addLootIfMissing(table, "UNCOMMON", "cobblemon:revive", 28, 1, 2);
         addLootIfMissing(table, "UNCOMMON", "cobblemon:exp_candy_m", 22, 1, 2);
         addLootIfMissing(table, "UNCOMMON", "cobblemon:link_cable", 8, 1, 1);
-        addLootIfMissing(table, "UNCOMMON", "champutils:random_tm_common", 22, 1, 1);
-        addLootIfMissing(table, "RARE", "champutils:random_tm_uncommon", 6, 1, 1);
         addLootIfMissing(table, "RARE", "cobblemon:dawn_stone", 6, 1, 1);
         addLootIfMissing(table, "RARE", "cobblemon:dusk_stone", 6, 1, 1);
         addLootIfMissing(table, "RARE", "cobblemon:moon_stone", 6, 1, 1);

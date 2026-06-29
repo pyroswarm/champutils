@@ -6,6 +6,7 @@ import com.champutils.crate.CrateCreditManager;
 import com.champutils.guild.GuildRepository;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerProfileManager;
 
@@ -97,13 +98,17 @@ public class QuestManager {
         int count = Math.max(1, daily ? QuestConfig.SETTINGS.dailyObjectiveCount : QuestConfig.SETTINGS.weeklyObjectiveCount);
         List<QuestConfig.Template> pool = eligibleTemplates(player, source);
         Set<String> usedProfessions = new HashSet<>();
+        Set<String> usedIds = new HashSet<>();
         for (int i = 0; i < count; i++) {
             QuestConfig.Template picked = pickWeighted(pool, usedProfessions);
             if (picked == null) picked = pickWeighted(pool, null);
             if (picked == null) break;
-            pool.remove(picked);
-            usedProfessions.add(safe(picked.profession));
-            set.objectives.add(fromTemplate(picked));
+            final QuestConfig.Template selected = picked;
+            final String selectedId = safe(selected.id);
+            pool.removeIf(template -> template == selected || safe(template.id).equalsIgnoreCase(selectedId));
+            usedIds.add(selectedId);
+            usedProfessions.add(safe(selected.profession));
+            set.objectives.add(fromTemplate(selected));
         }
         return set;
     }
@@ -111,8 +116,11 @@ public class QuestManager {
     private static List<QuestConfig.Template> eligibleTemplates(ServerPlayer player, List<QuestConfig.Template> source) {
         List<QuestConfig.Template> out = new ArrayList<>();
         if (source == null) return out;
+        Set<String> seen = new HashSet<>();
         for (QuestConfig.Template t : source) {
             if (t == null || t.id == null || t.objectiveType == null) continue;
+            String id = safe(t.id);
+            if (!seen.add(id.toLowerCase(Locale.ROOT))) continue;
             ProfessionType profession = parseProfession(t.profession);
             int level = profession == null ? 1 : ProfessionManager.getLevel(player, profession);
             if (level >= Math.max(1, t.minLevel) && Math.max(1, t.weight) > 0) out.add(t);
@@ -369,6 +377,7 @@ public class QuestManager {
         data.claimedWeekly.add(playerKey);
         int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
         if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
+        awardQuestChunks(player, "GUILD");
         runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         markGuildDirty(guild.id);
         saveGuild(guild.id);
@@ -382,6 +391,7 @@ public class QuestManager {
         int xp = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
         if (credits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(credits)));
         if (xp > 0) lore.add(Component.literal("§7• §a" + xp + " Profession XP per objective"));
+        lore.add(Component.literal("§7• §6" + (daily ? "8 Cobblestone + 2 Copper chunks" : "24 Cobblestone + 8 Copper + 3 Iron chunks")));
         addCommandRewardLore(lore, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
         String crateId = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
         lore.add(Component.literal("§7• §eGuaranteed 1 " + displayCrateId(crateId) + " Crate Credit"));
@@ -391,6 +401,7 @@ public class QuestManager {
     public static List<Component> guildRewardLore() {
         List<Component> lore = new ArrayList<>();
         if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(QuestConfig.SETTINGS.guildWeeklyCompletionCredits)));
+        lore.add(Component.literal("§7• §6Guild chunk bundle"));
         addCommandRewardLore(lore, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         if (lore.stream().noneMatch(c -> c.getString().toLowerCase(Locale.ROOT).contains("guild crate credit"))) {
             lore.add(Component.literal("§7• §fGuild Crate Credit ×1"));
@@ -405,6 +416,7 @@ public class QuestManager {
     public static List<Component> contractRewardLore(List<String> commands, int rewardCredits, String difficulty) {
         List<Component> lore = new ArrayList<>();
         if (rewardCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(rewardCredits)));
+        lore.add(Component.literal("§7• §6" + contractChunkSummary(difficulty)));
         addCommandRewardLore(lore, commands);
         lore.add(Component.literal("§7• §eGuaranteed 1 " + displayCrateId(crateIdForDifficulty(difficulty)) + " Crate Credit"));
         return lore;
@@ -540,12 +552,39 @@ public class QuestManager {
         runRewardCommands(player, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
         String questRarity = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
         maybeAwardCrateCredit(player, questRarity);
+        awardQuestChunks(player, daily ? "DAILY" : "WEEKLY");
         awardRarityFragments(player, questRarity);
         if (daily) com.champutils.cosmetic.TitleManager.unlock(player, "questing_soul");
         markDirty(player);
         savePlayer(player);
         player.sendSystemMessage(Component.literal((daily ? "Daily" : "Weekly") + " quest rewards claimed!").withStyle(ChatFormatting.GREEN));
         return true;
+    }
+
+    private static void awardQuestChunks(ServerPlayer player, String tier) {
+        String key = tier == null ? "COMMON" : tier.trim().toUpperCase(Locale.ROOT);
+        switch (key) {
+            case "DAILY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
+            case "WEEKLY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 8, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); }
+            case "GUILD" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 12, false); ProfessionChunkManager.addChunk(player, "IRON", 5, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
+            case "UNCOMMON" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 3, false); }
+            case "RARE" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 5, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
+            case "EPIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 18, false); ProfessionChunkManager.addChunk(player, "COPPER", 7, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); }
+            case "LEGENDARY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 10, false); ProfessionChunkManager.addChunk(player, "IRON", 5, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
+            case "MYTHIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 14, false); ProfessionChunkManager.addChunk(player, "IRON", 7, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); ProfessionChunkManager.addChunk(player, "DIAMOND", 1, false); }
+            default -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 6, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
+        }
+    }
+
+    private static String contractChunkSummary(String difficulty) {
+        return switch ((difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(Locale.ROOT))) {
+            case "UNCOMMON" -> "8 Cobblestone + 3 Copper chunks";
+            case "RARE" -> "12 Cobblestone + 5 Copper + 2 Iron chunks";
+            case "EPIC" -> "18 Cobblestone + 7 Copper + 3 Iron chunks";
+            case "LEGENDARY" -> "24 Cobblestone + 10 Copper + 5 Iron + 1 Gold chunk";
+            case "MYTHIC" -> "32 Cobblestone + 14 Copper + 7 Iron + 2 Gold + 1 Diamond chunk";
+            default -> "6 Cobblestone + 2 Copper chunks";
+        };
     }
 
     private static void runRewardCommands(ServerPlayer player, List<String> commands) {
@@ -672,6 +711,7 @@ public class QuestManager {
             if (c.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(c.rewardCredits), "quest_contract_complete:" + c.id);
             runRewardCommands(player, c.rewardCommands);
             maybeAwardCrateCredit(player, crateIdForDifficulty(c.difficulty));
+            awardQuestChunks(player, c.difficulty);
             awardRarityFragments(player, c.difficulty);
             com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);

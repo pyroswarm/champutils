@@ -26,6 +26,7 @@ public final class CashShopBoostItemManager {
         add("mining_xp_surge", "§3Server Mining XP Surge", BuffType.MINING_XP, 0.50D, "Adds +50% Mining profession XP for the whole server for 15 minutes.");
         add("forestry_xp_surge", "§aServer Forestry XP Surge", BuffType.FORESTRY_XP, 0.50D, "Adds +50% Forestry profession XP for the whole server for 15 minutes.");
         add("farming_xp_surge", "§eServer Farming XP Surge", BuffType.FARMING_XP, 0.50D, "Adds +50% Farming profession XP for the whole server for 15 minutes.");
+        add("battling_xp_surge", "§cServer Battle XP Surge", BuffType.BATTLING_XP, 0.50D, "Adds +50% Battle profession XP for the whole server for 15 minutes.");
     }
 
     private CashShopBoostItemManager() {}

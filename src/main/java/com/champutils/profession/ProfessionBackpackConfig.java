@@ -189,7 +189,7 @@ public final class ProfessionBackpackConfig {
     }
 
     public static String normalizeItem(String itemId) {
-        return itemId.trim().toLowerCase(Locale.ROOT);
+        return normalizeTradeItemId(itemId);
     }
 
     public static String normalizeTradeItemId(String itemId) {
@@ -198,7 +198,37 @@ public final class ProfessionBackpackConfig {
         if (id.isBlank()) return "";
         if (!id.contains(":")) id = "minecraft:" + id;
         if (id.equals("minecraft:netherack")) id = "minecraft:netherrack";
+        id = normalizeCobblemonStoneAlias(id);
         return id;
+    }
+
+    private static String normalizeCobblemonStoneAlias(String id) {
+        String namespace = id.contains(":") ? id.substring(0, id.indexOf(':')) : "minecraft";
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        String fixedPath = switch (path) {
+            case "dawnstone" -> "dawn_stone";
+            case "duskstone" -> "dusk_stone";
+            case "firestone" -> "fire_stone";
+            case "icestone" -> "ice_stone";
+            case "leafstone" -> "leaf_stone";
+            case "moonstone" -> "moon_stone";
+            case "shinystone" -> "shiny_stone";
+            case "sunstone" -> "sun_stone";
+            case "thunderstone" -> "thunder_stone";
+            case "waterstone" -> "water_stone";
+            default -> path;
+        };
+        if ("minecraft".equals(namespace) && fixedPath.endsWith("_stone") && isCobblemonEvolutionStonePath(fixedPath)) {
+            return "cobblemon:" + fixedPath;
+        }
+        return namespace + ":" + fixedPath;
+    }
+
+    private static boolean isCobblemonEvolutionStonePath(String path) {
+        return switch (path) {
+            case "dawn_stone", "dusk_stone", "fire_stone", "ice_stone", "leaf_stone", "moon_stone", "shiny_stone", "sun_stone", "thunder_stone", "water_stone" -> true;
+            default -> false;
+        };
     }
 
     private static File file() {
@@ -226,6 +256,9 @@ public final class ProfessionBackpackConfig {
             data.item = id;
             if (data.profession == null || data.profession.isBlank()) data.profession = ProfessionType.FARMING.name();
             data.profession = data.profession.trim().toUpperCase(Locale.ROOT);
+            if (id.equals("minecraft:dirt") || id.equals("minecraft:coarse_dirt") || id.equals("minecraft:rooted_dirt") || id.equals("minecraft:grass_block") || id.equals("minecraft:podzol") || id.equals("minecraft:mycelium")) {
+                data.profession = ProfessionType.MINING.name();
+            }
             if (data.displayName == null || data.displayName.isBlank()) data.displayName = formatName(id);
             if (!isBackpackProfession(data.profession)) data.enabled = false;
             if (data.rewardItem == null || data.rewardItem.isBlank()) data.rewardItem = CONFIG.defaultRewardItem;
@@ -263,6 +296,12 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.MINING, "minecraft:quartz", ++s);
         add(c, ProfessionType.MINING, "minecraft:ancient_debris", ++s);
         add(c, ProfessionType.MINING, "minecraft:flint", ++s);
+        add(c, ProfessionType.MINING, "minecraft:dirt", ++s);
+        add(c, ProfessionType.MINING, "minecraft:coarse_dirt", ++s);
+        add(c, ProfessionType.MINING, "minecraft:rooted_dirt", ++s);
+        add(c, ProfessionType.MINING, "minecraft:grass_block", ++s);
+        add(c, ProfessionType.MINING, "minecraft:podzol", ++s);
+        add(c, ProfessionType.MINING, "minecraft:mycelium", ++s);
         String[] woods = {"oak","spruce","birch","jungle","acacia","dark_oak","mangrove","cherry"};
         for (String w : woods) add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_log", ++s);
         add(c, ProfessionType.FORESTRY, "minecraft:crimson_stem", ++s);
@@ -306,6 +345,21 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.FARMING, "cobblemon:vivichoke_seeds", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:medicinal_leek", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:pep_up_flower", ++s);
+
+        String[] evolutionStones = {"dawn","dusk","fire","ice","leaf","moon","shiny","sun","thunder","water"};
+        for (String stone : evolutionStones) add(c, ProfessionType.MINING, "cobblemon:" + stone + "_stone", ++s);
+        String[] fossils = {"armor","claw","cover","dome","helix","jaw","old_amber","plume","root","sail","skull"};
+        for (String fossil : fossils) add(c, ProfessionType.MINING, "cobblemon:" + fossil + "_fossil", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:fossilized_bird", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:fossilized_dino", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:fossilized_drake", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:fossilized_fish", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:tumblestone", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:black_tumblestone", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:sky_tumblestone", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:tumblestone_block", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:black_tumblestone_block", ++s);
+        add(c, ProfessionType.MINING, "cobblemon:sky_tumblestone_block", ++s);
         c.tradeDisabledItems = defaultTradeDisabledItems();
         return c;
     }

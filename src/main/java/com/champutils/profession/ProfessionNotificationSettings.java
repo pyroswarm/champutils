@@ -119,6 +119,18 @@ public final class ProfessionNotificationSettings {
         return settings.broadcastMessages;
     }
 
+
+    public static boolean areTrinketMessagesEnabled(ServerPlayer player) {
+        return getSettings(player).trinketMessages;
+    }
+
+    public static boolean toggleTrinketMessages(ServerPlayer player) {
+        PlayerSettings settings = getOrCreateSettings(player);
+        if (settings == null) return true;
+        settings.trinketMessages = !settings.trinketMessages;
+        save();
+        return settings.trinketMessages;
+    }
     public static boolean areQueueNotificationsEnabled(ServerPlayer player) {
         return getSettings(player).queueNotifications;
     }
@@ -253,6 +265,7 @@ public final class ProfessionNotificationSettings {
         Boolean queueNotifications = true;
         Boolean repairConfirmation = true;
         Boolean autoRepair = false;
+        Boolean trinketMessages = true;
 
         void normalizeDefaults() {
             if (professionPopups == null) professionPopups = true;
@@ -261,6 +274,7 @@ public final class ProfessionNotificationSettings {
             if (queueNotifications == null) queueNotifications = true;
             if (repairConfirmation == null) repairConfirmation = true;
             if (autoRepair == null) autoRepair = false;
+            if (trinketMessages == null) trinketMessages = true;
         }
     }
 }

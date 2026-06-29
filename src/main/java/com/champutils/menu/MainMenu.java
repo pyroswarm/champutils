@@ -104,10 +104,11 @@ public class MainMenu {
         MenuUtil.addOpenButton(
                 gui,
                 26,
-                Items.BOOK,
-                "§bHelp",
-                () -> HelpMenu.open(player),
-                "§7Guides will be added here later."
+                Items.ENDER_CHEST,
+                "§dTrinket Pouch",
+                () -> com.champutils.profession.ProfessionTrinketManager.openDigitalPouch(player),
+                "§7Open your digital trinket storage.",
+                "§7Also available with /tpouch."
         );
 
         gui.open();

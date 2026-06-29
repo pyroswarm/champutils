@@ -1,0 +1,17 @@
+{
+  "uuid": "17874302-3a1b-447f-8907-7d75f35748ee",
+  "name": "Magister_1",
+  "levels": {
+    "BATTLING": 2,
+    "FARMING": 1,
+    "FORESTRY": 2,
+    "MINING": 13
+  },
+  "xp": {
+    "BATTLING": 115,
+    "FARMING": 60,
+    "FORESTRY": 7,
+    "MINING": 54
+  },
+  "fragments": {}
+}

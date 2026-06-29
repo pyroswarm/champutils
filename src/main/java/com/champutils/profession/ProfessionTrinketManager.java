@@ -3,12 +3,15 @@ package com.champutils.profession;
 import com.champutils.buff.BuffContext;
 import com.champutils.buff.BuffManager;
 import com.champutils.buff.BuffType;
+import com.champutils.profile.IronmanItemOwnership;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import eu.pb4.polymer.core.api.item.PolymerItem;
+import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -16,6 +19,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,6 +29,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.commands.Commands;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -59,9 +64,9 @@ public final class ProfessionTrinketManager {
             registerTrinket(rarity, "magnet", Items.IRON_INGOT);
             registerTrinket(rarity, "shiny_charm", Items.AMETHYST_SHARD);
             registerTrinket(rarity, "profession_xp_gem", Items.EMERALD);
-            registerTrinket(rarity, "pokemon_xp_egg", Items.EGG);
+            registerTrinket(rarity, "pokemon_xp_egg", Items.PRISMARINE_CRYSTALS);
             registerTrinket(rarity, "friendship_charm", Items.HEART_OF_THE_SEA);
-            registerTrinket(rarity, "level_charm", Items.EXPERIENCE_BOTTLE);
+            registerTrinket(rarity, "level_charm", Items.NETHER_STAR);
             registerTrinket(rarity, "rare_pokemon_charm", Items.PRISMARINE_CRYSTALS);
             registerTrinket(rarity, "chunky_brick", Items.BRICK);
             registerPouch(rarity, Items.ENDER_CHEST);
@@ -89,6 +94,18 @@ public final class ProfessionTrinketManager {
         if (effectsRegistered) return;
         effectsRegistered = true;
         ServerTickEvents.END_SERVER_TICK.register(server -> server.getPlayerList().getPlayers().forEach(ProfessionTrinketManager::applyMagnet));
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            dispatcher.register(Commands.literal("tpouch")
+                    .executes(context -> {
+                        openDigitalPouch(context.getSource().getPlayerOrException());
+                        return 1;
+                    }));
+            dispatcher.register(Commands.literal("trinketpouch")
+                    .executes(context -> {
+                        openDigitalPouch(context.getSource().getPlayerOrException());
+                        return 1;
+                    }));
+        });
         CobblemonEvents.FRIENDSHIP_UPDATED.subscribe(event -> {
             try {
                 Pokemon pokemon = event.getPokemon();
@@ -100,10 +117,58 @@ public final class ProfessionTrinketManager {
                 if (delta <= 0) return;
                 int extra = (int)Math.floor(delta * bonus);
                 if (extra <= 0 && ThreadLocalRandom.current().nextDouble() < (delta * bonus)) extra = 1;
-                if (extra > 0) event.setNewFriendship(current + delta + extra);
+                if (extra > 0) {
+                    event.setNewFriendship(current + delta + extra);
+                    if (ProfessionNotificationSettings.areTrinketMessagesEnabled(owner)) owner.sendSystemMessage(Component.literal("[Trinket] Friendship Charm added +" + extra + " extra friendship.").withStyle(ChatFormatting.LIGHT_PURPLE));
+                }
             } catch (Throwable ignored) {
             }
         });
+    }
+
+
+    public static ItemStack migrateStack(ItemStack original) {
+        if (original == null || original.isEmpty()) return original;
+        CustomData data = original.get(DataComponents.CUSTOM_DATA);
+        if (data == null) return original;
+        CompoundTag tag = data.copyTag();
+
+        if (tag.getBoolean("champutils_trinket")) {
+            String type = normalizeType(tag.getString("type"));
+            String rarity = ProfessionFragmentConfig.normalizeRarity(tag.getString("rarity"));
+            ItemStack migrated = create(type, rarity);
+            if (migrated.isEmpty()) return original;
+            CustomData migratedData = migrated.get(DataComponents.CUSTOM_DATA);
+            if (migratedData != null) {
+                CompoundTag migratedTag = migratedData.copyTag();
+                migratedTag.putBoolean("enabled", tag.getBoolean("enabled"));
+                migrated.set(DataComponents.CUSTOM_DATA, CustomData.of(migratedTag));
+                migrated.set(DataComponents.LORE, new ItemLore(lore(type, rarity, migratedTag.getBoolean("enabled"))));
+            }
+            migrated.setCount(1);
+            return migrated;
+        }
+
+        if (tag.getBoolean("champutils_trinket_pouch")) {
+            String rarity = ProfessionFragmentConfig.normalizeRarity(tag.getString("rarity"));
+            ItemStack migrated = createPouch(rarity);
+            if (migrated.isEmpty()) return original;
+            CustomData migratedData = migrated.get(DataComponents.CUSTOM_DATA);
+            if (migratedData != null) {
+                CompoundTag migratedTag = migratedData.copyTag();
+                if (tag.contains("storedTrinkets")) migratedTag.put("storedTrinkets", tag.getList("storedTrinkets", Tag.TAG_COMPOUND));
+                if (tag.contains("storedCount")) migratedTag.putInt("storedCount", tag.getInt("storedCount"));
+                if (tag.contains("pouchId")) {
+                    try { migratedTag.putUUID("pouchId", tag.getUUID("pouchId")); } catch (Throwable ignored) {}
+                }
+                migrated.set(DataComponents.CUSTOM_DATA, CustomData.of(migratedTag));
+                updatePouchLore(migrated, rarity, migratedTag.getInt("storedCount"));
+            }
+            migrated.setCount(1);
+            return migrated;
+        }
+
+        return original;
     }
 
     public static ItemStack create(String type, String rarity) {
@@ -133,7 +198,7 @@ public final class ProfessionTrinketManager {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean("champutils_trinket_pouch", true);
         tag.putString("rarity", r);
-        tag.putInt("slots", Math.min(9, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots)));
+        tag.putInt("slots", Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots)));
         tag.putUUID("pouchId", UUID.randomUUID());
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
         stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(9930 + tier(r)));
@@ -147,7 +212,7 @@ public final class ProfessionTrinketManager {
         double radius = tierValue(player, "magnet", tier -> tier.magnetRadiusBonus);
         if (radius <= 0.0D) return;
         AABB box = player.getBoundingBox().inflate(radius);
-        List<ItemEntity> items = player.level().getEntities(EntityType.ITEM, box, item -> item != null && item.isAlive());
+        List<ItemEntity> items = player.level().getEntities(EntityType.ITEM, box, item -> item != null && item.isAlive() && IronmanItemOwnership.canPickup(player, item));
         for (ItemEntity item : items) {
             Vec3 delta = player.position().add(0, 0.75, 0).subtract(item.position());
             double len = Math.max(0.1D, delta.length());
@@ -157,18 +222,32 @@ public final class ProfessionTrinketManager {
     }
 
     public static void tryApplyShinyCharm(ServerPlayer player, Object pokemon) {
-        if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled) return;
-        double chance = shinyCharmChancePercent(player);
-        chance += serverShinyBonusPercent(player, pokemon);
+        if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled || isShiny(pokemon)) return;
+        double charmChance = shinyCharmChancePercent(player);
+        double buffChance = serverShinyBonusPercent(player, pokemon);
+        double chance = charmChance + buffChance;
         if (chance <= 0.0D) return;
-        if (ThreadLocalRandom.current().nextDouble(100.0D) < chance) setShiny(pokemon, true);
+        if (ThreadLocalRandom.current().nextDouble(100.0D) < chance && setShiny(pokemon, true)) {
+            String reason = charmChance > 0.0D ? "Your Shiny Charm" : "An active shiny bonus";
+            if (charmChance > 0.0D && buffChance > 0.0D) reason = "Your Shiny Charm and active shiny bonuses";
+            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] " + reason + " turned this catch shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
     }
 
     public static void tryApplyWildSpawnShiny(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled || isShiny(pokemon)) return;
         double base = (1.0D / 8192.0D) * 100.0D;
-        double chance = base + shinyCharmChancePercent(player) + serverShinyBonusPercent(player, pokemon);
-        if (ThreadLocalRandom.current().nextDouble(100.0D) < chance) setShiny(pokemon, true);
+        double charmChance = shinyCharmChancePercent(player);
+        double buffChance = serverShinyBonusPercent(player, pokemon);
+        double chance = base + charmChance + buffChance;
+        double rolled = ThreadLocalRandom.current().nextDouble(100.0D);
+        if (rolled < chance && setShiny(pokemon, true)) {
+            if (rolled >= base && (charmChance > 0.0D || buffChance > 0.0D)) {
+                String reason = charmChance > 0.0D ? "Shiny Charm" : "active shiny bonus";
+                if (charmChance > 0.0D && buffChance > 0.0D) reason = "Shiny Charm and active shiny bonuses";
+                if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Bonus] " + reason + " turned a nearby wild Pokémon shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
+        }
     }
 
 
@@ -226,11 +305,12 @@ public final class ProfessionTrinketManager {
     private static List<ItemStack> activeTrinkets(ServerPlayer player, String type) {
         Map<String, ItemStack> bestByType = new LinkedHashMap<>();
         if (player == null) return new ArrayList<>();
+        migratePhysicalPouchesToDigital(player, false);
         for (ItemStack stack : player.getInventory().items) {
             addIfBest(bestByType, stack, type);
-            if (isPouch(stack)) {
-                for (ItemStack stored : readPouchItems(player, stack)) addIfBest(bestByType, stored, type);
-            }
+        }
+        for (ItemStack stored : readDigitalPouchItems(player)) {
+            addIfBest(bestByType, stored, type);
         }
         return new ArrayList<>(bestByType.values());
     }
@@ -240,6 +320,195 @@ public final class ProfessionTrinketManager {
         String type = trinketType(stack);
         ItemStack existing = bestByType.get(type);
         if (existing == null || existing.isEmpty() || tier(rarity(stack)) > tier(rarity(existing))) bestByType.put(type, stack.copy());
+    }
+
+    public static int digitalPouchTier(ServerPlayer player) {
+        if (player == null) return 0;
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        if (data.trinketPouchRarity == null || data.trinketPouchRarity.isBlank()) return 0;
+        return tier(data.trinketPouchRarity);
+    }
+
+    public static int digitalPouchSlots(ServerPlayer player) {
+        if (player == null) return 0;
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        if (data.trinketPouchRarity == null || data.trinketPouchRarity.isBlank()) return 0;
+        int configured = ProfessionTrinketConfig.tier(data.trinketPouchRarity).pouchSlots;
+        int slots = data.trinketPouchSlots <= 0 ? configured : data.trinketPouchSlots;
+        return Math.min(54, Math.max(0, slots));
+    }
+
+    public static boolean canUpgradeDigitalPouch(ServerPlayer player, String rarity) {
+        if (player == null) return false;
+        String r = ProfessionFragmentConfig.normalizeRarity(rarity);
+        return tier(r) > digitalPouchTier(player);
+    }
+
+    public static boolean unlockOrUpgradeDigitalPouch(ServerPlayer player, String rarity) {
+        if (player == null) return false;
+        String r = ProfessionFragmentConfig.normalizeRarity(rarity);
+        if (!canUpgradeDigitalPouch(player, r)) return false;
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        data.trinketPouchRarity = r;
+        data.trinketPouchSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots));
+        ProfessionManager.markDirtyProfile(com.champutils.profile.PlayerProfileManager.activeProfileId(player));
+        player.sendSystemMessage(Component.literal("§aUnlocked " + ProfessionFragmentManager.formatWords(r) + " digital Trinket Pouch with " + data.trinketPouchSlots + " slots."));
+        return true;
+    }
+
+    public static void openDigitalPouch(ServerPlayer player) {
+        if (player == null) return;
+        migratePhysicalPouchesToDigital(player, true);
+        int capacity = digitalPouchSlots(player);
+        if (capacity <= 0) {
+            player.sendSystemMessage(Component.literal("§eYou do not have a trinket pouch yet. Craft one from Fragment Crafting to unlock digital pouch slots."));
+            return;
+        }
+        List<ItemStack> sanitized = readDigitalPouchItems(player);
+        writeDigitalPouchItems(player, sanitized);
+        SimpleGui gui = new DigitalTrinketPouchGui(pouchMenuType(capacity), player, pouchGuiSlots(capacity));
+        gui.setTitle(Component.literal("Digital Trinket Pouch"));
+        refreshDigitalPouchGui(player, gui);
+        gui.open();
+    }
+
+    private static List<ItemStack> readDigitalPouchItems(ServerPlayer player) {
+        List<ItemStack> parsed = new ArrayList<>();
+        if (player == null) return parsed;
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        if (data.trinketPouchItems == null) data.trinketPouchItems = new ArrayList<>();
+        for (String saved : data.trinketPouchItems) {
+            if (saved == null || saved.isBlank()) continue;
+            try {
+                CompoundTag tag = TagParser.parseTag(saved);
+                ItemStack stack = ItemStack.parse(player.registryAccess(), tag).orElse(ItemStack.EMPTY);
+                if (!stack.isEmpty() && isTrinket(stack, null)) parsed.add(stack);
+            } catch (Throwable ignored) {}
+        }
+        return sanitizePouchItems(parsed, digitalPouchSlots(player));
+    }
+
+    private static void writeDigitalPouchItems(ServerPlayer player, List<ItemStack> items) {
+        if (player == null) return;
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        if (data.trinketPouchItems == null) data.trinketPouchItems = new ArrayList<>();
+        List<ItemStack> sanitized = sanitizePouchItems(items, digitalPouchSlots(player));
+        data.trinketPouchItems.clear();
+        for (ItemStack stored : sanitized) {
+            try {
+                Tag saved = stored.save(player.registryAccess());
+                if (saved instanceof CompoundTag compound) data.trinketPouchItems.add(compound.toString());
+            } catch (Throwable ignored) {}
+        }
+        ProfessionManager.markDirtyProfile(com.champutils.profile.PlayerProfileManager.activeProfileId(player));
+    }
+
+    private static void refreshDigitalPouchGui(ServerPlayer player, SimpleGui gui) {
+        int capacity = digitalPouchSlots(player);
+        List<ItemStack> stored = readDigitalPouchItems(player);
+        int visibleSlots = pouchGuiSlots(capacity);
+        for (int i = 0; i < visibleSlots; i++) {
+            if (i >= capacity) {
+                gui.setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).hideDefaultTooltip().setName(Component.literal("§8Locked Slot")));
+                continue;
+            }
+            if (i < stored.size()) {
+                ItemStack display = stored.get(i).copy();
+                final int index = i;
+                gui.setSlot(i, new GuiElementBuilder(display)
+                        .addLoreLine(Component.literal("§eLeft-click to withdraw."))
+                        .addLoreLine(Component.literal("§eRight-click to toggle."))
+                        .setCallback((slot, clickType, actionType) -> {
+                            List<ItemStack> now = readDigitalPouchItems(player);
+                            if (index >= now.size()) { refreshDigitalPouchGui(player, gui); return; }
+                            boolean rightClick = clickType != null && clickType.toString().toLowerCase(Locale.ROOT).contains("right");
+                            if (rightClick) {
+                                ItemStack toggled = now.get(index);
+                                toggle(toggled, player);
+                                now.set(index, toggled);
+                                writeDigitalPouchItems(player, now);
+                                refreshDigitalPouchGui(player, gui);
+                                return;
+                            }
+                            ItemStack removed = now.remove(index);
+                            writeDigitalPouchItems(player, now);
+                            if (!player.getInventory().add(removed)) player.drop(removed, false);
+                            refreshDigitalPouchGui(player, gui);
+                        }));
+            } else {
+                gui.setSlot(i, new GuiElementBuilder(Items.GRAY_STAINED_GLASS_PANE).hideDefaultTooltip()
+                        .setName(Component.literal("§aEmpty Trinket Slot"))
+                        .addLoreLine(Component.literal("§7Hold any trinket in main hand/offhand."))
+                        .addLoreLine(Component.literal("§eClick to store one. Shift-click also works."))
+                        .setCallback((slot, clickType, actionType) -> {
+                            insertHeldTrinketDigital(player);
+                            refreshDigitalPouchGui(player, gui);
+                        }));
+            }
+        }
+    }
+
+    private static boolean insertHeldTrinketDigital(ServerPlayer player) {
+        ItemStack held = isTrinket(player.getMainHandItem(), null) ? player.getMainHandItem() : player.getOffhandItem();
+        if (!isTrinket(held, null)) {
+            player.sendSystemMessage(Component.literal("§eHold a trinket in your main hand or offhand, then click an empty pouch slot."));
+            return false;
+        }
+        return insertSpecificTrinketDigital(player, held);
+    }
+
+    private static boolean insertSpecificTrinketDigital(ServerPlayer player, ItemStack trinket) {
+        if (player == null || !isTrinket(trinket, null)) return false;
+        int capacity = digitalPouchSlots(player);
+        if (capacity <= 0) {
+            player.sendSystemMessage(Component.literal("§cCraft a Trinket Pouch before storing trinkets."));
+            return false;
+        }
+        String newType = trinketType(trinket);
+        List<ItemStack> stored = readDigitalPouchItems(player);
+        if (stored.size() >= capacity) {
+            player.sendSystemMessage(Component.literal("§cYour digital trinket pouch is full."));
+            return false;
+        }
+        for (ItemStack old : stored) {
+            if (newType.equals(trinketType(old))) {
+                player.sendSystemMessage(Component.literal("§cYour pouch already has a " + ProfessionFragmentManager.formatWords(newType) + "."));
+                return false;
+            }
+        }
+        ItemStack one = trinket.copy();
+        one.setCount(1);
+        stored.add(one);
+        writeDigitalPouchItems(player, stored);
+        if (!player.getAbilities().instabuild) trinket.shrink(1);
+        player.getInventory().setChanged();
+        player.sendSystemMessage(Component.literal("§aStored trinket in digital pouch. §7(" + stored.size() + "/" + capacity + ")"));
+        return true;
+    }
+
+    private static void migratePhysicalPouchesToDigital(ServerPlayer player, boolean tellPlayer) {
+        if (player == null) return;
+        boolean changed = false;
+        List<ItemStack> digital = readDigitalPouchItems(player);
+        for (int i = 0; i < player.getInventory().items.size(); i++) {
+            ItemStack pouch = player.getInventory().items.get(i);
+            if (!isPouch(pouch)) continue;
+            CustomData data = pouch.get(DataComponents.CUSTOM_DATA);
+            String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
+            if (tier(rarity) > digitalPouchTier(player)) {
+                ProfessionDataManager.ProfessionData professionData = ProfessionManager.getData(player);
+                professionData.trinketPouchRarity = rarity;
+                professionData.trinketPouchSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(rarity).pouchSlots));
+            }
+            digital.addAll(readPouchItems(player, pouch));
+            player.getInventory().items.set(i, ItemStack.EMPTY);
+            changed = true;
+        }
+        if (changed) {
+            writeDigitalPouchItems(player, digital);
+            player.getInventory().setChanged();
+            if (tellPlayer) player.sendSystemMessage(Component.literal("§aConverted your physical trinket pouch into digital storage."));
+        }
     }
 
     private static boolean isPouch(ItemStack stack) {
@@ -254,7 +523,7 @@ public final class ProfessionTrinketManager {
         CompoundTag tag = data.copyTag();
         int configured = ProfessionTrinketConfig.tier(tag.getString("rarity")).pouchSlots;
         int cap = tag.getInt("slots") <= 0 ? configured : tag.getInt("slots");
-        return Math.min(9, Math.max(1, cap));
+        return Math.min(54, Math.max(1, cap));
     }
 
     private static List<ItemStack> readPouchItems(ServerPlayer player, ItemStack pouch) {
@@ -265,7 +534,7 @@ public final class ProfessionTrinketManager {
         for (int i = 0; i < list.size(); i++) {
             try {
                 ItemStack stack = ItemStack.parse(player.registryAccess(), list.getCompound(i)).orElse(ItemStack.EMPTY);
-                if (!stack.isEmpty() && isActiveTrinket(stack, null)) parsed.add(stack);
+                if (!stack.isEmpty() && isTrinket(stack, null)) parsed.add(stack);
             } catch (Throwable ignored) {}
         }
         return sanitizePouchItems(parsed, pouchCapacity(pouch));
@@ -274,7 +543,7 @@ public final class ProfessionTrinketManager {
     private static List<ItemStack> sanitizePouchItems(List<ItemStack> items, int capacity) {
         Map<String, ItemStack> bestByType = new LinkedHashMap<>();
         for (ItemStack stored : items) {
-            if (!isActiveTrinket(stored, null)) continue;
+            if (!isTrinket(stored, null)) continue;
             String type = trinketType(stored);
             if (type == null || type.isBlank()) continue;
             ItemStack one = stored.copy();
@@ -307,29 +576,28 @@ public final class ProfessionTrinketManager {
 
     private static void updatePouchLore(ItemStack pouch, String rarity, int stored) {
         String r = ProfessionFragmentConfig.normalizeRarity(rarity);
-        int slots = Math.min(9, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots));
+        int slots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots));
         pouch.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal("§7Opens as a safe trinket inventory."),
                 Component.literal("§7Slots: §a" + stored + "§7/§a" + slots),
-                Component.literal("§7Click an empty slot to store a held trinket."),
-                Component.literal("§7Click a stored trinket to withdraw it."),
+                Component.literal("§7Click empty slots or shift-click trinkets from inventory."),
+                Component.literal("§7Disabled trinkets can be stored but will not work."),
+                Component.literal("§7Left-click stored trinkets to withdraw them."),
+                Component.literal("§7Right-click stored trinkets to toggle them."),
                 Component.literal("§8One trinket type per pouch; highest tier wins.")
         )));
     }
 
     private static void openPouch(ServerPlayer player, ItemStack pouch) {
-        List<ItemStack> sanitized = readPouchItems(player, pouch);
-        writePouchItems(player, pouch, sanitized);
-        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x1, player, false);
-        gui.setTitle(Component.literal("Trinket Pouch"));
-        refreshPouchGui(player, pouch, gui);
-        gui.open();
+        migratePhysicalPouchesToDigital(player, true);
+        openDigitalPouch(player);
     }
 
     private static void refreshPouchGui(ServerPlayer player, ItemStack pouch, SimpleGui gui) {
         int capacity = pouchCapacity(pouch);
         List<ItemStack> stored = readPouchItems(player, pouch);
-        for (int i = 0; i < 9; i++) {
+        int visibleSlots = pouchGuiSlots(capacity);
+        for (int i = 0; i < visibleSlots; i++) {
             if (i >= capacity) {
                 gui.setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).hideDefaultTooltip().setName(Component.literal("§8Locked Slot")));
                 continue;
@@ -338,10 +606,20 @@ public final class ProfessionTrinketManager {
                 ItemStack display = stored.get(i).copy();
                 final int index = i;
                 gui.setSlot(i, new GuiElementBuilder(display)
-                        .addLoreLine(Component.literal("§eClick to withdraw."))
+                        .addLoreLine(Component.literal("§eLeft-click to withdraw."))
+                        .addLoreLine(Component.literal("§eRight-click to toggle."))
                         .setCallback((slot, clickType, actionType) -> {
                             List<ItemStack> now = readPouchItems(player, pouch);
                             if (index >= now.size()) { refreshPouchGui(player, pouch, gui); return; }
+                            boolean rightClick = clickType != null && clickType.toString().toLowerCase(Locale.ROOT).contains("right");
+                            if (rightClick) {
+                                ItemStack toggled = now.get(index);
+                                toggle(toggled, player);
+                                now.set(index, toggled);
+                                writePouchItems(player, pouch, now);
+                                refreshPouchGui(player, pouch, gui);
+                                return;
+                            }
                             ItemStack removed = now.remove(index);
                             writePouchItems(player, pouch, now);
                             if (!player.getInventory().add(removed)) player.drop(removed, false);
@@ -350,8 +628,8 @@ public final class ProfessionTrinketManager {
             } else {
                 gui.setSlot(i, new GuiElementBuilder(Items.GRAY_STAINED_GLASS_PANE).hideDefaultTooltip()
                         .setName(Component.literal("§aEmpty Trinket Slot"))
-                        .addLoreLine(Component.literal("§7Hold a toggled trinket in main hand/offhand."))
-                        .addLoreLine(Component.literal("§eClick to store one."))
+                        .addLoreLine(Component.literal("§7Hold any trinket in main hand/offhand."))
+                        .addLoreLine(Component.literal("§eClick to store one. Shift-click also works."))
                         .setCallback((slot, clickType, actionType) -> {
                             insertHeldTrinket(player, pouch);
                             refreshPouchGui(player, pouch, gui);
@@ -360,13 +638,34 @@ public final class ProfessionTrinketManager {
         }
     }
 
+    private static MenuType<?> pouchMenuType(int capacity) {
+        int rows = Math.max(1, Math.min(6, (pouchGuiSlots(capacity) + 8) / 9));
+        return switch (rows) {
+            case 1 -> MenuType.GENERIC_9x1;
+            case 2 -> MenuType.GENERIC_9x2;
+            case 3 -> MenuType.GENERIC_9x3;
+            case 4 -> MenuType.GENERIC_9x4;
+            case 5 -> MenuType.GENERIC_9x5;
+            default -> MenuType.GENERIC_9x6;
+        };
+    }
+
+    private static int pouchGuiSlots(int capacity) {
+        return Math.min(54, Math.max(9, ((Math.max(1, capacity) + 8) / 9) * 9));
+    }
+
     private static boolean insertHeldTrinket(ServerPlayer player, ItemStack pouch) {
-        ItemStack held = isActiveTrinket(player.getMainHandItem(), null) ? player.getMainHandItem() : player.getOffhandItem();
-        if (!isActiveTrinket(held, null)) {
-            player.sendSystemMessage(Component.literal("§eHold a toggled trinket in your main hand or offhand, then click an empty pouch slot."));
+        ItemStack held = isTrinket(player.getMainHandItem(), null) ? player.getMainHandItem() : player.getOffhandItem();
+        if (!isTrinket(held, null)) {
+            player.sendSystemMessage(Component.literal("§eHold a trinket in your main hand or offhand, then click an empty pouch slot."));
             return false;
         }
-        String newType = trinketType(held);
+        return insertSpecificTrinket(player, pouch, held);
+    }
+
+    private static boolean insertSpecificTrinket(ServerPlayer player, ItemStack pouch, ItemStack trinket) {
+        if (!isTrinket(trinket, null)) return false;
+        String newType = trinketType(trinket);
         List<ItemStack> stored = readPouchItems(player, pouch);
         if (stored.size() >= pouchCapacity(pouch)) {
             player.sendSystemMessage(Component.literal("§cThat trinket pouch is full."));
@@ -378,21 +677,60 @@ public final class ProfessionTrinketManager {
                 return false;
             }
         }
-        ItemStack one = held.copy();
+        ItemStack one = trinket.copy();
         one.setCount(1);
         stored.add(one);
         writePouchItems(player, pouch, stored);
-        if (!player.getAbilities().instabuild) held.shrink(1);
+        if (!player.getAbilities().instabuild) trinket.shrink(1);
         player.sendSystemMessage(Component.literal("§aStored trinket in pouch. §7(" + stored.size() + "/" + pouchCapacity(pouch) + ")"));
         return true;
     }
 
-    private static boolean isActiveTrinket(ItemStack stack, String type) {
+    public static boolean toggleBestMagnet(ServerPlayer player) {
+        if (player == null) return false;
+        migratePhysicalPouchesToDigital(player, false);
+        ItemStack bestInventory = ItemStack.EMPTY;
+        for (ItemStack stack : player.getInventory().items) {
+            if (isTrinket(stack, "magnet") && (bestInventory.isEmpty() || tier(rarity(stack)) > tier(rarity(bestInventory)))) {
+                bestInventory = stack;
+            }
+        }
+        ItemStack bestDigital = ItemStack.EMPTY;
+        int bestDigitalIndex = -1;
+        List<ItemStack> stored = readDigitalPouchItems(player);
+        for (int i = 0; i < stored.size(); i++) {
+            ItemStack storedStack = stored.get(i);
+            if (isTrinket(storedStack, "magnet") && (bestDigital.isEmpty() || tier(rarity(storedStack)) > tier(rarity(bestDigital)))) {
+                bestDigital = storedStack;
+                bestDigitalIndex = i;
+            }
+        }
+        if (!bestInventory.isEmpty() && (bestDigital.isEmpty() || tier(rarity(bestInventory)) >= tier(rarity(bestDigital)))) {
+            toggle(bestInventory, player);
+            return true;
+        }
+        if (!bestDigital.isEmpty() && bestDigitalIndex >= 0) {
+            ItemStack stack = stored.get(bestDigitalIndex);
+            toggle(stack, player);
+            stored.set(bestDigitalIndex, stack);
+            writeDigitalPouchItems(player, stored);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isTrinket(ItemStack stack, String type) {
         if (stack == null || stack.isEmpty()) return false;
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) return false;
         CompoundTag tag = data.copyTag();
-        return tag.getBoolean("champutils_trinket") && tag.getBoolean("enabled") && (type == null || type.equals(tag.getString("type")));
+        return tag.getBoolean("champutils_trinket") && (type == null || type.equals(tag.getString("type")));
+    }
+
+    private static boolean isActiveTrinket(ItemStack stack, String type) {
+        if (!isTrinket(stack, type)) return false;
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        return data != null && data.copyTag().getBoolean("enabled");
     }
 
     private static String trinketType(ItemStack stack) {
@@ -441,13 +779,14 @@ public final class ProfessionTrinketManager {
         return null;
     }
 
-    private static void setShiny(Object pokemon, boolean shiny) {
-        try { Method method = pokemon.getClass().getMethod("setShiny", boolean.class); method.invoke(pokemon, shiny); return; } catch (Throwable ignored) {}
-        try { Method method = pokemon.getClass().getMethod("setShiny", Boolean.class); method.invoke(pokemon, shiny); return; } catch (Throwable ignored) {}
+    private static boolean setShiny(Object pokemon, boolean shiny) {
+        try { Method method = pokemon.getClass().getMethod("setShiny", boolean.class); method.invoke(pokemon, shiny); return true; } catch (Throwable ignored) {}
+        try { Method method = pokemon.getClass().getMethod("setShiny", Boolean.class); method.invoke(pokemon, shiny); return true; } catch (Throwable ignored) {}
         Class<?> c = pokemon.getClass();
         while (c != null) {
-            try { Field f = c.getDeclaredField("shiny"); f.setAccessible(true); f.setBoolean(pokemon, shiny); return; } catch (Throwable ignored) { c = c.getSuperclass(); }
+            try { Field f = c.getDeclaredField("shiny"); f.setAccessible(true); f.setBoolean(pokemon, shiny); return true; } catch (Throwable ignored) { c = c.getSuperclass(); }
         }
+        return false;
     }
 
     private static String normalizeType(String type) {
@@ -476,7 +815,8 @@ public final class ProfessionTrinketManager {
         if ("level_charm".equals(type)) lore.add(Component.literal("§7Nearby Spawn Min Level: §e" + fmt(tier.levelCharmGymCapPercent) + "% of gym cap"));
         if ("rare_pokemon_charm".equals(type)) lore.add(Component.literal("§7Rare Non-Special Spawn Weight: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "%"));
         if ("chunky_brick".equals(type)) lore.add(Component.literal("§7Chunk Odds Multiplier: §6+" + fmt(tier.chunkChanceBonusPercent) + "%"));
-        lore.add(Component.literal("§7Right click while holding to toggle."));
+        lore.add(Component.literal("§7Right-click while holding to toggle."));
+        lore.add(Component.literal("§7Store in /tpouch or /trinketpouch."));
         lore.add(Component.literal("§8Duplicate types do not stack; highest tier is used."));
         return lore;
     }
@@ -500,6 +840,61 @@ public final class ProfessionTrinketManager {
     private static int tier(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> 2; case "RARE" -> 3; case "EPIC" -> 4; case "LEGENDARY" -> 5; case "MYTHIC" -> 6; default -> 1; }; }
     private static ChatFormatting color(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> ChatFormatting.GREEN; case "RARE" -> ChatFormatting.BLUE; case "EPIC" -> ChatFormatting.LIGHT_PURPLE; case "LEGENDARY" -> ChatFormatting.GOLD; case "MYTHIC" -> ChatFormatting.DARK_PURPLE; default -> ChatFormatting.WHITE; }; }
     private static Rarity rarity(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> Rarity.UNCOMMON; case "RARE" -> Rarity.RARE; case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC; default -> Rarity.COMMON; }; }
+
+
+    private static final class DigitalTrinketPouchGui extends SimpleGui {
+        private final ServerPlayer owner;
+        private final int topSlots;
+
+        private DigitalTrinketPouchGui(MenuType<?> type, ServerPlayer owner, int topSlots) {
+            super(type, owner, false);
+            this.owner = owner;
+            this.topSlots = topSlots;
+        }
+
+        @Override
+        public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
+            if (owner != null && action == net.minecraft.world.inventory.ClickType.QUICK_MOVE && index >= topSlots && index >= 0 && index < owner.containerMenu.slots.size()) {
+                ItemStack clicked = owner.containerMenu.getSlot(index).getItem();
+                if (isTrinket(clicked, null) && insertSpecificTrinketDigital(owner, clicked)) {
+                    refreshDigitalPouchGui(owner, this);
+                    this.sendGui();
+                    owner.containerMenu.broadcastChanges();
+                    owner.inventoryMenu.broadcastChanges();
+                }
+                return false;
+            }
+            return super.onAnyClick(index, type, action);
+        }
+    }
+
+    private static final class TrinketPouchGui extends SimpleGui {
+        private final ServerPlayer owner;
+        private final ItemStack pouch;
+        private final int topSlots;
+
+        private TrinketPouchGui(MenuType<?> type, ServerPlayer owner, ItemStack pouch, int topSlots) {
+            super(type, owner, false);
+            this.owner = owner;
+            this.pouch = pouch;
+            this.topSlots = topSlots;
+        }
+
+        @Override
+        public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
+            if (owner != null && action == net.minecraft.world.inventory.ClickType.QUICK_MOVE && index >= topSlots && index >= 0 && index < owner.containerMenu.slots.size()) {
+                ItemStack clicked = owner.containerMenu.getSlot(index).getItem();
+                if (isTrinket(clicked, null) && insertSpecificTrinket(owner, pouch, clicked)) {
+                    refreshPouchGui(owner, pouch, this);
+                    this.sendGui();
+                    owner.containerMenu.broadcastChanges();
+                    owner.inventoryMenu.broadcastChanges();
+                }
+                return false;
+            }
+            return super.onAnyClick(index, type, action);
+        }
+    }
 
     public static class TrinketItem extends Item implements PolymerItem {
         private final Item base;

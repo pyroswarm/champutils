@@ -159,6 +159,13 @@ public final class FirstJoinKitConfig {
         ensureItem(entries, "minecraft:lava_bucket", 1);
         ensureItem(entries, "minecraft:water_bucket", 2);
         ensureItem(entries, "minecraft:dirt", 64);
+        ensureItem(entries, "cobblemon:black_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:blue_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:green_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:pink_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:red_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:white_apricorn_seed", 1);
+        ensureItem(entries, "cobblemon:yellow_apricorn_seed", 1);
     }
 
     private static void ensureItem(List<KitEntry> entries, String id, int amount) {
@@ -177,6 +184,13 @@ public final class FirstJoinKitConfig {
         entries.add(item("minecraft:lava_bucket", 1));
         entries.add(item("minecraft:water_bucket", 2));
         entries.add(item("minecraft:dirt", 64));
+        entries.add(item("cobblemon:black_apricorn_seed", 1));
+        entries.add(item("cobblemon:blue_apricorn_seed", 1));
+        entries.add(item("cobblemon:green_apricorn_seed", 1));
+        entries.add(item("cobblemon:pink_apricorn_seed", 1));
+        entries.add(item("cobblemon:red_apricorn_seed", 1));
+        entries.add(item("cobblemon:white_apricorn_seed", 1));
+        entries.add(item("cobblemon:yellow_apricorn_seed", 1));
         return entries;
     }
 

@@ -177,22 +177,49 @@ public final class TitleConfig {
 
     public static double activeBuff(ServerPlayer player, BuffType type) {
         if (player == null || type == null) return 0.0D;
-        String selected = TitleManager.selected(player.getUUID());
-        TitleDef def = get(selected);
-        if (def == null && selected != null && selected.startsWith("wf_")) {
-            if (type == BuffType.SHINY_CHANCE && selected.contains("shiny")) return 0.001D;
-            if (type == BuffType.CATCH_CHANCE && (selected.contains("catch") || selected.contains("legendary") || selected.contains("ultra_beast"))) return 0.01D;
-            if (type == BuffType.BATTLING_XP && selected.contains("battle")) return 0.03D;
-            if (type.isProfessionXp() && selected.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.03D;
-            return type == BuffType.CATCH_CHANCE ? 0.0025D : 0.0D;
-        }
-        if (def == null || def.buffs == null) return 0.0D;
         double total = 0.0D;
-        for (TitleBuff titleBuff : def.buffs) {
-            BuffType configured = parseBuffType(titleBuff == null ? null : titleBuff.type);
-            if (configured == type) total += Math.max(0.0D, titleBuff.amount);
+        String selected = TitleManager.selected(player.getUUID());
+        total += titleBuffAmount(selected, type, 1.0D);
+        for (String subTitle : TitleManager.subtitles(player.getUUID())) {
+            if (subTitle == null || subTitle.equals(selected)) continue;
+            total += titleBuffAmount(subTitle, type, 0.5D);
         }
         return total;
+    }
+
+    private static double titleBuffAmount(String titleId, BuffType type, double multiplier) {
+        if (titleId == null || titleId.isBlank() || type == null || multiplier <= 0.0D) return 0.0D;
+        TitleDef def = get(titleId);
+        if (def == null && titleId.startsWith("wf_")) {
+            return worldFirstBuffAmount(titleId, type) * multiplier;
+        }
+        if (def == null) return 0.0D;
+        double total = 0.0D;
+        boolean matchedExplicitBuff = false;
+        if (def.buffs != null) {
+            for (TitleBuff titleBuff : def.buffs) {
+                BuffType configured = parseBuffType(titleBuff == null ? null : titleBuff.type);
+                if (configured == type) {
+                    matchedExplicitBuff = true;
+                    total += Math.max(0.0D, titleBuff.amount);
+                }
+            }
+        }
+        if (!matchedExplicitBuff && type.isProfessionXp() && def.passive != null && def.passive.professionXpBonus > 0.0D) {
+            if (def.passive.profession == null || def.passive.profession.isBlank() || def.passive.profession.equalsIgnoreCase(type.professionType.name())) {
+                total += Math.max(0.0D, def.passive.professionXpBonus);
+            }
+        }
+        return total * multiplier;
+    }
+
+    private static double worldFirstBuffAmount(String titleId, BuffType type) {
+        if (titleId == null || type == null) return 0.0D;
+        if (type == BuffType.SHINY_CHANCE && titleId.contains("shiny")) return 0.001D;
+        if (type == BuffType.CATCH_CHANCE && (titleId.contains("catch") || titleId.contains("legendary") || titleId.contains("ultra_beast"))) return 0.01D;
+        if (type == BuffType.BATTLING_XP && titleId.contains("battle")) return 0.03D;
+        if (type.isProfessionXp() && titleId.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.03D;
+        return type == BuffType.CATCH_CHANCE ? 0.0025D : 0.0D;
     }
 
 
@@ -320,11 +347,8 @@ public final class TitleConfig {
 
     public static double activeProfessionXpBonus(ServerPlayer player, ProfessionType profession) {
         if (player == null || profession == null) return 0.0D;
-        String selected = TitleManager.selected(player.getUUID());
-        TitleDef def = get(selected);
-        if (def == null || def.passive == null) return 0.0D;
-        if (def.passive.profession != null && !def.passive.profession.isBlank() && !def.passive.profession.equalsIgnoreCase(profession.name())) return 0.0D;
-        return Math.max(0.0D, def.passive.professionXpBonus);
+        BuffType type = BuffType.fromProfession(profession);
+        return type == null ? 0.0D : activeBuff(player, type);
     }
 
     private static String passiveText(TitleDef def) {

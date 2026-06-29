@@ -55,7 +55,7 @@ public class BadgeMenu {
                 0,
                 BadgeType.CASCADE,
                 "Misty",
-                "/pc unlocked",
+                "Progression Badge",
                 earned
         );
 
@@ -95,7 +95,7 @@ public class BadgeMenu {
                 4,
                 BadgeType.THUNDER,
                 "Lt. Surge",
-                "/pokeheal unlocked",
+                "Progression Badge",
                 earned
         );
 

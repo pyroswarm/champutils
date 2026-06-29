@@ -577,14 +577,7 @@ public class MiningProfessionListener {
             ItemStack stack
     ) {
 
-        if (!player.getInventory().add(
-                stack
-        )) {
-            player.drop(
-                    stack,
-                    false
-            );
-        }
+        ProfessionBackpackManager.giveOrDrop(player, stack, true);
     }
 
     private static SmeltDrop getSmeltDrop(

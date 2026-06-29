@@ -132,20 +132,19 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "profiles", "profile", "profilemenu", "gearworkshop", "gearappraiser", "tmcrafter", "tms", "auction", "shop", "essentials", "megashop", "genesis", "mega_shop", "mega", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop" -> true;
+            case "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "profiles, gearworkshop, gearappraiser, tmcrafter, battles, auction, shop, essentials, megashop, professionforeman, accountupgrade, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
+        return "profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, accountupgrade, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {
         if (menu == null) return "";
         String value = menu.trim().toLowerCase();
         return switch (value) {
-            case "genesis", "mega_shop", "mega", "megashop" -> "megashop";
             case "pvp", "battle", "battles" -> "battles";
             case "profile", "profiles", "profilemenu" -> "profiles";
             case "guild", "guilds" -> "guilds";

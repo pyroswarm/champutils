@@ -5,6 +5,8 @@ import com.champutils.buff.BuffManager;
 import com.champutils.buff.BuffType;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -83,11 +85,12 @@ public final class ProfessionXpBoostManager {
 
         double totalBonus = getTotalBonus(player, profession);
         int boosted = baseAmount;
+        int wholeBonus = 0;
 
         if (totalBonus > 0.0D) {
             String bankKey = player.getUUID() + ":" + profession.name();
             double rawBonus = (baseAmount * totalBonus) + FRACTION_BANK.getOrDefault(bankKey, 0.0D);
-            int wholeBonus = (int) Math.floor(rawBonus);
+            wholeBonus = (int) Math.floor(rawBonus);
             double remainder = rawBonus - wholeBonus;
 
             if (remainder > 0.0D) {
@@ -99,8 +102,16 @@ public final class ProfessionXpBoostManager {
             boosted += Math.max(0, wholeBonus);
         }
 
-        if (ProfessionTrinketManager.rollDoubleProfessionXp(player)) {
+        boolean trinketDoubled = ProfessionTrinketManager.rollDoubleProfessionXp(player);
+        if (trinketDoubled) {
             boosted += baseAmount;
+        }
+
+        if (wholeBonus > 0) {
+            player.sendSystemMessage(Component.literal("[Bonus] Active bonuses added +" + wholeBonus + " " + profession.name() + " XP.").withStyle(ChatFormatting.GREEN));
+        }
+        if (trinketDoubled) {
+            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] Profession XP Gem doubled this reward: +" + baseAmount + " " + profession.name() + " XP.").withStyle(ChatFormatting.AQUA));
         }
 
         return boosted;

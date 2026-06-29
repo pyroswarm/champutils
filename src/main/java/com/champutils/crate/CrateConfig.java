@@ -248,11 +248,6 @@ public final class CrateConfig {
 
     private static void applySeasonCrateBalance(Map<String, CrateDefinition> crates) {
         if (crates == null) return;
-        addTierTm(crates.get("common"), "COMMON", 10);
-        addTierTm(crates.get("uncommon"), "UNCOMMON", 10);
-        addTierTm(crates.get("rare"), "RARE", 10);
-        addTierTm(crates.get("epic"), "EPIC", 10);
-        addTierTm(crates.get("legendary"), "LEGENDARY", 14);
         CrateDefinition legendary = crates.get("legendary");
         if (legendary != null) {
             addItemOnce(legendary, "cobblemon:ability_patch", 1, 2, 16);
@@ -264,12 +259,19 @@ public final class CrateConfig {
             mythic.items = new ArrayList<>();
             mythic.items.add(new WeightedItem("cobblemon:ability_patch", 1, 3, 35));
             mythic.items.add(new WeightedItem("cobblemon:master_ball", 1, 2, 25));
-            mythic.items.add(new WeightedItem("champutils:random_tm_mythic", 1, 1, 40));
-
             // Rebuild the Mythic tool pool from the loaded profession tool config.
             // applyProfessionToolLootPools runs after this and adds every valid Mythic
             // pickaxe/axe/hoe/shovel, avoiding stale hard-coded IDs that get skipped.
             mythic.tools = new ArrayList<>();
+        }
+        removeRandomTms(crates);
+    }
+
+    private static void removeRandomTms(Map<String, CrateDefinition> crates) {
+        if (crates == null) return;
+        for (CrateDefinition crate : crates.values()) {
+            if (crate == null || crate.items == null) continue;
+            crate.items.removeIf(item -> item != null && item.itemId != null && item.itemId.toLowerCase(java.util.Locale.ROOT).startsWith("champutils:random_tm_"));
         }
     }
 
@@ -306,8 +308,7 @@ public final class CrateConfig {
     }
 
     private static void addTierTm(CrateDefinition crate, String rarity, int weight) {
-        if (crate == null) return;
-        addItemOnce(crate, "champutils:random_tm_" + rarity.toLowerCase(), 1, 1, weight);
+        // Random TMs are retired; exact TMs come only from the TM Shop.
     }
 
     private static void addItemOnce(CrateDefinition crate, String itemId, int min, int max, int weight) {

@@ -1,0 +1,24 @@
+{
+  "showLuckPermsPrefix": true,
+  "showLuckPermsSuffix": false,
+  "tags": [
+    {
+      "id": "vip",
+      "display": "\u00266[VIP]",
+      "permission": "champutils.chat.tag.vip",
+      "priority": 100
+    },
+    {
+      "id": "champion",
+      "display": "\u0026d[Champion]",
+      "permission": "champutils.chat.tag.champion",
+      "priority": 200
+    },
+    {
+      "id": "helper",
+      "display": "\u0026b[Helper]",
+      "permission": "champutils.chat.tag.helper",
+      "priority": 300
+    }
+  ]
+}

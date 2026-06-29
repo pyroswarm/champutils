@@ -1,0 +1,17 @@
+{
+  "uuid": "c0a71409-ead2-4f3c-ac41-e6f3baa28bae",
+  "name": "CobblemonX",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 1,
+    "MINING": 1
+  },
+  "xp": {
+    "BATTLING": 0,
+    "FARMING": 0,
+    "FORESTRY": 0,
+    "MINING": 0
+  },
+  "fragments": {}
+}

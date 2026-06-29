@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.teleport.TeleportConfig;
 import com.champutils.teleport.TeleportLocation;
 import com.champutils.territory.TerritoryRepository;
@@ -21,6 +22,7 @@ import net.minecraft.server.level.ServerPlayer;
 public final class IslanderProfileManager {
     private static int tickCounter = 0;
     private static final java.util.Map<String, ProfileGameMode> PROFILE_MODE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Set<String> PROFILE_MODE_LOADS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private IslanderProfileManager() {}
 
@@ -47,7 +49,7 @@ public final class IslanderProfileManager {
         }
 
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
-        boolean targetIsIslander = isIslanderTerritory(territory);
+        boolean targetIsIslander = isIslanderTerritory(player, territory);
 
         if (playerIsIslander) {
             boolean allowed = targetIsIslander;
@@ -72,7 +74,7 @@ public final class IslanderProfileManager {
         }
 
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
-        boolean targetIsIslander = isIslanderTerritory(territory);
+        boolean targetIsIslander = isIslanderTerritory(player, territory);
 
         if (playerIsIslander) {
             // Islanders are ONLY allowed in Islander territories. Spawn is handled by dimension rules, not territory trust.
@@ -88,17 +90,45 @@ public final class IslanderProfileManager {
     }
 
     public static boolean isIslanderTerritory(TerritoryRepository.Territory territory) {
+        return isIslanderTerritory(null, territory);
+    }
+
+    public static boolean isIslanderTerritory(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (territory == null || territory.ownerType != TerritoryRepository.OwnerType.PLAYER) return false;
-        // Hot path: this can be called from territory movement checks. Never hit SQL repeatedly here.
+        // Hot path: this can be called from territory movement checks. Never hit SQL here.
         // Islander territory worlds are named islander_*; use that as the fast path and cache DB fallback.
         String world = territory.worldName == null ? "" : territory.worldName.toLowerCase(java.util.Locale.ROOT);
         String path = world.contains(":") ? world.substring(world.indexOf(':') + 1) : world;
         if (path.startsWith("islander_")) return true;
+
+        if (player != null) {
+            java.util.UUID activeProfile = PlayerProfileManager.activeProfileId(player);
+            if (activeProfile != null && territory.ownerId.equalsIgnoreCase(activeProfile.toString())) {
+                return PlayerProfileManager.isIslander(player);
+            }
+        }
+
         ProfileGameMode cached = PROFILE_MODE_CACHE.get(territory.ownerId);
         if (cached != null) return cached == ProfileGameMode.ISLANDER;
-        ProfileGameMode loaded = PlayerProfileManager.modeOfProfileIdBlocking(territory.ownerId);
-        PROFILE_MODE_CACHE.put(territory.ownerId, loaded);
-        return loaded == ProfileGameMode.ISLANDER;
+        warmProfileModeAsync(territory.ownerId);
+        return false;
+    }
+
+    private static void warmProfileModeAsync(String profileId) {
+        if (profileId == null || profileId.isBlank() || !PROFILE_MODE_LOADS.add(profileId)) return;
+        if (!DatabaseManager.isEnabled()) {
+            PROFILE_MODE_LOADS.remove(profileId);
+            return;
+        }
+        DatabaseManager.executeAsync("warm islander territory profile mode " + profileId, connection -> {
+            try {
+                ProfileGameMode loaded = PlayerProfileManager.modeOfProfileIdBlocking(profileId);
+                PROFILE_MODE_CACHE.put(profileId, loaded);
+            }
+            finally {
+                PROFILE_MODE_LOADS.remove(profileId);
+            }
+        });
     }
 
     public static void enforceLocation(ServerPlayer player) {
@@ -126,7 +156,7 @@ public final class IslanderProfileManager {
                 IslanderDebugManager.log(player, "enforceLocation", territory, "RECOVER", "owner_territory_fallback_world_or_server_mismatch");
             }
         }
-        boolean territoryIsIslander = isIslanderTerritory(territory);
+        boolean territoryIsIslander = isIslanderTerritory(player, territory);
 
         // Important: check the claimed territory BEFORE the dimension wall.
         // Islander islands may live in the normal survival/overworld dimension, so a world-only

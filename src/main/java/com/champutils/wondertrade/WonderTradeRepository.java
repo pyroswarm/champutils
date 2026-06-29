@@ -146,6 +146,9 @@ public final class WonderTradeRepository {
         convertPlayerUuidColumnToUuid(connection, "wondertrade_cooldowns");
         addColumnIfMissing(connection, "wondertrade_cooldowns", "last_trade_at", "timestamptz not null default now()");
         repairLegacyCooldownColumns(connection);
+        // Old backups used a player_uuid UNIQUE index. Cooldowns are profile-scoped now, so one account
+        // can safely have cooldown rows for multiple profiles without breaking WonderTrade.
+        executeQuietly(connection, "drop index if exists idx_wondertrade_cooldowns_player_uuid_unique");
         validateRequiredColumns(connection, "wondertrade_cooldowns", "profile_id", "player_uuid", "last_trade_at");
         executeQuietly(connection, "create index if not exists idx_wondertrade_cooldowns_player_uuid on wondertrade_cooldowns(player_uuid)");
 

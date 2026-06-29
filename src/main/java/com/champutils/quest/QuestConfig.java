@@ -23,8 +23,8 @@ public class QuestConfig {
         public int weeklyResetMinute = 0;
         public int dailyObjectiveCount = 3;
         public int weeklyObjectiveCount = 3;
-        public int dailyCompletionCredits = 350;
-        public int weeklyCompletionCredits = 2500;
+        public int dailyCompletionCredits = 450;
+        public int weeklyCompletionCredits = 3500;
         public int dailyProfessionXpPerObjective = 75;
         public int weeklyProfessionXpPerObjective = 350;
         public int crateCreditChancePercent = 100;
@@ -32,7 +32,7 @@ public class QuestConfig {
         public String weeklyCrateCreditId = "rare";
         public int guildWeeklyObjectiveCount = 3;
         public int guildWeeklyRequiredPlayers = 10;
-        public int guildWeeklyCompletionCredits = 1000;
+        public int guildWeeklyCompletionCredits = 2500;
         public List<String> guildWeeklyRewardCommands = new ArrayList<>();
         public List<Template> guildWeeklyTemplates = new ArrayList<>();
         public int maxActiveContracts = 1;
@@ -106,20 +106,20 @@ public class QuestConfig {
     private static void normalizeContractEconomy(ContractTemplate c) {
         c.difficulty = normalizeDifficulty(c.difficulty);
         int cost = switch (c.difficulty) {
-            case "UNCOMMON" -> 50;
-            case "RARE" -> 75;
-            case "EPIC" -> 125;
-            case "LEGENDARY" -> 175;
-            case "MYTHIC" -> 250;
-            default -> 25;
+            case "UNCOMMON" -> 35;
+            case "RARE" -> 55;
+            case "EPIC" -> 90;
+            case "LEGENDARY" -> 140;
+            case "MYTHIC" -> 200;
+            default -> 20;
         };
         int rewardCredits = switch (c.difficulty) {
-            case "UNCOMMON" -> 350;
-            case "RARE" -> 700;
-            case "EPIC" -> 1400;
-            case "LEGENDARY" -> 2800;
-            case "MYTHIC" -> 6500;
-            default -> 150;
+            case "UNCOMMON" -> 450;
+            case "RARE" -> 850;
+            case "EPIC" -> 1700;
+            case "LEGENDARY" -> 3400;
+            case "MYTHIC" -> 7000;
+            default -> 220;
         };
         int hours = switch (c.difficulty) {
             case "UNCOMMON" -> 7;

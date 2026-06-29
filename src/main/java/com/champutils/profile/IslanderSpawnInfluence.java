@@ -6,14 +6,21 @@ import com.champutils.emblem.EmblemManager;
 import com.champutils.gym.GymConfig;
 import com.champutils.profession.ProfessionTrinketManager;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.api.spawning.SpawnBucket;
 import com.cobblemon.mod.common.api.spawning.detail.PokemonSpawnDetail;
 import com.cobblemon.mod.common.api.spawning.detail.SpawnDetail;
 import com.cobblemon.mod.common.api.spawning.influence.SpawningInfluence;
 import com.cobblemon.mod.common.api.spawning.position.SpawnablePosition;
 import com.cobblemon.mod.common.api.spawning.position.SpawnablePositionType;
 import com.cobblemon.mod.common.pokemon.Species;
+import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.api.pokemon.evolution.Evolution;
+import com.cobblemon.mod.common.api.pokemon.evolution.PassiveEvolution;
+import com.cobblemon.mod.common.api.pokemon.requirement.Requirement;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import kotlin.ranges.IntRange;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class IslanderSpawnInfluence implements SpawningInfluence {
     private static final Map<String, List<SpawnDetail>> CACHE = new LinkedHashMap<>();
@@ -44,7 +52,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
     }
 
     @Override
-    public List<SpawnDetail> injectSpawns(String bucket, SpawnablePosition spawnablePosition) {
+    public List<SpawnDetail> injectSpawns(SpawnBucket bucket, SpawnablePosition spawnablePosition) {
         if (!IslanderSpawningConfig.CONFIG.enabled || bucket == null || spawnablePosition == null) return null;
 
         ServerLevel level = spawnablePosition.getWorld();
@@ -61,7 +69,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         int badgeCount = activePlayer == null ? 0 : BadgeManager.getBadgeCount(activePlayer);
         IslanderSpawningConfig.Tier tier = IslanderSpawningConfig.tierForBadgeCount(badgeCount);
 
-        String bucketKey = String.valueOf(bucket);
+        String bucketKey = bucket.getName();
         String cacheKey = typeName + "|" + bucketKey + "|" + tier.id;
 
         synchronized (CACHE) {
@@ -99,7 +107,10 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         double minPercent = ProfessionTrinketManager.levelCharmGymCapPercent(player);
         if (minPercent > 0.0D && cap > 0) {
             int minimum = Math.max(1, Math.min(cap, (int)Math.floor(cap * minPercent)));
-            if (pokemon.getLevel() < minimum) pokemon.setLevel(minimum);
+            int targetLevel = ThreadLocalRandom.current().nextInt(minimum, cap + 1);
+            normalizeEvolutionForLevel(pokemon, targetLevel);
+            pokemon.setLevel(targetLevel);
+            // Level Charm level corrections are intentionally quiet to avoid chat spam.
         }
 
         ProfessionTrinketManager.tryApplyWildSpawnShiny(player, pokemon);
@@ -111,7 +122,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
     }
 
     private static boolean isRareNonSpecialPokemon(SpawnDetail detail) {
-        String bucket = (detail.getBucket() == null ? "" : detail.getBucket()).toLowerCase(java.util.Locale.ROOT);
+        String bucket = detail.getBucket() == null || detail.getBucket().getName() == null ? "" : detail.getBucket().getName().toLowerCase(java.util.Locale.ROOT);
         if (!(bucket.contains("rare") || bucket.contains("uncommon") || bucket.contains("ultra"))) return false;
         if (detail instanceof PokemonSpawnDetail pokemonDetail) {
             String species = pokemonDetail.getPokemon().getSpecies();
@@ -151,7 +162,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         }
     }
 
-    private static List<SpawnDetail> buildDetails(String typeName, SpawnablePositionType<?> type, String bucketKey, String bucket, IslanderSpawningConfig.Tier tier) {
+    private static List<SpawnDetail> buildDetails(String typeName, SpawnablePositionType<?> type, String bucketKey, SpawnBucket bucket, IslanderSpawningConfig.Tier tier) {
         Collection<Species> speciesList = PokemonSpecies.getImplemented();
         List<SpawnDetail> details = new ArrayList<>();
 
@@ -166,7 +177,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
             if (!IslanderSpawningConfig.isAllowedByTier(key, evolutionStage, tier)) continue;
 
             int minLevel = Math.max(Math.max(1, tier.minLevel), minimumSpawnLevel(species));
-            int maxLevel = Math.max(tier.minLevel, tier.maxLevel);
+            int maxLevel = Math.min(Math.max(tier.minLevel, tier.maxLevel), maximumSensibleSpawnLevel(species));
             if (minLevel > maxLevel) continue;
 
             PokemonSpawnDetail detail = new PokemonSpawnDetail();
@@ -183,6 +194,53 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         return List.copyOf(details);
     }
 
+    /**
+     * Keeps boosted wild spawns evolution-correct. The Level Charm should choose a random level inside
+     * the player's unlocked range, not force every spawn to the same floor level. If the chosen level
+     * would make the current species under-evolved, the Pokemon is advanced through normal passive
+     * level-up evolutions until the species makes sense for that level.
+     */
+    public static void normalizeEvolutionForLevel(Pokemon pokemon, int targetLevel) {
+        if (pokemon == null) return;
+        int level = Math.max(1, Math.min(100, targetLevel));
+        pokemon.setLevel(level);
+        for (int guard = 0; guard < 8; guard++) {
+            Species species = pokemon.getSpecies();
+            if (species == null || species.getEvolutions() == null || species.getEvolutions().isEmpty()) return;
+
+            Evolution chosen = null;
+            for (Evolution evolution : species.getEvolutions()) {
+                if (!(evolution instanceof PassiveEvolution)) continue;
+                try {
+                    if (passesPassiveEvolution(evolution, pokemon)) {
+                        chosen = evolution;
+                        break;
+                    }
+                } catch (Throwable ignored) {}
+            }
+
+            if (chosen == null) return;
+            try {
+                chosen.getResult().apply(pokemon);
+                pokemon.setLevel(level);
+            } catch (Throwable ignored) {
+                return;
+            }
+        }
+    }
+
+    private static boolean passesPassiveEvolution(Evolution evolution, Pokemon pokemon) {
+        if (evolution == null || pokemon == null) return false;
+        try {
+            for (Requirement requirement : evolution.getRequirements()) {
+                if (requirement == null || !requirement.check(pokemon)) return false;
+            }
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private static int minimumSpawnLevel(Species species) {
         if (species == null || species.getPreEvolution() == null) return 1;
         String key = IslanderSpawningConfig.normalize(species.getResourceIdentifier() == null ? species.getName() : species.getResourceIdentifier().toString());
@@ -190,6 +248,53 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         if (fallback != null) return fallback;
         int stage = evolutionStage(species);
         return stage <= 0 ? 1 : stage == 1 ? 16 : 36;
+    }
+
+    private static int maximumSensibleSpawnLevel(Species species) {
+        if (species == null || species.getEvolutions() == null || species.getEvolutions().isEmpty()) return 100;
+        int firstEvolutionLevel = firstPassiveEvolutionLevel(species);
+        if (firstEvolutionLevel > 1) return Math.max(1, firstEvolutionLevel - 1);
+
+        String key = IslanderSpawningConfig.normalize(species.getResourceIdentifier() == null ? species.getName() : species.getResourceIdentifier().toString());
+        Integer fallback = fallbackMaximumUnevolvedLevel(key);
+        if (fallback != null) return fallback;
+
+        return 100;
+    }
+
+    private static int firstPassiveEvolutionLevel(Species species) {
+        if (species == null || species.getEvolutions() == null || species.getEvolutions().isEmpty()) return -1;
+        for (int level = 1; level <= 100; level++) {
+            Pokemon probe;
+            try {
+                probe = species.create(level);
+                probe.setLevel(level);
+            } catch (Throwable ignored) {
+                return -1;
+            }
+            for (Evolution evolution : species.getEvolutions()) {
+                if (!(evolution instanceof PassiveEvolution)) continue;
+                try {
+                    if (passesPassiveEvolution(evolution, probe)) return level;
+                } catch (Throwable ignored) {}
+            }
+        }
+        return -1;
+    }
+
+    private static Integer fallbackMaximumUnevolvedLevel(String key) {
+        return switch (key) {
+            case "charmander", "bulbasaur", "squirtle", "chikorita", "cyndaquil", "totodile",
+                    "treecko", "torchic", "mudkip", "turtwig", "chimchar", "piplup", "snivy",
+                    "tepig", "oshawott", "chespin", "fennekin", "froakie", "rowlet", "litten",
+                    "popplio", "grookey", "scorbunny", "sobble", "sprigatito", "fuecoco", "quaxly" -> 15;
+            case "charmeleon", "ivysaur", "wartortle", "bayleef", "quilava", "croconaw",
+                    "grovyle", "combusken", "marshtomp", "grotle", "monferno", "prinplup",
+                    "servine", "pignite", "dewott", "quilladin", "braixen", "frogadier",
+                    "dartrix", "torracat", "brionne", "thwackey", "raboot", "drizzile",
+                    "floragato", "crocalor", "quaxwell" -> 35;
+            default -> null;
+        };
     }
 
     private static Integer fallbackMinimumEvolutionLevel(String key) {

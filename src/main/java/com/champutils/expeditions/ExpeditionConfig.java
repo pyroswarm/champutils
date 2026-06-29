@@ -36,6 +36,9 @@ public final class ExpeditionConfig {
                 if (DATA.low == null) DATA.low = defaults().low;
                 if (DATA.mid == null) DATA.mid = defaults().mid;
                 if (DATA.high == null) DATA.high = defaults().high;
+                sanitizeTier(DATA.low);
+                sanitizeTier(DATA.mid);
+                sanitizeTier(DATA.high);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -70,19 +73,46 @@ public final class ExpeditionConfig {
         return out;
     }
 
+    public static List<ChunkReward> chunkRewards(int pokemonLevel) {
+        Tier tier = tier(pokemonLevel);
+        List<ChunkReward> out = new ArrayList<>();
+        if (tier.chunks == null) return out;
+        for (ChunkReward reward : tier.chunks) {
+            if (reward == null || reward.chunk == null || reward.chunk.isBlank() || reward.amount <= 0) continue;
+            out.add(new ChunkReward(reward.chunk, reward.amount));
+        }
+        return out;
+    }
+
+    private static void sanitizeTier(Tier tier) {
+        if (tier == null) return;
+        if (tier.items == null) tier.items = new ArrayList<>();
+        if (tier.chunks == null) tier.chunks = new ArrayList<>();
+    }
+
     private static Config defaults() {
         Config config = new Config();
         config.low = new Tier(2, EconomyManager.wholeCreditsToCents(50L));
         config.low.items.add(new ItemReward("cobblemon:potion", 4));
         config.low.items.add(new ItemReward("cobblemon:poke_ball", 8));
+        config.low.chunks.add(new ChunkReward("COBBLESTONE", 8));
+        config.low.chunks.add(new ChunkReward("COPPER", 2));
 
         config.mid = new Tier(4, EconomyManager.wholeCreditsToCents(100L));
         config.mid.items.add(new ItemReward("cobblemon:super_potion", 4));
         config.mid.items.add(new ItemReward("cobblemon:great_ball", 8));
+        config.mid.chunks.add(new ChunkReward("COBBLESTONE", 16));
+        config.mid.chunks.add(new ChunkReward("COPPER", 5));
+        config.mid.chunks.add(new ChunkReward("IRON", 2));
 
         config.high = new Tier(8, EconomyManager.wholeCreditsToCents(250L));
         config.high.items.add(new ItemReward("cobblemon:hyper_potion", 4));
         config.high.items.add(new ItemReward("cobblemon:quick_ball", 12));
+        config.high.chunks.add(new ChunkReward("COBBLESTONE", 32));
+        config.high.chunks.add(new ChunkReward("COPPER", 10));
+        config.high.chunks.add(new ChunkReward("IRON", 5));
+        config.high.chunks.add(new ChunkReward("GOLD", 2));
+        config.high.chunks.add(new ChunkReward("DIAMOND", 1));
         return config;
     }
 
@@ -96,6 +126,7 @@ public final class ExpeditionConfig {
         public int hours;
         public long credits;
         public List<ItemReward> items = new ArrayList<>();
+        public List<ChunkReward> chunks = new ArrayList<>();
         public Tier() {}
         public Tier(int hours, long credits) { this.hours = hours; this.credits = credits; }
     }
@@ -105,5 +136,12 @@ public final class ExpeditionConfig {
         public int count;
         public ItemReward() {}
         public ItemReward(String id, int count) { this.id = id; this.count = count; }
+    }
+
+    public static final class ChunkReward {
+        public String chunk;
+        public int amount;
+        public ChunkReward() {}
+        public ChunkReward(String chunk, int amount) { this.chunk = chunk; this.amount = amount; }
     }
 }

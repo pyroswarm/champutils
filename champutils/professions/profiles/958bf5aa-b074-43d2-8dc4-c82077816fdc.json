@@ -1,0 +1,19 @@
+{
+  "uuid": "958bf5aa-b074-43d2-8dc4-c82077816fdc",
+  "name": "SomethingDerp",
+  "levels": {
+    "BATTLING": 1,
+    "FARMING": 1,
+    "FORESTRY": 2,
+    "MINING": 5
+  },
+  "xp": {
+    "BATTLING": 30,
+    "FARMING": 0,
+    "FORESTRY": 65,
+    "MINING": 42
+  },
+  "fragments": {
+    "UNCOMMON": 1
+  }
+}

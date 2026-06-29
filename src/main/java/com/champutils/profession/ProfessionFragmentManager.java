@@ -688,6 +688,7 @@ public final class ProfessionFragmentManager {
                         !normalizedToolType.equals("axe") &&
                         !normalizedToolType.equals("hoe") &&
                         !normalizedToolType.equals("shovel") &&
+                        !normalizedToolType.equals("sword") &&
                         !normalizedToolType.equals("helmet") &&
                         !normalizedToolType.equals("chestplate") &&
                         !normalizedToolType.equals("leggings") &&
@@ -702,7 +703,7 @@ public final class ProfessionFragmentManager {
                         !normalizedToolType.equals("chunky_brick") &&
                         !normalizedToolType.equals("trinket_pouch")
         ) {
-            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, helmet, chestplate, leggings, boots, magnet, shiny_charm, profession_xp_gem, pokemon_xp_egg, friendship_charm, level_charm, rare_pokemon_charm, chunky_brick, or trinket_pouch.");
+            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, sword, helmet, chestplate, leggings, boots, magnet, shiny_charm, profession_xp_gem, pokemon_xp_egg, friendship_charm, level_charm, rare_pokemon_charm, chunky_brick, or trinket_pouch.");
         }
 
         String normalizedRarity =
@@ -769,6 +770,24 @@ public final class ProfessionFragmentManager {
         }
 
         if (normalizedToolType.equals("magnet") || normalizedToolType.equals("shiny_charm") || normalizedToolType.equals("profession_xp_gem") || normalizedToolType.equals("pokemon_xp_egg") || normalizedToolType.equals("friendship_charm") || normalizedToolType.equals("level_charm") || normalizedToolType.equals("rare_pokemon_charm") || normalizedToolType.equals("chunky_brick") || normalizedToolType.equals("trinket_pouch")) {
+            if (normalizedToolType.equals("trinket_pouch")) {
+                if (!ProfessionTrinketManager.canUpgradeDigitalPouch(player, normalizedRarity)) {
+                    return CraftResult.fail("You already have an equal or better digital trinket pouch. Lesser pouches cannot be purchased.");
+                }
+                if (!removeFragments(player, fragmentKey, cost)) {
+                    return CraftResult.fail("Could not remove fragments.");
+                }
+                ProfessionTrinketManager.unlockOrUpgradeDigitalPouch(player, normalizedRarity);
+                return CraftResult.success(
+                        normalizedRarity.toLowerCase() + "_digital_trinket_pouch",
+                        formatWords(normalizedRarity) + " Digital Trinket Pouch",
+                        normalizedRarity,
+                        normalizedToolType,
+                        fragmentKey,
+                        cost
+                );
+            }
+
             ItemStack reward = ProfessionTrinketManager.create(normalizedToolType, normalizedRarity);
             if (reward.isEmpty()) {
                 return CraftResult.fail("Could not create trinket for rarity: " + normalizedRarity);
@@ -921,6 +940,10 @@ public final class ProfessionFragmentManager {
 
         if (normalized.equals("spade") || normalized.equals("spades") || normalized.equals("shovels")) {
             return "shovel";
+        }
+
+        if (normalized.equals("swords") || normalized.equals("blade") || normalized.equals("blades")) {
+            return "sword";
         }
 
         if (normalized.equals("helmet") || normalized.equals("helm") || normalized.equals("helmets")) {

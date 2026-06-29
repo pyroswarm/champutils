@@ -28,13 +28,12 @@ public final class MenuNpcCommand {
                                         .suggests((context, builder) -> {
                                             builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
-                                            builder.suggest("gearappraiser");
+                                            builder.suggest("gearworkshop");
                                             builder.suggest("tmcrafter");
                                             builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
-                                            builder.suggest("megashop");
                                             builder.suggest("genesis");
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
@@ -60,13 +59,12 @@ public final class MenuNpcCommand {
                                         .suggests((context, builder) -> {
                                             builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
-                                            builder.suggest("gearappraiser");
+                                            builder.suggest("gearworkshop");
                                             builder.suggest("tmcrafter");
                                             builder.suggest("pvp");
                                             builder.suggest("auction");
                                             builder.suggest("shop");
                                             builder.suggest("essentials");
-                                            builder.suggest("megashop");
                                             builder.suggest("genesis");
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
@@ -97,7 +95,6 @@ public final class MenuNpcCommand {
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
-            case "megashop", "mega", "mega_shop", "genesis", "genesis_shop" -> "megashop";
             case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "accountupgrade";
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
             default -> menu.toLowerCase();

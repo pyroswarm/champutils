@@ -68,7 +68,6 @@ public final class LobbyCommandTreePruner {
         ALLOWED_ROOTS.add("locate");
         ALLOWED_ROOTS.add("loot");
         ALLOWED_ROOTS.add("me");
-        ALLOWED_ROOTS.add("msg");
         ALLOWED_ROOTS.add("op");
         ALLOWED_ROOTS.add("pardon");
         ALLOWED_ROOTS.add("pardon-ip");
@@ -103,7 +102,6 @@ public final class LobbyCommandTreePruner {
         ALLOWED_ROOTS.add("teammsg");
         ALLOWED_ROOTS.add("tm");
         ALLOWED_ROOTS.add("teleport");
-        ALLOWED_ROOTS.add("tell");
         ALLOWED_ROOTS.add("tellraw");
         ALLOWED_ROOTS.add("tick");
         ALLOWED_ROOTS.add("time");
@@ -113,7 +111,6 @@ public final class LobbyCommandTreePruner {
         ALLOWED_ROOTS.add("trigger");
         ALLOWED_ROOTS.add("weather");
         ALLOWED_ROOTS.add("whitelist");
-        ALLOWED_ROOTS.add("w");
     }
 
     private LobbyCommandTreePruner() {}
