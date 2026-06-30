@@ -88,7 +88,6 @@ public final class ChampUtilsHelpCommand {
         line(source, "/fragments withdraw <rarity> <amount>", "Turn stored digital fragments back into physical items.");
         section(source, "Battles + Training");
         line(source, "/evtrain <stat>", "Open EV training for the selected stat.");
-        line(source, "/elite4 <type>", "Challenge Elite Four content when configured.");
         line(source, "/gym list", "View gym progression and available gyms.");
         line(source, "/worldevent list", "View configured world events.");
         line(source, "/hunt", "Open Pokémon hunts.");

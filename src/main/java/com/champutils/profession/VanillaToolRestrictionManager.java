@@ -7,6 +7,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.SwordItem;
@@ -44,6 +45,8 @@ public final class VanillaToolRestrictionManager {
     public static boolean isVanillaTool(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         if (ProfessionToolMetadata.isProfessionTool(stack)) return false;
+        // Golden swords are used as the land-claim wand, so they must keep normal durability.
+        if (stack.is(Items.GOLDEN_SWORD)) return false;
         return stack.getItem() instanceof PickaxeItem
                 || stack.getItem() instanceof AxeItem
                 || stack.getItem() instanceof HoeItem

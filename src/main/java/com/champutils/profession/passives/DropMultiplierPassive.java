@@ -43,7 +43,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
         ProfessionBackpackManager.giveOrDrop(player, new ItemStack(item, extraAmount), true);
 
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§bFortune Chance: §f" + multiplier + "x ore!"), true);
+            player.displayClientMessage(Component.literal("§b" + multiplier + "x Fortune!"), true);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, multiplier >= 4 ? 1.75F : 1.35F);
         }
     }
@@ -71,6 +71,8 @@ public class DropMultiplierPassive implements ProfessionPassive {
             case "minecraft:lapis_ore", "minecraft:deepslate_lapis_ore" -> 4 + RANDOM.nextInt(6);
             case "minecraft:copper_ore", "minecraft:deepslate_copper_ore" -> 2 + RANDOM.nextInt(4);
             case "minecraft:redstone_ore", "minecraft:deepslate_redstone_ore" -> 4 + RANDOM.nextInt(2);
+            case "minecraft:nether_gold_ore" -> 2 + RANDOM.nextInt(5);
+            case "minecraft:nether_quartz_ore", "minecraft:quartz_ore" -> 1;
             default -> 1;
         };
     }
@@ -84,6 +86,8 @@ public class DropMultiplierPassive implements ProfessionPassive {
             case "minecraft:coal_ore", "minecraft:deepslate_coal_ore" -> "minecraft:coal";
             case "minecraft:iron_ore", "minecraft:deepslate_iron_ore" -> "minecraft:raw_iron";
             case "minecraft:gold_ore", "minecraft:deepslate_gold_ore" -> "minecraft:raw_gold";
+            case "minecraft:nether_gold_ore" -> "minecraft:gold_nugget";
+            case "minecraft:nether_quartz_ore", "minecraft:quartz_ore" -> "minecraft:quartz";
             case "minecraft:copper_ore", "minecraft:deepslate_copper_ore" -> "minecraft:raw_copper";
             case "minecraft:diamond_ore", "minecraft:deepslate_diamond_ore" -> "minecraft:diamond";
             case "minecraft:emerald_ore", "minecraft:deepslate_emerald_ore" -> "minecraft:emerald";
@@ -97,6 +101,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
         return switch (blockId) {
             case "minecraft:iron_ore", "minecraft:deepslate_iron_ore" -> "minecraft:iron_ingot";
             case "minecraft:gold_ore", "minecraft:deepslate_gold_ore" -> "minecraft:gold_ingot";
+            case "minecraft:nether_gold_ore" -> "minecraft:gold_nugget";
             case "minecraft:copper_ore", "minecraft:deepslate_copper_ore" -> "minecraft:copper_ingot";
             default -> null;
         };

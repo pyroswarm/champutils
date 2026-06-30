@@ -92,8 +92,8 @@ public final class OpenCratesMenu {
 
     public static void open(ServerPlayer player) {
         if (player == null) return;
-        CrateConfig.load();
-        CrateCreditManager.load();
+        // Config and credit caches are loaded during server startup/reload.
+        // Avoid disk reads here so /opencrates stays instant even with many players.
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x4, player, false);
         gui.setTitle(Component.literal("Open Crates"));
         for (int i = 0; i < gui.getSize(); i++) gui.setSlot(i, filler());
@@ -109,7 +109,6 @@ public final class OpenCratesMenu {
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Credits: " + credits).withStyle(credits > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
             lore.add(Component.literal("No guaranteed fragments. Main reward only.").withStyle(ChatFormatting.GRAY));
-            if ("mythic".equals(id)) lore.add(Component.literal("Mythic Pokémon have a 10% shiny chance.").withStyle(ChatFormatting.LIGHT_PURPLE));
             lore.add(Component.literal("Roulette opening animation.").withStyle(ChatFormatting.DARK_GRAY));
             lore.add(Component.literal("Click to open.").withStyle(ChatFormatting.YELLOW));
             GuiElementBuilder b = new GuiElementBuilder(icon).setName(Component.literal(crate.displayName).withStyle(colorFor(id)));
@@ -343,9 +342,6 @@ public final class OpenCratesMenu {
                 String actualMainReward = grantReward(player, opening.mainReward);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
-                if ("mythic".equals(opening.crateId) && opening.mainReward != null && opening.mainReward.type == RewardType.POKEMON) {
-                    player.sendSystemMessage(Component.literal("Mythic crate Pokémon roll included a 25% shiny chance" + (opening.mainReward.shiny ? " — it became shiny!" : ".")).withStyle(opening.mainReward.shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE));
-                }
                 announceSpecialCratePokemon(player, opening.crate, opening.mainReward, actualMainReward);
                 playLocalSound(player, isSpecial(opening.mainReward) ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.experience_orb.pickup", 0.8F, isSpecial(opening.mainReward) ? 1.0F : 1.25F);
                 open(player);

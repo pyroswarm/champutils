@@ -395,6 +395,14 @@ public final class TMManager {
         return token;
     }
 
+    public static TeachResult cancelPendingTeach(ServerPlayer player, String rawToken) {
+        UUID token;
+        try { token = UUID.fromString(rawToken); } catch (Throwable ignored) { return TeachResult.fail("That TM confirmation is invalid or already expired."); }
+        PendingTeach pending = PENDING_TEACHES.remove(token);
+        if (pending == null || player == null || !pending.playerId().equals(player.getUUID())) return TeachResult.fail("That TM confirmation is invalid or already expired.");
+        return TeachResult.success("TM teaching canceled. No move was learned and no TM use was consumed.");
+    }
+
     public static TeachResult confirmPendingTeach(ServerPlayer player, String rawToken) {
         UUID token;
         try { token = UUID.fromString(rawToken); } catch (Throwable ignored) { return TeachResult.fail("That TM confirmation is invalid. Run /tms teach again."); }

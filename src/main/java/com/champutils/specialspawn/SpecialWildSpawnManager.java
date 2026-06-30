@@ -40,6 +40,7 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 import java.lang.reflect.Method;
@@ -59,9 +60,18 @@ public final class SpecialWildSpawnManager {
     private static boolean stateLoaded = false;
     private static double cashShopChanceBoost = 0.0D;
     private static long cashShopChanceBoostExpiresAt = 0L;
+    private static double cashShopParadoxChanceBoost = 0.0D;
+    private static long cashShopParadoxChanceBoostExpiresAt = 0L;
+    private static double cashShopUltraBeastChanceBoost = 0.0D;
+    private static long cashShopUltraBeastChanceBoostExpiresAt = 0L;
+    private static int ticksUntilParadoxCheck = 200;
+    private static int ticksUntilUltraBeastCheck = 200;
     private static UUID lastSpecialSpawnPlayer = null;
+    private static UUID lastParadoxSpawnPlayer = null;
+    private static UUID lastUltraBeastSpawnPlayer = null;
     private static final double PLAYER_PITY_PER_MISSED_ROLL = 0.005D; // +0.5% player priority per missed eligible roll
     private static final double PLAYER_PITY_MAX = 0.50D; // capped at +50% priority weight
+    private static final int RECENT_SPECIES_LIMIT = 5;
 
     private SpecialWildSpawnManager() {}
 
@@ -75,23 +85,152 @@ public final class SpecialWildSpawnManager {
             cleanupTracked(server);
         }
 
+        tickParadoxSpawns(server);
+        tickUltraBeastSpawns(server);
+
         ticksUntilCheck--;
         if (ticksUntilCheck > 0) return;
         int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.checkIntervalTicks);
         ticksUntilCheck = intervalTicks;
 
         cleanupTracked(server);
-        if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
+        if (tracked.size() >= maxAliveTotal()) return;
 
-        // Normal and Islander special spawns roll independently. Islander spawns use their
+        // Normal and Islander legendary-tier spawns roll independently. Islander spawns use their
         // own player list, chance settings, species pool, and last-spawn pity timer.
         runSpawnRoll(server, intervalTicks, false);
         runSpawnRoll(server, intervalTicks, true);
     }
 
 
+    private static void tickParadoxSpawns(MinecraftServer server) {
+        if (!SpecialWildSpawnConfig.DATA.paradoxOnlySpawnsEnabled) return;
+        ticksUntilParadoxCheck--;
+        if (ticksUntilParadoxCheck > 0) return;
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.paradoxCheckIntervalTicks);
+        ticksUntilParadoxCheck = intervalTicks;
+
+        cleanupTracked(server);
+        int maxAliveTotal = maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon);
+        if (tracked.size() >= maxAliveTotal) return;
+
+        runParadoxSpawnRoll(server, intervalTicks, false);
+        runParadoxSpawnRoll(server, intervalTicks, true);
+    }
+
+    private static void runParadoxSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
+        if (islanderRoll && !SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled) return;
+        int maxAliveTotal = maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon);
+        if (tracked.size() >= maxAliveTotal) return;
+
+        List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
+        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, islanderRoll));
+        if (players.isEmpty()) return;
+
+        double chance = currentParadoxGlobalChancePerCheck(intervalTicks, islanderRoll);
+        if (RANDOM.nextDouble() >= chance) {
+            recordParadoxPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
+
+        Collections.shuffle(players, RANDOM);
+        if (players.size() > 1 && lastParadoxSpawnPlayer != null) {
+            players.removeIf(p -> p.getUUID().equals(lastParadoxSpawnPlayer));
+            if (players.isEmpty()) return;
+        }
+
+        ServerPlayer player = pickPlayerByParadoxPity(players, islanderRoll);
+        if (player == null) return;
+
+        SpawnBucket bucket = pickParadoxBucket(islanderRoll);
+        if (bucket == null) {
+            recordParadoxPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
+
+        SpawnResult result = trySpawnFor(player, bucket, false);
+        if (result == null) {
+            for (ServerPlayer fallback : players) {
+                if (fallback == player) continue;
+                result = trySpawnFor(fallback, bucket, false);
+                if (result != null) break;
+            }
+        }
+
+        if (result != null) {
+            recordParadoxPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
+            lastParadoxSpawnPlayer = result.playerUuid;
+            markParadoxSpawned(result.type, result.species, islanderRoll);
+            announce(server, result.type, result.species, result.level, result.pos, result.playerUuid);
+        } else {
+            recordParadoxPityOutcome(players, Collections.emptySet(), islanderRoll);
+        }
+    }
+
+
+    private static void tickUltraBeastSpawns(MinecraftServer server) {
+        ticksUntilUltraBeastCheck--;
+        if (ticksUntilUltraBeastCheck > 0) return;
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.ultraBeastCheckIntervalTicks);
+        ticksUntilUltraBeastCheck = intervalTicks;
+
+        cleanupTracked(server);
+        if (tracked.size() >= maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveUltraBeastWildPokemon)) return;
+
+        runUltraBeastSpawnRoll(server, intervalTicks, false);
+        runUltraBeastSpawnRoll(server, intervalTicks, true);
+    }
+
+    private static void runUltraBeastSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
+        if (islanderRoll && !SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled) return;
+        if (tracked.size() >= maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveUltraBeastWildPokemon)) return;
+
+        List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
+        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, islanderRoll));
+        if (players.isEmpty()) return;
+
+        double chance = currentUltraBeastGlobalChancePerCheck(intervalTicks, islanderRoll);
+        if (RANDOM.nextDouble() >= chance) {
+            recordUltraBeastPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
+
+        Collections.shuffle(players, RANDOM);
+        if (players.size() > 1 && lastUltraBeastSpawnPlayer != null) {
+            players.removeIf(p -> p.getUUID().equals(lastUltraBeastSpawnPlayer));
+            if (players.isEmpty()) return;
+        }
+
+        ServerPlayer player = pickPlayerByUltraBeastPity(players, islanderRoll);
+        if (player == null) return;
+
+        SpawnBucket bucket = pickUltraBeastBucket(islanderRoll);
+        if (bucket == null) {
+            recordUltraBeastPityOutcome(players, Collections.emptySet(), islanderRoll);
+            return;
+        }
+
+        SpawnResult result = trySpawnFor(player, bucket, false);
+        if (result == null) {
+            for (ServerPlayer fallback : players) {
+                if (fallback == player) continue;
+                result = trySpawnFor(fallback, bucket, false);
+                if (result != null) break;
+            }
+        }
+
+        if (result != null) {
+            recordUltraBeastPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
+            lastUltraBeastSpawnPlayer = result.playerUuid;
+            markUltraBeastSpawned(result.type, result.species, islanderRoll);
+            announce(server, result.type, result.species, result.level, result.pos, result.playerUuid);
+        } else {
+            recordUltraBeastPityOutcome(players, Collections.emptySet(), islanderRoll);
+        }
+    }
+
     private static void runSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
-        if (tracked.size() >= Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)) return;
+        if (tracked.size() >= maxAliveTotal()) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
         players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, islanderRoll));
@@ -172,6 +311,60 @@ public final class SpecialWildSpawnManager {
         return ForceSpawnResult.ok(result.type, result.species, result.pos);
     }
 
+    public static boolean forceParadoxSpawnFor(ServerPlayer player) {
+        return forceParadoxSpawnForResult(player).success;
+    }
+
+    public static ForceSpawnResult forceParadoxSpawnForResult(ServerPlayer player) {
+        if (player == null) return ForceSpawnResult.fail("No player was found.");
+        if (!SpecialWildSpawnConfig.DATA.enabled || !SpecialWildSpawnConfig.DATA.paradoxOnlySpawnsEnabled) return ForceSpawnResult.fail("Paradox wild spawns are disabled in the config.");
+        if (player.serverLevel() == null) return ForceSpawnResult.fail("Player has no loaded world.");
+
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        String eligibilityReason = eligibilityFailureReason(player, islanderRoll);
+        if (eligibilityReason != null) return ForceSpawnResult.fail(eligibilityReason);
+
+        SpawnBucket bucket = pickParadoxBucket(islanderRoll);
+        if (bucket == null) return ForceSpawnResult.fail("No valid paradox spawn pool exists for this world/profile type.");
+
+        SpawnResult result = trySpawnFor(player, bucket, true);
+        if (result == null) {
+            return ForceSpawnResult.fail("No safe spawn position was found nearby, or the selected Paradox Pokémon failed to spawn.");
+        }
+
+        recordParadoxPityOutcome(List.of(player), Set.of(result.playerUuid), islanderRoll);
+        markParadoxSpawned(result.type, result.species, islanderRoll);
+        announce(player.getServer(), result.type, result.species, result.level, result.pos, result.playerUuid);
+        return ForceSpawnResult.ok(result.type, result.species, result.pos);
+    }
+
+    public static boolean forceUltraBeastSpawnFor(ServerPlayer player) {
+        return forceUltraBeastSpawnForResult(player).success;
+    }
+
+    public static ForceSpawnResult forceUltraBeastSpawnForResult(ServerPlayer player) {
+        if (player == null) return ForceSpawnResult.fail("No player was found.");
+        if (!SpecialWildSpawnConfig.DATA.enabled) return ForceSpawnResult.fail("Ultra Beast wild spawns are disabled in the config.");
+        if (player.serverLevel() == null) return ForceSpawnResult.fail("Player has no loaded world.");
+
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        String eligibilityReason = eligibilityFailureReason(player, islanderRoll);
+        if (eligibilityReason != null) return ForceSpawnResult.fail(eligibilityReason);
+
+        SpawnBucket bucket = pickUltraBeastBucket(islanderRoll);
+        if (bucket == null) return ForceSpawnResult.fail("No valid Ultra Beast spawn pool exists for this world/profile type.");
+
+        SpawnResult result = trySpawnFor(player, bucket, true);
+        if (result == null) {
+            return ForceSpawnResult.fail("No safe spawn position was found nearby, or the selected Ultra Beast failed to spawn.");
+        }
+
+        recordUltraBeastPityOutcome(List.of(player), Set.of(result.playerUuid), islanderRoll);
+        markUltraBeastSpawned(result.type, result.species, islanderRoll);
+        announce(player.getServer(), result.type, result.species, result.level, result.pos, result.playerUuid);
+        return ForceSpawnResult.ok(result.type, result.species, result.pos);
+    }
+
     private static void runRareTripleSpawnEvent(MinecraftServer server, List<ServerPlayer> players, boolean islanderRoll) {
         int availableSlots = Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon - tracked.size());
         int wanted = Math.max(1, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventSpawnCount);
@@ -242,6 +435,7 @@ public final class SpecialWildSpawnManager {
         for (ServerLevel level : server.getAllLevels()) {
             for (Entity entity : level.getAllEntities()) {
                 if (!isTaggedSpecialSpawn(entity)) continue;
+                protectSpecialSpawnEntity(entity);
                 long expiresAt = readSpecialExpiresAt(entity);
                 if (expiresAt > 0L) {
                     tracked.put(entity.getUUID(), expiresAt);
@@ -267,6 +461,20 @@ public final class SpecialWildSpawnManager {
         return entity != null && entity.getTags().contains(SPECIAL_TAG);
     }
 
+    public static boolean isSpecialSpawnEntity(Entity entity) {
+        return isTaggedSpecialSpawn(entity);
+    }
+
+    public static void protectSpecialSpawnEntity(Entity entity) {
+        if (entity == null) return;
+        try { entity.setInvulnerable(true); } catch (Throwable ignored) {}
+        try { entity.clearFire(); } catch (Throwable ignored) {}
+        try { entity.setRemainingFireTicks(0); } catch (Throwable ignored) {}
+        if (entity instanceof Mob mob) {
+            try { mob.setPersistenceRequired(); } catch (Throwable ignored) {}
+        }
+    }
+
     private static long readSpecialExpiresAt(Entity entity) {
         if (entity == null) return 0L;
         for (String tag : entity.getTags()) {
@@ -290,9 +498,7 @@ public final class SpecialWildSpawnManager {
                 .forEach(entity::removeTag);
         entity.addTag(SPECIAL_EXPIRES_TAG_PREFIX + expiresAt);
 
-        if (entity instanceof Mob mob) {
-            mob.setPersistenceRequired();
-        }
+        protectSpecialSpawnEntity(entity);
         tracked.put(entity.getUUID(), expiresAt);
     }
 
@@ -327,6 +533,42 @@ public final class SpecialWildSpawnManager {
         return formatAgo(getLastIslanderSpawnEpochMillis());
     }
 
+    public static long getLastNormalParadoxSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.lastParadoxSpawnEpochMillis);
+    }
+
+    public static long getLastIslanderParadoxSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.islanderLastParadoxSpawnEpochMillis);
+    }
+
+    public static String formatLastNormalParadoxSpawnAgo() {
+        return formatAgo(getLastNormalParadoxSpawnEpochMillis());
+    }
+
+    public static String formatLastIslanderParadoxSpawnAgo() {
+        return formatAgo(getLastIslanderParadoxSpawnEpochMillis());
+    }
+
+    public static long getLastNormalUltraBeastSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.lastUltraBeastSpawnEpochMillis);
+    }
+
+    public static long getLastIslanderUltraBeastSpawnEpochMillis() {
+        ensureStateLoaded();
+        return Math.max(0L, state.islanderLastUltraBeastSpawnEpochMillis);
+    }
+
+    public static String formatLastNormalUltraBeastSpawnAgo() {
+        return formatAgo(getLastNormalUltraBeastSpawnEpochMillis());
+    }
+
+    public static String formatLastIslanderUltraBeastSpawnAgo() {
+        return formatAgo(getLastIslanderUltraBeastSpawnEpochMillis());
+    }
+
     private static String formatAgo(long last) {
         if (last <= 0L) return "Never";
         long elapsedMillis = Math.max(0L, System.currentTimeMillis() - last);
@@ -346,6 +588,26 @@ public final class SpecialWildSpawnManager {
         cashShopChanceBoostExpiresAt = 0L;
     }
 
+    public static void activateParadoxCashShopBoost(double amount, long durationMillis) {
+        cashShopParadoxChanceBoost = Math.max(cashShopParadoxChanceBoost, Math.max(0.0D, amount));
+        cashShopParadoxChanceBoostExpiresAt = Math.max(cashShopParadoxChanceBoostExpiresAt, System.currentTimeMillis() + Math.max(1L, durationMillis));
+    }
+
+    public static void deactivateParadoxCashShopBoost() {
+        cashShopParadoxChanceBoost = 0.0D;
+        cashShopParadoxChanceBoostExpiresAt = 0L;
+    }
+
+    public static void activateUltraBeastCashShopBoost(double boostFraction, long durationMillis) {
+        cashShopUltraBeastChanceBoost = Math.max(0.0D, boostFraction);
+        cashShopUltraBeastChanceBoostExpiresAt = System.currentTimeMillis() + Math.max(1000L, durationMillis);
+    }
+
+    public static void deactivateUltraBeastCashShopBoost() {
+        cashShopUltraBeastChanceBoost = 0.0D;
+        cashShopUltraBeastChanceBoostExpiresAt = 0L;
+    }
+
     private static double activeCashShopChanceBoost() {
         if (cashShopChanceBoostExpiresAt <= System.currentTimeMillis()) {
             cashShopChanceBoost = 0.0D;
@@ -354,26 +616,76 @@ public final class SpecialWildSpawnManager {
         return Math.max(0.0D, cashShopChanceBoost);
     }
 
-    private static double currentGlobalChancePerCheck(int intervalTicks, boolean islanderRoll) {
-        double targetMinutes = Math.max(1.0D, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderTargetAverageSpawnMinutes : SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
-        double targetTicks = targetMinutes * 60.0D * 20.0D;
-        double base = Math.max(0.000001D, Math.min(1.0D, intervalTicks / targetTicks));
-
-        long last = islanderRoll ? state.islanderLastSpawnEpochMillis : state.lastSpawnEpochMillis;
-        double elapsedTargetWindows;
-        if (last <= 0L) {
-            elapsedTargetWindows = 0.0D;
-        } else {
-            double elapsedMillis = Math.max(0L, System.currentTimeMillis() - last);
-            elapsedTargetWindows = elapsedMillis / (targetMinutes * 60_000.0D);
+    private static double activeParadoxCashShopChanceBoost() {
+        if (cashShopParadoxChanceBoostExpiresAt <= System.currentTimeMillis()) {
+            cashShopParadoxChanceBoost = 0.0D;
+            cashShopParadoxChanceBoostExpiresAt = 0L;
         }
-
-        double multiplier = SpecialWildSpawnConfig.DATA.baseChanceMultiplier
-                + (elapsedTargetWindows * SpecialWildSpawnConfig.DATA.pityChanceIncreasePerTargetWindow);
-        multiplier = Math.max(0.01D, Math.min(Math.max(0.01D, SpecialWildSpawnConfig.DATA.maxPityMultiplier), multiplier));
-        return Math.max(0.0D, Math.min(1.0D, base * multiplier * (1.0D + activeCashShopChanceBoost())));
+        return Math.max(0.0D, cashShopParadoxChanceBoost);
     }
 
+    private static double activeUltraBeastCashShopChanceBoost() {
+        if (cashShopUltraBeastChanceBoostExpiresAt <= System.currentTimeMillis()) {
+            cashShopUltraBeastChanceBoost = 0.0D;
+            cashShopUltraBeastChanceBoostExpiresAt = 0L;
+        }
+        return Math.max(0.0D, cashShopUltraBeastChanceBoost);
+    }
+
+    private static double currentGlobalChancePerCheck(int intervalTicks, boolean islanderRoll) {
+        double configuredTarget = Math.max(1.0D, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderTargetAverageSpawnMinutes : SpecialWildSpawnConfig.DATA.targetAverageSpawnMinutes);
+        double targetMinutes = scaledTargetMinutes(configuredTarget, SpecialWildSpawnConfig.DATA.minimumTargetAverageSpawnMinutes);
+        return chancePerCheck(intervalTicks, targetMinutes, islanderRoll ? state.islanderLastSpawnEpochMillis : state.lastSpawnEpochMillis, SpecialWildSpawnConfig.DATA.baseChanceMultiplier, SpecialWildSpawnConfig.DATA.pityChanceIncreasePerTargetWindow, SpecialWildSpawnConfig.DATA.maxPityMultiplier, activeCashShopChanceBoost());
+    }
+
+    private static double currentParadoxGlobalChancePerCheck(int intervalTicks, boolean islanderRoll) {
+        double configuredTarget = Math.max(1.0D, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxTargetAverageSpawnMinutes : SpecialWildSpawnConfig.DATA.paradoxTargetAverageSpawnMinutes);
+        double targetMinutes = scaledTargetMinutes(configuredTarget, SpecialWildSpawnConfig.DATA.minimumParadoxTargetAverageSpawnMinutes);
+        return chancePerCheck(intervalTicks, targetMinutes, islanderRoll ? state.islanderLastParadoxSpawnEpochMillis : state.lastParadoxSpawnEpochMillis, SpecialWildSpawnConfig.DATA.paradoxBaseChanceMultiplier, SpecialWildSpawnConfig.DATA.paradoxPityChanceIncreasePerTargetWindow, SpecialWildSpawnConfig.DATA.paradoxMaxPityMultiplier, activeParadoxCashShopChanceBoost());
+    }
+
+    private static double currentUltraBeastGlobalChancePerCheck(int intervalTicks, boolean islanderRoll) {
+        double configuredTarget = Math.max(1.0D, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastTargetAverageSpawnMinutes : SpecialWildSpawnConfig.DATA.ultraBeastTargetAverageSpawnMinutes);
+        double targetMinutes = scaledTargetMinutes(configuredTarget, SpecialWildSpawnConfig.DATA.minimumUltraBeastTargetAverageSpawnMinutes);
+        return chancePerCheck(intervalTicks, targetMinutes, islanderRoll ? state.islanderLastUltraBeastSpawnEpochMillis : state.lastUltraBeastSpawnEpochMillis, SpecialWildSpawnConfig.DATA.ultraBeastBaseChanceMultiplier, SpecialWildSpawnConfig.DATA.ultraBeastPityChanceIncreasePerTargetWindow, SpecialWildSpawnConfig.DATA.ultraBeastMaxPityMultiplier, activeUltraBeastCashShopChanceBoost());
+    }
+
+    private static double chancePerCheck(int intervalTicks, double targetMinutes, long lastSpawnMillis, double baseMultiplier, double pityPerTargetWindow, double maxPityMultiplier, double cashShopBoost) {
+        targetMinutes = Math.max(1.0D, targetMinutes);
+        double targetTicks = targetMinutes * 60.0D * 20.0D;
+        double base = Math.max(0.000001D, Math.min(1.0D, intervalTicks / targetTicks));
+        double elapsedTargetWindows = lastSpawnMillis <= 0L ? 0.0D : Math.max(0L, System.currentTimeMillis() - lastSpawnMillis) / (targetMinutes * 60_000.0D);
+        double multiplier = baseMultiplier + (elapsedTargetWindows * pityPerTargetWindow);
+        multiplier = Math.max(0.01D, Math.min(Math.max(0.01D, maxPityMultiplier), multiplier));
+        return Math.max(0.0D, Math.min(1.0D, base * multiplier * (1.0D + Math.max(0.0D, cashShopBoost))));
+    }
+
+    private static double scaledTargetMinutes(double configuredTargetMinutes, double minimumTargetMinutes) {
+        int online = onlinePlayerCount();
+        int startsAt = Math.max(0, SpecialWildSpawnConfig.DATA.playerScalingStartPlayers);
+        int maxPlayers = Math.max(startsAt + 1, SpecialWildSpawnConfig.DATA.playerScalingMaxPlayers);
+        double configured = Math.max(1.0D, configuredTargetMinutes);
+        double minimum = Math.max(1.0D, Math.min(configured, minimumTargetMinutes));
+        if (online <= startsAt) return configured;
+        double progress = Math.min(1.0D, (online - startsAt) / (double) (maxPlayers - startsAt));
+        return configured - ((configured - minimum) * progress);
+    }
+
+    private static int onlinePlayerCount() {
+        MinecraftServer server = com.champutils.battle.ServerLifecycleBridge.getServer();
+        if (server == null) return 0;
+        int count = 0;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player != null && !player.isSpectator()) count++;
+        }
+        return count;
+    }
+
+    private static int maxAliveTotal() {
+        return Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveSpecialWildPokemon)
+                + Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon)
+                + Math.max(1, SpecialWildSpawnConfig.DATA.maxAliveUltraBeastWildPokemon);
+    }
 
     public static PityView pityView(ServerPlayer player) {
         ensureStateLoaded();
@@ -402,6 +714,60 @@ public final class SpecialWildSpawnManager {
         return new PityView(islanderRoll, failure == null, failure == null ? "Eligible" : failure, misses, pityPercent, ownWeight, globalChance, personalChance, islanderRoll ? formatLastIslanderSpawnAgo() : formatLastNormalSpawnAgo());
     }
 
+    public static PityView paradoxPityView(ServerPlayer player) {
+        ensureStateLoaded();
+        if (player == null || player.serverLevel() == null) {
+            return new PityView(false, false, "No player/world loaded.", 0, 0.0D, 1.0D, 0.0D, 0.0D, "Never");
+        }
+
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        String failure = eligibilityFailureReason(player, islanderRoll);
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.paradoxCheckIntervalTicks);
+        double globalChance = currentParadoxGlobalChancePerCheck(intervalTicks, islanderRoll);
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderParadoxMisses : pity.normalParadoxMisses;
+        double pityPercent = playerParadoxPityPercent(player, islanderRoll);
+        double ownWeight = playerParadoxPriorityWeight(player, islanderRoll);
+
+        double totalWeight = 0.0D;
+        MinecraftServer server = player.getServer();
+        if (server != null) {
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                if (online == null || online.isSpectator() || !isEligibleSpecialSpawnPlayer(online, islanderRoll)) continue;
+                totalWeight += playerParadoxPriorityWeight(online, islanderRoll);
+            }
+        }
+        double personalChance = failure == null && totalWeight > 0.0D ? globalChance * (ownWeight / totalWeight) : 0.0D;
+        return new PityView(islanderRoll, failure == null, failure == null ? "Eligible" : failure, misses, pityPercent, ownWeight, globalChance, personalChance, islanderRoll ? formatLastIslanderParadoxSpawnAgo() : formatLastNormalParadoxSpawnAgo());
+    }
+
+    public static PityView ultraBeastPityView(ServerPlayer player) {
+        ensureStateLoaded();
+        if (player == null || player.serverLevel() == null) {
+            return new PityView(false, false, "No player/world loaded.", 0, 0.0D, 1.0D, 0.0D, 0.0D, "Never");
+        }
+
+        boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+        String failure = eligibilityFailureReason(player, islanderRoll);
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.ultraBeastCheckIntervalTicks);
+        double globalChance = currentUltraBeastGlobalChancePerCheck(intervalTicks, islanderRoll);
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderUltraBeastMisses : pity.normalUltraBeastMisses;
+        double pityPercent = playerUltraBeastPityPercent(player, islanderRoll);
+        double ownWeight = playerUltraBeastPriorityWeight(player, islanderRoll);
+
+        double totalWeight = 0.0D;
+        MinecraftServer server = player.getServer();
+        if (server != null) {
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                if (online == null || online.isSpectator() || !isEligibleSpecialSpawnPlayer(online, islanderRoll)) continue;
+                totalWeight += playerUltraBeastPriorityWeight(online, islanderRoll);
+            }
+        }
+        double personalChance = failure == null && totalWeight > 0.0D ? globalChance * (ownWeight / totalWeight) : 0.0D;
+        return new PityView(islanderRoll, failure == null, failure == null ? "Eligible" : failure, misses, pityPercent, ownWeight, globalChance, personalChance, islanderRoll ? formatLastIslanderUltraBeastSpawnAgo() : formatLastNormalUltraBeastSpawnAgo());
+    }
+
     private static PlayerPity pityData(UUID uuid) {
         ensureStateLoaded();
         if (state.playerPity == null) state.playerPity = new HashMap<>();
@@ -418,6 +784,26 @@ public final class SpecialWildSpawnManager {
         return 1.0D + playerPityPercent(player, islanderRoll);
     }
 
+    private static double playerParadoxPityPercent(ServerPlayer player, boolean islanderRoll) {
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderParadoxMisses : pity.normalParadoxMisses;
+        return Math.max(0.0D, Math.min(PLAYER_PITY_MAX, misses * PLAYER_PITY_PER_MISSED_ROLL));
+    }
+
+    private static double playerParadoxPriorityWeight(ServerPlayer player, boolean islanderRoll) {
+        return 1.0D + playerParadoxPityPercent(player, islanderRoll);
+    }
+
+    private static double playerUltraBeastPityPercent(ServerPlayer player, boolean islanderRoll) {
+        PlayerPity pity = pityData(player.getUUID());
+        int misses = islanderRoll ? pity.islanderUltraBeastMisses : pity.normalUltraBeastMisses;
+        return Math.max(0.0D, Math.min(PLAYER_PITY_MAX, misses * PLAYER_PITY_PER_MISSED_ROLL));
+    }
+
+    private static double playerUltraBeastPriorityWeight(ServerPlayer player, boolean islanderRoll) {
+        return 1.0D + playerUltraBeastPityPercent(player, islanderRoll);
+    }
+
     private static ServerPlayer pickPlayerByPity(List<ServerPlayer> players, boolean islanderRoll) {
         if (players == null || players.isEmpty()) return null;
         double total = 0.0D;
@@ -425,6 +811,30 @@ public final class SpecialWildSpawnManager {
         double roll = RANDOM.nextDouble() * Math.max(0.000001D, total);
         for (ServerPlayer player : players) {
             roll -= playerPriorityWeight(player, islanderRoll);
+            if (roll <= 0.0D) return player;
+        }
+        return players.get(0);
+    }
+
+    private static ServerPlayer pickPlayerByParadoxPity(List<ServerPlayer> players, boolean islanderRoll) {
+        if (players == null || players.isEmpty()) return null;
+        double total = 0.0D;
+        for (ServerPlayer player : players) total += playerParadoxPriorityWeight(player, islanderRoll);
+        double roll = RANDOM.nextDouble() * Math.max(0.000001D, total);
+        for (ServerPlayer player : players) {
+            roll -= playerParadoxPriorityWeight(player, islanderRoll);
+            if (roll <= 0.0D) return player;
+        }
+        return players.get(0);
+    }
+
+    private static ServerPlayer pickPlayerByUltraBeastPity(List<ServerPlayer> players, boolean islanderRoll) {
+        if (players == null || players.isEmpty()) return null;
+        double total = 0.0D;
+        for (ServerPlayer player : players) total += playerUltraBeastPriorityWeight(player, islanderRoll);
+        double roll = RANDOM.nextDouble() * Math.max(0.000001D, total);
+        for (ServerPlayer player : players) {
+            roll -= playerUltraBeastPriorityWeight(player, islanderRoll);
             if (roll <= 0.0D) return player;
         }
         return players.get(0);
@@ -459,22 +869,126 @@ public final class SpecialWildSpawnManager {
         }
         if (changed) saveState();
     }
-    private static SpawnBucket pickBucket(boolean islanderRoll) {
-        List<SpawnBucket> buckets = new ArrayList<>();
-        addBucket(buckets, islanderRoll ? "islander legendary" : "legendary", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendaryChancePerCheck : SpecialWildSpawnConfig.DATA.legendaryChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendarySpawns : SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
-        addBucket(buckets, islanderRoll ? "islander paradox" : "paradox", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxChancePerCheck : SpecialWildSpawnConfig.DATA.paradoxChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxSpawns : SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.levelRangeParadox);
-        addBucket(buckets, islanderRoll ? "islander ultra beast" : "ultra beast", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastChancePerCheck : SpecialWildSpawnConfig.DATA.ultraBeastChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastSpawns : SpecialWildSpawnConfig.DATA.ultraBeastSpawns, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
-        addBucket(buckets, islanderRoll ? "islander mythical" : "mythical", islanderRoll ? SpecialWildSpawnConfig.DATA.islanderMythicalChancePerCheck : SpecialWildSpawnConfig.DATA.mythicalChancePerCheck, islanderRoll ? SpecialWildSpawnConfig.DATA.islanderMythicalSpawns : SpecialWildSpawnConfig.DATA.mythicalSpawns, SpecialWildSpawnConfig.DATA.levelRangeMythical);
-        if (buckets.isEmpty()) return null;
 
-        double total = 0.0D;
-        for (SpawnBucket bucket : buckets) total += bucket.weight;
-        double roll = RANDOM.nextDouble() * total;
-        for (SpawnBucket bucket : buckets) {
-            roll -= bucket.weight;
-            if (roll <= 0.0D) return bucket;
+    private static void recordParadoxPityOutcome(List<ServerPlayer> eligiblePlayers, Set<UUID> spawnedPlayers, boolean islanderRoll) {
+        if (eligiblePlayers == null || eligiblePlayers.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        Set<UUID> spawned = spawnedPlayers == null ? Collections.emptySet() : spawnedPlayers;
+        for (ServerPlayer player : eligiblePlayers) {
+            if (player == null) continue;
+            PlayerPity pity = pityData(player.getUUID());
+            if (islanderRoll) {
+                pity.islanderLastParadoxEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.islanderParadoxMisses = 0;
+                    pity.islanderLastParadoxSpawnMillis = now;
+                } else {
+                    pity.islanderParadoxMisses = Math.min(10000, pity.islanderParadoxMisses + 1);
+                }
+            } else {
+                pity.normalLastParadoxEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.normalParadoxMisses = 0;
+                    pity.normalLastParadoxSpawnMillis = now;
+                } else {
+                    pity.normalParadoxMisses = Math.min(10000, pity.normalParadoxMisses + 1);
+                }
+            }
+            changed = true;
         }
-        return buckets.get(0);
+        if (changed) saveState();
+    }
+    private static void recordUltraBeastPityOutcome(List<ServerPlayer> eligiblePlayers, Set<UUID> spawnedPlayers, boolean islanderRoll) {
+        if (eligiblePlayers == null || eligiblePlayers.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        Set<UUID> spawned = spawnedPlayers == null ? Collections.emptySet() : spawnedPlayers;
+        for (ServerPlayer player : eligiblePlayers) {
+            if (player == null) continue;
+            PlayerPity pity = pityData(player.getUUID());
+            if (islanderRoll) {
+                pity.islanderLastUltraBeastEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.islanderUltraBeastMisses = 0;
+                    pity.islanderLastUltraBeastSpawnMillis = now;
+                } else {
+                    pity.islanderUltraBeastMisses = Math.min(10000, pity.islanderUltraBeastMisses + 1);
+                }
+            } else {
+                pity.normalLastUltraBeastEligibleMillis = now;
+                if (spawned.contains(player.getUUID())) {
+                    pity.normalUltraBeastMisses = 0;
+                    pity.normalLastUltraBeastSpawnMillis = now;
+                } else {
+                    pity.normalUltraBeastMisses = Math.min(10000, pity.normalUltraBeastMisses + 1);
+                }
+            }
+            changed = true;
+        }
+        if (changed) saveState();
+    }
+
+
+    public static SpawnPoolReport report() {
+        ensureStateLoaded();
+        SpecialWildSpawnConfig.load();
+        List<String> legendaryPool = speciesNames(legendaryTierEntries(false));
+        List<String> paradoxPool = speciesNames(SpecialWildSpawnConfig.DATA.paradoxSpawns);
+        List<String> ultraBeastPool = speciesNames(SpecialWildSpawnConfig.DATA.ultraBeastSpawns);
+        return new SpawnPoolReport(
+                legendaryPool.size(), paradoxPool.size(), ultraBeastPool.size(),
+                duplicateSpecies(legendaryPool), duplicateSpecies(paradoxPool), duplicateSpecies(ultraBeastPool),
+                new ArrayList<>(state.recentLegendarySpecies),
+                new ArrayList<>(state.recentParadoxSpecies),
+                new ArrayList<>(state.recentUltraBeastSpecies)
+        );
+    }
+
+    private static List<String> speciesNames(List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+        List<String> out = new ArrayList<>();
+        if (entries == null) return out;
+        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
+            if (entry == null || entry.species == null || entry.species.isBlank()) continue;
+            out.add(sanitize(entry.species));
+        }
+        return out;
+    }
+
+    private static List<String> duplicateSpecies(List<String> names) {
+        Set<String> seen = new HashSet<>();
+        LinkedHashSet<String> duplicates = new LinkedHashSet<>();
+        for (String name : names) {
+            if (!seen.add(name)) duplicates.add(name);
+        }
+        return new ArrayList<>(duplicates);
+    }
+
+    private static SpawnBucket pickBucket(boolean islanderRoll) {
+        List<SpecialWildSpawnConfig.SpawnEntry> entries = legendaryTierEntries(islanderRoll);
+        if (entries == null || entries.isEmpty()) return null;
+        return new SpawnBucket(islanderRoll ? "islander legendary" : "legendary", 1.0D, entries, SpecialWildSpawnConfig.DATA.levelRangeLegendary);
+    }
+
+    private static List<SpecialWildSpawnConfig.SpawnEntry> legendaryTierEntries(boolean islanderRoll) {
+        List<SpecialWildSpawnConfig.SpawnEntry> combined = new ArrayList<>();
+        List<SpecialWildSpawnConfig.SpawnEntry> legendary = islanderRoll ? SpecialWildSpawnConfig.DATA.islanderLegendarySpawns : SpecialWildSpawnConfig.DATA.legendarySpawns;
+        List<SpecialWildSpawnConfig.SpawnEntry> mythical = islanderRoll ? SpecialWildSpawnConfig.DATA.islanderMythicalSpawns : SpecialWildSpawnConfig.DATA.mythicalSpawns;
+        if (legendary != null) combined.addAll(legendary);
+        if (mythical != null) combined.addAll(mythical);
+        return combined;
+    }
+
+    private static SpawnBucket pickParadoxBucket(boolean islanderRoll) {
+        List<SpecialWildSpawnConfig.SpawnEntry> entries = islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxSpawns : SpecialWildSpawnConfig.DATA.paradoxSpawns;
+        if (entries == null || entries.isEmpty()) return null;
+        return new SpawnBucket(islanderRoll ? "islander paradox" : "paradox", 1.0D, entries, SpecialWildSpawnConfig.DATA.levelRangeParadox);
+    }
+
+    private static SpawnBucket pickUltraBeastBucket(boolean islanderRoll) {
+        List<SpecialWildSpawnConfig.SpawnEntry> entries = islanderRoll ? SpecialWildSpawnConfig.DATA.islanderUltraBeastSpawns : SpecialWildSpawnConfig.DATA.ultraBeastSpawns;
+        if (entries == null || entries.isEmpty()) return null;
+        return new SpawnBucket(islanderRoll ? "islander ultra beast" : "ultra beast", 1.0D, entries, SpecialWildSpawnConfig.DATA.levelRangeUltraBeast);
     }
 
     private static void addBucket(List<SpawnBucket> buckets, String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {
@@ -514,6 +1028,9 @@ public final class SpecialWildSpawnManager {
             }
             if (validAtPos.isEmpty()) continue;
 
+            List<SpecialWildSpawnConfig.SpawnEntry> variationSafe = filterRecentSpecies(bucket.type, validAtPos);
+            if (!variationSafe.isEmpty()) validAtPos = variationSafe;
+
             SpecialWildSpawnConfig.SpawnEntry picked = pickWeighted(validAtPos);
             if (picked == null) continue;
 
@@ -535,6 +1052,34 @@ public final class SpecialWildSpawnManager {
         return null;
     }
 
+
+    private static List<SpecialWildSpawnConfig.SpawnEntry> filterRecentSpecies(String type, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+        if (entries == null || entries.size() <= RECENT_SPECIES_LIMIT) return entries;
+        List<String> recent = recentListForType(type);
+        if (recent.isEmpty()) return entries;
+        List<SpecialWildSpawnConfig.SpawnEntry> filtered = new ArrayList<>();
+        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
+            if (entry == null || entry.species == null) continue;
+            if (!recent.contains(sanitize(entry.species))) filtered.add(entry);
+        }
+        return filtered;
+    }
+
+    private static List<String> recentListForType(String type) {
+        String t = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        if (t.contains("paradox")) return state.recentParadoxSpecies;
+        if (t.contains("ultra")) return state.recentUltraBeastSpecies;
+        return state.recentLegendarySpecies;
+    }
+
+    private static void rememberRecentSpecies(List<String> recent, String species) {
+        String clean = sanitize(species);
+        if (clean.isBlank()) return;
+        recent.remove(clean);
+        recent.add(clean);
+        while (recent.size() > RECENT_SPECIES_LIMIT) recent.remove(0);
+    }
+
     private static void markSpawned(String type, String species, boolean rareEvent, boolean islanderRoll) {
         long now = System.currentTimeMillis();
         if (islanderRoll) {
@@ -548,171 +1093,38 @@ public final class SpecialWildSpawnManager {
             state.lastSpawnSpecies = species == null ? "" : species;
             state.lastSpawnWasRareTripleEvent = rareEvent;
         }
+        rememberRecentSpecies(state.recentLegendarySpecies, species);
         saveState();
     }
 
-    private static BlockPos randomSpawnPos(ServerLevel level, BlockPos origin, boolean islanderLevel, boolean forced, int attempt) {
-        int configuredMin = Math.max(1, SpecialWildSpawnConfig.DATA.minDistanceFromPlayer);
-        int configuredMax = Math.max(configuredMin + 1, SpecialWildSpawnConfig.DATA.maxDistanceFromPlayer);
-        int min = (forced || islanderLevel) ? 1 : Math.max(8, configuredMin);
-        int max = Math.max(min + 1, Math.max(configuredMax, (forced || islanderLevel) ? 32 : configuredMax));
-
-        // Deterministic first attempts: directly around the player. This makes force-spawn
-        // reliable in small island territories instead of only trying random far positions.
-        if (attempt < 16) {
-            int[][] offsets = {
-                    {2,0},{-2,0},{0,2},{0,-2},{3,3},{3,-3},{-3,3},{-3,-3},
-                    {5,0},{-5,0},{0,5},{0,-5},{8,0},{-8,0},{0,8},{0,-8}
-            };
-            int[] off = offsets[attempt];
-            BlockPos base = new BlockPos(origin.getX() + off[0], origin.getY(), origin.getZ() + off[1]);
-            BlockPos found = bestSurfaceAt(level, base, forced || islanderLevel);
-            if (found != null) return found;
+    private static void markParadoxSpawned(String type, String species, boolean islanderRoll) {
+        long now = System.currentTimeMillis();
+        if (islanderRoll) {
+            state.islanderLastParadoxSpawnEpochMillis = now;
+            state.islanderLastParadoxSpawnType = type == null ? "" : type;
+            state.islanderLastParadoxSpawnSpecies = species == null ? "" : species;
+        } else {
+            state.lastParadoxSpawnEpochMillis = now;
+            state.lastParadoxSpawnType = type == null ? "" : type;
+            state.lastParadoxSpawnSpecies = species == null ? "" : species;
         }
-
-        // Random attempts with several Y strategies because forests/snowy forests often fail
-        // when the first top position is leaves, snow layers, or an awkward tree canopy.
-        double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
-        int dist = min + RANDOM.nextInt(Math.max(1, max - min + 1));
-        int x = origin.getX() + (int)Math.round(Math.cos(angle) * dist);
-        int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
-        BlockPos base = new BlockPos(x, origin.getY(), z);
-        return bestSurfaceAt(level, base, forced || islanderLevel);
+        rememberRecentSpecies(state.recentParadoxSpecies, species);
+        saveState();
     }
 
-    private static BlockPos bestSurfaceAt(ServerLevel level, BlockPos base, boolean allowWorldBorderBypass) {
-        for (int scan = 0; scan < 5; scan++) {
-            BlockPos top = switch (scan) {
-                case 0 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, base);
-                case 1 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, base);
-                case 2 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, base);
-                default -> findOpenGroundNearY(level, base, scan == 3 ? 48 : 96);
-            };
-            if (top == null) continue;
-            forceLoadSpawnChunk(level, top);
-            if (!allowWorldBorderBypass && !level.getWorldBorder().isWithinBounds(top)) continue;
-            if (isSafeSpawnSpace(level, top)) return top;
-            if (allowWorldBorderBypass) {
-                BlockPos prepared = prepareRobustSpawnSpace(level, top, true);
-                if (prepared != null) return prepared;
-            }
+    private static void markUltraBeastSpawned(String type, String species, boolean islanderRoll) {
+        long now = System.currentTimeMillis();
+        if (islanderRoll) {
+            state.islanderLastUltraBeastSpawnEpochMillis = now;
+            state.islanderLastUltraBeastSpawnType = type == null ? "" : type;
+            state.islanderLastUltraBeastSpawnSpecies = species == null ? "" : species;
+        } else {
+            state.lastUltraBeastSpawnEpochMillis = now;
+            state.lastUltraBeastSpawnType = type == null ? "" : type;
+            state.lastUltraBeastSpawnSpecies = species == null ? "" : species;
         }
-        return null;
-    }
-
-    private static BlockPos findOpenGroundNearY(ServerLevel level, BlockPos base, int radiusY) {
-        int minY = Math.max(level.getMinBuildHeight() + 1, base.getY() - radiusY);
-        int maxY = Math.min(level.getMaxBuildHeight() - 3, base.getY() + radiusY);
-        for (int y = maxY; y >= minY; y--) {
-            BlockPos pos = new BlockPos(base.getX(), y, base.getZ());
-            if (isSafeSpawnSpace(level, pos)) return pos;
-        }
-        return null;
-    }
-
-    private static boolean isSafeSpawnSpace(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null) return false;
-        if (!Level.isInSpawnableBounds(pos)) return false;
-        if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return false;
-        if (!level.getBlockState(pos.below()).isSolid()) return false;
-        if (!level.getFluidState(pos).isEmpty() || !level.getFluidState(pos.above()).isEmpty()) return false;
-        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()
-                && level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty();
-    }
-
-    private static void forceLoadSpawnChunk(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null) return;
-        try {
-            level.getChunk(pos);
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private static BlockPos prepareRobustSpawnSpace(ServerLevel level, BlockPos pos, boolean canEdit) {
-        if (level == null || pos == null || !Level.isInSpawnableBounds(pos)) return null;
-        if (!canEdit) return isSafeSpawnSpace(level, pos) ? pos : null;
-
-        try {
-            // Never replace containers/valuable blocks. This is only meant to fix grass, snow,
-            // leaves, tall grass, bad territory spawn columns, and other harmless obstructions.
-            if (!level.getBlockState(pos).isAir() && level.getBlockState(pos).getDestroySpeed(level, pos) < 0) return null;
-            if (!level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.above()).getDestroySpeed(level, pos.above()) < 0) return null;
-
-            if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return null;
-            if (!level.getBlockState(pos.below()).isSolid() || !level.getFluidState(pos.below()).isEmpty()) {
-                level.setBlock(pos.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-            }
-            if (!level.getFluidState(pos).isEmpty() || !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-            }
-            if (!level.getFluidState(pos.above()).isEmpty() || !level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty()) {
-                level.setBlock(pos.above(), Blocks.AIR.defaultBlockState(), 3);
-            }
-        } catch (Throwable ignored) {
-        }
-
-        return isSafeSpawnSpace(level, pos) ? pos : null;
-    }
-
-    private static BlockPos findAllowedPositionNearPlayer(ServerPlayer player, ServerLevel level, BlockPos original, boolean forced) {
-        if (!forced && !isIslanderSpecialSpawnLevel(level)) return null;
-        if (isAllowedSpawnPosition(player, level, original)) return original;
-        BlockPos origin = player.blockPosition();
-        for (int r = 1; r <= 32; r++) {
-            for (int dx = -r; dx <= r; dx++) {
-                for (int dz = -r; dz <= r; dz++) {
-                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
-                    BlockPos candidate = bestSurfaceAt(level, new BlockPos(origin.getX() + dx, origin.getY(), origin.getZ() + dz), true);
-                    if (candidate == null) continue;
-                    if (isAllowedSpawnPosition(player, level, candidate)) return candidate;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntries(ServerLevel level, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
-        List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
-        String time = timeName(level);
-        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
-            if (entry == null || entry.species == null || entry.species.isBlank()) continue;
-            if (entry.times != null && !entry.times.isEmpty() && entry.times.stream().noneMatch(t -> t != null && t.equalsIgnoreCase(time))) continue;
-            valid.add(entry);
-        }
-        return valid;
-    }
-
-    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntriesIgnoringTime(List<SpecialWildSpawnConfig.SpawnEntry> entries) {
-        List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
-        if (entries == null) return valid;
-        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
-            if (entry == null || entry.species == null || entry.species.isBlank()) continue;
-            valid.add(entry);
-        }
-        return valid;
-    }
-
-
-    private static boolean matchesBiome(ServerLevel level, BlockPos pos, SpecialWildSpawnConfig.SpawnEntry entry) {
-        if (entry == null || entry.biomes == null || entry.biomes.isEmpty()) return true;
-        try {
-            var holder = level.getBiome(pos);
-            ResourceLocation biomeId = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(holder.value());
-            String biomeString = biomeId == null ? "" : biomeId.toString();
-            for (String raw : entry.biomes) {
-                if (raw == null || raw.isBlank()) continue;
-                String value = raw.trim();
-                if (value.startsWith("#")) {
-                    ResourceLocation tagId = ResourceLocation.parse(value.substring(1));
-                    if (holder.is(TagKey.create(Registries.BIOME, tagId))) return true;
-                } else if (biomeString.equalsIgnoreCase(value) || biomeString.endsWith(":" + value.toLowerCase(Locale.ROOT))) {
-                    return true;
-                }
-            }
-        } catch (Throwable ignored) {
-            return true;
-        }
-        return false;
+        rememberRecentSpecies(state.recentUltraBeastSpecies, species);
+        saveState();
     }
 
     private static String timeName(ServerLevel level) {
@@ -860,20 +1272,163 @@ public final class SpecialWildSpawnManager {
         }
     }
 
+    private static BlockPos randomSpawnPos(ServerLevel level, BlockPos origin, boolean islanderLevel, boolean forced, int attempt) {
+        int configuredMin = Math.max(1, SpecialWildSpawnConfig.DATA.minDistanceFromPlayer);
+        int configuredMax = Math.max(configuredMin + 1, SpecialWildSpawnConfig.DATA.maxDistanceFromPlayer);
+        int min = (forced || islanderLevel) ? 1 : Math.max(8, configuredMin);
+        int max = Math.max(min + 1, Math.max(configuredMax, (forced || islanderLevel) ? 32 : configuredMax));
+
+        // Deterministic first attempts: directly around the player. This makes force-spawn
+        // reliable in small island territories instead of only trying random far positions.
+        if (attempt < 16) {
+            int[][] offsets = {
+                    {2,0},{-2,0},{0,2},{0,-2},{3,3},{3,-3},{-3,3},{-3,-3},
+                    {5,0},{-5,0},{0,5},{0,-5},{8,0},{-8,0},{0,8},{0,-8}
+            };
+            int[] off = offsets[attempt];
+            BlockPos base = new BlockPos(origin.getX() + off[0], origin.getY(), origin.getZ() + off[1]);
+            BlockPos found = bestSurfaceAt(level, base, forced || islanderLevel);
+            if (found != null) return found;
+        }
+
+        // Random attempts with several Y strategies because forests/snowy forests often fail
+        // when the first top position is leaves, snow layers, or an awkward tree canopy.
+        double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
+        int dist = min + RANDOM.nextInt(Math.max(1, max - min + 1));
+        int x = origin.getX() + (int)Math.round(Math.cos(angle) * dist);
+        int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
+        BlockPos base = new BlockPos(x, origin.getY(), z);
+        return bestSurfaceAt(level, base, forced || islanderLevel);
+    }
+
+    private static BlockPos bestSurfaceAt(ServerLevel level, BlockPos base, boolean allowWorldBorderBypass) {
+        for (int scan = 0; scan < 5; scan++) {
+            BlockPos top = switch (scan) {
+                case 0 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, base);
+                case 1 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, base);
+                case 2 -> level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, base);
+                default -> findOpenGroundNearY(level, base, scan == 3 ? 48 : 96);
+            };
+            if (top == null) continue;
+            forceLoadSpawnChunk(level, top);
+            if (!allowWorldBorderBypass && !level.getWorldBorder().isWithinBounds(top)) continue;
+            if (isSafeSpawnSpace(level, top)) return top;
+            if (allowWorldBorderBypass) {
+                BlockPos prepared = prepareRobustSpawnSpace(level, top, true);
+                if (prepared != null) return prepared;
+            }
+        }
+        return null;
+    }
+
+    private static BlockPos findOpenGroundNearY(ServerLevel level, BlockPos base, int radiusY) {
+        int minY = Math.max(level.getMinBuildHeight() + 1, base.getY() - radiusY);
+        int maxY = Math.min(level.getMaxBuildHeight() - 3, base.getY() + radiusY);
+        for (int y = maxY; y >= minY; y--) {
+            BlockPos pos = new BlockPos(base.getX(), y, base.getZ());
+            if (isSafeSpawnSpace(level, pos)) return pos;
+        }
+        return null;
+    }
+
+    private static boolean isSafeSpawnSpace(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        if (!Level.isInSpawnableBounds(pos)) return false;
+        if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return false;
+        if (!level.getBlockState(pos.below()).isSolid()) return false;
+        if (!level.getFluidState(pos).isEmpty() || !level.getFluidState(pos.above()).isEmpty()) return false;
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()
+                && level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty();
+    }
+
+    private static void forceLoadSpawnChunk(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return;
+        try {
+            level.getChunk(pos);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static BlockPos prepareRobustSpawnSpace(ServerLevel level, BlockPos pos, boolean canEdit) {
+        if (level == null || pos == null || !Level.isInSpawnableBounds(pos)) return null;
+        if (!canEdit) return isSafeSpawnSpace(level, pos) ? pos : null;
+
+        try {
+            // Never replace containers/valuable blocks. This is only meant to fix grass, snow,
+            // leaves, tall grass, bad territory spawn columns, and other harmless obstructions.
+            if (!level.getBlockState(pos).isAir() && level.getBlockState(pos).getDestroySpeed(level, pos) < 0) return null;
+            if (!level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.above()).getDestroySpeed(level, pos.above()) < 0) return null;
+
+            if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return null;
+            if (!level.getBlockState(pos.below()).isSolid() || !level.getFluidState(pos.below()).isEmpty()) {
+                level.setBlock(pos.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+            }
+            if (!level.getFluidState(pos).isEmpty() || !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (!level.getFluidState(pos.above()).isEmpty() || !level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty()) {
+                level.setBlock(pos.above(), Blocks.AIR.defaultBlockState(), 3);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return isSafeSpawnSpace(level, pos) ? pos : null;
+    }
+
+    private static BlockPos findAllowedPositionNearPlayer(ServerPlayer player, ServerLevel level, BlockPos original, boolean forced) {
+        if (!forced && !isIslanderSpecialSpawnLevel(level)) return null;
+        if (isAllowedSpawnPosition(player, level, original)) return original;
+        BlockPos origin = player.blockPosition();
+        for (int r = 1; r <= 32; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
+                    BlockPos candidate = bestSurfaceAt(level, new BlockPos(origin.getX() + dx, origin.getY(), origin.getZ() + dz), true);
+                    if (candidate == null) continue;
+                    if (isAllowedSpawnPosition(player, level, candidate)) return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntries(ServerLevel level, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+        return matchingEntriesIgnoringTime(entries);
+    }
+
+    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntriesIgnoringTime(List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+        List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
+        if (entries == null) return valid;
+        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
+            if (entry == null || entry.species == null || entry.species.isBlank()) continue;
+            valid.add(entry);
+        }
+        return valid;
+    }
+
+
+    private static boolean matchesBiome(ServerLevel level, BlockPos pos, SpecialWildSpawnConfig.SpawnEntry entry) {
+        return true;
+    }
+
     private static void announce(MinecraftServer server, String type, String species, ServerLevel level, BlockPos pos) {
+        announce(server, type, species, level, pos, null);
+    }
+
+    private static void announce(MinecraftServer server, String type, String species, ServerLevel level, BlockPos pos, UUID spawnedPlayerUuid) {
+        if (server == null || level == null || pos == null) return;
         String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
-        boolean paradox = normalizedType.contains("paradox");
-        boolean broadcast = paradox ? true : (normalizedType.contains("legendary") ? SpecialWildSpawnConfig.DATA.broadcastLegendarySpawns : SpecialWildSpawnConfig.DATA.broadcastParadoxAndUltraBeastSpawns);
+        boolean legendary = normalizedType.contains("legendary");
+        boolean playerOnly = normalizedType.contains("paradox") || normalizedType.contains("ultra beast") || normalizedType.contains("ultrabeast");
+        boolean broadcast = legendary ? SpecialWildSpawnConfig.DATA.broadcastLegendarySpawns : true;
         if (!broadcast) return;
         String name = pretty(species);
         String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
         Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ") §e[X: " + pos.getX() + ", Y: " + pos.getY() + ", Z: " + pos.getZ() + "] §cDespawns in 15 minutes!");
 
-        if (paradox) {
-            double radiusSq = 128.0D * 128.0D;
-            for (ServerPlayer player : level.players()) {
-                if (player.distanceToSqr(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D) <= radiusSq) player.sendSystemMessage(msg);
-            }
+        if (playerOnly) {
+            ServerPlayer target = spawnedPlayerUuid == null ? null : server.getPlayerList().getPlayer(spawnedPlayerUuid);
+            if (target != null) target.sendSystemMessage(msg);
             return;
         }
 
@@ -991,19 +1546,43 @@ public final class SpecialWildSpawnManager {
             if (!STATE_FILE.getParentFile().exists()) STATE_FILE.getParentFile().mkdirs();
             if (!STATE_FILE.exists()) {
                 state = new State();
-                if (state.playerPity == null) state.playerPity = new HashMap<>();
+                normalizeState();
                 saveState();
                 return;
             }
             try (FileReader reader = new FileReader(STATE_FILE)) {
                 State loaded = GSON.fromJson(reader, State.class);
                 state = loaded == null ? new State() : loaded;
-                if (state.playerPity == null) state.playerPity = new HashMap<>();
+                normalizeState();
             }
         } catch (Exception e) {
             state = new State();
+            normalizeState();
             e.printStackTrace();
         }
+    }
+
+
+    private static void normalizeState() {
+        if (state.playerPity == null) state.playerPity = new HashMap<>();
+        if (state.recentLegendarySpecies == null) state.recentLegendarySpecies = new ArrayList<>();
+        if (state.recentParadoxSpecies == null) state.recentParadoxSpecies = new ArrayList<>();
+        if (state.recentUltraBeastSpecies == null) state.recentUltraBeastSpecies = new ArrayList<>();
+        trimRecent(state.recentLegendarySpecies);
+        trimRecent(state.recentParadoxSpecies);
+        trimRecent(state.recentUltraBeastSpecies);
+    }
+
+    private static void trimRecent(List<String> recent) {
+        if (recent == null) return;
+        List<String> cleaned = new ArrayList<>();
+        for (String species : recent) {
+            String clean = sanitize(species);
+            if (!clean.isBlank() && !cleaned.contains(clean)) cleaned.add(clean);
+        }
+        recent.clear();
+        recent.addAll(cleaned);
+        while (recent.size() > RECENT_SPECIES_LIMIT) recent.remove(0);
     }
 
     private static void saveState() {
@@ -1053,6 +1632,8 @@ public final class SpecialWildSpawnManager {
         }
     }
 
+    public record SpawnPoolReport(int legendaryCount, int paradoxCount, int ultraBeastCount, List<String> legendaryDuplicates, List<String> paradoxDuplicates, List<String> ultraBeastDuplicates, List<String> recentLegendary, List<String> recentParadox, List<String> recentUltraBeast) {}
+
     public record PityView(boolean islanderRoll, boolean eligible, String eligibilityMessage, int missedEligibleRolls, double pityPercent, double priorityWeight, double globalChancePerCheck, double estimatedPersonalChancePerCheck, String lastSpecialSpawnAgo) {}
     private record SpawnBucket(String type, double weight, List<SpecialWildSpawnConfig.SpawnEntry> entries, String levelRange) {}
     private record SpawnResult(String type, String species, ServerLevel level, BlockPos pos, UUID playerUuid) {}
@@ -1064,6 +1645,18 @@ public final class SpecialWildSpawnManager {
         long islanderLastEligibleMillis = 0L;
         long normalLastSpawnMillis = 0L;
         long islanderLastSpawnMillis = 0L;
+        int normalParadoxMisses = 0;
+        int islanderParadoxMisses = 0;
+        long normalLastParadoxEligibleMillis = 0L;
+        long islanderLastParadoxEligibleMillis = 0L;
+        long normalLastParadoxSpawnMillis = 0L;
+        long islanderLastParadoxSpawnMillis = 0L;
+        int normalUltraBeastMisses = 0;
+        int islanderUltraBeastMisses = 0;
+        long normalLastUltraBeastEligibleMillis = 0L;
+        long islanderLastUltraBeastEligibleMillis = 0L;
+        long normalLastUltraBeastSpawnMillis = 0L;
+        long islanderLastUltraBeastSpawnMillis = 0L;
     }
 
     private static final class State {
@@ -1075,6 +1668,21 @@ public final class SpecialWildSpawnManager {
         String islanderLastSpawnType = "";
         String islanderLastSpawnSpecies = "";
         boolean islanderLastSpawnWasRareTripleEvent = false;
+        long lastParadoxSpawnEpochMillis = 0L;
+        String lastParadoxSpawnType = "";
+        String lastParadoxSpawnSpecies = "";
+        long islanderLastParadoxSpawnEpochMillis = 0L;
+        String islanderLastParadoxSpawnType = "";
+        String islanderLastParadoxSpawnSpecies = "";
+        long lastUltraBeastSpawnEpochMillis = 0L;
+        String lastUltraBeastSpawnType = "";
+        String lastUltraBeastSpawnSpecies = "";
+        long islanderLastUltraBeastSpawnEpochMillis = 0L;
+        String islanderLastUltraBeastSpawnType = "";
+        String islanderLastUltraBeastSpawnSpecies = "";
+        List<String> recentLegendarySpecies = new ArrayList<>();
+        List<String> recentParadoxSpecies = new ArrayList<>();
+        List<String> recentUltraBeastSpecies = new ArrayList<>();
         Map<String, PlayerPity> playerPity = new HashMap<>();
     }
 }

@@ -300,19 +300,15 @@ public final class MonotypeStarterManager {
 
         @Override
         public boolean onAnyClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action) {
-            // Defense-in-depth for SGUI/client desync exploits: every click path is treated
-            // as virtual only. Returning false lets SGUI do its normal cancellation/sync,
-            // while this extra pass clears the cursor and resends the GUI on the next
-            // server tick so pickup, shift-click, hotbar swap, drop, clone, quick-craft,
-            // and pickup-all cannot leave menu display stacks in the player's inventory.
+            // Keep the GUI locked, but do not swallow SGUI element callbacks; starter clicks must fire.
             sanitizeInteraction();
-            return false;
+            return super.onAnyClick(index, type, action);
         }
 
         @Override
         public boolean onClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action, GuiElementInterface element) {
             sanitizeInteraction();
-            return false;
+            return super.onClick(index, type, action, element);
         }
 
         private void sanitizeInteraction() {

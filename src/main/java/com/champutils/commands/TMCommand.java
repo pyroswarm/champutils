@@ -36,6 +36,9 @@ public final class TMCommand {
                         .then(Commands.literal("confirm")
                                 .then(Commands.argument("token", StringArgumentType.word())
                                         .executes(ctx -> confirm(ctx.getSource(), StringArgumentType.getString(ctx, "token")))))
+                        .then(Commands.literal("cancel")
+                                .then(Commands.argument("token", StringArgumentType.word())
+                                        .executes(ctx -> cancel(ctx.getSource(), StringArgumentType.getString(ctx, "token")))))
                         .then(Commands.literal("give")
                                 .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
                                 .then(Commands.argument("player", EntityArgument.player())
@@ -92,9 +95,14 @@ public final class TMCommand {
                             .withBold(true)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tms confirm " + token))
                             .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Click to use this TM."))));
-            Component cancel = Component.literal("  [Cancel]").withStyle(ChatFormatting.GRAY);
+            Component cancel = Component.literal("  [CANCEL]")
+                    .withStyle(style -> style
+                            .withColor(ChatFormatting.RED)
+                            .withBold(true)
+                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tms cancel " + token))
+                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Cancel this TM choice. No TM use will be consumed."))));
             player.sendSystemMessage(Component.literal(preview.message()).withStyle(ChatFormatting.YELLOW));
-            player.sendSystemMessage(confirm.copy().append(cancel));
+            player.sendSystemMessage(confirm.copy().append(Component.literal("  ")).append(cancel));
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("Only players can use /tms teach."));
@@ -110,6 +118,18 @@ public final class TMCommand {
             return result.success() ? 1 : 0;
         } catch (Exception e) {
             source.sendFailure(Component.literal("Only players can confirm TMs."));
+            return 0;
+        }
+    }
+
+    private static int cancel(CommandSourceStack source, String token) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            TMManager.TeachResult result = TMManager.cancelPendingTeach(player, token);
+            player.sendSystemMessage(Component.literal(result.message()).withStyle(result.success() ? ChatFormatting.YELLOW : ChatFormatting.RED));
+            return result.success() ? 1 : 0;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Only players can cancel TMs."));
             return 0;
         }
     }

@@ -1,6 +1,7 @@
 package com.champutils.specialspawn;
 
 import com.champutils.wondertrade.WonderTradePokemonUtil;
+import com.champutils.emblem.EmblemManager;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.server.MinecraftServer;
@@ -49,7 +50,20 @@ public final class NaturalSpecialSpawnBlocker {
         if (pokemon.isPlayerOwned() || pokemon.isNPCOwned() || pokemon.getOwnerUUID() != null) return false;
 
         String species = speciesId(pokemon);
-        return WonderTradePokemonUtil.isLegendarySpecies(species);
+        String normalized = species == null ? "" : species.toLowerCase(Locale.ROOT).replace("cobblemon:", "");
+        return WonderTradePokemonUtil.isLegendarySpecies(species)
+                || EmblemManager.isUltraBeast(normalized)
+                || EmblemManager.isParadox(normalized)
+                || isMythical(normalized);
+    }
+
+    private static boolean isMythical(String species) {
+        return switch (species) {
+            case "mew", "celebi", "jirachi", "deoxys", "phione", "manaphy", "darkrai", "shaymin", "arceus",
+                    "victini", "keldeo", "meloetta", "genesect", "diancie", "hoopa", "volcanion", "magearna",
+                    "marshadow", "zeraora", "meltan", "melmetal", "zarude", "pecharunt" -> true;
+            default -> false;
+        };
     }
 
     private static boolean hasAllowedChampUtilsTag(Entity entity) {

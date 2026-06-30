@@ -9,6 +9,7 @@ import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
 import com.champutils.profession.ProfessionTrinketManager;
 import com.champutils.profile.IslanderSpawnInfluence;
+import com.champutils.commands.WildSpawnCapCommand;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -56,15 +57,13 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
 
         String species = TrueCaughtDexManager.normalizeSpecies(TrueCaughtDexManager.speciesId(pokemon));
         if (isForbiddenSpecialSpecies(species) && !hasAllowedSpecialTag(entity)) {
-            String dim = level.dimension().location().toString().toLowerCase(Locale.ROOT);
-            if (dim.contains("the_end") || dim.endsWith(":end") || dim.contains("spawn1")) {
-                entity.discard();
-                return;
-            }
+            entity.discard();
+            return;
         }
 
         ServerPlayer nearest = nearestPlayer(level, entity);
         if (nearest != null && !entity.getTags().contains("champutils_spawn_boost_checked")) {
+            if (pokemon instanceof Pokemon typedPokemon) WildSpawnCapCommand.applyToWildSpawn(nearest, typedPokemon);
             ProfessionTrinketManager.tryApplyWildSpawnShiny(nearest, pokemon);
             applyLevelCharm(nearest, pokemon);
             entity.addTag("champutils_spawn_boost_checked");
@@ -120,8 +119,10 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
         int minimumLevel = Math.max(1, Math.min(cap, (int)Math.floor(cap * percent)));
         int targetLevel = ThreadLocalRandom.current().nextInt(minimumLevel, cap + 1);
         Object target = CatchStreakManager.unwrapPokemon(pokemon);
+        targetLevel = Math.max(readLevel(target), targetLevel);
         if (target instanceof Pokemon typedPokemon) {
-            IslanderSpawnInfluence.normalizeEvolutionForLevel(typedPokemon, targetLevel);
+            int speciesMinimum = IslanderSpawnInfluence.minimumSpawnLevelForPokemon(typedPokemon);
+            if (speciesMinimum <= cap) targetLevel = Math.max(targetLevel, speciesMinimum);
             typedPokemon.setLevel(targetLevel);
         } else {
             setLevel(target, targetLevel);

@@ -26,6 +26,7 @@ public final class TerritoryNpcManager {
     public static final String TAG_PREFIX = "champutils_territory_manager_";
     public static final String PERSONAL_TAG = "champutils_personal_territory_manager";
     public static final String GUILD_TAG = "champutils_guild_territory_manager";
+    public static final String STEWARD_TAG = "champutils_territory_steward";
     private static final String CONFIGURED_TAG_PREFIX = "champutils_territory_manager_configured_";
     private static final String SKIN_APPLIED_TAG = "champutils_territory_manager_skin_pivilee";
 
@@ -280,6 +281,7 @@ public final class TerritoryNpcManager {
         if (!(entity instanceof NPCEntity)) return false;
         String uniqueTag = TAG_PREFIX + territory.id;
         if (entity.getTags().contains(uniqueTag)) return true;
+        if (entity.getTags().contains(STEWARD_TAG) && entity.position().distanceToSqr(npcPosition(territory)) <= 100.0D) return true;
         String name = entity.getCustomName() == null ? "" : entity.getCustomName().getString();
         String expected = territory.ownerType == TerritoryRepository.OwnerType.GUILD ? "Guild Steward" : "Territory Steward";
         return expected.equalsIgnoreCase(name);
@@ -288,6 +290,7 @@ public final class TerritoryNpcManager {
     private static void repairTags(Entity entity, TerritoryRepository.Territory territory) {
         if (entity == null || territory == null || territory.id == null) return;
         entity.addTag(TAG_PREFIX + territory.id);
+        entity.addTag(STEWARD_TAG);
         if (territory.ownerType == TerritoryRepository.OwnerType.GUILD) {
             entity.removeTag(PERSONAL_TAG);
             entity.addTag(GUILD_TAG);

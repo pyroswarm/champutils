@@ -108,7 +108,9 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         if (minPercent > 0.0D && cap > 0) {
             int minimum = Math.max(1, Math.min(cap, (int)Math.floor(cap * minPercent)));
             int targetLevel = ThreadLocalRandom.current().nextInt(minimum, cap + 1);
-            normalizeEvolutionForLevel(pokemon, targetLevel);
+            targetLevel = Math.max(pokemon.getLevel(), targetLevel);
+            int speciesMinimum = minimumSpawnLevelForPokemon(pokemon);
+            if (speciesMinimum <= cap) targetLevel = Math.max(targetLevel, speciesMinimum);
             pokemon.setLevel(targetLevel);
             // Level Charm level corrections are intentionally quiet to avoid chat spam.
         }
@@ -239,6 +241,15 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    public static int minimumSpawnLevelForPokemon(Pokemon pokemon) {
+        if (pokemon == null) return 1;
+        return minimumSpawnLevel(pokemon.getSpecies());
+    }
+
+    public static int minimumSpawnLevelForSpecies(Species species) {
+        return minimumSpawnLevel(species);
     }
 
     private static int minimumSpawnLevel(Species species) {

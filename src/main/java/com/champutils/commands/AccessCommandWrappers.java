@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.permissions.PermissionUtil;
+import com.champutils.profile.PlayerProfileManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
@@ -35,6 +36,7 @@ public final class AccessCommandWrappers {
 
     private static int run(net.minecraft.commands.CommandSourceStack source, String permission, String namespacedCommand, String featureName) {
         if (source == null) return 0;
+        if (!hasLoadedProfile(source)) return 0;
         if (!PermissionUtil.has(source, permission)) {
             try {
                 ServerPlayer player = source.getPlayerOrException();
@@ -47,6 +49,7 @@ public final class AccessCommandWrappers {
 
     private static int runAny(net.minecraft.commands.CommandSourceStack source, String permission, String featureName, String... commands) {
         if (source == null) return 0;
+        if (!hasLoadedProfile(source)) return 0;
         if (!PermissionUtil.has(source, permission)) {
             try {
                 ServerPlayer player = source.getPlayerOrException();
@@ -63,6 +66,18 @@ public final class AccessCommandWrappers {
             }
         }
         return result;
+    }
+
+    private static boolean hasLoadedProfile(net.minecraft.commands.CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayer();
+            if (player == null || source.hasPermission(4)) return true;
+            if (PlayerProfileManager.hasActiveProfile(player)) return true;
+            player.sendSystemMessage(Component.literal("§cSelect and load a profile before using this command."));
+            return false;
+        } catch (Throwable ignored) {
+            return true;
+        }
     }
 
     private static int runRaw(net.minecraft.commands.CommandSourceStack source, String command) {

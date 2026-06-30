@@ -134,21 +134,6 @@ public class MiningProfessionListener {
                             blockId
                     );
 
-                    if (
-                            MiningBlockUtil.isPickaxeBlock(
-                                    serverPlayer.serverLevel(),
-                                    pos,
-                                    state
-                            )
-                    ) {
-                        PassiveRegistry.applyMiningPassives(
-                                serverPlayer,
-                                serverPlayer.serverLevel(),
-                                pos,
-                                blockId
-                        );
-                    }
-
                     Integer xp =
                             getMiningXp(
                                     serverPlayer.serverLevel(),
@@ -258,6 +243,21 @@ public class MiningProfessionListener {
                             serverPlayer,
                             ProfessionType.MINING
                     );
+
+                    if (
+                            MiningBlockUtil.isPickaxeBlock(
+                                    serverPlayer.serverLevel(),
+                                    pos,
+                                    state
+                            )
+                    ) {
+                        PassiveRegistry.applyMiningPassives(
+                                serverPlayer,
+                                serverPlayer.serverLevel(),
+                                pos,
+                                blockId
+                        );
+                    }
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
 
                     if (!isBreakingExtraBlock(

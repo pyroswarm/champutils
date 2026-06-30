@@ -52,7 +52,7 @@ public final class ChampCraftingConfig {
     }
 
     public static final class CostData {
-        /** backpack, inventory, or either */
+        /** backpack, inventory, either, or credits. Credit amounts are whole Credits. */
         public String source = "backpack";
         public String item = "minecraft:cobblestone";
         public long amount = 1L;
@@ -217,23 +217,24 @@ public final class ChampCraftingConfig {
         String item = normalizeCostItem(itemId);
         String path = path(item).toLowerCase(Locale.ROOT);
         String normalizedSource = normalizeSource(source);
+        if ("credits".equals(normalizedSource)) return 1_000_000L;
         if ("inventory".equals(normalizedSource)) {
-            if (item.equals("genesisforms:mega_shard")) return 8L;
+            if (item.equals("genesisforms:mega_shard")) return 2L;
             if (item.equals("genesisforms:sparkling_stone")) return 1L;
-            return 16L;
+            return 8L;
         }
-        if (path.equals("cobblestone") || path.equals("stone")) return category.contains("orb") || category.contains("crystal") || category.contains("key") ? 18000L : 12000L;
-        if (path.equals("raw_iron") || path.equals("raw_copper") || path.equals("raw_gold")) return category.contains("rare") || category.contains("hyper") ? 2500L : 1800L;
-        if (path.equals("redstone")) return 1200L;
-        if (path.equals("diamond")) return category.contains("hyper") || category.contains("key") ? 96L : 64L;
-        if (path.equals("emerald")) return category.contains("key") ? 128L : 96L;
-        if (path.equals("apple") || path.endsWith("_apricorn") || path.endsWith("_berry")) return 160L;
-        if (path.endsWith("_stone") || path.endsWith("_gem")) return category.contains("key") ? 48L : 32L;
-        if (path.contains("fossil") || path.equals("old_amber_fossil")) return 2L;
-        if (path.equals("wheat") || path.equals("carrot") || path.equals("potato")) return 640L;
-        if (path.endsWith("tumblestone")) return 640L;
-        if (path.endsWith("log")) return 2400L;
-        return 512L;
+        if (path.equals("cobblestone") || path.equals("stone")) return category.contains("orb") || category.contains("crystal") || category.contains("key") ? 750L : 500L;
+        if (path.equals("raw_iron") || path.equals("raw_copper") || path.equals("raw_gold")) return category.contains("rare") || category.contains("hyper") ? 125L : 90L;
+        if (path.equals("redstone")) return 80L;
+        if (path.equals("diamond")) return category.contains("hyper") || category.contains("key") ? 48L : 8L;
+        if (path.equals("emerald")) return category.contains("key") ? 48L : 12L;
+        if (path.equals("apple") || path.endsWith("_apricorn") || path.endsWith("_berry")) return 32L;
+        if (path.endsWith("_stone") || path.endsWith("_gem")) return category.contains("key") ? 12L : 4L;
+        if (path.contains("fossil") || path.equals("old_amber_fossil")) return 1L;
+        if (path.equals("wheat") || path.equals("carrot") || path.equals("potato")) return 64L;
+        if (path.endsWith("tumblestone")) return 64L;
+        if (path.endsWith("log")) return 500L;
+        return 64L;
     }
 
     private static void addMissingDefaults() {
@@ -278,8 +279,8 @@ public final class ChampCraftingConfig {
                 "cobblemon:ability_capsule",
                 "cobblemon:master_ball",
                 "cobblemon:rare_candy",
-                "bottlecaps:bottle_cap",
-                "bottlecaps:gold_bottle_cap"
+                "bottlecaps:silver_bottle_cap_attack",
+                "bottlecaps:golden_bottle_cap"
         };
         for (String id : ids) {
             id = normalizeOutputId(id);
@@ -347,11 +348,9 @@ public final class ChampCraftingConfig {
         List<CostData> costs = new ArrayList<>();
 
         if (id.equals("minecraft:enchanted_golden_apple")) {
-            add(costs, "minecraft:apple", 1024);
-            add(costs, "minecraft:raw_gold", 6000);
-            add(costs, "minecraft:raw_gold", 512);
-            add(costs, "cobblemon:sun_stone", 64);
-            add(costs, "cobblemon:shiny_stone", 32);
+            add(costs, "minecraft:apple", 16);
+            add(costs, "minecraft:raw_gold", 100);
+            addCreditCost(costs, category, id);
             return costs;
         }
         if (path.equals("ability_patch")) {
@@ -361,6 +360,7 @@ public final class ChampCraftingConfig {
             add(costs, "cobblemon:shiny_stone", 48);
             add(costs, "cobblemon:lansat_berry", 96);
             add(costs, "cobblemon:starf_berry", 32);
+            addCreditCost(costs, category, id);
             return costs;
         }
         if (path.equals("ability_capsule")) {
@@ -370,24 +370,27 @@ public final class ChampCraftingConfig {
             add(costs, "minecraft:diamond", 24);
             add(costs, "cobblemon:shiny_stone", 24);
             add(costs, "cobblemon:sitrus_berry", 192);
+            addCreditCost(costs, category, id);
             return costs;
         }
-        if (path.equals("bottle_cap")) {
+        if (path.equals("bottle_cap") || path.equals("silver_bottle_cap") || path.equals("silver_bottle_cap_attack") || path.equals("silver_bottle_cap_atk")) {
             add(costs, "minecraft:cobblestone", 30000);
             add(costs, "minecraft:raw_iron", 3750);
             add(costs, "minecraft:raw_gold", 2500);
             add(costs, "minecraft:diamond", 192);
             add(costs, "minecraft:raw_iron", 5000);
             add(costs, "cobblemon:shiny_stone", 32);
+            addCreditCost(costs, category, id);
             return costs;
         }
-        if (path.equals("gold_bottle_cap")) {
+        if (path.equals("gold_bottle_cap") || path.equals("golden_bottle_cap")) {
             add(costs, "minecraft:cobblestone", 75000);
             add(costs, "minecraft:raw_gold", 8750);
             add(costs, "minecraft:diamond", 128);
             add(costs, "minecraft:emerald", 512);
             add(costs, "cobblemon:shiny_stone", 128);
             add(costs, "cobblemon:old_amber_fossil", 4);
+            addCreditCost(costs, category, id);
             return costs;
         }
         if (path.equals("master_ball")) {
@@ -399,6 +402,7 @@ public final class ChampCraftingConfig {
             add(costs, "cobblemon:black_tumblestone", 1024);
             add(costs, "cobblemon:sky_tumblestone", 1024);
             add(costs, "cobblemon:tumblestone", 1024);
+            addCreditCost(costs, category, id);
             return costs;
         }
         if (path.equals("rare_candy")) {
@@ -408,6 +412,7 @@ public final class ChampCraftingConfig {
             add(costs, "minecraft:apple", 320);
             add(costs, "cobblemon:oran_berry", 200);
             add(costs, "cobblemon:sitrus_berry", 104);
+            addCreditCost(costs, category, id);
             return costs;
         }
 
@@ -482,7 +487,8 @@ public final class ChampCraftingConfig {
             add(costs, apricorn, 170);
             add(costs, berry, 170);
         }
-        return costs;
+        addCreditCost(costs, category, id);
+            return costs;
     }
 
     private static void add(List<CostData> costs, String item, long amount) {
@@ -504,6 +510,36 @@ public final class ChampCraftingConfig {
         costs.add(new CostData(normalizedSource, normalizedItem, amount));
     }
 
+    private static void addCreditCost(List<CostData> costs, String category, String itemId) {
+        add(costs, "credits", defaultCreditCost(itemId, category), "credits");
+    }
+
+    private static long defaultCreditCost(String itemId, String category) {
+        String id = normalizeOutputId(itemId);
+        String path = path(id).toLowerCase(Locale.ROOT);
+        String c = category == null ? "" : category.toLowerCase(Locale.ROOT);
+        if (id.equals("minecraft:enchanted_golden_apple")) return 50L;
+        if (path.equals("rare_candy")) return 25L;
+        if (path.equals("exp_candy_xs")) return 5L;
+        if (path.equals("exp_candy_s")) return 10L;
+        if (path.equals("exp_candy_m")) return 25L;
+        if (path.equals("exp_candy_l")) return 50L;
+        if (path.equals("exp_candy_xl")) return 100L;
+        if (path.equals("ability_capsule")) return 100L;
+        if (path.equals("ability_patch")) return 250L;
+        if (path.equals("master_ball")) return 750L;
+        if (path.contains("bottle_cap")) return path.contains("gold") ? 500L : 150L;
+        if (path.equals("ash_cap")) return 250L;
+        if (c.contains("mega")) return 250L;
+        if (c.contains("key")) return 500L;
+        if (c.contains("z-crystal")) return 150L;
+        if (c.contains("tera")) return 25L;
+        if (c.contains("plate")) return 100L;
+        if (c.contains("memory") || c.contains("drive") || c.contains("mask")) return 100L;
+        if (c.contains("orb") || c.contains("crystal")) return 250L;
+        return 75L;
+    }
+
     private static int defaultOutputAmount(String id, String category) {
         String path = path(id);
         if (path.endsWith("_tera_shard")) return 5;
@@ -522,11 +558,15 @@ public final class ChampCraftingConfig {
 
     private static String normalizeSource(String raw) {
         String source = raw == null ? "backpack" : raw.trim().toLowerCase(Locale.ROOT);
-        if (!source.equals("inventory") && !source.equals("either")) source = "backpack";
+        if (!source.equals("inventory") && !source.equals("either") && !source.equals("credits")) source = "backpack";
         return source;
     }
 
     private static String normalizeCostItem(String raw) {
+        if (raw != null) {
+            String trimmed = raw.trim().toLowerCase(Locale.ROOT);
+            if (trimmed.equals("credits") || trimmed.equals("credit") || trimmed.equals("economy:credits")) return "credits";
+        }
         String item = normalizeOutputId(raw);
         if (item.equals("minecraft:iron_ingot")) return "minecraft:raw_iron";
         if (item.equals("minecraft:copper_ingot")) return "minecraft:raw_copper";

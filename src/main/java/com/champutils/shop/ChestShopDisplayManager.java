@@ -243,10 +243,9 @@ public final class ChestShopDisplayManager {
         try {
             Class<?> displayClass = Class.forName("net.minecraft.world.entity.Display");
             Class<?> billboardClass = Class.forName("net.minecraft.world.entity.Display$BillboardConstraints");
-            // CENTER keeps the text readable from any angle. The old FIXED rotation could make text
-            // appear invisible/edge-on depending on chest direction and client view.
-            Object center = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "CENTER");
-            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, center);
+            // FIXED keeps the shop text locked to the container front instead of rotating toward players.
+            Object fixed = Enum.valueOf((Class<Enum>) billboardClass.asSubclass(Enum.class), "FIXED");
+            displayClass.getMethod("setBillboardConstraints", billboardClass).invoke(display, fixed);
             invokeOptional(display, "setViewRange", float.class, 48.0F);
             invokeOptional(display, "setShadowRadius", float.class, 0.35F);
             Direction facing = chestFacing(level, storagePos);

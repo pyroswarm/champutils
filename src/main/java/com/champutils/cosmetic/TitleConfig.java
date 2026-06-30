@@ -75,6 +75,15 @@ public final class TitleConfig {
 
     public static Collection<TitleDef> titles() { return BY_ID.values(); }
     public static TitleDef get(String id) { return id == null ? null : BY_ID.get(id); }
+
+    public static boolean isManualAdminTitle(TitleDef def) {
+        return def != null && def.unlock != null && def.unlock.type != null && "manual".equalsIgnoreCase(def.unlock.type.trim());
+    }
+
+    public static boolean isManualAdminTitle(String id) {
+        return isManualAdminTitle(get(normalizeId(id)));
+    }
+
     public static String display(String id) {
         TitleDef def = get(id);
         return def == null ? null : def.display;

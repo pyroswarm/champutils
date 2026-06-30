@@ -1,0 +1,141 @@
+package com.champutils.commands;
+
+import com.champutils.badge.BadgeManager;
+import com.champutils.badge.BadgeType;
+import com.champutils.gym.GymConfig;
+import com.champutils.permissions.PermissionUtil;
+import com.champutils.profile.IslanderSpawnInfluence;
+import com.champutils.profile.PlayerProfileManager;
+import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
+
+public final class WildSpawnCapCommand {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File FILE = new File("config/champutils/wild_spawn_caps.json");
+    private static Data data = new Data();
+    private static boolean loaded = false;
+
+    private WildSpawnCapCommand() {}
+
+    public static void register() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> dispatcher.register(literal("setcap")
+                .requires(source -> PermissionUtil.has(source, "champutils.command.setcap") || PermissionUtil.has(source, "champutils.rank.vip"))
+                .then(literal("off").executes(ctx -> { setCap(ctx.getSource().getPlayerOrException(), 0); return 1; }))
+                .then(literal("status").executes(ctx -> { status(ctx.getSource().getPlayerOrException()); return 1; }))
+                .then(argument("level", IntegerArgumentType.integer(1, 100))
+                        .executes(ctx -> { setCap(ctx.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(ctx, "level")); return 1; }))
+                .executes(ctx -> { status(ctx.getSource().getPlayerOrException()); return 1; })));
+    }
+
+    public static int capFor(ServerPlayer player) {
+        ensureLoaded();
+        if (player == null) return 0;
+        UUID profile = PlayerProfileManager.activeProfileId(player);
+        Integer requested = data.profileCaps.get(profile == null ? "" : profile.toString());
+        if (requested == null || requested <= 0) return 0;
+        return Math.min(requested, currentGymCap(player));
+    }
+
+    public static void applyToWildSpawn(ServerPlayer player, Pokemon pokemon) {
+        if (player == null || pokemon == null) return;
+        int cap = capFor(player);
+        if (cap <= 0) return;
+        int current = Math.max(1, pokemon.getLevel());
+        int minForSpecies = IslanderSpawnInfluence.minimumSpawnLevelForPokemon(pokemon);
+        int target = current;
+        if (current > cap) target = cap;
+        if (minForSpecies <= cap && target < minForSpecies) target = minForSpecies;
+        if (target != current) pokemon.setLevel(Math.max(1, Math.min(100, target)));
+    }
+
+    public static int currentGymCap(ServerPlayer player) {
+        try {
+            java.util.Set<BadgeType> earned = BadgeManager.getBadges(player);
+            int bestEarnedCap = 0;
+            int nextCap = 0;
+            for (BadgeType badge : BadgeType.values()) {
+                GymConfig.GymDefinition gym = GymConfig.getGym(badge);
+                if (gym == null || gym.levelCap <= 0) continue;
+                if (earned.contains(badge)) bestEarnedCap = Math.max(bestEarnedCap, gym.levelCap);
+                else if (nextCap == 0 || gym.levelCap < nextCap) nextCap = gym.levelCap;
+            }
+            return nextCap > 0 ? Math.max(bestEarnedCap, nextCap) : Math.max(bestEarnedCap, 100);
+        } catch (Throwable ignored) {
+            return 50;
+        }
+    }
+
+    private static void setCap(ServerPlayer player, int requested) {
+        ensureLoaded();
+        UUID profile = PlayerProfileManager.activeProfileId(player);
+        if (profile == null) {
+            player.sendSystemMessage(Component.literal("No active profile is loaded yet.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (requested <= 0) {
+            data.profileCaps.remove(profile.toString());
+            save();
+            player.sendSystemMessage(Component.literal("Wild spawn cap disabled for this profile.").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        int gymCap = currentGymCap(player);
+        int capped = Math.min(requested, gymCap);
+        data.profileCaps.put(profile.toString(), capped);
+        save();
+        player.sendSystemMessage(Component.literal("Wild spawn cap set to level " + capped + " for this profile. Your current gym cap is " + gymCap + ".").withStyle(ChatFormatting.GREEN));
+    }
+
+    private static void status(ServerPlayer player) {
+        int cap = capFor(player);
+        int gymCap = currentGymCap(player);
+        if (cap <= 0) player.sendSystemMessage(Component.literal("Wild spawn cap is disabled. Current gym cap: " + gymCap + ".").withStyle(ChatFormatting.GRAY));
+        else player.sendSystemMessage(Component.literal("Wild spawn cap: " + cap + " (current gym cap: " + gymCap + ").").withStyle(ChatFormatting.AQUA));
+    }
+
+    private static void ensureLoaded() {
+        if (loaded) return;
+        loaded = true;
+        try {
+            if (!FILE.getParentFile().exists()) FILE.getParentFile().mkdirs();
+            if (FILE.exists()) {
+                try (FileReader reader = new FileReader(FILE)) {
+                    Data loadedData = GSON.fromJson(reader, Data.class);
+                    if (loadedData != null) data = loadedData;
+                }
+            }
+            if (data.profileCaps == null) data.profileCaps = new HashMap<>();
+        } catch (Exception e) {
+            e.printStackTrace();
+            data = new Data();
+        }
+    }
+
+    private static void save() {
+        try {
+            if (!FILE.getParentFile().exists()) FILE.getParentFile().mkdirs();
+            try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(data, writer); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static final class Data {
+        Map<String, Integer> profileCaps = new HashMap<>();
+    }
+}

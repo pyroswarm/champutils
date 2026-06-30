@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
@@ -118,12 +119,12 @@ public final class ChampCraftingMenu {
     }
 
     private static GuiElementBuilder recipeButton(ServerPlayer player, ChampCraftingConfig.RecipeData recipe, String category, int page, Consumer<ServerPlayer> backTarget) {
-        Item icon = ChampCraftingService.resolveItem(recipe.icon == null || recipe.icon.isBlank() ? recipe.outputItem : recipe.icon);
-        if (icon == Items.AIR) icon = ChampCraftingService.resolveItem(recipe.outputItem);
-        if (icon == Items.AIR) icon = Items.BARRIER;
+        ItemStack iconStack = ChampCraftingService.createOutputStack(recipe.icon == null || recipe.icon.isBlank() ? recipe.outputItem : recipe.icon, 1);
+        if (iconStack.isEmpty()) iconStack = ChampCraftingService.createOutputStack(recipe.outputItem, 1);
+        if (iconStack.isEmpty()) iconStack = new ItemStack(Items.BARRIER);
 
         boolean canCraft = true;
-        GuiElementBuilder builder = new GuiElementBuilder(icon)
+        GuiElementBuilder builder = new GuiElementBuilder(iconStack)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§f" + (recipe.displayName == null ? recipe.outputItem : recipe.displayName)))
                 .addLoreLine(Component.literal("§7Output: §a" + Math.max(1, recipe.outputAmount) + "x " + ChampCraftingService.itemName(recipe.outputItem)))
@@ -149,9 +150,15 @@ public final class ChampCraftingMenu {
                     continue;
                 }
                 if (status.have() < status.need()) canCraft = false;
-                builder.addLoreLine(Component.literal((status.have() >= status.need() ? "§a" : "§c")
-                        + status.need() + "x " + ChampCraftingService.itemName(cost.item)
-                        + " §8(" + ChampCraftingService.sourceLabel(cost.source) + ", you: " + status.have() + ")"));
+                if ("credits".equals(status.source())) {
+                    builder.addLoreLine(Component.literal((status.have() >= status.need() ? "§a" : "§c")
+                            + status.need() + " Credits"
+                            + " §8(you: " + status.have() + ")"));
+                } else {
+                    builder.addLoreLine(Component.literal((status.have() >= status.need() ? "§a" : "§c")
+                            + status.need() + "x " + ChampCraftingService.itemName(cost.item)
+                            + " §8(" + ChampCraftingService.sourceLabel(cost.source) + ", you: " + status.have() + ")"));
+                }
             }
         }
 

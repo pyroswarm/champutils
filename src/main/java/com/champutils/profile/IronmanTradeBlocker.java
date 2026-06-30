@@ -24,10 +24,10 @@ public final class IronmanTradeBlocker {
             CobblemonEventReflection.subscribe(observable, event -> {
                 try { handle(event); } catch (Throwable throwable) { throwable.printStackTrace(); }
             });
-            System.out.println("[ChampUtils] Ironman Cobblemon trade blocker registered.");
+            System.out.println("[ChampUtils] Restricted-profile Cobblemon trade blocker registered.");
         } catch (Throwable throwable) {
             throwable.printStackTrace();
-            System.out.println("[ChampUtils] Failed to register Ironman Cobblemon trade blocker.");
+            System.out.println("[ChampUtils] Failed to register restricted-profile Cobblemon trade blocker.");
         }
     }
 
@@ -35,12 +35,20 @@ public final class IronmanTradeBlocker {
         ServerPlayer p1 = playerFromParticipant(firstValue(event, "tradeParticipant1", "getTradeParticipant1"));
         ServerPlayer p2 = playerFromParticipant(firstValue(event, "tradeParticipant2", "getTradeParticipant2"));
         boolean blocked = false;
-        if (p1 != null && PlayerProfileManager.isIronman(p1) && !p1.hasPermissions(4)) blocked = true;
-        if (p2 != null && PlayerProfileManager.isIronman(p2) && !p2.hasPermissions(4)) blocked = true;
+        String blockedMode = "restricted";
+        if (p1 != null && PlayerProfileManager.gameMode(p1).blocksAuctionHouse()) {
+            blocked = true;
+            blockedMode = PlayerProfileManager.gameMode(p1).displayName();
+        }
+        if (p2 != null && PlayerProfileManager.gameMode(p2).blocksAuctionHouse()) {
+            blocked = true;
+            blockedMode = PlayerProfileManager.gameMode(p2).displayName();
+        }
         if (!blocked) return;
         cancel(event);
-        if (p1 != null) p1.sendSystemMessage(Component.literal("Ironman profiles cannot trade Pokémon with other players.").withStyle(ChatFormatting.RED));
-        if (p2 != null) p2.sendSystemMessage(Component.literal("Ironman profiles cannot trade Pokémon with other players.").withStyle(ChatFormatting.RED));
+        Component message = Component.literal(blockedMode + " profiles cannot trade Pokémon with other players.").withStyle(ChatFormatting.RED);
+        if (p1 != null) p1.sendSystemMessage(message);
+        if (p2 != null) p2.sendSystemMessage(message);
     }
 
     private static ServerPlayer playerFromParticipant(Object participant) {

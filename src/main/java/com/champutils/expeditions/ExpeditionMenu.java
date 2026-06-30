@@ -27,6 +27,7 @@ public final class ExpeditionMenu {
             gui.setSlot(4, new GuiElementBuilder(Items.CLOCK)
                     .hideDefaultTooltip()
                     .setName(Component.literal("§6Active Expedition"))
+                    .addLoreLine(Component.literal("§7" + ExpeditionManager.activeStatusText(player)))
                     .addLoreLine(Component.literal("§7Click to claim if it is ready."))
                     .setCallback((slot, click, action) -> { ExpeditionManager.claim(player); open(player); }));
         } else {
@@ -54,6 +55,7 @@ public final class ExpeditionMenu {
                     .setName(Component.literal("§e" + pokemon.getDisplayName(true).getString()))
                     .addLoreLine(Component.literal("§7Level: §f" + pokemon.getLevel()))
                     .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
+                    .addLoreLine(Component.literal("§7Online speed: §a2x §8(" + Math.max(1, Math.max(1, tier.hours) / 2) + "h+ online effective)"))
                     .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
                     .addLoreLine(Component.literal("§7Rewards:"));
             addRewardLore(button, pokemon.getLevel());
@@ -75,6 +77,7 @@ public final class ExpeditionMenu {
                 .setName(Component.literal("§e" + pokemon.getDisplayName(true).getString()))
                 .addLoreLine(Component.literal("§7Party Slot: §f" + partySlot))
                 .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
+                .addLoreLine(Component.literal("§7Online speed: §a2x §8(online time counts double)"))
                 .addLoreLine(Component.literal("§7Returns at: §f" + relativeTime(endsAt)))
                 .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
                 .addLoreLine(Component.literal("§7Rewards:"));

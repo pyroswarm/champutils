@@ -2,6 +2,7 @@ package com.champutils.commands;
 
 import com.champutils.specialspawn.SpecialWildSpawnConfig;
 import com.champutils.specialspawn.SpecialWildSpawnManager;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.network.chat.Component;
@@ -14,17 +15,34 @@ public final class SpecialWildSpawnCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("pity")
+                    .then(literal("legendary").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
+                        return 1;
+                    }))
+                    .then(literal("special").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
+                        return 1;
+                    }))
+                    .then(literal("paradox").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.paradoxPityView(player), "§5Paradox Spawn Pity", "paradox");
+                        return 1;
+                    }))
+                    .then(literal("ultrabeast").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.ultraBeastPityView(player), "§dUltra Beast Spawn Pity", "ultra beast");
+                        return 1;
+                    }))
+                    .then(literal("ultra_beast").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.ultraBeastPityView(player), "§dUltra Beast Spawn Pity", "ultra beast");
+                        return 1;
+                    }))
                     .executes(ctx -> {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                        SpecialWildSpawnManager.PityView view = SpecialWildSpawnManager.pityView(player);
-                        String pool = view.islanderRoll() ? "Islander" : "Normal";
-                        ctx.getSource().sendSuccess(() -> Component.literal("§dSpecial Spawn Pity"), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal("§7Pool: §f" + pool), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal("§7Eligible: " + (view.eligible() ? "§aYes" : "§cNo") + " §8(" + view.eligibilityMessage() + ")"), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Global roll chance/check: §f%.3f%%", view.globalChancePerCheck() * 100.0D)), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Your pity priority: §f+%.1f%% §8(%d missed eligible roll%s)", view.pityPercent() * 100.0D, view.missedEligibleRolls(), view.missedEligibleRolls() == 1 ? "" : "s")), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Your estimated chance/check: §f%.3f%% §8(weight x%.2f)", view.estimatedPersonalChancePerCheck() * 100.0D, view.priorityWeight())), false);
-                        ctx.getSource().sendSuccess(() -> Component.literal("§7Last special spawn in this pool: §f" + view.lastSpecialSpawnAgo()), false);
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
                         return 1;
                     }));
 
@@ -45,8 +63,52 @@ public final class SpecialWildSpawnCommand {
                         SpecialWildSpawnManager.ForceSpawnResult result = SpecialWildSpawnManager.forceSpawnForResult(player);
                         ctx.getSource().sendSuccess(() -> Component.literal(result.message), false);
                         return result.success ? 1 : 0;
+                    }))
+                    .then(literal("forceparadox").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        SpecialWildSpawnManager.ForceSpawnResult result = SpecialWildSpawnManager.forceParadoxSpawnForResult(player);
+                        ctx.getSource().sendSuccess(() -> Component.literal(result.message), false);
+                        return result.success ? 1 : 0;
+                    }))
+                    .then(literal("forceultrabeast").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        SpecialWildSpawnManager.ForceSpawnResult result = SpecialWildSpawnManager.forceUltraBeastSpawnForResult(player);
+                        ctx.getSource().sendSuccess(() -> Component.literal(result.message), false);
+                        return result.success ? 1 : 0;
+                    }))
+                    .then(literal("report").executes(ctx -> {
+                        sendReport(ctx.getSource(), SpecialWildSpawnManager.report());
+                        return 1;
                     })));
         });
     }
 
+    private static void sendReport(CommandSourceStack source, SpecialWildSpawnManager.SpawnPoolReport report) {
+        source.sendSuccess(() -> Component.literal("§6Special Spawn Pool Report"), false);
+        source.sendSuccess(() -> Component.literal("§7Legendary/Mythical pool: §f" + report.legendaryCount() + " species"), false);
+        source.sendSuccess(() -> Component.literal("§7Paradox pool: §f" + report.paradoxCount() + " species"), false);
+        source.sendSuccess(() -> Component.literal("§7Ultra Beast pool: §f" + report.ultraBeastCount() + " species"), false);
+        source.sendSuccess(() -> Component.literal("§7Legendary duplicates: §f" + noneOrJoin(report.legendaryDuplicates())), false);
+        source.sendSuccess(() -> Component.literal("§7Paradox duplicates: §f" + noneOrJoin(report.paradoxDuplicates())), false);
+        source.sendSuccess(() -> Component.literal("§7Ultra Beast duplicates: §f" + noneOrJoin(report.ultraBeastDuplicates())), false);
+        source.sendSuccess(() -> Component.literal("§7Recent Legendary/Mythical rolling 5: §f" + noneOrJoin(report.recentLegendary())), false);
+        source.sendSuccess(() -> Component.literal("§7Recent Paradox rolling 5: §f" + noneOrJoin(report.recentParadox())), false);
+        source.sendSuccess(() -> Component.literal("§7Recent Ultra Beast rolling 5: §f" + noneOrJoin(report.recentUltraBeast())), false);
+    }
+
+    private static String noneOrJoin(java.util.List<String> values) {
+        if (values == null || values.isEmpty()) return "None";
+        return String.join(", ", values);
+    }
+
+    private static void sendPity(CommandSourceStack source, SpecialWildSpawnManager.PityView view, String header, String label) {
+        String pool = view.islanderRoll() ? "Islander" : "Normal";
+        source.sendSuccess(() -> Component.literal(header), false);
+        source.sendSuccess(() -> Component.literal("§7Pool: §f" + pool), false);
+        source.sendSuccess(() -> Component.literal("§7Eligible: " + (view.eligible() ? "§aYes" : "§cNo") + " §8(" + view.eligibilityMessage() + ")"), false);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Global roll chance/check: §f%.3f%%", view.globalChancePerCheck() * 100.0D)), false);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Your pity priority: §f+%.1f%% §8(%d missed eligible roll%s)", view.pityPercent() * 100.0D, view.missedEligibleRolls(), view.missedEligibleRolls() == 1 ? "" : "s")), false);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Your estimated chance/check: §f%.3f%% §8(weight x%.2f)", view.estimatedPersonalChancePerCheck() * 100.0D, view.priorityWeight())), false);
+        source.sendSuccess(() -> Component.literal("§7Last " + label + " spawn in this pool: §f" + view.lastSpecialSpawnAgo()), false);
+    }
 }

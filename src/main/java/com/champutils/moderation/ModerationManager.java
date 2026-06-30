@@ -2,7 +2,6 @@ package com.champutils.moderation;
 
 import com.champutils.profile.PlayerProfileManager;
 
-import com.champutils.antilag.AntiLagConfig;
 import com.champutils.database.DatabaseManager;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.time.DailyResetManager;
@@ -11,10 +10,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
@@ -597,6 +592,28 @@ public final class ModerationManager {
         return normalized;
     }
 
+
+    private static String format(long millis) {
+        long seconds = Math.max(0L, millis / 1000L);
+        long days = seconds / 86400L;
+        seconds %= 86400L;
+        long hours = seconds / 3600L;
+        seconds %= 3600L;
+        long minutes = seconds / 60L;
+        seconds %= 60L;
+
+        if (days > 0L) {
+            return days + "d " + hours + "h";
+        }
+        if (hours > 0L) {
+            return hours + "h " + minutes + "m";
+        }
+        if (minutes > 0L) {
+            return minutes + "m " + seconds + "s";
+        }
+        return seconds + "s";
+    }
+
     private static String trimForLog(String text) {
         if (text == null) return "";
         String clean = text.replace("`", "'").replace("\n", " ").replace("\r", " ");
@@ -613,32 +630,36 @@ public final class ModerationManager {
     }
 
     public static void webhook(String text) {
-        String hook = ModerationConfig.DATA.discordWebhookUrl;
-        if ((hook == null || hook.isBlank()) && AntiLagConfig.DATA.discordWebhookUrl != null) hook = AntiLagConfig.DATA.discordWebhookUrl;
-        if (hook == null || hook.isBlank()) return;
-        String finalHook = hook;
-        new Thread(() -> {
-            try {
-                HttpURLConnection con = (HttpURLConnection) new URL(finalHook).openConnection();
-                con.setRequestMethod("POST");
-                con.setRequestProperty("Content-Type", "application/json");
-                con.setDoOutput(true);
-                String safe = text.replace("\\", "\\\\").replace("\"", "\\\"");
-                String json = "{\"content\":\"" + safe + "\"}";
-                try (OutputStream os = con.getOutputStream()) {
-                    os.write(json.getBytes(StandardCharsets.UTF_8));
-                }
-                con.getInputStream().close();
-            } catch (Exception ignored) {}
-        }, "ChampUtils-DiscordWebhook").start();
+        // Discord webhook integration intentionally disabled.
     }
 
-    private static String format(long ms) {
-        long s = Math.max(1, ms / 1000);
-        if (s >= 86400) return (s / 86400) + "d " + ((s % 86400) / 3600) + "h";
-        if (s >= 3600) return (s / 3600) + "h " + ((s % 3600) / 60) + "m";
-        if (s >= 60) return (s / 60) + "m " + (s % 60) + "s";
-        return s + "s";
+
+    private record TrackKey(UUID playerId, ModerationTrack track) {}
+
+    private static final class Record {
+        int offenses = 0;
+        long mutedUntil = 0L;
+    }
+
+    private static final class TempBan {
+        final long untilMillis;
+        final String reason;
+
+        TempBan(long untilMillis, String reason) {
+            this.untilMillis = untilMillis;
+            this.reason = reason;
+        }
+    }
+
+    private static final class ChatWindow {
+        long expiresAt;
+        int count = 0;
+        String lastNormalized = "";
+        int repeatCount = 0;
+
+        ChatWindow(long expiresAt) {
+            this.expiresAt = expiresAt;
+        }
     }
 
     private static final class CachedMute {
@@ -646,7 +667,7 @@ public final class ModerationManager {
         final Instant expiresAt;
 
         CachedMute(String reason, Instant expiresAt) {
-            this.reason = reason == null || reason.isBlank() ? "Muted" : reason;
+            this.reason = reason;
             this.expiresAt = expiresAt;
         }
 
@@ -659,22 +680,12 @@ public final class ModerationManager {
         }
     }
 
-    private record TrackKey(UUID playerId, ModerationTrack track) {}
+    private record ChatViolation(
+            String category,
+            String pattern,
+            boolean normalizedBypass,
+            String normalizedMessage,
+            String reason
+    ) {}
 
-    private record ChatViolation(String category, String matched, boolean evasion, String normalizedMessage, String reason) {}
-
-    private static final class Record {
-        int offenses;
-        long mutedUntil;
-    }
-
-    private record TempBan(long untilMillis, String reason) {}
-
-    private static final class ChatWindow {
-        int count;
-        int repeatCount;
-        long expiresAt;
-        String lastNormalized = "";
-        ChatWindow(long expiresAt) { this.expiresAt = expiresAt; }
-    }
 }

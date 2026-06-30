@@ -38,6 +38,7 @@ public final class TitleMenu {
         List<GuiElementBuilder> entries = new ArrayList<>();
         for (TitleConfig.TitleDef def : titles) {
             if (def == null || def.id == null) continue;
+            if (TitleConfig.isManualAdminTitle(def) && !owned.contains(def.id)) continue;
             entries.add(entry(player, requestedPage, def.id, def.description, TitleConfig.isAccountBound(def.id), owned.contains(def.id), def.id.equals(selected), subTitles.contains(def.id)));
         }
 

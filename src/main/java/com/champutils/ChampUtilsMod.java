@@ -624,7 +624,6 @@ public class ChampUtilsMod implements ModInitializer {
         GymCommand.register();
         EVTrainingCommand.register();
         EnderChestCommand.register();
-        EliteFourCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
         ProfessionToolsCommand.register();
@@ -703,6 +702,7 @@ public class ChampUtilsMod implements ModInitializer {
         LandClaimCommand.register();
         GymRewardCommand.register();
         ExpeditionCommand.register();
+        WildSpawnCapCommand.register();
         RewardTrackCommand.register();
         MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
@@ -746,6 +746,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialCatchAnnouncementListener.register();
         CatchStreakSpawnListener.register();
         ForbiddenNaturalPokemonSpawnGuard.register();
+        SpecialSpawnDamageProtectionListener.register();
         TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
@@ -796,6 +797,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("PortalManager", () -> PortalManager.tick(server));
                     timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
                     timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
+                    timedTick("ExpeditionManager", () -> ExpeditionManager.tick(server));
                     timedTick("ServerBuffManager", () -> com.champutils.buff.ServerBuffManager.tick(server));
                     timedTick("NaturalSpecialSpawnBlocker", () -> NaturalSpecialSpawnBlocker.tick(server));
                     timedTick("MegaBossManager", () -> MegaBossManager.tick(server));

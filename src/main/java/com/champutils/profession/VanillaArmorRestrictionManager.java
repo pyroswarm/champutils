@@ -42,11 +42,10 @@ public final class VanillaArmorRestrictionManager {
     }
 
     public static boolean blockCraftingIfRestricted(ServerPlayer player, ItemStack output) {
-        if (!isRestrictedVanillaArmor(output)) return false;
-        if (player != null) {
-            player.sendSystemMessage(Component.literal("Regular armor crafting is disabled. Use profession armor instead.").withStyle(ChatFormatting.RED));
-        }
-        return true;
+        // Vanilla armor must remain craftable because other recipes depend on it.
+        // The durability clamp still nerfs regular armor to 1 max durability after crafting.
+        if (isRestrictedVanillaArmor(output)) clampToOneDurability(output);
+        return false;
     }
 
     private static void clampInventory(ServerPlayer player) {

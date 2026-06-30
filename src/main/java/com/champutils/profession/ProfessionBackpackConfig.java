@@ -6,6 +6,8 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -83,9 +85,12 @@ public final class ProfessionBackpackConfig {
             File parent = file.getParentFile();
             if (!parent.exists()) parent.mkdirs();
             normalize();
-            try (FileWriter writer = new FileWriter(file)) {
+            File temp = new File(parent, file.getName() + ".tmp");
+            try (FileWriter writer = new FileWriter(temp)) {
                 GSON.toJson(CONFIG, writer);
+                writer.flush();
             }
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
             e.printStackTrace();
         }

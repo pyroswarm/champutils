@@ -1,6 +1,9 @@
 package com.champutils.commands;
 
 import com.champutils.permissions.PermissionUtil;
+import com.champutils.permissions.LuckPermsHook;
+import com.champutils.profile.PlayerProfileManager;
+import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
@@ -54,15 +57,21 @@ public final class CommandBlocker {
             return true;
         }
 
-        // Ops keep access to other real command paths for admin work.
-        if (source.hasPermission(4)) return false;
-
         String permission = requiredPermission(parsed.root);
         if (permission == null) return false;
 
+        // Do not let vanilla OP bypass VIP progression commands. Staff still bypass through explicit LuckPerms nodes.
+        ServerPlayer sourcePlayer = source.getPlayer();
+        if (sourcePlayer != null && (LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.admin") || LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.staff"))) return false;
+
+        if (sourcePlayer != null && !sourcePlayer.hasPermissions(4) && !PlayerProfileManager.hasActiveProfile(sourcePlayer)) {
+            deny(source, Component.literal("§cSelect and load a profile before using this command."));
+            return true;
+        }
+
         // /pokeheal <player> and /healpokemon <player> should remain staff/admin only.
         // VIP should only get self-heal.
-        if ((parsed.root.equals("pokeheal") || parsed.root.equals("healpokemon") || parsed.root.equals("healparty")) && !parsed.arguments.isBlank()) {
+        if ((parsed.root.equals("pokeheal") || parsed.root.equals("healpokemon") || parsed.root.equals("healparty") || parsed.root.equals("pokehealother") || parsed.root.equals("pokemonheal")) && !parsed.arguments.isBlank()) {
             deny(source, Component.literal("§cYou can only use /pokeheal on yourself."));
             return true;
         }
@@ -73,7 +82,7 @@ public final class CommandBlocker {
             return true;
         }
 
-        if (!PermissionUtil.has(source, permission)) {
+        if (sourcePlayer == null || !LuckPermsHook.hasExactPermissionNode(sourcePlayer, permission)) {
             deny(source, denyMessageFor(parsed.root));
             return true;
         }
@@ -95,7 +104,7 @@ public final class CommandBlocker {
         return switch (root) {
             case "ec", "enderchest" -> "champutils.command.ec";
             case "pc" -> "champutils.command.pc";
-            case "pokeheal", "healpokemon", "healparty" -> "champutils.command.pokeheal";
+            case "pokeheal", "healpokemon", "healparty", "pokehealother", "pokemonheal" -> "champutils.command.pokeheal";
             case "pokeivs", "ivs" -> "champutils.command.pokeivs";
             default -> null;
         };
@@ -103,7 +112,7 @@ public final class CommandBlocker {
 
     private static Component denyMessageFor(String root) {
         String feature = switch (root) {
-            case "ec", "enderchest", "pc", "pokeheal", "healpokemon", "healparty" -> "VIP";
+            case "ec", "enderchest", "pc", "pokeheal", "healpokemon", "healparty", "pokehealother", "pokemonheal" -> "VIP";
             case "pokeivs", "ivs" -> "VIP+";
             default -> "locked";
         };

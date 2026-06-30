@@ -3,6 +3,7 @@ package com.champutils.mixin;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.ProfileLoadingStateManager;
 import com.champutils.commands.CommandBlocker;
+import com.mojang.brigadier.ParseResults;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,6 +18,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(Commands.class)
 public abstract class CommandsLockedLobbyMixin {
+
+    @Inject(method = "performCommand", at = @At("HEAD"), cancellable = true)
+    private void champutils$blockParsedCommands(ParseResults<CommandSourceStack> parseResults, String command, CallbackInfo ci) {
+        if (parseResults == null || parseResults.getContext() == null) return;
+        CommandSourceStack source = parseResults.getContext().getSource();
+        if (CommandBlocker.denyIfBlocked(source, command)) {
+            ci.cancel();
+        }
+    }
     @Inject(method = "performPrefixedCommand", at = @At("HEAD"), cancellable = true)
     private void champutils$blockCommandsInProfileLobby(CommandSourceStack source, String command, CallbackInfo ci) {
         ServerPlayer player;

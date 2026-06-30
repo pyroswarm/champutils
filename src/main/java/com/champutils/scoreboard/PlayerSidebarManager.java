@@ -179,15 +179,18 @@ public final class PlayerSidebarManager {
 
         lines.add("§8§m----------------");
         lines.add("§6Money §f" + EconomyManager.format(balance));
-        lines.add("§bRank §f" + rankName(rp));
-        lines.add("§bRP §f" + rp);
+        lines.add("§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
         lines.add("§dDex §f" + caught + "§7/§f" + total);
         lines.add("§7" + formatPercent(dexPercent) + "% Complete");
         lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
         if (PlayerProfileManager.isIslander(player)) {
-            lines.add("§6Island Special §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
+            lines.add("§6Island Legendary §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
+            lines.add("§5Island Paradox §f" + SpecialWildSpawnManager.formatLastIslanderParadoxSpawnAgo());
+            lines.add("§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastIslanderUltraBeastSpawnAgo());
         } else {
-            lines.add("§6Last Special §f" + SpecialWildSpawnManager.formatLastNormalSpawnAgo());
+            lines.add("§6Last Legendary §f" + SpecialWildSpawnManager.formatLastNormalSpawnAgo());
+            lines.add("§5Last Paradox §f" + SpecialWildSpawnManager.formatLastNormalParadoxSpawnAgo());
+            lines.add("§dLast Ultra Beast §f" + SpecialWildSpawnManager.formatLastNormalUltraBeastSpawnAgo());
         }
         lines.add("§5Last Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         lines.add("§8§m----------------");

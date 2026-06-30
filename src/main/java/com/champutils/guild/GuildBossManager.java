@@ -334,14 +334,17 @@ public final class GuildBossManager {
 
     private static boolean spawnWorldBoss(MinecraftServer server) {
         BossConfig.WorldBossSettings settings = BossConfig.DATA.worldBoss;
-        BossConfig.WorldBossTheme theme = chooseTheme(settings.themes);
-        List<BossConfig.BossPokemon> team = chooseTeam(theme.pool, 6);
-        if (team.isEmpty()) team.add(choose(settings.pool));
+        List<BossConfig.BossPokemon> pool = worldBossPool(settings);
+        List<BossConfig.BossPokemon> team = chooseTeam(pool, Math.max(1, Math.min(6, settings.partySize)));
+        if (team.isEmpty()) {
+            scheduleWorldBossRetry(System.currentTimeMillis(), "no configured world boss Pokémon pool");
+            return false;
+        }
         ActiveWorldBoss boss = new ActiveWorldBoss();
         boss.id = UUID.randomUUID();
         boss.species = team.get(0).species;
-        boss.theme = theme.type;
-        boss.displayName = theme.displayName;
+        boss.theme = "Mixed";
+        boss.displayName = worldBossDisplayName(null);
         boss.team = team;
         boss.despawnAtMillis = System.currentTimeMillis() + settings.aliveMinutes * 60_000L;
 
@@ -352,7 +355,7 @@ public final class GuildBossManager {
                 System.err.println("[ChampUtils] World boss skipped unloaded/missing dimension: " + dimension);
                 continue;
             }
-            NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, theme.displayName, "dmitibr");
+            NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, boss.displayName, "dmitibr");
             if (npc != null) {
                 tagBossNpc(npc, WORLD_BOSS_ENTITY_TAG);
                 boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z, npc.getUUID()));
@@ -366,7 +369,7 @@ public final class GuildBossManager {
         activeWorldBoss = boss;
         BossConfig.DATA.worldBoss.lastSpawnAtMillis = System.currentTimeMillis();
         BossConfig.save();
-        broadcastAll(server, theme.displayName + " has appeared at spawn! Theme: " + theme.type + ". This is a " + theme.type + "-type themed boss, so build a counter team and defeat it once within " + settings.aliveMinutes + " minutes.", ChatFormatting.LIGHT_PURPLE);
+        broadcastAll(server, boss.displayName + " has appeared at spawn! Defeat it once within " + settings.aliveMinutes + " minutes to qualify for rewards.", ChatFormatting.LIGHT_PURPLE);
         return true;
     }
 
@@ -446,13 +449,15 @@ public final class GuildBossManager {
     }
 
     private static void cleanupOrphanedWorldBossNpcs(MinecraftServer server, long now) {
-        // Defense in depth: if the active record is gone or expired but a persistent boss NPC remains, delete it.
-        if (activeWorldBoss != null && now < activeWorldBoss.despawnAtMillis) return;
+        // Defense in depth: remove stale tagged NPCs only when there is no active world boss record.
+        // If the active boss is expired, finishWorldBoss() decides whether it can despawn or must stay
+        // alive because a player is still battling it.
+        if (activeWorldBoss != null) {
+            if (now >= activeWorldBoss.despawnAtMillis) finishWorldBoss(server, activeWorldBoss);
+            return;
+        }
         for (ServerLevel level : server.getAllLevels()) {
             removeMatchingBossNpcs(level, false);
-        }
-        if (activeWorldBoss != null && now >= activeWorldBoss.despawnAtMillis) {
-            finishWorldBoss(server, activeWorldBoss);
         }
     }
 
@@ -604,6 +609,25 @@ public final class GuildBossManager {
         return cmd.toString();
     }
 
+
+    private static List<BossConfig.BossPokemon> worldBossPool(BossConfig.WorldBossSettings settings) {
+        List<BossConfig.BossPokemon> pool = new ArrayList<>();
+        if (settings != null && settings.pool != null) {
+            for (BossConfig.BossPokemon pokemon : settings.pool) if (pokemon != null) pool.add(pokemon);
+        }
+        if (!pool.isEmpty()) return pool;
+
+        // Legacy fallback: older configs stored world boss Pokémon inside typed themes.
+        // Flatten those theme pools into one shared pool instead of selecting a typed team.
+        if (settings != null && settings.themes != null) {
+            for (BossConfig.WorldBossTheme theme : settings.themes) {
+                if (theme == null || theme.pool == null) continue;
+                for (BossConfig.BossPokemon pokemon : theme.pool) if (pokemon != null) pool.add(pokemon);
+            }
+        }
+        return pool;
+    }
+
     private static BossConfig.WorldBossTheme chooseTheme(List<BossConfig.WorldBossTheme> themes) {
         if (themes == null || themes.isEmpty()) return new BossConfig.WorldBossTheme("Titan", "Mixed", "Mixed Boss Titan", BossConfig.DATA.worldBoss.pool);
         return themes.get(RANDOM.nextInt(themes.size()));
@@ -651,6 +675,12 @@ public final class GuildBossManager {
             if (roll < 0) return p;
         }
         return pool.get(0);
+    }
+
+    private static String worldBossDisplayName(BossConfig.WorldBossTheme theme) {
+        // World bosses are no longer typed/theme named. Keep one neutral public name while the
+        // battle team is built from the whole configured pool.
+        return "World Boss Titan";
     }
 
     private static String guildBossDisplayName(BossConfig.WorldBossTheme theme) {

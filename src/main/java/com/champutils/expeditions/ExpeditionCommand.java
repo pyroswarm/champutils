@@ -84,6 +84,7 @@ public final class ExpeditionCommand {
         try {
             ExpeditionManager.start(player, pending.slot, pokemon, pending.endsAt);
             AuctionPokemonSerializer.clearPartySlot(player, pending.slot - 1);
+            player.closeContainer();
             player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " was sent on an expedition. Check it with /expeditions and claim it with /expeditions claim.").withStyle(ChatFormatting.GREEN));
         } catch (Exception e) {
             e.printStackTrace();

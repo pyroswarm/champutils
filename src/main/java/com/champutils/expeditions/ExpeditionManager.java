@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -33,9 +34,33 @@ public final class ExpeditionManager {
         return loadSave(player).active;
     }
 
+    public static void tick(MinecraftServer server) {
+        if (server == null || server.getTickCount() % 1200 != 0) return; // once per minute; no per-tick disk spam
+        long now = System.currentTimeMillis();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            Save save = loadSave(player);
+            if (!save.active) continue;
+            if (save.startedAt <= 0L) save.startedAt = now;
+            long last = save.lastOnlineProgressAt <= 0L ? now : save.lastOnlineProgressAt;
+            long delta = Math.max(0L, Math.min(120_000L, now - last));
+            if (delta > 0L && now < save.endsAt) {
+                // Online players earn one extra millisecond of progress per real millisecond online.
+                // That makes active expeditions complete at 2x speed while the player is online.
+                save.endsAt = Math.max(now, save.endsAt - delta);
+            }
+            save.lastOnlineProgressAt = now;
+            save(player, save);
+            if (save.active && now >= save.endsAt) notifyIfReady(player);
+        }
+    }
+
     static void start(ServerPlayer player, int slot, Pokemon pokemon, long endsAt) {
         Save save = loadSave(player);
+        long now = System.currentTimeMillis();
         save.active = true;
+        save.startedAt = now;
+        save.baseDurationMillis = Math.max(0L, endsAt - now);
+        save.lastOnlineProgressAt = now;
         save.endsAt = endsAt;
         save.level = pokemon.getLevel();
         save.name = pokemon.getDisplayName(true).getString();
@@ -56,9 +81,26 @@ public final class ExpeditionManager {
             player.sendSystemMessage(Component.literal("No active expedition.").withStyle(ChatFormatting.GRAY));
             return;
         }
-        long remainingSeconds = Math.max(0L, save.endsAt - System.currentTimeMillis()) / 1000L;
+        long remainingSeconds = remainingMillis(save) / 1000L;
         String status = remainingSeconds <= 0L ? "ready to claim" : ((remainingSeconds + 59L) / 60L) + "m remaining";
-        player.sendSystemMessage(Component.literal(save.name + " expedition: " + status).withStyle(ChatFormatting.AQUA));
+        player.sendSystemMessage(Component.literal(save.name + " expedition: " + status + " (online speed: 2x).").withStyle(ChatFormatting.AQUA));
+    }
+
+    public static String activeStatusText(ServerPlayer player) {
+        Save save = loadSave(player);
+        if (!save.active) return "No active expedition.";
+        long remainingSeconds = remainingMillis(save) / 1000L;
+        if (remainingSeconds <= 0L) return "Ready to claim";
+        long minutes = (remainingSeconds + 59L) / 60L;
+        if (minutes < 60L) return minutes + "m remaining · online speed 2x";
+        long hours = minutes / 60L;
+        long leftover = minutes % 60L;
+        return hours + "h " + leftover + "m remaining · online speed 2x";
+    }
+
+    private static long remainingMillis(Save save) {
+        if (save == null || !save.active) return 0L;
+        return Math.max(0L, save.endsAt - System.currentTimeMillis());
     }
 
     public static void claim(ServerPlayer player) {
@@ -67,7 +109,7 @@ public final class ExpeditionManager {
             player.sendSystemMessage(Component.literal("No active expedition.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (System.currentTimeMillis() < save.endsAt) {
+        if (remainingMillis(save) > 0L) {
             status(player);
             return;
         }
@@ -164,6 +206,9 @@ public final class ExpeditionManager {
     static final class Save {
         boolean active;
         long endsAt;
+        long startedAt;
+        long baseDurationMillis;
+        long lastOnlineProgressAt;
         int level;
         String name = "";
         String payload = "";

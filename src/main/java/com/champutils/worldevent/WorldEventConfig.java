@@ -141,11 +141,24 @@ public final class WorldEventConfig {
     }
 
     private static void normalizeTieredEvents() {
-        forceTier("molten_siege", "COMMON", "Molten Siege 32-Pokémon Common Event Pool", 55, poolCommonFire());
-        forceTier("abyssal_storm", "UNCOMMON", "Abyssal Storm 32-Pokémon Uncommon Event Pool", 65, poolUncommonWater());
-        forceTier("verdant_collapse", "RARE", "Verdant Collapse 32-Pokémon Rare Event Pool", 75, poolRareNature());
-        forceTier("void_invasion", "EPIC", "Void Invasion 32-Pokémon Epic Event Pool", 85, poolEpicVoid());
-        forceTier("iron_uprising", "LEGENDARY", "Iron Uprising 32-Pokémon Legendary Event Pool", 100, poolLegendarySteel());
+        EventDefinition event = EVENTS.getOrDefault("world_boss", event("World Boss", "World Boss", "LEGENDARY", 100, poolWorldBossCompetitive()));
+        event.enabled = true;
+        event.displayName = "World Boss";
+        event.bossName = "World Boss";
+        event.tier = "LEGENDARY";
+        event.weight = 100;
+        event.rewards = rewardsForTier("LEGENDARY");
+        TeamDefinition team = event.teams == null || event.teams.isEmpty() ? new TeamDefinition() : event.teams.get(0);
+        team.name = "World Boss Competitive Pool";
+        team.weight = 1;
+        team.levelCap = 100;
+        team.partySize = 6;
+        team.itemsAllowed = true;
+        team.party = new ArrayList<>(poolWorldBossCompetitive());
+        event.teams = new ArrayList<>();
+        event.teams.add(team);
+        EVENTS.clear();
+        EVENTS.put("world_boss", event);
     }
 
     private static void forceTier(String eventId, String tier, String teamName, int displayLevel, List<PokemonSet> pool) {
@@ -169,11 +182,7 @@ public final class WorldEventConfig {
 
     private static Root defaultRoot() {
         Root root = new Root();
-        root.events.put("molten_siege", event("Molten Siege", "Inferno Warlord", "COMMON", 30, poolCommonFire()));
-        root.events.put("abyssal_storm", event("Abyssal Storm", "Abyssal Tyrant", "UNCOMMON", 25, poolUncommonWater()));
-        root.events.put("verdant_collapse", event("Verdant Collapse", "Elder Bloom Tyrant", "RARE", 20, poolRareNature()));
-        root.events.put("void_invasion", event("Void Invasion", "Void Rift Monarch", "EPIC", 15, poolEpicVoid()));
-        root.events.put("iron_uprising", event("Iron Uprising", "Chrome Apex", "LEGENDARY", 10, poolLegendarySteel()));
+        root.events.put("world_boss", event("World Boss", "World Boss", "LEGENDARY", 100, poolWorldBossCompetitive()));
         return root;
     }
 
@@ -217,6 +226,14 @@ public final class WorldEventConfig {
             "venusaur","meowscarada","rillaboom","serperior","amoonguss","breloom","ferrothorn","kartana","tsareena","decidueye","chesnaught","roserade","trevenant","tangrowth","abomasnow","lilligant","sceptile","torterra","goodra","dragonite","kommo_o","hydreigon","garchomp","tyranitar","metagross","salamence","dragapult","haxorus","noivern","volcarona","gliscor","mamoswine"); }
     private static List<PokemonSet> poolEpicVoid() { return pool(
             "flutter_mane","iron_bundle","iron_valiant","roaring_moon","walking_wake","gouging_fire","raging_bolt","iron_crown","iron_boulder","iron_moth","iron_hands","iron_treads","sandy_shocks","scream_tail","brute_bonnet","slither_wing","great_tusk","gholdengo","kingambit","annihilape","dragapult","garchomp","dragonite","ursaluna","basculegion","ceruledge","armarouge","skeledirge","greninja","volcarona","toxapex","glimmora"); }
+    private static List<PokemonSet> poolWorldBossCompetitive() {
+        List<PokemonSet> list = new ArrayList<>();
+        list.addAll(poolLegendarySteel());
+        list.addAll(poolEpicVoid());
+        list.addAll(poolRareNature());
+        return list;
+    }
+
     private static List<PokemonSet> poolLegendarySteel() { return pool(
             "mewtwo","rayquaza","kyogre","groudon","lugia","ho_oh","dialga","palkia","giratina","reshiram","zekrom","kyurem","xerneas","yveltal","zygarde","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","koraidon","miraidon","calyrex","landorus","thundurus","tornadus","urshifu","kartana","guzzlord","celesteela","magearna"); }
 

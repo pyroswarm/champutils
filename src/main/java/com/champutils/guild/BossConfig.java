@@ -174,6 +174,8 @@ public final class BossConfig {
         @Override
         void normalize() {
             super.normalize();
+            if (pool == null || pool.isEmpty() || looksLikeDefaultGuildPool(pool)) pool = defaultWorldPool();
+            pool.forEach(BossPokemon::normalize);
             // Keep world bosses at roughly a 12-hour average. Older beta configs sometimes saved
             // tiny test values like 8 minutes; migrate those automatically.
             if (averageMinutesUntilNextBoss <= 0 || averageMinutesUntilNextBoss < 60) averageMinutesUntilNextBoss = 720;
@@ -433,6 +435,14 @@ public final class BossConfig {
             case "normal" -> "Obelisk";
             default -> "Titan";
         };
+    }
+
+
+    private static boolean looksLikeDefaultGuildPool(List<BossPokemon> pool) {
+        if (pool == null || pool.size() != 4) return false;
+        List<String> species = new ArrayList<>();
+        for (BossPokemon pokemon : pool) species.add(pokemon == null ? "" : String.valueOf(pokemon.species).toLowerCase());
+        return species.containsAll(Arrays.asList("dragonite", "garchomp", "metagross", "tyranitar"));
     }
 
     private static List<WorldBossTheme> defaultWorldThemes() {

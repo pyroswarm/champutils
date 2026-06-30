@@ -34,6 +34,9 @@ public final class ProfessionXpBoostManager {
     private static final List<ProfessionXpBoostSource> SOURCES = new CopyOnWriteArrayList<>();
     private static final Map<String, Double> FRACTION_BANK = new ConcurrentHashMap<>();
 
+    private static final Map<String, Long> LAST_ACTION_BAR_NOTICE = new ConcurrentHashMap<>();
+    private static final long ACTION_BAR_NOTICE_COOLDOWN_MILLIS = 3000L;
+
     static {
         // Additional temporary profession boosters should now register as BuffProvider
         // instances with BuffManager. This class remains responsible for fractional XP banking.
@@ -107,14 +110,23 @@ public final class ProfessionXpBoostManager {
             boosted += baseAmount;
         }
 
-        if (wholeBonus > 0) {
-            player.sendSystemMessage(Component.literal("[Bonus] Active bonuses added +" + wholeBonus + " " + profession.name() + " XP.").withStyle(ChatFormatting.GREEN));
-        }
-        if (trinketDoubled) {
-            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] Profession XP Gem doubled this reward: +" + baseAmount + " " + profession.name() + " XP.").withStyle(ChatFormatting.AQUA));
+        // Profession bonus notifications must never spam chat. Show a throttled action-bar summary instead.
+        int actionBarBonus = Math.max(0, wholeBonus) + (trinketDoubled ? baseAmount : 0);
+        if (actionBarBonus > 0 && shouldNotifyActionBar(player, profession)) {
+            player.displayClientMessage(Component.literal("+" + actionBarBonus + " bonus " + profession.name() + " XP").withStyle(ChatFormatting.GREEN), true);
         }
 
         return boosted;
+    }
+
+    private static boolean shouldNotifyActionBar(ServerPlayer player, ProfessionType profession) {
+        if (player == null || profession == null) return false;
+        String key = player.getUUID() + ":" + profession.name();
+        long now = System.currentTimeMillis();
+        Long last = LAST_ACTION_BAR_NOTICE.get(key);
+        if (last != null && now - last < ACTION_BAR_NOTICE_COOLDOWN_MILLIS) return false;
+        LAST_ACTION_BAR_NOTICE.put(key, now);
+        return true;
     }
 
     public static double getTotalBonus(ServerPlayer player, ProfessionType profession) {
