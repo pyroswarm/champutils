@@ -34,6 +34,12 @@ public class ProfessionToolConfig {
     public static double ASCENDED_UNIDENTIFIED_CHANCE_PERCENT =
             1.0D;
 
+    public static double SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL =
+            40.0D;
+
+    public static double MAX_VIRTUAL_EFFICIENCY_LEVEL =
+            5.0D;
+
     public static Map<String, Map<String, EnchantData>> ENCHANTING =
             new LinkedHashMap<>();
 
@@ -54,6 +60,16 @@ public class ProfessionToolConfig {
          */
         public double ascendedUnidentifiedChancePercent =
                 1.0D;
+
+        /**
+         * Mining/chopping/digging speed scaling. The displayed stat stays as a
+         * percent, but it is converted into a vanilla Efficiency-style bonus.
+         * 40 = every 40% speed is one virtual Efficiency level.
+         */
+        public double speedPercentPerVirtualEfficiencyLevel = 40.0D;
+
+        /** Maximum virtual Efficiency level used by custom speed stats. */
+        public double maxVirtualEfficiencyLevel = 5.0D;
 
         /**
          * Deprecated. Custom tool enchanting has been removed.
@@ -278,6 +294,8 @@ public class ProfessionToolConfig {
             root.rarityCosts = RARITY_COSTS == null ? defaultRarityCosts() : RARITY_COSTS;
             root.rerollCostMultiplier = REROLL_COST_MULTIPLIER;
             root.ascendedUnidentifiedChancePercent = ASCENDED_UNIDENTIFIED_CHANCE_PERCENT;
+            root.speedPercentPerVirtualEfficiencyLevel = SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL;
+            root.maxVirtualEfficiencyLevel = MAX_VIRTUAL_EFFICIENCY_LEVEL;
             GSON.toJson(root, writer);
         } catch (Exception e) {
             e.printStackTrace();
@@ -338,6 +356,12 @@ public class ProfessionToolConfig {
                                 )
                         );
 
+                SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL =
+                        Math.max(1.0D, config.speedPercentPerVirtualEfficiencyLevel);
+
+                MAX_VIRTUAL_EFFICIENCY_LEVEL =
+                        Math.max(0.0D, config.maxVirtualEfficiencyLevel);
+
                 ENCHANTING =
                         new LinkedHashMap<>();
 
@@ -370,6 +394,12 @@ public class ProfessionToolConfig {
 
             ASCENDED_UNIDENTIFIED_CHANCE_PERCENT =
                     1.0D;
+
+            SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL =
+                    50.0D;
+
+            MAX_VIRTUAL_EFFICIENCY_LEVEL =
+                    5.0D;
 
             ENCHANTING =
                     new LinkedHashMap<>();
@@ -581,9 +611,17 @@ public class ProfessionToolConfig {
 
     private static void applyCobbleChampsProfessionToolRework() {
         if (TOOLS == null) return;
+
+        /*
+         * Safety note: this method used to overwrite every profession tool
+         * stat range on each /champreload, which made config-side balancing
+         * impossible. It now only fills missing/legacy fields. Existing config
+         * values are treated as the source of truth.
+         */
         for (Map.Entry<String, ToolData> entry : TOOLS.entrySet()) {
             ToolData tool = entry.getValue();
             if (tool == null) continue;
+
             String base = tool.baseItem == null ? "" : tool.baseItem.toLowerCase();
             String rarity = normalizeRarity(tool.rarity);
             boolean pickaxe = base.contains("pickaxe");
@@ -592,76 +630,69 @@ public class ProfessionToolConfig {
             boolean shovel = base.contains("shovel");
             boolean sword = base.contains("sword");
             if (!pickaxe && !axe && !hoe && !shovel && !sword) continue;
-            tool.baseItem = visualBaseItem(rarity, pickaxe, axe, hoe, shovel, sword);
+
+            // Harvest tier and speed are intentionally separated. Every Champ tool can harvest
+            // every ore tier safely; rarity controls the vanilla-feeling speed range below.
             tool.toolTier = gameplayTier(rarity);
 
-            Map<String, StatRange> ranges = new LinkedHashMap<>();
+            if (tool.statRanges == null) {
+                tool.statRanges = new LinkedHashMap<>();
+            }
+
             StatRange speedRange = speedRange(rarity);
             if (pickaxe) {
-                ranges.put("miningSpeed", speedRange);
-                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
-                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
-                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                ranges.put("stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
-                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
+                putIfMissing(tool.statRanges, "miningSpeed", speedRange);
+                putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
+                putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                putIfMissing(tool.statRanges, "stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
             } else if (axe) {
-                ranges.put("chopSpeed", speedRange);
-                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
-                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
-                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                ranges.put("apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
-                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
+                putIfMissing(tool.statRanges, "chopSpeed", speedRange);
+                putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
+                putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                putIfMissing(tool.statRanges, "apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
+                if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
             } else if (hoe) {
-                ranges.put("farmingSpeed", speedRange);
-                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
-                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
-                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                ranges.put("berryFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
-                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch", "berry_finder"));
+                putIfMissing(tool.statRanges, "farmingSpeed", speedRange);
+                putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
+                putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                putIfMissing(tool.statRanges, "berryFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch", "berry_finder"));
             } else if (shovel) {
-                ranges.put("miningSpeed", speedRange);
-                ranges.put("fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
-                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
-                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                ranges.put("fossilFinderChance", range(rarity, 0.01, 0.05, 0.02, 0.08, 0.04, 0.15, 0.08, 0.25, 0.15, 0.40, 0.25, 0.75));
-                tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "fossil_finder"));
+                putIfMissing(tool.statRanges, "miningSpeed", speedRange);
+                putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
+                putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                putIfMissing(tool.statRanges, "fossilFinderChance", range(rarity, 0.01, 0.05, 0.02, 0.08, 0.04, 0.15, 0.08, 0.25, 0.15, 0.40, 0.25, 0.75));
+                if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "fossil_finder"));
             } else if (sword) {
-                ranges.put("sharpnessPercent", range(rarity, 2, 8, 6, 14, 12, 25, 20, 35, 35, 60, 50, 90));
-                ranges.put("lootingChance", range(rarity, 1, 4, 3, 8, 6, 14, 10, 22, 16, 35, 25, 55));
-                ranges.put("durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
-                ranges.put("durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                tool.profession = "";
-                tool.passives = new ArrayList<>(List.of("sharpness_percent", "looting_chance", "durability_save"));
+                putIfMissing(tool.statRanges, "sharpnessPercent", range(rarity, 2, 8, 6, 14, 12, 25, 20, 35, 35, 60, 50, 90));
+                putIfMissing(tool.statRanges, "lootingChance", range(rarity, 1, 4, 3, 8, 6, 14, 10, 22, 16, 35, 25, 55));
+                putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
+                putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
+                if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("sharpness_percent", "looting_chance", "durability_save"));
             }
-            tool.statRanges = ranges;
-            tool.stats = new LinkedHashMap<>();
+
+            if (tool.stats == null) tool.stats = new LinkedHashMap<>();
         }
     }
 
-
-
-    private static String visualBaseItem(String rarity, boolean pickaxe, boolean axe, boolean hoe, boolean shovel, boolean sword) {
-        String material = switch (normalizeRarity(rarity)) {
-            case "UNCOMMON" -> "stone";
-            case "RARE" -> "golden"; // Copper has no vanilla tool base; this is skinned as the copper-tier tool by the pack.
-            case "EPIC" -> "iron";
-            case "LEGENDARY" -> "diamond";
-            case "MYTHIC" -> "netherite";
-            default -> "wooden";
-        };
-        String type = pickaxe ? "pickaxe" : axe ? "axe" : hoe ? "hoe" : shovel ? "shovel" : sword ? "sword" : "pickaxe";
-        return "minecraft:" + material + "_" + type;
+    private static void putIfMissing(Map<String, StatRange> ranges, String key, StatRange value) {
+        if (ranges == null || key == null || value == null) return;
+        if (!ranges.containsKey(key)) ranges.put(key, value);
     }
 
     private static StatRange speedRange(String rarity) {
-        return range(rarity, 0, 25, 25, 50, 50, 75, 75, 115, 115, 150, 150, 250);
+        // Common ~= stone, Uncommon ~= iron, Rare ~= gold, Epic ~= diamond, Legendary/Mythic ~= netherite.
+        return range(rarity, 0, 15, 15, 35, 35, 70, 70, 115, 115, 165, 165, 240);
     }
 
     private static String gameplayTier(String rarity) {
-        return switch (normalizeRarity(rarity)) {
-            case "COMMON", "UNCOMMON" -> "IRON";
-            default -> "NETHERITE";
-        };
+        // Keep harvest level at netherite so even early tools can break all ores; speed is controlled by statRanges.
+        return "NETHERITE";
     }
 
     private static void ensureDefaultSwordTools() {

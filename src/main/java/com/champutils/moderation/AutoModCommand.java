@@ -209,6 +209,36 @@ public final class AutoModCommand {
                                             context.getSource().sendSuccess(() -> Component.literal("Escalated AutoMod record for " + target.getGameProfile().getName() + "."), true);
                                             return 1;
                                         }))))
+                .then(Commands.literal("redstone")
+                        .requires(source -> PermissionUtil.has(source, "champutils.staff") || PermissionUtil.has(source, "champutils.admin"))
+                        .then(Commands.literal("status")
+                                .executes(context -> {
+                                    RedstoneAutoModManager.Status status = RedstoneAutoModManager.status();
+                                    context.getSource().sendSuccess(() -> Component.literal("Redstone AutoMod: trackedChunks=" + status.trackedChunks() + ", disabledChunks=" + status.disabledChunks() + ", queuedChunks=" + status.queuedChunks()), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("chunk")
+                                .executes(context -> {
+                                    ServerPlayer player = context.getSource().getPlayerOrException();
+                                    String status = RedstoneAutoModManager.currentChunkStatus(player.serverLevel(), player.blockPosition());
+                                    context.getSource().sendSuccess(() -> Component.literal(status), false);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("clear")
+                                .requires(source -> PermissionUtil.has(source, "champutils.admin"))
+                                .executes(context -> {
+                                    RedstoneAutoModManager.clearAll(context.getSource().getServer());
+                                    context.getSource().sendSuccess(() -> Component.literal("Cleared Redstone AutoMod tracked activity and disabled chunks."), true);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("clearchunk")
+                                .requires(source -> PermissionUtil.has(source, "champutils.admin"))
+                                .executes(context -> {
+                                    ServerPlayer player = context.getSource().getPlayerOrException();
+                                    RedstoneAutoModManager.clearChunk(player.serverLevel(), new net.minecraft.world.level.ChunkPos(player.blockPosition()));
+                                    context.getSource().sendSuccess(() -> Component.literal("Cleared Redstone AutoMod data for your current chunk."), true);
+                                    return 1;
+                                })))
                 .then(Commands.literal("reload")
                         .requires(source -> PermissionUtil.has(source, "champutils.admin"))
                         .executes(context -> {

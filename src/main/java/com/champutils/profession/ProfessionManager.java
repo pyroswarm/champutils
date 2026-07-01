@@ -4,38 +4,45 @@ import com.champutils.profile.PlayerProfileManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ProfessionManager {
 
     private static final Map<UUID, ProfessionDataManager.ProfessionData> CACHE =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     private static final Set<UUID> DIRTY_PLAYERS =
-            new HashSet<>();
+            ConcurrentHashMap.newKeySet();
+
+    private static final ExecutorService SAVE_EXECUTOR =
+            Executors.newSingleThreadExecutor(task -> {
+                Thread thread = new Thread(task, "ChampUtils-ProfessionSave");
+                thread.setDaemon(true);
+                return thread;
+            });
+
+    private static final AtomicBoolean SAVE_ALL_RUNNING =
+            new AtomicBoolean(false);
 
     public static ProfessionDataManager.ProfessionData getData(
             ServerPlayer player
     ) {
         UUID uuid = PlayerProfileManager.activeProfileId(player);
 
-        if (CACHE.containsKey(uuid)) {
-            return CACHE.get(uuid);
-        }
-
-        ProfessionDataManager.ProfessionData data =
+        return CACHE.computeIfAbsent(uuid, ignored ->
                 ProfessionDataManager.load(
                         uuid,
                         player.getName().getString()
-                );
-
-        CACHE.put(uuid, data);
-
-        return data;
+                )
+        );
     }
 
     private static boolean requiresProfessionTool(ProfessionType profession) {
@@ -87,10 +94,17 @@ public class ProfessionManager {
                 );
 
         int currentLevel =
-                data.levels.getOrDefault(
+                Math.max(1, Math.min(100, data.levels.getOrDefault(
                         key,
                         1
-                );
+                )));
+
+        if (currentLevel >= 100) {
+            data.levels.put(key, 100);
+            data.xp.put(key, 0);
+            markDirty(PlayerProfileManager.activeProfileId(player));
+            return;
+        }
 
         currentXp += amount;
 
@@ -106,12 +120,16 @@ public class ProfessionManager {
         );
 
         while (
-                currentXp >= xpRequired(currentLevel)
+                currentLevel < 100 && currentXp >= xpRequired(currentLevel)
         ) {
             currentXp -=
                     xpRequired(currentLevel);
 
             currentLevel++;
+            if (currentLevel >= 100) {
+                currentLevel = 100;
+                currentXp = 0;
+            }
 
             data.levels.put(
                     key,
@@ -150,7 +168,16 @@ public class ProfessionManager {
     public static int xpRequired(
             int level
     ) {
-        return 100 + (level * 25);
+        int safeLevel = Math.max(1, Math.min(100, level));
+        if (safeLevel >= 100) {
+            return Integer.MAX_VALUE / 4;
+        }
+        if (safeLevel < 50) {
+            return 100 + (safeLevel * 25);
+        }
+        double baseAtFifty = 100.0D + (50.0D * 25.0D);
+        double scaled = baseAtFifty * Math.pow(1.115D, safeLevel - 49);
+        return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4, Math.round(scaled)));
     }
 
     public static int getLevel(
@@ -357,7 +384,9 @@ public class ProfessionManager {
     private static void markDirty(
             UUID uuid
     ) {
-        DIRTY_PLAYERS.add(uuid);
+        if (uuid != null) {
+            DIRTY_PLAYERS.add(uuid);
+        }
     }
 
     public static void markDirtyProfile(
@@ -385,31 +414,45 @@ public class ProfessionManager {
             return;
         }
 
-        ProfessionDataManager.save(
+        if (ProfessionDataManager.save(
                 uuid,
                 data
-        );
-
-        DIRTY_PLAYERS.remove(uuid);
+        )) {
+            DIRTY_PLAYERS.remove(uuid);
+        }
     }
 
     public static void saveAll() {
-        for (UUID uuid : DIRTY_PLAYERS) {
+        for (UUID uuid : new ArrayList<>(DIRTY_PLAYERS)) {
 
             ProfessionDataManager.ProfessionData data =
                     CACHE.get(uuid);
 
             if (data == null) {
+                DIRTY_PLAYERS.remove(uuid);
                 continue;
             }
 
-            ProfessionDataManager.save(
+            if (ProfessionDataManager.save(
                     uuid,
                     data
-            );
+            )) {
+                DIRTY_PLAYERS.remove(uuid);
+            }
         }
+    }
 
-        DIRTY_PLAYERS.clear();
+    public static void saveAllAsync() {
+        if (!SAVE_ALL_RUNNING.compareAndSet(false, true)) {
+            return;
+        }
+        SAVE_EXECUTOR.execute(() -> {
+            try {
+                saveAll();
+            } finally {
+                SAVE_ALL_RUNNING.set(false);
+            }
+        });
     }
 
     public static void unloadPlayer(

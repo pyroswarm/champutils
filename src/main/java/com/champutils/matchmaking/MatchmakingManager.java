@@ -70,6 +70,9 @@ public class MatchmakingManager {
     private static final Map<UUID, Integer> MATCHMAKING_BLOCKS =
             new HashMap<>();
 
+    private static final int QUEUE_ANNOUNCE_TICKS = 3 * 60 * 20;
+    private static int queueAnnounceTimer = 0;
+
     private static class PendingAcceptance {
         final ServerPlayer p1;
         final ServerPlayer p2;
@@ -304,6 +307,13 @@ public class MatchmakingManager {
         return rankedType(type) ? "ranked" : "casual";
     }
 
+    public static int queueSize(String type) {
+        List<ServerPlayer> queue = QUEUES.get(normalizeType(type));
+        if (queue == null) return 0;
+        queue.removeIf(player -> player == null || player.getServer() == null || !player.isAlive());
+        return queue.size();
+    }
+
     private static boolean isInAnyQueue(
             ServerPlayer player
     ) {
@@ -333,6 +343,7 @@ public class MatchmakingManager {
         tickTasks();
         tickAcceptance();
         tickQueues();
+        tickQueueAnnouncements();
         tickRecentMatches();
         tickMatchmakingPenalties();
     }
@@ -395,6 +406,37 @@ public class MatchmakingManager {
             }
             while (matched);
         }
+    }
+
+    private static void tickQueueAnnouncements() {
+        queueAnnounceTimer++;
+        if (queueAnnounceTimer < QUEUE_ANNOUNCE_TICKS) return;
+        queueAnnounceTimer = 0;
+
+        ServerPlayer anchor = firstQueuedPlayer();
+        if (anchor == null || anchor.getServer() == null) return;
+
+        announceQueue(anchor, "ranked");
+        announceQueue(anchor, "casual");
+    }
+
+    private static void announceQueue(ServerPlayer anchor, String type) {
+        int count = queueSize(type);
+        if (count <= 0) return;
+        anchor.getServer().getPlayerList().broadcastSystemMessage(
+                Component.literal("Queue up! Currently " + count + " player(s) in the " + type + " queue!"),
+                false
+        );
+    }
+
+    private static ServerPlayer firstQueuedPlayer() {
+        for (List<ServerPlayer> queue : QUEUES.values()) {
+            if (queue == null) continue;
+            for (ServerPlayer player : queue) {
+                if (player != null && player.getServer() != null && player.isAlive()) return player;
+            }
+        }
+        return null;
     }
 
     private static boolean tryMatchQueue(

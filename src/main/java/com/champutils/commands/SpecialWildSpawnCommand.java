@@ -76,11 +76,36 @@ public final class SpecialWildSpawnCommand {
                         ctx.getSource().sendSuccess(() -> Component.literal(result.message), false);
                         return result.success ? 1 : 0;
                     }))
+                    .then(literal("debug").executes(ctx -> {
+                        SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls = !SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls;
+                        SpecialWildSpawnConfig.save();
+                        ctx.getSource().sendSuccess(() -> Component.literal("Special spawn debug logs are now " + (SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls ? "enabled" : "disabled") + "."), false);
+                        return 1;
+                    }))
+                    .then(literal("status").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        sendDebugStatus(ctx.getSource(), SpecialWildSpawnManager.debugStatus(player));
+                        return 1;
+                    }))
                     .then(literal("report").executes(ctx -> {
                         sendReport(ctx.getSource(), SpecialWildSpawnManager.report());
                         return 1;
                     })));
         });
+    }
+
+    private static void sendDebugStatus(CommandSourceStack source, SpecialWildSpawnManager.DebugStatus status) {
+        source.sendSuccess(() -> Component.literal("§5Special Spawn Debug Status"), false);
+        source.sendSuccess(() -> Component.literal("§7System enabled: " + (status.enabled() ? "§aYes" : "§cNo")), false);
+        source.sendSuccess(() -> Component.literal("§7Paradox timer enabled: " + (status.paradoxEnabled() ? "§aYes" : "§cNo")), false);
+        source.sendSuccess(() -> Component.literal("§7Debug logs: " + (status.debugLogsEnabled() ? "§aOn" : "§cOff")), false);
+        source.sendSuccess(() -> Component.literal("§7Pool type here: §f" + (status.islanderRoll() ? "Islander" : "Normal")), false);
+        source.sendSuccess(() -> Component.literal("§7Eligible here: " + (status.eligibleHere() ? "§aYes" : "§cNo") + " §8(" + status.eligibilityMessage() + ")"), false);
+        source.sendSuccess(() -> Component.literal("§7Paradox pool size: §f" + status.paradoxPoolSize()), false);
+        source.sendSuccess(() -> Component.literal("§7Tracked special Pokémon: §f" + status.trackedSpecials() + " / " + status.trackedLimit()), false);
+        source.sendSuccess(() -> Component.literal("§7Next paradox check: §f~" + status.nextParadoxCheckSeconds() + "s"), false);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "§7Paradox chance/check: §f%.3f%%", status.paradoxChancePerCheck() * 100.0D)), false);
+        source.sendSuccess(() -> Component.literal("§7Last paradox spawn: §f" + status.lastParadoxSpawnAgo()), false);
     }
 
     private static void sendReport(CommandSourceStack source, SpecialWildSpawnManager.SpawnPoolReport report) {

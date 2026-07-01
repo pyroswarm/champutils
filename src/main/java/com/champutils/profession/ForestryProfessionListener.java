@@ -37,8 +37,8 @@ public class ForestryProfessionListener {
             if (!(player instanceof ServerPlayer serverPlayer)) return true;
             if (MANUALLY_PROCESSED_EXTRA_BLOCKS.remove(extraBlockKey(serverPlayer, pos))) return true;
             String blockId = getBlockId(state.getBlock());
-            Integer xp = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
-            if (xp == null || xp <= 0) return true;
+            int xp = forestryXpFor(state, blockId);
+            if (xp <= 0) return true;
             if (ProfessionBlockTracker.isPlayerPlaced(serverPlayer.serverLevel(), pos)) {
                 ProfessionBlockTracker.removeAfterCurrentTick(serverPlayer.serverLevel(), pos);
                 return true;
@@ -68,6 +68,7 @@ public class ForestryProfessionListener {
         double extraMultiplier = extraBlock ? 0.10D : 1.0D;
         int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp * extraMultiplier)) : baseXp;
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, xp);
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FORESTRY, blockId, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FORESTRY, blockId);
         rollXpSurge(player, tool, xp, extraMultiplier);
         ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
@@ -96,6 +97,7 @@ public class ForestryProfessionListener {
         if (!roll(player, tool, "forestryXpSurgeChance", chanceMultiplier) && !roll(player, tool, "xpSurgeChance", chanceMultiplier)) return;
         int bonus = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, bonus);
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FORESTRY, "forestry_xp_surge", bonus);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aForestry XP Surge! +" + bonus), true);
         }
@@ -139,7 +141,8 @@ public class ForestryProfessionListener {
                 BlockState state = level.getBlockState(current);
                 if (state.getBlock() != original.getBlock()) continue;
                 if (ProfessionBlockTracker.isPlayerPlaced(level, current)) continue;
-                processForestryRewards(player, state, getBlockId(state.getBlock()), player.getMainHandItem(), Math.max(1, ProfessionConfig.SETTINGS.forestryXp.getOrDefault(getBlockId(state.getBlock()), 0)), true);
+                String currentBlockId = getBlockId(state.getBlock());
+                processForestryRewards(player, state, currentBlockId, player.getMainHandItem(), forestryXpFor(state, currentBlockId), true);
                 MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, current));
                 if (level.destroyBlock(current, true, player)) broken++;
             }
@@ -171,6 +174,22 @@ public class ForestryProfessionListener {
 
     private static String extraBlockKey(ServerPlayer player, BlockPos pos) {
         return player.getUUID() + ":" + pos.asLong();
+    }
+
+    private static int forestryXpFor(BlockState state, String blockId) {
+        Integer configured = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
+        if (configured != null && configured > 0) return configured;
+        if (state != null && (state.is(BlockTags.LOGS) || looksLikeLog(blockId))) {
+            return 5;
+        }
+        return 0;
+    }
+
+    private static boolean looksLikeLog(String blockId) {
+        if (blockId == null) return false;
+        String id = blockId.toLowerCase(java.util.Locale.ROOT);
+        return id.endsWith("_log") || id.endsWith("_wood") || id.endsWith("_stem") || id.endsWith("_hyphae")
+                || id.contains("saccharine") || id.contains("apricorn_log") || id.contains("apricorn_wood");
     }
 
     private static Iterable<BlockPos> neighbors(BlockPos pos) {

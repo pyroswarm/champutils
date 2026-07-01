@@ -350,8 +350,10 @@ public final class ProfessionTrinketManager {
         if (!canUpgradeDigitalPouch(player, r)) return false;
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
         data.trinketPouchRarity = r;
-        data.trinketPouchSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots));
+        data.trinketPouchSlots = Math.max(data.trinketPouchSlots, Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(r).pouchSlots)));
+        writeDigitalPouchItems(player, readDigitalPouchItems(player));
         ProfessionManager.markDirtyProfile(com.champutils.profile.PlayerProfileManager.activeProfileId(player));
+        ProfessionManager.savePlayer(player);
         player.sendSystemMessage(Component.literal("§aUnlocked " + ProfessionFragmentManager.formatWords(r) + " digital Trinket Pouch with " + data.trinketPouchSlots + " slots."));
         return true;
     }
@@ -388,8 +390,8 @@ public final class ProfessionTrinketManager {
         return sanitizePouchItems(parsed, digitalPouchSlots(player));
     }
 
-    private static void writeDigitalPouchItems(ServerPlayer player, List<ItemStack> items) {
-        if (player == null) return;
+    private static boolean writeDigitalPouchItems(ServerPlayer player, List<ItemStack> items) {
+        if (player == null) return false;
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
         if (data.trinketPouchItems == null) data.trinketPouchItems = new ArrayList<>();
         List<ItemStack> sanitized = sanitizePouchItems(items, digitalPouchSlots(player));
@@ -401,6 +403,8 @@ public final class ProfessionTrinketManager {
             } catch (Throwable ignored) {}
         }
         ProfessionManager.markDirtyProfile(com.champutils.profile.PlayerProfileManager.activeProfileId(player));
+        ProfessionManager.savePlayer(player);
+        return true;
     }
 
     private static void refreshDigitalPouchGui(ServerPlayer player, SimpleGui gui) {
@@ -489,25 +493,36 @@ public final class ProfessionTrinketManager {
     private static void migratePhysicalPouchesToDigital(ServerPlayer player, boolean tellPlayer) {
         if (player == null) return;
         boolean changed = false;
+        List<Integer> pouchSlots = new ArrayList<>();
         List<ItemStack> digital = readDigitalPouchItems(player);
+        ProfessionDataManager.ProfessionData professionData = ProfessionManager.getData(player);
+        String bestRarity = professionData.trinketPouchRarity;
+        int bestSlots = Math.max(0, professionData.trinketPouchSlots);
+
         for (int i = 0; i < player.getInventory().items.size(); i++) {
             ItemStack pouch = player.getInventory().items.get(i);
             if (!isPouch(pouch)) continue;
             CustomData data = pouch.get(DataComponents.CUSTOM_DATA);
             String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
-            if (tier(rarity) > digitalPouchTier(player)) {
-                ProfessionDataManager.ProfessionData professionData = ProfessionManager.getData(player);
-                professionData.trinketPouchRarity = rarity;
-                professionData.trinketPouchSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(rarity).pouchSlots));
+            if (tier(rarity) > tier(bestRarity)) {
+                bestRarity = rarity;
+                bestSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(rarity).pouchSlots));
             }
             digital.addAll(readPouchItems(player, pouch));
-            player.getInventory().items.set(i, ItemStack.EMPTY);
+            pouchSlots.add(i);
             changed = true;
         }
         if (changed) {
-            writeDigitalPouchItems(player, digital);
-            player.getInventory().setChanged();
-            if (tellPlayer) player.sendSystemMessage(Component.literal("§aConverted your physical trinket pouch into digital storage."));
+            professionData.trinketPouchRarity = bestRarity == null ? "" : bestRarity;
+            professionData.trinketPouchSlots = Math.max(bestSlots, Math.min(54, Math.max(0, ProfessionTrinketConfig.tier(bestRarity).pouchSlots)));
+            if (writeDigitalPouchItems(player, digital)) {
+                for (Integer slot : pouchSlots) {
+                    player.getInventory().items.set(slot, ItemStack.EMPTY);
+                }
+                player.getInventory().setChanged();
+                ProfessionManager.savePlayer(player);
+                if (tellPlayer) player.sendSystemMessage(Component.literal("§aConverted your physical trinket pouch into digital storage."));
+            }
         }
     }
 

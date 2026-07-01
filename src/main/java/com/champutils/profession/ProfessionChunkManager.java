@@ -39,6 +39,9 @@ public final class ProfessionChunkManager {
             int scaledLevels = Math.max(0, level - scalingStart);
             double chance = Math.min(roll.maxChancePercent, roll.baseChancePercent + (roll.chancePerLevelPercent * scaledLevels));
             chance *= multiplier;
+            double sublevelFindBonus = ProfessionSubLevelManager.chunkFindChanceBonus(player, profession);
+            double sublevelRarityBonus = ProfessionSubLevelManager.chunkRarityChanceBonus(player, profession) * rarityWeight(chunk);
+            chance *= (1.0D + sublevelFindBonus + sublevelRarityBonus);
             double preTrinketChance = Math.min(100.0D, chance);
             double trinketBonus = ProfessionTrinketManager.chunkChanceBonus(player);
             chance *= (1.0D + trinketBonus);
@@ -149,6 +152,17 @@ public final class ProfessionChunkManager {
         ProfessionManager.addFragments(player, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity), fragments);
         ProfessionManager.savePlayer(player);
         return new TradeResult(true, "", fragments, key, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity));
+    }
+
+    private static double rarityWeight(String chunk) {
+        return switch (normalizeChunk(chunk)) {
+            case "COPPER" -> 0.25D;
+            case "IRON" -> 0.50D;
+            case "GOLD" -> 0.75D;
+            case "DIAMOND" -> 1.00D;
+            case "NETHERITE" -> 1.25D;
+            default -> 0.10D;
+        };
     }
 
     public static String normalizeChunk(String chunk) {

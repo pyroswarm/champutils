@@ -177,6 +177,15 @@ public final class ProfileNetworkTransferFlow {
         long now = System.currentTimeMillis();
         if (accepted != null) {
             if (accepted.isFresh(now)) {
+                String profileName = accepted.profileName();
+                if (profileName != null && !profileName.isBlank()) {
+                    ProfileLoadingStateManager.beginBlank(player, profileName);
+                    PlayerProfileManager.switchAsync(player, profileName, result -> {
+                        if (result == null || !result.startsWith("Loaded")) {
+                            player.sendSystemMessage(Component.literal(result == null ? "Could not load your profile." : result).withStyle(ChatFormatting.RED));
+                        }
+                    });
+                }
                 return true;
             }
             ACCEPTED_SURVIVAL_SESSIONS.remove(playerUuid, accepted);

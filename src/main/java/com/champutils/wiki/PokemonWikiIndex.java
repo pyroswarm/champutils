@@ -66,7 +66,7 @@ public final class PokemonWikiIndex {
 
     public static Info get(String species) { return INFO.get(normal(species)); }
     public static Set<String> speciesSuggestions() { return Collections.unmodifiableSet(SPECIES); }
-    public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather"); }
+    public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather", "egg_moves", "drops"); }
 
     public static String abilities(String speciesName) {
         Species species = findSpecies(speciesName);
@@ -138,6 +138,43 @@ public final class PokemonWikiIndex {
         names.removeIf(s -> s.isBlank() || s.length() > 24 || s.contains("@"));
         if (names.isEmpty()) return "No type data found for this Pokémon.";
         return String.join("§7, §f", names);
+    }
+
+
+    public static String eggMoves(String speciesName) {
+        Species species = findSpecies(speciesName);
+        if (species == null) return "I do not know that Pokémon.";
+        LinkedHashSet<String> moves = new LinkedHashSet<>();
+        for (String methodName : List.of("getEggMoves", "getEggMoveNames", "getEggMoveset", "eggMoves")) {
+            try {
+                Method m = species.getClass().getMethod(methodName);
+                if (m.getParameterCount() == 0) collectPrettyNames(m.invoke(species), moves, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+            } catch (Throwable ignored) {}
+            try {
+                Field f = findField(species.getClass(), methodName);
+                if (f != null) { f.setAccessible(true); collectPrettyNames(f.get(species), moves, Collections.newSetFromMap(new IdentityHashMap<>()), 0); }
+            } catch (Throwable ignored) {}
+        }
+        moves.removeIf(s -> s.isBlank() || s.length() > 32 || s.equalsIgnoreCase("Egg Moves"));
+        return moves.isEmpty() ? "No egg move data found in the loaded Cobblemon data." : String.join("§7, §f", moves);
+    }
+
+    public static String drops(String speciesName) {
+        Species species = findSpecies(speciesName);
+        if (species == null) return "I do not know that Pokémon.";
+        LinkedHashSet<String> drops = new LinkedHashSet<>();
+        for (String methodName : List.of("getDrops", "getDropTable", "getLoot", "getBattleDrops", "drops")) {
+            try {
+                Method m = species.getClass().getMethod(methodName);
+                if (m.getParameterCount() == 0) collectPrettyNames(m.invoke(species), drops, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+            } catch (Throwable ignored) {}
+            try {
+                Field f = findField(species.getClass(), methodName);
+                if (f != null) { f.setAccessible(true); collectPrettyNames(f.get(species), drops, Collections.newSetFromMap(new IdentityHashMap<>()), 0); }
+            } catch (Throwable ignored) {}
+        }
+        drops.removeIf(s -> s.isBlank() || s.length() > 40 || s.equalsIgnoreCase("Drops"));
+        return drops.isEmpty() ? "No wild battle drop data found in the loaded Cobblemon data." : String.join("§7, §f", drops);
     }
 
     public static Species findSpecies(String speciesName) {

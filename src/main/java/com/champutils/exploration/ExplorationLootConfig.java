@@ -162,6 +162,9 @@ public final class ExplorationLootConfig {
         addLootIfMissing(table, "COMMON", "cobblemon:black_apricorn", 40, 1, 4);
         addLootIfMissing(table, "COMMON", "cobblemon:white_apricorn", 40, 1, 4);
         addLootIfMissing(table, "COMMON", "cobblemon:pink_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:tumblestone", 55, 2, 6);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:black_tumblestone", 45, 2, 5);
+        addLootIfMissing(table, "UNCOMMON", "cobblemon:sky_tumblestone", 45, 2, 5);
         addLootIfMissing(table, "UNCOMMON", "cobblemon:great_ball", 70, 2, 5);
         addLootIfMissing(table, "UNCOMMON", "cobblemon:heal_ball", 45, 2, 4);
         addLootIfMissing(table, "UNCOMMON", "cobblemon:net_ball", 35, 1, 3);

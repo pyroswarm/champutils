@@ -41,12 +41,7 @@ public final class ChampCraftingMenu {
         gui.setTitle(Component.literal(ChampCraftingConfig.CONFIG.title == null ? "Champ Crafting" : ChampCraftingConfig.CONFIG.title));
         MenuUtil.fillBorders(gui);
 
-        gui.setSlot(4, new GuiElementBuilder(Items.CRAFTING_TABLE)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§6Champ Crafting"))
-                .addLoreLine(Component.literal("§7Craft rare Genesis and competitive items"))
-                .addLoreLine(Component.literal("§7with huge profession backpack costs."))
-                .addLoreLine(Component.literal("§8Edit: config/champutils/champ_crafting.json")));
+        // Slot 4 intentionally left as border filler. The menu title already names this screen.
 
         List<String> categories = ChampCraftingConfig.categories();
         if (categories.isEmpty()) {
@@ -87,11 +82,7 @@ public final class ChampCraftingMenu {
         gui.setTitle(Component.literal("Champ Crafting: " + category + " " + (safePage + 1) + "/" + (maxPage + 1)));
         MenuUtil.fillBorders(gui);
 
-        gui.setSlot(4, new GuiElementBuilder(iconForCategory(category, all))
-                .hideDefaultTooltip()
-                .setName(Component.literal("§6" + category))
-                .addLoreLine(Component.literal("§7Costs pull from your profile backpack"))
-                .addLoreLine(Component.literal("§7and inventory where configured.")));
+        // Slot 4 intentionally left as border filler. The category title is in the window title.
 
         for (int i = 0; i < pageRecipes.size(); i++) {
             ChampCraftingConfig.RecipeData recipe = pageRecipes.get(i);

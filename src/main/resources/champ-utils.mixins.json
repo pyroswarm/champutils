@@ -24,7 +24,8 @@
     "FarmlandNoTrampleMixin",
     "MobSpawnerDisabledMixin",
     "CraftingArmorBlockerMixin",
-    "ProfessionArmorDamageReductionMixin"
+    "ProfessionArmorDamageReductionMixin",
+    "RedstoneAutoModLevelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

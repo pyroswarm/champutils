@@ -89,14 +89,18 @@ public final class FirstJoinKitManager {
         }
         String oldProfileKey = profileId.toString();
         String profileKey = "profile:" + profileId;
+        String playerProfileKey = "player:" + player.getUUID() + ":profile:" + profileId;
 
-        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey)) {
+        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey) || DATA.claimed.contains(playerProfileKey)) {
             DATA.claimed.add(profileKey);
+            DATA.claimed.add(playerProfileKey);
             save();
             return;
         }
 
+        // Mark every stable key before giving anything so reconnects/profile reloads cannot double-claim.
         DATA.claimed.add(profileKey);
+        DATA.claimed.add(playerProfileKey);
         save();
 
         for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.entries) {

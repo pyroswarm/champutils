@@ -46,10 +46,17 @@ public final class WildSpawnCapCommand {
     public static int capFor(ServerPlayer player) {
         ensureLoaded();
         if (player == null) return 0;
+        int gymCap = currentGymCap(player);
+        if (gymCap <= 0) return 0;
+
         UUID profile = PlayerProfileManager.activeProfileId(player);
         Integer requested = data.profileCaps.get(profile == null ? "" : profile.toString());
-        if (requested == null || requested <= 0) return 0;
-        return Math.min(requested, currentGymCap(player));
+
+        // Gym progression is the default cap. /setcap is only a player preference to go lower,
+        // not a required toggle. This keeps new players from seeing high-level wild spawns before
+        // earning badges, while still letting VIPs choose a stricter personal cap.
+        if (requested == null || requested <= 0) return gymCap;
+        return Math.min(requested, gymCap);
     }
 
     public static void applyToWildSpawn(ServerPlayer player, Pokemon pokemon) {
@@ -91,7 +98,7 @@ public final class WildSpawnCapCommand {
         if (requested <= 0) {
             data.profileCaps.remove(profile.toString());
             save();
-            player.sendSystemMessage(Component.literal("Wild spawn cap disabled for this profile.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Custom wild spawn cap removed. Gym progression cap still applies automatically.").withStyle(ChatFormatting.YELLOW));
             return;
         }
         int gymCap = currentGymCap(player);
@@ -104,8 +111,13 @@ public final class WildSpawnCapCommand {
     private static void status(ServerPlayer player) {
         int cap = capFor(player);
         int gymCap = currentGymCap(player);
-        if (cap <= 0) player.sendSystemMessage(Component.literal("Wild spawn cap is disabled. Current gym cap: " + gymCap + ".").withStyle(ChatFormatting.GRAY));
-        else player.sendSystemMessage(Component.literal("Wild spawn cap: " + cap + " (current gym cap: " + gymCap + ").").withStyle(ChatFormatting.AQUA));
+        UUID profile = PlayerProfileManager.activeProfileId(player);
+        Integer requested = data.profileCaps.get(profile == null ? "" : profile.toString());
+        if (requested == null || requested <= 0) {
+            player.sendSystemMessage(Component.literal("Wild spawn cap: " + gymCap + " from gym progression. No custom lower cap is set.").withStyle(ChatFormatting.AQUA));
+        } else {
+            player.sendSystemMessage(Component.literal("Wild spawn cap: " + cap + " (custom cap " + requested + ", current gym cap " + gymCap + ").").withStyle(ChatFormatting.AQUA));
+        }
     }
 
     private static void ensureLoaded() {

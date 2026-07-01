@@ -76,13 +76,35 @@ public class ProfessionRewardPassiveConfig {
 
             TABLES = readTables(file);
             filterSeedSaverTable();
+            ensureBerryFinderTable();
             filterHardStoneFromMiningFinderTables();
             mergeMissingDefaultRewardEntries();
             filterSeedSaverTable();
+            ensureBerryFinderTable();
             filterHardStoneFromMiningFinderTables();
         } catch (Exception e) {
             e.printStackTrace();
             TABLES = new LinkedHashMap<>();
+        }
+    }
+
+
+    private static void ensureBerryFinderTable() {
+        if (TABLES == null) return;
+        List<RewardEntry> existing = TABLES.get("farming_berry_finder");
+        if (existing != null && !existing.isEmpty()) return;
+        List<RewardEntry> seedSaver = TABLES.get("farming_seed_saver");
+        if (seedSaver == null || seedSaver.isEmpty()) return;
+        List<RewardEntry> berries = new ArrayList<>();
+        for (RewardEntry entry : seedSaver) {
+            if (entry == null || entry.item == null) continue;
+            String item = entry.item.toLowerCase(java.util.Locale.ROOT);
+            if (item.startsWith("cobblemon:") && item.endsWith("_berry")) {
+                berries.add(entry);
+            }
+        }
+        if (!berries.isEmpty()) {
+            TABLES.put("farming_berry_finder", berries);
         }
     }
 
@@ -681,6 +703,8 @@ public class ProfessionRewardPassiveConfig {
                 entry("cobblemon:revival_herb", 1, 1, 2),
                 fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));
+
+        root.tables.put("farming_berry_finder", root.tables.get("farming_seed_saver"));
 
         root.tables.put("farming_golden_harvest", list(
                 entry("minecraft:golden_carrot", 1, 2, 28),

@@ -61,6 +61,7 @@ import com.champutils.tm.*;
 import com.champutils.claims.*;
 import com.champutils.expeditions.*;
 import com.champutils.rewardtrack.*;
+import com.champutils.tutorial.*;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -214,6 +215,7 @@ public class ChampUtilsMod implements ModInitializer {
         TitleManager.load();
         WorldFirstManager.load();
         PlayerProfileManager.ensureSchemaAsync();
+        TutorialManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStorageBridge.ensureSchemaAsync();
         MonotypeStarterManager.ensureSchemaAsync();
@@ -323,6 +325,8 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionTrinketConfig.load();
         ProfessionTrinketManager.registerItems();
         ProfessionTrinketManager.registerEffects();
+        BattlePokemonDropMultiplierListener.register();
+        BattleBondEvolutionListener.register();
 
         /*
          Profession loot config
@@ -334,6 +338,7 @@ public class ChampUtilsMod implements ModInitializer {
          Battle profession loot config
          */
         BattleProfessionLootConfig.load(); // legacy file kept readable; battle item/money loot disabled by managers.
+        BattleBondEvolutionConfig.load();
 
         /*
          Anti exploit block tracking
@@ -357,6 +362,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldEventBindingRegistry.load();
 
         AuctionHouseNpcBindingRegistry.load();
+        TutorialNpcBindingRegistry.load();
         MenuNpcBindingRegistry.load();
         MegaShopConfig.load();
 
@@ -385,6 +391,7 @@ public class ChampUtilsMod implements ModInitializer {
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
                     PlayerProfileManager.ensureSchemaAsync();
+                    TutorialManager.ensureSchemaAsync();
                     BattleProfileRecoveryManager.recoverInterruptedGuardsAsync();
                     VanillaProfileStateManager.ensureSchemaAsync();
                     CobblemonProfileStorageBridge.ensureSchemaAsync();
@@ -470,6 +477,11 @@ public class ChampUtilsMod implements ModInitializer {
                         return;
                     }
                     if (PlayerProfileManager.isInMainMenu(player)) {
+                        return;
+                    }
+                    if (com.champutils.profile.ProfileNetworkTransferFlow.isSurvivalServer() &&
+                            (com.champutils.profile.ProfileLoadingStateManager.isLoading(player) ||
+                                    !PlayerProfileManager.hasActiveProfile(player))) {
                         return;
                     }
                     PlayerDataManager.ensurePlayer(
@@ -559,6 +571,8 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
+                    TutorialManager.handleJoin(player);
+
                 }
         );
 
@@ -575,6 +589,8 @@ public class ChampUtilsMod implements ModInitializer {
                     MatchmakingManager.leaveQueue(
                             handler.player
                     );
+
+                    TutorialManager.unload(handler.player);
                 }
         );
 
@@ -622,10 +638,11 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.rank.SeasonRewardManager.registerCommand();
         LeaderboardCommand.register();
         GymCommand.register();
-        EVTrainingCommand.register();
+        // /evtraining removed intentionally. EV training access can still be reused by other systems.
         EnderChestCommand.register();
         RpAdminCommand.register();
         ProfessionAdminCommand.register();
+        ProfessionsCommand.register();
         ProfessionToolsCommand.register();
         BackpackCommand.register();
         ChampCraftingCommand.register();
@@ -704,6 +721,7 @@ public class ChampUtilsMod implements ModInitializer {
         ExpeditionCommand.register();
         WildSpawnCapCommand.register();
         RewardTrackCommand.register();
+        TutorialCommand.register();
         MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
 
@@ -738,6 +756,7 @@ public class ChampUtilsMod implements ModInitializer {
         LandClaimSelectionItemListener.register();
         WorldEventAreaProtectionListener.register();
         AuctionHouseBindInteractionListener.register();
+        TutorialNpcInteractionListener.register();
         MenuNpcInteractionListener.register();
         ItemBindInteractionListener.register();
         ChampTrainerInteractionListener.register();
@@ -793,6 +812,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("NotificationManager", () -> NotificationManager.tick(server));
                     timedTick("PokemonHuntManager", () -> PokemonHuntManager.tick(server));
                     timedTick("QuestManager", () -> QuestManager.tick(server));
+                    timedTick("TutorialManager", () -> TutorialManager.tick(server));
                     timedTick("RandomTeleportCommand", () -> RandomTeleportCommand.tick(server));
                     timedTick("PortalManager", () -> PortalManager.tick(server));
                     timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
@@ -818,6 +838,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("AntiLagManager", () -> AntiLagManager.tick(server));
                     timedTick("OversizedChunkEntityGuard", () -> com.champutils.antilag.OversizedChunkEntityGuard.tick(server));
                     timedTick("ModerationManager", () -> ModerationManager.tick(server));
+                    timedTick("RedstoneAutoModManager", () -> RedstoneAutoModManager.tick(server));
                     timedTick("DailyLoginManager", () -> DailyLoginManager.tick(server));
                     timedTick("AutoChampSaveManager", () -> com.champutils.commands.AutoChampSaveManager.tick(server));
                     timedTick("ChampWorldBorderManager", () -> ChampWorldBorderManager.tick(server));
@@ -847,7 +868,7 @@ public class ChampUtilsMod implements ModInitializer {
                         for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
                             PlayerProfileManager.saveActiveLocationAsync(onlinePlayer);
                         }
-                        ProfessionManager.saveAll();
+                        ProfessionManager.saveAllAsync();
                         QuestManager.saveAll();
                         PlaytimeManager.addOnlineMinute(server);
                         com.champutils.profile.ProfilePlaytimeManager.flushAsync();

@@ -157,7 +157,7 @@ public class MiningProfessionListener {
                             );
 
                     if (isShovelBlock && hasMiningTool) {
-                        handleShovelDiggingProgress(serverPlayer, blockId);
+                        handleShovelDiggingProgress(serverPlayer, serverPlayer.serverLevel(), pos, blockId);
 
                         if (!isBreakingExtraBlock(
                                 serverPlayer
@@ -193,7 +193,7 @@ public class MiningProfessionListener {
                                                 ProfessionType.MINING
                                         )
                         ) {
-                            handleStoneTypeMiningProgress(serverPlayer, blockId);
+                            handleStoneTypeMiningProgress(serverPlayer, serverPlayer.serverLevel(), pos, blockId);
                         }
 
                         if (!isBreakingExtraBlock(
@@ -232,6 +232,7 @@ public class MiningProfessionListener {
                             ProfessionType.MINING,
                             xp
                     );
+                    ProfessionSubLevelManager.addBlockXp(serverPlayer, ProfessionType.MINING, blockId, xp);
 
                     com.champutils.quest.QuestManager.recordBlock(
                             serverPlayer,
@@ -323,6 +324,8 @@ public class MiningProfessionListener {
 
     private static void handleStoneTypeMiningProgress(
             ServerPlayer player,
+            ServerLevel level,
+            BlockPos pos,
             String blockId
     ) {
         int count = STONE_BLOCK_COUNTS.merge(
@@ -345,10 +348,23 @@ public class MiningProfessionListener {
                 ProfessionType.MINING,
                 1
         );
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, blockId, 1);
 
         com.champutils.quest.QuestManager.recordBlock(
                 player,
                 ProfessionType.MINING,
+                blockId
+        );
+
+        // Stone Finder/reward rolls must also happen during regular mining, not only burst mining.
+        ProfessionLootManager.rollReward(
+                player,
+                ProfessionType.MINING
+        );
+        PassiveRegistry.applyMiningPassives(
+                player,
+                level,
+                pos,
                 blockId
         );
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
@@ -356,6 +372,8 @@ public class MiningProfessionListener {
 
     private static void handleShovelDiggingProgress(
             ServerPlayer player,
+            ServerLevel level,
+            BlockPos pos,
             String blockId
     ) {
         int count = SHOVEL_BLOCK_COUNTS.merge(
@@ -378,10 +396,18 @@ public class MiningProfessionListener {
                 ProfessionType.MINING,
                 1
         );
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, blockId, 1);
 
         com.champutils.quest.QuestManager.recordBlock(
                 player,
                 ProfessionType.MINING,
+                blockId
+        );
+
+        PassiveRegistry.applyMiningPassives(
+                player,
+                level,
+                pos,
                 blockId
         );
 
@@ -507,6 +533,7 @@ public class MiningProfessionListener {
                     ProfessionType.MINING,
                     xp
             );
+            ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, blockId, xp);
 
             com.champutils.quest.QuestManager.recordBlock(
                     player,
@@ -908,7 +935,7 @@ public class MiningProfessionListener {
                                 ProfessionType.MINING
                         )
         ) {
-            handleShovelDiggingProgress(player, targetBlockId);
+            handleShovelDiggingProgress(player, level, target, targetBlockId);
         }
         else if (xp != null && xp > 0) {
             int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
@@ -1316,11 +1343,12 @@ public class MiningProfessionListener {
                         ProfessionType.MINING
                 )) {
                     if (MiningBlockUtil.isShovelBlock(level, target, targetState)) {
-                        handleShovelDiggingProgress(player, targetBlockId);
+                        handleShovelDiggingProgress(player, level, target, targetBlockId);
                     }
                     else if (xp != null && xp > 0) {
                         int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
                         ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
+                        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, targetBlockId, extraXp);
                         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
                         ProfessionLootManager.rollReward(player, ProfessionType.MINING);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
@@ -1478,7 +1506,9 @@ public class MiningProfessionListener {
                 selectedTracker == null ||
                         selectedTracker.isBlank()
         ) {
-            return;
+            selectedTracker = "stone_mined";
+            ProfessionToolMetadata.setSelectedTracker(stack, selectedTracker);
+            ProfessionToolMetadata.setTracker(stack, selectedTracker, 0L);
         }
 
         if (
@@ -1560,7 +1590,10 @@ public class MiningProfessionListener {
 
         return switch (blockId) {
             case "minecraft:stone",
+                 "minecraft:cobblestone",
+                 "minecraft:mossy_cobblestone",
                  "minecraft:deepslate",
+                 "minecraft:cobbled_deepslate",
                  "minecraft:granite",
                  "minecraft:diorite",
                  "minecraft:andesite",
@@ -1569,7 +1602,9 @@ public class MiningProfessionListener {
                  "minecraft:dripstone_block",
                  "minecraft:blackstone",
                  "minecraft:basalt",
-                 "minecraft:smooth_basalt" ->
+                 "minecraft:smooth_basalt",
+                 "minecraft:netherrack",
+                 "minecraft:end_stone" ->
                     true;
 
             default ->

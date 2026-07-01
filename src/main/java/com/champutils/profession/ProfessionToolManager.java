@@ -1360,14 +1360,9 @@ public class ProfessionToolManager {
                 selectedTracker == null ||
                         selectedTracker.isBlank()
         ) {
-            lore.add(
-                    Component.literal(
-                            " No tracker selected yet."
-                    ).withStyle(
-                            ChatFormatting.DARK_GRAY
-                    )
-            );
-            return;
+            selectedTracker = "stone_mined";
+            ProfessionToolMetadata.setSelectedTracker(stack, selectedTracker);
+            ProfessionToolMetadata.setTracker(stack, selectedTracker, 0L);
         }
 
         long value =
@@ -2624,12 +2619,33 @@ public class ProfessionToolManager {
          *   level 5 -> +26
          *
          * ChampUtils keeps the config/display as percentages, then converts
-         * every 25% miningSpeed/chopSpeed/diggingSpeed into one virtual Efficiency level. Fractional
+         * every 40% miningSpeed/chopSpeed/diggingSpeed into one virtual Efficiency level. Fractional
          * values are allowed so 23% and 230% are no longer in the same
          * barely-noticeable vanilla multiplier bucket.
          */
+        /*
+         * Keep the server-side destroy speed close to what vanilla clients can
+         * visually predict. The previous quadratic scaling made fast tools
+         * delete blocks server-side before the client could show a normal break
+         * animation or sound, especially through Polymer's vanilla item disguise.
+         *
+         * This still lets high-end tools reach vanilla-feeling instant mining, but
+         * caps the hidden bonus at roughly Efficiency V instead of jumping far
+         * past it.
+         */
+        double percentPerLevel = ProfessionToolConfig.SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL;
+        if (percentPerLevel <= 0.0D) {
+            percentPerLevel = 40.0D;
+        }
+
+        // Existing configs that still say 50 should not make 200% speed feel worse than Efficiency V.
+        percentPerLevel = Math.min(percentPerLevel, 40.0D);
+
         double virtualEfficiencyLevel =
-                miningSpeedPercent / 25.0D;
+                Math.min(
+                        Math.max(1.0D, ProfessionToolConfig.MAX_VIRTUAL_EFFICIENCY_LEVEL),
+                        miningSpeedPercent / percentPerLevel
+                );
 
         return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
     }

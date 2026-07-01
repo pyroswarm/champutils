@@ -1,6 +1,7 @@
 package com.champutils.mixin;
 
 import com.champutils.profession.VanillaArmorRestrictionManager;
+import com.champutils.crafting.BottleCapCraftingGuard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ResultSlot;
@@ -14,8 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CraftingArmorBlockerMixin {
     @Inject(method = "onTake", at = @At("HEAD"), cancellable = true)
     private void champutils$blockVanillaArmorCrafting(Player player, ItemStack stack, CallbackInfo ci) {
-        if (player instanceof ServerPlayer serverPlayer && VanillaArmorRestrictionManager.blockCraftingIfRestricted(serverPlayer, stack)) {
-            ci.cancel();
+        if (player instanceof ServerPlayer serverPlayer) {
+            if (VanillaArmorRestrictionManager.blockCraftingIfRestricted(serverPlayer, stack)
+                    || BottleCapCraftingGuard.blockIfBottleCap(serverPlayer, stack)) {
+                ci.cancel();
+            }
         }
     }
 }

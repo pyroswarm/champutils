@@ -55,6 +55,14 @@ public final class ProfessionBackpackManager {
         if (!ProfessionBackpackConfig.CONFIG.enabled || !isAutopickupEnabled(player)) return false;
         if (!isSafeBackpackStack(stack)) return false;
         String itemId = itemId(stack);
+        if (itemId.startsWith("cobblemon:") && itemId.endsWith("_berry")) {
+            ProfessionBackpackConfig.allowItem(
+                    itemId,
+                    ProfessionType.FARMING,
+                    ProfessionBackpackConfig.formatName(itemId)
+            );
+            return true;
+        }
         return ProfessionBackpackConfig.isCollectableConfigured(itemId);
     }
 

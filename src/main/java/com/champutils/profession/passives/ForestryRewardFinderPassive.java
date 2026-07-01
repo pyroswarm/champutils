@@ -6,7 +6,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
 import java.util.Random;
@@ -27,9 +31,20 @@ public class ForestryRewardFinderPassive implements ProfessionPassive {
         chance *= ActiveEffectManager.getForestryPassiveChanceMultiplier(player, stack);
         if (RANDOM.nextDouble() >= Math.min(100.0D, chance) / 100.0D) return;
         String itemId = APRICORNS.get(RANDOM.nextInt(APRICORNS.size()));
-        player.getServer().getCommands().performPrefixedCommand(player.getServer().createCommandSourceStack(), "give " + player.getName().getString() + " " + itemId + " 1");
+        Item item = item(itemId);
+        if (item == Items.AIR) return;
+        ItemStack reward = new ItemStack(item, 1);
+        ProfessionBackpackManager.giveOrDrop(player, reward, true);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aApricorn Finder: §fFound an apricorn!"), true);
+        }
+    }
+
+    private static Item item(String itemId) {
+        try {
+            return BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+        } catch (Exception ignored) {
+            return Items.AIR;
         }
     }
 }

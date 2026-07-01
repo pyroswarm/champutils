@@ -285,6 +285,11 @@ public class QuestManager {
             String deepslate = "minecraft:deepslate_" + t.substring("minecraft:".length());
             return b.equals(t) || b.equals(deepslate);
         }
+        if (!target.contains(":") && !target.endsWith("_ore")) {
+            String ore = "minecraft:" + target.toLowerCase(Locale.ROOT) + "_ore";
+            String deepOre = "minecraft:deepslate_" + target.toLowerCase(Locale.ROOT) + "_ore";
+            if (b.equals(ore) || b.equals(deepOre)) return true;
+        }
         return false;
     }
 

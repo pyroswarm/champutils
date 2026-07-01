@@ -61,8 +61,13 @@ public final class PokemonWikiCommand {
 
     private static void sendSummary(ServerPlayer player, String pokemon) {
         player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " Wiki"));
-        player.sendSystemMessage(Component.literal("§7Use: §e/wiki " + pokemon.toLowerCase(Locale.ROOT) + " <biome|time|ability|type|level|rarity|weather>"));
+        player.sendSystemMessage(Component.literal("§7Use: §e/wiki " + pokemon.toLowerCase(Locale.ROOT) + " <type|ability|biome|time|level|rarity|egg_moves|drops>"));
+        sendTopic(player, pokemon, "type");
+        sendTopic(player, pokemon, "ability");
         sendTopic(player, pokemon, "biome");
+        sendTopic(player, pokemon, "time");
+        sendTopic(player, pokemon, "rarity");
+        sendTopic(player, pokemon, "drops");
     }
 
     private static void sendTopic(ServerPlayer player, String pokemon, String topic) {
@@ -81,7 +86,9 @@ public final class PokemonWikiCommand {
             case "extra", "requirements" -> { label = "Extra requirements"; value = join(info == null ? null : info.extra, "No extra requirements found."); }
             case "ability", "abilities" -> { label = "Abilities"; value = PokemonWikiIndex.abilities(pokemon); }
             case "type", "types" -> { label = "Type"; value = PokemonWikiIndex.types(pokemon); }
-            default -> { label = "Unknown topic"; value = "Try biome, time, ability, type, level, rarity, block, structure, or weather."; }
+            case "egg", "eggs", "eggmove", "eggmoves", "egg_moves" -> { label = "Egg moves"; value = PokemonWikiIndex.eggMoves(pokemon); }
+            case "drop", "drops", "loot" -> { label = "Wild battle drops"; value = PokemonWikiIndex.drops(pokemon); }
+            default -> { label = "Unknown topic"; value = "Try type, ability, biome, time, level, rarity, egg_moves, drops, block, structure, or weather."; }
         }
         player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " §e" + label + ": §f" + value));
     }

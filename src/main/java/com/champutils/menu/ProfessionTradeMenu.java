@@ -35,10 +35,11 @@ public final class ProfessionTradeMenu {
 
     public static void openProfession(ServerPlayer player, ProfessionType profession, int page) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
-        gui.setTitle(Component.literal("Profession Trade - " + profession.name()));
+        String displayProfession = profession.name().substring(0, 1) + profession.name().substring(1).toLowerCase(java.util.Locale.ROOT);
+        gui.setTitle(Component.literal("Profession Trade - " + displayProfession));
         MenuUtil.fillBorders(gui, 4,10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43,45,49,53);
         gui.setSlot(4, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
-                .setName(Component.literal("§d" + profession.name() + " Trades"))
+                .setName(Component.literal("§d" + displayProfession + " Trades"))
                 .addLoreLine(Component.literal("§7Costs are configurable per item.")));
 
         List<ProfessionBackpackConfig.ItemData> items = tradeItems(profession, player);

@@ -52,14 +52,25 @@ public final class GymRewardConfig {
         for (BadgeType badge : BadgeType.values()) {
             Reward r = new Reward();
             long wholeCredits = switch (badge) {
-                case BOULDER -> 50L; case CASCADE -> 75L; case THUNDER -> 100L; case RAINBOW -> 125L;
-                case SOUL -> 150L; case MARSH -> 175L; case VOLCANO -> 200L; case EARTH -> 250L;
-                case LORELEI, BRUNO, AGATHA, LANCE -> 500L; case CHAMPION -> 1000L;
+                case BOULDER -> 150L;
+                case CASCADE -> 250L;
+                case THUNDER -> 500L;
+                case RAINBOW -> 1_000L;
+                case SOUL -> 2_000L;
+                case MARSH -> 3_500L;
+                case VOLCANO -> 5_000L;
+                case EARTH -> 7_500L;
+                case LORELEI -> 10_000L;
+                case BRUNO -> 12_500L;
+                case AGATHA -> 15_000L;
+                case LANCE -> 20_000L;
+                case CHAMPION -> 25_000L;
             };
             r.credits = com.champutils.economy.EconomyManager.wholeCreditsToCents(wholeCredits);
-            r.items.add(new ItemReward("cobblemon:poke_ball", Math.max(5, 10 + i * 2)));
-            if (i >= 2) r.items.add(new ItemReward("cobblemon:great_ball", 8));
-            if (i >= 5) r.items.add(new ItemReward("cobblemon:ultra_ball", 6));
+            r.items.add(new ItemReward("cobblemon:poke_ball", Math.max(16, 24 + i * 4)));
+            if (i >= 1) r.items.add(new ItemReward("cobblemon:great_ball", 8 + i * 2));
+            if (i >= 4) r.items.add(new ItemReward("cobblemon:ultra_ball", 6 + i));
+            if (i >= 7) r.items.add(new ItemReward("cobblemon:rare_candy", Math.max(1, i / 3)));
             c.rewards.put(badge.name(), r); i++;
         }
         return c;

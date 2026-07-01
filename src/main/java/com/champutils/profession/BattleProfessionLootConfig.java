@@ -27,6 +27,15 @@ public final class BattleProfessionLootConfig {
     public static boolean announceRewards = true;
     public static double wildBattleRewardChance = 0.20D;
     public static Set<String> superRareItemIds = new LinkedHashSet<>();
+
+    public static boolean extraPokemonDropsEnabled = true;
+    public static int extraPokemonDropsMinBattlingLevel = 1;
+    public static double extraPokemonDropsBaseChance = 0.25D;
+    public static double extraPokemonDropsChancePerLevel = 0.01D;
+    public static double extraPokemonDropsMaxChance = 1.0D;
+    public static int extraPokemonDropsCopyEveryLevels = 25;
+    public static int extraPokemonDropsMaxExtraCopies = 2;
+    public static int extraPokemonDropsMaxAddedEntries = 12;
     public static MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
 
     public static FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
@@ -68,6 +77,15 @@ public final class BattleProfessionLootConfig {
             maxRolls = loaded.maxRolls;
             announceRewards = loaded.announceRewards;
             wildBattleRewardChance = loaded.wildBattleRewardChance;
+
+            extraPokemonDropsEnabled = loaded.extraPokemonDropsEnabled;
+            extraPokemonDropsMinBattlingLevel = loaded.extraPokemonDropsMinBattlingLevel;
+            extraPokemonDropsBaseChance = loaded.extraPokemonDropsBaseChance;
+            extraPokemonDropsChancePerLevel = loaded.extraPokemonDropsChancePerLevel;
+            extraPokemonDropsMaxChance = loaded.extraPokemonDropsMaxChance;
+            extraPokemonDropsCopyEveryLevels = loaded.extraPokemonDropsCopyEveryLevels;
+            extraPokemonDropsMaxExtraCopies = loaded.extraPokemonDropsMaxExtraCopies;
+            extraPokemonDropsMaxAddedEntries = loaded.extraPokemonDropsMaxAddedEntries;
             moneyRewards = loaded.moneyRewards != null ? loaded.moneyRewards : new MoneyRewardSettings();
             superRareItemIds = normalizeItemIds(loaded.superRareItemIds);
             if (superRareItemIds.isEmpty()) {
@@ -104,6 +122,15 @@ public final class BattleProfessionLootConfig {
         public int maxRolls = 3;
         public boolean announceRewards = false;
         public double wildBattleRewardChance = 0.05D;
+
+        public boolean extraPokemonDropsEnabled = true;
+        public int extraPokemonDropsMinBattlingLevel = 1;
+        public double extraPokemonDropsBaseChance = 0.25D;
+        public double extraPokemonDropsChancePerLevel = 0.01D;
+        public double extraPokemonDropsMaxChance = 1.0D;
+        public int extraPokemonDropsCopyEveryLevels = 25;
+        public int extraPokemonDropsMaxExtraCopies = 2;
+        public int extraPokemonDropsMaxAddedEntries = 12;
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();

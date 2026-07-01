@@ -21,7 +21,7 @@ public final class DexRewardConfig {
     }
 
     public static class DexRewardRoot {
-        public int totalPokemon = 1009;
+        public int totalPokemon = 1025;
         public int tierStepPercent = 5;
         public Map<String, DexRewardTier> rewards = new LinkedHashMap<>();
     }
@@ -65,7 +65,7 @@ public final class DexRewardConfig {
             CONFIG = createDefaultRoot();
         }
         if (CONFIG.totalPokemon <= 0) {
-            CONFIG.totalPokemon = 1009;
+            CONFIG.totalPokemon = 1025;
         }
         if (CONFIG.tierStepPercent <= 0) {
             CONFIG.tierStepPercent = 5;
@@ -88,7 +88,7 @@ public final class DexRewardConfig {
 
     private static DexRewardRoot createDefaultRoot() {
         DexRewardRoot root = new DexRewardRoot();
-        root.totalPokemon = 1009;
+        root.totalPokemon = 1025;
         root.tierStepPercent = 5;
 
         for (int percent = 5; percent <= 100; percent += 5) {
@@ -96,21 +96,28 @@ public final class DexRewardConfig {
             tier.percent = percent;
             tier.displayName = percent + "% Pokédex Reward";
 
+            int credits = percent * 250;
+            tier.commands.add("eco give %player% " + credits);
             if (percent == 5) {
-                tier.commands.add("give %player% cobblemon:poke_ball 16");
+                tier.commands.add("give %player% cobblemon:poke_ball 32");
             } else if (percent == 10) {
-                tier.commands.add("give %player% cobblemon:great_ball 8");
+                tier.commands.add("give %player% cobblemon:great_ball 24");
             } else if (percent == 25) {
-                tier.commands.add("give %player% cobblemon:ultra_ball 8");
-                tier.commands.add("give %player% cobblemon:rare_candy 1");
-            } else if (percent == 50) {
+                tier.commands.add("give %player% cobblemon:ultra_ball 24");
                 tier.commands.add("give %player% cobblemon:rare_candy 3");
-                tier.commands.add("give %player% minecraft:diamond 5");
+            } else if (percent == 50) {
+                tier.commands.add("give %player% cobblemon:rare_candy 8");
+                tier.commands.add("give %player% minecraft:diamond 16");
+            } else if (percent == 75) {
+                tier.commands.add("give %player% cobblemon:rare_candy 12");
+                tier.commands.add("give %player% cobblemon:ability_capsule 1");
             } else if (percent == 100) {
+                tier.commands.add("eco give %player% 25000");
                 tier.commands.add("give %player% cobblemon:master_ball 1");
+                tier.commands.add("give %player% cobblemon:ability_patch 1");
                 tier.commands.add("title %player% title {\"text\":\"Pokédex Complete!\",\"color\":\"gold\",\"bold\":true}");
             } else {
-                tier.commands.add("give %player% cobblemon:poke_ball " + Math.max(4, percent));
+                tier.commands.add("give %player% cobblemon:poke_ball " + Math.max(16, percent));
             }
 
             root.rewards.put(String.valueOf(percent), tier);

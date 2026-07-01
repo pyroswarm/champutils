@@ -89,6 +89,7 @@ public class FarmingProfessionListener {
     private static void processFarmingRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
         int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
         ProfessionManager.addXp(player, ProfessionType.FARMING, xp);
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FARMING, blockId, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FARMING, blockId);
         // Farming was intentionally nerfed: one mature crop = one base XP.
         ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
@@ -96,7 +97,7 @@ public class FarmingProfessionListener {
         rollXpSurge(player, tool, xp);
         rollRewardPassive(player, tool, "seedSaverChance", "farming_seed_saver");
         rollRewardPassive(player, tool, "goldenHarvestChance", "farming_golden_harvest");
-        rollRewardPassive(player, tool, "berryFinderChance", "farming_seed_saver");
+        rollRewardPassive(player, tool, "berryFinderChance", "farming_berry_finder");
         rollHarvestMultiplier(player, state.getBlock(), tool);
     }
 
@@ -218,6 +219,7 @@ public class FarmingProfessionListener {
         if (!roll(player, tool, "farmingXpSurgeChance") && !roll(player, tool, "xpSurgeChance")) return;
         int bonus = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FARMING, bonus);
+        ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FARMING, "farming_xp_surge", bonus);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aFarming XP Surge! +" + bonus), true);
         }
@@ -233,6 +235,11 @@ public class FarmingProfessionListener {
 
         if ("farming_golden_harvest".equals(table)) {
             ProfessionRewardPassiveConfig.giveRolled(player, table, "§6Golden Harvest!", "§fFound ", ProfessionType.FARMING, tool);
+            return;
+        }
+
+        if ("farming_berry_finder".equals(table)) {
+            ProfessionRewardPassiveConfig.giveRolled(player, table, "§dBerry Finder!", "§fFound ", ProfessionType.FARMING, tool);
             return;
         }
 

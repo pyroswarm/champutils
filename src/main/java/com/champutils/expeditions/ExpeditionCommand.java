@@ -55,11 +55,27 @@ public final class ExpeditionCommand {
             return;
         }
 
+        ExpeditionMenu.chooseType(player, slot, pokemon);
+    }
+
+    static void previewType(ServerPlayer player, int slot, String type) {
+        if (ExpeditionManager.hasActive(player)) {
+            player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
+            ExpeditionManager.status(player);
+            return;
+        }
+        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        Pokemon pokemon = party == null ? null : party.get(slot - 1);
+        if (pokemon == null) {
+            player.sendSystemMessage(Component.literal("No Pokémon in that slot.").withStyle(ChatFormatting.RED));
+            return;
+        }
         ExpeditionConfig.Tier tier = ExpeditionConfig.tier(pokemon.getLevel());
         long hours = Math.max(1, tier.hours);
         long endsAt = System.currentTimeMillis() + hours * 3_600_000L;
-        PENDING.put(PlayerProfileManager.activeProfileId(player), new Pending(slot, endsAt));
-        ExpeditionMenu.preview(player, slot, pokemon, endsAt);
+        String normalizedType = ExpeditionConfig.normalizeType(type);
+        PENDING.put(PlayerProfileManager.activeProfileId(player), new Pending(slot, endsAt, normalizedType));
+        ExpeditionMenu.preview(player, slot, pokemon, endsAt, normalizedType);
     }
 
     static void confirm(ServerPlayer player) {
@@ -82,7 +98,7 @@ public final class ExpeditionCommand {
         }
 
         try {
-            ExpeditionManager.start(player, pending.slot, pokemon, pending.endsAt);
+            ExpeditionManager.start(player, pending.slot, pokemon, pending.endsAt, pending.type);
             AuctionPokemonSerializer.clearPartySlot(player, pending.slot - 1);
             player.closeContainer();
             player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " was sent on an expedition. Check it with /expeditions and claim it with /expeditions claim.").withStyle(ChatFormatting.GREEN));
@@ -92,5 +108,5 @@ public final class ExpeditionCommand {
         }
     }
 
-    private record Pending(int slot, long endsAt) {}
+    private record Pending(int slot, long endsAt, String type) {}
 }

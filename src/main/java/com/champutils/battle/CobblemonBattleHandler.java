@@ -7,10 +7,13 @@ import com.cobblemon.mod.common.api.events.battles.BattleFaintedEvent;
 
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionSubLevelManager;
 import com.champutils.profession.ProfessionType;
 
 public class CobblemonBattleHandler {
@@ -255,6 +258,7 @@ public class CobblemonBattleHandler {
 
                 int xp = Math.max(1, defeatedLevel);
                 ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
+                ProfessionSubLevelManager.addPokemonTypeXp(player, findPokemonTypes(event), xp);
             }
         } catch (Throwable ignored) {
         }
@@ -285,29 +289,33 @@ public class CobblemonBattleHandler {
 
     private static void recordDefeatedTypeQuestProgress(BattleFaintedEvent event) {
         try {
-            String type = findPokemonType(event);
-            if (type == null || type.isBlank()) {
+            List<String> types = findPokemonTypes(event);
+            if (types.isEmpty()) {
                 return;
             }
 
             for (Object actor : event.getBattle().getActors()) {
                 if (actor instanceof PlayerBattleActor p) {
                     ServerPlayer player = (ServerPlayer) p.getEntity();
-                    com.champutils.quest.QuestManager.recordDefeatedPokemonType(player, type);
+                    for (String type : types) {
+                        com.champutils.quest.QuestManager.recordDefeatedPokemonType(player, type);
+                    }
                 }
             }
         } catch (Exception ignored) {
         }
     }
 
-    private static String findPokemonType(BattleFaintedEvent event) {
+    private static List<String> findPokemonTypes(BattleFaintedEvent event) {
+        List<String> result = new ArrayList<>();
         try {
             Object killed = event.getKilled();
             if (killed == null) {
-                return null;
+                return result;
             }
 
             Object pokemon = invokeNoArg(killed, "getOriginalPokemon");
+            if (pokemon == null) pokemon = invokeNoArg(killed, "getEffectedPokemon");
             if (pokemon == null) pokemon = invokeNoArg(killed, "getPokemon");
             if (pokemon == null) pokemon = killed;
 
@@ -318,17 +326,17 @@ public class CobblemonBattleHandler {
             if (types instanceof Iterable<?> iterable) {
                 for (Object t : iterable) {
                     String name = typeName(t);
-                    if (name != null && !name.isBlank()) return name;
+                    if (name != null && !name.isBlank() && !result.contains(name)) result.add(name);
                 }
-            }
-
-            String text = String.valueOf(types);
-            if (text != null && !"null".equals(text)) {
-                return text.toLowerCase(java.util.Locale.ROOT);
+            } else {
+                String text = String.valueOf(types);
+                if (text != null && !"null".equals(text)) {
+                    result.add(text.toLowerCase(java.util.Locale.ROOT));
+                }
             }
         } catch (Exception ignored) {
         }
-        return null;
+        return result;
     }
 
     private static Object invokeNoArg(Object target, String method) {

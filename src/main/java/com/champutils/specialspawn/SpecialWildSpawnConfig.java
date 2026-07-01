@@ -97,6 +97,7 @@ public final class SpecialWildSpawnConfig {
         root.disableVanillaAndAllTheMonsSpecialSpawns = true;
         root.broadcastLegendarySpawns = true;
         root.broadcastParadoxAndUltraBeastSpawns = false;
+        root.debugSpecialSpawnRolls = false;
         root.checkIntervalTicks = 1200;
         root.targetAverageSpawnMinutes = 180.0D;
         root.minimumTargetAverageSpawnMinutes = 60.0D;
@@ -350,6 +351,7 @@ public final class SpecialWildSpawnConfig {
         public boolean disableVanillaAndAllTheMonsSpecialSpawns;
         public boolean broadcastLegendarySpawns;
         public boolean broadcastParadoxAndUltraBeastSpawns;
+        public boolean debugSpecialSpawnRolls;
         public int checkIntervalTicks;
         public double targetAverageSpawnMinutes;
         public double minimumTargetAverageSpawnMinutes;

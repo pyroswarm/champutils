@@ -23,8 +23,8 @@ public final class ProfessionBackpackConfig {
         public boolean autoDiscoverProfessionDrops = false;
         public boolean defaultAutopickup = false;
         public int recentProfessionActionSeconds = 4;
-        public String defaultRewardItem = "cobblemon:rare_candy";
-        public int defaultTradeCost = 1000;
+        public String defaultRewardItem = "cobblemon:exp_candy_xs";
+        public int defaultTradeCost = 10;
         public int defaultTradeRewardAmount = 1;
         /**
          * Items in this set can still be stored in the backpack, but they cannot be traded
@@ -125,7 +125,7 @@ public final class ProfessionBackpackConfig {
         data.profession = profession.name();
         data.displayName = displayName == null || displayName.isBlank() ? formatName(id) : displayName;
         data.enabled = true;
-        data.tradeCost = Math.max(1, data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost);
+        data.tradeCost = Math.max(1, Math.min(data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost, 10));
         data.rewardItem = data.rewardItem == null || data.rewardItem.isBlank() ? CONFIG.defaultRewardItem : normalizeItem(data.rewardItem);
         data.rewardAmount = Math.max(1, data.rewardAmount <= 0 ? CONFIG.defaultTradeRewardAmount : data.rewardAmount);
         CONFIG.items.put(id, data);
@@ -241,7 +241,7 @@ public final class ProfessionBackpackConfig {
     }
 
     private static void normalize() {
-        if (CONFIG.defaultRewardItem == null || CONFIG.defaultRewardItem.isBlank()) CONFIG.defaultRewardItem = "cobblemon:rare_candy";
+        if (CONFIG.defaultRewardItem == null || CONFIG.defaultRewardItem.isBlank()) CONFIG.defaultRewardItem = "cobblemon:exp_candy_xs";
         CONFIG.defaultRewardItem = normalizeTradeItemId(CONFIG.defaultRewardItem);
         CONFIG.defaultTradeCost = Math.max(1, CONFIG.defaultTradeCost);
         CONFIG.defaultTradeRewardAmount = Math.max(1, CONFIG.defaultTradeRewardAmount);
@@ -268,7 +268,7 @@ public final class ProfessionBackpackConfig {
             if (!isBackpackProfession(data.profession)) data.enabled = false;
             if (data.rewardItem == null || data.rewardItem.isBlank()) data.rewardItem = CONFIG.defaultRewardItem;
             data.rewardItem = normalizeTradeItemId(data.rewardItem);
-            data.tradeCost = Math.max(1, data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost);
+            data.tradeCost = Math.max(1, Math.min(data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost, 10));
             data.rewardAmount = Math.max(1, data.rewardAmount <= 0 ? CONFIG.defaultTradeRewardAmount : data.rewardAmount);
             fixed.put(id, data);
         }

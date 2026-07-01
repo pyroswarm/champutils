@@ -119,6 +119,8 @@ public final class BuffManager {
         }
 
         double perfectIvBonus = getTotalBuff(context, BuffType.PERFECT_IV_CHANCE);
+        int battlingLevel = Math.max(1, com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING));
+        perfectIvBonus += Math.min(0.10D, (battlingLevel / 10) * 0.01D);
         if (perfectIvBonus > 0.0D && ThreadLocalRandom.current().nextDouble() < perfectIvBonus) {
             String stat = upgradeRandomIvToPerfect(pokemon);
             if (stat != null) {

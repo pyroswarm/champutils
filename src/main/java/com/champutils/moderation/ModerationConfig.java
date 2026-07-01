@@ -95,6 +95,18 @@ public final class ModerationConfig {
         if (DATA.xrayExposedFacesStillHidden < 0) DATA.xrayExposedFacesStillHidden = d.xrayExposedFacesStillHidden;
         if (DATA.xrayLowContextValuableOreThreshold <= 0) DATA.xrayLowContextValuableOreThreshold = d.xrayLowContextValuableOreThreshold;
         if (DATA.xrayLowContextMaxMinedBlocksPerOre <= 0) DATA.xrayLowContextMaxMinedBlocksPerOre = d.xrayLowContextMaxMinedBlocksPerOre;
+
+        if (DATA.redstoneReviewIntervalTicks <= 0) DATA.redstoneReviewIntervalTicks = d.redstoneReviewIntervalTicks;
+        if (DATA.redstoneMaxChunksReviewedPerRun <= 0) DATA.redstoneMaxChunksReviewedPerRun = d.redstoneMaxChunksReviewedPerRun;
+        if (DATA.redstoneMaxTrackedChunks <= 0) DATA.redstoneMaxTrackedChunks = d.redstoneMaxTrackedChunks;
+        if (DATA.redstoneTrackedChunkExpirySeconds <= 0) DATA.redstoneTrackedChunkExpirySeconds = d.redstoneTrackedChunkExpirySeconds;
+        if (DATA.redstoneSoftUpdateThresholdPerReview <= 0) DATA.redstoneSoftUpdateThresholdPerReview = d.redstoneSoftUpdateThresholdPerReview;
+        if (DATA.redstoneHardUpdateThresholdPerReview <= 0) DATA.redstoneHardUpdateThresholdPerReview = d.redstoneHardUpdateThresholdPerReview;
+        if (DATA.redstoneEmergencyUpdateThresholdPerReview <= 0) DATA.redstoneEmergencyUpdateThresholdPerReview = d.redstoneEmergencyUpdateThresholdPerReview;
+        if (DATA.redstoneClockLikeThresholdPerReview <= 0) DATA.redstoneClockLikeThresholdPerReview = d.redstoneClockLikeThresholdPerReview;
+        if (DATA.redstoneViolationsBeforeDisable <= 0) DATA.redstoneViolationsBeforeDisable = d.redstoneViolationsBeforeDisable;
+        if (DATA.redstoneDisableMinutes <= 0) DATA.redstoneDisableMinutes = d.redstoneDisableMinutes;
+        if (DATA.redstoneAlertCooldownSeconds <= 0) DATA.redstoneAlertCooldownSeconds = d.redstoneAlertCooldownSeconds;
     }
 
     private static Data defaults() {
@@ -151,6 +163,20 @@ public final class ModerationConfig {
         d.xrayLowContextMaxMinedBlocksPerOre = 6;
         d.xrayContextBlockIds = new ArrayList<>(List.of("minecraft:stone", "minecraft:deepslate", "minecraft:netherrack", "minecraft:tuff", "minecraft:calcite", "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:basalt", "minecraft:blackstone", "minecraft:dirt", "minecraft:gravel", "minecraft:sand", "minecraft:red_sand", "minecraft:clay", "minecraft:dripstone_block"));
         d.xrayOreIds = new ArrayList<>(List.of("minecraft:diamond_ore", "minecraft:deepslate_diamond_ore", "minecraft:ancient_debris", "minecraft:iron_ore", "minecraft:deepslate_iron_ore", "minecraft:gold_ore", "minecraft:deepslate_gold_ore", "minecraft:nether_gold_ore", "cobblemon:dawn_stone_ore", "cobblemon:deepslate_dawn_stone_ore", "cobblemon:dusk_stone_ore", "cobblemon:deepslate_dusk_stone_ore", "cobblemon:moon_stone_ore", "cobblemon:deepslate_moon_stone_ore", "cobblemon:shiny_stone_ore", "cobblemon:deepslate_shiny_stone_ore", "cobblemon:sun_stone_ore", "cobblemon:deepslate_sun_stone_ore", "cobblemon:fire_stone_ore", "cobblemon:deepslate_fire_stone_ore", "cobblemon:water_stone_ore", "cobblemon:deepslate_water_stone_ore", "cobblemon:thunder_stone_ore", "cobblemon:deepslate_thunder_stone_ore", "cobblemon:ice_stone_ore", "cobblemon:deepslate_ice_stone_ore", "cobblemon:leaf_stone_ore", "cobblemon:deepslate_leaf_stone_ore"));
+
+        d.redstoneAutoModEnabled = true;
+        d.redstoneDisableFlaggedChunks = true;
+        d.redstoneReviewIntervalTicks = 300;
+        d.redstoneMaxChunksReviewedPerRun = 12;
+        d.redstoneMaxTrackedChunks = 2048;
+        d.redstoneTrackedChunkExpirySeconds = 180;
+        d.redstoneSoftUpdateThresholdPerReview = 350;
+        d.redstoneHardUpdateThresholdPerReview = 750;
+        d.redstoneEmergencyUpdateThresholdPerReview = 1500;
+        d.redstoneClockLikeThresholdPerReview = 250;
+        d.redstoneViolationsBeforeDisable = 3;
+        d.redstoneDisableMinutes = 10;
+        d.redstoneAlertCooldownSeconds = 120;
         return d;
     }
 
@@ -201,5 +227,19 @@ public final class ModerationConfig {
         public int xrayAutoPunishScoreThreshold;
         public int xrayAutoPunishMinIndependentSignals;
         public List<String> xrayOreIds;
+
+        public boolean redstoneAutoModEnabled;
+        public boolean redstoneDisableFlaggedChunks;
+        public int redstoneReviewIntervalTicks;
+        public int redstoneMaxChunksReviewedPerRun;
+        public int redstoneMaxTrackedChunks;
+        public int redstoneTrackedChunkExpirySeconds;
+        public int redstoneSoftUpdateThresholdPerReview;
+        public int redstoneHardUpdateThresholdPerReview;
+        public int redstoneEmergencyUpdateThresholdPerReview;
+        public int redstoneClockLikeThresholdPerReview;
+        public int redstoneViolationsBeforeDisable;
+        public int redstoneDisableMinutes;
+        public int redstoneAlertCooldownSeconds;
     }
 }

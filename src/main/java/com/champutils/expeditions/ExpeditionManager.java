@@ -4,6 +4,11 @@ import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profession.ProfessionChunkManager;
+import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionType;
+import com.champutils.dex.TrueCaughtDexManager;
+import com.champutils.specialspawn.SpecialWildSpawnConfig;
+import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -17,7 +22,9 @@ import net.minecraft.world.item.ItemStack;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class ExpeditionManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -55,6 +62,10 @@ public final class ExpeditionManager {
     }
 
     static void start(ServerPlayer player, int slot, Pokemon pokemon, long endsAt) {
+        start(player, slot, pokemon, endsAt, "general");
+    }
+
+    static void start(ServerPlayer player, int slot, Pokemon pokemon, long endsAt, String expeditionType) {
         Save save = loadSave(player);
         long now = System.currentTimeMillis();
         save.active = true;
@@ -64,6 +75,7 @@ public final class ExpeditionManager {
         save.endsAt = endsAt;
         save.level = pokemon.getLevel();
         save.name = pokemon.getDisplayName(true).getString();
+        save.expeditionType = ExpeditionConfig.normalizeType(expeditionType);
         save.payload = AuctionPokemonSerializer.toPayload(player, pokemon).toString();
         save(player, save);
     }
@@ -114,7 +126,8 @@ public final class ExpeditionManager {
             return;
         }
 
-        List<ItemStack> rewards = ExpeditionConfig.itemStacks(save.level);
+        int battlingLevel = ProfessionManager.getLevel(player, ProfessionType.BATTLING);
+        List<ItemStack> rewards = ExpeditionConfig.itemStacks(save.level, battlingLevel, save.expeditionType);
         if (!canFit(player, rewards)) {
             player.sendSystemMessage(Component.literal("Make inventory space before claiming expedition rewards.").withStyle(ChatFormatting.RED));
             return;
@@ -138,6 +151,17 @@ public final class ExpeditionManager {
         ExpeditionConfig.Tier tier = ExpeditionConfig.tier(save.level);
         if (tier.credits > 0L) EconomyManager.deposit(player, tier.credits, "expedition_reward");
         for (ItemStack stack : rewards) player.getInventory().add(stack.copy());
+
+        if ("pokemon".equals(ExpeditionConfig.normalizeType(save.expeditionType))) {
+            Pokemon found = createPokemonReward(battlingLevel);
+            if (found != null) {
+                AuctionPokemonSerializer.DeliveryResult foundDelivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, found);
+                if (foundDelivery != AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                    TrueCaughtDexManager.markTrueCaught(player, found);
+                    player.sendSystemMessage(Component.literal("Your expedition found a wild " + found.getDisplayName(true).getString() + "! It was sent to " + foundDelivery.name() + ".").withStyle(ChatFormatting.AQUA));
+                }
+            }
+        }
 
         List<ExpeditionConfig.ChunkReward> chunkRewards = ExpeditionConfig.chunkRewards(save.level);
         if (!chunkRewards.isEmpty()) {
@@ -212,5 +236,51 @@ public final class ExpeditionManager {
         int level;
         String name = "";
         String payload = "";
+        String expeditionType = "general";
+    }
+
+    private static Pokemon createPokemonReward(int battlingLevel) {
+        int level = Math.max(1, Math.min(100, battlingLevel));
+        double roll = ThreadLocalRandom.current().nextDouble();
+        String species;
+        if (level >= 100 && roll < 0.025D) {
+            species = randomFrom(SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.mythicalSpawns);
+        } else if (level >= 100 && roll < 0.075D) {
+            species = randomFrom(SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.ultraBeastSpawns);
+        } else if (level >= 75 && roll < 0.03D) {
+            species = randomCommon("dratini", "larvitar", "bagon", "beldum", "gible", "goomy", "dreepy", "frigibax");
+        } else if (level >= 45 && roll < 0.10D) {
+            species = randomCommon("eevee", "riolu", "ralts", "rotom", "zorua", "ditto", "togepi", "munchlax");
+        } else {
+            species = randomCommon("pidgey", "rattata", "magikarp", "shinx", "starly", "bunnelby", "mareep", "wooper", "machop", "gastly");
+        }
+        if (species == null || species.isBlank()) return null;
+        try {
+            String clean = species.contains(":") ? species : "cobblemon:" + species;
+            int pokemonLevel = Math.max(5, Math.min(70, 5 + level / 2));
+            return PokemonProperties.Companion.parse("species=\"" + clean + "\" level=" + pokemonLevel).create();
+        } catch (Throwable throwable) {
+            return null;
+        }
+    }
+
+    @SafeVarargs
+    private static String randomFrom(List<SpecialWildSpawnConfig.SpawnEntry>... lists) {
+        List<String> species = new ArrayList<>();
+        if (lists != null) {
+            for (List<SpecialWildSpawnConfig.SpawnEntry> list : lists) {
+                if (list == null) continue;
+                for (SpecialWildSpawnConfig.SpawnEntry entry : list) {
+                    if (entry != null && entry.species != null && !entry.species.isBlank()) species.add(entry.species);
+                }
+            }
+        }
+        if (species.isEmpty()) return null;
+        return species.get(ThreadLocalRandom.current().nextInt(species.size()));
+    }
+
+    private static String randomCommon(String... species) {
+        if (species == null || species.length == 0) return "magikarp";
+        return species[ThreadLocalRandom.current().nextInt(species.length)];
     }
 }

@@ -164,8 +164,9 @@ public final class ChampCraftingConfig {
 
     private static void sanitize() {
         if (CONFIG == null) CONFIG = new Root();
-        if (CONFIG.title == null || CONFIG.title.isBlank()) CONFIG.title = "Champ Crafting";
+        if (CONFIG.title == null || CONFIG.title.isBlank()) CONFIG.title = "Crafting";
         if (CONFIG.defaultExcludedItemIds == null) CONFIG.defaultExcludedItemIds = defaultExcludedItemIds();
+        if (!CONFIG.defaultExcludedItemIds.contains("genesisforms:ash_cap")) CONFIG.defaultExcludedItemIds.add("genesisforms:ash_cap");
         CONFIG.defaultExcludedItemIds = normalizeSet(CONFIG.defaultExcludedItemIds);
         if (CONFIG.recipes == null) CONFIG.recipes = new LinkedHashMap<>();
         if (CONFIG.autoAddValuableDefaults) addMissingValuableDefaults();
@@ -180,6 +181,7 @@ public final class ChampCraftingConfig {
             if (id.isBlank()) continue;
             recipe.id = id;
             recipe.outputItem = normalizeOutputId(recipe.outputItem == null || recipe.outputItem.isBlank() ? id : recipe.outputItem);
+            if (isExcludedByDefault(id) || isExcludedByDefault(recipe.outputItem)) continue;
             if (recipe.displayName == null || recipe.displayName.isBlank()) recipe.displayName = formatName(recipe.outputItem);
             if (recipe.category == null || recipe.category.isBlank()) recipe.category = defaultCategory(recipe.outputItem);
             if (recipe.outputAmount <= 0) recipe.outputAmount = 1;
@@ -197,7 +199,8 @@ public final class ChampCraftingConfig {
                 else existing.amount += cost.amount;
             }
             recipe.costs = new ArrayList<>(fixedCosts.values());
-            rebalanceRecipeCosts(recipe);
+            // Do not rebalance existing recipes during sanitize/load.
+            // champ_crafting.json is the source of truth for economy tuning.
             fixed.put(id, recipe);
         }
         CONFIG.recipes = sorted(fixed);
@@ -223,7 +226,7 @@ public final class ChampCraftingConfig {
             if (item.equals("genesisforms:sparkling_stone")) return 1L;
             return 8L;
         }
-        if (path.equals("cobblestone") || path.equals("stone")) return category.contains("orb") || category.contains("crystal") || category.contains("key") ? 750L : 500L;
+        if (path.equals("cobblestone") || path.equals("stone")) return category.contains("orb") || category.contains("crystal") || category.contains("key") ? 450L : 250L;
         if (path.equals("raw_iron") || path.equals("raw_copper") || path.equals("raw_gold")) return category.contains("rare") || category.contains("hyper") ? 125L : 90L;
         if (path.equals("redstone")) return 80L;
         if (path.equals("diamond")) return category.contains("hyper") || category.contains("key") ? 48L : 8L;
@@ -416,7 +419,11 @@ public final class ChampCraftingConfig {
             return costs;
         }
 
-        if (c.contains("mega")) {
+        if (path.endsWith("_nectar")) {
+            add(costs, "cobblemon:red_apricorn", 16);
+            add(costs, "cobblemon:oran_berry", 8);
+            add(costs, stone, 1);
+        } else if (c.contains("mega")) {
             add(costs, "minecraft:cobblestone", 33000);
             add(costs, "minecraft:raw_iron", 3500);
             add(costs, "minecraft:raw_gold", 2750);
@@ -529,7 +536,8 @@ public final class ChampCraftingConfig {
         if (path.equals("ability_patch")) return 250L;
         if (path.equals("master_ball")) return 750L;
         if (path.contains("bottle_cap")) return path.contains("gold") ? 500L : 150L;
-        if (path.equals("ash_cap")) return 250L;
+        if (path.endsWith("_nectar")) return 10L;
+        if (path.equals("ash_cap")) return 0L;
         if (c.contains("mega")) return 250L;
         if (c.contains("key")) return 500L;
         if (c.contains("z-crystal")) return 150L;
@@ -647,6 +655,7 @@ public final class ChampCraftingConfig {
         ids.add("genesisforms:max_mushrooms");
         ids.add("genesisforms:max_soup");
         ids.add("genesisforms:wishing_star");
+        ids.add("genesisforms:ash_cap");
         ids.add("genesisforms:absolite-z");
         ids.add("genesisforms:barbaracite");
         ids.add("genesisforms:baxcalibrite");

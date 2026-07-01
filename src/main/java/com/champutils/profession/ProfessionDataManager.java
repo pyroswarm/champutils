@@ -41,6 +41,16 @@ public class ProfessionDataManager {
         public Map<String, Integer> chunks =
                 new HashMap<>();
 
+        /** Per-profile profession specializations. Key format: PROFESSION:CATEGORY:ID. */
+        public Map<String, SubLevelData> sublevels =
+                new HashMap<>();
+
+        public static class SubLevelData {
+            public int level = 1;
+            public int xp = 0;
+            public long actions = 0L;
+        }
+
         /** Digital profile-bound profession backpack item balances. Key = item id, value = amount. */
         public Map<String, Long> backpack =
                 new HashMap<>();
@@ -188,16 +198,18 @@ public class ProfessionDataManager {
         File dir =
                 professionDir();
 
-        File[] files =
-                dir.listFiles(
-                        (d, name) -> name.endsWith(".json")
-                );
-
-        if (files == null) {
-            return result;
+        List<File> filesToRead = new ArrayList<>();
+        File[] rootFiles = dir.listFiles((d, name) -> name.endsWith(".json"));
+        if (rootFiles != null) {
+            filesToRead.addAll(java.util.Arrays.asList(rootFiles));
+        }
+        File profileDir = new File(dir, "profiles");
+        File[] profileFiles = profileDir.listFiles((d, name) -> name.endsWith(".json"));
+        if (profileFiles != null) {
+            filesToRead.addAll(java.util.Arrays.asList(profileFiles));
         }
 
-        for (File file : files) {
+        for (File file : filesToRead) {
             try (
                     FileReader r =
                             new FileReader(
@@ -296,6 +308,18 @@ public class ProfessionDataManager {
                     new HashMap<>();
         }
 
+        if (data.sublevels == null) {
+            data.sublevels =
+                    new HashMap<>();
+        }
+
+        data.sublevels.entrySet().removeIf(entry -> entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null);
+        for (ProfessionData.SubLevelData sublevel : data.sublevels.values()) {
+            sublevel.level = Math.max(1, Math.min(100, sublevel.level));
+            sublevel.xp = Math.max(0, sublevel.xp);
+            sublevel.actions = Math.max(0L, sublevel.actions);
+        }
+
         if (data.trinketPouchRarity == null) {
             data.trinketPouchRarity =
                     "";
@@ -325,7 +349,7 @@ public class ProfessionDataManager {
         }
     }
 
-    public static void save(
+    public static boolean save(
             UUID uuid,
             ProfessionData data
     ) {
@@ -348,8 +372,11 @@ public class ProfessionDataManager {
                     data
             );
 
+            return true;
+
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 }

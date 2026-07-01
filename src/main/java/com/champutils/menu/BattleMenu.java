@@ -19,12 +19,17 @@ public class BattleMenu {
 
         MenuUtil.fillBorders(gui, 4, 10, 12, 14, 16, 22);
 
+        int rankedQueued = MatchmakingManager.queueSize("ranked");
+        int casualQueued = MatchmakingManager.queueSize("casual");
+
         MenuUtil.addInfoCard(
                 gui,
                 4,
                 CobblemonItems.POKE_BALL,
                 "§cBattle Queues",
-                "§7Choose a queue or leave your current queue."
+                "§7Choose a queue or leave your current queue.",
+                "§7Ranked queued: §e" + rankedQueued,
+                "§7Casual queued: §e" + casualQueued
         );
 
         gui.setSlot(
@@ -33,6 +38,7 @@ public class BattleMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§cRanked Queue"))
                         .addLoreLine(Component.literal("§7Queue for competitive RP battles."))
+                        .addLoreLine(Component.literal("§7Currently queued: §e" + rankedQueued))
                         .addLoreLine(Component.literal("§eClick to join"))
                         .setCallback((i, c, t) -> MatchmakingManager.joinQueue(player, "ranked"))
         );
@@ -43,6 +49,7 @@ public class BattleMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§aCasual Queue"))
                         .addLoreLine(Component.literal("§7Queue for practice battles."))
+                        .addLoreLine(Component.literal("§7Currently queued: §e" + casualQueued))
                         .addLoreLine(Component.literal("§eClick to join"))
                         .setCallback((i, c, t) -> MatchmakingManager.joinQueue(player, "casual"))
         );

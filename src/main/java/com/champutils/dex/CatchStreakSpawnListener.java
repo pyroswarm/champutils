@@ -57,7 +57,10 @@ public final class CatchStreakSpawnListener {
         if (player == null) return;
         if (CatchStreakManager.shouldForceShiny(player, pokemon) && CatchStreakManager.setShiny(pokemon, true)) {
             if (CatchStreakManager.CONFIG.announceShinyBoostProc) {
-                player.sendSystemMessage(Component.literal("Your catch streak attracted a shiny " + pretty(TrueCaughtDexManager.speciesId(pokemon)) + "!")
+                player.sendSystemMessage(Component.literal("Your catch streak attracted a shiny " + pretty(TrueCaughtDexManager.speciesId(pokemon))
+                                + " at X: " + entity.blockPosition().getX()
+                                + ", Y: " + entity.blockPosition().getY()
+                                + ", Z: " + entity.blockPosition().getZ() + "!")
                         .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             }
         }
