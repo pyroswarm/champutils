@@ -9,8 +9,13 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import com.champutils.profession.ProfessionChunkConfig;
+import com.champutils.profession.ProfessionChunkManager;
+import com.champutils.profession.ProfessionToolConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -24,15 +29,13 @@ public final class ProfessionsMenu {
         gui.setTitle(Component.literal("Professions"));
         MenuUtil.fillBorders(gui, 10, 12, 14, 16, 22, 4);
 
-        MenuUtil.addInfoCard(
-                gui,
-                4,
-                Items.BOOK,
-                "§6Profession Overview",
-                "§7Click a profession to see levels, XP,",
-                "§7chunk odds, rarity bonuses, and sublevels.",
-                "§8Sublevels are crop, wood, ore, and type masteries."
-        );
+        gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§6Profession Details"))
+                .addLoreLine(Component.literal("§7Click for detailed rates, passives,"))
+                .addLoreLine(Component.literal("§7chunk rolls, and speed scaling."))
+                .addLoreLine(Component.literal("§eClick to open details"))
+                .setCallback((i, c, t) -> openDetails(player, null)));
 
         setProfessionButton(gui, player, 10, ProfessionType.MINING, Items.DIAMOND_PICKAXE, "§bMining");
         setProfessionButton(gui, player, 12, ProfessionType.FORESTRY, Items.DIAMOND_AXE, "§aForestry");
@@ -58,7 +61,9 @@ public final class ProfessionsMenu {
                 .addLoreLine(Component.literal("§7XP: §f" + xp + "§7/§f" + next))
                 .addLoreLine(Component.literal("§7Chunk chance bonus: §a+" + pct(chunkFind)))
                 .addLoreLine(Component.literal("§7Chunk rarity bonus: §d+" + pct(rarity)))
-                .addLoreLine(Component.literal("§7Mastered sublevels: §6" + mastered + " §8(+10% sublevel XP each)"));
+                .addLoreLine(Component.literal("§7Mastered sublevels: §6" + mastered + " §8(+10% sublevel XP each)"))
+                .addLoreLine(Component.literal("§7Default chunk rolls: §f" + chunkRollSummary(profession)))
+                .addLoreLine(Component.literal("§8Left-click: sublevels · Right-click: details"));
 
         if (counts.isEmpty()) {
             builder.addLoreLine(Component.literal("§8No sublevels discovered yet."));
@@ -98,8 +103,8 @@ public final class ProfessionsMenu {
                         .addLoreLine(Component.literal("§7Type: §f" + ProfessionSubLevelManager.categoryName(entry.getKey())))
                         .addLoreLine(Component.literal(level >= 100 ? "§6Mastered" : "§7XP: §f" + data.xp + "§7/§f" + next))
                         .addLoreLine(Component.literal("§7Actions: §f" + data.actions))
-                        .addLoreLine(Component.literal("§8Each level gives +0.025% chunk find chance."))
-                        .addLoreLine(Component.literal("§8Every 10 levels gives +0.25% rarity bias."));
+                        .addLoreLine(Component.literal("§8Each level gives +" + pct(ProfessionSubLevelManager.CHUNK_FIND_BONUS_PER_SUBLEVEL * 100.0D) + " chunk find chance."))
+                        .addLoreLine(Component.literal("§8Every 10 levels gives +" + pct(ProfessionSubLevelManager.RARITY_BONUS_PER_TEN_LEVELS * 100.0D) + " rarity bias."));
                 gui.setSlot(slot, builder);
             }
         }
@@ -115,12 +120,146 @@ public final class ProfessionsMenu {
     }
 
     private static Item iconFor(String key) {
+        String raw = rawId(key);
+        Item direct = item(raw);
+        if (direct != Items.AIR) return direct;
+        String lower = raw.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("birch")) return Items.BIRCH_LOG;
+        if (lower.contains("spruce")) return Items.SPRUCE_LOG;
+        if (lower.contains("jungle")) return Items.JUNGLE_LOG;
+        if (lower.contains("acacia")) return Items.ACACIA_LOG;
+        if (lower.contains("dark_oak")) return Items.DARK_OAK_LOG;
+        if (lower.contains("mangrove")) return Items.MANGROVE_LOG;
+        if (lower.contains("cherry")) return Items.CHERRY_LOG;
+        if (lower.contains("crimson")) return Items.CRIMSON_STEM;
+        if (lower.contains("warped")) return Items.WARPED_STEM;
+        if (lower.contains("wheat")) return Items.WHEAT;
+        if (lower.contains("carrot")) return Items.CARROT;
+        if (lower.contains("potato")) return Items.POTATO;
+        if (lower.contains("beetroot")) return Items.BEETROOT;
+        if (lower.contains("copper")) return Items.RAW_COPPER;
+        if (lower.contains("iron")) return Items.RAW_IRON;
+        if (lower.contains("gold")) return Items.RAW_GOLD;
+        if (lower.contains("diamond")) return Items.DIAMOND;
+        if (lower.contains("emerald")) return Items.EMERALD;
+        if (lower.contains("netherite") || lower.contains("ancient_debris")) return Items.ANCIENT_DEBRIS;
         String category = ProfessionSubLevelManager.categoryName(key);
         if ("Crop".equals(category)) return Items.WHEAT;
         if ("Wood".equals(category)) return Items.OAK_LOG;
         if ("Ore".equals(category)) return Items.RAW_IRON;
         if ("Type Slayer".equals(category)) return Items.DIAMOND_SWORD;
         return Items.PAPER;
+    }
+
+    private static String rawId(String key) {
+        if (key == null) return "";
+        String[] parts = key.split(":", 3);
+        return parts.length == 3 ? parts[2] : key;
+    }
+
+    private static Item item(String id) {
+        if (id == null || id.isBlank()) return Items.AIR;
+        try {
+            ResourceLocation rl = id.contains(":") ? ResourceLocation.parse(id) : ResourceLocation.fromNamespaceAndPath("minecraft", id);
+            return BuiltInRegistries.ITEM.get(rl);
+        } catch (Throwable ignored) {
+            return Items.AIR;
+        }
+    }
+
+    public static void openDetails(ServerPlayer player, ProfessionType profession) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        gui.setTitle(Component.literal(profession == null ? "Profession Details" : prettyProfession(profession) + " Details"));
+        MenuUtil.fillBorders(gui, 10,11,12,13,14,15,16, 28,29,30,31,32,33,34, 49);
+
+        if (profession == null) {
+            setDetailButton(gui, player, 10, ProfessionType.MINING, Items.DIAMOND_PICKAXE, "§bMining Details");
+            setDetailButton(gui, player, 12, ProfessionType.FORESTRY, Items.DIAMOND_AXE, "§aForestry Details");
+            setDetailButton(gui, player, 14, ProfessionType.FARMING, Items.DIAMOND_HOE, "§eFarming Details");
+            setDetailButton(gui, player, 16, ProfessionType.BATTLING, Items.DIAMOND_SWORD, "§cBattling Details");
+            MenuUtil.addInfoCard(gui, 31, Items.BOOK, "§6What matters",
+                    "§7Overall profession level controls",
+                    "§7base chunk odds and major unlocks.",
+                    "§7Sublevels level faster and add",
+                    "§7extra chunk find/rarity bonuses.");
+        } else {
+            int level = ProfessionManager.getLevel(player, profession);
+            int xp = ProfessionManager.getXp(player, profession);
+            double findBonus = ProfessionSubLevelManager.chunkFindChanceBonus(player, profession) * 100.0D;
+            double rarityBonus = ProfessionSubLevelManager.chunkRarityChanceBonus(player, profession) * 100.0D;
+            MenuUtil.addInfoCard(gui, 10, iconForProfession(profession), "§eCurrent Progress",
+                    "§7Level: §f" + level,
+                    "§7XP: §f" + xp + "§7/§f" + ProfessionManager.xpRequired(level),
+                    "§7Sublevel find bonus: §a+" + pct(findBonus),
+                    "§7Sublevel rarity bonus: §d+" + pct(rarityBonus));
+            MenuUtil.addInfoCard(gui, 12, Items.AMETHYST_SHARD, "§dChunk Rolls",
+                    chunkRollLines(profession));
+            MenuUtil.addInfoCard(gui, 14, Items.EXPERIENCE_BOTTLE, "§aLevel Scaling",
+                    "§7Overall levels now matter more.",
+                    "§7Each profession level adds +0.5%",
+                    "§7to chunk roll odds, up to +50%",
+                    "§7before sublevel/trinket bonuses.",
+                    "§7Sublevels are intentionally faster",
+                    "§7than main profession levels.");
+            MenuUtil.addInfoCard(gui, 16, Items.NETHER_STAR, "§6Popup Rules",
+                    "§7Only one title popup plays at once.",
+                    "§7If two passives trigger together,",
+                    "§7the extra notice moves to chat",
+                    "§7and only one sound is played.");
+            MenuUtil.addInfoCard(gui, 30, Items.BOOK, "§bTool Speed",
+                    "§7Tool speed is fixed server-side",
+                    "§7and client-side with Polymer proxy",
+                    "§7items so progression feels stable.",
+                    "§7Common+ pickaxes no longer feel",
+                    "§7like slow wooden tools.");
+            gui.setSlot(32, new GuiElementBuilder(Items.CHEST)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§eView Sublevels"))
+                    .addLoreLine(Component.literal("§7Open all discovered sublevels."))
+                    .addLoreLine(Component.literal("§eClick to open"))
+                    .setCallback((i, c, t) -> openSublevels(player, profession, 0)));
+        }
+
+        MenuUtil.addBackButton(gui, 49, () -> open(player));
+        gui.open();
+    }
+
+    private static void setDetailButton(SimpleGui gui, ServerPlayer player, int slot, ProfessionType profession, Item icon, String name) {
+        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal(name))
+                .addLoreLine(Component.literal("§7" + chunkRollSummary(profession)))
+                .addLoreLine(Component.literal("§eClick for details"))
+                .setCallback((i, c, t) -> openDetails(player, profession)));
+    }
+
+    private static Item iconForProfession(ProfessionType profession) {
+        return switch (profession) {
+            case MINING -> Items.DIAMOND_PICKAXE;
+            case FORESTRY -> Items.DIAMOND_AXE;
+            case FARMING -> Items.DIAMOND_HOE;
+            case BATTLING -> Items.DIAMOND_SWORD;
+            default -> Items.BOOK;
+        };
+    }
+
+    private static String chunkRollSummary(ProfessionType profession) {
+        ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
+        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return "No chunk rolls configured.";
+        return "Base x" + String.format(java.util.Locale.US, "%.2f", activity.activityMultiplier) + " · " + activity.rolls.size() + " rarities";
+    }
+
+    private static String[] chunkRollLines(ProfessionType profession) {
+        ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
+        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return new String[]{"§7No chunk rolls configured."};
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add("§7Activity multiplier: §f" + String.format(java.util.Locale.US, "%.2fx", activity.activityMultiplier));
+        for (var entry : activity.rolls.entrySet()) {
+            ProfessionChunkConfig.RollData roll = entry.getValue();
+            if (roll == null) continue;
+            lines.add("§7" + ProfessionChunkManager.formatChunk(entry.getKey()) + ": §f" + pct(roll.baseChancePercent) + " §8+" + pct(roll.chancePerLevelPercent) + "/lvl, cap " + pct(roll.maxChancePercent));
+            if (lines.size() >= 8) break;
+        }
+        return lines.toArray(new String[0]);
     }
 
     private static String prettyProfession(ProfessionType profession) {

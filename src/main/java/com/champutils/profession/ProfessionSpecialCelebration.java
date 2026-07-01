@@ -119,6 +119,45 @@ public final class ProfessionSpecialCelebration {
         );
     }
 
+    public static void celebrateSublevelUp(
+            ServerPlayer player,
+            String name,
+            int level
+    ) {
+        String safeName = name == null || name.isBlank() ? "Sublevel" : name;
+        show(
+                player,
+                "§6§lMASTERY UP!",
+                "§e" + safeName + " §fLevel " + level,
+                "§6Mastery Up: §e" + safeName + " §7is now level §f" + level,
+                5,
+                35,
+                10,
+                0.8F,
+                1.45F,
+                CelebrationSound.MEDIUM
+        );
+    }
+
+    public static void celebrateEpicChunk(
+            ServerPlayer player,
+            String chunkName
+    ) {
+        String safeName = chunkName == null || chunkName.isBlank() ? "Rare Chunk" : chunkName;
+        show(
+                player,
+                "§6§lRARE CHUNK!",
+                "§e" + safeName,
+                "§6Rare Chunk Found: §e" + safeName,
+                5,
+                40,
+                10,
+                0.9F,
+                1.7F,
+                CelebrationSound.PING
+        );
+    }
+
     private static void show(
             ServerPlayer player,
             String title,

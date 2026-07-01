@@ -38,7 +38,10 @@ public final class ProfessionChunkManager {
             int scalingStart = Math.max(1, roll.levelScalingStart);
             int scaledLevels = Math.max(0, level - scalingStart);
             double chance = Math.min(roll.maxChancePercent, roll.baseChancePercent + (roll.chancePerLevelPercent * scaledLevels));
-            chance *= multiplier;
+            // Overall profession level should matter more than any single sublevel.
+            // This boosts every chunk roll by up to +50% at level 100 before sublevel/trinket bonuses.
+            double overallLevelBonus = Math.min(0.50D, Math.max(0, level - 1) * 0.005D);
+            chance *= multiplier * (1.0D + overallLevelBonus);
             double sublevelFindBonus = ProfessionSubLevelManager.chunkFindChanceBonus(player, profession);
             double sublevelRarityBonus = ProfessionSubLevelManager.chunkRarityChanceBonus(player, profession) * rarityWeight(chunk);
             chance *= (1.0D + sublevelFindBonus + sublevelRarityBonus);
@@ -70,7 +73,11 @@ public final class ProfessionChunkManager {
         if (announce && ProfessionChunkConfig.CONFIG.announceFinds && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             ProfessionChunkConfig.ChunkData chunkData = ProfessionChunkConfig.CONFIG.chunks.get(key);
             String name = chunkData == null ? formatChunk(key) : chunkData.displayName;
-            player.displayClientMessage(Component.literal("§6Chunk Found! §e" + name + (amount > 1 ? " x" + amount : "")), true);
+            if (isEpicOrBetter(key)) {
+                ProfessionSpecialCelebration.celebrateEpicChunk(player, name + (amount > 1 ? " x" + amount : ""));
+            } else {
+                player.displayClientMessage(Component.literal("§6Chunk Found! §e" + name + (amount > 1 ? " x" + amount : "")), true);
+            }
         }
     }
 
@@ -152,6 +159,13 @@ public final class ProfessionChunkManager {
         ProfessionManager.addFragments(player, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity), fragments);
         ProfessionManager.savePlayer(player);
         return new TradeResult(true, "", fragments, key, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity));
+    }
+
+    private static boolean isEpicOrBetter(String chunk) {
+        return switch (normalizeChunk(chunk)) {
+            case "GOLD", "DIAMOND", "NETHERITE" -> true;
+            default -> false;
+        };
     }
 
     private static double rarityWeight(String chunk) {

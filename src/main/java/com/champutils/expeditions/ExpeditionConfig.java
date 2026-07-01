@@ -104,6 +104,14 @@ public final class ExpeditionConfig {
             return out;
         }
 
+        if ("pokemon".equals(normalized)) {
+            // Pokémon expeditions are about finding Pokémon, not old bulk ball/chunk bundles.
+            // Keep item clutter low and show the real rare-find odds in the preview menu.
+            if (level >= 25) add(out, "cobblemon:exp_candy_xs", scale(level, 1, 8));
+            if (level >= 60) add(out, "cobblemon:exp_candy_s", scale(level, 1, 4));
+            return out;
+        }
+
         Tier tier = tier(pokemonLevel);
         if (tier.items == null) return out;
         for (ItemReward reward : tier.items) {
@@ -111,6 +119,39 @@ public final class ExpeditionConfig {
             add(out, reward.id, Math.max(1, reward.count));
         }
         return out;
+    }
+
+    public static double legendaryPokemonChancePercent(int battlingLevel, int sentPokemonLevel, String expeditionType) {
+        return specialPokemonChancePercent(battlingLevel, sentPokemonLevel, expeditionType, true);
+    }
+
+    public static double paradoxUltraBeastChancePercent(int battlingLevel, int sentPokemonLevel, String expeditionType) {
+        return specialPokemonChancePercent(battlingLevel, sentPokemonLevel, expeditionType, false);
+    }
+
+    private static double specialPokemonChancePercent(int battlingLevel, int sentPokemonLevel, String expeditionType, boolean legendary) {
+        int battle = Math.max(1, Math.min(100, battlingLevel));
+        int mon = Math.max(1, Math.min(100, sentPokemonLevel));
+        String normalized = normalizeType(expeditionType);
+        double typeMultiplier = switch (normalized) {
+            case "pokemon" -> 1.0D;
+            case "general" -> 0.25D;
+            case "candy", "held_item", "tm", "pokeball" -> 0.10D;
+            default -> 0.10D;
+        };
+        double sentTierMultiplier = mon >= 80 ? 1.35D : (mon >= 50 ? 1.0D : 0.65D);
+        // Everyone has a non-zero chance, but even perfect Pokémon expeditions stay very rare.
+        double base = legendary ? 0.0025D : 0.0040D;
+        double perLevel = legendary ? 0.00080D : 0.00120D;
+        double percent = (base + (battle * perLevel)) * typeMultiplier * sentTierMultiplier;
+        double cap = legendary ? 0.12D : 0.18D;
+        return Math.max(0.0001D, Math.min(cap, percent));
+    }
+
+    public static String specialPokemonChanceSummary(int battlingLevel, int sentPokemonLevel, String expeditionType) {
+        return String.format(Locale.US, "Legend %.4f%% · Paradox/UB %.4f%%",
+                legendaryPokemonChancePercent(battlingLevel, sentPokemonLevel, expeditionType),
+                paradoxUltraBeastChancePercent(battlingLevel, sentPokemonLevel, expeditionType));
     }
 
     public static String normalizeType(String type) {
@@ -158,25 +199,15 @@ public final class ExpeditionConfig {
         Config config = new Config();
         config.low = new Tier(2, EconomyManager.wholeCreditsToCents(50L));
         config.low.items.add(new ItemReward("cobblemon:potion", 4));
-        config.low.items.add(new ItemReward("cobblemon:poke_ball", 8));
-        config.low.chunks.add(new ChunkReward("COBBLESTONE", 8));
-        config.low.chunks.add(new ChunkReward("COPPER", 2));
+        config.low.items.add(new ItemReward("cobblemon:exp_candy_xs", 2));
 
         config.mid = new Tier(4, EconomyManager.wholeCreditsToCents(100L));
         config.mid.items.add(new ItemReward("cobblemon:super_potion", 4));
-        config.mid.items.add(new ItemReward("cobblemon:great_ball", 8));
-        config.mid.chunks.add(new ChunkReward("COBBLESTONE", 16));
-        config.mid.chunks.add(new ChunkReward("COPPER", 5));
-        config.mid.chunks.add(new ChunkReward("IRON", 2));
+        config.mid.items.add(new ItemReward("cobblemon:exp_candy_s", 2));
 
         config.high = new Tier(8, EconomyManager.wholeCreditsToCents(250L));
         config.high.items.add(new ItemReward("cobblemon:hyper_potion", 4));
-        config.high.items.add(new ItemReward("cobblemon:quick_ball", 12));
-        config.high.chunks.add(new ChunkReward("COBBLESTONE", 32));
-        config.high.chunks.add(new ChunkReward("COPPER", 10));
-        config.high.chunks.add(new ChunkReward("IRON", 5));
-        config.high.chunks.add(new ChunkReward("GOLD", 2));
-        config.high.chunks.add(new ChunkReward("DIAMOND", 1));
+        config.high.items.add(new ItemReward("cobblemon:exp_candy_m", 2));
         return config;
     }
 

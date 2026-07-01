@@ -42,10 +42,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
         if (item == null || item == Items.AIR) return;
         ProfessionBackpackManager.giveOrDrop(player, new ItemStack(item, extraAmount), true);
 
-        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§b" + multiplier + "x Fortune!"), true);
-            ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, multiplier >= 4 ? 1.75F : 1.35F);
-        }
+        ProfessionSpecialCelebration.celebrateDropMultiplier(player, multiplier);
     }
 
     private int rollMultiplier(ServerPlayer player, ItemStack stack, ProfessionType profession) {

@@ -13,9 +13,9 @@ import java.util.Map;
 
 public final class ProfessionSubLevelManager {
 
-    public static final double CHUNK_FIND_BONUS_PER_SUBLEVEL = 0.00025D;
+    public static final double CHUNK_FIND_BONUS_PER_SUBLEVEL = 0.00035D;
     public static final double CHUNK_FIND_BONUS_CAP = 0.25D;
-    public static final double RARITY_BONUS_PER_TEN_LEVELS = 0.0025D;
+    public static final double RARITY_BONUS_PER_TEN_LEVELS = 0.0035D;
     public static final double RARITY_BONUS_CAP = 0.25D;
     public static final double MASTERED_SUBLEVEL_XP_BONUS = 0.10D;
 
@@ -63,10 +63,10 @@ public final class ProfessionSubLevelManager {
         while (sublevel.level < 100 && sublevel.xp >= xpRequired(sublevel.level)) {
             sublevel.xp -= xpRequired(sublevel.level);
             sublevel.level++;
+            ProfessionSpecialCelebration.celebrateSublevelUp(player, displayName(key), sublevel.level);
             if (sublevel.level >= 100) {
                 sublevel.level = 100;
                 sublevel.xp = 0;
-                player.displayClientMessage(Component.literal("§6Profession Mastery! §e" + displayName(key) + " reached Level 100."), true);
                 break;
             }
         }
@@ -76,9 +76,12 @@ public final class ProfessionSubLevelManager {
     public static int xpRequired(int level) {
         int safeLevel = Math.max(1, Math.min(100, level));
         if (safeLevel >= 100) return Integer.MAX_VALUE / 4;
-        if (safeLevel < 50) return 75 + (safeLevel * 20);
-        double baseAtFifty = 75.0D + (50.0D * 20.0D);
-        double scaled = baseAtFifty * Math.pow(1.10D, safeLevel - 49);
+        // Sublevels should feel like focused mastery tracks, not a second full profession grind.
+        // They level much faster than the main profession so players can master several logs/ores/crops
+        // while the overall profession level remains the long-term progression track.
+        if (safeLevel < 50) return 35 + (safeLevel * 10);
+        double baseAtFifty = 35.0D + (50.0D * 10.0D);
+        double scaled = baseAtFifty * Math.pow(1.065D, safeLevel - 49);
         return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4, Math.round(scaled)));
     }
 

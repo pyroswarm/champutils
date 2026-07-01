@@ -31,7 +31,7 @@ public class MainMenu {
                 "§dProfile",
                 () -> ProfileMenu.open(player),
                 "§7Your trainer card, progress,",
-                "§7badges, professions, and progression."
+                "§7badges, season, and progression."
         );
 
         MenuUtil.addOpenButton(
@@ -76,19 +76,20 @@ public class MainMenu {
                 gui,
                 20,
                 Items.NAME_TAG,
-                "§dTitles",
-                () -> com.champutils.cosmetic.TitleMenu.open(player),
-                "§7Select unlocked title cosmetics."
+                "§dTitles & World Firsts",
+                () -> com.champutils.menu.TitleWorldFirstMenu.open(player),
+                "§7Equip titles and view server-first",
+                "§7achievement trophy titles."
         );
 
         MenuUtil.addOpenButton(
                 gui,
                 22,
-                Items.NETHER_STAR,
-                "§6World Firsts",
-                () -> com.champutils.worldfirst.WorldFirstMenu.open(player),
-                "§7Server-first achievements.",
-                "§7Locked entries show as ???."
+                Items.DIAMOND_PICKAXE,
+                "§aProfessions",
+                () -> com.champutils.menu.ProfessionsMenu.open(player),
+                "§7Levels, sublevels, passives,",
+                "§7chunk odds, and detailed rates."
         );
 
         MenuUtil.addOpenButton(

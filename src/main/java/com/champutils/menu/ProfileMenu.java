@@ -257,7 +257,7 @@ public class ProfileMenu {
                         )
                         .setCallback(
                                 (i,c,t)->
-                                        ProfessionMenu.open(
+                                        ProfessionsMenu.open(
                                                 player
                                         )
                         )

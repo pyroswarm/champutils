@@ -192,7 +192,7 @@ public class FarmingProfessionListener {
         ItemStack reward = new ItemStack(item, baseDrops * (multiplier - 1));
         ProfessionBackpackManager.giveOrDrop(player, reward, true);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§a" + multiplier + "x Fortune!"), true);
+            ProfessionSpecialCelebration.celebrateDropMultiplier(player, multiplier);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
         }
     }

@@ -58,8 +58,9 @@ public final class ExpeditionMenu {
                     .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
                     .addLoreLine(Component.literal("§7Online speed: §a2x §8(" + Math.max(1, Math.max(1, tier.hours) / 2) + "h+ online effective)"))
                     .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
-                    .addLoreLine(Component.literal("§7Rewards:"));
-            addRewardLore(button, pokemon.getLevel());
+                    .addLoreLine(Component.literal("§7Rewards: §8choose a type to preview exact rewards"));
+            int battling = com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING);
+            button.addLoreLine(Component.literal("§8Pokémon expedition rare odds: " + ExpeditionConfig.specialPokemonChanceSummary(battling, pokemon.getLevel(), "pokemon")));
             button.addLoreLine(Component.literal("§eClick to choose expedition type"))
                     .setCallback((slot, click, action) -> ExpeditionCommand.preview(player, partySlot));
             gui.setSlot(slots[i], button);
@@ -75,7 +76,7 @@ public final class ExpeditionMenu {
         typeButton(gui, player, 11, partySlot, "held_item", CobblemonItems.LUCKY_EGG, "§6Held Item Expedition", "§7Held item rewards scale up.");
         typeButton(gui, player, 12, partySlot, "candy", Items.SUGAR, "§dCandy Expedition", "§7XP candy rewards scale up.");
         typeButton(gui, player, 13, partySlot, "tm", Items.PAPER, "§bTM Expedition", "§7TM materials and tech rewards.");
-        typeButton(gui, player, 14, partySlot, "pokemon", Items.EGG, "§aPokémon Expedition", "§7Can find a random Pokémon.");
+        typeButton(gui, player, 14, partySlot, "pokemon", Items.EGG, "§aPokémon Expedition", "§7Can find a random Pokémon. Specials are super rare.");
         typeButton(gui, player, 15, partySlot, "general", Items.MAP, "§eGeneral Expedition", "§7Classic mixed rewards.");
         gui.setSlot(22, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eGo Back")).setCallback((slot, click, action) -> open(player)));
         gui.open();
@@ -104,7 +105,13 @@ public final class ExpeditionMenu {
                 .addLoreLine(Component.literal("§7Returns at: §f" + relativeTime(endsAt)))
                 .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
                 .addLoreLine(Component.literal("§7Rewards:"));
-        addRewardLore(summary, pokemon.getLevel(), type, com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING));
+        int battlingLevel = com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING);
+        addRewardLore(summary, pokemon.getLevel(), type, battlingLevel);
+        if ("pokemon".equals(ExpeditionConfig.normalizeType(type))) {
+            summary.addLoreLine(Component.literal("§7Special Pokémon odds:"));
+            summary.addLoreLine(Component.literal("§8• §6" + ExpeditionConfig.specialPokemonChanceSummary(battlingLevel, pokemon.getLevel(), type)));
+            summary.addLoreLine(Component.literal("§8These scale with Battling level and sent Pokémon tier."));
+        }
         gui.setSlot(13, summary);
         gui.setSlot(11, new GuiElementBuilder(Items.LIME_WOOL).hideDefaultTooltip()
                 .setName(Component.literal("§aStart Expedition"))
@@ -126,11 +133,7 @@ public final class ExpeditionMenu {
             if (stack == null || stack.isEmpty()) continue;
             button.addLoreLine(Component.literal("§8• §f" + stack.getCount() + "x " + stack.getHoverName().getString()));
         }
-        List<ExpeditionConfig.ChunkReward> chunks = ExpeditionConfig.chunkRewards(level);
-        for (ExpeditionConfig.ChunkReward chunk : chunks) {
-            if (chunk == null || chunk.chunk == null || chunk.chunk.isBlank()) continue;
-            button.addLoreLine(Component.literal("§8• §6" + Math.max(1, chunk.amount) + "x " + chunk.chunk.toLowerCase(Locale.ROOT) + " chunk"));
-        }
+        // Chunk rewards are intentionally not shown here; current expedition defaults no longer use old bulk chunk bundles.
     }
 
     private static String relativeTime(long millis) {

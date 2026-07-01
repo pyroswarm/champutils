@@ -2647,7 +2647,56 @@ public class ProfessionToolManager {
                         miningSpeedPercent / percentPerLevel
                 );
 
-        return (virtualEfficiencyLevel * virtualEfficiencyLevel) + 1.0D;
+        return (virtualEfficiencyLevel * virtualEfficiencyLevel) + virtualEfficiencyLevel + 1.0D;
+    }
+
+    public static Item getPolymerSpeedProxy(ItemStack stack, Item fallback) {
+        if (stack == null || stack.isEmpty()) return fallback;
+        String toolId = ProfessionToolUtil.getToolId(stack);
+        ProfessionToolConfig.ToolData data = toolId == null ? null : ProfessionToolConfig.TOOLS.get(toolId);
+        String rarity = data == null ? "COMMON" : String.valueOf(data.rarity).trim().toUpperCase();
+        String base = data == null || data.baseItem == null ? "" : data.baseItem.toLowerCase(java.util.Locale.ROOT);
+
+        // Polymer clients mine using the disguised vanilla item. Keep custom harvest tier server-side,
+        // but disguise tools as speed-appropriate vanilla items so Common+ tools no longer feel like wood.
+        boolean pick = base.contains("pickaxe") || fallback instanceof PickaxeItem;
+        boolean axe = !pick && (base.contains("axe") || fallback instanceof AxeItem);
+        boolean hoe = base.contains("hoe") || fallback instanceof HoeItem;
+        boolean shovel = base.contains("shovel") || fallback instanceof ShovelItem;
+
+        String speedTier = switch (rarity) {
+            case "RARE" -> "GOLD";
+            case "EPIC" -> "DIAMOND";
+            case "LEGENDARY", "MYTHIC" -> "NETHERITE";
+            case "UNCOMMON" -> "IRON";
+            default -> "IRON";
+        };
+
+        if (pick) return switch (speedTier) {
+            case "GOLD" -> Items.GOLDEN_PICKAXE;
+            case "DIAMOND" -> Items.DIAMOND_PICKAXE;
+            case "NETHERITE" -> Items.NETHERITE_PICKAXE;
+            default -> Items.IRON_PICKAXE;
+        };
+        if (axe) return switch (speedTier) {
+            case "GOLD" -> Items.GOLDEN_AXE;
+            case "DIAMOND" -> Items.DIAMOND_AXE;
+            case "NETHERITE" -> Items.NETHERITE_AXE;
+            default -> Items.IRON_AXE;
+        };
+        if (hoe) return switch (speedTier) {
+            case "GOLD" -> Items.GOLDEN_HOE;
+            case "DIAMOND" -> Items.DIAMOND_HOE;
+            case "NETHERITE" -> Items.NETHERITE_HOE;
+            default -> Items.IRON_HOE;
+        };
+        if (shovel) return switch (speedTier) {
+            case "GOLD" -> Items.GOLDEN_SHOVEL;
+            case "DIAMOND" -> Items.DIAMOND_SHOVEL;
+            case "NETHERITE" -> Items.NETHERITE_SHOVEL;
+            default -> Items.IRON_SHOVEL;
+        };
+        return fallback;
     }
 
     public static class CustomPickaxeItem extends PickaxeItem implements PolymerItem {
@@ -2772,7 +2821,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerSpeedProxy(stack, baseItem);
         }
     }
 
@@ -2888,7 +2937,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerSpeedProxy(stack, baseItem);
         }
     }
 
@@ -2991,7 +3040,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerSpeedProxy(stack, baseItem);
         }
     }
 
@@ -3105,7 +3154,7 @@ public class ProfessionToolManager {
                 ServerPlayer player
         ) {
 
-            return baseItem;
+            return ProfessionToolManager.getPolymerSpeedProxy(stack, baseItem);
         }
     }
 

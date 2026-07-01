@@ -153,7 +153,7 @@ public final class ExpeditionManager {
         for (ItemStack stack : rewards) player.getInventory().add(stack.copy());
 
         if ("pokemon".equals(ExpeditionConfig.normalizeType(save.expeditionType))) {
-            Pokemon found = createPokemonReward(battlingLevel);
+            Pokemon found = createPokemonReward(battlingLevel, save.level, save.expeditionType);
             if (found != null) {
                 AuctionPokemonSerializer.DeliveryResult foundDelivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, found);
                 if (foundDelivery != AuctionPokemonSerializer.DeliveryResult.FAILED) {
@@ -239,17 +239,19 @@ public final class ExpeditionManager {
         String expeditionType = "general";
     }
 
-    private static Pokemon createPokemonReward(int battlingLevel) {
+    private static Pokemon createPokemonReward(int battlingLevel, int sentPokemonLevel, String expeditionType) {
         int level = Math.max(1, Math.min(100, battlingLevel));
-        double roll = ThreadLocalRandom.current().nextDouble();
+        double rollPercent = ThreadLocalRandom.current().nextDouble() * 100.0D;
+        double legendaryChance = ExpeditionConfig.legendaryPokemonChancePercent(level, sentPokemonLevel, expeditionType);
+        double paradoxUbChance = ExpeditionConfig.paradoxUltraBeastChancePercent(level, sentPokemonLevel, expeditionType);
         String species;
-        if (level >= 100 && roll < 0.025D) {
+        if (rollPercent < legendaryChance) {
             species = randomFrom(SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.mythicalSpawns);
-        } else if (level >= 100 && roll < 0.075D) {
+        } else if (rollPercent < legendaryChance + paradoxUbChance) {
             species = randomFrom(SpecialWildSpawnConfig.DATA.paradoxSpawns, SpecialWildSpawnConfig.DATA.ultraBeastSpawns);
-        } else if (level >= 75 && roll < 0.03D) {
+        } else if (level >= 75 && rollPercent < legendaryChance + paradoxUbChance + 3.0D) {
             species = randomCommon("dratini", "larvitar", "bagon", "beldum", "gible", "goomy", "dreepy", "frigibax");
-        } else if (level >= 45 && roll < 0.10D) {
+        } else if (level >= 45 && rollPercent < legendaryChance + paradoxUbChance + 10.0D) {
             species = randomCommon("eevee", "riolu", "ralts", "rotom", "zorua", "ditto", "togepi", "munchlax");
         } else {
             species = randomCommon("pidgey", "rattata", "magikarp", "shinx", "starly", "bunnelby", "mareep", "wooper", "machop", "gastly");

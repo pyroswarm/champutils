@@ -282,7 +282,7 @@ public class PlayerProfileMenu {
                         )
                         .setCallback(
                                 (i,c,t)->
-                                        ProfessionMenu.open(
+                                        ProfessionsMenu.open(
                                                 viewer
                                         )
                         )
