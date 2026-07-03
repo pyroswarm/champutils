@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.menu.ProfileSelectionMenu;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
@@ -60,7 +61,7 @@ public final class ProfileLobbyManager {
             player.sendSystemMessage(Component.literal("Right-click the Select a Profile NPC or use /profiles to choose a profile.").withStyle(ChatFormatting.YELLOW));
         } else {
             player.server.execute(() -> {
-                if (player.hasDisconnected()) return;
+                if (!SafeTeleportManager.isLive(player)) return;
                 ProfileLobbyDebug.log("sendToLobby.openMenu.delayed.allInOne", player);
                 ProfileSelectionMenu.open(player);
             });
@@ -82,7 +83,7 @@ public final class ProfileLobbyManager {
         if (player == null || player.server == null) return;
         ServerLevel level = resolveLobbyLevel(player);
         applyProfileWorldSpawn(level);
-        player.teleportTo(level, LOBBY_X, LOBBY_Y, LOBBY_Z, LOBBY_YAW, LOBBY_PITCH);
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, LOBBY_X, LOBBY_Y, LOBBY_Z, LOBBY_YAW, LOBBY_PITCH);
         player.setYRot(LOBBY_YAW);
         player.setYHeadRot(LOBBY_YAW);
         player.setXRot(LOBBY_PITCH);

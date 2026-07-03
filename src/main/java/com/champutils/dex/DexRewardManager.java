@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.shop.NpcShopService;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
@@ -49,7 +50,7 @@ public final class DexRewardManager {
         }
 
         DexRewardClaimData.markClaimed(player.getUUID(), percent);
-        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
         player.sendSystemMessage(Component.literal("Claimed " + percent + "% Pokédex reward!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         return true;
     }

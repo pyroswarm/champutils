@@ -1,6 +1,7 @@
 package com.champutils.matchmaking;
 
 import com.champutils.profession.ProfessionNotificationSettings;
+import com.champutils.teleport.SafeTeleportManager;
 
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattlePrepManager;
@@ -200,9 +201,9 @@ public class MatchmakingManager {
         );
 
         if (rankedType(type) && player.getServer() != null) {
-            player.getServer().getPlayerList().broadcastSystemMessage(
-                    Component.literal("§dA trainer has entered the Ranked Queue!"),
-                    false
+            ProfessionNotificationSettings.sendQueueNotification(
+                    player.getServer(),
+                    Component.literal("§dA trainer has entered the Ranked Queue!")
             );
         }
     }
@@ -211,20 +212,21 @@ public class MatchmakingManager {
             ServerPlayer player
     ) {
 
+        if (player == null) return;
+        UUID playerId = player.getUUID();
+
         for (List<ServerPlayer> q : QUEUES.values()) {
-            q.remove(player);
+            q.removeIf(queued -> queued == null || playerId.equals(queued.getUUID()) || !SafeTeleportManager.isLive(queued));
         }
 
         QueueBossBarManager.stop(player);
         TeamSnapshotManager.clear(player);
+        TeamPreviewManager.forceCleanup(player);
+        ArenaManager.releaseArena(player);
 
-        QUEUE_TIME.remove(
-                player.getUUID()
-        );
-
-        PENDING_MATCH.remove(
-                player.getUUID()
-        );
+        QUEUE_TIME.remove(playerId);
+        PENDING_MATCH.remove(playerId);
+        ACCEPTED_MATCH.remove(playerId);
 
         clearAcceptance(player);
     }
@@ -310,7 +312,7 @@ public class MatchmakingManager {
     public static int queueSize(String type) {
         List<ServerPlayer> queue = QUEUES.get(normalizeType(type));
         if (queue == null) return 0;
-        queue.removeIf(player -> player == null || player.getServer() == null || !player.isAlive());
+        queue.removeIf(player -> !SafeTeleportManager.isLive(player) || !player.isAlive());
         return queue.size();
     }
 
@@ -330,7 +332,7 @@ public class MatchmakingManager {
     private static boolean canMatch(
             ServerPlayer player
     ) {
-        return player != null &&
+        return SafeTeleportManager.isLive(player) &&
                 player.isAlive() &&
                 !BattleStateManager.isInBattle(player) &&
                 !TeamPreviewManager.isInPreview(player) &&
@@ -380,11 +382,7 @@ public class MatchmakingManager {
                 continue;
             }
 
-            queue.removeIf(player ->
-                    player == null ||
-                            player.getServer() == null ||
-                            !player.isAlive()
-            );
+            queue.removeIf(player -> !SafeTeleportManager.isLive(player) || !player.isAlive());
 
             for (ServerPlayer player : new ArrayList<>(queue)) {
                 QUEUE_TIME.put(
@@ -423,9 +421,9 @@ public class MatchmakingManager {
     private static void announceQueue(ServerPlayer anchor, String type) {
         int count = queueSize(type);
         if (count <= 0) return;
-        anchor.getServer().getPlayerList().broadcastSystemMessage(
-                Component.literal("Queue up! Currently " + count + " player(s) in the " + type + " queue!"),
-                false
+        ProfessionNotificationSettings.sendQueueNotification(
+                anchor.getServer(),
+                Component.literal("Queue up! Currently " + count + " player(s) in the " + type + " queue!")
         );
     }
 
@@ -433,7 +431,7 @@ public class MatchmakingManager {
         for (List<ServerPlayer> queue : QUEUES.values()) {
             if (queue == null) continue;
             for (ServerPlayer player : queue) {
-                if (player != null && player.getServer() != null && player.isAlive()) return player;
+                if (SafeTeleportManager.isLive(player) && player.isAlive()) return player;
             }
         }
         return null;
@@ -711,6 +709,10 @@ public class MatchmakingManager {
 
         type = normalizeType(type);
 
+        if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) {
+            return;
+        }
+
         PENDING_MATCH.add(p1.getUUID());
         PENDING_MATCH.add(p2.getUUID());
 
@@ -739,6 +741,11 @@ public class MatchmakingManager {
             String type,
             List<ServerPlayer> queue
     ) {
+
+        if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) {
+            cancelPendingMatch(p1, p2);
+            return;
+        }
 
         ArenaManager.Arena arena =
                 ArenaManager.reserveArena(
@@ -847,10 +854,8 @@ public class MatchmakingManager {
             ServerPlayer p1,
             ServerPlayer p2
     ) {
-        return p1 != null &&
-                p2 != null &&
-                p1.getServer() != null &&
-                p2.getServer() != null &&
+        return SafeTeleportManager.isLive(p1) &&
+                SafeTeleportManager.isLive(p2) &&
                 p1.isAlive() &&
                 p2.isAlive() &&
                 !BattleStateManager.isInBattle(p1) &&
@@ -866,23 +871,20 @@ public class MatchmakingManager {
         clearMatch(p1);
         clearMatch(p2);
 
-        BattleContextManager.clearContext(
-                p1.getUUID()
-        );
-
-        BattleContextManager.clearContext(
-                p2.getUUID()
-        );
-
-        ArenaManager.releaseArena(p1);
-        ArenaManager.releaseArena(p2);
-
-        PENDING_MATCH.remove(p1.getUUID());
-        PENDING_MATCH.remove(p2.getUUID());
+        if (p1 != null) {
+            BattleContextManager.clearContext(p1.getUUID());
+            ArenaManager.releaseArena(p1);
+            PENDING_MATCH.remove(p1.getUUID());
+        }
+        if (p2 != null) {
+            BattleContextManager.clearContext(p2.getUUID());
+            ArenaManager.releaseArena(p2);
+            PENDING_MATCH.remove(p2.getUUID());
+        }
     }
 
     public static boolean acceptMatch(ServerPlayer player) {
-        if (player == null) return false;
+        if (!SafeTeleportManager.isLive(player)) return false;
         PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
         if (pending == null || pending.launched) {
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
@@ -900,8 +902,12 @@ public class MatchmakingManager {
         ACCEPTED_MATCH.add(player.getUUID());
         ServerPlayer other = pending.other(player);
         player.sendSystemMessage(Component.literal("§aMatch accepted. Waiting for opponent..."));
-        if (other != null) {
+        if (SafeTeleportManager.isLive(other)) {
             other.sendSystemMessage(Component.literal("§eOpponent accepted the match."));
+        }
+        if ((!SafeTeleportManager.isLive(pending.p1) || !SafeTeleportManager.isLive(pending.p2))) {
+            handleAcceptanceFailure(pending, !SafeTeleportManager.isLive(pending.p1) ? pending.p1 : pending.p2, "left the server");
+            return true;
         }
         if (ACCEPTED_MATCH.contains(pending.p1.getUUID()) && ACCEPTED_MATCH.contains(pending.p2.getUUID())) {
             pending.launched = true;
@@ -915,7 +921,7 @@ public class MatchmakingManager {
     }
 
     public static boolean declineMatch(ServerPlayer player) {
-        if (player == null) return false;
+        if (!SafeTeleportManager.isLive(player)) return false;
         PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
         if (pending == null || pending.launched) {
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
@@ -930,6 +936,11 @@ public class MatchmakingManager {
         Set<PendingAcceptance> pendingSet = new HashSet<>(ACCEPTANCE.values());
         for (PendingAcceptance pending : pendingSet) {
             if (pending == null || pending.launched) continue;
+            if (!SafeTeleportManager.isLive(pending.p1) || !SafeTeleportManager.isLive(pending.p2)) {
+                ServerPlayer failed = !SafeTeleportManager.isLive(pending.p1) ? pending.p1 : pending.p2;
+                handleAcceptanceFailure(pending, failed, "left the server");
+                continue;
+            }
             pending.ticksLeft--;
             if (pending.ticksLeft <= 0) {
                 ServerPlayer failed = !ACCEPTED_MATCH.contains(pending.p1.getUUID()) ? pending.p1 : pending.p2;
@@ -951,13 +962,13 @@ public class MatchmakingManager {
         PENDING_MATCH.remove(pending.p2.getUUID());
         clearMatch(pending.p1);
         clearMatch(pending.p2);
-        if (failed != null) {
+        if (SafeTeleportManager.isLive(failed)) {
             failed.sendSystemMessage(Component.literal("§cMatch canceled because you " + reason + ". You were removed from queue."));
             if (isMatchmakingBlocked(failed)) {
                 failed.sendSystemMessage(Component.literal("§cYou are blocked from matchmaking for 30 minutes after too many failed accepts or illegal teams."));
             }
         }
-        if (other != null && other.getServer() != null && other.isAlive() && !BattleStateManager.isInBattle(other) && !isMatchmakingBlocked(other)) {
+        if (SafeTeleportManager.isLive(other) && other.isAlive() && !BattleStateManager.isInBattle(other) && !isMatchmakingBlocked(other)) {
             if (!pending.queue.contains(other)) {
                 pending.queue.add(other);
             }
@@ -972,13 +983,14 @@ public class MatchmakingManager {
         PendingAcceptance pending = ACCEPTANCE.remove(player.getUUID());
         ACCEPTED_MATCH.remove(player.getUUID());
         if (pending != null) {
+            pending.launched = true;
             ServerPlayer other = pending.other(player);
             if (other != null) ACCEPTANCE.remove(other.getUUID());
         }
     }
 
     private static void sendMatchAcceptPrompt(ServerPlayer player, String type) {
-        if (player == null) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         sendTitle(player, "§aMatch Found!", "§eAccept within 30 seconds");
         ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         Component accept = Component.literal("§a[ACCEPT]").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/queue accept")));
@@ -1048,6 +1060,8 @@ public class MatchmakingManager {
             String type
     ) {
 
+        if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) return;
+
         if (ProfessionNotificationSettings.areQueueNotificationsEnabled(p1)) {
             sendTitle(
                     p1,
@@ -1110,6 +1124,7 @@ public class MatchmakingManager {
             String title,
             String subtitle
     ) {
+        if (!SafeTeleportManager.isLive(player)) return;
         player.connection.send(
                 new ClientboundSetTitlesAnimationPacket(
                         5,

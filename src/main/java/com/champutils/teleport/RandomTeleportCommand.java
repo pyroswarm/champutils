@@ -2,6 +2,7 @@ package com.champutils.teleport;
 
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.survival.SurvivalWorldManager;
+import com.champutils.survival.SurvivalWorldConfig;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.worldborder.ChampWorldBorderConfig;
@@ -59,10 +60,10 @@ public final class RandomTeleportCommand {
     // The previous zero budget made RTP skip every unloaded candidate and fail in fresh worlds.
     // Keep this intentionally tiny: at most one async chunk request globally, with a per-search cap.
     private static final int GLOBAL_CHUNK_GENERATION_BUDGET_PER_TICK = 1;
-    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 24;
-    private static final int MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH = 60;
-    private static final int RTP_CHUNK_GENERATION_COOLDOWN_TICKS = 20;
-    private static final int BIOME_CHUNK_GENERATION_COOLDOWN_TICKS = 40;
+    private static final int MAX_GENERATED_CHUNKS_PER_SEARCH = 12;
+    private static final int MAX_GENERATED_CHUNKS_PER_BIOME_SEARCH = 24;
+    private static final int RTP_CHUNK_GENERATION_COOLDOWN_TICKS = 40;
+    private static final int BIOME_CHUNK_GENERATION_COOLDOWN_TICKS = 80;
     private static final int MAX_ACTIVE_RTP_SEARCHES = 1;
     private static final int BORDER_PADDING = 32;
     private static final int NETHER_MAX_SAFE_Y = 119;
@@ -88,13 +89,13 @@ public final class RandomTeleportCommand {
                             .executes(ctx -> rtpSurvival(ctx.getSource(), "end", null))));
 
             dispatcher.register(literal("rtpcooldown")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .executes(ctx -> showCooldown(ctx.getSource()))
                     .then(argument("seconds", IntegerArgumentType.integer(0))
                             .executes(ctx -> setCooldown(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "seconds")))));
 
             dispatcher.register(literal("rtpdimension")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .then(literal("list")
                             .executes(ctx -> listBlocked(ctx.getSource())))
                     .then(literal("block")
@@ -109,7 +110,7 @@ public final class RandomTeleportCommand {
 
 
             dispatcher.register(literal("rtpworlds")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .then(literal("list")
                             .executes(ctx -> listRtpWorlds(ctx.getSource())))
                     .then(literal("unlock")
@@ -186,9 +187,15 @@ public final class RandomTeleportCommand {
 
     private static int listRtpWorlds(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("Survival RTP Worlds").withStyle(ChatFormatting.GOLD), false);
+        MinecraftServer server = source.getServer();
         for (SurvivalWorldManager.Entry entry : SurvivalWorldManager.entries()) {
-            ChatFormatting color = entry.activeForRtp ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY;
-            source.sendSuccess(() -> Component.literal((entry.activeForRtp ? "ACTIVE " : "LOCKED ") + "[" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status).withStyle(color), false);
+            ServerLevel level = TeleportConfig.resolveLevel(server, entry.worldName);
+            int players = level == null ? -1 : level.players().size();
+            int cap = SurvivalWorldConfig.get().maxRtpPlayersPerWorld;
+            boolean capped = level != null && SurvivalWorldManager.isAtOrOverRtpCap(level);
+            ChatFormatting color = !entry.activeForRtp ? ChatFormatting.DARK_GRAY : capped ? ChatFormatting.YELLOW : ChatFormatting.GREEN;
+            String countText = players < 0 ? "unloaded" : players + "/" + cap + " RTP cap";
+            source.sendSuccess(() -> Component.literal((entry.activeForRtp ? "ACTIVE " : "LOCKED ") + "[" + entry.worldType + " " + entry.localIndex + "] " + entry.worldName + " - " + entry.status + " - " + countText + (capped ? " (RTP skip)" : "")).withStyle(color), false);
         }
 
         source.sendSuccess(() -> Component.literal("Use /rtpworlds unlock <password> <world> or /rtpworlds lock <password> <world>. Default password is CHANGE_ME and will not work until changed in config/champutils/teleport_config.json.").withStyle(ChatFormatting.GRAY), false);
@@ -233,7 +240,7 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        if (PlayerProfileManager.isIslander(player) && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (PlayerProfileManager.isIslander(player) && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal("Islander profiles cannot use RTP. Islanders are limited to spawn and Islander worlds.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -245,7 +252,7 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        if (ACTIVE_SEARCHES.size() >= MAX_ACTIVE_RTP_SEARCHES && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (ACTIVE_SEARCHES.size() >= MAX_ACTIVE_RTP_SEARCHES && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal("RTP is busy right now. Try again in a few seconds.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
@@ -255,7 +262,7 @@ public final class RandomTeleportCommand {
         long last = LAST_USE_MS.getOrDefault(playerId, 0L);
         long waitMs = (cooldown * 1000L) - (now - last);
 
-        if (!com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin") && waitMs > 0) {
+        if (!player.hasPermissions(4) && waitMs > 0) {
             long waitSeconds = Math.max(1L, (waitMs + 999L) / 1000L);
             player.sendSystemMessage(Component.literal("You can use /rtp again in " + waitSeconds + "s.").withStyle(ChatFormatting.RED));
             return 0;
@@ -285,11 +292,14 @@ public final class RandomTeleportCommand {
         ServerLevel targetLevel = survivalTarget == null ? null : survivalTarget.level;
         String targetWorldName = survivalTarget == null || survivalTarget.entry == null ? null : survivalTarget.entry.worldName;
         if (targetLevel == null && dimensionMatchesType(startLevel, normalizedType) && !TeleportConfig.isRtpBlocked(currentDimension)) {
-            targetLevel = startLevel;
-            targetWorldName = currentDimension;
+            boolean startWorldIsSoftCapped = SurvivalWorldManager.isSurvivalLevel(startLevel) && SurvivalWorldManager.isAtOrOverRtpCap(startLevel);
+            if (!startWorldIsSoftCapped) {
+                targetLevel = startLevel;
+                targetWorldName = currentDimension;
+            }
         }
         if (targetLevel == null) {
-            player.sendSystemMessage(Component.literal("No loaded " + normalizedType + " world is available for RTP. Stand in that realm or unlock/load a survival RTP world with /rtpworlds.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("No loaded " + normalizedType + " world under the RTP soft cap is available. Existing players can still use homes, claims, TPA, and other direct teleports.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -299,30 +309,72 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        int maxAttempts = desiredBiome == null ? MAX_RTP_SEARCH_ATTEMPTS : MAX_BIOME_RTP_SEARCH_ATTEMPTS;
-        if (desiredBiome != null && !isBiomeKeyRegistered(targetLevel, desiredBiome)) {
-            player.sendSystemMessage(Component.literal("That biome is not registered in the target survival world, so RTP will not search for it.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
+        player.sendSystemMessage(Component.literal("Looking for a RTP location...").withStyle(ChatFormatting.YELLOW));
 
-        LAST_USE_MS.put(playerId, now);
-        SearchTask search = new SearchTask(playerId, targetLevel, bounds, normalizedType, desiredBiome, maxAttempts);
-        BlockPos cached = pollCachedSafePosition(search);
-        if (cached != null) {
+        BlockPos target = findSimpleRtpPosition(player, targetLevel, bounds, normalizedType);
+        if (target != null) {
             LAST_USE_MS.put(playerId, now);
-            SafeTeleportManager.teleport(player, targetLevel, cached.getX() + 0.5D, cached.getY(), cached.getZ() + 0.5D, player.getYRot(), player.getXRot());
-            player.sendSystemMessage(Component.literal("Teleported to a cached safe random " + normalizedType + " location.").withStyle(ChatFormatting.GREEN));
+            SafeTeleportManager.teleport(player, targetLevel, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
             return 1;
         }
 
-        ACTIVE_SEARCHES.put(playerId, search);
-
-        String biomeText = desiredBiome == null ? "" : " in biome " + desiredBiome.location();
-        player.sendSystemMessage(Component.literal(desiredBiome == null
-                ? "Searching for a random " + normalizedType + " RTP location anywhere inside the world border..."
-                : "Searching thoroughly for a " + normalizedType + " RTP location" + biomeText + " anywhere inside the world border. This can take up to 2 minutes because chunk checks are heavily throttled.").withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Target RTP world: " + targetWorldName).withStyle(ChatFormatting.GRAY));
+        // No already-loaded safe chunk was found immediately. Do not synchronously generate
+        // chunks on the server tick; that was causing 800ms+ RTP stalls and visible movement
+        // desync. Hand off to the existing throttled async search instead.
+        SearchTask task = new SearchTask(playerId, targetLevel, bounds, normalizedType, desiredBiome, MAX_RTP_SEARCH_ATTEMPTS);
+        ACTIVE_SEARCHES.put(playerId, task);
         return 1;
+    }
+
+    private static BlockPos findSimpleRtpPosition(ServerPlayer player, ServerLevel level, SearchBounds bounds, String worldType) {
+        if (player == null || level == null || bounds == null) return null;
+        BlockPos origin = player.blockPosition();
+        final int minDistance = 2000;
+        int maxDistance = maxDistanceInsideBounds(origin, bounds);
+        if (maxDistance < minDistance) return null;
+
+        SearchTask simpleTask = new SearchTask(player.getUUID(), level, bounds, worldType, null, 1);
+        WorldBorder border = level.getWorldBorder();
+        for (int attempt = 0; attempt < 32; attempt++) {
+            double angle = RANDOM.nextDouble() * Math.PI * 2.0D;
+            int distance = minDistance + RANDOM.nextInt(Math.max(1, maxDistance - minDistance + 1));
+            int x = origin.getX() + (int) Math.round(Math.cos(angle) * distance);
+            int z = origin.getZ() + (int) Math.round(Math.sin(angle) * distance);
+            if (!bounds.contains(x, z)) continue;
+            long dx = (long) x - origin.getX();
+            long dz = (long) z - origin.getZ();
+            long distSq = dx * dx + dz * dz;
+            if (distSq < (long) minDistance * minDistance) continue;
+
+            ChunkPos chunkPos = new ChunkPos(x >> 4, z >> 4);
+            try {
+                if (!level.hasChunk(chunkPos.x, chunkPos.z)) {
+                    continue;
+                }
+            } catch (Throwable ignored) {
+                continue;
+            }
+
+            BlockPos safe = validateCandidate(simpleTask, level, border, x, z);
+            if (safe != null) return safe;
+        }
+        return null;
+    }
+
+    private static int maxDistanceInsideBounds(BlockPos origin, SearchBounds bounds) {
+        double max = 0.0D;
+        int[][] corners = new int[][] {
+                {bounds.minX, bounds.minZ},
+                {bounds.minX, bounds.maxZ},
+                {bounds.maxX, bounds.minZ},
+                {bounds.maxX, bounds.maxZ}
+        };
+        for (int[] corner : corners) {
+            double dx = corner[0] - origin.getX();
+            double dz = corner[1] - origin.getZ();
+            max = Math.max(max, Math.sqrt(dx * dx + dz * dz));
+        }
+        return (int) Math.floor(max);
     }
 
     public static void tick(MinecraftServer server) {
@@ -746,17 +798,16 @@ public final class RandomTeleportCommand {
                 }
                 if (ticks % 100 == 0) {
                     if (desiredBiome == null) {
-                        player.sendSystemMessage(Component.literal("Still searching RTP safely across the full border... checked " + attempts + " candidates, generated " + generatedChunksTotal + " throttled chunks.").withStyle(ChatFormatting.GRAY));
+                        // Keep RTP chat simple for players; the initial search message is enough.
                     } else {
-                        player.sendSystemMessage(Component.literal("Still searching for " + desiredBiome.location() + "... checked " + attempts + " spots, generated " + generatedChunksTotal + " throttled chunks.").withStyle(ChatFormatting.GRAY));
+                        // Keep RTP chat simple for players; the initial search message is enough.
                     }
                 }
                 return false;
             }
 
+            LAST_USE_MS.put(player.getUUID(), System.currentTimeMillis());
             SafeTeleportManager.teleport(player, level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
-            String biomeText = desiredBiome == null ? "" : " in " + desiredBiome.location();
-            player.sendSystemMessage(Component.literal("Teleported to a random safe location" + biomeText + " after checking " + attempts + " spots.").withStyle(ChatFormatting.GREEN));
             return true;
         }
 

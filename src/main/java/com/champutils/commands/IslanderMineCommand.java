@@ -22,7 +22,7 @@ public final class IslanderMineCommand {
                             .executes(ctx -> openMine(ctx.getSource().getPlayerOrException()))));
 
             dispatcher.register(literal("islandermine")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .then(literal("reload")
                             .executes(ctx -> {
                                 IslanderMineConfig.load();

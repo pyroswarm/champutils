@@ -89,8 +89,20 @@ public final class ChampSmarterBattleAI implements BattleAI {
                 switchChoice = bestSwitch(active, aiSide, false);
             }
 
-            ScoredMove best = usable.stream()
+            List<ScoredMove> scoredMoves = usable.stream()
                     .map(move -> new ScoredMove(move, scoreMove(move, active, aiSide, battle, currentMatchup, memory)))
+                    .toList();
+            if (BattleAIDifficultyManager.isDebugEnabled()) {
+                for (ScoredMove scored : scoredMoves) {
+                    BattleAIDifficultyManager.debug("ScoringAI: candidate pokemon=" + pokemonLabel(active)
+                            + " move=" + normalize(scored.move.getId())
+                            + " type=" + moveType(scored.move.getId())
+                            + " power=" + readMovePower(scored.move.getId())
+                            + " score=" + Math.round(scored.score)
+                            + " targetNotes=" + targetDebugNotes(scored.move, active, aiSide));
+                }
+            }
+            ScoredMove best = scoredMoves.stream()
                     .max(Comparator.comparingDouble(s -> s.score))
                     .orElse(null);
 
@@ -120,6 +132,14 @@ public final class ChampSmarterBattleAI implements BattleAI {
         List<?> opponents = opponentActives(aiSide);
         int oppRemaining = remainingPokemon(aiSide, false);
         int ownRemaining = remainingPokemon(aiSide, true);
+
+        int power = readMovePower(id);
+        String type = moveType(id);
+        if (power > 0 && !type.isBlank() && allAvailableTargetsImmuneOrAbsorb(move, active, aiSide)) {
+            BattleAIDifficultyManager.debug("ScoringAI: rejecting immune/absorbed move pokemon=" + pokemonLabel(active)
+                    + " move=" + id + " type=" + type + " notes=" + targetDebugNotes(move, active, aiSide));
+            return -100000.0D;
+        }
 
         if (PROTECT_MOVES.contains(id)) {
             boolean recent = memory.lastProtectTurn >= 0 && battleTurn(battle) - memory.lastProtectTurn <= 2;
@@ -243,8 +263,10 @@ public final class ChampSmarterBattleAI implements BattleAI {
     }
 
     private double bestTypePressure(Object attacker, Object defender) {
-        double best = 1.0D;
-        for (String type : readMoveTypes(attacker)) {
+        List<String> moveTypes = readMoveTypes(attacker);
+        if (moveTypes.isEmpty()) return 1.0D;
+        double best = 0.0D;
+        for (String type : moveTypes) {
             if (isTypeBlockedByKnownAbility(type, defender)) continue;
             best = Math.max(best, typeMultiplier(type, readTypes(defender)));
         }
@@ -268,20 +290,27 @@ public final class ChampSmarterBattleAI implements BattleAI {
             List<Targetable> targets = move.getTargets(active);
             if (targets == null || targets.isEmpty()) return new MoveActionResponse(move.getId(), null, null);
             String type = moveType(normalize(move.getId()));
+            int power = readMovePower(move.getId());
             Targetable best = null;
-            double bestScore = -1.0D;
+            Targetable fallbackTarget = null;
+            double bestScore = power > 0 ? 0.0D : -1.0D;
             for (Targetable target : targets) {
                 if (target == null || !target.hasPokemon() || target.isAllied(active)) continue;
+                if (fallbackTarget == null) fallbackTarget = target;
                 double score = isTypeBlockedByKnownAbility(type, target) ? 0.0D : typeMultiplier(type, readTypes(target));
                 if (score > bestScore) {
                     bestScore = score;
                     best = target;
                 }
             }
-            if (best == null) {
-                for (Targetable target : targets) {
-                    if (target != null && target.hasPokemon()) { best = target; break; }
-                }
+            if (best == null && power <= 0) {
+                best = fallbackTarget;
+            } else if (best == null) {
+                // This only happens when the caller had no better legal move. Keep the battle moving,
+                // but make the debug log explain that every target looked immune or absorbing.
+                BattleAIDifficultyManager.debug("ScoringAI: forced to target immune/absorbed option pokemon=" + pokemonLabel(active)
+                        + " move=" + normalize(move.getId()) + " notes=" + targetDebugNotes(move, active, aiSide));
+                best = fallbackTarget;
             }
             return best == null ? new MoveActionResponse(move.getId(), null, null) : new MoveActionResponse(move.getId(), best.getPNX(), null);
         } catch (Throwable ignored) {
@@ -390,13 +419,11 @@ public final class ChampSmarterBattleAI implements BattleAI {
         Object moves = readObject(pokemon, "getMoveSet");
         if (moves instanceof Iterable<?> iterable) {
             for (Object move : iterable) {
-                Object type = readObject(move, "getType");
-                Object name = readObject(type, "getName");
-                String clean = normalize(name == null ? String.valueOf(type) : String.valueOf(name));
+                Object type = readMoveTypeObject(move);
+                String clean = normalizeTypeObject(type);
                 if (!clean.isBlank()) types.add(clean);
             }
         }
-        if (types.isEmpty()) types.addAll(readTypes(activeOrPokemon));
         return types;
     }
 
@@ -463,10 +490,96 @@ public final class ChampSmarterBattleAI implements BattleAI {
             Method getByName = movesClass.getMethod("getByName", String.class);
             Object template = getByName.invoke(null, normalize(moveId));
             if (template == null) return "";
-            Object type = template.getClass().getMethod("getType").invoke(template);
-            Object name = readObject(type, "getName");
-            return normalize(name == null ? type.toString() : name.toString());
+            return normalizeTypeObject(readMoveTypeObject(template));
         } catch (Throwable ignored) { return ""; }
+    }
+
+    private Object readMoveTypeObject(Object moveOrTemplate) {
+        if (moveOrTemplate == null) return null;
+        for (String methodName : List.of("getEffectiveElementalType", "getElementalType", "getType")) {
+            try {
+                Method method;
+                if ("getEffectiveElementalType".equals(methodName)) {
+                    method = moveOrTemplate.getClass().getMethod(methodName, Class.forName("com.cobblemon.mod.common.pokemon.Pokemon"));
+                    return method.invoke(moveOrTemplate, new Object[]{null});
+                } else {
+                    method = moveOrTemplate.getClass().getMethod(methodName);
+                    Object value = method.invoke(moveOrTemplate);
+                    if (value != null) return value;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        Object template = readObject(moveOrTemplate, "getTemplate");
+        if (template != null && template != moveOrTemplate) return readMoveTypeObject(template);
+        return null;
+    }
+
+    private String normalizeTypeObject(Object type) {
+        if (type == null) return "";
+        Object showdown = readObject(type, "getShowdownId");
+        if (showdown == null) showdown = readObject(type, "getName");
+        if (showdown == null) showdown = readObject(type, "name");
+        return normalize(showdown == null ? type.toString() : showdown.toString());
+    }
+
+    private boolean allAvailableTargetsImmuneOrAbsorb(InBattleMove move, ActiveBattlePokemon active, BattleSide aiSide) {
+        String type = moveType(move.getId());
+        if (type.isBlank()) return false;
+        List<Targetable> explicitTargets = List.of();
+        try {
+            List<Targetable> targets = move.getTargets(active);
+            if (targets != null) explicitTargets = targets;
+        } catch (Throwable ignored) {
+        }
+        List<?> candidates = explicitTargets.isEmpty() ? opponentActives(aiSide) : explicitTargets;
+        boolean sawOpponent = false;
+        for (Object target : candidates) {
+            if (target == null) continue;
+            try { if (target instanceof Targetable t && (!t.hasPokemon() || t.isAllied(active))) continue; } catch (Throwable ignored) {}
+            sawOpponent = true;
+            if (!isTypeBlockedByKnownAbility(type, target) && typeMultiplier(type, readTypes(target)) > 0.0D) return false;
+        }
+        return sawOpponent;
+    }
+
+    private String targetDebugNotes(InBattleMove move, ActiveBattlePokemon active, BattleSide aiSide) {
+        String type = moveType(move == null ? "" : move.getId());
+        StringBuilder builder = new StringBuilder();
+        List<?> candidates;
+        try {
+            List<Targetable> targets = move.getTargets(active);
+            candidates = targets == null || targets.isEmpty() ? opponentActives(aiSide) : targets;
+        } catch (Throwable ignored) {
+            candidates = opponentActives(aiSide);
+        }
+        for (Object target : candidates) {
+            if (target == null) continue;
+            try { if (target instanceof Targetable t && (!t.hasPokemon() || t.isAllied(active))) continue; } catch (Throwable ignored) {}
+            String ability = readAbilityName(target);
+            List<String> types = readTypes(target);
+            boolean blocked = isTypeBlockedByKnownAbility(type, target);
+            double mult = typeMultiplier(type, types);
+            if (builder.length() > 0) builder.append("; ");
+            builder.append(pokemonLabel(target))
+                    .append(" types=").append(types)
+                    .append(" ability=").append(ability.isBlank() ? "unknown" : ability)
+                    .append(" mult=").append(mult)
+                    .append(blocked ? " blocked_by_ability" : "");
+        }
+        return builder.toString();
+    }
+
+    private String pokemonLabel(Object activeOrPokemon) {
+        Object bp = readObject(activeOrPokemon, "getBattlePokemon");
+        if (bp == null) bp = activeOrPokemon;
+        Object pokemon = readObject(bp, "getEffectedPokemon");
+        if (pokemon == null) pokemon = readObject(bp, "getPokemon");
+        Object species = readObject(pokemon == null ? bp : pokemon, "getSpecies");
+        Object name = readObject(species, "getName");
+        Object level = readObject(pokemon == null ? bp : pokemon, "getLevel");
+        String speciesText = normalize(name == null ? String.valueOf(species) : String.valueOf(name));
+        return speciesText + (level == null ? "" : "@Lv" + level);
     }
 
     private int readMovePower(String moveId) {
@@ -487,7 +600,10 @@ public final class ChampSmarterBattleAI implements BattleAI {
             Object template = getByName.invoke(null, normalize(moveId));
             if (template == null) return 1.0D;
             Object value = template.getClass().getMethod("getAccuracy").invoke(template);
-            if (value instanceof Number n) return Math.max(0.5D, Math.min(1.0D, n.doubleValue() / 100.0D));
+            if (value instanceof Number n) {
+                double accuracy = n.doubleValue();
+                return accuracy <= 0.0D ? 1.0D : Math.max(0.5D, Math.min(1.0D, accuracy / 100.0D));
+            }
         } catch (Throwable ignored) {}
         return 1.0D;
     }

@@ -200,9 +200,9 @@ public final class WorldEventConfig {
             case "COMMON" -> { r.minFragments = 1; r.maxFragments = 3; r.crateCreditId = "common"; r.fragmentWeights.put("COMMON", 85); r.fragmentWeights.put("UNCOMMON", 15); }
             case "UNCOMMON" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "uncommon"; r.fragmentWeights.put("UNCOMMON", 80); r.fragmentWeights.put("RARE", 20); }
             case "RARE" -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "rare"; r.fragmentWeights.put("RARE", 75); r.fragmentWeights.put("EPIC", 22); r.fragmentWeights.put("LEGENDARY", 3); }
-            case "EPIC" -> { r.minFragments = 4; r.maxFragments = 8; r.crateCreditId = "epic"; r.fragmentWeights.put("EPIC", 75); r.fragmentWeights.put("LEGENDARY", 22); r.fragmentWeights.put("MYTHIC", 3); }
-            case "LEGENDARY" -> { r.minFragments = 5; r.maxFragments = 10; r.crateCreditId = "legendary"; r.fragmentWeights.put("LEGENDARY", 80); r.fragmentWeights.put("MYTHIC", 20); }
-            case "MYTHIC" -> { r.minFragments = 8; r.maxFragments = 14; r.crateCreditId = "mythic"; r.fragmentWeights.put("MYTHIC", 100); }
+            case "EPIC" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "epic"; r.fragmentWeights.put("EPIC", 100); }
+            case "LEGENDARY" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "legendary"; r.fragmentWeights.put("LEGENDARY", 100); }
+            case "MYTHIC" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "mythic"; r.fragmentWeights.put("LEGENDARY", 100); }
             default -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "rare"; r.fragmentWeights.put("RARE", 80); r.fragmentWeights.put("EPIC", 20); }
         }
         r.crateCredits = 1;

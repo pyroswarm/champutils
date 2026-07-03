@@ -240,7 +240,12 @@ public final class TMManager {
     }
 
     public static ItemStack createRandomTMStack(String rawRarity, int amount) {
-        return ItemStack.EMPTY;
+        ensureRegistryReady();
+        if (amount <= 0 || REGISTERED.isEmpty()) return ItemStack.EMPTY;
+        List<String> moves = new ArrayList<>(REGISTERED.keySet());
+        if (moves.isEmpty()) return ItemStack.EMPTY;
+        String moveId = moves.get(RANDOM.nextInt(moves.size()));
+        return createTMStack(moveId, 1);
     }
 
     public static CraftResult craftRandom(ServerPlayer player, String rawRarity) {

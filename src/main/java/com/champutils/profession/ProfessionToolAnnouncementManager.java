@@ -145,6 +145,7 @@ public final class ProfessionToolAnnouncementManager {
         ProfessionToolManager.refreshToolStack(
                 stack
         );
+        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
 
         broadcast(
                 player.server,
@@ -191,15 +192,6 @@ public final class ProfessionToolAnnouncementManager {
             MinecraftServer server,
             Component message
     ) {
-
-        if (server == null) {
-            return;
-        }
-
-        for (ServerPlayer target : server.getPlayerList().getPlayers()) {
-            target.sendSystemMessage(
-                    message
-            );
-        }
+        ProfessionNotificationSettings.sendBroadcast(server, message);
     }
 }

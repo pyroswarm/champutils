@@ -381,7 +381,7 @@ public final class TerritoryMenus {
                         }));
                         return;
                     }
-                    if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+                    if (!territory.isReady() && !player.hasPermissions(4)) {
                         player.sendSystemMessage(Component.literal("That territory is still being created or loaded. Try again shortly.").withStyle(ChatFormatting.YELLOW));
                         return;
                     }

@@ -65,7 +65,7 @@ public final class TutorialCommand {
     }
 
     private static boolean canAdmin(CommandSourceStack source) {
-        return source.hasPermission(2) || com.champutils.permissions.PermissionUtil.has(source, "champutils.admin");
+        return source.hasPermission(4);
     }
 
     private static int show(ServerPlayer player) {

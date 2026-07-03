@@ -49,7 +49,7 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         double chance = getChance(player, profession, settings) * Math.max(0.0D, chanceMultiplier);
-        int level = Math.max(0, ProfessionManager.getLevel(player, profession));
+        int level = Math.max(0, ProfessionManager.getBenefitLevel(player, profession));
 
         if (chance <= 0.0D) {
             return;
@@ -91,7 +91,7 @@ public final class ProfessionWeaponFragmentDropManager {
             ProfessionType profession,
             ProfessionWeaponFragmentConfig.DropSettings settings
     ) {
-        int level = Math.max(1, ProfessionManager.getLevel(player, profession));
+        int level = Math.max(1, ProfessionManager.getBenefitLevel(player, profession));
 
         double chance = settings.baseDropChance + (settings.chancePerLevel * Math.max(0, level - 1));
 

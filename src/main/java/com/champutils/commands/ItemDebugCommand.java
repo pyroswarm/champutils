@@ -27,7 +27,7 @@ public final class ItemDebugCommand {
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("itemdebug")
-                .requires(source -> PermissionUtil.has(source, "champutils.admin") || PermissionUtil.has(source, "champutils.itemdebug"))
+                .requires(source -> source.hasPermission(4))
                 .executes(context -> held(context.getSource().getPlayerOrException()))
                 .then(Commands.literal("held").executes(context -> held(context.getSource().getPlayerOrException())))
                 .then(Commands.literal("compare").executes(context -> compare(context.getSource().getPlayerOrException())))

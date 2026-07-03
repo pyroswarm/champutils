@@ -2,6 +2,7 @@ package com.champutils.crafting;
 
 import com.champutils.profession.ProfessionBackpackManager;
 import com.champutils.economy.EconomyManager;
+import com.champutils.profile.PlayerProfileManager;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -39,6 +40,9 @@ public final class ChampCraftingService {
         if (!ChampCraftingConfig.CONFIG.enabled) return CraftResult.fail("Champ Crafting is disabled.");
         ChampCraftingConfig.RecipeData recipe = ChampCraftingConfig.get(recipeId);
         if (recipe == null || !recipe.enabled) return CraftResult.fail("That recipe is not available.");
+        if (recipe.category != null && recipe.category.equalsIgnoreCase("Islander Resources") && !PlayerProfileManager.isIslander(player)) {
+            return CraftResult.fail("Only Islander profiles can use Islander Resource recipes.");
+        }
         ItemStack outputStack = createOutputStack(recipe.outputItem, Math.max(1, recipe.outputAmount));
         Item output = outputStack.getItem();
         if (outputStack.isEmpty() || output == Items.AIR) return CraftResult.fail("Output item is not registered: " + recipe.outputItem);

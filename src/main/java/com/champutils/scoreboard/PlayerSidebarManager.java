@@ -180,8 +180,7 @@ public final class PlayerSidebarManager {
         lines.add("§8§m----------------");
         lines.add("§6Money §f" + EconomyManager.format(balance));
         lines.add("§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
-        lines.add("§dDex §f" + caught + "§7/§f" + total);
-        lines.add("§7" + formatPercent(dexPercent) + "% Complete");
+        lines.add("§dDex §f" + caught + "§7/§f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
         lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
         if (PlayerProfileManager.isIslander(player)) {
             lines.add("§6Island Legendary §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
@@ -192,7 +191,7 @@ public final class PlayerSidebarManager {
             lines.add("§5Last Paradox §f" + SpecialWildSpawnManager.formatLastNormalParadoxSpawnAgo());
             lines.add("§dLast Ultra Beast §f" + SpecialWildSpawnManager.formatLastNormalUltraBeastSpawnAgo());
         }
-        lines.add("§5Last Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
+        lines.add("§cLast Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         lines.add("§8§m----------------");
         lines.add(professionLine("§cBattling", player, ProfessionType.BATTLING));
         lines.add(professionLine("§7Mining", player, ProfessionType.MINING));

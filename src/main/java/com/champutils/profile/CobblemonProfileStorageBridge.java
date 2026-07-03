@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.Priority;
 import net.minecraft.server.MinecraftServer;
@@ -148,11 +149,11 @@ public final class CobblemonProfileStorageBridge {
         long getPartyStart = System.currentTimeMillis();
         boolean cacheHitBefore = hasSqlCachedParty(profileId);
         var party = Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess());
-        System.out.println("[PROFILE-TIMING] Cobblemon get cached party took " + (System.currentTimeMillis() - getPartyStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " cacheHitBefore=" + cacheHitBefore);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon get cached party took " + (System.currentTimeMillis() - getPartyStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " cacheHitBefore=" + cacheHitBefore);
 
         long sendStart = System.currentTimeMillis();
         party.sendTo(player);
-        System.out.println("[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
 
         // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
         // but do not release the profile-loading quarantine until it finishes.
@@ -168,7 +169,7 @@ public final class CobblemonProfileStorageBridge {
                 }
                 long syncStart = System.currentTimeMillis();
                 try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
-                System.out.println("[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
                 done.complete(null);
             } catch (Throwable t) {
                 done.completeExceptionally(t);
@@ -176,7 +177,7 @@ public final class CobblemonProfileStorageBridge {
         }), CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS));
 
         long elapsed = System.currentTimeMillis() - start;
-        System.out.println("[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
         return done;
     }
 }

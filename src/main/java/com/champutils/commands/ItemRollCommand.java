@@ -169,6 +169,7 @@ public class ItemRollCommand {
             return 0;
         }
         ProfessionToolManager.refreshToolStack(stack);
+        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
         ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(player, stack, result.quality);
         player.sendSystemMessage(ProfessionToolRollService.buildSuccessMessage(result));
         if (cost > 0L) {
@@ -238,6 +239,7 @@ public class ItemRollCommand {
         ProfessionToolManager.refreshToolStack(
                 stack
         );
+        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
 
         ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(
                 player,
@@ -335,6 +337,7 @@ public class ItemRollCommand {
         ProfessionToolManager.repairTool(
                 check.stack
         );
+        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, check.stack);
 
         player.sendSystemMessage(
                 Component.literal(
@@ -420,7 +423,7 @@ public class ItemRollCommand {
             return null;
         }
 
-        long creditCost = getRepairCreditCost(toolData);
+        long creditCost = ProfessionToolManager.getRepairCreditCost(toolData);
         EconomyCraftHook.AffordResult afford = EconomyCraftHook.canAfford(player, creditCost);
         String missing = afford.success ? null : afford.error;
 
@@ -492,19 +495,6 @@ public class ItemRollCommand {
             this.creditCost = creditCost;
             this.missing = missing;
         }
-    }
-
-    private static long getRepairCreditCost(ProfessionToolConfig.ToolData toolData) {
-        String rarity = toolData == null || toolData.rarity == null ? "common" : toolData.rarity.toLowerCase(java.util.Locale.ROOT);
-        long credits = switch (rarity) {
-            case "uncommon" -> 20L;
-            case "rare" -> 35L;
-            case "epic" -> 50L;
-            case "legendary" -> 100L;
-            case "mythic" -> 250L;
-            default -> 10L;
-        };
-        return credits * 100L;
     }
 
     private static Map<String, Integer> getRepairMaterials(

@@ -75,13 +75,13 @@ public final class ForceSaveRestartCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("champsave")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .executes(ctx -> save(ctx.getSource(), false)));
             dispatcher.register(literal("champrestart")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .executes(ctx -> save(ctx.getSource(), true)));
             dispatcher.register(literal("champpreboot")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .executes(ctx -> preRebootDrain(ctx.getSource().getServer(), ctx.getSource())));
         });
     }

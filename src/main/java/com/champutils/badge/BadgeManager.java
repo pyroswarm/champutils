@@ -419,17 +419,16 @@ public class BadgeManager {
         }
 
 
-        server.getPlayerList()
-                .broadcastSystemMessage(
-                        Component.literal(
-                                "§e🏅 "
-                                        + player.getName().getString()
-                                        + " earned the "
-                                        + badge.getDisplayName()
-                                        + "!"
-                        ),
-                        false
-                );
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                server,
+                Component.literal(
+                        "§e🏅 "
+                                + player.getName().getString()
+                                + " earned the "
+                                + badge.getDisplayName()
+                                + "!"
+                )
+        );
 
 
         if(
@@ -438,15 +437,14 @@ public class BadgeManager {
                 ).hasAllBadges()
         ){
 
-            server.getPlayerList()
-                    .broadcastSystemMessage(
-                            Component.literal(
-                                    "§6"
-                                            + player.getName().getString()
-                                            + " has become a Champion Candidate!"
-                            ),
-                            false
-                    );
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    server,
+                    Component.literal(
+                            "§6"
+                                    + player.getName().getString()
+                                    + " has become a Champion Candidate!"
+                    )
+            );
         }
 
     }

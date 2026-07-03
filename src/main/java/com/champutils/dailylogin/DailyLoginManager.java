@@ -1,5 +1,6 @@
 package com.champutils.dailylogin;
 
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.economy.EconomyManager;
 import com.champutils.time.DailyResetManager;
 
@@ -72,7 +73,7 @@ public final class DailyLoginManager {
             if (state.trackProgress < max) {
                 state.trackProgress++;
                 state.lastQualifiedResetKey = state.activeResetKey;
-                player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.15F);
+                ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.15F);
                 player.sendSystemMessage(Component.literal("Daily login complete! Day " + state.trackProgress + " reward is ready in /dailylogin.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
                 if (DailyLoginConfig.DATA.settings.autoOpenMenuOnEarn) DailyLoginMenu.open(player);
             } else {
@@ -98,7 +99,7 @@ public final class DailyLoginManager {
         for (String command : reward.commands) runRewardCommand(player, command, day);
         state.claimedDays.add(day);
         DailyLoginData.save();
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 1.0F, 1.25F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 1.0F, 1.25F);
         player.sendSystemMessage(Component.literal("Claimed daily login day " + day + " reward!").withStyle(ChatFormatting.GREEN));
         return true;
     }

@@ -207,7 +207,10 @@ public final class MegaBossBattleListener {
 
         player.sendSystemMessage(Component.literal("§dMega Boss defeated! §a+" + EconomyManager.formatWholeCredits(creditReward) + " §7| §b+" + xp + " Battling XP §7| §eMega Stone Chance: " + percent(chance) + (gotStone ? " §aSUCCESS!" : " §cNo drop.")));
         if (gotStone && MegaBossConfig.DATA.broadcastMegaStoneDrops && player.getServer() != null) {
-            player.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§6§lMega Stone Drop! §e" + player.getName().getString() + " obtained §b" + prettyItemName(stoneItem) + " §efrom a Mega Boss!"), false);
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    player.getServer(),
+                    Component.literal("§6§lMega Stone Drop! §e" + player.getName().getString() + " obtained §b" + prettyItemName(stoneItem) + " §efrom a Mega Boss!")
+            );
         }
     }
 

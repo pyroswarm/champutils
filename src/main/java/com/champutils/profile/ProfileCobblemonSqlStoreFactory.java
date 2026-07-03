@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.database.DatabaseManager;
 import com.champutils.hunt.PokemonHuntReflection;
 import com.cobblemon.mod.common.api.storage.PokemonStore;
@@ -147,7 +148,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         PCStore pc = pcCache.get(profileId); // null means PC was never lazy-loaded; never load it just to save.
         if (party == null && pc == null) return;
         upsert(profileId, party, pc, registryAccess);
-        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveBlocking took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null));
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveBlocking took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null));
     }
 
     public void saveAllBlocking(RegistryAccess registryAccess) {
@@ -166,7 +167,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         if (pc != null) dedupeStore(pc);
         String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
         String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
-        System.out.println("[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync snapshot took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null) + " pcSnapshot=" + (pcNbt != null));
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.saveAsync snapshot took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partyCached=" + (party != null) + " pcLoaded=" + (pc != null) + " pcSnapshot=" + (pcNbt != null));
         ProfileAtomicSnapshotManager.saveCobblemonCoalesced(profileId, partyNbt, pcNbt, "async-save");
     }
 
@@ -197,7 +198,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     public void prefetchParty(Connection connection, UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
         if (connection == null || profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) return;
         if (partyCache.containsKey(profileId)) {
-            System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took 0ms for profile=" + profileId + " cacheHit=true");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL Cobblemon party prefetch took 0ms for profile=" + profileId + " cacheHit=true");
             return;
         }
         partyCache.computeIfAbsent(profileId, uuid -> {
@@ -206,7 +207,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             loadStore(connection, uuid, true, store, registryAccess);
             store.initialize();
             long elapsed = System.currentTimeMillis() - start;
-            System.out.println("[PROFILE-TIMING] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId + " cacheHit=false");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId + " cacheHit=false");
             return store;
         });
     }

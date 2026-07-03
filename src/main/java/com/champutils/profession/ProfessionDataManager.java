@@ -9,12 +9,16 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ProfessionDataManager {
 
@@ -84,8 +88,7 @@ public class ProfessionDataManager {
         return dir;
     }
 
-    private static File getFile(UUID uuid) {
-        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
+    private static File getProfileFile(UUID profileId) {
         File dir = new File(professionDir(), "profiles");
         if (!dir.exists()) {
             dir.mkdirs();
@@ -96,12 +99,21 @@ public class ProfessionDataManager {
         );
     }
 
+    private static File getFile(UUID uuid) {
+        return getProfileFile(uuid);
+    }
+
     public static void ensurePlayer(
             UUID uuid,
             String name
     ) {
+        UUID profileId = PlayerProfileManager.activeProfileIdOrNull(uuid);
+        if (profileId == null) {
+            return;
+        }
+
         File file =
-                getFile(uuid);
+                getProfileFile(profileId);
 
         if (file.exists()) {
             ProfessionDatabaseRepository.touchPlayer(
@@ -115,7 +127,7 @@ public class ProfessionDataManager {
                 new ProfessionData();
 
         data.uuid =
-                PlayerProfileManager.activeProfileId(uuid).toString();
+                profileId.toString();
 
         data.name =
                 name;
@@ -136,15 +148,19 @@ public class ProfessionDataManager {
     ) {
         try {
 
-            ensurePlayer(
-                    uuid,
-                    name
-            );
+            File file = getProfileFile(uuid);
+            if (!file.exists()) {
+                ProfessionData created = new ProfessionData();
+                created.uuid = uuid.toString();
+                created.name = name;
+                ensureProfessionDefaults(created);
+                save(uuid, created);
+            }
 
             try (
                     FileReader r =
                             new FileReader(
-                                    getFile(uuid)
+                                    file
                             )
             ) {
                 ProfessionData data =
@@ -159,7 +175,7 @@ public class ProfessionDataManager {
                 }
 
                 data.uuid =
-                        PlayerProfileManager.activeProfileId(uuid).toString();
+                        uuid.toString();
 
                 data.name =
                         name;
@@ -178,7 +194,7 @@ public class ProfessionDataManager {
                     new ProfessionData();
 
             d.uuid =
-                    PlayerProfileManager.activeProfileId(uuid).toString();
+                    uuid.toString();
 
             d.name =
                     name;
@@ -285,32 +301,50 @@ public class ProfessionDataManager {
     ) {
         if (data.levels == null) {
             data.levels =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.levels instanceof ConcurrentHashMap)) {
+            data.levels =
+                    new ConcurrentHashMap<>(data.levels);
         }
 
         if (data.xp == null) {
             data.xp =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.xp instanceof ConcurrentHashMap)) {
+            data.xp =
+                    new ConcurrentHashMap<>(data.xp);
         }
 
         if (data.fragments == null) {
             data.fragments =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.fragments instanceof ConcurrentHashMap)) {
+            data.fragments =
+                    new ConcurrentHashMap<>(data.fragments);
         }
 
         if (data.chunks == null) {
             data.chunks =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.chunks instanceof ConcurrentHashMap)) {
+            data.chunks =
+                    new ConcurrentHashMap<>(data.chunks);
         }
 
         if (data.backpack == null) {
             data.backpack =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.backpack instanceof ConcurrentHashMap)) {
+            data.backpack =
+                    new ConcurrentHashMap<>(data.backpack);
         }
 
         if (data.sublevels == null) {
             data.sublevels =
-                    new HashMap<>();
+                    new ConcurrentHashMap<>();
+        } else if (!(data.sublevels instanceof ConcurrentHashMap)) {
+            data.sublevels =
+                    new ConcurrentHashMap<>(data.sublevels);
         }
 
         data.sublevels.entrySet().removeIf(entry -> entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null);
@@ -332,7 +366,10 @@ public class ProfessionDataManager {
 
         if (data.trinketPouchItems == null) {
             data.trinketPouchItems =
-                    new ArrayList<>();
+                    Collections.synchronizedList(new ArrayList<>());
+        } else if (!(data.trinketPouchItems instanceof java.util.RandomAccess && data.trinketPouchItems.getClass().getName().contains("Synchronized"))) {
+            data.trinketPouchItems =
+                    Collections.synchronizedList(new ArrayList<>(data.trinketPouchItems));
         }
 
         for (ProfessionType type :
@@ -349,26 +386,128 @@ public class ProfessionDataManager {
         }
     }
 
+
+    public static ProfessionData copyOf(
+            ProfessionData data
+    ) {
+        ProfessionData copy =
+                new ProfessionData();
+
+        if (data == null) {
+            ensureProfessionDefaults(copy);
+            return copy;
+        }
+
+        ensureProfessionDefaults(data);
+
+        synchronized (data) {
+            copy.uuid = data.uuid;
+            copy.name = data.name;
+            copy.levels = new HashMap<>(data.levels);
+            copy.xp = new HashMap<>(data.xp);
+            copy.fragments = new HashMap<>(data.fragments);
+            copy.chunks = new HashMap<>(data.chunks);
+            copy.backpack = new HashMap<>(data.backpack);
+            copy.sublevels = new HashMap<>();
+            if (data.sublevels != null) {
+                for (Map.Entry<String, ProfessionData.SubLevelData> entry : data.sublevels.entrySet()) {
+                    ProfessionData.SubLevelData source = entry.getValue();
+                    if (entry.getKey() == null || source == null) {
+                        continue;
+                    }
+                    ProfessionData.SubLevelData target = new ProfessionData.SubLevelData();
+                    target.level = source.level;
+                    target.xp = source.xp;
+                    target.actions = source.actions;
+                    copy.sublevels.put(entry.getKey(), target);
+                }
+            }
+            copy.trinketPouchRarity = data.trinketPouchRarity;
+            copy.trinketPouchSlots = data.trinketPouchSlots;
+            copy.trinketPouchItems = new ArrayList<>();
+            if (data.trinketPouchItems != null) {
+                synchronized (data.trinketPouchItems) {
+                    copy.trinketPouchItems.addAll(data.trinketPouchItems);
+                }
+            }
+            copy.backpackAutopickup = data.backpackAutopickup;
+        }
+
+        ensureProfessionDefaults(copy);
+        return copy;
+    }
+
     public static boolean save(
             UUID uuid,
+            ProfessionData data
+    ) {
+        return save(uuid, null, data);
+    }
+
+    public static boolean save(
+            UUID uuid,
+            UUID ownerPlayerUuid,
             ProfessionData data
     ) {
         ensureProfessionDefaults(
                 data
         );
 
+        UUID profileId = uuid;
+        if (data != null && data.uuid != null && !data.uuid.isBlank()) {
+            try {
+                profileId = UUID.fromString(data.uuid);
+            } catch (Exception ignored) {
+                profileId = uuid;
+            }
+        }
+
+        if (profileId == null) {
+            return false;
+        }
+
+        File targetFile =
+                getProfileFile(profileId);
+
+        File tempFile =
+                new File(
+                        targetFile.getParentFile(),
+                        targetFile.getName() + ".tmp"
+                );
+
         try (
                 FileWriter w =
                         new FileWriter(
-                                getFile(uuid)
+                                tempFile
                         )
         ) {
             GSON.toJson(
                     data,
                     w
             );
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        try {
+            try {
+                Files.move(
+                        tempFile.toPath(),
+                        targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                );
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(
+                        tempFile.toPath(),
+                        targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            }
 
             ProfessionDatabaseRepository.sync(
+                    ownerPlayerUuid,
                     data
             );
 

@@ -1,10 +1,11 @@
 package com.champutils.expeditions;
 
-import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.profile.PlayerProfileManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.storage.party.PartyStore;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.pokemon.activestate.ActivePokemonState;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
@@ -42,6 +43,10 @@ public final class ExpeditionCommand {
     }
 
     static void preview(ServerPlayer player, int slot) {
+        if (hasAnySentOutPokemon(player)) {
+            player.sendSystemMessage(Component.literal("Recall all of your Pokémon before starting an expedition.").withStyle(ChatFormatting.RED));
+            return;
+        }
         if (ExpeditionManager.hasActive(player)) {
             player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             ExpeditionManager.status(player);
@@ -59,6 +64,10 @@ public final class ExpeditionCommand {
     }
 
     static void previewType(ServerPlayer player, int slot, String type) {
+        if (hasAnySentOutPokemon(player)) {
+            player.sendSystemMessage(Component.literal("Recall all of your Pokémon before starting an expedition.").withStyle(ChatFormatting.RED));
+            return;
+        }
         if (ExpeditionManager.hasActive(player)) {
             player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             ExpeditionManager.status(player);
@@ -89,6 +98,10 @@ public final class ExpeditionCommand {
             player.sendSystemMessage(Component.literal("You already have an active expedition. Use /expeditions claim when it is finished.").withStyle(ChatFormatting.RED));
             return;
         }
+        if (hasAnySentOutPokemon(player)) {
+            player.sendSystemMessage(Component.literal("Recall all of your Pokémon before starting an expedition.").withStyle(ChatFormatting.RED));
+            return;
+        }
 
         PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         Pokemon pokemon = party == null ? null : party.get(pending.slot - 1);
@@ -98,14 +111,30 @@ public final class ExpeditionCommand {
         }
 
         try {
-            ExpeditionManager.start(player, pending.slot, pokemon, pending.endsAt, pending.type);
-            AuctionPokemonSerializer.clearPartySlot(player, pending.slot - 1);
+            String sentName = ExpeditionManager.startFromPartySlot(player, pending.slot - 1, pending.endsAt, pending.type);
             player.closeContainer();
-            player.sendSystemMessage(Component.literal(pokemon.getDisplayName(true).getString() + " was sent on an expedition. Check it with /expeditions and claim it with /expeditions claim.").withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.literal(sentName + " was sent on an expedition. Check it with /expeditions and claim it with /expeditions claim.").withStyle(ChatFormatting.GREEN));
         } catch (Exception e) {
             e.printStackTrace();
-            player.sendSystemMessage(Component.literal("Could not start that expedition. Check console for details.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Could not start that expedition safely. Your Pokémon was not duplicated; check console for details.").withStyle(ChatFormatting.RED));
         }
+    }
+
+    private static boolean hasAnySentOutPokemon(ServerPlayer player) {
+        try {
+            PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party == null) return false;
+            for (int i = 0; i < 6; i++) {
+                Pokemon pokemon = party.get(i);
+                if (pokemon == null) continue;
+                if (pokemon.getState() instanceof ActivePokemonState activeState) {
+                    PokemonEntity entity = activeState.getEntity();
+                    if (entity != null && entity.isAlive()) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private record Pending(int slot, long endsAt, String type) {}

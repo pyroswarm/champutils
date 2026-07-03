@@ -10,6 +10,7 @@ import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.champutils.afk.PvPBattleStallManager;
 
 import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profession.ProfessionManager;
@@ -70,6 +71,8 @@ public class CobblemonBattleHandler {
                 }
             }
 
+            PvPBattleStallManager.recordBattleStarted(e.getBattle());
+
             BattleContextManager.TrainerBattleContext trainerBattleContext =
                     BattleContextManager.attachTrainerBattleContext(
                             readBattleId(e.getBattle()),
@@ -98,6 +101,8 @@ public class CobblemonBattleHandler {
             if (trainerBattleContext != null && trainerBattleContext.playerId() != null) {
                 BattleContextManager.setContext(trainerBattleContext.playerId(), trainerBattleContext.type());
             }
+
+            PvPBattleStallManager.recordBattleEnded(e.getBattle());
 
             finishPlayerProfileGuards(
                     e.getBattle()

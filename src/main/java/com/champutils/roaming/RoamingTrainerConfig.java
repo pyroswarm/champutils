@@ -227,6 +227,8 @@ public final class RoamingTrainerConfig {
             if (settings.pool == null) settings.pool = new ArrayList<>();
             settings.pokemonCount = desiredPokemonCount(rarity);
             settings.aiSkill = desiredAiSkill(rarity);
+            if (settings.allPokemonChance <= 0.0D) settings.allPokemonChance = desiredAllPokemonChance(rarity);
+            if (settings.allPokemonChance > 1.0D) settings.allPokemonChance = 1.0D;
             settings.heldItemChance = 1.0D;
             settings.competitiveNatureChance = 1.0D;
             if (settings.trainerNames == null || settings.trainerNames.isEmpty()) {
@@ -249,6 +251,17 @@ public final class RoamingTrainerConfig {
     private static int desiredAiSkill(RoamingTrainerRarity rarity) {
         // Every roaming trainer rarity should use the strongest available battle AI.
         return 5;
+    }
+
+    private static double desiredAllPokemonChance(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> 0.85D;
+            case UNCOMMON -> 0.60D;
+            case RARE -> 0.35D;
+            case EPIC -> 0.55D;
+            case LEGENDARY -> 0.65D;
+            case MYTHIC -> 0.70D;
+        };
     }
 
     public static boolean isIslanderDimension(String dimensionId) {
@@ -354,7 +367,7 @@ public final class RoamingTrainerConfig {
             }
             case EPIC -> {
                 s.weight = 0.0; s.pokemonCount = 4; s.levelOffsetMin = 20; s.levelOffsetMax = 20; s.aiSkill = 5;
-                s.allPokemonChance = 0.0D;
+                s.allPokemonChance = 0.55D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 3; s.fragmentMax = 5;
@@ -362,7 +375,7 @@ public final class RoamingTrainerConfig {
             }
             case LEGENDARY -> {
                 s.weight = 0.0; s.pokemonCount = 5; s.levelOffsetMin = 25; s.levelOffsetMax = 25; s.aiSkill = 5;
-                s.allPokemonChance = 0.0D;
+                s.allPokemonChance = 0.65D;
                 s.legendaryPokemonCount = 1;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 4; s.fragmentMax = 7;
@@ -370,7 +383,7 @@ public final class RoamingTrainerConfig {
             }
             case MYTHIC -> {
                 s.weight = 0.0; s.pokemonCount = 6; s.levelOffsetMin = 30; s.levelOffsetMax = 30; s.aiSkill = 5;
-                s.allPokemonChance = 0.0D;
+                s.allPokemonChance = 0.70D;
                 s.legendaryPokemonCount = 3;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0; s.shinyChance = 0.01;
                 s.fragmentMin = 5; s.fragmentMax = 9;

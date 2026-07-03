@@ -91,13 +91,13 @@ public final class AuctionHouseCommand {
                                     return 1;
                                 }))
                         .then(literal("bind")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     AuctionHouseBindInteractionListener.beginBind(context.getSource().getPlayerOrException());
                                     return 1;
                                 }))
                         .then(literal("bindcancel")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     boolean cancelled = AuctionHouseBindInteractionListener.cancelBind(context.getSource().getPlayerOrException());
                                     if (cancelled) {
@@ -108,7 +108,7 @@ public final class AuctionHouseCommand {
                                     return cancelled ? 1 : 0;
                                 }))
                         .then(literal("unbind")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     AuctionHouseNpcBindingRegistry.unbind();
                                     context.getSource().sendSuccess(() -> Component.literal("Unbound the Auction NPC.").withStyle(ChatFormatting.GREEN), true);
@@ -119,7 +119,7 @@ public final class AuctionHouseCommand {
 
     private static boolean blockAuctionUntilPlayedOneHour(net.minecraft.server.level.ServerPlayer player) {
         if (player == null) return true;
-        if (com.champutils.permissions.PermissionUtil.has(player.createCommandSourceStack(), "champutils.admin")) return false;
+        if (player.hasPermissions(4)) return false;
         if (ProfileRestrictions.blockIronmanTrade(player, "Auction House")) return true;
         long played = ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player);
         if (played < AUCTION_MIN_PLAYTIME_SECONDS) {

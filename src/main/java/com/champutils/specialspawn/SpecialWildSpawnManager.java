@@ -1,6 +1,9 @@
 package com.champutils.specialspawn;
 
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.profile.IslanderProfileManager;
+import com.champutils.profile.IslanderMineManager;
+import com.champutils.spawn.SpawnBlockRules;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.territory.TerritoryRepository;
@@ -12,6 +15,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.TagKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -56,6 +61,7 @@ public final class SpecialWildSpawnManager {
     private static final long SPECIAL_DESPAWN_MILLIS = 15L * 60L * 1000L;
     private static final String SPECIAL_TAG = "champutils_special_spawn";
     private static final String SPECIAL_EXPIRES_TAG_PREFIX = "champutils_special_expires_";
+    private static final String SPECIAL_TYPE_TAG_PREFIX = "champutils_special_type_";
     private static State state = new State();
     private static boolean stateLoaded = false;
     private static double cashShopChanceBoost = 0.0D;
@@ -66,6 +72,7 @@ public final class SpecialWildSpawnManager {
     private static long cashShopUltraBeastChanceBoostExpiresAt = 0L;
     private static int ticksUntilParadoxCheck = 200;
     private static int ticksUntilUltraBeastCheck = 200;
+    private static int ticksUntilRiftCheck = 20 * 60 * 60;
     private static UUID lastSpecialSpawnPlayer = null;
     private static UUID lastParadoxSpawnPlayer = null;
     private static UUID lastUltraBeastSpawnPlayer = null;
@@ -76,12 +83,7 @@ public final class SpecialWildSpawnManager {
     private SpecialWildSpawnManager() {}
 
     private static void debug(String message) {
-        try {
-            if (SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls) {
-                System.out.println("[ChampUtils][SpecialSpawnDebug] " + message);
-            }
-        } catch (Throwable ignored) {
-        }
+        ChampDebugManager.log(ChampDebugManager.Category.SPAWNS, "[ChampUtils][SpecialSpawnDebug] " + message);
     }
 
     public static void tick(MinecraftServer server) {
@@ -94,6 +96,7 @@ public final class SpecialWildSpawnManager {
             cleanupTracked(server);
         }
 
+        tickRiftEvents(server);
         tickParadoxSpawns(server);
         tickUltraBeastSpawns(server);
 
@@ -112,6 +115,65 @@ public final class SpecialWildSpawnManager {
     }
 
 
+
+    private static void tickRiftEvents(MinecraftServer server) {
+        if (!SpecialWildSpawnConfig.DATA.riftEventsEnabled) return;
+        ticksUntilRiftCheck--;
+        if (ticksUntilRiftCheck > 0) return;
+        int intervalTicks = Math.max(20, SpecialWildSpawnConfig.DATA.riftCheckIntervalTicks);
+        ticksUntilRiftCheck = intervalTicks;
+
+        List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
+        players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, isIslanderSpecialSpawnLevel(p.serverLevel())));
+        if (players.isEmpty()) return;
+
+        double roll = RANDOM.nextDouble();
+        if (roll < clamp01(SpecialWildSpawnConfig.DATA.shinyRiftChancePerCheck)) {
+            runRiftEvent(server, players, new SpawnBucket("Shiny Rift", 1.0D, SpecialWildSpawnConfig.DATA.shinyRiftSpawns, SpecialWildSpawnConfig.DATA.shinyRiftLevelRange), true);
+            return;
+        }
+        roll = RANDOM.nextDouble();
+        if (roll < clamp01(SpecialWildSpawnConfig.DATA.paradoxRiftChancePerCheck)) {
+            runRiftEvent(server, players, pickParadoxBucket(false), false);
+            return;
+        }
+        roll = RANDOM.nextDouble();
+        if (roll < clamp01(SpecialWildSpawnConfig.DATA.ultraBeastRiftChancePerCheck)) {
+            runRiftEvent(server, players, pickUltraBeastBucket(false), false);
+            return;
+        }
+        roll = RANDOM.nextDouble();
+        if (roll < clamp01(SpecialWildSpawnConfig.DATA.legendaryRiftChancePerCheck)) {
+            runRiftEvent(server, players, new SpawnBucket("Legendary Rift", 1.0D, SpecialWildSpawnConfig.DATA.legendarySpawns, SpecialWildSpawnConfig.DATA.levelRangeLegendary), false);
+            return;
+        }
+        roll = RANDOM.nextDouble();
+        if (roll < clamp01(SpecialWildSpawnConfig.DATA.mythicalRiftChancePerCheck)) {
+            runRiftEvent(server, players, new SpawnBucket("Mythical Rift", 1.0D, SpecialWildSpawnConfig.DATA.mythicalSpawns, SpecialWildSpawnConfig.DATA.levelRangeMythical), false);
+        }
+    }
+
+    private static double clamp01(double value) {
+        if (Double.isNaN(value)) return 0.0D;
+        return Math.max(0.0D, Math.min(1.0D, value));
+    }
+
+    private static void runRiftEvent(MinecraftServer server, List<ServerPlayer> players, SpawnBucket bucket, boolean shiny) {
+        if (server == null || players == null || players.isEmpty() || bucket == null || bucket.entries == null || bucket.entries.isEmpty()) return;
+        List<SpawnResult> results = new ArrayList<>();
+        for (ServerPlayer player : players) {
+            if (player == null || player.serverLevel() == null) continue;
+            boolean islanderRoll = isIslanderSpecialSpawnLevel(player.serverLevel());
+            if (!isEligibleSpecialSpawnPlayer(player, islanderRoll)) continue;
+            SpawnResult result = trySpawnFor(player, bucket, false, shiny, !shiny, true);
+            if (result != null) {
+                results.add(result);
+                markRiftSpawned(result.type, result.species, islanderRoll, shiny);
+            }
+        }
+        if (!results.isEmpty()) announceRiftEvent(server, bucket.type, shiny, results);
+    }
+
     private static void tickParadoxSpawns(MinecraftServer server) {
         if (!SpecialWildSpawnConfig.DATA.paradoxOnlySpawnsEnabled) {
             debug("Paradox timer skipped: paradoxOnlySpawnsEnabled=false");
@@ -123,13 +185,13 @@ public final class SpecialWildSpawnManager {
         ticksUntilParadoxCheck = intervalTicks;
 
         cleanupTracked(server);
-        int maxAliveTotal = maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon);
-        if (tracked.size() >= maxAliveTotal) {
-            debug("Paradox timer skipped: tracked=" + tracked.size() + " maxAllowed=" + maxAliveTotal);
+        int activeRare = activeParadoxOrUltraBeastCount(server);
+        if (activeRare >= maxAliveParadoxOrUltraBeast()) {
+            debug("Paradox timer skipped: active paradox/ultra beasts=" + activeRare + " maxAllowed=" + maxAliveParadoxOrUltraBeast());
             return;
         }
 
-        debug("Paradox timer rolling. intervalTicks=" + intervalTicks + " tracked=" + tracked.size() + " maxAllowed=" + maxAliveTotal);
+        debug("Paradox timer rolling. intervalTicks=" + intervalTicks + " activeRare=" + activeRare + " maxAllowed=" + maxAliveParadoxOrUltraBeast());
         runParadoxSpawnRoll(server, intervalTicks, false);
         runParadoxSpawnRoll(server, intervalTicks, true);
     }
@@ -139,9 +201,9 @@ public final class SpecialWildSpawnManager {
             debug("Paradox " + (islanderRoll ? "islander" : "normal") + " roll skipped: islanderSpecialSpawnsEnabled=false");
             return;
         }
-        int maxAliveTotal = maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon);
-        if (tracked.size() >= maxAliveTotal) {
-            debug("Paradox " + (islanderRoll ? "islander" : "normal") + " roll skipped: tracked=" + tracked.size() + " maxAllowed=" + maxAliveTotal);
+        int activeRare = activeParadoxOrUltraBeastCount(server);
+        if (activeRare >= maxAliveParadoxOrUltraBeast()) {
+            debug("Paradox " + (islanderRoll ? "islander" : "normal") + " roll skipped: active paradox/ultra beasts=" + activeRare + " maxAllowed=" + maxAliveParadoxOrUltraBeast());
             return;
         }
 
@@ -207,7 +269,7 @@ public final class SpecialWildSpawnManager {
         ticksUntilUltraBeastCheck = intervalTicks;
 
         cleanupTracked(server);
-        if (tracked.size() >= maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveUltraBeastWildPokemon)) return;
+        if (activeParadoxOrUltraBeastCount(server) >= maxAliveParadoxOrUltraBeast()) return;
 
         runUltraBeastSpawnRoll(server, intervalTicks, false);
         runUltraBeastSpawnRoll(server, intervalTicks, true);
@@ -215,7 +277,7 @@ public final class SpecialWildSpawnManager {
 
     private static void runUltraBeastSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
         if (islanderRoll && !SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled) return;
-        if (tracked.size() >= maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveUltraBeastWildPokemon)) return;
+        if (activeParadoxOrUltraBeastCount(server) >= maxAliveParadoxOrUltraBeast()) return;
 
         List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
         players.removeIf(p -> p == null || p.isSpectator() || !isEligibleSpecialSpawnPlayer(p, islanderRoll));
@@ -358,6 +420,7 @@ public final class SpecialWildSpawnManager {
 
         SpawnBucket bucket = pickParadoxBucket(islanderRoll);
         if (bucket == null) return ForceSpawnResult.fail("No valid paradox spawn pool exists for this world/profile type.");
+        if (activeParadoxOrUltraBeastCount(player.getServer()) >= maxAliveParadoxOrUltraBeast()) return ForceSpawnResult.fail("A Paradox or Ultra Beast is already alive. Wait for it to be caught, defeated, or despawn after 15 minutes.");
 
         SpawnResult result = forceSpawnParadoxGuaranteed(player, bucket, islanderRoll);
         if (result == null) {
@@ -385,6 +448,7 @@ public final class SpecialWildSpawnManager {
 
         SpawnBucket bucket = pickUltraBeastBucket(islanderRoll);
         if (bucket == null) return ForceSpawnResult.fail("No valid Ultra Beast spawn pool exists for this world/profile type.");
+        if (activeParadoxOrUltraBeastCount(player.getServer()) >= maxAliveParadoxOrUltraBeast()) return ForceSpawnResult.fail("A Paradox or Ultra Beast is already alive. Wait for it to be caught, defeated, or despawn after 15 minutes.");
 
         SpawnResult result = trySpawnFor(player, bucket, true);
         if (result == null) {
@@ -522,16 +586,56 @@ public final class SpecialWildSpawnManager {
     }
 
     private static void markSpecialSpawnEntity(Entity entity, long expiresAt) {
+        markSpecialSpawnEntity(entity, expiresAt, "");
+    }
+
+    private static void markSpecialSpawnEntity(Entity entity, long expiresAt, String spawnType) {
         if (entity == null) return;
         entity.addTag(SPECIAL_TAG);
         entity.getTags().stream()
-                .filter(tag -> tag != null && tag.startsWith(SPECIAL_EXPIRES_TAG_PREFIX))
+                .filter(tag -> tag != null && (tag.startsWith(SPECIAL_EXPIRES_TAG_PREFIX) || tag.startsWith(SPECIAL_TYPE_TAG_PREFIX)))
                 .toList()
                 .forEach(entity::removeTag);
         entity.addTag(SPECIAL_EXPIRES_TAG_PREFIX + expiresAt);
+        String normalizedType = normalizeSpawnTypeTag(spawnType);
+        if (!normalizedType.isBlank()) entity.addTag(SPECIAL_TYPE_TAG_PREFIX + normalizedType);
 
         protectSpecialSpawnEntity(entity);
         tracked.put(entity.getUUID(), expiresAt);
+    }
+
+    private static String normalizeSpawnTypeTag(String spawnType) {
+        String lower = spawnType == null ? "" : spawnType.toLowerCase(Locale.ROOT);
+        if (lower.contains("paradox")) return "paradox";
+        if (lower.contains("ultra")) return "ultrabeast";
+        if (lower.contains("legendary") || lower.contains("mythical")) return "legendary";
+        return lower.replaceAll("[^a-z0-9_]+", "_");
+    }
+
+    private static boolean isParadoxOrUltraBeastSpecial(Entity entity) {
+        if (entity == null) return false;
+        for (String tag : entity.getTags()) {
+            if (tag == null) continue;
+            String lower = tag.toLowerCase(Locale.ROOT);
+            if (lower.equals(SPECIAL_TYPE_TAG_PREFIX + "paradox") || lower.equals(SPECIAL_TYPE_TAG_PREFIX + "ultrabeast")) return true;
+        }
+        return false;
+    }
+
+    private static int activeParadoxOrUltraBeastCount(MinecraftServer server) {
+        if (server == null) return 0;
+        cleanupTracked(server);
+        int count = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity != null && entity.isAlive() && isTaggedSpecialSpawn(entity) && isParadoxOrUltraBeastSpecial(entity)) count++;
+            }
+        }
+        return count;
+    }
+
+    private static int maxAliveParadoxOrUltraBeast() {
+        return 1;
     }
 
     private static void removeSpecialSpawnEntity(Entity entity) {
@@ -1057,8 +1161,8 @@ public final class SpecialWildSpawnManager {
             for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
                 if (entry == null || entry.species == null || entry.species.isBlank()) continue;
                 String species = entry.species;
-                boolean spawned = spawnDirectlyIgnoringNearbyLimit(level, pos, species, levelValue);
-                if (!spawned) spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, species, levelValue);
+                boolean spawned = spawnDirectlyIgnoringNearbyLimit(level, pos, species, levelValue, bucket.type, false, true);
+                if (!spawned) spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, species, levelValue, bucket.type, false, true);
                 if (spawned) {
                     System.out.println("[ChampUtils][ParadoxForce] Forced Paradox spawn succeeded: " + species + " at " + pos.getX() + "," + pos.getY() + "," + pos.getZ());
                     return new SpawnResult(bucket.type, species, level, pos, player.getUUID());
@@ -1115,11 +1219,15 @@ public final class SpecialWildSpawnManager {
     }
 
     private static SpawnResult trySpawnFor(ServerPlayer player, SpawnBucket bucket, boolean forced) {
+        return trySpawnFor(player, bucket, forced, false, true, false);
+    }
+
+    private static SpawnResult trySpawnFor(ServerPlayer player, SpawnBucket bucket, boolean forced, boolean forceShiny, boolean forceNonShiny, boolean strictRequirements) {
         ServerLevel level = player.serverLevel();
         boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
         int attempts = forced ? 160 : (islanderLevel ? 80 : 35);
 
-        List<SpecialWildSpawnConfig.SpawnEntry> valid = matchingEntries(level, bucket.entries);
+        List<SpecialWildSpawnConfig.SpawnEntry> valid = strictRequirements ? matchingEntriesStrict(level, bucket.entries) : matchingEntries(level, bucket.entries);
         // Paradox/Ultra Beast timer spawns should not silently fail because every entry has
         // a time/biome mismatch. These pools are timer-driven, so ignore time as a fallback.
         if (valid.isEmpty() && (forced || islanderLevel || bucket.type.toLowerCase(Locale.ROOT).contains("paradox") || bucket.type.toLowerCase(Locale.ROOT).contains("ultra"))) {
@@ -1165,11 +1273,11 @@ public final class SpecialWildSpawnManager {
 
             // Use a direct Cobblemon entity spawn first instead of going through the normal spawn action/pool.
             // This keeps special spawns independent from the player's nearby Cobblemon spawn cap.
-            boolean spawned = spawnDirectlyIgnoringNearbyLimit(level, pos, picked.species, pokemonLevel);
+            boolean spawned = spawnDirectlyIgnoringNearbyLimit(level, pos, picked.species, pokemonLevel, bucket.type, forceShiny, forceNonShiny);
             if (!spawned) {
                 // Fallback for API changes: command spawning is still forced, but some Cobblemon versions/addons
                 // can route command spawns through extra checks. Direct spawn above is the preferred path.
-                spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, picked.species, pokemonLevel);
+                spawned = spawnViaCobblemonCommand(player.getServer(), level, pos, picked.species, pokemonLevel, bucket.type, forceShiny, forceNonShiny);
             }
 
             if (!spawned) spawnApiFailed++;
@@ -1207,6 +1315,17 @@ public final class SpecialWildSpawnManager {
         recent.remove(clean);
         recent.add(clean);
         while (recent.size() > RECENT_SPECIES_LIMIT) recent.remove(0);
+    }
+
+    private static void markRiftSpawned(String type, String species, boolean islanderRoll, boolean shiny) {
+        if (shiny) {
+            saveState();
+            return;
+        }
+        String t = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        if (t.contains("paradox")) markParadoxSpawned(type, species, islanderRoll);
+        else if (t.contains("ultra")) markUltraBeastSpawned(type, species, islanderRoll);
+        else markSpawned(type, species, false, islanderRoll);
     }
 
     private static void markSpawned(String type, String species, boolean rareEvent, boolean islanderRoll) {
@@ -1285,7 +1404,7 @@ public final class SpecialWildSpawnManager {
         } catch (Exception ignored) { return 60; }
     }
 
-    private static boolean spawnDirectlyIgnoringNearbyLimit(ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
+    private static boolean spawnDirectlyIgnoringNearbyLimit(ServerLevel level, BlockPos pos, String species, int pokemonLevel, String spawnType, boolean forceShiny, boolean forceNonShiny) {
         try {
             if (level == null || pos == null || species == null || species.isBlank()) return false;
             if (!Level.isInSpawnableBounds(pos)) return false;
@@ -1323,14 +1442,15 @@ public final class SpecialWildSpawnManager {
 
             PokemonEntity entity = properties.createEntity(level, null);
             if (entity == null) return false;
+            applyShinyOverride(entity, forceShiny, forceNonShiny);
             entity.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, entity.getYRot(), entity.getXRot());
             entity.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.COMMAND, null);
 
             long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
-            markSpecialSpawnEntity(entity, expiresAt);
+            markSpecialSpawnEntity(entity, expiresAt, spawnType);
             boolean added = level.addFreshEntity(entity);
             if (!added) return false;
-            markSpecialSpawnEntity(entity, expiresAt);
+            markSpecialSpawnEntity(entity, expiresAt, spawnType);
             return true;
         } catch (Exception e) {
             System.err.println("[ChampUtils] Direct special wild spawn failed for " + species + " level " + pokemonLevel + ". Falling back to command spawn.");
@@ -1389,7 +1509,7 @@ public final class SpecialWildSpawnManager {
         return null;
     }
 
-    private static boolean spawnViaCobblemonCommand(MinecraftServer server, ServerLevel level, BlockPos pos, String species, int pokemonLevel) {
+    private static boolean spawnViaCobblemonCommand(MinecraftServer server, ServerLevel level, BlockPos pos, String species, int pokemonLevel, String spawnType, boolean forceShiny, boolean forceNonShiny) {
         try {
             Set<UUID> before = new java.util.HashSet<>();
             for (Entity entity : level.getEntities(null, new net.minecraft.world.phys.AABB(pos).inflate(24.0D))) {
@@ -1406,10 +1526,11 @@ public final class SpecialWildSpawnManager {
                     .withPermission(4)
                     .withSuppressedOutput();
 
+            String shinySuffix = forceShiny ? " shiny=true" : "";
             String[] commands = new String[] {
-                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + compact + " lvl=" + pokemonLevel,
-                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + clean + " lvl=" + pokemonLevel,
-                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + hyphen + " lvl=" + pokemonLevel
+                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + compact + " lvl=" + pokemonLevel + shinySuffix,
+                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + clean + " lvl=" + pokemonLevel + shinySuffix,
+                    "spawnpokemonat " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " species=" + hyphen + " lvl=" + pokemonLevel + shinySuffix
             };
 
             long expiresAt = System.currentTimeMillis() + SPECIAL_DESPAWN_MILLIS;
@@ -1420,7 +1541,8 @@ public final class SpecialWildSpawnManager {
                 for (Entity entity : level.getEntities(null, new net.minecraft.world.phys.AABB(pos).inflate(24.0D))) {
                     if (before.contains(entity.getUUID())) continue;
                     before.add(entity.getUUID());
-                    markSpecialSpawnEntity(entity, expiresAt);
+                    if (entity instanceof PokemonEntity pokemonEntity) applyShinyOverride(pokemonEntity, forceShiny, forceNonShiny);
+                    markSpecialSpawnEntity(entity, expiresAt, spawnType);
                     foundNewSpawn = true;
                 }
                 if (foundNewSpawn) return true;
@@ -1475,6 +1597,7 @@ public final class SpecialWildSpawnManager {
             if (top == null) continue;
             forceLoadSpawnChunk(level, top);
             if (!allowWorldBorderBypass && !level.getWorldBorder().isWithinBounds(top)) continue;
+            if (SpawnBlockRules.isBlockedSpawnPosition(level, top)) continue;
             if (isSafeSpawnSpace(level, top)) return top;
             if (allowWorldBorderBypass) {
                 BlockPos prepared = prepareRobustSpawnSpace(level, top, true);
@@ -1496,6 +1619,7 @@ public final class SpecialWildSpawnManager {
 
     private static boolean isSafeSpawnSpace(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return false;
+        if (SpawnBlockRules.isBlockedSpawnPosition(level, pos)) return false;
         if (!Level.isInSpawnableBounds(pos)) return false;
         if (level.getBlockState(pos.below()).is(Blocks.BEDROCK) || level.getBlockState(pos).is(Blocks.BEDROCK) || level.getBlockState(pos.above()).is(Blocks.BEDROCK)) return false;
         if (!level.getBlockState(pos.below()).isSolid()) return false;
@@ -1513,7 +1637,7 @@ public final class SpecialWildSpawnManager {
     }
 
     private static BlockPos prepareRobustSpawnSpace(ServerLevel level, BlockPos pos, boolean canEdit) {
-        if (level == null || pos == null || !Level.isInSpawnableBounds(pos)) return null;
+        if (level == null || pos == null || SpawnBlockRules.isBlockedSpawnPosition(level, pos) || !Level.isInSpawnableBounds(pos)) return null;
         if (!canEdit) return isSafeSpawnSpace(level, pos) ? pos : null;
 
         try {
@@ -1559,6 +1683,17 @@ public final class SpecialWildSpawnManager {
         return matchingEntriesIgnoringTime(entries);
     }
 
+    private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntriesStrict(ServerLevel level, List<SpecialWildSpawnConfig.SpawnEntry> entries) {
+        List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
+        if (level == null || entries == null) return valid;
+        for (SpecialWildSpawnConfig.SpawnEntry entry : entries) {
+            if (entry == null || entry.species == null || entry.species.isBlank()) continue;
+            if (!matchesTime(level, entry)) continue;
+            valid.add(entry);
+        }
+        return valid;
+    }
+
     private static List<SpecialWildSpawnConfig.SpawnEntry> matchingEntriesIgnoringTime(List<SpecialWildSpawnConfig.SpawnEntry> entries) {
         List<SpecialWildSpawnConfig.SpawnEntry> valid = new ArrayList<>();
         if (entries == null) return valid;
@@ -1571,7 +1706,45 @@ public final class SpecialWildSpawnManager {
 
 
     private static boolean matchesBiome(ServerLevel level, BlockPos pos, SpecialWildSpawnConfig.SpawnEntry entry) {
-        return true;
+        if (entry == null || entry.biomes == null || entry.biomes.isEmpty()) return true;
+        if (level == null || pos == null) return false;
+        ResourceLocation biomeId = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value());
+        if (biomeId == null) return false;
+        String id = biomeId.toString().toLowerCase(Locale.ROOT);
+        String path = biomeId.getPath().toLowerCase(Locale.ROOT);
+        for (String raw : entry.biomes) {
+            if (raw == null || raw.isBlank()) continue;
+            String wanted = raw.trim().toLowerCase(Locale.ROOT);
+            if (wanted.equals(id) || wanted.equals(path) || wanted.equals("#" + id) || wanted.equals("#" + path)) return true;
+            if (wanted.endsWith("*") && id.startsWith(wanted.substring(0, wanted.length() - 1))) return true;
+            if (!wanted.contains(":") && path.contains(wanted)) return true;
+        }
+        return false;
+    }
+
+    private static boolean matchesTime(ServerLevel level, SpecialWildSpawnConfig.SpawnEntry entry) {
+        if (entry == null || entry.times == null || entry.times.isEmpty()) return true;
+        long time = level.getDayTime() % 24000L;
+        boolean day = time >= 0 && time < 12000L;
+        boolean night = time >= 13000L && time < 23000L;
+        boolean dusk = time >= 12000L && time < 13000L;
+        boolean dawn = time >= 23000L || time < 1000L;
+        for (String raw : entry.times) {
+            if (raw == null) continue;
+            String t = raw.trim().toLowerCase(Locale.ROOT);
+            if (t.equals("any") || t.equals("all")) return true;
+            if (t.equals("day") && day) return true;
+            if (t.equals("night") && night) return true;
+            if ((t.equals("dusk") || t.equals("sunset")) && dusk) return true;
+            if ((t.equals("dawn") || t.equals("sunrise") || t.equals("morning")) && dawn) return true;
+        }
+        return false;
+    }
+
+    private static void applyShinyOverride(PokemonEntity entity, boolean forceShiny, boolean forceNonShiny) {
+        if (entity == null || entity.getPokemon() == null) return;
+        if (forceShiny) entity.getPokemon().setShiny(true);
+        else if (forceNonShiny) entity.getPokemon().setShiny(false);
     }
 
     private static void announce(MinecraftServer server, String type, String species, ServerLevel level, BlockPos pos) {
@@ -1581,29 +1754,81 @@ public final class SpecialWildSpawnManager {
     private static void announce(MinecraftServer server, String type, String species, ServerLevel level, BlockPos pos, UUID spawnedPlayerUuid) {
         if (server == null || level == null || pos == null) return;
         String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
-        boolean legendary = normalizedType.contains("legendary");
-        boolean playerOnly = (normalizedType.contains("paradox") || normalizedType.contains("ultra beast") || normalizedType.contains("ultrabeast"))
-                && !SpecialWildSpawnConfig.DATA.broadcastParadoxAndUltraBeastSpawns;
+        boolean legendary = normalizedType.contains("legendary") || normalizedType.contains("mythical") || normalizedType.contains("mythic");
         boolean broadcast = legendary ? SpecialWildSpawnConfig.DATA.broadcastLegendarySpawns : true;
         if (!broadcast) return;
+
+        boolean islanderSpawn = isIslanderSpecialSpawnLevel(level);
         String name = pretty(species);
-        String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
-        Component msg = Component.literal("§6A wild " + name + " has appeared! §7(" + biome + ") §e[X: " + pos.getX() + ", Y: " + pos.getY() + ", Z: " + pos.getZ() + "] §cDespawns in 15 minutes!");
+        String biome = prettyBiome(level, pos);
+        String typeLabel = specialSpawnTypeLabel(type);
+        String typeColor = specialSpawnTypeColor(type);
+        Component msg = Component.literal("§6A wild " + typeColor + typeLabel + " §e" + name + " §6has appeared in §a" + biome + " §6at coordinates §f" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + "§6.");
 
-        if (playerOnly) {
-            ServerPlayer target = spawnedPlayerUuid == null ? null : server.getPlayerList().getPlayer(spawnedPlayerUuid);
-            if (target != null) target.sendSystemMessage(msg);
-            return;
-        }
-
-        if (isIslanderSpecialSpawnLevel(level) && SpecialWildSpawnConfig.DATA.islanderOnlyNotifyIslanders) {
-            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                if (PlayerProfileManager.isIslander(player)) player.sendSystemMessage(msg);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player == null) continue;
+            boolean islanderPlayer = PlayerProfileManager.isIslander(player);
+            if (islanderSpawn) {
+                if (!SpecialWildSpawnConfig.DATA.islanderOnlyNotifyIslanders || islanderPlayer) player.sendSystemMessage(msg);
+            } else {
+                if (!islanderPlayer) player.sendSystemMessage(msg);
             }
-            return;
         }
+    }
 
-        server.getPlayerList().broadcastSystemMessage(msg, false);
+    private static String specialSpawnTypeLabel(String type) {
+        String normalized = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        if (normalized.contains("ultra")) return "Ultra Beast";
+        if (normalized.contains("paradox")) return "Paradox";
+        if (normalized.contains("mythical") || normalized.contains("mythic")) return "Mythical";
+        return "Legendary";
+    }
+
+    private static String specialSpawnTypeColor(String type) {
+        String normalized = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        if (normalized.contains("ultra")) return "§b";
+        if (normalized.contains("paradox")) return "§5";
+        if (normalized.contains("mythical") || normalized.contains("mythic")) return "§d";
+        return "§e";
+    }
+
+    private static String prettyBiome(ServerLevel level, BlockPos pos) {
+        try {
+            String raw = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
+            int colon = raw.lastIndexOf(':');
+            String id = colon >= 0 ? raw.substring(colon + 1) : raw;
+            String[] parts = id.replace('-', '_').split("_");
+            StringBuilder out = new StringBuilder();
+            for (String part : parts) {
+                if (part == null || part.isBlank()) continue;
+                if (out.length() > 0) out.append(' ');
+                out.append(part.substring(0, 1).toUpperCase(Locale.ROOT)).append(part.substring(1).toLowerCase(Locale.ROOT));
+            }
+            return out.length() == 0 ? raw : out.toString();
+        } catch (Exception ignored) {
+            return "Unknown Biome";
+        }
+    }
+
+    private static void announceRiftEvent(MinecraftServer server, String type, boolean shiny, List<SpawnResult> results) {
+        if (server == null || results == null || results.isEmpty()) return;
+        String title = shiny ? "§d§l✦ A SHINY RIFT HAS TORN OPEN! ✦" : "§5§l✦ A " + type.toUpperCase(Locale.ROOT) + " HAS TORN OPEN! ✦";
+        Component header = Component.literal(title);
+        Component sub = Component.literal(shiny
+                ? "§fA shiny Pokémon has appeared near every eligible trainer. This is an almost-never moment — go hunt!"
+                : "§fRare Pokémon have appeared near eligible trainers. These rift spawns are forced non-shiny.");
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(server, header);
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(server, sub);
+        for (SpawnResult result : results) {
+            String name = pretty(result.species);
+            String biome = prettyBiome(result.level, result.pos);
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(server, Component.literal("§7 - §e" + (shiny ? "Shiny " : "") + name + " §7appeared in §a" + biome + " §7at coordinates §f" + result.pos.getX() + ", " + result.pos.getY() + ", " + result.pos.getZ() + "§7."));
+        }
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (player == null) continue;
+            player.playNotifySound(shiny ? SoundEvents.AMETHYST_BLOCK_CHIME : SoundEvents.END_PORTAL_SPAWN, SoundSource.MASTER, 1.0F, shiny ? 1.6F : 0.85F);
+            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.MASTER, 0.8F, 1.0F);
+        }
     }
 
     private static void announceRareTripleEvent(MinecraftServer server, List<SpawnResult> results) {
@@ -1621,8 +1846,8 @@ public final class SpecialWildSpawnManager {
 
         for (SpawnResult result : results) {
             String name = pretty(result.species);
-            String biome = result.level.registryAccess().registryOrThrow(Registries.BIOME).getKey(result.level.getBiome(result.pos).value()).toString();
-            lines.add(Component.literal("§7 - §6" + name + " §7appeared in §f" + biome + " §e[X: " + result.pos.getX() + ", Y: " + result.pos.getY() + ", Z: " + result.pos.getZ() + "] §c(15 minute despawn)"));
+            String biome = prettyBiome(result.level, result.pos);
+            lines.add(Component.literal("§7 - §e" + name + " §7appeared in §a" + biome + " §7at coordinates §f" + result.pos.getX() + ", " + result.pos.getY() + ", " + result.pos.getZ() + "§7."));
         }
 
         if (islanderOnly) {
@@ -1634,7 +1859,7 @@ public final class SpecialWildSpawnManager {
             return;
         }
 
-        for (Component line : lines) server.getPlayerList().broadcastSystemMessage(line, false);
+        for (Component line : lines) com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(server, line);
     }
 
     private static boolean isDisabledDimension(ServerLevel level) {
@@ -1652,7 +1877,8 @@ public final class SpecialWildSpawnManager {
         if (player.serverLevel() == null) return "Player has no loaded world.";
         ServerLevel level = player.serverLevel();
         String dimensionId = level.dimension().location().toString();
-        if (isDisabledDimension(level)) return "This dimension is disabled for special spawns: " + dimensionId;
+        if (IslanderMineManager.isMineWorld(level)) return "Islander mining worlds are resource-only and do not roll special spawns.";
+        if (isDisabledDimension(level) || SpawnBlockRules.isBlockedSpawnLevel(level)) return "This dimension is disabled for special spawns: " + dimensionId;
 
         boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
         boolean playerIsIslander = PlayerProfileManager.isIslander(player);
@@ -1662,12 +1888,19 @@ public final class SpecialWildSpawnManager {
             if (!SpecialWildSpawnConfig.DATA.islanderSpecialSpawnsEnabled) return "Islander special spawns are disabled in special_wild_spawns.json.";
             if (!playerIsIslander) return "Only Islander profiles can force Islander special spawns.";
             long required = Math.max(0L, SpecialWildSpawnConfig.DATA.islanderMinimumProfilePlaytimeSeconds);
-            if (!ProfilePlaytimeManager.hasAtLeastPlaytime(player, required)) return "This Islander profile needs more profile playtime before Islander special spawns unlock.";
+            if (!ProfilePlaytimeManager.hasAtLeastPlaytime(player, required)) {
+                return "This Islander profile needs at least " + formatRequiredPlaytime(required) + " of profile playtime before Islander special spawns unlock.";
+            }
             return null;
         }
 
         if (islanderLevel) return "Normal special spawns cannot spawn in Islander worlds.";
         if (playerIsIslander) return "Islander profiles use the separate Islander special spawn timer/pool.";
+
+        long required = Math.max(0L, SpecialWildSpawnConfig.DATA.minimumProfilePlaytimeSeconds);
+        if (!ProfilePlaytimeManager.hasAtLeastPlaytime(player, required)) {
+            return "This profile needs at least " + formatRequiredPlaytime(required) + " of profile playtime before special spawns unlock.";
+        }
 
         // Do not require the world to be registered as an ExplorationWorldManager world. Some normal
         // gameplay worlds are Multiworld dimensions that are not active RTP entries. Territory checks
@@ -1675,8 +1908,20 @@ public final class SpecialWildSpawnManager {
         return null;
     }
 
+
+    private static String formatRequiredPlaytime(long requiredSeconds) {
+        long seconds = Math.max(0L, requiredSeconds);
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        if (hours > 0L && minutes > 0L) return hours + "h " + minutes + "m";
+        if (hours > 0L) return hours + "h";
+        if (minutes > 0L) return minutes + "m";
+        return seconds + "s";
+    }
+
     private static boolean isAllowedSpawnPosition(ServerPlayer player, ServerLevel level, BlockPos pos) {
         if (player == null || level == null || pos == null) return false;
+        if (IslanderMineManager.isMineWorld(level)) return false;
 
         TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, pos);
         boolean islanderLevel = isIslanderSpecialSpawnLevel(level);
@@ -1697,6 +1942,7 @@ public final class SpecialWildSpawnManager {
 
     private static boolean isIslanderSpecialSpawnLevel(ServerLevel level) {
         if (level == null) return false;
+        if (IslanderMineManager.isMineWorld(level)) return false;
         String prefix = SpecialWildSpawnConfig.DATA.islanderWorldPrefix;
         if (prefix == null || prefix.isBlank()) prefix = "islander_";
         String path = level.dimension().location().getPath().toLowerCase(Locale.ROOT);
@@ -1789,7 +2035,7 @@ public final class SpecialWildSpawnManager {
         List<SpecialWildSpawnConfig.SpawnEntry> pool = islanderRoll ? SpecialWildSpawnConfig.DATA.islanderParadoxSpawns : SpecialWildSpawnConfig.DATA.paradoxSpawns;
         int poolSize = pool == null ? 0 : pool.size();
         long nextSeconds = Math.max(0, ticksUntilParadoxCheck) / 20L;
-        return new DebugStatus(SpecialWildSpawnConfig.DATA.enabled, SpecialWildSpawnConfig.DATA.paradoxOnlySpawnsEnabled, SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls, islanderRoll, eligibility == null, eligibility == null ? "Eligible" : eligibility, poolSize, tracked.size(), maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon), nextSeconds, chance, islanderRoll ? formatLastIslanderParadoxSpawnAgo() : formatLastNormalParadoxSpawnAgo());
+        return new DebugStatus(SpecialWildSpawnConfig.DATA.enabled, SpecialWildSpawnConfig.DATA.paradoxOnlySpawnsEnabled, ChampDebugManager.isEnabled(ChampDebugManager.Category.SPAWNS), islanderRoll, eligibility == null, eligibility == null ? "Eligible" : eligibility, poolSize, tracked.size(), maxAliveTotal() + Math.max(0, SpecialWildSpawnConfig.DATA.maxAliveParadoxWildPokemon), nextSeconds, chance, islanderRoll ? formatLastIslanderParadoxSpawnAgo() : formatLastNormalParadoxSpawnAgo());
     }
 
     public static final class ForceSpawnResult {

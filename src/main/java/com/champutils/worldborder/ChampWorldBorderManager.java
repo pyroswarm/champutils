@@ -1,5 +1,6 @@
 package com.champutils.worldborder;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.territory.TerritoryRepository;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -229,7 +230,7 @@ public final class ChampWorldBorderManager {
             return;
         }
 
-        player.teleportTo(level, clampedX, player.getY(), clampedZ, player.getYRot(), player.getXRot());
+        SafeTeleportManager.teleportNoBack(player, level, clampedX, player.getY(), clampedZ, player.getYRot(), player.getXRot());
         warn(player);
     }
 

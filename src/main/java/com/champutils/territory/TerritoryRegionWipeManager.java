@@ -1,5 +1,6 @@
 package com.champutils.territory;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -83,7 +84,7 @@ public final class TerritoryRegionWipeManager {
         try {
             ServerLevel overworld = player.server.overworld();
             BlockPos spawn = overworld.getSharedSpawnPos();
-            player.teleportTo(overworld, spawn.getX() + 0.5D, spawn.getY() + 1.0D, spawn.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleportUncheckedNoBack(player, overworld, spawn.getX() + 0.5D, spawn.getY() + 1.0D, spawn.getZ() + 0.5D, player.getYRot(), player.getXRot());
             return true;
         } catch (Exception directTeleportFailed) {
             try {

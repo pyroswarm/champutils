@@ -16,9 +16,13 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class CatchStreakSpawnListener {
     private static boolean registered = false;
+    private static final Set<UUID> PROCESSED_SPAWN_ENTITIES = ConcurrentHashMap.newKeySet();
     private CatchStreakSpawnListener() {}
 
     public static synchronized void register() {
@@ -47,9 +51,15 @@ public final class CatchStreakSpawnListener {
         if (pokemon == null || CatchStreakManager.isShiny(pokemon)) return;
         Entity entity = pokemonHolder instanceof Entity e ? e : event instanceof Entity e ? e : firstEntity(event);
         if (entity == null || !(entity.level() instanceof ServerLevel level)) return;
+        if (!markProcessed(entity.getUUID())) return;
         ServerPlayer buffPlayer = nearestPlayerWithSpawnBuff(level, entity, pokemon);
         if (buffPlayer != null && pokemon instanceof Pokemon cobblemonPokemon) {
+            boolean wasShiny = CatchStreakManager.isShiny(pokemon);
             BuffManager.applySpawnBuffs(BuffContext.trueWildCatch(buffPlayer, cobblemonPokemon));
+            if (!wasShiny && CatchStreakManager.isShiny(pokemon)) {
+                sendShinyCoords(buffPlayer, entity, TrueCaughtDexManager.speciesId(pokemon));
+                return;
+            }
             if (CatchStreakManager.isShiny(pokemon)) return;
         }
 
@@ -57,13 +67,26 @@ public final class CatchStreakSpawnListener {
         if (player == null) return;
         if (CatchStreakManager.shouldForceShiny(player, pokemon) && CatchStreakManager.setShiny(pokemon, true)) {
             if (CatchStreakManager.CONFIG.announceShinyBoostProc) {
-                player.sendSystemMessage(Component.literal("Your catch streak attracted a shiny " + pretty(TrueCaughtDexManager.speciesId(pokemon))
-                                + " at X: " + entity.blockPosition().getX()
-                                + ", Y: " + entity.blockPosition().getY()
-                                + ", Z: " + entity.blockPosition().getZ() + "!")
-                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                sendShinyCoords(player, entity, TrueCaughtDexManager.speciesId(pokemon));
             }
         }
+    }
+
+    private static boolean markProcessed(UUID uuid) {
+        if (uuid == null) return true;
+        if (PROCESSED_SPAWN_ENTITIES.size() > 10000) {
+            PROCESSED_SPAWN_ENTITIES.clear();
+        }
+        return PROCESSED_SPAWN_ENTITIES.add(uuid);
+    }
+
+
+
+    private static void sendShinyCoords(ServerPlayer player, Entity entity, String species) {
+        if (player == null || entity == null) return;
+        player.sendSystemMessage(Component.literal("A shiny " + pretty(species) + " spawned near you! [X: " + entity.blockPosition().getX() + ", Y: " + entity.blockPosition().getY() + ", Z: " + entity.blockPosition().getZ() + "]")
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        entity.addTag("champutils_shiny_coords_announced");
     }
 
     private static ServerPlayer nearestPlayerWithSpawnBuff(ServerLevel level, Entity entity, Object pokemon) {

@@ -7,6 +7,7 @@ import com.champutils.util.CobblemonEventReflection;
 import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
+import com.champutils.gym.GymLevelCapUtil;
 import com.champutils.profession.ProfessionTrinketManager;
 import com.champutils.profile.IslanderSpawnInfluence;
 import com.champutils.commands.WildSpawnCapCommand;
@@ -64,7 +65,7 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
         ServerPlayer nearest = nearestPlayer(level, entity);
         if (nearest != null && !entity.getTags().contains("champutils_spawn_boost_checked")) {
             if (pokemon instanceof Pokemon typedPokemon) WildSpawnCapCommand.applyToWildSpawn(nearest, typedPokemon);
-            ProfessionTrinketManager.tryApplyWildSpawnShiny(nearest, pokemon);
+            ProfessionTrinketManager.tryApplyWildSpawnShiny(nearest, pokemon, entity);
             applyLevelCharm(nearest, pokemon);
             entity.addTag("champutils_spawn_boost_checked");
         }
@@ -131,20 +132,7 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
     }
 
     private static int currentGymCap(ServerPlayer player) {
-        try {
-            java.util.Set<BadgeType> earned = BadgeManager.getBadges(player);
-            int bestEarnedCap = 0;
-            int nextCap = 0;
-            for (BadgeType badge : BadgeType.values()) {
-                GymConfig.GymDefinition gym = GymConfig.getGym(badge);
-                if (gym == null || gym.levelCap <= 0) continue;
-                if (earned.contains(badge)) bestEarnedCap = Math.max(bestEarnedCap, gym.levelCap);
-                else if (nextCap == 0 || gym.levelCap < nextCap) nextCap = gym.levelCap;
-            }
-            return nextCap > 0 ? Math.max(bestEarnedCap, nextCap) : Math.max(bestEarnedCap, 100);
-        } catch (Throwable ignored) {
-            return 50;
-        }
+        return GymLevelCapUtil.currentWildCap(player);
     }
 
     private static int readLevel(Object pokemon) {
@@ -162,11 +150,12 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
     }
 
     private static void announceShiny(ServerLevel level, Entity entity, String species) {
-        double radiusSq = SHINY_NOTIFY_RADIUS * SHINY_NOTIFY_RADIUS;
-        Component msg = Component.literal("A shiny " + pretty(species) + " spawned nearby!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
-        for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(entity) <= radiusSq) player.sendSystemMessage(msg);
-        }
+        if (entity.getTags().contains("champutils_shiny_coords_announced")) return;
+        ServerPlayer target = nearestPlayer(level, entity);
+        if (target == null) return;
+        Component msg = Component.literal("A shiny " + pretty(species) + " spawned near you! [X: " + entity.blockPosition().getX() + ", Y: " + entity.blockPosition().getY() + ", Z: " + entity.blockPosition().getZ() + "]").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+        target.sendSystemMessage(msg);
+        entity.addTag("champutils_shiny_coords_announced");
     }
 
     private static Object extractPokemonHolder(Object event) {

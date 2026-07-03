@@ -125,11 +125,14 @@ public final class WorldFirstManager {
         state.claims.put(id, claim);
         save();
         TitleManager.unlock(player, def.titleId, def.titleDisplay);
-        player.server.getPlayerList().broadcastSystemMessage(Component.literal("[World First] ").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(claim.playerName).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" achieved ").withStyle(ChatFormatting.GRAY))
-                .append(Component.literal(def.name).withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal("!").withStyle(ChatFormatting.GRAY)), false);
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                player.server,
+                Component.literal("[World First] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(claim.playerName).withStyle(ChatFormatting.AQUA))
+                        .append(Component.literal(" achieved ").withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal(def.name).withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal("!").withStyle(ChatFormatting.GRAY))
+        );
         grantOneTimeReward(player, def);
         return true;
     }

@@ -23,7 +23,7 @@ public class ProfessionLootManager {
     }
 
     public static double effectiveDropChance(ServerPlayer player, ProfessionType profession, double baseChance) {
-        int level = ProfessionManager.getLevel(player, profession);
+        int level = ProfessionManager.getBenefitLevel(player, profession);
         double bonus = Math.max(0, level - 1) * 0.0015D;
         return Math.min(0.65D, Math.max(0.0D, baseChance + bonus));
     }

@@ -13,6 +13,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -76,7 +77,7 @@ public final class ProfessionGearManager {
         if (effectsRegistered) return;
         effectsRegistered = true;
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            if (server.getTickCount() % 60 != 0) return;
+            if (server.getTickCount() % 20 != 0) return;
             server.getPlayerList().getPlayers().forEach(ProfessionGearManager::applyEffects);
         });
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
@@ -104,6 +105,7 @@ public final class ProfessionGearManager {
         ItemStack helmet = player.getItemBySlot(EquipmentSlot.HEAD);
         if (isType(helmet, "helmet")) {
             makeStackUnbreakable(helmet);
+            suppressProfessionGearGlint(helmet);
             int water = getInt(helmet, "waterBreathing");
             if (water > 0) player.addEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, 160, 0, true, false, false));
             int aqua = getInt(helmet, "aquaAffinity");
@@ -117,6 +119,7 @@ public final class ProfessionGearManager {
         ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
         if (isType(chest, "chestplate")) {
             makeStackUnbreakable(chest);
+            suppressProfessionGearGlint(chest);
             int strength = getInt(chest, "strength");
             if (strength > 0) player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 160, Math.max(0, strength - 1), true, false, false));
             int haste = getInt(chest, "haste");
@@ -132,6 +135,7 @@ public final class ProfessionGearManager {
         refreshAutoStepState(player, legs);
         if (isType(legs, "leggings")) {
             makeStackUnbreakable(legs);
+            suppressProfessionGearGlint(legs);
             double step = getDouble(legs, "stepHeight");
             if (step > 0 && isAutoStepEnabled(player)) add(player, Attributes.STEP_HEIGHT, LEGGINGS_STEP_ID, step, AttributeModifier.Operation.ADD_VALUE);
             double knockback = getDouble(legs, "knockbackResistance");
@@ -182,25 +186,58 @@ public final class ProfessionGearManager {
     }
 
     public static float underwaterMiningMultiplier(Player player) {
-        // Underwater speed is now handled by the real vanilla Aqua Affinity enchantment
-        // on profession helmets. Keep this method as a safe no-op for older mixin references.
-        return 1.0F;
+        if (player == null || !player.isEyeInFluid(FluidTags.WATER)) {
+            return 1.0F;
+        }
+
+        ItemStack helmet = player.getItemBySlot(EquipmentSlot.HEAD);
+        if (!isType(helmet, "helmet") || getInt(helmet, "aquaAffinity") <= 0) {
+            return 1.0F;
+        }
+
+        // Always compensate the vanilla underwater mining penalty for profession
+        // helmets with the Aqua Affinity stat. Some Polymer/custom-armor paths can
+        // keep the enchantment component hidden from the vanilla speed check, so
+        // relying on the enchantment alone made the stat look broken in-game.
+        return 5.0F;
     }
 
     private static void applyAquaAffinityEnchantment(ServerPlayer player, ItemStack helmet) {
         if (player == null || helmet == null || helmet.isEmpty()) return;
+        if (!isType(helmet, "helmet") || getInt(helmet, "aquaAffinity") <= 0) return;
+
         try {
             Holder<Enchantment> aquaAffinity = player.registryAccess()
                     .registryOrThrow(Registries.ENCHANTMENT)
                     .getHolderOrThrow(Enchantments.AQUA_AFFINITY);
             ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(helmet.getEnchantments());
-            if (mutable.getLevel(aquaAffinity) < 1) {
+            if (mutable.getLevel(aquaAffinity) != 1) {
                 mutable.set(aquaAffinity, 1);
                 helmet.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
             }
+            suppressProfessionGearGlint(helmet);
+            player.getInventory().setChanged();
         } catch (Throwable ignored) {
-            // If a modded registry lookup fails, do not break armor effects.
+            // Registry/enchantment failures should never break profession gear.
         }
+    }
+
+    private static boolean hasAquaAffinityEnchantment(ItemStack helmet) {
+        if (helmet == null || helmet.isEmpty()) return false;
+        try {
+            for (var entry : helmet.getEnchantments().entrySet()) {
+                Holder<Enchantment> holder = entry.getKey();
+                if (holder != null && holder.is(Enchantments.AQUA_AFFINITY) && entry.getIntValue() > 0) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static void suppressProfessionGearGlint(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !isProfessionArmor(stack)) return;
+        stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false);
     }
 
     private static void remove(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute, ResourceLocation id) {
@@ -230,6 +267,7 @@ public final class ProfessionGearManager {
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(ProfessionFragmentManager.formatWords(normalizedRarity) + " Profession " + ProfessionFragmentManager.formatWords(normalizedType)).withStyle(color(normalizedRarity)));
         stack.set(DataComponents.LORE, new ItemLore(lore(normalizedType, normalizedRarity, tag)));
         makeStackUnbreakable(stack);
+        suppressProfessionGearGlint(stack);
         return stack;
     }
 
@@ -276,7 +314,6 @@ public final class ProfessionGearManager {
             if (tag.getInt("nightVision") > 0) lore.add(Component.literal(" §aNight Vision"));
             if (tag.getInt("aquaAffinity") > 0) lore.add(Component.literal(" §aAqua Affinity"));
             if (tag.getInt("dolphinsGrace") > 0) lore.add(Component.literal(" §aSwim Speed"));
-            if (tag.getInt("conduitBoost") > 0) lore.add(Component.literal(" §aOcean Utility"));
         } else if ("chestplate".equals(type)) {
             if (tag.getInt("strength") > 0) lore.add(Component.literal(" §a+" + tag.getInt("strength") + " Strength"));
             if (tag.getInt("haste") > 0) lore.add(Component.literal(" §a+" + tag.getInt("haste") + " Haste"));

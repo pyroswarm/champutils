@@ -19,7 +19,7 @@ public final class ChatCommand {
                     .then(Commands.literal("party").executes(context -> set(context.getSource().getPlayerOrException(), ChatMode.PARTY)))
                     .then(Commands.literal("guild").executes(context -> set(context.getSource().getPlayerOrException(), ChatMode.GUILD)))
                     .then(Commands.literal("reloadtags")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(context -> reload(context.getSource().getPlayerOrException())))
                     .then(Commands.argument("mode", StringArgumentType.word())
                             .executes(context -> setParsed(

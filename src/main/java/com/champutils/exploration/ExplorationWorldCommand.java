@@ -22,7 +22,7 @@ public final class ExplorationWorldCommand {
                 .executes(context -> list(context.getSource().getPlayerOrException()))
                 .then(Commands.literal("list").executes(context -> list(context.getSource().getPlayerOrException())))
                 .then(Commands.literal("admin")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .then(Commands.literal("go")
                                 .then(Commands.argument("world", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> go(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "world")))))

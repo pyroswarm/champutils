@@ -21,7 +21,7 @@ public final class MenuNpcCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("menunpc")
-                        .requires(source -> source.hasPermission(2) || com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(context -> help(context.getSource()))
                         .then(Commands.literal("bind")
                                 .then(Commands.argument("menu", StringArgumentType.word())

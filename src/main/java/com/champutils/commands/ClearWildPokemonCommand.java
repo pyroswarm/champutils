@@ -16,7 +16,7 @@ public final class ClearWildPokemonCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("clearwildpokemon")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(ctx -> clear(ctx.getSource(), 0, Math.max(5000, AntiLagConfig.DATA.maxRemovalsPerScan)))
                         .then(Commands.argument("minAgeSeconds", IntegerArgumentType.integer(0, 3600))
                                 .executes(ctx -> clear(

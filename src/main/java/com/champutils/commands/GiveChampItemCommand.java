@@ -53,7 +53,7 @@ public class GiveChampItemCommand {
                             Commands.literal(
                                             "givechampitem"
                                     )
-                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"));
+                                    .requires(source -> source.hasPermission(4));
 
                     for (String toolType : TOOL_TYPES) {
                         root.then(buildTypedToolBranch(toolType));

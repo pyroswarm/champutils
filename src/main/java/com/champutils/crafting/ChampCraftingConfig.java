@@ -282,7 +282,13 @@ public final class ChampCraftingConfig {
                 "cobblemon:ability_capsule",
                 "cobblemon:master_ball",
                 "cobblemon:rare_candy",
+                "bottlecaps:silver_bottle_cap",
                 "bottlecaps:silver_bottle_cap_attack",
+                "bottlecaps:silver_bottle_cap_defence",
+                "bottlecaps:silver_bottle_cap_hp",
+                "bottlecaps:silver_bottle_cap_special_attack",
+                "bottlecaps:silver_bottle_cap_special_defence",
+                "bottlecaps:silver_bottle_cap_speed",
                 "bottlecaps:golden_bottle_cap"
         };
         for (String id : ids) {
@@ -376,7 +382,13 @@ public final class ChampCraftingConfig {
             addCreditCost(costs, category, id);
             return costs;
         }
-        if (path.equals("bottle_cap") || path.equals("silver_bottle_cap") || path.equals("silver_bottle_cap_attack") || path.equals("silver_bottle_cap_atk")) {
+        if (path.equals("bottle_cap") || path.equals("silver_bottle_cap")
+                || path.equals("silver_bottle_cap_attack") || path.equals("silver_bottle_cap_atk")
+                || path.equals("silver_bottle_cap_defence") || path.equals("silver_bottle_cap_defense") || path.equals("silver_bottle_cap_def")
+                || path.equals("silver_bottle_cap_hp")
+                || path.equals("silver_bottle_cap_special_attack") || path.equals("silver_bottle_cap_sp_atk")
+                || path.equals("silver_bottle_cap_special_defence") || path.equals("silver_bottle_cap_special_defense") || path.equals("silver_bottle_cap_sp_def")
+                || path.equals("silver_bottle_cap_speed")) {
             add(costs, "minecraft:cobblestone", 30000);
             add(costs, "minecraft:raw_iron", 3750);
             add(costs, "minecraft:raw_gold", 2500);

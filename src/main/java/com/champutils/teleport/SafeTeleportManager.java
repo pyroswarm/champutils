@@ -30,17 +30,45 @@ public final class SafeTeleportManager {
     }
 
     public static boolean teleport(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch, boolean rememberBack, boolean validateDestination) {
-        if (player == null || level == null) return false;
+        if (!isLive(player) || level == null) return false;
         if (validateDestination && !canTeleportTo(player, level, x, y, z)) {
             player.sendSystemMessage(Component.literal("You cannot teleport to that location.").withStyle(ChatFormatting.RED));
             return false;
         }
         if (rememberBack) BackManager.remember(player);
+        prepareForTeleport(player);
         player.teleportTo(level, x, y, z, yaw, pitch);
         player.setYRot(yaw);
         player.setYHeadRot(yaw);
         player.setXRot(pitch);
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        player.resetFallDistance();
         return true;
+    }
+
+    /**
+     * ServerPlayer objects can stay referenced briefly after logout/profile transfer.
+     * Teleporting or sending packets through those stale objects is what produces the
+     * "Fetching packet for removed entity ... removed=UNLOADED_WITH_PLAYER" spam and
+     * can leave other clients seeing a ghost/old player position.
+     */
+    public static boolean isLive(ServerPlayer player) {
+        if (player == null) return false;
+        if (player.server == null || player.connection == null) return false;
+        if (player.hasDisconnected() || player.isRemoved()) return false;
+        ServerPlayer current = player.server.getPlayerList().getPlayer(player.getUUID());
+        return current == player;
+    }
+
+    public static void prepareForTeleport(ServerPlayer player) {
+        if (player == null) return;
+        try {
+            if (player.isPassenger()) player.stopRiding();
+            player.ejectPassengers();
+        } catch (Throwable ignored) {
+        }
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        player.resetFallDistance();
     }
 
     public static boolean canTeleportTo(ServerPlayer player, ServerLevel level, double x, double y, double z) {

@@ -145,17 +145,32 @@ public final class ProfessionBackpackManager {
     }
 
     public static TradeResult trade(ServerPlayer player, String itemId) {
+        return trade(player, itemId, 1);
+    }
+
+    public static TradeResult trade(ServerPlayer player, String itemId, int requestedTrades) {
         ProfessionBackpackConfig.ItemData data = ProfessionBackpackConfig.get(itemId);
         if (data == null) return new TradeResult(false, "This item is not configured for profession trades.");
         if (!ProfessionBackpackConfig.isTradeEnabled(itemId)) return new TradeResult(false, "This trade is disabled by the backpack trade config.");
         long cost = java.lang.Math.max(1, data.tradeCost);
-        if (count(player, itemId) < cost) return new TradeResult(false, "You need " + cost + "x " + data.displayName + ".");
+        long stored = count(player, itemId);
+        if (stored < cost) return new TradeResult(false, "You need " + cost + "x " + data.displayName + ".");
         Item reward = item(data.rewardItem);
         if (reward == Items.AIR) return new TradeResult(false, "Reward item is invalid: " + data.rewardItem);
-        if (!remove(player, itemId, cost)) return new TradeResult(false, "Not enough items.");
-        ItemStack rewardStack = new ItemStack(reward, java.lang.Math.max(1, data.rewardAmount));
+
+        int rewardAmount = java.lang.Math.max(1, data.rewardAmount);
+        int maxStack = java.lang.Math.max(1, reward.getDefaultInstance().getMaxStackSize());
+        long maxByStored = stored / cost;
+        long maxByStack = java.lang.Math.max(1L, maxStack / rewardAmount);
+        long wanted = java.lang.Math.max(1L, requestedTrades);
+        int trades = (int) java.lang.Math.max(1L, java.lang.Math.min(wanted, java.lang.Math.min(maxByStored, maxByStack)));
+
+        long totalCost = cost * trades;
+        int totalReward = rewardAmount * trades;
+        if (!remove(player, itemId, totalCost)) return new TradeResult(false, "Not enough items.");
+        ItemStack rewardStack = new ItemStack(reward, totalReward);
         if (!player.getInventory().add(rewardStack)) player.drop(rewardStack, false);
-        return new TradeResult(true, "Traded " + cost + "x " + data.displayName + " for " + data.rewardAmount + "x " + ProfessionBackpackConfig.formatName(data.rewardItem) + ".");
+        return new TradeResult(true, "Traded " + totalCost + "x " + data.displayName + " for " + totalReward + "x " + ProfessionBackpackConfig.formatName(data.rewardItem) + ".");
     }
 
     public record TradeResult(boolean success, String message) {}

@@ -3,11 +3,14 @@ package com.champutils.profession;
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
 import com.champutils.profession.passives.DurabilitySavePassive;
+import com.champutils.economy.EconomyCraftHook;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -33,13 +36,18 @@ import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class ProfessionToolManager {
@@ -87,6 +95,13 @@ public class ProfessionToolManager {
 
     private static final Map<String, Item> REGISTERED_TOOLS =
             new HashMap<>();
+
+    private static final Set<String> LEGACY_SPEED_STATS = Set.of(
+            "miningSpeed",
+            "chopSpeed",
+            "diggingSpeed",
+            "farmingSpeed"
+    );
 
     public static void registerTools() {
 
@@ -231,9 +246,7 @@ public class ProfessionToolManager {
                         );
 
         Tier configuredTier =
-                getConfiguredTier(
-                        toolData
-                );
+                getVanillaSpeedTier(toolData);
 
         if (base.contains("pickaxe")) {
             return new CustomPickaxeItem(
@@ -384,7 +397,8 @@ public class ProfessionToolManager {
             case "IRON" -> Tiers.IRON;
             case "NETHERITE" -> Tiers.NETHERITE;
             case "DIAMOND" -> Tiers.DIAMOND;
-            default -> Tiers.WOOD;
+            case "GOLD" -> Tiers.GOLD;
+            default -> Tiers.IRON;
         };
     }
 
@@ -397,37 +411,23 @@ public class ProfessionToolManager {
                         toolData.toolTier != null &&
                         !toolData.toolTier.isBlank()
         ) {
-            return toolData.toolTier
-                    .trim()
-                    .toUpperCase();
+            return normalizeVanillaTierName(toolData.toolTier);
         }
 
-        String base =
-                toolData == null || toolData.baseItem == null
-                        ? ""
-                        : toolData.baseItem.toLowerCase();
+        return visualTierFromToolData(toolData);
+    }
 
-        if (base.contains("netherite")) {
-            return "NETHERITE";
-        }
-
-        if (base.contains("diamond")) {
-            return "DIAMOND";
-        }
-
-        if (base.contains("iron")) {
-            return "IRON";
-        }
-
-        if (base.contains("stone")) {
-            return "STONE";
-        }
-
-        if (base.contains("wooden") || base.contains("wood")) {
-            return "WOOD";
-        }
-
-        return "WOOD";
+    private static String normalizeVanillaTierName(String tierName) {
+        if (tierName == null) return "IRON";
+        return switch (tierName.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "WOOD", "WOODEN" -> "WOOD";
+            case "STONE" -> "STONE";
+            case "IRON" -> "IRON";
+            case "DIAMOND" -> "DIAMOND";
+            case "NETHERITE" -> "NETHERITE";
+            case "GOLD", "GOLDEN" -> "GOLD";
+            default -> "IRON";
+        };
     }
 
     public static int getConfiguredTierLevel(
@@ -439,10 +439,11 @@ public class ProfessionToolManager {
                         toolData
                 )
         ) {
+            case "GOLD", "WOOD" -> 0;
             case "STONE" -> 1;
             case "IRON" -> 2;
             case "DIAMOND", "NETHERITE" -> 3;
-            default -> 0;
+            default -> 2;
         };
     }
 
@@ -474,6 +475,10 @@ public class ProfessionToolManager {
             BlockState state
     ) {
 
+        if (state != null && state.is(Blocks.BEDROCK)) {
+            return false;
+        }
+
         String toolId =
                 ProfessionToolUtil.getToolId(
                         stack
@@ -484,33 +489,13 @@ public class ProfessionToolManager {
         }
 
         ProfessionToolConfig.ToolData toolData =
-                ProfessionToolConfig.TOOLS.get(
-                        toolId
-                );
+                ProfessionToolConfig.TOOLS.get(toolId);
 
         if (toolData == null) {
             return true;
         }
 
-        if (
-                "MINING".equalsIgnoreCase(
-                        toolData.profession
-                )
-        ) {
-            return true;
-        }
-
-        int toolTier =
-                getConfiguredTierLevel(
-                        toolData
-                );
-
-        int requiredTier =
-                getRequiredTierLevel(
-                        state
-                );
-
-        return toolTier >= requiredTier;
+        return getConfiguredTierLevel(toolData) >= getRequiredTierLevel(state);
     }
 
     public static ItemStack createTool(
@@ -861,6 +846,8 @@ public class ProfessionToolManager {
             return;
         }
 
+        scrubLegacySpeedStats(stack);
+
         initializeDurabilityIfNeeded(
                 stack,
                 toolData,
@@ -885,8 +872,46 @@ public class ProfessionToolManager {
         applyIdentifiedDisplay(
                 stack,
                 toolId,
-                toolData
+                toolData,
+                null
         );
+    }
+
+    public static void refreshToolStack(
+            ItemStack stack,
+            ServerPlayer player
+    ) {
+        refreshToolStackForPlayer(stack, player);
+    }
+
+    public static void refreshToolStackForPlayer(
+            ItemStack stack,
+            ServerPlayer player
+    ) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        if (!ProfessionToolMetadata.isProfessionTool(stack)) {
+            return;
+        }
+        String toolId = ProfessionToolMetadata.getToolId(stack);
+        if (toolId == null || toolId.isBlank()) {
+            return;
+        }
+        ProfessionToolConfig.ToolData toolData = ProfessionToolConfig.TOOLS.get(toolId);
+        if (toolData == null) {
+            return;
+        }
+        scrubLegacySpeedStats(stack);
+        initializeDurabilityIfNeeded(stack, toolData, false);
+        applyDurabilityComponents(stack, toolData);
+        applyAscendedGlint(stack);
+        if (!ProfessionToolMetadata.isIdentified(stack)) {
+            Map<String, Double> rolledStats = ProfessionToolRollService.rollStats(toolData);
+            double quality = ProfessionToolRollService.calculateQuality(toolData, rolledStats);
+            ProfessionToolMetadata.applyRoll(stack, rolledStats, quality, false);
+        }
+        applyIdentifiedDisplay(stack, toolId, toolData, player);
     }
 
     private static void applyUnidentifiedDisplay(
@@ -1009,7 +1034,8 @@ public class ProfessionToolManager {
     private static void applyIdentifiedDisplay(
             ItemStack stack,
             String toolId,
-            ProfessionToolConfig.ToolData toolData
+            ProfessionToolConfig.ToolData toolData,
+            ServerPlayer player
     ) {
 
         applyCustomModelData(
@@ -1123,7 +1149,8 @@ public class ProfessionToolManager {
 
         addActiveAbilityLore(
                 lore,
-                toolData
+                toolData,
+                player
         );
 
         stack.set(
@@ -1262,6 +1289,10 @@ public class ProfessionToolManager {
                 Map.Entry<String, Double> stat :
                 rolledStats.entrySet()
         ) {
+
+            if (LEGACY_SPEED_STATS.contains(stat.getKey())) {
+                continue;
+            }
 
             double statQuality =
                     getStatQualityPercent(
@@ -1430,7 +1461,8 @@ public class ProfessionToolManager {
 
     private static void addActiveAbilityLore(
             List<Component> lore,
-            ProfessionToolConfig.ToolData toolData
+            ProfessionToolConfig.ToolData toolData,
+            ServerPlayer player
     ) {
 
         if (
@@ -1473,17 +1505,59 @@ public class ProfessionToolManager {
                 )
         );
 
-        if (toolData.activeDurationSeconds > 0) {
+        if (isTimedActiveAbility(toolData.activeAbility)) {
+            double durationSeconds = ProfessionActiveDuration.durationSeconds(
+                    player,
+                    toolData,
+                    ProfessionActiveDuration.DEFAULT_BASE_SECONDS,
+                    ProfessionActiveDuration.professionFromData(toolData)
+            );
+
             lore.add(
                     Component.literal(
                             " Duration: " +
-                                    toolData.activeDurationSeconds +
+                                    ProfessionActiveDuration.formatSeconds(durationSeconds) +
                                     "s"
                     ).withStyle(
                             ChatFormatting.DARK_GRAY
                     )
             );
+
+            if (toolData.activeDurationSecondsPerLevel > 0.0D) {
+                lore.add(
+                        Component.literal(
+                                " Scaling: +" +
+                                        ProfessionActiveDuration.formatSeconds(toolData.activeDurationSecondsPerLevel) +
+                                        "s per profession level"
+                        ).withStyle(
+                                ChatFormatting.DARK_GRAY
+                        )
+                );
+            }
         }
+    }
+
+    public static boolean isTimedActiveAbility(String abilityId) {
+        if (abilityId == null || abilityId.isBlank()) {
+            return false;
+        }
+
+        String normalized = abilityId.trim().toLowerCase(java.util.Locale.ROOT);
+        return switch (normalized) {
+            case "excavation",
+                    "auto_smelt_burst",
+                    "miners_focus",
+                    "vein_miner_burst",
+                    "blast_mine",
+                    "stonebreaker",
+                    "timber_burst",
+                    "leafstorm",
+                    "lumberjack_focus",
+                    "foresters_focus",
+                    "harvest_wave",
+                    "golden_rain" -> true;
+            default -> false;
+        };
     }
 
     private static double getStatQualityPercent(
@@ -1720,9 +1794,21 @@ public class ProfessionToolManager {
     }
 
 
+    private static ServerPlayer asServerPlayer(LivingEntity entity) {
+        return entity instanceof ServerPlayer player ? player : null;
+    }
+
     public static boolean damageTool(
             ItemStack stack,
             int amount
+    ) {
+        return damageTool(stack, amount, null);
+    }
+
+    public static boolean damageTool(
+            ItemStack stack,
+            int amount,
+            ServerPlayer owner
     ) {
 
         if (
@@ -1754,6 +1840,15 @@ public class ProfessionToolManager {
                 false
         );
 
+        if (hasPerfectDurabilityRoll(stack, toolData)) {
+            int perfectMax = ProfessionToolMetadata.getMaxDurability(stack);
+            if (perfectMax > 0) {
+                ProfessionToolMetadata.setCurrentDurability(stack, perfectMax);
+                applyDurabilityComponents(stack, toolData);
+            }
+            return true;
+        }
+
         int max =
                 ProfessionToolMetadata.getMaxDurability(
                         stack
@@ -1777,19 +1872,85 @@ public class ProfessionToolManager {
         }
 
 
-        ProfessionToolMetadata.setCurrentDurability(
-                stack,
+        int afterDamage =
                 Math.max(
                         0,
                         current - amount
-                )
+                );
+
+        ProfessionToolMetadata.setCurrentDurability(
+                stack,
+                afterDamage
         );
+
+        if (afterDamage <= 0 && tryAutoRepair(owner, stack, toolData)) {
+            return true;
+        }
 
         refreshToolStack(
                 stack
         );
 
         return true;
+    }
+
+    private static boolean tryAutoRepair(
+            ServerPlayer owner,
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                owner == null ||
+                        stack == null ||
+                        stack.isEmpty() ||
+                        toolData == null ||
+                        !ProfessionNotificationSettings.isAutoRepairEnabled(owner)
+        ) {
+            return false;
+        }
+
+        long cost = getRepairCreditCost(toolData);
+        EconomyCraftHook.ChargeResult chargeResult =
+                EconomyCraftHook.withdraw(owner, cost);
+
+        if (!chargeResult.success) {
+            refreshToolStack(stack);
+            owner.sendSystemMessage(
+                    Component.literal(
+                            "§cAuto-repair failed: " + chargeResult.error +
+                                    " §7Your tool is broken until repaired."
+                    )
+            );
+            return false;
+        }
+
+        repairTool(stack);
+        applyVanillaEfficiencyEnchant(owner, stack);
+        owner.sendSystemMessage(
+                Component.literal(
+                        "§aAuto-repaired your tool for §6" +
+                                EconomyCraftHook.formatMoney(cost) +
+                                "§a. New Balance: §6" +
+                                EconomyCraftHook.formatMoney(chargeResult.newBalance)
+                )
+        );
+        return true;
+    }
+
+    public static long getRepairCreditCost(ProfessionToolConfig.ToolData toolData) {
+        String rarity = toolData == null || toolData.rarity == null
+                ? "common"
+                : toolData.rarity.toLowerCase(java.util.Locale.ROOT);
+        long credits = switch (rarity) {
+            case "uncommon" -> 20L;
+            case "rare" -> 35L;
+            case "epic" -> 50L;
+            case "legendary" -> 100L;
+            case "mythic" -> 250L;
+            default -> 10L;
+        };
+        return credits * 100L;
     }
 
     public static boolean repairTool(
@@ -1945,6 +2106,37 @@ public class ProfessionToolManager {
         }
     }
 
+    private static boolean hasPerfectDurabilityRoll(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (
+                stack == null ||
+                        stack.isEmpty() ||
+                        toolData == null ||
+                        toolData.statRanges == null ||
+                        !ProfessionToolMetadata.isIdentified(stack)
+        ) {
+            return false;
+        }
+
+        ProfessionToolConfig.StatRange range =
+                toolData.statRanges.get("durabilityBonus");
+
+        if (range == null) {
+            return false;
+        }
+
+        double max =
+                Math.max(range.min, range.max);
+
+        double rolled =
+                ProfessionToolUtil.getStat(stack, "durabilityBonus");
+
+        return max > 0.0D && rolled >= max;
+    }
+
     private static int calculateMaxDurability(
             ItemStack stack,
             ProfessionToolConfig.ToolData toolData
@@ -2063,6 +2255,11 @@ public class ProfessionToolManager {
                                 )
                         )
                 );
+
+        if (hasPerfectDurabilityRoll(stack, toolData)) {
+            current = max;
+            ProfessionToolMetadata.setCurrentDurability(stack, max);
+        }
 
         stack.remove(
                 DataComponents.UNBREAKABLE
@@ -2390,6 +2587,7 @@ public class ProfessionToolManager {
         return switch (stat) {
             case "damage", "slayingDamage", "damageBonus" -> "Damage";
             case "sharpnessPercent" -> "Sharpness";
+            case "efficiencyLevel" -> "Efficiency";
             case "lootingChance" -> "Looting Chance";
             case "critChance" -> "Crit Chance";
             case "lifestealChance" -> "Lifesteal Chance";
@@ -2406,6 +2604,10 @@ public class ProfessionToolManager {
             String statId,
             double value
     ) {
+
+        if ("efficiencyLevel".equals(statId)) {
+            return toRoman((int) Math.round(value));
+        }
 
         return formatDecimal(
                 value
@@ -2527,7 +2729,7 @@ public class ProfessionToolManager {
             ItemStack stack,
             float baseSpeed
     ) {
-        return applyToolSpeedStat(stack, baseSpeed, "miningSpeed");
+        return applyToolSpeedStat(stack, baseSpeed, "efficiencyLevel");
     }
 
     public static float applyToolSpeedStat(
@@ -2548,33 +2750,95 @@ public class ProfessionToolManager {
             return baseSpeed;
         }
 
-        float effectiveBaseSpeed = applyRarePlusBaselineSpeed(stack, baseSpeed);
-
-        double speedStat = ProfessionToolUtil.getStat(stack, primarySpeedStat);
-        if (speedStat <= 0.0D && fallbackStats != null) {
-            for (String fallback : fallbackStats) {
-                speedStat = ProfessionToolUtil.getStat(stack, fallback);
-                if (speedStat > 0.0D) break;
-            }
-        }
-
-        if (speedStat <= 0.0D) {
-            return effectiveBaseSpeed;
-        }
-
-        return (float) (
-                effectiveBaseSpeed +
-                        getEfficiencyStyleMiningSpeedBonus(
-                                speedStat
-                        )
-        );
-    }
-
-    private static float applyRarePlusBaselineSpeed(ItemStack stack, float baseSpeed) {
-        // Profession tools now use vanilla netherite speed as their stable base.
-        // Rarity affects visuals, durability, passives, and actives, not hidden baseline speed spikes.
+        // Mining speed is intentionally pure vanilla now:
+        //   1) the tool item's vanilla Tier controls material speed,
+        //   2) the real Efficiency enchantment controls enchant speed,
+        //   3) vanilla status effects such as Haste apply normally.
+        // Do not apply hidden miningSpeed/chopSpeed/diggingSpeed/farmingSpeed rolls here.
         return baseSpeed;
     }
+
+
+
+    private static Tier getVanillaSpeedTier(ProfessionToolConfig.ToolData toolData) {
+        /*
+         * The registered item tier is now the only material speed source.
+         * Efficiency is a real vanilla enchantment and Haste is vanilla status logic.
+         */
+        return switch (visualTierFromToolData(toolData)) {
+            case "STONE" -> Tiers.STONE;
+            case "IRON" -> Tiers.IRON;
+            case "DIAMOND" -> Tiers.DIAMOND;
+            case "NETHERITE" -> Tiers.NETHERITE;
+            case "GOLD" -> Tiers.GOLD;
+            default -> Tiers.IRON;
+        };
+    }
+
+    private static String visualTierFromToolData(ProfessionToolConfig.ToolData toolData) {
+        if (toolData != null && toolData.toolTier != null && !toolData.toolTier.isBlank()) {
+            return normalizeVanillaTierName(toolData.toolTier);
+        }
+
+        String rarity = toolData == null || toolData.rarity == null
+                ? "COMMON"
+                : toolData.rarity.trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (rarity) {
+            case "COMMON", "UNCOMMON" -> "IRON";
+            case "RARE", "EPIC" -> "DIAMOND";
+            case "LEGENDARY" -> "NETHERITE";
+            case "MYTHIC" -> "GOLD";
+            default -> "IRON";
+        };
+    }
+
+    public static int getGuaranteedEfficiencyLevel(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return 0;
+        // Do not read legacy speed stats here. Those old percentage rolls are the
+        // source of the inconsistent hidden mining speed, so only efficiencyLevel
+        // is allowed to influence vanilla mining speed now.
+        double rolled = ProfessionToolUtil.getStat(stack, "efficiencyLevel");
+        return Math.max(0, Math.min(10, (int) Math.round(rolled)));
+    }
+
+    public static void scrubLegacySpeedStats(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !ProfessionToolMetadata.isProfessionTool(stack)) return;
+        Map<String, Double> rolledStats = ProfessionToolMetadata.getRolledStats(stack);
+        if (rolledStats == null || rolledStats.isEmpty()) return;
+        boolean changed = false;
+        for (String legacyStat : LEGACY_SPEED_STATS) {
+            if (rolledStats.remove(legacyStat) != null) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            ProfessionToolMetadata.setRolledStats(stack, rolledStats);
+        }
+    }
+
+    public static void applyVanillaEfficiencyEnchant(ServerPlayer player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) return;
+        if (!ProfessionToolMetadata.isProfessionTool(stack) || !ProfessionToolMetadata.isIdentified(stack)) return;
+
+        scrubLegacySpeedStats(stack);
+
+        int level = getGuaranteedEfficiencyLevel(stack);
+        try {
+            Holder<Enchantment> efficiency = player.registryAccess()
+                    .registryOrThrow(Registries.ENCHANTMENT)
+                    .getHolderOrThrow(Enchantments.EFFICIENCY);
+            ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(stack.getEnchantments());
+            if (mutable.getLevel(efficiency) != level) {
+                mutable.set(efficiency, level);
+                stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+                player.getInventory().setChanged();
+            }
+        } catch (Throwable ignored) {
+            // Registry/enchantment lookup failures should never break the tool.
+        }
+    }
+
+
 
     private static int rarityTier(String rarity) {
         if (rarity == null) return 1;
@@ -2588,113 +2852,55 @@ public class ProfessionToolManager {
         };
     }
 
-    public static double getMiningSpeedMultiplier(
-            double miningSpeedPercent
-    ) {
 
-        if (miningSpeedPercent <= 0.0D) {
-            return 1.0D;
-        }
-
-        return 1.0D +
-                (miningSpeedPercent / 100.0D);
-    }
-
-    public static double getEfficiencyStyleMiningSpeedBonus(
-            double miningSpeedPercent
-    ) {
-
-        if (miningSpeedPercent <= 0.0D) {
-            return 0.0D;
-        }
-
-        /*
-         * Vanilla Efficiency does not multiply speed by a flat percent.
-         * It adds an efficiency bonus to the tool's destroy speed:
-         *
-         *   level 1 -> +2
-         *   level 2 -> +5
-         *   level 3 -> +10
-         *   level 4 -> +17
-         *   level 5 -> +26
-         *
-         * ChampUtils keeps the config/display as percentages, then converts
-         * every 40% miningSpeed/chopSpeed/diggingSpeed into one virtual Efficiency level. Fractional
-         * values are allowed so 23% and 230% are no longer in the same
-         * barely-noticeable vanilla multiplier bucket.
-         */
-        /*
-         * Keep the server-side destroy speed close to what vanilla clients can
-         * visually predict. The previous quadratic scaling made fast tools
-         * delete blocks server-side before the client could show a normal break
-         * animation or sound, especially through Polymer's vanilla item disguise.
-         *
-         * This still lets high-end tools reach vanilla-feeling instant mining, but
-         * caps the hidden bonus at roughly Efficiency V instead of jumping far
-         * past it.
-         */
-        double percentPerLevel = ProfessionToolConfig.SPEED_PERCENT_PER_VIRTUAL_EFFICIENCY_LEVEL;
-        if (percentPerLevel <= 0.0D) {
-            percentPerLevel = 40.0D;
-        }
-
-        // Existing configs that still say 50 should not make 200% speed feel worse than Efficiency V.
-        percentPerLevel = Math.min(percentPerLevel, 40.0D);
-
-        double virtualEfficiencyLevel =
-                Math.min(
-                        Math.max(1.0D, ProfessionToolConfig.MAX_VIRTUAL_EFFICIENCY_LEVEL),
-                        miningSpeedPercent / percentPerLevel
-                );
-
-        return (virtualEfficiencyLevel * virtualEfficiencyLevel) + virtualEfficiencyLevel + 1.0D;
-    }
 
     public static Item getPolymerSpeedProxy(ItemStack stack, Item fallback) {
         if (stack == null || stack.isEmpty()) return fallback;
         String toolId = ProfessionToolUtil.getToolId(stack);
         ProfessionToolConfig.ToolData data = toolId == null ? null : ProfessionToolConfig.TOOLS.get(toolId);
-        String rarity = data == null ? "COMMON" : String.valueOf(data.rarity).trim().toUpperCase();
         String base = data == null || data.baseItem == null ? "" : data.baseItem.toLowerCase(java.util.Locale.ROOT);
 
-        // Polymer clients mine using the disguised vanilla item. Keep custom harvest tier server-side,
-        // but disguise tools as speed-appropriate vanilla items so Common+ tools no longer feel like wood.
+        // Polymer clients mine using the disguised vanilla item, not the custom server item.
+        // Keep this proxy aligned with the registered vanilla tier so client and server
+        // predict the same break timing. No hidden mining-speed override is applied.
         boolean pick = base.contains("pickaxe") || fallback instanceof PickaxeItem;
         boolean axe = !pick && (base.contains("axe") || fallback instanceof AxeItem);
         boolean hoe = base.contains("hoe") || fallback instanceof HoeItem;
         boolean shovel = base.contains("shovel") || fallback instanceof ShovelItem;
 
-        String speedTier = switch (rarity) {
-            case "RARE" -> "GOLD";
-            case "EPIC" -> "DIAMOND";
-            case "LEGENDARY", "MYTHIC" -> "NETHERITE";
-            case "UNCOMMON" -> "IRON";
-            default -> "IRON";
-        };
+        String visualTier = visualTierFromToolData(data);
 
-        if (pick) return switch (speedTier) {
+        if (pick) return switch (visualTier) {
             case "GOLD" -> Items.GOLDEN_PICKAXE;
             case "DIAMOND" -> Items.DIAMOND_PICKAXE;
             case "NETHERITE" -> Items.NETHERITE_PICKAXE;
-            default -> Items.IRON_PICKAXE;
+            case "IRON" -> Items.IRON_PICKAXE;
+            case "STONE" -> Items.STONE_PICKAXE;
+            default -> Items.WOODEN_PICKAXE;
         };
-        if (axe) return switch (speedTier) {
+        if (axe) return switch (visualTier) {
             case "GOLD" -> Items.GOLDEN_AXE;
             case "DIAMOND" -> Items.DIAMOND_AXE;
             case "NETHERITE" -> Items.NETHERITE_AXE;
-            default -> Items.IRON_AXE;
+            case "IRON" -> Items.IRON_AXE;
+            case "STONE" -> Items.STONE_AXE;
+            default -> Items.WOODEN_AXE;
         };
-        if (hoe) return switch (speedTier) {
+        if (hoe) return switch (visualTier) {
             case "GOLD" -> Items.GOLDEN_HOE;
             case "DIAMOND" -> Items.DIAMOND_HOE;
             case "NETHERITE" -> Items.NETHERITE_HOE;
-            default -> Items.IRON_HOE;
+            case "IRON" -> Items.IRON_HOE;
+            case "STONE" -> Items.STONE_HOE;
+            default -> Items.WOODEN_HOE;
         };
-        if (shovel) return switch (speedTier) {
+        if (shovel) return switch (visualTier) {
             case "GOLD" -> Items.GOLDEN_SHOVEL;
             case "DIAMOND" -> Items.DIAMOND_SHOVEL;
             case "NETHERITE" -> Items.NETHERITE_SHOVEL;
-            default -> Items.IRON_SHOVEL;
+            case "IRON" -> Items.IRON_SHOVEL;
+            case "STONE" -> Items.STONE_SHOVEL;
+            default -> Items.WOODEN_SHOVEL;
         };
         return fallback;
     }
@@ -2710,7 +2916,7 @@ public class ProfessionToolManager {
         ) {
 
             super(
-                    tier,
+                    tier == null ? Tiers.IRON : tier,
                     properties
             );
 
@@ -2719,27 +2925,12 @@ public class ProfessionToolManager {
         }
 
         @Override
-        public float getDestroySpeed(
-                ItemStack stack,
-                BlockState state
-        ) {
-
-            return ProfessionToolManager.applyMiningSpeedStat(
-                    stack,
-                    super.getDestroySpeed(
-                            stack,
-                            state
-                    )
-            );
-        }
-
-        @Override
         public boolean isCorrectToolForDrops(
                 ItemStack stack,
                 BlockState state
         ) {
 
-            return ProfessionToolManager.canHarvestWithConfiguredTier(
+            return super.isCorrectToolForDrops(
                     stack,
                     state
             );
@@ -2770,7 +2961,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(miningEntity)
                 );
             }
 
@@ -2797,7 +2989,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(attacker)
                 );
             }
 
@@ -2850,14 +3043,24 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyToolSpeedStat(
+            // Pure vanilla material speed. The registered item Tier supplies the
+            // material speed, real Efficiency supplies enchant speed, and vanilla
+            // Haste supplies potion speed.
+            return super.getDestroySpeed(
                     stack,
-                    super.getDestroySpeed(
-                            stack,
-                            state
-                    ),
-                    "chopSpeed",
-                    "miningSpeed"
+                    state
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return super.isCorrectToolForDrops(
+                    stack,
+                    state
             );
         }
 
@@ -2886,7 +3089,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(miningEntity)
                 );
             }
 
@@ -2913,7 +3117,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(attacker)
                 );
             }
 
@@ -2966,14 +3171,24 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyToolSpeedStat(
+            // Pure vanilla material speed. The registered item Tier supplies the
+            // material speed, real Efficiency supplies enchant speed, and vanilla
+            // Haste supplies potion speed.
+            return super.getDestroySpeed(
                     stack,
-                    super.getDestroySpeed(
-                            stack,
-                            state
-                    ),
-                    "farmingSpeed",
-                    "miningSpeed"
+                    state
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return super.isCorrectToolForDrops(
+                    stack,
+                    state
             );
         }
 
@@ -2989,7 +3204,8 @@ public class ProfessionToolManager {
             if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(miningEntity)
                 );
             }
 
@@ -3016,7 +3232,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(attacker)
                 );
             }
 
@@ -3070,14 +3287,24 @@ public class ProfessionToolManager {
                 BlockState state
         ) {
 
-            return ProfessionToolManager.applyToolSpeedStat(
+            // Pure vanilla material speed. The registered item Tier supplies the
+            // material speed, real Efficiency supplies enchant speed, and vanilla
+            // Haste supplies potion speed.
+            return super.getDestroySpeed(
                     stack,
-                    super.getDestroySpeed(
-                            stack,
-                            state
-                    ),
-                    "diggingSpeed",
-                    "miningSpeed"
+                    state
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return super.isCorrectToolForDrops(
+                    stack,
+                    state
             );
         }
 
@@ -3106,7 +3333,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(miningEntity)
                 );
             }
 
@@ -3133,7 +3361,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(attacker)
                 );
             }
 
@@ -3178,6 +3407,33 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            // Pure vanilla material speed. The registered item Tier supplies the
+            // material speed, real Efficiency supplies enchant speed, and vanilla
+            // Haste supplies potion speed.
+            return super.getDestroySpeed(
+                    stack,
+                    state
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return super.isCorrectToolForDrops(
+                    stack,
+                    state
+            );
+        }
+
+        @Override
         public boolean hurtEnemy(
                 ItemStack stack,
                 LivingEntity target,
@@ -3197,7 +3453,8 @@ public class ProfessionToolManager {
 
                 ProfessionToolManager.damageTool(
                         stack,
-                        1
+                        1,
+                        asServerPlayer(attacker)
                 );
             }
 
@@ -3240,6 +3497,33 @@ public class ProfessionToolManager {
 
             this.baseItem =
                     baseItem;
+        }
+
+        @Override
+        public float getDestroySpeed(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            // Pure vanilla material speed. The registered item Tier supplies the
+            // material speed, real Efficiency supplies enchant speed, and vanilla
+            // Haste supplies potion speed.
+            return super.getDestroySpeed(
+                    stack,
+                    state
+            );
+        }
+
+        @Override
+        public boolean isCorrectToolForDrops(
+                ItemStack stack,
+                BlockState state
+        ) {
+
+            return super.isCorrectToolForDrops(
+                    stack,
+                    state
+            );
         }
 
         @Override

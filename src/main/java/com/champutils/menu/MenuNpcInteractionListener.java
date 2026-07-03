@@ -83,6 +83,7 @@ public final class MenuNpcInteractionListener {
             case "battles", "pvp" -> BattleMenu.open(player);
             case "auction" -> AuctionHouseGui.openMain(player);
             case "shop", "essentials" -> NpcShopMenu.open(player);
+            case "islander_shop", "islandershop", "islander" -> IslanderShopMenu.open(player);
             case "opencrates", "crates" -> OpenCratesMenu.open(player);
             case "quests", "quest" -> QuestMenu.open(player);
             case "contracts", "contract" -> ContractMenu.open(player);

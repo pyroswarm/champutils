@@ -8,5 +8,5 @@ public class TimberBurstAbility extends TimedBuffAbility {
     protected String displayName() { return "Timber Burst"; }
     protected int defaultSeconds() { return 20; }
     protected ProfessionType durationScalingProfession() { return ProfessionType.FORESTRY; }
-    protected String message(int seconds) { return "§2Timber Burst active: §fconnected logs break for §a" + seconds + "s§f."; }
+    protected String message(String secondsText) { return "§2Timber Burst active: §fconnected logs break for §a" + secondsText + "s§f."; }
 }

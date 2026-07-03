@@ -50,7 +50,7 @@ public final class PokemonWikiCommand {
                         )
                 )
                 .then(literal("reload")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(ctx -> {
                             PokemonWikiIndex.reload(ctx.getSource().getServer());
                             ctx.getSource().sendSuccess(() -> Component.literal("Reloaded Pokémon wiki index."), false);

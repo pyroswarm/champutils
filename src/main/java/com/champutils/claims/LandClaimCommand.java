@@ -57,7 +57,7 @@ public final class LandClaimCommand {
                             .executes(context -> deletePrompt(context.getSource().getPlayerOrException()))
                             .then(literal("confirm").executes(context -> deleteConfirm(context.getSource().getPlayerOrException()))))
                     .then(literal("reload")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(context -> reload(context.getSource()))));
 
             dispatcher.register(literal("claim")

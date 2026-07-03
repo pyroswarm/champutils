@@ -96,7 +96,7 @@ public class MainMenu {
                 gui,
                 24,
                 Items.EMERALD,
-                "§aServer Boosters",
+                "§aBoosters",
                 () -> com.champutils.cashshop.CashShopMenu.open(player),
                 "§7Cash shop consumables that",
                 "§7benefit the full server."

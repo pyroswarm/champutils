@@ -58,6 +58,7 @@ import com.champutils.rewardtrack.RewardTrackConfig;
 import com.champutils.roaming.RoamingTrainerConfig;
 import com.champutils.shop.ChestShopRegistry;
 import com.champutils.shop.FirstJoinKitConfig;
+import com.champutils.shop.IslanderShopConfig;
 import com.champutils.shop.NpcShopConfig;
 import com.champutils.specialspawn.SpecialWildSpawnConfig;
 import com.champutils.survival.SurvivalWorldConfig;
@@ -87,7 +88,7 @@ public class ChampReloadCommand {
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, registryAccess, environment) -> dispatcher.register(
                         Commands.literal("champreload")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> reload(context.getSource()))
                 )
         );
@@ -143,6 +144,7 @@ public class ChampReloadCommand {
             reloadConfig(reloaded, "gyms.json/gymleaders.json", () -> { GymConfig.load(); GymRegistry.load(); });
             reloadConfig(reloaded, "islander_mines.json", IslanderMineConfig::load);
             reloadConfig(reloaded, "islander_spawning.json", IslanderSpawningConfig::load);
+            reloadConfig(reloaded, "islander_shop.json", IslanderShopConfig::load);
             reloadConfig(reloaded, "item_bindings.json", ItemBindRegistry::load);
             reloadConfig(reloaded, "land_claims.json", LandClaimConfig::load);
             reloadConfig(reloaded, "mega_bosses.json", MegaBossConfig::load);

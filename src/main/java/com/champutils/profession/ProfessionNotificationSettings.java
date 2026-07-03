@@ -188,6 +188,16 @@ public final class ProfessionNotificationSettings {
         }
     }
 
+
+    public static void sendQueueNotification(MinecraftServer server, Component message) {
+        if (server == null || message == null) return;
+        for (ServerPlayer target : server.getPlayerList().getPlayers()) {
+            if (areQueueNotificationsEnabled(target)) {
+                target.sendSystemMessage(message);
+            }
+        }
+    }
+
     public static void playBroadcastSound(
             MinecraftServer server,
             SoundEvent sound,

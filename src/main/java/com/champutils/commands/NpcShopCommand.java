@@ -14,7 +14,7 @@ public final class NpcShopCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("npcshop")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(context -> {
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             NpcShopMenu.open(player);

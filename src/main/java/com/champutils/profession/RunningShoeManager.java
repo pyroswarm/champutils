@@ -8,6 +8,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,6 +32,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +96,8 @@ public final class RunningShoeManager {
         ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
         if (!isRunningShoes(boots)) return;
         makeStackUnbreakable(boots);
+        suppressRunningShoeGlint(boots);
+        applyDepthStriderEnchantment(player, boots);
         double speedPercent = getDouble(boots, "speedPercent");
         if (speedPercent > 0 && player.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
             player.getAttribute(Attributes.MOVEMENT_SPEED).addTransientModifier(new AttributeModifier(SPEED_MODIFIER_ID, speedPercent / 100.0D, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
@@ -119,16 +125,20 @@ public final class RunningShoeManager {
         tag.putInt("jumpBoost", jump);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
         stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(modelData(normalized)));
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(ProfessionFragmentManager.formatWords(normalized) + " Running Shoes").withStyle(color(normalized)));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(ProfessionFragmentManager.formatWords(normalized) + " Profession Boots").withStyle(color(normalized)));
         makeStackUnbreakable(stack);
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal("§7Movement-focused profession gear."));
-        lore.add(Component.literal("§7Move Speed: §a+" + String.format(Locale.US, "%.1f", speed) + "% §8(range " + speedRange(normalized) + ")"));
-        if (jump > 0) lore.add(Component.literal("§7Jump Height: §a+" + jump));
-        if (isFallImmune(normalized)) lore.add(Component.literal("§7Fall Damage: §aImmune"));
-        if (isDepthStrider(normalized)) lore.add(Component.literal("§7Water Movement: §aDepth Strider"));
+        lore.add(Component.literal("§8" + ProfessionFragmentManager.formatWords(normalized) + " Profession Gear"));
+        lore.add(Component.literal(" "));
+        lore.add(Component.literal("§6Stats"));
+        lore.add(Component.literal(" §a+" + String.format(Locale.US, "%.1f", speed) + "% Move Speed §8(range " + speedRange(normalized) + ")"));
+        if (jump > 0) lore.add(Component.literal(" §a+" + jump + " Jump Height"));
+        if (isFallImmune(normalized)) lore.add(Component.literal(" §aFall Damage Immune"));
+        if (isDepthStrider(normalized)) lore.add(Component.literal(" §aDepth Strider"));
+        lore.add(Component.literal(" "));
         lore.add(Component.literal("§8Unbreakable"));
         stack.set(DataComponents.LORE, new ItemLore(lore));
+        suppressRunningShoeGlint(stack);
         return stack;
     }
 
@@ -155,6 +165,41 @@ public final class RunningShoeManager {
         CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
         if (customData == null) return 0;
         return customData.copyTag().getInt(key);
+    }
+
+    private static void applyDepthStriderEnchantment(ServerPlayer player, ItemStack boots) {
+        if (player == null || boots == null || boots.isEmpty()) return;
+        String rarity = getShoeRarity(boots);
+        int level = depthStriderLevel(rarity);
+        if (level <= 0) return;
+
+        try {
+            Holder<Enchantment> depthStrider = player.registryAccess()
+                    .registryOrThrow(Registries.ENCHANTMENT)
+                    .getHolderOrThrow(Enchantments.DEPTH_STRIDER);
+            ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(boots.getEnchantments());
+            if (mutable.getLevel(depthStrider) != level) {
+                mutable.set(depthStrider, level);
+                boots.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+                suppressRunningShoeGlint(boots);
+            }
+        } catch (Throwable ignored) {
+            // Registry failures should never break movement gear.
+        }
+    }
+
+    private static void suppressRunningShoeGlint(ItemStack boots) {
+        if (boots == null || boots.isEmpty() || !isRunningShoes(boots)) return;
+        boots.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false);
+    }
+
+    private static int depthStriderLevel(String rarity) {
+        return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
+            case "EPIC" -> 1;
+            case "LEGENDARY" -> 2;
+            case "MYTHIC" -> 3;
+            default -> 0;
+        };
     }
 
     private static void makeStackUnbreakable(ItemStack stack) {
@@ -267,6 +312,9 @@ public final class RunningShoeManager {
                 }
 
                 player.setItemSlot(EquipmentSlot.FEET, shoesToEquip);
+                if (player instanceof ServerPlayer serverPlayer) {
+                    RunningShoeManager.applyMovement(serverPlayer);
+                }
 
                 if (!currentBoots.isEmpty()) {
                     if (!player.getAbilities().instabuild && held.isEmpty()) {

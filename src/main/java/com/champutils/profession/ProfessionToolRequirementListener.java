@@ -226,8 +226,9 @@ public class ProfessionToolRequirementListener {
             return true;
         }
 
-        // Heal old tool lore/NBT in-place when the player uses the item.
-        ProfessionToolManager.refreshToolStack(stack);
+        // Do not refresh/mutate profession tools from the left-click break gate.
+        // Doing component/NBT rewrites here can reset slow-tool client break progress
+        // and causes the sound-before-air stutter players feel while mining.
 
         if (
                 !ProfessionToolMetadata.isIdentified(

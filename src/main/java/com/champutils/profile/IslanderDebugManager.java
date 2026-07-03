@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.territory.TerritoryRepository;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.network.NetworkServerConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -28,7 +29,7 @@ public final class IslanderDebugManager {
 
     public static void setGlobalEnabled(boolean enabled) {
         globalEnabled = enabled;
-        System.out.println("[ISLANDER-DEBUG] global=" + enabled);
+        ChampDebugManager.log(ChampDebugManager.Category.ISLANDER, "[ISLANDER-DEBUG] global=" + enabled);
     }
 
     public static boolean isGlobalEnabled() {
@@ -38,7 +39,7 @@ public final class IslanderDebugManager {
     public static void enableFor(ServerPlayer player) {
         if (player != null) {
             enabledPlayers.put(player.getUUID(), System.currentTimeMillis() + PLAYER_DEBUG_TTL_MS);
-            System.out.println("[ISLANDER-DEBUG] enabled for " + player.getGameProfile().getName() + " for 10 minutes");
+            ChampDebugManager.log(ChampDebugManager.Category.ISLANDER, "[ISLANDER-DEBUG] enabled for " + player.getGameProfile().getName() + " for 10 minutes");
         }
     }
 
@@ -47,7 +48,7 @@ public final class IslanderDebugManager {
     }
 
     public static boolean isEnabled(ServerPlayer player) {
-        if (globalEnabled) return true;
+        if (ChampDebugManager.isEnabled(ChampDebugManager.Category.ISLANDER) || globalEnabled) return true;
         if (player == null) return false;
         Long expires = enabledPlayers.get(player.getUUID());
         if (expires == null) return false;
@@ -65,7 +66,7 @@ public final class IslanderDebugManager {
         Long last = LAST_LOG.get(key);
         if (last != null && now - last < THROTTLE_MS) return;
         LAST_LOG.put(key, now);
-        System.out.println(describeLine(player, phase, territory, decision, reason));
+        ChampDebugManager.log(ChampDebugManager.Category.ISLANDER, describeLine(player, phase, territory, decision, reason));
     }
 
     public static void sendSnapshot(ServerPlayer player) {
@@ -78,7 +79,7 @@ public final class IslanderDebugManager {
         for (String line : describeMultiline(player, territory)) {
             player.sendSystemMessage(Component.literal(line).withStyle(ChatFormatting.YELLOW));
         }
-        System.out.println(describeLine(player, "COMMAND", territory, "SNAPSHOT", "manual"));
+        ChampDebugManager.log(ChampDebugManager.Category.ISLANDER, describeLine(player, "COMMAND", territory, "SNAPSHOT", "manual"));
     }
 
     public static String describeLine(ServerPlayer player, String phase, TerritoryRepository.Territory territory, String decision, String reason) {

@@ -211,6 +211,12 @@ public final class ProfessionFragmentConfig {
             fragment.baseItem = "minecraft:paper";
             fragment.customModelData = 0;
         }
+
+        // Remove legacy prestige ladder conversions from already-existing configs.
+        UPGRADES.entrySet().removeIf(entry -> {
+            UpgradeData data = entry.getValue();
+            return data != null && isBlockedPrestigeConversion(data.fromFragment, data.toFragment);
+        });
         // Force the current economy's 1/2-price upgrade and safe downgrade values even on old configs.
         for (Map.Entry<String, UpgradeData> entry : defaults.upgrades.entrySet()) {
             UpgradeData loaded = UPGRADES.get(entry.getKey());
@@ -268,19 +274,19 @@ public final class ProfessionFragmentConfig {
         addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 16, "UNCOMMON", 1);
         addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 16, "RARE", 1);
         addUpgrade(root, "RARE_TO_EPIC", "RARE", 12, "EPIC", 1);
-        addUpgrade(root, "EPIC_TO_LEGENDARY", "EPIC", 8, "LEGENDARY", 1);
-        addUpgrade(root, "LEGENDARY_TO_MYTHIC", "LEGENDARY", 12, "MYTHIC", 1);
+        // Legendary and Mythic fragments are intentionally source-only prestige rewards.
+        // Do not allow normal fragment upgrading into Legendary/Mythic.
         addUpgrade(root, "UNCOMMON_TO_COMMON_DOWNGRADE", "UNCOMMON", 1, "COMMON", 8);
         addUpgrade(root, "RARE_TO_UNCOMMON_DOWNGRADE", "RARE", 1, "UNCOMMON", 8);
         addUpgrade(root, "EPIC_TO_RARE_DOWNGRADE", "EPIC", 1, "RARE", 6);
         addUpgrade(root, "LEGENDARY_TO_EPIC_DOWNGRADE", "LEGENDARY", 1, "EPIC", 4);
-        addUpgrade(root, "MYTHIC_TO_LEGENDARY_DOWNGRADE", "MYTHIC", 1, "LEGENDARY", 6);
+        // Mythic fragments should never be downgraded into Legendary fragments.
 
-        addToolCrafting(root, "COMMON", "COMMON", 64);
-        addToolCrafting(root, "UNCOMMON", "UNCOMMON", 64);
-        addToolCrafting(root, "RARE", "RARE", 48);
-        addToolCrafting(root, "EPIC", "EPIC", 32);
-        addToolCrafting(root, "LEGENDARY", "LEGENDARY", 24);
+        addToolCrafting(root, "COMMON", "COMMON", 16);
+        addToolCrafting(root, "UNCOMMON", "UNCOMMON", 16);
+        addToolCrafting(root, "RARE", "RARE", 16);
+        addToolCrafting(root, "EPIC", "EPIC", 16);
+        addToolCrafting(root, "LEGENDARY", "LEGENDARY", 16);
         addToolCrafting(root, "MYTHIC", "MYTHIC", 16);
 
         return root;
@@ -365,6 +371,19 @@ public final class ProfessionFragmentConfig {
                 rarity,
                 data
         );
+    }
+
+    public static boolean isBlockedPrestigeConversion(String fromFragment, String toFragment) {
+        String from = normalizeRarity(fromFragment);
+        String to = normalizeRarity(toFragment);
+
+        // Epic should be the normal long-term baseline. Legendary/Mythic must come
+        // from intended prestige sources, not fragment ladder conversion.
+        if (from.equals("EPIC") && to.equals("LEGENDARY")) return true;
+        if (from.equals("LEGENDARY") && to.equals("MYTHIC")) return true;
+        if (from.equals("MYTHIC") && to.equals("LEGENDARY")) return true;
+
+        return false;
     }
 
     public static String normalizeRarity(String rarity) {

@@ -224,7 +224,12 @@ public final class PokemonWikiIndex {
     private interface Formatter { String apply(String value); }
     private static void addArray(Set<String> out, JsonObject obj, String key, Formatter formatter) {
         if (!obj.has(key) || !obj.get(key).isJsonArray()) return;
-        for (JsonElement e : obj.getAsJsonArray(key)) if (!e.isJsonNull()) out.add(formatter.apply(e.getAsString()));
+        for (JsonElement e : obj.getAsJsonArray(key)) {
+            if (e.isJsonNull()) continue;
+            String formatted = formatter.apply(e.getAsString());
+            if (formatted == null || formatted.isBlank()) continue;
+            out.add(formatted);
+        }
     }
 
     private static void addTime(Set<String> out, JsonObject condition) {
@@ -259,7 +264,15 @@ public final class PokemonWikiIndex {
     }
 
     private static String prettyBiome(String raw) {
-        String v = raw == null ? "" : raw.replace("#", "");
+        String v = raw == null ? "" : raw.replace("#", "").trim();
+        String normalized = v.toLowerCase(Locale.ROOT);
+        if (normalized.equals("overworld")
+                || normalized.equals("minecraft:overworld")
+                || normalized.equals("cobblemon:is_overworld")
+                || normalized.equals("minecraft:is_overworld")
+                || normalized.equals("is_overworld")) {
+            return "";
+        }
         if (v.startsWith("cobblemon:is_")) v = v.substring("cobblemon:is_".length());
         if (v.startsWith("minecraft:is_")) v = v.substring("minecraft:is_".length());
         return prettyId(v);

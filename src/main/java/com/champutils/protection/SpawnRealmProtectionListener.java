@@ -19,6 +19,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 
@@ -53,7 +54,7 @@ public final class SpawnRealmProtectionListener {
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
-            if (isAllowedEntityInteraction(entity)) return InteractionResult.PASS;
+            if (isAllowedEntityAttack(entity)) return InteractionResult.PASS;
             deny(sp, "Entities are protected in spawn.");
             return InteractionResult.FAIL;
         });
@@ -61,8 +62,8 @@ public final class SpawnRealmProtectionListener {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
-            if (isAllowedEntityInteraction(entity)) return InteractionResult.PASS;
-            deny(sp, "Only NPCs can be used in spawn.");
+            if (isAllowedEntityUse(entity)) return InteractionResult.PASS;
+            deny(sp, "Only NPCs and your Pokémon can be used in spawn.");
             return InteractionResult.FAIL;
         });
 
@@ -80,7 +81,7 @@ public final class SpawnRealmProtectionListener {
             BlockState state = level.getBlockState(pos);
             if (isAllowedInteraction(state)) return InteractionResult.PASS;
 
-            deny(sp, "Only NPCs, healers, and PCs can be used in spawn.");
+            deny(sp, "Use PCs, Ender Chests, NPCs, and healers only in spawn.");
             return InteractionResult.FAIL;
         });
 
@@ -95,9 +96,13 @@ public final class SpawnRealmProtectionListener {
             }
             ItemStack stack = sp.getItemInHand(hand);
             if (isPlacementItem(stack)) {
-                deny(sp, "You cannot place blocks in spawn.");
+                deny(sp, "You cannot place or deploy items in spawn.");
                 return net.minecraft.world.InteractionResultHolder.fail(stack);
             }
+
+            // Eating, drinking, Cobblemon candies, potions, held-item use, and similar
+            // normal item interactions are safe. Spawn protection should stop griefing,
+            // not block player/Pokémon maintenance.
             return net.minecraft.world.InteractionResultHolder.pass(stack);
         });
 
@@ -121,6 +126,7 @@ public final class SpawnRealmProtectionListener {
         if (stack == null || stack.isEmpty()) return false;
         Item item = stack.getItem();
         if (item instanceof BlockItem) return true;
+        if (item instanceof SpawnEggItem) return true;
         return item == Items.WATER_BUCKET
                 || item == Items.LAVA_BUCKET
                 || item == Items.POWDER_SNOW_BUCKET
@@ -132,10 +138,21 @@ public final class SpawnRealmProtectionListener {
                 || item == Items.PAINTING;
     }
 
-    private static boolean isAllowedEntityInteraction(Entity entity) {
+    private static boolean isAllowedEntityAttack(Entity entity) {
         if (entity == null) return false;
         String type = EntityType.getKey(entity.getType()).toString().toLowerCase(Locale.ROOT);
-        return type.contains("npc") || type.contains("cobblemon:npc") || type.contains("pokemon");
+        return type.contains("npc") || type.contains("cobblemon:npc");
+    }
+
+    private static boolean isAllowedEntityUse(Entity entity) {
+        if (entity == null) return false;
+        String type = EntityType.getKey(entity.getType()).toString().toLowerCase(Locale.ROOT);
+        // Cobblemon held-item add/remove is a right-click interaction with the Pokémon entity.
+        // Spawn protection should block grief interactions, not Pokémon maintenance.
+        return type.contains("npc")
+                || type.contains("cobblemon:npc")
+                || type.equals("cobblemon:pokemon")
+                || type.contains("pokemon");
     }
 
     private static boolean isAllowedInteraction(BlockState state) {

@@ -15,10 +15,10 @@ public final class BoosterCommand {
     private static int sendActiveList(net.minecraft.commands.CommandSourceStack source) {
         var active = ServerBuffManager.activeBoostViews();
         if (active.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No server boosters are active right now."), false);
+            source.sendSuccess(() -> Component.literal("No boosts are active right now."), false);
             return 1;
         }
-        StringBuilder builder = new StringBuilder("Active server boosters:");
+        StringBuilder builder = new StringBuilder("Active boosts:");
         for (var boost : active) {
             builder.append("\n- ").append(boost.displayName()).append(" by ").append(boost.activatorName()).append(" - ").append(ServerBuffManager.formatDuration(boost.remainingMillis())).append(" left");
         }
@@ -27,7 +27,15 @@ public final class BoosterCommand {
     }
 
     public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            dispatcher.register(
+                Commands.literal("boosts")
+                        .executes(ctx -> sendActiveList(ctx.getSource()))
+                        .then(Commands.literal("list")
+                                .executes(ctx -> sendActiveList(ctx.getSource())))
+            );
+
+            dispatcher.register(
                 Commands.literal("booster")
                         .executes(ctx -> sendActiveList(ctx.getSource()))
                         .then(Commands.literal("list")
@@ -35,7 +43,7 @@ public final class BoosterCommand {
                         .then(Commands.literal("active")
                                 .executes(ctx -> sendActiveList(ctx.getSource())))
                         .then(Commands.literal("ids")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(ctx -> {
                                     StringBuilder builder = new StringBuilder("Booster ids:");
                                     for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
@@ -45,7 +53,7 @@ public final class BoosterCommand {
                                     return 1;
                                 }))
                         .then(Commands.literal("give")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .then(Commands.argument("id", StringArgumentType.word())
                                                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 64))
@@ -63,7 +71,7 @@ public final class BoosterCommand {
                                                             return 1;
                                                         })))))
                         .then(Commands.literal("credits")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.literal("give")
                                         .then(Commands.argument("player", EntityArgument.player())
                                                 .then(Commands.argument("amount", IntegerArgumentType.integer(1, 999))
@@ -76,7 +84,7 @@ public final class BoosterCommand {
                                                             return 1;
                                                         })))))
                         .then(Commands.literal("activate")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(ctx -> {
                                             String id = StringArgumentType.getString(ctx, "id");
@@ -90,7 +98,7 @@ public final class BoosterCommand {
                                             return 1;
                                         })))
                         .then(Commands.literal("stop")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(ctx -> {
                                             String id = StringArgumentType.getString(ctx, "id");
@@ -99,15 +107,16 @@ public final class BoosterCommand {
                                             return 1;
                                         })))
                         .then(Commands.literal("stopall")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(ctx -> {
                                     for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
                                         CashShopBoostItemManager.deactivateAdmin(def.id);
                                     }
                                     ServerBuffManager.clearAllBoosters();
-                                    ctx.getSource().sendSuccess(() -> Component.literal("Stopped all tracked server boosters."), true);
+                                    ctx.getSource().sendSuccess(() -> Component.literal("Stopped all tracked boosters."), true);
                                     return 1;
                                 }))
-        ));
+            );
+        });
     }
 }

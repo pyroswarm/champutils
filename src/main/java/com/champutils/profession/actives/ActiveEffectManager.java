@@ -35,6 +35,18 @@ public class ActiveEffectManager {
     private ActiveEffectManager() {
     }
 
+    /**
+     * Deprecated compatibility shim. Active duration buffs are stored in
+     * profession_tools.json now, not applied as a hidden runtime multiplier.
+     */
+    public static int extendedActiveDurationSeconds(int seconds) {
+        return Math.max(1, seconds);
+    }
+
+    public static double extendedActiveDurationSeconds(double seconds) {
+        return Math.max(1.0D, seconds);
+    }
+
 
     public static boolean canActivateAbility(
             ServerPlayer player,
@@ -116,10 +128,20 @@ public class ActiveEffectManager {
             int seconds,
             ItemStack stack
     ) {
+        activateTimed(player, effectId, displayName, (double) seconds, stack);
+    }
 
-        int safeSeconds =
+    public static void activateTimed(
+            ServerPlayer player,
+            String effectId,
+            String displayName,
+            double seconds,
+            ItemStack stack
+    ) {
+
+        double safeSeconds =
                 Math.max(
-                        1,
+                        1.0D,
                         seconds
                 );
 
@@ -138,7 +160,7 @@ public class ActiveEffectManager {
                 new TimedEffect(
                         normalize(effectId),
                         displayName,
-                        System.currentTimeMillis() + safeSeconds * 1000L,
+                        System.currentTimeMillis() + Math.round(safeSeconds * 1000.0D),
                         toolInstanceId,
                         1.0D
                 );
@@ -160,10 +182,21 @@ public class ActiveEffectManager {
             ItemStack stack,
             double multiplier
     ) {
+        activateTimedWithMultiplier(player, effectId, displayName, (double) seconds, stack, multiplier);
+    }
 
-        int safeSeconds =
+    public static void activateTimedWithMultiplier(
+            ServerPlayer player,
+            String effectId,
+            String displayName,
+            double seconds,
+            ItemStack stack,
+            double multiplier
+    ) {
+
+        double safeSeconds =
                 Math.max(
-                        1,
+                        1.0D,
                         seconds
                 );
 
@@ -182,7 +215,7 @@ public class ActiveEffectManager {
                 new TimedEffect(
                         normalize(effectId),
                         displayName,
-                        System.currentTimeMillis() + safeSeconds * 1000L,
+                        System.currentTimeMillis() + Math.round(safeSeconds * 1000.0D),
                         toolInstanceId,
                         Math.max(
                                 1.0D,
@@ -335,6 +368,14 @@ public class ActiveEffectManager {
     public static void activateExcavation(
             ServerPlayer player,
             int seconds,
+            ItemStack stack
+    ) {
+        activateExcavation(player, (double) seconds, stack);
+    }
+
+    public static void activateExcavation(
+            ServerPlayer player,
+            double seconds,
             ItemStack stack
     ) {
 

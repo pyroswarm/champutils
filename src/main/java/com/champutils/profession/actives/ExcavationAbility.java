@@ -1,10 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionActiveDuration;
 import com.champutils.profession.ProfessionNotificationSettings;
-
-import com.champutils.profession.ProfessionNotificationSettings;
-
-import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
 import net.minecraft.network.chat.Component;
@@ -15,8 +12,7 @@ import net.minecraft.world.item.ItemStack;
 
 public class ExcavationAbility implements ProfessionActiveAbility {
 
-    private static final int DEFAULT_SECONDS =
-            15;
+    private static final int DEFAULT_SECONDS = 15;
 
     @Override
     public String id() {
@@ -24,85 +20,26 @@ public class ExcavationAbility implements ProfessionActiveAbility {
     }
 
     @Override
-    public boolean use(
-            ServerPlayer player,
-            ItemStack stack
-    ) {
+    public boolean use(ServerPlayer player, ItemStack stack) {
+        double seconds = getDurationSeconds(player, stack);
+        String secondsText = ProfessionActiveDuration.formatSeconds(seconds);
 
-        int seconds =
-                getDurationSeconds(
-                        stack
-                );
+        ActiveEffectManager.activateExcavation(player, seconds, stack);
 
-        ActiveEffectManager.activateExcavation(
-                player,
-                seconds,
-                stack
-        );
-
-        player.sendSystemMessage(
-                Component.literal(
-                        "§6Excavation active: §fYour tool breaks a §e3x3 §farea for §e" +
-                                seconds +
-                                "s§f."
-                )
-        );
-
+        player.sendSystemMessage(Component.literal("§6Excavation active: §fYour tool breaks a §e3x3 §farea for §e" + secondsText + "s§f."));
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(
-                    Component.literal(
-                        "§6Excavation active: 3x3 excavation for " +
-                                seconds +
-                                "s"
-                ),
-                    true
-            );
+            player.displayClientMessage(Component.literal("§6Excavation active: 3x3 excavation for " + secondsText + "s"), true);
         }
 
-        ProfessionNotificationSettings.playSound(player, 
-                SoundEvents.ANVIL_USE,
-                SoundSource.PLAYERS,
-                0.6F,
-                1.35F
-        );
-
+        ProfessionNotificationSettings.playSound(player, SoundEvents.ANVIL_USE, SoundSource.PLAYERS, 0.6F, 1.35F);
         return true;
     }
 
-    private int getDurationSeconds(
-            ItemStack stack
-    ) {
-
-        ProfessionToolConfig.ToolData toolData =
-                ProfessionToolUtil.getToolData(
-                        stack
-                );
-
-        if (
-                toolData != null &&
-                        toolData.activeDurationSeconds > 0
-        ) {
-            return Math.max(
-                    1,
-                    toolData.activeDurationSeconds
-            );
-        }
-
-        double rolledSeconds =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        "excavationSeconds"
-                );
-
-        if (rolledSeconds <= 0.0D) {
-            return DEFAULT_SECONDS;
-        }
-
-        return Math.max(
-                1,
-                (int) Math.round(
-                        rolledSeconds
-                )
+    private double getDurationSeconds(ServerPlayer player, ItemStack stack) {
+        double rolledSeconds = ProfessionToolUtil.getStat(stack, "excavationSeconds");
+        double fallback = rolledSeconds <= 0.0D ? DEFAULT_SECONDS : rolledSeconds;
+        return ActiveEffectManager.extendedActiveDurationSeconds(
+                ProfessionActiveDuration.durationSeconds(player, stack, fallback, null)
         );
     }
 }

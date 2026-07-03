@@ -268,7 +268,7 @@ public final class ProfessionBackpackConfig {
             if (!isBackpackProfession(data.profession)) data.enabled = false;
             if (data.rewardItem == null || data.rewardItem.isBlank()) data.rewardItem = CONFIG.defaultRewardItem;
             data.rewardItem = normalizeTradeItemId(data.rewardItem);
-            data.tradeCost = Math.max(1, Math.min(data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost, 10));
+            data.tradeCost = Math.max(1, Math.min(data.tradeCost <= 0 ? CONFIG.defaultTradeCost : data.tradeCost, 500000));
             data.rewardAmount = Math.max(1, data.rewardAmount <= 0 ? CONFIG.defaultTradeRewardAmount : data.rewardAmount);
             fixed.put(id, data);
         }
@@ -370,15 +370,9 @@ public final class ProfessionBackpackConfig {
     }
 
     private static Set<String> defaultTradeDisabledItems() {
-        LinkedHashSet<String> disabled = new LinkedHashSet<>();
-        disabled.add("minecraft:dirt");
-        disabled.add("minecraft:coarse_dirt");
-        disabled.add("minecraft:rooted_dirt");
-        disabled.add("minecraft:grass_block");
-        disabled.add("minecraft:podzol");
-        disabled.add("minecraft:mycelium");
-        disabled.add("minecraft:netherrack");
-        return disabled;
+        // Keep this empty by default so easy materials can be balanced with very high
+        // costs instead of being hard-disabled from the Profession Trade menu.
+        return new LinkedHashSet<>();
     }
 
     private static void add(Config c, ProfessionType type, String item, int sort) {

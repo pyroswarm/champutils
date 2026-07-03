@@ -1,7 +1,9 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.database.DatabaseManager;
 import com.champutils.network.NetworkServerConfig;
+import com.champutils.teleport.SafeTeleportManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
@@ -88,12 +90,12 @@ public final class ProfileNetworkTransferFlow {
 
             long warmStart = System.currentTimeMillis();
             PlayerProfileManager.prewarmProfileForNetworkTransfer(connection, profile.profileId(), playerUuid, registryAccess);
-            System.out.println("[PROFILE-TIMING] transfer profile prewarm took " + (System.currentTimeMillis() - warmStart) + "ms for " + player.getGameProfile().getName());
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] transfer profile prewarm took " + (System.currentTimeMillis() - warmStart) + "ms for " + player.getGameProfile().getName());
             // ProfileTransferTokenManager.issue already writes the TOKEN_ISSUED audit row.
             // Do not write a second row with the same transfer_id because older beta schemas
             // may still have a unique transfer_id audit index.
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
-            if (player.hasDisconnected()) {
+            if (!SafeTeleportManager.isLive(player)) {
                 LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
                 return;
             }
@@ -127,7 +129,7 @@ public final class ProfileNetworkTransferFlow {
                 .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(500, java.util.concurrent.TimeUnit.MILLISECONDS))
                 .thenRun(() -> player.server.execute(() -> {
                     ServerPlayer live = player.server.getPlayerList().getPlayer(playerUuid);
-                    if (live == null || live.hasDisconnected()) {
+                    if (!SafeTeleportManager.isLive(live)) {
                         LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
                         return;
                     }
@@ -150,7 +152,7 @@ public final class ProfileNetworkTransferFlow {
                                 .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(1500, java.util.concurrent.TimeUnit.MILLISECONDS))
                                 .thenRun(() -> live.server.execute(() -> {
                                     ServerPlayer stillHere = live.server.getPlayerList().getPlayer(playerUuid);
-                                    if (stillHere != null && !stillHere.hasDisconnected()) {
+                                    if (SafeTeleportManager.isLive(stillHere)) {
                                         executeLobbyTransferCommand(stillHere, profile, config, wireToken);
                                     }
                                 }));
@@ -205,14 +207,14 @@ public final class ProfileNetworkTransferFlow {
                 consumed = ProfileTransferTokenManager.consumeLatestForPlayer(connection, playerUuid, config.profileTransferSecret, config.serverId);
                 if (consumed.isPresent()) {
                     if (attempt > 1) {
-                        System.out.println("[ChampUtils][ProfileTransferDebug] accepted transfer token for " + playerName + " after attempt " + attempt + ".");
+                        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[ChampUtils][ProfileTransferDebug] accepted transfer token for " + playerName + " after attempt " + attempt + ".");
                     }
                     break;
                 }
 
                 lastTokenDebug = ProfileTransferTokenManager.latestDebugForPlayer(connection, playerUuid);
                 if (attempt == 1 || attempt % 10 == 0) {
-                    System.out.println("[ChampUtils][ProfileTransferDebug] waiting for token for " + playerName + " attempt=" + attempt + "/" + SURVIVAL_TOKEN_WAIT_ATTEMPTS + " serverId=" + config.serverId + " latest=" + lastTokenDebug);
+                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[ChampUtils][ProfileTransferDebug] waiting for token for " + playerName + " attempt=" + attempt + "/" + SURVIVAL_TOKEN_WAIT_ATTEMPTS + " serverId=" + config.serverId + " latest=" + lastTokenDebug);
                 }
 
                 AcceptedTransferSession alreadyAccepted = ACCEPTED_SURVIVAL_SESSIONS.get(playerUuid);
@@ -243,7 +245,7 @@ public final class ProfileNetworkTransferFlow {
             ACCEPTED_SURVIVAL_SESSIONS.put(playerUuid, new AcceptedTransferSession(profileName, System.currentTimeMillis()));
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
             SURVIVAL_CONSUME_IN_FLIGHT.remove(playerUuid);
-            if (player.hasDisconnected()) return;
+            if (!SafeTeleportManager.isLive(player)) return;
 
             if (error != null) {
                 ProfileLoadingStateManager.end(player);
@@ -287,7 +289,7 @@ public final class ProfileNetworkTransferFlow {
     }
 
     public static void sendLoadingTitle(ServerPlayer player, String profileName) {
-        if (player == null || player.connection == null) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         String cleanProfileName = profileName == null || profileName.isBlank() ? "Profile" : profileName.trim();
         player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 60, 10));
         player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("§eLoading " + cleanProfileName + " Profile...")));

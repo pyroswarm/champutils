@@ -3,6 +3,7 @@ package com.champutils.commands;
 import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
+import com.champutils.gym.GymLevelCapUtil;
 import com.champutils.permissions.PermissionUtil;
 import com.champutils.profile.IslanderSpawnInfluence;
 import com.champutils.profile.PlayerProfileManager;
@@ -72,20 +73,7 @@ public final class WildSpawnCapCommand {
     }
 
     public static int currentGymCap(ServerPlayer player) {
-        try {
-            java.util.Set<BadgeType> earned = BadgeManager.getBadges(player);
-            int bestEarnedCap = 0;
-            int nextCap = 0;
-            for (BadgeType badge : BadgeType.values()) {
-                GymConfig.GymDefinition gym = GymConfig.getGym(badge);
-                if (gym == null || gym.levelCap <= 0) continue;
-                if (earned.contains(badge)) bestEarnedCap = Math.max(bestEarnedCap, gym.levelCap);
-                else if (nextCap == 0 || gym.levelCap < nextCap) nextCap = gym.levelCap;
-            }
-            return nextCap > 0 ? Math.max(bestEarnedCap, nextCap) : Math.max(bestEarnedCap, 100);
-        } catch (Throwable ignored) {
-            return 50;
-        }
+        return GymLevelCapUtil.currentWildCap(player);
     }
 
     private static void setCap(ServerPlayer player, int requested) {

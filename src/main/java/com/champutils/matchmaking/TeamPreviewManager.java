@@ -4,6 +4,7 @@ import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.PvPBattleFormatRules;
 import com.champutils.battle.PvPBattleStarter;
+import com.champutils.teleport.SafeTeleportManager;
 
 import com.cobblemon.mod.common.battles.BattleFormat;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -26,7 +27,9 @@ public class TeamPreviewManager {
 
     private static final Map<UUID, Integer> SELECTED = new HashMap<>();
     private static final Set<UUID> LOCKED = new HashSet<>();
-    private static final Map<UUID, ServerPlayer> OPPONENT = new HashMap<>();
+    // Store UUIDs only. Holding old ServerPlayer objects after logout/profile transfer can
+    // make vanilla try to track/spawn a removed player entity for other clients.
+    private static final Map<UUID, UUID> OPPONENT = new HashMap<>();
     private static final Map<UUID, Integer> TIMER = new HashMap<>();
     private static final Set<UUID> STARTED = new HashSet<>();
 
@@ -37,10 +40,11 @@ public class TeamPreviewManager {
     // ========================
     public static void startPreview(ServerPlayer p1, ServerPlayer p2) {
 
+        if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) return;
         if (isInPreview(p1) || isInPreview(p2)) return;
 
-        OPPONENT.put(p1.getUUID(), p2);
-        OPPONENT.put(p2.getUUID(), p1);
+        OPPONENT.put(p1.getUUID(), p2.getUUID());
+        OPPONENT.put(p2.getUUID(), p1.getUUID());
 
         TIMER.put(p1.getUUID(), MAX_TIME);
         TIMER.put(p2.getUUID(), MAX_TIME);
@@ -53,6 +57,7 @@ public class TeamPreviewManager {
     // GUI
     // ========================
     public static void openGUI(ServerPlayer player) {
+        if (!SafeTeleportManager.isLive(player)) return;
 
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x1, player, false);
         gui.setTitle(Component.literal("Choose Your Lead"));
@@ -127,6 +132,7 @@ public class TeamPreviewManager {
     // ========================
     public static void select(ServerPlayer player, int slot) {
 
+        if (!SafeTeleportManager.isLive(player)) return;
         UUID id = player.getUUID();
 
         if (!isInPreview(player)) return;
@@ -163,7 +169,7 @@ public class TeamPreviewManager {
             ServerPlayer player =
                     getPlayer(players, id);
 
-            if (player == null) {
+            if (!SafeTeleportManager.isLive(player)) {
                 forceCleanupByUUID(id);
                 it.remove();
                 continue;
@@ -189,15 +195,19 @@ public class TeamPreviewManager {
             if (time <= 0) {
 
                 ServerPlayer opponent =
-                        OPPONENT.get(id);
+                        getPlayer(players, OPPONENT.get(id));
 
-                if (opponent != null) {
+                if (SafeTeleportManager.isLive(opponent)) {
 
                     autoLockDefault(player);
                     autoLockDefault(opponent);
 
                     TIMER.remove(player.getUUID());
                     TIMER.remove(opponent.getUUID());
+                } else {
+                    forceCleanupByUUID(id);
+                    it.remove();
+                    return;
                 }
 
                 checkStart(player);
@@ -212,6 +222,7 @@ public class TeamPreviewManager {
             ServerPlayer player
     ) {
 
+        if (!SafeTeleportManager.isLive(player)) return;
         UUID id = player.getUUID();
 
         if (LOCKED.contains(id)) return;
@@ -233,10 +244,13 @@ public class TeamPreviewManager {
     // ========================
     private static void checkStart(ServerPlayer player) {
 
-        ServerPlayer opponent =
-                OPPONENT.get(player.getUUID());
+        if (!SafeTeleportManager.isLive(player)) return;
+        ServerPlayer opponent = resolveOpponent(player);
 
-        if (opponent == null) return;
+        if (!SafeTeleportManager.isLive(opponent)) {
+            forceCleanup(player);
+            return;
+        }
 
         UUID id1 = player.getUUID();
         UUID id2 = opponent.getUUID();
@@ -260,6 +274,7 @@ public class TeamPreviewManager {
     // ========================
     private static void applyLead(ServerPlayer player) {
 
+        if (!SafeTeleportManager.isLive(player)) return;
         PartyStore party =
                 Cobblemon.INSTANCE
                         .getStorage()
@@ -298,6 +313,12 @@ public class TeamPreviewManager {
 
         try {
 
+            if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) {
+                forceCleanup(p1);
+                forceCleanup(p2);
+                return;
+            }
+
             p1.closeContainer();
             p2.closeContainer();
 
@@ -309,8 +330,8 @@ public class TeamPreviewManager {
 
             PvPBattleStarter.start1v1(p1, p2, battleFormat);
 
-            cleanup(p1);
-            cleanup(p2);
+            cleanup(p1.getUUID());
+            cleanup(p2.getUUID());
 
         }
         catch (Exception e) {
@@ -322,9 +343,12 @@ public class TeamPreviewManager {
     // CLEANUP
     // ========================
     private static void cleanup(ServerPlayer player) {
+        if (player == null) return;
+        cleanup(player.getUUID());
+    }
 
-        UUID id = player.getUUID();
-
+    private static void cleanup(UUID id) {
+        if (id == null) return;
         SELECTED.remove(id);
         LOCKED.remove(id);
         OPPONENT.remove(id);
@@ -332,19 +356,15 @@ public class TeamPreviewManager {
         STARTED.remove(id);
     }
 
-    private static void forceCleanupByUUID(UUID id) {
+    public static void forceCleanupByUUID(UUID id) {
 
-        ServerPlayer opponent =
-                OPPONENT.get(id);
+        if (id == null) return;
+        UUID opponentId = OPPONENT.get(id);
 
-        SELECTED.remove(id);
-        LOCKED.remove(id);
-        OPPONENT.remove(id);
-        TIMER.remove(id);
-        STARTED.remove(id);
+        cleanup(id);
 
-        if (opponent != null) {
-            cleanup(opponent);
+        if (opponentId != null) {
+            cleanup(opponentId);
         }
     }
 
@@ -352,27 +372,26 @@ public class TeamPreviewManager {
             ServerPlayer player
     ) {
 
-        cleanup(player);
-
-        ServerPlayer opponent =
-                OPPONENT.get(
-                        player.getUUID()
-                );
-
-        if (opponent != null) {
-            cleanup(opponent);
-        }
+        if (player == null) return;
+        forceCleanupByUUID(player.getUUID());
     }
 
     // ========================
     // HELPERS
     // ========================
+    private static ServerPlayer resolveOpponent(ServerPlayer player) {
+        if (player == null || player.getServer() == null) return null;
+        UUID opponentId = OPPONENT.get(player.getUUID());
+        return opponentId == null ? null : player.getServer().getPlayerList().getPlayer(opponentId);
+    }
+
     private static ServerPlayer getPlayer(
             Collection<ServerPlayer> players,
             UUID id
     ) {
+        if (players == null || id == null) return null;
         for (ServerPlayer p : players) {
-            if (p.getUUID().equals(id)) {
+            if (p != null && p.getUUID().equals(id)) {
                 return p;
             }
         }
@@ -382,6 +401,7 @@ public class TeamPreviewManager {
     public static Integer getSelected(
             ServerPlayer player
     ) {
+        if (player == null) return null;
         return SELECTED.get(
                 player.getUUID()
         );
@@ -390,7 +410,7 @@ public class TeamPreviewManager {
     public static boolean isInPreview(
             ServerPlayer player
     ) {
-        return OPPONENT.containsKey(
+        return player != null && OPPONENT.containsKey(
                 player.getUUID()
         );
     }

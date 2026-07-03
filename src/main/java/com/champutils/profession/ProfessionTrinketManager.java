@@ -3,6 +3,7 @@ package com.champutils.profession;
 import com.champutils.buff.BuffContext;
 import com.champutils.buff.BuffManager;
 import com.champutils.buff.BuffType;
+import com.champutils.dex.CatchStreakManager;
 import com.champutils.profile.IronmanItemOwnership;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -25,6 +26,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -224,37 +226,42 @@ public final class ProfessionTrinketManager {
     public static void tryApplyShinyCharm(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled || isShiny(pokemon)) return;
         double charmChance = shinyCharmChancePercent(player);
-        double buffChance = serverShinyBonusPercent(player, pokemon);
-        double chance = charmChance + buffChance;
-        if (chance <= 0.0D) return;
-        if (ThreadLocalRandom.current().nextDouble(100.0D) < chance && setShiny(pokemon, true)) {
-            String reason = charmChance > 0.0D ? "Your Shiny Charm" : "An active shiny bonus";
-            if (charmChance > 0.0D && buffChance > 0.0D) reason = "Your Shiny Charm and active shiny bonuses";
-            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] " + reason + " turned this catch shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
+        if (charmChance <= 0.0D) return;
+        if (ThreadLocalRandom.current().nextDouble(100.0D) < charmChance && setShiny(pokemon, true)) {
+            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Trinket] Your Shiny Charm turned this catch shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
         }
     }
 
     public static void tryApplyWildSpawnShiny(ServerPlayer player, Object pokemon) {
-        if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled || isShiny(pokemon)) return;
-        double base = (1.0D / 8192.0D) * 100.0D;
+        tryApplyWildSpawnShiny(player, pokemon, null);
+    }
+
+    public static boolean tryApplyWildSpawnShiny(ServerPlayer player, Object pokemon, Entity entity) {
+        if (player == null || pokemon == null || !ProfessionTrinketConfig.CONFIG.enabled || isShiny(pokemon)) return false;
         double charmChance = shinyCharmChancePercent(player);
-        double buffChance = serverShinyBonusPercent(player, pokemon);
-        double chance = base + charmChance + buffChance;
+        if (charmChance <= 0.0D) return false;
+
+        // Cobblemon owns the base 1/8192 shiny roll. BuffManager owns server/title/guild
+        // shiny buffs. This method only rolls the extra chance from Shiny Charm trinkets.
         double rolled = ThreadLocalRandom.current().nextDouble(100.0D);
-        if (rolled < chance && setShiny(pokemon, true)) {
-            if (rolled >= base && (charmChance > 0.0D || buffChance > 0.0D)) {
-                String reason = charmChance > 0.0D ? "Shiny Charm" : "active shiny bonus";
-                if (charmChance > 0.0D && buffChance > 0.0D) reason = "Shiny Charm and active shiny bonuses";
-                if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) player.sendSystemMessage(Component.literal("[Bonus] " + reason + " turned a nearby wild Pokémon shiny!").withStyle(ChatFormatting.LIGHT_PURPLE));
+        if (rolled < charmChance && setShiny(pokemon, true)) {
+            if (ProfessionNotificationSettings.areTrinketMessagesEnabled(player)) {
+                String coords = entity == null ? "" : " at X: " + entity.blockPosition().getX() + ", Y: " + entity.blockPosition().getY() + ", Z: " + entity.blockPosition().getZ();
+                player.sendSystemMessage(Component.literal("[Bonus] Shiny Charm turned a nearby wild Pokémon shiny" + coords + "!").withStyle(ChatFormatting.LIGHT_PURPLE));
+                if (entity != null) entity.addTag("champutils_shiny_coords_announced");
             }
+            return true;
         }
+        return false;
     }
 
 
-    private static double serverShinyBonusPercent(ServerPlayer player, Object pokemon) {
-        if (player == null || !(pokemon instanceof Pokemon cobblemonPokemon)) return 0.0D;
-        double base = (1.0D / 8192.0D) * 100.0D;
-        return BuffManager.getTotalBuff(BuffContext.trueWildCatch(player, cobblemonPokemon), BuffType.SHINY_CHANCE) * base;
+    public static double shinyCharmChancePercentFor(ServerPlayer player) {
+        return shinyCharmChancePercent(player);
+    }
+
+    public static double shinyCharmExtraChance(ServerPlayer player) {
+        return shinyCharmChancePercent(player) / 100.0D;
     }
 
     public static boolean rollDoubleProfessionXp(ServerPlayer player) {
@@ -282,8 +289,11 @@ public final class ProfessionTrinketManager {
         return tierValue(player, "chunky_brick", tier -> tier.chunkChanceBonusPercent) / 100.0D;
     }
 
+    private static final double MAX_SHINY_CHARM_EXTRA_PERCENT = 0.025D; // hard cap: Mythic charm cannot push base 1/8192 past ~1/2689 by itself
+
     private static double shinyCharmChancePercent(ServerPlayer player) {
-        return tierValue(player, "shiny_charm", tier -> tier.shinyChancePercent);
+        double configured = tierValue(player, "shiny_charm", tier -> tier.shinyChancePercent);
+        return Math.min(MAX_SHINY_CHARM_EXTRA_PERCENT, Math.max(0.0D, configured));
     }
 
     private interface TierExtractor { double get(ProfessionTrinketConfig.Tier tier); }

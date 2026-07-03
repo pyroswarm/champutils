@@ -17,7 +17,7 @@ public enum BuffType {
     BATTLING_XP("Battling Profession XP", "Increases Battling profession XP earned from legitimate gameplay.", ChatFormatting.RED, ProfessionType.BATTLING),
     POKEMON_XP("Pokemon XP", "Increases Pokemon battle experience earned by a relative percent.", ChatFormatting.AQUA, null),
 
-    SHINY_CHANCE("Shiny Chance Multiplier", "Increases the current/base shiny chance by a relative percent for legitimate wild spawns/catches.", ChatFormatting.LIGHT_PURPLE, null),
+    SHINY_CHANCE("Shiny Chance Boost", "Adds a percentage of the base shiny chance for legitimate wild spawns/catches. Multiple boosts stack additively from base.", ChatFormatting.LIGHT_PURPLE, null),
     CATCH_CHANCE("Catch Chance", "Future hook for increasing legitimate wild capture chance.", ChatFormatting.GREEN, null),
     PERFECT_IV_CHANCE("Perfect IV Chance", "Tiny chance for one random IV on a legitimate wild catch to become 31.", ChatFormatting.AQUA, null),
 

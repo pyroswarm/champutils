@@ -23,7 +23,7 @@ public final class ChampWorldBorderCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("champborder")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(ctx -> info(ctx.getSource(), null))
                         .then(literal("info")
                                 .executes(ctx -> info(ctx.getSource(), null))

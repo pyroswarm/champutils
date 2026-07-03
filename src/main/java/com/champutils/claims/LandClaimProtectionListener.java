@@ -1,5 +1,6 @@
 package com.champutils.claims;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -230,7 +231,7 @@ public final class LandClaimProtectionListener {
                 x = level.getSharedSpawnPos().getX() + 0.5D;
                 z = level.getSharedSpawnPos().getZ() + 0.5D;
             }
-            player.teleportTo(level, x, player.getY(), z, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleportNoBack(player, level, x, player.getY(), z, player.getYRot(), player.getXRot());
             deny(player, "You cannot enter " + claim.ownerName + "'s claim.");
         }
     }

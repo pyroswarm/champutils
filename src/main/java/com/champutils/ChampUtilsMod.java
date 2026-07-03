@@ -55,6 +55,7 @@ import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
 import com.champutils.crafting.ChampCraftingConfig;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
 import com.champutils.tm.*;
@@ -62,6 +63,7 @@ import com.champutils.claims.*;
 import com.champutils.expeditions.*;
 import com.champutils.rewardtrack.*;
 import com.champutils.tutorial.*;
+import com.champutils.afk.*;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -106,7 +108,7 @@ public class ChampUtilsMod implements ModInitializer {
         } finally {
             long elapsed = System.nanoTime() - start;
             if (elapsed >= TICK_MANAGER_WARN_NANOS) {
-                System.out.println("[ChampUtils][TickTiming] " + name + " took " + (elapsed / 1_000_000.0D) + " ms");
+                ChampDebugManager.log(ChampDebugManager.Category.PERFORMANCE, "[ChampUtils][TickTiming] " + name + " took " + (elapsed / 1_000_000.0D) + " ms");
             }
         }
     }
@@ -143,6 +145,7 @@ public class ChampUtilsMod implements ModInitializer {
         });
 
         ProfileCommand.register();
+        ChampDebugCommand.register();
         MenuNpcCommand.register();
         BlankNpcCommand.register();
         NpcAdminCommand.register();
@@ -233,6 +236,7 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
         NpcShopConfig.load();
+        IslanderShopConfig.load();
         MegaShopConfig.load();
         ChestShopRegistry.load();
         FirstJoinKitManager.load();
@@ -253,6 +257,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialWildSpawnConfig.load();
         MegaBossConfig.load();
         AntiLagConfig.load();
+        AntiAfkManager.load();
         ModerationConfig.load();
         ModerationActionRepository.ensureSchemaAsync();
         ItemBindRegistry.load();
@@ -314,6 +319,7 @@ public class ChampUtilsMod implements ModInitializer {
         VanillaArmorRestrictionManager.register();
         ProfessionToolFastMiningListener.register();
         ProfessionToolAnnouncementManager.register();
+        ProfessionToolTooltipUpdater.register();
         ExplorationProtectionListener.register();
         ItemRollCommand.register();
         ProfessionSalvageCommand.register();
@@ -572,6 +578,7 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     TutorialManager.handleJoin(player);
+                    AntiAfkManager.handleJoin(player);
 
                 }
         );
@@ -584,6 +591,7 @@ public class ChampUtilsMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
 
+                    AntiAfkManager.handleDisconnect(handler.player);
                     PlayerProfileManager.saveAndUnloadForDisconnect(handler.player);
 
                     MatchmakingManager.leaveQueue(
@@ -633,6 +641,7 @@ public class ChampUtilsMod implements ModInitializer {
         AccessCommandWrappers.register();
         ChampUtilsHelpCommand.register();
         ChampAICommand.register();
+        ChampDebugCommand.register();
         MenuCommand.register();
         SeasonCommand.register();
         com.champutils.rank.SeasonRewardManager.registerCommand();
@@ -660,6 +669,7 @@ public class ChampUtilsMod implements ModInitializer {
         AutoStepCommand.register();
         MenuNpcCommand.register();
         NpcShopCommand.register();
+        IslanderShopCommand.register();
         WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
@@ -670,6 +680,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChestShopCommand.register();
         // /serversell removed: economy now uses digital chunks sold through the Profession Foreman.
         DexRewardCommand.register();
+        ShinyOddsCommand.register();
         TextCommand.register();
         WonderTradeCommand.register();
         TradeSimCommand.register();
@@ -724,6 +735,7 @@ public class ChampUtilsMod implements ModInitializer {
         TutorialCommand.register();
         MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
+        AntiAfkManager.register();
 
         /*
          New custom item test command
@@ -765,6 +777,7 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialCatchAnnouncementListener.register();
         CatchStreakSpawnListener.register();
         ForbiddenNaturalPokemonSpawnGuard.register();
+        WildGymLevelCapManager.register();
         SpecialSpawnDamageProtectionListener.register();
         TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
@@ -773,6 +786,7 @@ public class ChampUtilsMod implements ModInitializer {
         DeathBackListener.register();
         com.champutils.badge.BadgeUnlockManager.init();
         com.champutils.protection.SpawnRealmProtectionListener.register();
+        com.champutils.protection.CampfirePotSafetyListener.register();
         com.champutils.protection.SpawnEditCommand.register();
         TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
@@ -839,6 +853,8 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("OversizedChunkEntityGuard", () -> com.champutils.antilag.OversizedChunkEntityGuard.tick(server));
                     timedTick("ModerationManager", () -> ModerationManager.tick(server));
                     timedTick("RedstoneAutoModManager", () -> RedstoneAutoModManager.tick(server));
+                    timedTick("AntiAfkManager", () -> AntiAfkManager.tick(server));
+                    timedTick("PvPBattleStallManager", () -> PvPBattleStallManager.tick(server));
                     timedTick("DailyLoginManager", () -> DailyLoginManager.tick(server));
                     timedTick("AutoChampSaveManager", () -> com.champutils.commands.AutoChampSaveManager.tick(server));
                     timedTick("ChampWorldBorderManager", () -> ChampWorldBorderManager.tick(server));

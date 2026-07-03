@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.specialspawn.SpecialWildSpawnConfig;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.specialspawn.SpecialWildSpawnManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,7 +48,7 @@ public final class SpecialWildSpawnCommand {
                     }));
 
             dispatcher.register(literal("specialspawns")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                    .requires(source -> source.hasPermission(4))
                     .then(literal("reload").executes(ctx -> {
                         SpecialWildSpawnConfig.load();
                         ctx.getSource().sendSuccess(() -> Component.literal("Reloaded special wild spawn config."), false);
@@ -77,9 +78,13 @@ public final class SpecialWildSpawnCommand {
                         return result.success ? 1 : 0;
                     }))
                     .then(literal("debug").executes(ctx -> {
-                        SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls = !SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls;
-                        SpecialWildSpawnConfig.save();
-                        ctx.getSource().sendSuccess(() -> Component.literal("Special spawn debug logs are now " + (SpecialWildSpawnConfig.DATA.debugSpecialSpawnRolls ? "enabled" : "disabled") + "."), false);
+                        if (ChampDebugManager.isEnabled(ChampDebugManager.Category.SPAWNS)) {
+                            ChampDebugManager.disable("spawns");
+                            ctx.getSource().sendSuccess(() -> Component.literal("Special spawn debug logs are now disabled. Use /champdebug spawns to enable them again."), false);
+                        } else {
+                            ChampDebugManager.setOnly(ChampDebugManager.Category.SPAWNS);
+                            ctx.getSource().sendSuccess(() -> Component.literal("Special spawn debug logs are now enabled through /champdebug spawns."), false);
+                        }
                         return 1;
                     }))
                     .then(literal("status").executes(ctx -> {
@@ -98,7 +103,7 @@ public final class SpecialWildSpawnCommand {
         source.sendSuccess(() -> Component.literal("§5Special Spawn Debug Status"), false);
         source.sendSuccess(() -> Component.literal("§7System enabled: " + (status.enabled() ? "§aYes" : "§cNo")), false);
         source.sendSuccess(() -> Component.literal("§7Paradox timer enabled: " + (status.paradoxEnabled() ? "§aYes" : "§cNo")), false);
-        source.sendSuccess(() -> Component.literal("§7Debug logs: " + (status.debugLogsEnabled() ? "§aOn" : "§cOff")), false);
+        source.sendSuccess(() -> Component.literal("§7Debug logs: " + (ChampDebugManager.isEnabled(ChampDebugManager.Category.SPAWNS) ? "§aOn" : "§cOff") + " §8(/champdebug spawns)"), false);
         source.sendSuccess(() -> Component.literal("§7Pool type here: §f" + (status.islanderRoll() ? "Islander" : "Normal")), false);
         source.sendSuccess(() -> Component.literal("§7Eligible here: " + (status.eligibleHere() ? "§aYes" : "§cNo") + " §8(" + status.eligibilityMessage() + ")"), false);
         source.sendSuccess(() -> Component.literal("§7Paradox pool size: §f" + status.paradoxPoolSize()), false);

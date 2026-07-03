@@ -2,6 +2,7 @@ package com.champutils.menu;
 
 import com.champutils.crafting.ChampCraftingConfig;
 import com.champutils.crafting.ChampCraftingService;
+import com.champutils.profile.PlayerProfileManager;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -44,6 +45,7 @@ public final class ChampCraftingMenu {
         // Slot 4 intentionally left as border filler. The menu title already names this screen.
 
         List<String> categories = ChampCraftingConfig.categories();
+        if (!PlayerProfileManager.isIslander(player)) categories.removeIf(category -> category != null && category.equalsIgnoreCase("Islander Resources"));
         if (categories.isEmpty()) {
             gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
                     .hideDefaultTooltip()
@@ -71,6 +73,11 @@ public final class ChampCraftingMenu {
     }
 
     private static void openCategory(ServerPlayer player, String category, int page, Consumer<ServerPlayer> backTarget) {
+        if (category != null && category.equalsIgnoreCase("Islander Resources") && !PlayerProfileManager.isIslander(player)) {
+            player.sendSystemMessage(Component.literal("§cOnly Islander profiles can use Islander Resource recipes."));
+            openCategories(player, backTarget);
+            return;
+        }
         List<ChampCraftingConfig.RecipeData> all = ChampCraftingConfig.recipesForCategory(category);
         int maxPage = Math.max(0, (all.size() - 1) / CONTENT.length);
         int safePage = Math.max(0, Math.min(page, maxPage));

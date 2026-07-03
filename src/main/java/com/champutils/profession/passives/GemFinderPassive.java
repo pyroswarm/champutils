@@ -34,6 +34,9 @@ public class GemFinderPassive implements ProfessionPassive {
         if (player == null || stack == null || stack.isEmpty() || level == null || pos == null) return;
         if (ProfessionBlockTracker.isPlayerPlaced(level, pos)) return;
         boolean shovel = MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos));
+        if (!shovel && !isOreBlock(blockId)) {
+            return;
+        }
         String stat = shovel ? "fossilFinderChance" : "stoneFinderChance";
         double chance = ProfessionToolUtil.getStat(stack, stat);
         if (chance <= 0.0D) return;
@@ -47,6 +50,12 @@ public class GemFinderPassive implements ProfessionPassive {
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal((shovel ? "§6Fossil Finder" : "§bStone Finder") + ": §fFound something!"), true);
         }
+    }
+
+    private static boolean isOreBlock(String blockId) {
+        if (blockId == null || blockId.isBlank()) return false;
+        String id = blockId.toLowerCase(java.util.Locale.ROOT);
+        return id.endsWith("_ore") || id.equals("minecraft:ancient_debris");
     }
 
     private static Item item(String itemId) {

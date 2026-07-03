@@ -7,7 +7,9 @@
     "BBB"
   ],
   "key": {
-    "B": "minecraft:barrier"
+    "B": {
+      "item": "minecraft:barrier"
+    }
   },
   "result": {
     "id": "minecraft:netherite_sword",

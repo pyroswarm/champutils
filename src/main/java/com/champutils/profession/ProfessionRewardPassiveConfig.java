@@ -243,7 +243,7 @@ public class ProfessionRewardPassiveConfig {
         double chance = entry.chancePercent;
 
         if (player != null && profession != null && entry.chancePerProfessionLevel != 0.0D) {
-            int level = Math.max(1, ProfessionManager.getLevel(player, profession));
+            int level = Math.max(1, ProfessionManager.getBenefitLevel(player, profession));
             chance += level * entry.chancePerProfessionLevel;
         }
 
@@ -381,7 +381,7 @@ public class ProfessionRewardPassiveConfig {
     private static String rollAllowedFragmentRarity(ServerPlayer player, ProfessionType profession) {
         int level = player == null || profession == null
                 ? 0
-                : Math.max(0, ProfessionManager.getLevel(player, profession));
+                : Math.max(0, ProfessionManager.getBenefitLevel(player, profession));
 
         int maxIndex;
         if (level >= 50) {

@@ -5,7 +5,9 @@ import com.cobblemon.mod.common.api.pokemon.stats.Stat;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 import com.champutils.profile.IslanderMineManager;
+import com.champutils.spawn.SpawnBlockRules;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.territory.TerritoryRepository;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -60,9 +62,7 @@ public final class MegaBossManager {
     private static int ticksUntilCleanup = 200;
 
     private static void debug(String message) {
-        if (MegaBossConfig.DATA.debugSpawning) {
-            System.out.println("[ChampUtils][MegaBossDebug] " + message);
-        }
+        ChampDebugManager.log(ChampDebugManager.Category.BOSSES, "[ChampUtils][MegaBossDebug] " + message);
     }
 
     private MegaBossManager() {}
@@ -87,7 +87,7 @@ public final class MegaBossManager {
         List<ServerPlayer> allPlayers = new ArrayList<>(server.getPlayerList().getPlayers());
         int totalPlayers = allPlayers.size();
         List<ServerPlayer> players = new ArrayList<>(allPlayers);
-        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()));
+        players.removeIf(p -> p == null || p.isSpectator() || isDisabledDimension(p.serverLevel()) || SpawnBlockRules.isBlockedSpawnLevel(p.serverLevel()));
         if (players.isEmpty()) {
             debug("skip check: no eligible players total=" + totalPlayers + " tracked=" + TRACKED.size());
             return;
@@ -160,8 +160,8 @@ public final class MegaBossManager {
 
     private static boolean trySpawnFor(ServerPlayer player, MegaBossConfig.BossEntry boss) {
         ServerLevel level = player.serverLevel();
-        if (isDisabledDimension(level)) {
-            debug("spawn fail player=" + player.getGameProfile().getName() + " reason=disabled_dimension dimension=" + level.dimension().location());
+        if (isDisabledDimension(level) || SpawnBlockRules.isBlockedSpawnLevel(level)) {
+            debug("spawn fail player=" + player.getGameProfile().getName() + " reason=blocked_dimension dimension=" + level.dimension().location());
             return false;
         }
         if (countMegaBossesNear(level, player.blockPosition(), nearbyBossRadius()) >= Math.max(1, MegaBossConfig.DATA.maxAliveMegaBossesPerNearbyPlayer)) {
@@ -176,7 +176,7 @@ public final class MegaBossManager {
         for (int attempt = 0; attempt < 20; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
             if (pos == null) { nullPositions++; continue; }
-            if (isNetherRoofPosition(level, pos)) { nullPositions++; continue; }
+            if (SpawnBlockRules.isBlockedSpawnPosition(level, pos)) { nullPositions++; continue; }
             if (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level)) { territorySkips++; continue; }
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
@@ -201,7 +201,7 @@ public final class MegaBossManager {
         if (player == null) return ForceSpawnResult.fail("Player not found.");
         if (!MegaBossConfig.DATA.enabled) return ForceSpawnResult.fail("Mega bosses are disabled in config.");
         ServerLevel level = player.serverLevel();
-        if (isDisabledDimension(level)) return ForceSpawnResult.fail("Mega bosses are disabled in this dimension.");
+        if (isDisabledDimension(level) || SpawnBlockRules.isBlockedSpawnLevel(level)) return ForceSpawnResult.fail("Mega bosses are disabled in this dimension.");
 
         String normalized = normalizeRarity(rarity);
         MegaBossConfig.BossEntry boss = pickBoss(normalized, false);
@@ -211,7 +211,7 @@ public final class MegaBossManager {
         // the normal spawn-position safety checks, battle stats, tags, expiry, and reward metadata.
         for (int attempt = 0; attempt < 30; attempt++) {
             BlockPos pos = randomSpawnPos(level, player.blockPosition());
-            if (pos == null || isNetherRoofPosition(level, pos) || (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level))) continue;
+            if (pos == null || SpawnBlockRules.isBlockedSpawnPosition(level, pos) || (TerritoryRepository.findAt(level, pos) != null && !isIslanderDimension(level))) continue;
             int pokemonLevel = playerPartyHighestLevelForRarity(player, boss.rarity);
             Entity entity = spawnViaCommand(player.getServer(), level, pos, boss, pokemonLevel);
             if (entity == null) entity = spawnDirectly(level, pos, boss, pokemonLevel);
@@ -287,6 +287,66 @@ public final class MegaBossManager {
                 .trim();
     }
 
+    private static String buildMegaShowdownExtraProperties(MegaBossConfig.BossEntry boss) {
+        String safeExtra = sanitizeExtraProperties(boss == null ? null : boss.extraProperties);
+        String aspect = megaShowdownAspect(boss);
+        if (aspect.isBlank() || hasExplicitAspect(safeExtra)) return safeExtra;
+        return (safeExtra + " aspect=" + aspect).trim();
+    }
+
+    private static boolean hasExplicitAspect(String extraProperties) {
+        if (extraProperties == null || extraProperties.isBlank()) return false;
+        return extraProperties.toLowerCase(Locale.ROOT).matches(".*(^|\\s)aspect=[^\\s]+.*");
+    }
+
+    private static String megaShowdownAspect(MegaBossConfig.BossEntry boss) {
+        if (boss == null) return "";
+        String extra = String.valueOf(boss.extraProperties).toLowerCase(Locale.ROOT);
+        String stoneText = String.join(" ", megaStoneItems(boss)).toLowerCase(Locale.ROOT);
+        String combined = extra + " " + stoneText + " " + String.valueOf(boss.ability).toLowerCase(Locale.ROOT);
+        String species = sanitize(boss.species).toLowerCase(Locale.ROOT);
+
+        if (combined.contains("mega_x") || combined.contains("megax") || combined.contains("xmega") || combined.contains("x_stone")) return "mega_x";
+        if (combined.contains("mega_y") || combined.contains("megay") || combined.contains("ymega") || combined.contains("y_stone")) return "mega_y";
+
+        // Charizard and Mewtwo have split Mega Showdown model aspects. If an old config
+        // only says mega=true, pick the likely side from the configured competitive ability.
+        if (species.equals("charizard") || species.equals("mewtwo")) {
+            if (combined.contains("toughclaws") || combined.contains("steadfast")) return "mega_x";
+            if (combined.contains("drought") || combined.contains("insomnia")) return "mega_y";
+        }
+
+        return "mega";
+    }
+
+    private static void forceMegaAspectOnEntity(Entity entity, MegaBossConfig.BossEntry boss) {
+        if (entity == null) return;
+        try {
+            Object pokemon = entity.getClass().getMethod("getPokemon").invoke(entity);
+            if (pokemon instanceof Pokemon p) {
+                forceMegaAspectOnPokemon(p, boss);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void forceMegaAspectOnPokemon(Pokemon pokemon, MegaBossConfig.BossEntry boss) {
+        if (pokemon == null) return;
+        String aspect = megaShowdownAspect(boss);
+        if (aspect.isBlank()) return;
+        try {
+            Set<String> aspects = new HashSet<>(pokemon.getForcedAspects());
+            aspects.remove("mega");
+            aspects.remove("mega_x");
+            aspects.remove("mega_y");
+            aspects.add(aspect);
+            pokemon.setForcedAspects(aspects);
+            debug("applied Mega Showdown aspect species=" + sanitize(boss.species) + " aspect=" + aspect);
+        } catch (Throwable t) {
+            debug("failed to apply Mega Showdown aspect species=" + sanitize(boss.species) + " reason=" + t.getClass().getSimpleName());
+        }
+    }
+
     private static String buildPokespawnCommand(MegaBossConfig.BossEntry boss, int level, BlockPos pos) {
         StringBuilder cmd = new StringBuilder("pokespawn ").append(sanitize(boss.species))
                 .append(" lvl=").append(level)
@@ -303,15 +363,16 @@ public final class MegaBossManager {
                 if (!move.isBlank()) cmd.append(" move").append(i + 1).append("=").append(move);
             }
         }
-        String safeExtra = sanitizeExtraProperties(boss.extraProperties);
+        String safeExtra = buildMegaShowdownExtraProperties(boss);
         if (!safeExtra.isBlank()) cmd.append(' ').append(safeExtra);
+        debug("spawn command properties boss=" + sanitize(boss.species) + " extra=" + safeExtra);
         return cmd.toString();
     }
 
     private static Entity spawnDirectly(ServerLevel level, BlockPos pos, MegaBossConfig.BossEntry boss, int pokemonLevel) {
         try {
             StringBuilder properties = new StringBuilder("species=\"cobblemon:").append(sanitize(boss.species)).append("\" level=").append(pokemonLevel);
-            String safeExtra = sanitizeExtraProperties(boss.extraProperties);
+            String safeExtra = buildMegaShowdownExtraProperties(boss);
             if (!safeExtra.isBlank()) properties.append(' ').append(safeExtra);
             properties.append(" iv_hp=31 iv_attack=31 iv_defence=31 iv_special_attack=31 iv_special_defence=31 iv_speed=31");
             properties.append(BOSS_EV_PROPERTIES);
@@ -321,7 +382,10 @@ public final class MegaBossManager {
             Object companion = propertiesClass.getField("Companion").get(null);
             Object parsed = companion.getClass().getMethod("parse", String.class).invoke(companion, properties.toString());
             Object pokemon = parsed.getClass().getMethod("create").invoke(parsed);
-            if (pokemon instanceof Pokemon p) maximizePokemon(p, pokemonLevel);
+            if (pokemon instanceof Pokemon p) {
+                forceMegaAspectOnPokemon(p, boss);
+                maximizePokemon(p, pokemonLevel);
+            }
             Object spawned = invokePokemonSendOut(pokemon, level, new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D));
             return spawned instanceof Entity e ? e : null;
         } catch (Exception ignored) { return null; }
@@ -359,6 +423,7 @@ public final class MegaBossManager {
 
     private static void markBoss(Entity entity, MegaBossConfig.BossEntry boss, int pokemonLevel) {
         entity.addTag(BOSS_TAG);
+        forceMegaAspectOnEntity(entity, boss);
         entity.addTag(BOSS_RARITY_PREFIX + normalizeRarity(boss.rarity));
         for (String stone : megaStoneItems(boss)) {
             String normalizedStone = normalizeGenesisItemId(stone);
@@ -543,7 +608,7 @@ public final class MegaBossManager {
         int z = origin.getZ() + (int)Math.round(Math.sin(angle) * dist);
         BlockPos top = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, origin.getY(), z));
         if (!level.hasChunk(new ChunkPos(top).x, new ChunkPos(top).z)) return null;
-        if (isNetherRoofPosition(level, top)) return null;
+        if (SpawnBlockRules.isBlockedSpawnPosition(level, top)) return null;
         if (!level.getWorldBorder().isWithinBounds(top) || !level.getWorldBorder().isWithinBounds(top.above())) return null;
         if (!level.getBlockState(top.below()).isSolid()) return null;
         if (!level.getBlockState(top).isAir() || !level.getBlockState(top.above()).isAir()) return null;
@@ -615,13 +680,7 @@ public final class MegaBossManager {
         return false;
     }
 
-    private static boolean isNetherRoofPosition(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null) return false;
-        String id = level.dimension().location().toString().toLowerCase(Locale.ROOT);
-        return (id.equals("minecraft:the_nether") || id.endsWith(":the_nether") || id.equals("the_nether")) && pos.getY() >= 127;
-    }
-
-    private static boolean isDisabledDimension(ServerLevel level) {
+        private static boolean isDisabledDimension(ServerLevel level) {
         String id = level.dimension().location().toString();
         String lower = id == null ? "" : id.toLowerCase(Locale.ROOT);
         if (lower.equals("spawn1") || lower.endsWith(":spawn1") || lower.contains("spawn1")) return true;
@@ -642,8 +701,26 @@ public final class MegaBossManager {
 
     private static void announce(ServerPlayer player, MegaBossConfig.BossEntry boss, ServerLevel level, BlockPos pos, int pokemonLevel) {
         if (!MegaBossConfig.DATA.broadcastSpawns || player == null) return;
-        String biome = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
-        player.sendSystemMessage(Component.literal("§5§lMega Boss Spawned! §d" + pretty(boss.species) + " §7[" + normalizeRarity(boss.rarity) + "] §fappeared near you in §e" + biome + " §7Lv." + pokemonLevel + " §eX:" + pos.getX() + " Y:" + pos.getY() + " Z:" + pos.getZ() + " §cCannot be caught."));
+        String biome = prettyBiome(level, pos);
+        player.sendSystemMessage(Component.literal("§5A wild §dMega Boss §e" + pretty(boss.species) + " §5has appeared in §a" + biome + " §5at coordinates §f" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + "§5."));
+    }
+
+    private static String prettyBiome(ServerLevel level, BlockPos pos) {
+        try {
+            String raw = level.registryAccess().registryOrThrow(Registries.BIOME).getKey(level.getBiome(pos).value()).toString();
+            int colon = raw.lastIndexOf(':');
+            String id = colon >= 0 ? raw.substring(colon + 1) : raw;
+            String[] parts = id.replace('-', '_').split("_");
+            StringBuilder out = new StringBuilder();
+            for (String part : parts) {
+                if (part == null || part.isBlank()) continue;
+                if (out.length() > 0) out.append(' ');
+                out.append(part.substring(0, 1).toUpperCase(Locale.ROOT)).append(part.substring(1).toLowerCase(Locale.ROOT));
+            }
+            return out.length() == 0 ? raw : out.toString();
+        } catch (Exception ignored) {
+            return "Unknown Biome";
+        }
     }
 
     private static String normalizeRarity(String rarity) {

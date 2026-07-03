@@ -250,21 +250,48 @@ public final class CrateConfig {
         if (crates == null) return;
         CrateDefinition legendary = crates.get("legendary");
         if (legendary != null) {
-            addItemOnce(legendary, "cobblemon:ability_patch", 1, 2, 16);
-            addItemOnce(legendary, "cobblemon:master_ball", 1, 1, 6);
+            legendary.items = listI("cobblemon:master_ball:1:1:6", "cobblemon:dream_ball:2:4:12", "cobblemon:beast_ball:2:4:12");
         }
         CrateDefinition mythic = crates.get("mythic");
         if (mythic != null) {
             mythic.shinyChance = 25.0D;
-            mythic.items = new ArrayList<>();
-            mythic.items.add(new WeightedItem("cobblemon:ability_patch", 1, 3, 35));
-            mythic.items.add(new WeightedItem("cobblemon:master_ball", 1, 2, 25));
-            // Rebuild the Mythic tool pool from the loaded profession tool config.
-            // applyProfessionToolLootPools runs after this and adds every valid Mythic
-            // pickaxe/axe/hoe/shovel, avoiding stale hard-coded IDs that get skipped.
+            mythic.items = listI("cobblemon:master_ball:1:2:25", "cobblemon:beast_ball:2:5:15");
             mythic.tools = new ArrayList<>();
         }
+        removeRetiredCrateLoot(crates);
+    }
+
+    private static void removeRetiredCrateLoot(Map<String, CrateDefinition> crates) {
+        if (crates == null) return;
+        for (CrateDefinition crate : crates.values()) {
+            if (crate == null) continue;
+            crate.tools = new ArrayList<>();
+            if (crate.items != null) {
+                crate.items.removeIf(CrateConfig::isRetiredCrateItem);
+            }
+        }
         removeRandomTms(crates);
+    }
+
+    private static boolean isRetiredCrateItem(WeightedItem item) {
+        if (item == null || item.itemId == null) return true;
+        String id = item.itemId.toLowerCase(java.util.Locale.ROOT);
+        return id.contains("exp_candy") ||
+                id.contains("rare_candy") ||
+                id.contains("ability_patch") ||
+                id.contains("ability_capsule") ||
+                id.equals("minecraft:diamond") ||
+                id.equals("minecraft:netherite_ingot") ||
+                id.equals("minecraft:netherite_block") ||
+                id.contains("choice_") ||
+                id.contains("life_orb") ||
+                id.contains("leftovers") ||
+                id.contains("focus_sash") ||
+                id.contains("focus_band") ||
+                id.contains("eviolite") ||
+                id.contains("heavy_duty_boots") ||
+                id.contains("assault_vest") ||
+                id.contains("weakness_policy");
     }
 
     private static void removeRandomTms(Map<String, CrateDefinition> crates) {
@@ -286,12 +313,13 @@ public final class CrateConfig {
         crate.pokemon.removeIf(p -> {
             if (p == null) return true;
             String pool = p.pool == null ? classifyPool(p.species) : p.pool.trim().toUpperCase(java.util.Locale.ROOT);
-            return !(pool.contains("LEGEND") || pool.contains("MYTH") || pool.contains("ULTRA"));
+            return !(pool.contains("LEGEND") || pool.contains("MYTH") || pool.contains("ULTRA") || pool.contains("PARADOX"));
         });
         if (crate.pokemon.isEmpty()) {
             crate.pokemon.addAll(weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"));
             crate.pokemon.addAll(weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"));
             crate.pokemon.addAll(weighted(ULTRA_BEAST_SPECIES, 2, "ULTRA_BEAST"));
+            crate.pokemon.addAll(weighted(PARADOX_SPECIES, 2, "PARADOX"));
         }
     }
 

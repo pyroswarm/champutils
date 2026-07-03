@@ -19,7 +19,7 @@ public final class CashShopCommand {
                         return 1;
                     })
                     .then(Commands.literal("giveboost")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.argument("player", EntityArgument.player())
                                     .then(Commands.argument("id", StringArgumentType.word())
                                             .then(Commands.argument("count", IntegerArgumentType.integer(1, 64))
@@ -37,7 +37,7 @@ public final class CashShopCommand {
                                                         return 1;
                                                     })))))
                     .then(Commands.literal("givecredits")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.argument("player", EntityArgument.player())
                                     .then(Commands.argument("amount", IntegerArgumentType.integer(1, 999))
                                             .executes(ctx -> {

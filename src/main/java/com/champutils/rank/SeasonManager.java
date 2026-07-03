@@ -355,17 +355,16 @@ public class SeasonManager {
             );
         }
 
-        server.getPlayerList()
-                .broadcastSystemMessage(
-                        Component.literal(
-                                "§6Season " +
-                                        CURRENT_SEASON +
-                                        " §e" +
-                                        CURRENT_NAME +
-                                        " has begun!"
-                        ),
-                        false
-                );
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                server,
+                Component.literal(
+                        "§6Season " +
+                                CURRENT_SEASON +
+                                " §e" +
+                                CURRENT_NAME +
+                                " has begun!"
+                )
+        );
     }
 
     private static void archivePlayer(

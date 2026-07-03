@@ -1,8 +1,11 @@
 package com.champutils.profile;
 
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.teleport.TeleportConfig;
+import com.champutils.teleport.TeleportLocation;
 import com.champutils.time.DailyResetManager;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
+import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -15,6 +18,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 
 import java.util.*;
 
@@ -77,6 +82,12 @@ public final class IslanderMineManager {
         }
 
         ensureMineQueued(level, false);
+        String dimension = level.dimension().location().toString();
+        if (!READY_DIMENSIONS.contains(dimension)) {
+            player.sendSystemMessage(Component.literal("That Islander mine is currently regenerating. Please try again after the reset finishes.").withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+
         SafeTeleportManager.teleportUncheckedNoBack(player, level, cfg.centerX + 0.5D, mineSpawnY(cfg), cfg.centerZ + 0.5D, player.getYRot(), player.getXRot());
         player.resetFallDistance();
         player.sendSystemMessage(Component.literal("Entered " + level.dimension().location().getPath() + ". This shared mine resets every " + cfg.resetHours + " hours and is capped at " + cfg.maxPlayersPerWorld + " players.").withStyle(ChatFormatting.GREEN));
@@ -240,15 +251,34 @@ public final class IslanderMineManager {
     }
 
     private static void teleportMinePlayersToSpawn(ServerLevel level) {
-        if (level == null || !isMineWorld(level)) return;
-        IslanderMineConfig.Data cfg = IslanderMineConfig.get();
-        double x = cfg.centerX + 0.5D;
-        double y = mineSpawnY(cfg);
-        double z = cfg.centerZ + 0.5D;
+        if (level == null || !isMineWorld(level) || level.getServer() == null) return;
+        TeleportDestination destination = configuredSpawnDestination(level.getServer());
         for (ServerPlayer player : new ArrayList<>(level.players())) {
-            SafeTeleportManager.teleportUncheckedNoBack(player, level, x, y, z, player.getYRot(), player.getXRot());
+            SafeTeleportManager.teleportUncheckedNoBack(
+                    player,
+                    destination.level,
+                    destination.x,
+                    destination.y,
+                    destination.z,
+                    destination.yaw,
+                    destination.pitch
+            );
             player.resetFallDistance();
+            player.sendSystemMessage(Component.literal("The Islander mine is regenerating. You were moved to spawn until it finishes.").withStyle(ChatFormatting.YELLOW));
         }
+    }
+
+    private static TeleportDestination configuredSpawnDestination(MinecraftServer server) {
+        TeleportLocation configured = TeleportConfig.getSpawn();
+        if (configured != null) {
+            ServerLevel configuredLevel = TeleportConfig.resolveLevel(server, configured.dimension);
+            if (configuredLevel != null) {
+                return new TeleportDestination(configuredLevel, configured.x, configured.y, configured.z, configured.yaw, configured.pitch);
+            }
+        }
+        ServerLevel fallback = server.overworld();
+        BlockPos spawn = fallback.getSharedSpawnPos();
+        return new TeleportDestination(fallback, spawn.getX() + 0.5D, spawn.getY() + 1.0D, spawn.getZ() + 0.5D, 0.0F, 0.0F);
     }
 
     private static double mineSpawnY(IslanderMineConfig.Data cfg) {
@@ -266,6 +296,11 @@ public final class IslanderMineManager {
 
         if (outerBedrock || innerBedrock) { setClean(level, pos, Blocks.BEDROCK.defaultBlockState()); return; }
         if (spawnRoom) { setClean(level, pos, Blocks.AIR.defaultBlockState()); return; }
+
+        if (shouldPlaceLootChest(task, dx, dy, dz, cfg)) {
+            placeLootChest(level, pos, task.seed);
+            return;
+        }
 
         BlockState ore = oreAt(task, dx, dy, dz, cfg);
         if (ore != null) { setClean(level, pos, ore); return; }
@@ -320,12 +355,50 @@ public final class IslanderMineManager {
         return Blocks.GRANITE.defaultBlockState();
     }
 
+    private static boolean shouldPlaceLootChest(MineTask task, int dx, int dy, int dz, IslanderMineConfig.Data cfg) {
+        if (cfg == null || cfg.lootChestChancePer10000 <= 0) return false;
+        if (dy < 8 || dy > cfg.height - cfg.spawnRoomHeight - 10) return false;
+        if (Math.abs(dx) <= cfg.protectedSpawnRadius + 4 && Math.abs(dz) <= cfg.protectedSpawnRadius + 4) return false;
+
+        int cellX = Math.floorDiv(dx + cfg.radius, 16);
+        int cellY = Math.floorDiv(dy, 8);
+        int cellZ = Math.floorDiv(dz + cfg.radius, 16);
+        long cellSeed = task.seed
+                ^ ((long) cellX * 91815541L)
+                ^ ((long) cellY * 45678971L)
+                ^ ((long) cellZ * 19281199L);
+        Random random = new Random(cellSeed);
+        if (random.nextInt(10_000) >= cfg.lootChestChancePer10000) return false;
+
+        int chosenDx = -cfg.radius + cellX * 16 + random.nextInt(16);
+        int chosenDy = cellY * 8 + random.nextInt(8);
+        int chosenDz = -cfg.radius + cellZ * 16 + random.nextInt(16);
+        if (chosenDx < -cfg.radius + 4 || chosenDx > cfg.radius - 4) return false;
+        if (chosenDy < 8 || chosenDy > cfg.height - cfg.spawnRoomHeight - 10) return false;
+        if (chosenDz < -cfg.radius + 4 || chosenDz > cfg.radius - 4) return false;
+        if (dx != chosenDx || dy != chosenDy || dz != chosenDz) return false;
+
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        return horizontal > cfg.spawnRoomHalfSize + 14 && horizontal < cfg.radius - 10;
+    }
+
+    private static void placeLootChest(ServerLevel level, BlockPos pos, long seed) {
+        setClean(level, pos, Blocks.CHEST.defaultBlockState());
+        try {
+            if (level.getBlockEntity(pos) instanceof RandomizableContainerBlockEntity container) {
+                container.setLootTable(BuiltInLootTables.SIMPLE_DUNGEON, seed ^ pos.asLong());
+            }
+        } catch (Throwable throwable) {
+            // Loot chests are a bonus. A loot table failure should never interrupt mine generation.
+        }
+    }
+
     private static BlockState oreAt(MineTask task, int dx, int dy, int dz, IslanderMineConfig.Data cfg) {
         // Dense mine, sparse pocket starts. This gives strip-mining style pockets instead of random ore confetti.
         long cellSeed = task.seed ^ (((long)(dx >> 2)) * 341873128712L) ^ (((long)(dy >> 2)) * 132897987541L) ^ (((long)(dz >> 2)) * 42317861L);
         Random startRandom = new Random(cellSeed);
         int chance = startRandom.nextInt(10_000);
-        int startChance = Math.max(1, Math.min(1000, cfg.orePocketStartChancePer10000));
+        int startChance = Math.max(1, Math.min(9000, cfg.orePocketStartChancePer10000));
         if (chance >= startChance) return null;
 
         IslanderMineConfig.OreRule rule = chooseOreRule(startRandom, cfg, dy);
@@ -383,7 +456,9 @@ public final class IslanderMineManager {
         for (ServerLevel level : server.getAllLevels()) {
             if (!isMineWorld(level)) continue;
             for (ServerPlayer player : level.players()) player.resetFallDistance();
-            for (Entity entity : level.getAllEntities()) if (entity instanceof PokemonEntity) entity.discard();
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof PokemonEntity || entity instanceof NPCEntity) entity.discard();
+            }
         }
     }
 
@@ -392,6 +467,8 @@ public final class IslanderMineManager {
         level.setBlock(pos, state, 18);
         if (level.getBlockEntity(pos) != null) level.removeBlockEntity(pos);
     }
+
+    private record TeleportDestination(ServerLevel level, double x, double y, double z, float yaw, float pitch) {}
 
     private static final class MineTask {
         final String dimension;

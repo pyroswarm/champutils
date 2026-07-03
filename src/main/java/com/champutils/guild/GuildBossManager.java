@@ -1,11 +1,15 @@
 package com.champutils.guild;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.database.BossAttemptDatabaseRepository;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.champutils.time.DailyResetManager;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
+import com.cobblemon.mod.common.battles.BattleRegistry;
+import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
+import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
 import com.champutils.territory.TerritoryRepository;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -40,6 +44,8 @@ public final class GuildBossManager {
     private static final int TARGET_WORLD_BOSS_AVERAGE_MINUTES = 720;
     /** If a configured spawn world is not loaded yet, retry soon instead of skipping a full cycle. */
     private static final long WORLD_BOSS_RETRY_DELAY_MILLIS = 5L * 60L * 1000L;
+    /** Short grace window after a click before Cobblemon has fully attached battle ids to the NPC. */
+    private static final long BOSS_BATTLE_START_GRACE_MILLIS = 15L * 1000L;
 
     private static ActiveWorldBoss activeWorldBoss = null;
     private static long nextWorldBossAtMillis = 0L;
@@ -174,6 +180,7 @@ public final class GuildBossManager {
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         boss.attemptedPlayers.add(playerUuid);
         boss.battlingPlayers.add(playerUuid);
+        boss.battleGraceUntilMillis = System.currentTimeMillis() + BOSS_BATTLE_START_GRACE_MILLIS;
         BossAttemptDatabaseRepository.recordAttempt("guild", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
@@ -196,6 +203,7 @@ public final class GuildBossManager {
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
         boss.attemptedPlayers.add(playerUuid);
         boss.battlingPlayers.add(playerUuid);
+        boss.battleGraceUntilMillis = System.currentTimeMillis() + BOSS_BATTLE_START_GRACE_MILLIS;
         BossAttemptDatabaseRepository.recordAttempt("world", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
@@ -208,6 +216,31 @@ public final class GuildBossManager {
 
     public static boolean hasActiveWorldBoss() {
         return activeWorldBoss != null;
+    }
+
+    /**
+     * Staff emergency cleanup for stale world boss state/NPCs. This intentionally ignores
+     * battle grace and active timers because it is an admin-only recovery command.
+     */
+    public static int forceClearWorldBoss(MinecraftServer server) {
+        if (server == null) return 0;
+        int removed = 0;
+        ActiveWorldBoss boss = activeWorldBoss;
+        activeWorldBoss = null;
+
+        if (boss != null && boss.spawns != null) {
+            for (BossSpawn spawn : boss.spawns) {
+                if (spawn == null || spawn.npcUuid == null) continue;
+                removed += removeNpc(server, spawn.dimension, spawn.npcUuid) ? 1 : 0;
+            }
+        }
+
+        for (ServerLevel level : server.getAllLevels()) {
+            removed += removeMatchingBossNpcs(level, true);
+        }
+
+        scheduleNextWorldBoss(System.currentTimeMillis());
+        return removed;
     }
 
     public static boolean teleportToWorldBoss(ServerPlayer player) {
@@ -235,7 +268,7 @@ public final class GuildBossManager {
             msg(player, "The world boss dimension is not loaded right now.", ChatFormatting.RED);
             return false;
         }
-        player.teleportTo(targetLevel, chosen.x + 0.5D, chosen.y, chosen.z + 0.5D, player.getYRot(), player.getXRot());
+        SafeTeleportManager.teleport(player, targetLevel, chosen.x + 0.5D, chosen.y, chosen.z + 0.5D, player.getYRot(), player.getXRot());
         msg(player, "Teleported you to the active world boss.", ChatFormatting.LIGHT_PURPLE);
         return true;
     }
@@ -355,7 +388,7 @@ public final class GuildBossManager {
                 System.err.println("[ChampUtils] World boss skipped unloaded/missing dimension: " + dimension);
                 continue;
             }
-            NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, boss.displayName, "dmitibr");
+            NPCEntity npc = spawnBossTrainer(level, team, settings, location.x, location.y, location.z, settings.yaw, boss.displayName, "minpapa210");
             if (npc != null) {
                 tagBossNpc(npc, WORLD_BOSS_ENTITY_TAG);
                 boss.spawns.add(new BossSpawn(dimension, location.x, location.y, location.z, npc.getUUID()));
@@ -374,7 +407,7 @@ public final class GuildBossManager {
     }
 
     private static void finishGuildBoss(MinecraftServer server, ActiveGuildBoss boss) {
-        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+        if (shouldDelayGuildBossDespawn(server, boss)) {
             boss.despawnAtMillis = System.currentTimeMillis() + 30_000L;
             return;
         }
@@ -388,7 +421,7 @@ public final class GuildBossManager {
     }
 
     private static void finishWorldBoss(MinecraftServer server, ActiveWorldBoss boss) {
-        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+        if (shouldDelayWorldBossDespawn(server, boss)) {
             boss.despawnAtMillis = System.currentTimeMillis() + 30_000L;
             return;
         }
@@ -404,6 +437,95 @@ public final class GuildBossManager {
         WORLD_REWARDS.put(boss.id, drop);
         broadcastAll(server, "World boss rewards are ready! Use /worldboss claim to claim your " + drop.crateId + " key credit.", ChatFormatting.GOLD);
         scheduleNextWorldBoss(System.currentTimeMillis());
+    }
+
+
+    private static boolean shouldDelayGuildBossDespawn(MinecraftServer server, ActiveGuildBoss boss) {
+        if (boss == null) return false;
+        long now = System.currentTimeMillis();
+        if (boss.battleGraceUntilMillis > now && boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+            return true;
+        }
+        if (isBossNpcActuallyInBattle(server, boss.dimension, boss.npcUuid)) {
+            return true;
+        }
+        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+            boss.battlingPlayers.clear();
+        }
+        return false;
+    }
+
+    private static boolean isBossNpcActuallyInBattle(MinecraftServer server, String dimension, UUID npcUuid) {
+        if (server == null || dimension == null || npcUuid == null) return false;
+        ServerLevel level = level(server, dimension);
+        if (level == null) return false;
+        Entity entity = level.getEntity(npcUuid);
+        if (entity instanceof NPCEntity npc) {
+            try { return npc.isInBattle(); } catch (Throwable ignored) { return false; }
+        }
+        return false;
+    }
+
+    private static boolean shouldDelayWorldBossDespawn(MinecraftServer server, ActiveWorldBoss boss) {
+        if (boss == null) return false;
+        if (boss.spawns != null) {
+            for (BossSpawn spawn : boss.spawns) {
+                if (spawn != null && isWorldBossNpcInPlayerBattle(server, spawn.dimension, spawn.npcUuid)) {
+                    return true;
+                }
+            }
+        }
+        if (boss.battlingPlayers != null && !boss.battlingPlayers.isEmpty()) {
+            boss.battlingPlayers.clear();
+        }
+        return false;
+    }
+
+    private static boolean isWorldBossNpcInPlayerBattle(MinecraftServer server, String dimension, UUID npcUuid) {
+        if (server == null || dimension == null || npcUuid == null) return false;
+        ServerLevel level = level(server, dimension);
+        if (level == null) return false;
+        Entity entity = level.getEntity(npcUuid);
+        if (!(entity instanceof NPCEntity npc)) return false;
+        try {
+            for (UUID battleId : npc.getBattleIds()) {
+                var battle = BattleRegistry.INSTANCE.getBattle(battleId);
+                if (battle == null) continue;
+                boolean hasThisNpc = false;
+                boolean hasPlayer = false;
+                for (Object actor : battle.getActors()) {
+                    if (actor instanceof NPCBattleActor npcActor && npcActor.getEntity() != null && npcUuid.equals(npcActor.getEntity().getUUID())) {
+                        hasThisNpc = true;
+                    } else if (actor instanceof PlayerBattleActor) {
+                        hasPlayer = true;
+                    }
+                }
+                if (hasThisNpc && hasPlayer) return true;
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    public static void releaseBossBattleStart(ServerPlayer player, UUID npcUuid) {
+        if (player == null || npcUuid == null) return;
+        UUID playerUuid = player.getUUID();
+        ActiveWorldBoss worldBoss = activeWorldBoss;
+        if (worldBoss != null) {
+            for (BossSpawn spawn : worldBoss.spawns) {
+                if (spawn != null && npcUuid.equals(spawn.npcUuid)) {
+                    worldBoss.battlingPlayers.remove(playerUuid);
+                    return;
+                }
+            }
+        }
+        for (ActiveGuildBoss boss : ACTIVE_GUILD.values()) {
+            if (boss != null && npcUuid.equals(boss.npcUuid)) {
+                boss.battlingPlayers.remove(playerUuid);
+                return;
+            }
+        }
     }
 
     private static RewardDrop makeReward(UUID id, int clears, List<BossConfig.RewardTier> tiers) {
@@ -573,13 +695,19 @@ public final class GuildBossManager {
         }
     }
 
-    private static void removeNpc(MinecraftServer server, String dimension, UUID npcUuid) {
+    private static boolean removeNpc(MinecraftServer server, String dimension, UUID npcUuid) {
         ServerLevel level = level(server, dimension);
-        if (level == null) return;
+        if (level == null) return false;
         Entity entity = level.getEntity(npcUuid);
         if (entity != null) {
-            try { entity.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
+            try {
+                entity.remove(Entity.RemovalReason.DISCARDED);
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
         }
+        return false;
     }
 
     private static boolean spawnPokemon(MinecraftServer server, ServerLevel level, BossConfig.BossPokemon pokemon, BossConfig.BossSettings settings, double x, double y, double z) {
@@ -712,13 +840,16 @@ public final class GuildBossManager {
         long interval = avg * 60_000L;
 
         // Timers are in memory, so rebuild them after a restart from the persisted last spawn time.
-        // If the server was offline past the due time, spawn shortly after startup instead of waiting
-        // another full interval.
+        // If the server was offline past the due time, start a fresh randomized cycle instead of
+        // spawning immediately on every reboot.
         long lastSpawn = worldBoss.lastSpawnAtMillis;
         if (lastSpawn > 0L) {
             long dueAt = lastSpawn + interval;
             if (now >= dueAt) {
-                nextWorldBossAtMillis = now + 60_000L;
+                // Do not spawn a world boss immediately just because the server was offline past
+                // the due time. Reboots should not create a new boss every time the saved timer
+                // is old; start a fresh randomized cycle instead.
+                scheduleNextWorldBoss(now);
             } else {
                 nextWorldBossAtMillis = dueAt;
             }
@@ -775,7 +906,7 @@ public final class GuildBossManager {
 
     private static boolean isBossNotificationAdmin(ServerPlayer player) {
         if (player == null) return false;
-        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) return true;
+        if (player.hasPermissions(4)) return true;
         return LuckPermsHook.hasPermission(player, BOSS_ADMIN_PERMISSION) || LuckPermsHook.hasPermission(player, GUILD_BOSS_MONITOR_PERMISSION);
     }
 
@@ -794,8 +925,8 @@ public final class GuildBossManager {
     }
 
     public record ActiveGuildBossView(UUID guildId, UUID npcUuid) {}
-    private static final class ActiveGuildBoss { UUID id; UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
-    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveGuildBoss { UUID id; UUID guildId; UUID territoryId; UUID npcUuid; String guildName; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); String dimension; double x; double y; double z; long despawnAtMillis; long battleGraceUntilMillis; Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
+    private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; long battleGraceUntilMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
 }

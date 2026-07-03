@@ -70,18 +70,26 @@ public final class SurvivalWorldManager {
         if (server == null || !SurvivalWorldConfig.get().enabled) return null;
         bootstrapState();
         String wantedType = normalizeType(type);
-        List<Entry> candidates = new ArrayList<>();
+        List<RtpTarget> candidates = new ArrayList<>();
         for (Entry entry : state.worlds) {
             if (!wantedType.equals(normalizeType(entry.worldType))) continue;
             if (!entry.activeForRtp) continue;
             ServerLevel level = getLevel(server, entry.worldName);
-            if (level != null) candidates.add(entry);
+            if (level == null) continue;
+            if (isAtOrOverRtpCap(level)) continue;
+            candidates.add(new RtpTarget(entry, level));
         }
         if (candidates.isEmpty()) return null;
         Collections.shuffle(candidates);
-        Entry picked = candidates.get(0);
-        ServerLevel level = getLevel(server, picked.worldName);
-        return level == null ? null : new RtpTarget(picked, level);
+        candidates.sort((a, b) -> Integer.compare(a.level.players().size(), b.level.players().size()));
+        return candidates.get(0);
+    }
+
+    public static boolean isAtOrOverRtpCap(ServerLevel level) {
+        if (level == null) return false;
+        int cap = SurvivalWorldConfig.get().maxRtpPlayersPerWorld;
+        if (cap <= 0) return false;
+        return level.players().size() >= cap;
     }
 
     public static boolean isSurvivalLevel(ServerLevel level) {
@@ -204,11 +212,10 @@ public final class SurvivalWorldManager {
                 entry = new Entry();
                 entry.worldName = worldName;
                 entry.status = "PENDING";
-                entry.activeForRtp = local == 1;
             }
-            if (local == 1) {
-                entry.activeForRtp = true;
-            }
+            // All configured survival shard worlds are eligible for /rtp by default.
+            // The per-world soft cap decides whether RTP may place new players there.
+            entry.activeForRtp = true;
             entry.index = globalIndex;
             entry.localIndex = local;
             entry.worldType = type;

@@ -73,7 +73,7 @@ public class SettingsMenu {
                 gui,
                 5,
                 "Auto Repair Broken Tools",
-                "Automatically repairs profession tools when they hit zero durability if materials are available.",
+                "Automatically charges credits and repairs profession tools when they hit zero durability.",
                 ProfessionNotificationSettings.isAutoRepairEnabled(player),
                 () -> ProfessionNotificationSettings.toggleAutoRepair(player),
                 player

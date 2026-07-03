@@ -396,15 +396,19 @@ public class Config {
 
     public static class ProfileConversion {
         /**
-         * Special profiles must be this many full days old before players can convert them to Normal.
-         * Set to 0 to disable the age gate. Default: 3 days.
+         * Nuzlocke, Ironman, and Monotype profiles must be this many hours old before players can convert them to Normal.
+         * Islander profiles can never convert to Normal. Set to 0 to disable the age gate. Default: 24 hours.
          */
-        public int minAgeDaysBeforeNormal = 3;
+        public int minAgeHoursBeforeNormal = 24;
+
+        /** Backwards compatibility for older rules.json files. */
+        public int minAgeDaysBeforeNormal = -1;
 
         public void normalize(){
-            if(minAgeDaysBeforeNormal < 0){
-                minAgeDaysBeforeNormal = 0;
+            if(minAgeHoursBeforeNormal < 0){
+                minAgeHoursBeforeNormal = 0;
             }
+            // minAgeDaysBeforeNormal is kept only so old configs deserialize cleanly; conversion now uses hours.
         }
     }
 

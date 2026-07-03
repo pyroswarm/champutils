@@ -1,5 +1,6 @@
 package com.champutils.chat;
 
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.database.DatabaseManager;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -86,7 +87,7 @@ public final class ChatPreferenceManager {
             try {
                 loaded[0] = loadFromSql(connection, playerUuid);
             } finally {
-                System.out.println("[PROFILE-TIMING] ChatPreferenceManager.loadAsync.SQL took " + (System.currentTimeMillis() - start) + "ms");
+                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ChatPreferenceManager.loadAsync.SQL took " + (System.currentTimeMillis() - start) + "ms");
             }
         }).handle((ignored, error) -> {
             if (error != null) {
@@ -113,7 +114,7 @@ public final class ChatPreferenceManager {
             CACHE.put(uuid, prefs);
             MODES.put(uuid, prefs.mode() == null ? ChatMode.LOCAL : prefs.mode());
         } finally {
-            System.out.println("[PROFILE-TIMING] ChatPreferenceManager.apply took " + (System.currentTimeMillis() - start) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ChatPreferenceManager.apply took " + (System.currentTimeMillis() - start) + "ms");
         }
     }
 

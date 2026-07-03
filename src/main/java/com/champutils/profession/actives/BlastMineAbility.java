@@ -1,9 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionActiveDuration;
 import com.champutils.profession.ProfessionNotificationSettings;
-
-import com.champutils.profession.ProfessionNotificationSettings;
-import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
 import net.minecraft.network.chat.Component;
@@ -23,28 +21,24 @@ public class BlastMineAbility implements ProfessionActiveAbility {
 
     @Override
     public boolean use(ServerPlayer player, ItemStack stack) {
-        int seconds = getDurationSeconds(stack);
+        double seconds = getDurationSeconds(player, stack);
+        String secondsText = ProfessionActiveDuration.formatSeconds(seconds);
 
         ActiveEffectManager.activateTimed(player, "blast_mine", "Blast Mine", seconds, stack);
 
-        player.sendSystemMessage(Component.literal("§cBlast Mine active: §fYour pickaxe breaks a §e5x5 §farea for §e" + seconds + "s§f."));
+        player.sendSystemMessage(Component.literal("§cBlast Mine active: §fYour pickaxe breaks a §e5x5 §farea for §e" + secondsText + "s§f."));
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§cBlast Mine active: 5x5 mining for " + seconds + "s"), true);
+            player.displayClientMessage(Component.literal("§cBlast Mine active: 5x5 mining for " + secondsText + "s"), true);
         }
         ProfessionNotificationSettings.playSound(player, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.55F, 1.55F);
         return true;
     }
 
-    private int getDurationSeconds(ItemStack stack) {
-        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
-        if (toolData != null && toolData.activeDurationSeconds > 0) {
-            return Math.max(1, toolData.activeDurationSeconds);
-        }
-
+    private double getDurationSeconds(ServerPlayer player, ItemStack stack) {
         double rolledSeconds = ProfessionToolUtil.getStat(stack, "blastMineSeconds");
-        if (rolledSeconds <= 0.0D) {
-            return DEFAULT_SECONDS;
-        }
-        return Math.max(1, (int) Math.round(rolledSeconds));
+        double fallback = rolledSeconds <= 0.0D ? DEFAULT_SECONDS : rolledSeconds;
+        return ActiveEffectManager.extendedActiveDurationSeconds(
+                ProfessionActiveDuration.durationSeconds(player, stack, fallback, null)
+        );
     }
 }

@@ -61,25 +61,26 @@ public final class IslanderMineConfig {
         public int centerX = 0;
         public int centerY = -60;
         public int centerZ = 0;
-        public int radius = 72;
-        public int height = 96;
-        public int blocksPerTick = 5000;
+        public int radius = 128;
+        public int height = 144;
+        public int blocksPerTick = 12000;
 
         /**
          * Ore pocket start chance per scanned block, out of 10,000.
-         * Higher = denser mines. Vanilla-feeling dense stripmine value is around 160-240.
+         * Higher = denser mines. Islander mines are intentionally very ore-rich
+         * because this is the main contained resource loop for islander profiles.
          * This still creates pockets, not random single-block ore confetti.
          */
-        public int orePocketStartChancePer10000 = 520;
+        public int orePocketStartChancePer10000 = 4500;
 
         /** Shared mine dimensions are named like islander_mine_1, islander_mine_2, etc. */
         public String worldPrefix = "islander_mine_";
         public int maxPlayersPerWorld = 25;
 
-        /** EVERY_24_HOURS is a rolling 24 hour reset. DEBUG_MINUTES is for testing only. */
-        public String resetMode = "EVERY_24_HOURS";
+        /** EVERY_N_HOURS is a rolling reset using resetHours. DEBUG_MINUTES is for testing only. */
+        public String resetMode = "EVERY_N_HOURS";
         public int debugResetMinutes = 30;
-        public int resetHours = 24;
+        public int resetHours = 2;
         public boolean allowManualReset = true;
 
         public int spawnRoomHalfSize = 5;
@@ -87,60 +88,71 @@ public final class IslanderMineConfig {
         public int protectedSpawnRadius = 7;
         public int protectedSpawnHeight = 8;
 
+        /** Chance per 16x16x8 mine cell to place one exploration loot chest. */
+        public int lootChestChancePer10000 = 180;
+
         /** Vanilla stripmine-style ore pockets. Values are weighted pocket-start chances, not per-block ore spam. */
         public Map<String, OreRule> ores = new LinkedHashMap<>();
 
         public static Data defaults() {
             Data d = new Data();
-            d.ores.put("minecraft:coal_ore", new OreRule(76, 9, 22, 18, 95, false));
-            d.ores.put("minecraft:deepslate_coal_ore", new OreRule(22, 4, 10, 0, 28, false));
-            d.ores.put("minecraft:copper_ore", new OreRule(68, 8, 20, 24, 95, false));
-            d.ores.put("minecraft:deepslate_copper_ore", new OreRule(24, 4, 10, 0, 34, false));
-            d.ores.put("minecraft:iron_ore", new OreRule(74, 8, 18, 8, 90, false));
-            d.ores.put("minecraft:deepslate_iron_ore", new OreRule(48, 6, 14, 0, 48, false));
-            d.ores.put("minecraft:gold_ore", new OreRule(36, 5, 12, 4, 56, false));
-            d.ores.put("minecraft:deepslate_gold_ore", new OreRule(30, 4, 10, 0, 36, false));
-            d.ores.put("minecraft:redstone_ore", new OreRule(44, 6, 14, 0, 42, false));
-            d.ores.put("minecraft:deepslate_redstone_ore", new OreRule(36, 5, 12, 0, 34, false));
-            d.ores.put("minecraft:lapis_ore", new OreRule(28, 4, 11, 0, 56, false));
-            d.ores.put("minecraft:deepslate_lapis_ore", new OreRule(22, 3, 8, 0, 34, false));
-            d.ores.put("minecraft:diamond_ore", new OreRule(18, 3, 8, 0, 34, false));
-            d.ores.put("minecraft:deepslate_diamond_ore", new OreRule(16, 2, 6, 0, 24, false));
-            d.ores.put("minecraft:emerald_ore", new OreRule(9, 1, 5, 8, 70, false));
-            d.ores.put("minecraft:deepslate_emerald_ore", new OreRule(6, 1, 3, 0, 24, false));
-            d.ores.put("minecraft:nether_quartz_ore", new OreRule(42, 5, 13, 0, 70, false));
-            d.ores.put("minecraft:nether_gold_ore", new OreRule(28, 4, 10, 0, 64, false));
-            d.ores.put("minecraft:ancient_debris", new OreRule(4, 1, 2, 0, 24, true));
-            d.ores.put("cobblemon:fire_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
-            d.ores.put("cobblemon:water_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
-            d.ores.put("cobblemon:thunder_stone_ore", new OreRule(7, 2, 6, 0, 34, false));
-            d.ores.put("cobblemon:moon_stone_ore", new OreRule(7, 2, 6, 0, 28, false));
+            d.blocksPerTick = 12000;
+            d.orePocketStartChancePer10000 = 4500;
+            d.ores.put("minecraft:coal_ore", new OreRule(300, 20, 48, 12, 136, false));
+            d.ores.put("minecraft:deepslate_coal_ore", new OreRule(160, 12, 32, 0, 52, false));
+            d.ores.put("minecraft:copper_ore", new OreRule(290, 20, 46, 16, 136, false));
+            d.ores.put("minecraft:deepslate_copper_ore", new OreRule(170, 12, 32, 0, 60, false));
+            d.ores.put("minecraft:iron_ore", new OreRule(340, 20, 48, 4, 132, false));
+            d.ores.put("minecraft:deepslate_iron_ore", new OreRule(260, 14, 40, 0, 76, false));
+            d.ores.put("minecraft:gold_ore", new OreRule(190, 12, 34, 0, 88, false));
+            d.ores.put("minecraft:deepslate_gold_ore", new OreRule(170, 10, 30, 0, 64, false));
+            d.ores.put("minecraft:redstone_ore", new OreRule(220, 12, 36, 0, 64, false));
+            d.ores.put("minecraft:deepslate_redstone_ore", new OreRule(210, 12, 34, 0, 56, false));
+            d.ores.put("minecraft:lapis_ore", new OreRule(160, 10, 30, 0, 84, false));
+            d.ores.put("minecraft:deepslate_lapis_ore", new OreRule(145, 8, 26, 0, 58, false));
+            d.ores.put("minecraft:diamond_ore", new OreRule(95, 6, 18, 0, 48, false));
+            d.ores.put("minecraft:deepslate_diamond_ore", new OreRule(90, 5, 16, 0, 42, false));
+            d.ores.put("minecraft:emerald_ore", new OreRule(55, 4, 12, 4, 96, false));
+            d.ores.put("minecraft:deepslate_emerald_ore", new OreRule(42, 3, 10, 0, 44, false));
+            d.ores.put("minecraft:nether_quartz_ore", new OreRule(210, 14, 38, 0, 110, false));
+            d.ores.put("minecraft:nether_gold_ore", new OreRule(170, 10, 30, 0, 90, false));
+            d.ores.put("minecraft:ancient_debris", new OreRule(8, 1, 1, 0, 28, true));
             return d;
         }
 
         public void normalize() {
+            // Upgrade older small islander mines to the launch-size shared mine.
+            if (radius <= 72) radius = 128;
             if (radius < 24) radius = 24;
             if (radius > 160) radius = 160;
+            if (height <= 96) height = 144;
             if (height < 32) height = 32;
             if (height > 160) height = 160;
             if (centerY < -62) centerY = -62;
             if (centerY + height > 319) height = Math.max(32, 319 - centerY);
             if (blocksPerTick < 512) blocksPerTick = 512;
             if (blocksPerTick > 25000) blocksPerTick = 25000;
-            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 520;
-            if (orePocketStartChancePer10000 <= 340) orePocketStartChancePer10000 = 520;
+            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 4500;
+            // Older configs were capped at 1000, which made the islander mine feel nearly empty.
+            // Treat those legacy values as under-tuned and upgrade them to the new rich mine default.
+            if (orePocketStartChancePer10000 <= 1000) orePocketStartChancePer10000 = 4500;
             if (orePocketStartChancePer10000 < 25) orePocketStartChancePer10000 = 25;
-            if (orePocketStartChancePer10000 > 1000) orePocketStartChancePer10000 = 1000;
+            if (orePocketStartChancePer10000 > 9000) orePocketStartChancePer10000 = 9000;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "islander_mine_";
             worldPrefix = worldPrefix.trim().toLowerCase(Locale.ROOT);
             if (maxPlayersPerWorld < 1) maxPlayersPerWorld = 1;
             if (maxPlayersPerWorld > 100) maxPlayersPerWorld = 100;
-            if (resetMode == null || resetMode.isBlank()) resetMode = "EVERY_24_HOURS";
+            if (resetMode == null || resetMode.isBlank()) resetMode = "EVERY_N_HOURS";
             resetMode = resetMode.trim().toUpperCase(Locale.ROOT);
-            if (!resetMode.equals("EVERY_24_HOURS") && !resetMode.equals("DAILY_2AM") && !resetMode.equals("DEBUG_MINUTES")) resetMode = "EVERY_24_HOURS";
+            boolean legacyTwentyFourHourMode = resetMode.equals("EVERY_24_HOURS");
+            if (legacyTwentyFourHourMode) {
+                resetMode = "EVERY_N_HOURS";
+                if (resetHours == 24) resetHours = 2;
+            }
+            if (!resetMode.equals("EVERY_N_HOURS") && !resetMode.equals("DAILY_2AM") && !resetMode.equals("DEBUG_MINUTES")) resetMode = "EVERY_N_HOURS";
             if (debugResetMinutes < 1) debugResetMinutes = 1;
             if (debugResetMinutes > 1440) debugResetMinutes = 1440;
-            if (resetHours < 1) resetHours = 24;
+            if (resetHours < 2) resetHours = 2;
             if (resetHours > 168) resetHours = 168;
             if (spawnRoomHalfSize < 3) spawnRoomHalfSize = 3;
             if (spawnRoomHalfSize > 12) spawnRoomHalfSize = 12;
@@ -150,7 +162,10 @@ public final class IslanderMineConfig {
             if (protectedSpawnRadius > 24) protectedSpawnRadius = 24;
             if (protectedSpawnHeight < spawnRoomHeight + 1) protectedSpawnHeight = spawnRoomHeight + 1;
             if (protectedSpawnHeight > 24) protectedSpawnHeight = 24;
+            if (lootChestChancePer10000 < 0) lootChestChancePer10000 = 0;
+            if (lootChestChancePer10000 > 1000) lootChestChancePer10000 = 1000;
             if (ores == null || ores.isEmpty()) ores = defaults().ores;
+            ores.entrySet().removeIf(e -> e.getKey() != null && e.getKey().startsWith("cobblemon:") && e.getKey().endsWith("_ore"));
             OreRule oldQuartz = ores.remove("minecraft:quartz_ore");
             if (oldQuartz != null) ores.putIfAbsent("minecraft:nether_quartz_ore", oldQuartz);
             for (Map.Entry<String, OreRule> entry : defaults().ores.entrySet()) {
@@ -186,7 +201,7 @@ public final class IslanderMineConfig {
             if (weight > 1000) weight = 1000;
             if (minPocketSize < 1) minPocketSize = 1;
             if (maxPocketSize < minPocketSize) maxPocketSize = minPocketSize;
-            if (maxPocketSize > 32) maxPocketSize = 32;
+            if (maxPocketSize > 64) maxPocketSize = 64;
             if (singleOnly) { minPocketSize = 1; maxPocketSize = 1; }
             if (minLocalY < 0) minLocalY = 0;
             if (maxLocalY < minLocalY) maxLocalY = minLocalY;

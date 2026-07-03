@@ -18,7 +18,7 @@ public final class PortalCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("portal")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .then(literal("pos1")
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(ctx -> setPos1(ctx.getSource(), StringArgumentType.getString(ctx, "id")))))

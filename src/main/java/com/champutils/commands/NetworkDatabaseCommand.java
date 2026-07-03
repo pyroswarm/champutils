@@ -18,7 +18,7 @@ public final class NetworkDatabaseCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 dispatcher.register(Commands.literal("networkdb")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(context -> run(context.getSource().getPlayerOrException()))));
     }
 

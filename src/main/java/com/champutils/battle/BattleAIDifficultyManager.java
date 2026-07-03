@@ -1,5 +1,6 @@
 package com.champutils.battle;
 
+import com.champutils.debug.ChampDebugManager;
 import com.cobblemon.mod.common.api.battles.model.actor.ActorType;
 import com.cobblemon.mod.common.api.battles.model.ai.BattleAI;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -11,6 +12,8 @@ import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -52,6 +55,11 @@ public final class BattleAIDifficultyManager {
     }
 
     public static void setDebug(boolean debug) {
+        if (debug) {
+            ChampDebugManager.setOnly(ChampDebugManager.Category.AI);
+        } else {
+            ChampDebugManager.disable("ai");
+        }
         ChampBattleAIConfig.DATA.debug = debug;
         ChampBattleAIConfig.save();
     }
@@ -98,25 +106,51 @@ public final class BattleAIDifficultyManager {
             }
         }
 
-        boolean wrapper = bucket.antiSpamLayer || bucket.competitiveLayer;
+        int resolvedSkill = resolveSkill(detectedType, actor, bucket.skill);
+        boolean wrapper = bucket.antiSpamLayer || bucket.competitiveLayer || "rctapi".equalsIgnoreCase(String.valueOf(ChampBattleAIConfig.DATA.engine));
         BattleAI ai = wrapper
-                ? new ChampSmarterBattleAI(bucket.skill, bucket.competitiveLayer, bucket.antiSpamLayer)
-                : new StrongBattleAI(bucket.skill);
+                ? new ChampSmartBattleAI(resolvedSkill, bucket.competitiveLayer, ChampBattleAIConfig.DATA.fallbackToStrongAi, ChampBattleAIConfig.DATA.fallbackToRandomAi)
+                : new StrongBattleAI(resolvedSkill);
 
         boolean applied = setBattleAI(actor, ai);
         String battleId = readBattleId(battle);
         String player = readFirstPlayerName(battle);
-        lastAssignment = new LastAssignment(player, battleId, detectedType, String.valueOf(type), bucket.skill, wrapper, false, applied);
+        lastAssignment = new LastAssignment(player, battleId, detectedType, String.valueOf(type), resolvedSkill, wrapper, false, applied);
 
         if (applied) {
             debug("Battle detected: type=" + detectedType + " player=" + player + " battleId=" + battleId
-                    + " aiSkill=" + bucket.skill + " competitiveLayer=" + bucket.competitiveLayer);
+                    + " aiSkill=" + resolvedSkill + " competitiveLayer=" + bucket.competitiveLayer);
             debug("Using " + (detectedType.equals("WILD") ? "SmartWildAI" : "HardTrainerAI")
-                    + " -> " + (wrapper ? "ChampSmarterBattleAI" : "StrongBattleAI") + "(" + bucket.skill + ")");
+                    + " -> " + (wrapper ? "ChampSmartBattleAI" : "StrongBattleAI") + "(" + resolvedSkill + ")");
+            debugBattleSheet(battleId, detectedType, actor, resolvedSkill, wrapper);
         } else {
             debug("Fallback: could not replace BattleAI field for actor=" + actor.getClass().getName()
                     + ", Cobblemon actor skill/fallback will remain in control.");
         }
+    }
+
+    private static int resolveSkill(String detectedType, Object actor, int fallbackSkill) {
+        int skill = Math.max(0, Math.min(MAX_COBBLEMON_AI_SKILL, fallbackSkill));
+        if (!"TRAINER".equals(detectedType)) {
+            return skill;
+        }
+        String marker = actorMarker(actor);
+        if (marker.contains("mythic") || marker.contains("legendary") || marker.contains("epic")) return 5;
+        if (marker.contains("rare")) return 4;
+        if (marker.contains("uncommon")) return 3;
+        if (marker.contains("common")) return 2;
+        return skill;
+    }
+
+    private static String actorMarker(Object actor) {
+        String marker = String.valueOf(actor).toLowerCase(Locale.ROOT);
+        try {
+            if (actor instanceof NPCBattleActor npcActor) {
+                NPCEntity npc = npcActor.getEntity();
+                marker += " " + String.join(",", npc.getTags()).toLowerCase(Locale.ROOT) + " " + String.valueOf(npc.getCustomName()).toLowerCase(Locale.ROOT);
+            }
+        } catch (Exception ignored) {}
+        return marker;
     }
 
     private static ChampBattleAIConfig.BattleBucket bucketFor(ActorType type, Object actor) {
@@ -162,14 +196,7 @@ public final class BattleAIDifficultyManager {
         if (type == ActorType.WILD) return "WILD";
         if (type != ActorType.NPC) return type == null ? "UNKNOWN" : type.name();
 
-        String marker = String.valueOf(actor).toLowerCase(Locale.ROOT);
-        try {
-            if (actor instanceof NPCBattleActor npcActor) {
-                NPCEntity npc = npcActor.getEntity();
-                String tags = String.join(",", npc.getTags()).toLowerCase(Locale.ROOT);
-                marker += " " + tags + " " + String.valueOf(npc.getCustomName()).toLowerCase(Locale.ROOT);
-            }
-        } catch (Exception ignored) {}
+        String marker = actorMarker(actor);
 
         if (marker.contains("world") && marker.contains("boss")) return "WORLD_BOSS";
         if (marker.contains("guild") && marker.contains("boss")) return "GUILD_BOSS";
@@ -206,10 +233,80 @@ public final class BattleAIDifficultyManager {
         return "unknown";
     }
 
-    public static void debug(String message) {
-        if (ChampBattleAIConfig.DATA != null && ChampBattleAIConfig.DATA.debug) {
-            System.out.println("[ChampUtils AI] " + message);
+    private static void debugBattleSheet(String battleId, String detectedType, Object actor, int skill, boolean wrapper) {
+        if (!isDebugEnabled()) return;
+        if (!("GYM_LEADER".equals(detectedType) || "TRAINER".equals(detectedType) || "GUILD_BOSS".equals(detectedType) || "WORLD_BOSS".equals(detectedType))) {
+            return;
         }
+
+        debug("BattleSheet: battleId=" + battleId + " type=" + detectedType + " skill=" + skill + " wrapper=" + wrapper + " actor=" + actor.getClass().getSimpleName());
+        Object pokemonList = readObject(actor, "getPokemonList");
+        if (!(pokemonList instanceof Iterable<?> mons)) {
+            debug("BattleSheet: unable to read actor pokemon list");
+            return;
+        }
+
+        int slot = 1;
+        for (Object mon : mons) {
+            debug("BattleSheet: slot=" + slot++ + " " + pokemonDebugLine(mon));
+        }
+    }
+
+    private static String pokemonDebugLine(Object battlePokemonOrPokemon) {
+        Object pokemon = readObject(battlePokemonOrPokemon, "getEffectedPokemon");
+        if (pokemon == null) pokemon = readObject(battlePokemonOrPokemon, "getPokemon");
+        if (pokemon == null) pokemon = battlePokemonOrPokemon;
+
+        Object species = readObject(pokemon, "getSpecies");
+        Object speciesName = readObject(species, "getName");
+        Object form = readObject(pokemon, "getForm");
+        Object formName = readObject(form, "getName");
+        Object level = readObject(pokemon, "getLevel");
+        Object ability = readObject(pokemon, "getAbility");
+        Object abilityName = readObject(ability, "getName");
+        Object item = readObject(pokemon, "heldItem");
+        if (item == null) item = readObject(pokemon, "getHeldItem");
+
+        return "species=" + cleanDebug(speciesName == null ? species : speciesName)
+                + " form=" + cleanDebug(formName == null ? form : formName)
+                + " level=" + cleanDebug(level)
+                + " ability=" + cleanDebug(abilityName == null ? ability : abilityName)
+                + " held=" + cleanDebug(item)
+                + " moves=" + readMoveList(pokemon);
+    }
+
+    private static List<String> readMoveList(Object pokemon) {
+        List<String> moves = new ArrayList<>();
+        Object moveSet = readObject(pokemon, "getMoveSet");
+        if (moveSet instanceof Iterable<?> iterable) {
+            for (Object move : iterable) {
+                Object name = readObject(move, "getName");
+                if (name == null) name = readObject(move, "getId");
+                if (name == null) name = readObject(move, "getShowdownId");
+                String clean = cleanDebug(name == null ? move : name);
+                if (!clean.isBlank() && !"null".equals(clean)) moves.add(clean);
+            }
+        }
+        return moves;
+    }
+
+    private static Object readObject(Object target, String methodName) {
+        if (target == null || methodName == null || methodName.isBlank()) return null;
+        try { return target.getClass().getMethod(methodName).invoke(target); } catch (Throwable ignored) { return null; }
+    }
+
+    private static String cleanDebug(Object value) {
+        if (value == null) return "unknown";
+        String text = String.valueOf(value).replace("TextComponent{text='", "").replace("', siblings=[], style=Style{} }", "");
+        return text.length() > 96 ? text.substring(0, 96) + "..." : text;
+    }
+
+    public static boolean isDebugEnabled() {
+        return ChampDebugManager.isEnabled(ChampDebugManager.Category.AI);
+    }
+
+    public static void debug(String message) {
+        ChampDebugManager.log(ChampDebugManager.Category.AI, "[ChampUtils AI] " + message);
     }
 
     public record LastAssignment(

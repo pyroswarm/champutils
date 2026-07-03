@@ -14,7 +14,7 @@ public final class MegaBossCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("megaboss")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .then(Commands.literal("force")
                                 .then(Commands.argument("rarity", StringArgumentType.word())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(MegaBossManager.validRarities(), builder))

@@ -4,5 +4,5 @@ public class GoldenRainAbility extends TimedBuffAbility {
     protected String effectId() { return "golden_rain"; }
     protected String displayName() { return "Golden Rain"; }
     protected int defaultSeconds() { return 20; }
-    protected String message(int seconds) { return "§6Golden Rain active: §ffarming passive chances boosted for §e" + seconds + "s§f."; }
+    protected String message(String secondsText) { return "§6Golden Rain active: §ffarming passive chances boosted for §e" + secondsText + "s§f."; }
 }

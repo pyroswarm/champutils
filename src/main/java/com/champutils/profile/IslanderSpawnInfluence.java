@@ -4,6 +4,7 @@ import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
 import com.champutils.emblem.EmblemManager;
 import com.champutils.gym.GymConfig;
+import com.champutils.gym.GymLevelCapUtil;
 import com.champutils.profession.ProfessionTrinketManager;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.api.spawning.SpawnBucket;
@@ -115,7 +116,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
             // Level Charm level corrections are intentionally quiet to avoid chat spam.
         }
 
-        ProfessionTrinketManager.tryApplyWildSpawnShiny(player, pokemon);
+        ProfessionTrinketManager.tryApplyWildSpawnShiny(player, pokemon, entity);
         entity.addTag("champutils_spawn_boost_checked");
     }
 
@@ -148,20 +149,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
     }
 
     private static int currentGymCap(ServerPlayer player) {
-        try {
-            java.util.Set<BadgeType> earned = BadgeManager.getBadges(player);
-            int bestEarnedCap = 0;
-            int nextCap = 0;
-            for (BadgeType badge : BadgeType.values()) {
-                GymConfig.GymDefinition gym = GymConfig.getGym(badge);
-                if (gym == null || gym.levelCap <= 0) continue;
-                if (earned.contains(badge)) bestEarnedCap = Math.max(bestEarnedCap, gym.levelCap);
-                else if (nextCap == 0 || gym.levelCap < nextCap) nextCap = gym.levelCap;
-            }
-            return nextCap > 0 ? Math.max(bestEarnedCap, nextCap) : Math.max(bestEarnedCap, 100);
-        } catch (Throwable ignored) {
-            return 50;
-        }
+        return GymLevelCapUtil.currentWildCap(player);
     }
 
     private static List<SpawnDetail> buildDetails(String typeName, SpawnablePositionType<?> type, String bucketKey, SpawnBucket bucket, IslanderSpawningConfig.Tier tier) {

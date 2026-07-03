@@ -177,6 +177,9 @@ public class ForestryProfessionListener {
     }
 
     private static int forestryXpFor(BlockState state, String blockId) {
+        if (state != null && state.is(BlockTags.LEAVES)) {
+            return 0;
+        }
         Integer configured = ProfessionConfig.SETTINGS.forestryXp.get(blockId);
         if (configured != null && configured > 0) return configured;
         if (state != null && (state.is(BlockTags.LOGS) || looksLikeLog(blockId))) {
@@ -197,7 +200,7 @@ public class ForestryProfessionListener {
     }
 
     private static int timberBurstLimit(ServerPlayer player, ItemStack tool) {
-        int forestryLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.FORESTRY));
+        int forestryLevel = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.FORESTRY));
         int scaledLimit = 6 + Math.max(0, forestryLevel / 2);
         int configuredCap = getIntStat(tool, "maxTimberBlocks", scaledLimit);
         return Math.max(1, Math.min(configuredCap, scaledLimit));

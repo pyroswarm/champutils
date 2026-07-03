@@ -14,7 +14,7 @@ public final class SpawnEditCommand {
     private SpawnEditCommand() {}
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(Commands.literal("spawnedit")
-                .requires(source -> source.hasPermission(4) || (source.getEntity() instanceof ServerPlayer sp && com.champutils.permissions.LuckPermsHook.hasPermission(sp, "champutils.admin")))
+                .requires(source -> source.hasPermission(4))
                 .executes(ctx -> toggle(ctx.getSource().getPlayerOrException()))));
     }
     private static int toggle(ServerPlayer player) {
@@ -27,7 +27,7 @@ public final class SpawnEditCommand {
         return 1;
     }
     public static boolean canEdit(ServerPlayer player) {
-        return player != null && ENABLED.contains(player.getUUID()) && (player.hasPermissions(4) || com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin"));
+        return player != null && ENABLED.contains(player.getUUID()) && player.hasPermissions(4);
     }
     public static void clear(ServerPlayer player) { if (player != null) ENABLED.remove(player.getUUID()); }
 }

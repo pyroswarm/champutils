@@ -8,15 +8,19 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Legacy fallback for profession helmets with the Aqua Affinity stat.
+ * Current helmets receive the real vanilla Aqua Affinity enchantment with glint
+ * suppressed, so this only compensates old helmets before the server tick has
+ * refreshed their enchantment component.
+ */
 @Mixin(Player.class)
 public abstract class PlayerUnderwaterMiningMixin {
     @Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
-    private void champutils$aquaAffinityUnderwaterMining(BlockState state, CallbackInfoReturnable<Float> cir) {
-        Player player = (Player) (Object) this;
+    private void champutils$professionHelmetAquaAffinity(BlockState state, CallbackInfoReturnable<Float> cir) {
+        Player player = (Player)(Object)this;
         float multiplier = ProfessionGearManager.underwaterMiningMultiplier(player);
         if (multiplier <= 1.0F) return;
-        Float original = cir.getReturnValue();
-        if (original == null || original <= 0.0F) return;
-        cir.setReturnValue(original * multiplier);
+        cir.setReturnValue(cir.getReturnValueF() * multiplier);
     }
 }

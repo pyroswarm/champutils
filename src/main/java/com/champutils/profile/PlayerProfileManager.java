@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.badge.BadgeManager;
 import com.champutils.badge.BadgeType;
@@ -56,7 +57,7 @@ public final class PlayerProfileManager {
         try {
             runnable.run();
         } finally {
-            System.out.println("[PROFILE-TIMING] " + operation + " took " + (System.currentTimeMillis() - start) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] " + operation + " took " + (System.currentTimeMillis() - start) + "ms");
         }
         return System.currentTimeMillis() - start;
     }
@@ -220,6 +221,26 @@ public final class PlayerProfileManager {
                 // land claims, and leaderboard rows are fully removed instead of lingering
                 // behind a soft-delete flag.
                 statement.executeUpdate("delete from player_profiles where deleted_at is not null");
+
+                // Clean up legacy profession-bootstrap ghost profiles. These were created by an old
+                // fallback path that treated a player UUID as if it were a real profile UUID. They
+                // show in /profiles but have no vanilla/Cobblemon state, so selecting them cannot
+                // load a playable profile. Real profiles are generated with random profile ids, so
+                // id = player_uuid plus no profile state is a safe signature for these ghosts.
+                statement.executeUpdate(
+                        "do $$ begin " +
+                                "if to_regclass('public.profile_vanilla_state') is not null " +
+                                "and to_regclass('public.profile_cobblemon_storage') is not null then " +
+                                "delete from player_profiles p " +
+                                "where p.id = p.player_uuid " +
+                                "and p.deleted_at is null " +
+                                "and p.last_dimension is null " +
+                                "and coalesce(p.metadata, '{}'::jsonb) = '{}'::jsonb " +
+                                "and not exists (select 1 from player_active_profiles a where a.profile_id = p.id) " +
+                                "and not exists (select 1 from profile_vanilla_state v where v.profile_id = p.id) " +
+                                "and not exists (select 1 from profile_cobblemon_storage c where c.profile_id = p.id); " +
+                                "end if; end $$"
+                );
             }
         });
     }
@@ -270,9 +291,9 @@ public static void handleJoin(ServerPlayer player) {
         }
         readProfiles(connection, playerUuid);
         readLimit(connection, player);
-        System.out.println("[PROFILE-TIMING] async join profile prep/cache warm took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] async join profile prep/cache warm took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
     }).whenComplete((ignored, error) -> player.server.execute(() -> {
-        if (player.hasDisconnected()) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         if (error != null) {
             error.printStackTrace();
             ACTIVE.put(playerUuid, new ProfileRecord(playerUuid, playerUuid, "Fallback", ProfileGameMode.NORMAL, null, true, false, null));
@@ -303,9 +324,9 @@ private static void handleProfileLobbyJoin(ServerPlayer player, UUID playerUuid,
         }
         readProfiles(connection, playerUuid);
         readLimit(connection, player);
-        System.out.println("[PROFILE-TIMING] profile lobby metadata-only join prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] profile lobby metadata-only join prep took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
     }).whenComplete((ignored, error) -> player.server.execute(() -> {
-        if (player.hasDisconnected()) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         if (error != null) {
             ProfileLobbyDebug.log("handleProfileLobbyJoin.sqlFailed", player, error);
             player.sendSystemMessage(Component.literal("Could not prepare your SQL profiles. Check console/database logs.").withStyle(ChatFormatting.RED));
@@ -477,8 +498,18 @@ public static void unload(UUID playerUuid) {
 
     public static boolean hasActiveProfile(ServerPlayer player) {
         if (player == null) return false;
-        ProfileRecord record = ACTIVE.get(player.getUUID());
-        return record != null && !record.profileId().equals(player.getUUID());
+        return hasActiveProfile(player.getUUID());
+    }
+
+    public static boolean hasActiveProfile(UUID playerUuid) {
+        if (playerUuid == null) return false;
+        ProfileRecord record = ACTIVE.get(playerUuid);
+        return record != null && record.profileId() != null && !record.profileId().equals(playerUuid);
+    }
+
+    public static UUID activeProfileIdOrNull(UUID playerUuid) {
+        if (!hasActiveProfile(playerUuid)) return null;
+        return ACTIVE.get(playerUuid).profileId();
     }
 
     public static UUID activeProfileId(ServerPlayer player) {
@@ -571,23 +602,23 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             long createTotalStart = System.currentTimeMillis();
             long connectionStart = System.currentTimeMillis();
             Connection connection = DatabaseManager.getConnection();
-            System.out.println("[PROFILE-TIMING] createBlocking.connection acquisition took " + (System.currentTimeMillis() - connectionStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.connection acquisition took " + (System.currentTimeMillis() - connectionStart) + "ms");
 
             long ensureStart = System.currentTimeMillis();
             ensurePlayerRow(connection, player);
-            System.out.println("[PROFILE-TIMING] createBlocking.ensurePlayerRow took " + (System.currentTimeMillis() - ensureStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.ensurePlayerRow took " + (System.currentTimeMillis() - ensureStart) + "ms");
 
             long limitSyncStart = System.currentTimeMillis();
             syncLimitFromLuckPerms(connection, player);
-            System.out.println("[PROFILE-TIMING] createBlocking.syncLimitFromLuckPerms took " + (System.currentTimeMillis() - limitSyncStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.syncLimitFromLuckPerms took " + (System.currentTimeMillis() - limitSyncStart) + "ms");
 
             long pendingDeleteStart = System.currentTimeMillis();
             finalizePendingDeletesBlocking(player);
-            System.out.println("[PROFILE-TIMING] createBlocking.finalizePendingDeletes took " + (System.currentTimeMillis() - pendingDeleteStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.finalizePendingDeletes took " + (System.currentTimeMillis() - pendingDeleteStart) + "ms");
 
             long existingStart = System.currentTimeMillis();
             ProfileRecord existing = readByName(connection, player.getUUID(), clean);
-            System.out.println("[PROFILE-TIMING] createBlocking.existingProfileLookup took " + (System.currentTimeMillis() - existingStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.existingProfileLookup took " + (System.currentTimeMillis() - existingStart) + "ms");
             if (existing != null) {
                 if (existing.pendingDelete()) return "That profile color is still pending deletion.";
                 return "You already have a profile named " + clean + ".";
@@ -596,12 +627,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             long limitStart = System.currentTimeMillis();
             ProfileLimit limit = limitBlocking(player);
             int liveProfiles = countLiveProfiles(connection, player.getUUID());
-            System.out.println("[PROFILE-TIMING] createBlocking.limit/count lookup took " + (System.currentTimeMillis() - limitStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.limit/count lookup took " + (System.currentTimeMillis() - limitStart) + "ms");
             if (liveProfiles >= limit.maxProfiles()) return "You already have the max of " + limit.maxProfiles() + " profiles.";
 
             long createTimingStart = System.currentTimeMillis();
             ProfileRecord created = createProfile(connection, player, clean, mode, normalizeType(monotypeType), false);
-            System.out.println("[PROFILE-TIMING] createBlocking.ProfileRepository.createProfile insert took " + (System.currentTimeMillis() - createTimingStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.ProfileRepository.createProfile insert took " + (System.currentTimeMillis() - createTimingStart) + "ms");
 
             long defaultCacheStart = System.currentTimeMillis();
             clearProfileCache(player.getUUID());
@@ -612,8 +643,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             // instead of reading the saved profile_vanilla_state row from SQL.
             VANILLA_STATE_CACHE.remove(created.profileId());
             SAVED_LOCATION_CACHE.put(created.profileId(), new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true));
-            System.out.println("[PROFILE-TIMING] createBlocking.default profile cache took " + (System.currentTimeMillis() - defaultCacheStart) + "ms");
-            System.out.println("[PROFILE-TIMING] createBlocking total took " + (System.currentTimeMillis() - createTotalStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking.default profile cache took " + (System.currentTimeMillis() - defaultCacheStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking total took " + (System.currentTimeMillis() - createTotalStart) + "ms");
             return "Created profile " + clean + ". Use /profiles to select it.";
         }
         catch (Exception e) { e.printStackTrace(); return "Could not create profile. Check console/database logs."; }
@@ -707,7 +738,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             saveYaw = player.getYRot();
             savePitch = player.getXRot();
             vanillaSnapshot = VanillaProfileStateManager.snapshotSnbt(player);
-            System.out.println("[PROFILE-TIMING] switchAsync.snapshot old vanilla/location took " + (System.currentTimeMillis() - snapshotStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] switchAsync.snapshot old vanilla/location took " + (System.currentTimeMillis() - snapshotStart) + "ms");
 
             timing("switchAsync.forceSaveProfileStores old profile", () -> CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player));
             timing("switchAsync.ChatPreferenceManager.saveAsync", () -> ChatPreferenceManager.saveAsync(player.getUUID(), ChatPreferenceManager.get(player.getUUID())));
@@ -738,7 +769,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             }
             if (target == null) throw new IllegalArgumentException("No profile named " + clean + ".");
             if (target.pendingDelete()) throw new IllegalStateException("That profile is pending deletion and cannot be loaded.");
-            System.out.println("[PROFILE-TIMING] SQL profile lookup took " + (System.currentTimeMillis() - sqlStart) + "ms cacheHit=" + cacheHit);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL profile lookup took " + (System.currentTimeMillis() - sqlStart) + "ms cacheHit=" + cacheHit);
 
             if (hadActiveProfileFinal && previousProfileIdFinal != null) {
                 long oldSaveStart = System.currentTimeMillis();
@@ -750,14 +781,14 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     VANILLA_STATE_CACHE.put(previousProfileIdFinal, vanillaSnapshotFinal);
                     ProfileAtomicSnapshotManager.saveVanillaBlocking(connection, previousProfileIdFinal, playerUuid, vanillaSnapshotFinal, "profile-switch-old-profile");
                 }
-                System.out.println("[PROFILE-TIMING] SQL old profile location/vanilla save took " + (System.currentTimeMillis() - oldSaveStart) + "ms");
+                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL old profile location/vanilla save took " + (System.currentTimeMillis() - oldSaveStart) + "ms");
             }
 
             long sqlLoadStart = System.currentTimeMillis();
             // Do not block the player's switch on the remote SQL active-profile write. The active
             // profile is applied from the already-resolved target record below, then persisted in
             // a separate DB task. This removes the common 60-80ms WAN/commit delay from switchAsync.
-            System.out.println("[PROFILE-TIMING] SQL active profile update skipped critical path; queued async persistence");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL active profile update skipped critical path; queued async persistence");
 
             long vanillaLoadStart = System.currentTimeMillis();
             String targetSnbt = VANILLA_STATE_CACHE.get(target.profileId());
@@ -766,7 +797,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 targetSnbt = VanillaProfileStateManager.loadSnbt(connection, target.profileId());
                 if (targetSnbt != null) VANILLA_STATE_CACHE.put(target.profileId(), targetSnbt);
             }
-            System.out.println("[PROFILE-TIMING] SQL vanilla inventory/state load took " + (System.currentTimeMillis() - vanillaLoadStart) + "ms cacheHit=" + vanillaCacheHit);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL vanilla inventory/state load took " + (System.currentTimeMillis() - vanillaLoadStart) + "ms cacheHit=" + vanillaCacheHit);
 
             long locationLoadStart = System.currentTimeMillis();
             SavedLocationSnapshot savedLocationSnapshot = SAVED_LOCATION_CACHE.get(target.profileId());
@@ -775,17 +806,17 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 savedLocationSnapshot = loadSavedLocationSnapshot(connection, target.profileId());
                 if (savedLocationSnapshot != null) SAVED_LOCATION_CACHE.put(target.profileId(), savedLocationSnapshot);
             }
-            System.out.println("[PROFILE-TIMING] SQL saved location load took " + (System.currentTimeMillis() - locationLoadStart) + "ms cacheHit=" + locationCacheHit);
-            System.out.println("[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL saved location load took " + (System.currentTimeMillis() - locationLoadStart) + "ms cacheHit=" + locationCacheHit);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
 
             long playtimeLoadStart = System.currentTimeMillis();
             ProfilePlaytimeManager.loadCacheBlocking(connection, target.profileId());
             try { com.champutils.cosmetic.TitleManager.preloadAsync(target.profileId()); } catch (Exception ignored) {}
-            System.out.println("[PROFILE-TIMING] SQL profile playtime preload took " + (System.currentTimeMillis() - playtimeLoadStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL profile playtime preload took " + (System.currentTimeMillis() - playtimeLoadStart) + "ms");
 
             long partyPrefetchStart = System.currentTimeMillis();
             CobblemonProfileStorageBridge.prefetchProfileStores(connection, target.profileId(), playerUuid, registryAccess);
-            System.out.println("[PROFILE-TIMING] party prefetch took " + (System.currentTimeMillis() - partyPrefetchStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] party prefetch took " + (System.currentTimeMillis() - partyPrefetchStart) + "ms");
 
             final String targetSnbtFinal = targetSnbt;
             final SavedLocationSnapshot savedLocationSnapshotFinal = savedLocationSnapshot;
@@ -793,7 +824,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
             player.server.execute(() -> {
                 long activationStart = System.currentTimeMillis();
-                if (player.hasDisconnected()) {
+                if (!SafeTeleportManager.isLive(player)) {
                     ProfileLoadingStateManager.end(player);
                     SWITCHING.remove(playerUuid);
                     return;
@@ -807,10 +838,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                             hadActiveProfileFinal ? previousProfileIdFinal : null
                     );
 
-                    System.out.println("[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
+                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] server.execute profile activation block took " + (System.currentTimeMillis() - activationStart) + "ms for " + playerName + " profile=" + active.profileId());
 
                     cobblemonSync.whenComplete((syncIgnored, syncError) -> player.server.execute(() -> {
-                        if (player.hasDisconnected()) {
+                        if (!SafeTeleportManager.isLive(player)) {
                             ProfileLoadingStateManager.end(player);
                             SWITCHING.remove(playerUuid);
                             return;
@@ -829,7 +860,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         CompletableFuture
                                 .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
                                 .whenComplete((snapshot, error) -> player.server.execute(() -> {
-                                    if (player.hasDisconnected()) {
+                                    if (!SafeTeleportManager.isLive(player)) {
                                         ProfileLoadingStateManager.end(player);
                                         SWITCHING.remove(playerUuid);
                                         return;
@@ -849,7 +880,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                                         // and background profile state have been applied or safely skipped.
                                         releaseLoadedProfile(player, savedLocationSnapshotFinal);
                                         SWITCHING.remove(playerUuid);
-                                        System.out.println("[PROFILE-TIMING] switchAsync total took " + (System.currentTimeMillis() - switchStart) + "ms for " + playerName);
+                                        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] switchAsync total took " + (System.currentTimeMillis() - switchStart) + "ms for " + playerName);
                                         if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
                                     }
                                 }));
@@ -892,7 +923,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         // chunk on the server tick. Loaded chunks complete almost immediately; unloaded chunks are
         // prepared before the release step instead of spiking the join tick.
         prewarmSavedLocationChunk(player, snapshot).whenComplete((ignored, error) -> player.server.execute(() -> {
-            if (player.hasDisconnected()) return;
+            if (!SafeTeleportManager.isLive(player)) return;
             if (error != null) {
                 System.err.println("[ChampUtils] Saved-location chunk prewarm failed for " + player.getGameProfile().getName() + ": " + error.getMessage());
             }
@@ -932,7 +963,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     .getChunkFuture(chunkX, chunkZ, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, true)
                     .whenComplete((chunkResult, chunkError) -> {
                         long elapsed = System.currentTimeMillis() - start;
-                        System.out.println("[PROFILE-TIMING] saved-location chunk prewarm took " + elapsed + "ms chunk=" + chunkX + "," + chunkZ + " dim=" + snapshot.dimension());
+                        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] saved-location chunk prewarm took " + elapsed + "ms chunk=" + chunkX + "," + chunkZ + " dim=" + snapshot.dimension());
                         if (chunkError != null) done.completeExceptionally(chunkError);
                         else done.complete(null);
                     });
@@ -952,7 +983,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     }
 
     private static void verifyLoadedProfileReleased(ServerPlayer player, SavedLocationSnapshot snapshot) {
-        if (player == null || player.server == null || player.hasDisconnected()) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         if (!hasActiveProfile(player)) return;
 
         ProfileLoadingStateManager.end(player);
@@ -995,7 +1026,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         timing("server.execute.VanillaProfileStateManager.applySnbt", () -> VanillaProfileStateManager.applySnbt(player, targetSnbt));
         long cobblemonStart = System.currentTimeMillis();
         CompletableFuture<Void> cobblemonSync = CobblemonProfileStorageBridge.loadActiveProfileStoresAndSync(player);
-        System.out.println("[PROFILE-TIMING] server.execute.loadActiveProfileStores scheduled took " + (System.currentTimeMillis() - cobblemonStart) + "ms");
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] server.execute.loadActiveProfileStores scheduled took " + (System.currentTimeMillis() - cobblemonStart) + "ms");
         timing("server.execute.ProfileSessionLoader.loadCritical", () -> ProfileSessionLoader.loadCritical(player));
         com.champutils.cosmetic.TitleRegistry.unlockProfileStarter(player);
 
@@ -1267,11 +1298,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 teleportToFirstProfileFallback(player);
                 return;
             }
-            player.teleportTo(level, snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch());
-            player.setYRot(snapshot.yaw());
-            player.setYHeadRot(snapshot.yaw());
-            player.setXRot(snapshot.pitch());
-            player.resetFallDistance();
+            SafeTeleportManager.teleportUncheckedNoBack(player, level, snapshot.x(), snapshot.y(), snapshot.z(), snapshot.yaw(), snapshot.pitch());
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to restore profile location snapshot for " + player.getGameProfile().getName());
             e.printStackTrace();
@@ -1313,11 +1340,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     double z = rs.getDouble("last_z");
                     float yaw = rs.getFloat("last_yaw");
                     float pitch = rs.getFloat("last_pitch");
-                    player.teleportTo(level, x, y, z, yaw, pitch);
-                    player.setYRot(yaw);
-                    player.setYHeadRot(yaw);
-                    player.setXRot(pitch);
-                    player.resetFallDistance();
+                    SafeTeleportManager.teleportUncheckedNoBack(player, level, x, y, z, yaw, pitch);
                 }
             }
         } catch (Exception e) {
@@ -1393,7 +1416,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         try (var statement = connection.prepareStatement(
                 "select p.id, p.player_uuid, p.name, p.mode, p.monotype, (a.profile_id is not null) as active, p.is_pending_delete, p.delete_available_at " +
                         "from player_profiles p left join player_active_profiles a on a.player_uuid = p.player_uuid and a.profile_id = p.id " +
-                        "where p.player_uuid = ? and p.deleted_at is null order by p.created_at asc")) {
+                        "where p.player_uuid = ? and p.deleted_at is null and (p.is_pending_delete = false or p.delete_available_at > now()) and coalesce(p.name, '') <> '' and p.mode is not null order by p.created_at asc")) {
             statement.setObject(1, playerUuid);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) profiles.add(fromResultSet(rs));
@@ -1447,7 +1470,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         DatabaseManager.executeAsync("persist active profile", connection -> {
             long start = System.currentTimeMillis();
             setActive(connection, playerUuid, profileId);
-            System.out.println("[PROFILE-TIMING] async SQL active profile persist took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] async SQL active profile persist took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
         });
     }
 
@@ -1456,7 +1479,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         boolean oldAutoCommit = connection.getAutoCommit();
         long beginStart = System.currentTimeMillis();
         connection.setAutoCommit(false);
-        System.out.println("[PROFILE-TIMING] setActive.transaction begin took " + (System.currentTimeMillis() - beginStart) + "ms");
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] setActive.transaction begin took " + (System.currentTimeMillis() - beginStart) + "ms");
         try {
             long upsertStart = System.currentTimeMillis();
             try (var ps = connection.prepareStatement("insert into player_active_profiles (player_uuid, profile_id, updated_at) values (?, ?, now()) " +
@@ -1465,18 +1488,18 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 ps.setObject(2, profileId);
                 ps.executeUpdate();
             }
-            System.out.println("[PROFILE-TIMING] setActive.active upsert took " + (System.currentTimeMillis() - upsertStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] setActive.active upsert took " + (System.currentTimeMillis() - upsertStart) + "ms");
 
             long lastUsedStart = System.currentTimeMillis();
             try (var ps = connection.prepareStatement("update player_profiles set last_used_at = now() where id = ?")) {
                 ps.setObject(1, profileId);
                 ps.executeUpdate();
             }
-            System.out.println("[PROFILE-TIMING] setActive.last_used update took " + (System.currentTimeMillis() - lastUsedStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] setActive.last_used update took " + (System.currentTimeMillis() - lastUsedStart) + "ms");
 
             long commitStart = System.currentTimeMillis();
             connection.commit();
-            System.out.println("[PROFILE-TIMING] setActive.commit took " + (System.currentTimeMillis() - commitStart) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] setActive.commit took " + (System.currentTimeMillis() - commitStart) + "ms");
         } catch (Exception e) {
             try { connection.rollback(); } catch (Exception ignored) {}
             throw e;
@@ -1490,16 +1513,16 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         ProfileRecord record = active(player);
         if (player == null || record == null) return "No active profile loaded.";
         if (record.gameMode() == ProfileGameMode.NORMAL) return "This profile is already Normal.";
-        if (record.gameMode() == ProfileGameMode.ISLANDER && !hasCompletedIslanderConversionProgression(player)) {
-            return "Islander profiles can only convert after all 8 gyms and the Elite 4 Champion are completed.";
+        if (record.gameMode() == ProfileGameMode.ISLANDER) {
+            return "Islander profiles can never convert to Normal. This protects the normal economy from skyblock-only resources.";
         }
         if (!DatabaseManager.isEnabled()) return "Profiles require SQL.";
 
-        int requiredDays = Config.profileConversion == null ? 3 : Config.profileConversion.minAgeDaysBeforeNormal;
-        if (requiredDays < 0) requiredDays = 0;
+        int requiredHours = Config.profileConversion == null ? 24 : Config.profileConversion.minAgeHoursBeforeNormal;
+        if (requiredHours < 0) requiredHours = 0;
 
         try (Connection connection = DatabaseManager.getConnection()) {
-            if (requiredDays > 0) {
+            if (requiredHours > 0) {
                 try (var agePs = connection.prepareStatement("select created_at from player_profiles where id = ? and deleted_at is null limit 1")) {
                     agePs.setObject(1, record.profileId());
                     try (ResultSet rs = agePs.executeQuery()) {
@@ -1509,23 +1532,18 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         if (createdAt == null) return "Could not verify this profile's age. Conversion blocked for safety.";
 
                         OffsetDateTime now = OffsetDateTime.now(createdAt.getOffset());
-                        OffsetDateTime eligibleAt = createdAt.plusDays(requiredDays);
+                        OffsetDateTime eligibleAt = createdAt.plusHours(requiredHours);
                         if (now.isBefore(eligibleAt)) {
                             long hoursLeft = Math.max(1, ChronoUnit.HOURS.between(now, eligibleAt));
-                            long daysLeft = hoursLeft / 24;
-                            long remainderHours = hoursLeft % 24;
-                            String remaining = daysLeft > 0
-                                    ? daysLeft + "d " + remainderHours + "h"
-                                    : hoursLeft + "h";
-                            return "This " + record.gameMode().displayName() + " profile is too new to convert. It must exist for at least " + requiredDays + " day" + (requiredDays == 1 ? "" : "s") + ". Try again in about " + remaining + ".";
+                            return "This " + record.gameMode().displayName() + " profile is too new to convert. It must exist for at least " + requiredHours + " hours. Try again in about " + hoursLeft + "h.";
                         }
                     }
                 }
             }
 
-            try (var ps = connection.prepareStatement("update player_profiles set mode = 'NORMAL', monotype = null, metadata = metadata || jsonb_build_object('converted_to_normal_at', now()::text, 'converted_from_mode', ?, 'conversion_min_age_days', ?) where id = ?")) {
+            try (var ps = connection.prepareStatement("update player_profiles set mode = 'NORMAL', monotype = null, metadata = metadata || jsonb_build_object('converted_to_normal_at', now()::text, 'converted_from_mode', ?, 'conversion_min_age_hours', ?) where id = ?")) {
                 ps.setString(1, record.gameMode().name());
-                ps.setInt(2, requiredDays);
+                ps.setInt(2, requiredHours);
                 ps.setObject(3, record.profileId());
                 ps.executeUpdate();
                 ACTIVE.put(player.getUUID(), new ProfileRecord(record.profileId(), record.playerUuid(), record.profileName(), ProfileGameMode.NORMAL, null, true, false, null));

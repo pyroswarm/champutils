@@ -20,15 +20,15 @@ public final class CashShopBoostItemManager {
     private static boolean registered = false;
 
     static {
-        add("shiny_surge", "§dServer Shiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Increases the current shiny chance by +1% for the whole server for 15 minutes.");
-        add("special_surge", "§6Server Legendary Surge", null, 0.50D, "Adds +50% legendary/mythical wild spawn chance for the whole server for 15 minutes.");
-        add("paradox_surge", "§5Server Paradox Surge", null, 0.50D, "Adds +50% paradox wild spawn chance for the whole server for 15 minutes.");
-        add("ultrabeast_surge", "§dServer Ultra Beast Surge", null, 0.50D, "Adds +50% Ultra Beast wild spawn chance for the whole server for 15 minutes.");
-        add("pokemon_xp_surge", "§bServer Pokémon XP Surge", BuffType.POKEMON_XP, 0.25D, "Adds +25% Pokémon battle XP for 15 minutes.");
-        add("mining_xp_surge", "§3Server Mining XP Surge", BuffType.MINING_XP, 0.50D, "Adds +50% Mining profession XP for the whole server for 15 minutes.");
-        add("forestry_xp_surge", "§aServer Forestry XP Surge", BuffType.FORESTRY_XP, 0.50D, "Adds +50% Forestry profession XP for the whole server for 15 minutes.");
-        add("farming_xp_surge", "§eServer Farming XP Surge", BuffType.FARMING_XP, 0.50D, "Adds +50% Farming profession XP for the whole server for 15 minutes.");
-        add("battling_xp_surge", "§cServer Battle XP Surge", BuffType.BATTLING_XP, 0.50D, "Adds +50% Battle profession XP for the whole server for 15 minutes.");
+        add("shiny_surge", "§dShiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Increases the current shiny chance by +1% for the whole server for 15 minutes.");
+        add("special_surge", "§6Legendary Surge", null, 0.50D, "Adds +50% legendary/mythical wild spawn chance for the whole server for 15 minutes.");
+        add("paradox_surge", "§5Paradox Surge", null, 0.50D, "Adds +50% paradox wild spawn chance for the whole server for 15 minutes.");
+        add("ultrabeast_surge", "§bUltra Beast Surge", null, 0.50D, "Adds +50% Ultra Beast wild spawn chance for the whole server for 15 minutes.");
+        add("pokemon_xp_surge", "§9Pokémon XP Surge", BuffType.POKEMON_XP, 0.25D, "Adds +25% Pokémon battle XP for 15 minutes.");
+        add("mining_xp_surge", "§3Mining XP Surge", BuffType.MINING_XP, 0.50D, "Adds +50% Mining profession XP for the whole server for 15 minutes.");
+        add("forestry_xp_surge", "§aForestry XP Surge", BuffType.FORESTRY_XP, 0.50D, "Adds +50% Forestry profession XP for the whole server for 15 minutes.");
+        add("farming_xp_surge", "§eFarming XP Surge", BuffType.FARMING_XP, 0.50D, "Adds +50% Farming profession XP for the whole server for 15 minutes.");
+        add("battling_xp_surge", "§cBattle XP Surge", BuffType.BATTLING_XP, 0.50D, "Adds +50% Battle profession XP for the whole server for 15 minutes.");
     }
 
     private CashShopBoostItemManager() {}
@@ -56,7 +56,7 @@ public final class CashShopBoostItemManager {
         ItemStack stack = new ItemStack(Items.NETHER_STAR, Math.max(1, count));
         stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(def.name));
         stack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
-                Component.literal("§7Server booster credit item"),
+                Component.literal("§7Boost item"),
                 Component.literal("§7" + def.lore),
                 Component.literal("§eRight-click to activate for everyone."),
                 Component.literal("§8champutils_cash_boost:" + id)
@@ -115,17 +115,26 @@ public final class CashShopBoostItemManager {
         if (!ServerBuffManager.tryBeginExclusiveBoost(player, def.id, def.cleanName(), def.amount, DEFAULT_DURATION_MS)) return false;
         if (def.id.equals("special_surge")) {
             com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Legendary Spawn Chance is now active!").withStyle(ChatFormatting.GOLD), false);
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    server,
+                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Legendary Spawn Chance is now active!").withStyle(ChatFormatting.GOLD)
+            );
             return true;
         }
         if (def.id.equals("paradox_surge")) {
             com.champutils.specialspawn.SpecialWildSpawnManager.activateParadoxCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Paradox Spawn Chance is now active!").withStyle(ChatFormatting.DARK_PURPLE), false);
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    server,
+                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Paradox Spawn Chance is now active!").withStyle(ChatFormatting.DARK_PURPLE)
+            );
             return true;
         }
         if (def.id.equals("ultrabeast_surge")) {
             com.champutils.specialspawn.SpecialWildSpawnManager.activateUltraBeastCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(def.amount) + " Ultra Beast Spawn Chance is now active!").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    server,
+                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Ultra Beast Spawn Chance is now active!").withStyle(ChatFormatting.AQUA)
+            );
             return true;
         }
         ServerBuffManager.activateAndAnnounce(server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);

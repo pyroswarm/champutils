@@ -48,6 +48,7 @@ public class ProfessionToolConfig {
         public Map<String, ToolData> tools =
                 new LinkedHashMap<>();
 
+
         public Map<String, Long> rarityCosts =
                 new LinkedHashMap<>();
 
@@ -153,10 +154,10 @@ public class ProfessionToolConfig {
 
         /*
          Optional extra seconds added per profession level for timed active abilities.
-         Example: timber_burst with activeDurationSeconds=20 and activeDurationSecondsPerLevel=1
-         lasts 20s at level 1, 21s at level 2, etc.
+         Example: timber_burst with activeDurationSeconds=10 and activeDurationSecondsPerLevel=0.1
+         lasts 10.0s at level 1, 10.1s at level 2, etc.
          */
-        public int activeDurationSecondsPerLevel = 0;
+        public double activeDurationSecondsPerLevel = 0.0D;
 
         /*
          Maximum extra connected ore blocks mined by vein_miner_burst.
@@ -336,6 +337,7 @@ public class ProfessionToolConfig {
                                 ? new LinkedHashMap<>()
                                 : config.tools;
 
+
                 RARITY_COSTS =
                         config.rarityCosts == null ||
                                 config.rarityCosts.isEmpty()
@@ -413,6 +415,7 @@ public class ProfessionToolConfig {
 
             ConfigRoot root =
                     new ConfigRoot();
+
 
             root.rarityCosts =
                     defaultRarityCosts();
@@ -593,6 +596,7 @@ public class ProfessionToolConfig {
                     )
             );
 
+
             try (
                     FileWriter writer =
                             new FileWriter(file)
@@ -631,38 +635,34 @@ public class ProfessionToolConfig {
             boolean sword = base.contains("sword");
             if (!pickaxe && !axe && !hoe && !shovel && !sword) continue;
 
-            // Harvest tier and speed are intentionally separated. Every Champ tool can harvest
-            // every ore tier safely; rarity controls the vanilla-feeling speed range below.
+            // Tool material is intentionally vanilla now. Rarity selects the actual registered
+            // Minecraft tier instead of hidden mining speed or server-side ore overrides.
             tool.toolTier = gameplayTier(rarity);
 
             if (tool.statRanges == null) {
                 tool.statRanges = new LinkedHashMap<>();
             }
 
-            StatRange speedRange = speedRange(rarity);
+            forceVanillaEfficiencyOnly(tool.statRanges, rarity);
             if (pickaxe) {
-                putIfMissing(tool.statRanges, "miningSpeed", speedRange);
                 putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                putIfMissing(tool.statRanges, "stoneFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                putIfMissing(tool.statRanges, "stoneFinderChance", range(rarity, 0.05, 0.20, 0.15, 0.50, 0.40, 1.00, 0.80, 2.00, 1.50, 3.50, 2.50, 5.00));
                 if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "stone_finder"));
             } else if (axe) {
-                putIfMissing(tool.statRanges, "chopSpeed", speedRange);
                 putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
                 putIfMissing(tool.statRanges, "apricornFinderChance", range(rarity, 0.25, 0.75, 0.50, 1.25, 0.80, 2.0, 1.25, 3.0, 2.0, 5.0, 3.0, 8.0));
                 if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "apricorn_finder"));
             } else if (hoe) {
-                putIfMissing(tool.statRanges, "farmingSpeed", speedRange);
                 putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
-                putIfMissing(tool.statRanges, "berryFinderChance", range(rarity, 0.05, 0.20, 0.10, 0.35, 0.20, 0.60, 0.35, 0.90, 0.60, 1.25, 0.90, 2.0));
+                putIfMissing(tool.statRanges, "berryFinderChance", range(rarity, 0.05, 0.20, 0.15, 0.50, 0.40, 1.00, 0.80, 2.00, 1.50, 3.50, 2.50, 5.00));
                 if (tool.passives == null || tool.passives.isEmpty()) tool.passives = new ArrayList<>(List.of("fortune_chance", "durability_save", "silk_touch", "berry_finder"));
             } else if (shovel) {
-                putIfMissing(tool.statRanges, "miningSpeed", speedRange);
                 putIfMissing(tool.statRanges, "fortuneChance", range(rarity, 10, 25, 15, 35, 25, 50, 35, 65, 45, 75, 50, 100));
                 putIfMissing(tool.statRanges, "durabilityBonus", range(rarity, 10, 40, 25, 75, 50, 150, 100, 250, 200, 500, 400, 900));
                 putIfMissing(tool.statRanges, "durabilitySaveChance", range(rarity, 1, 5, 3, 8, 5, 12, 8, 16, 12, 22, 18, 30));
@@ -685,14 +685,44 @@ public class ProfessionToolConfig {
         if (!ranges.containsKey(key)) ranges.put(key, value);
     }
 
-    private static StatRange speedRange(String rarity) {
-        // Common ~= stone, Uncommon ~= iron, Rare ~= gold, Epic ~= diamond, Legendary/Mythic ~= netherite.
-        return range(rarity, 0, 15, 15, 35, 35, 70, 70, 115, 115, 165, 165, 240);
+    private static void forceVanillaEfficiencyOnly(Map<String, StatRange> ranges, String rarity) {
+        if (ranges == null) return;
+        ranges.remove("miningSpeed");
+        ranges.remove("chopSpeed");
+        ranges.remove("diggingSpeed");
+        ranges.remove("farmingSpeed");
+
+        StatRange efficiency = efficiencyRange(rarity);
+        LinkedHashMap<String, StatRange> reordered = new LinkedHashMap<>();
+        reordered.put("efficiencyLevel", efficiency);
+        for (Map.Entry<String, StatRange> entry : new LinkedHashMap<>(ranges).entrySet()) {
+            if (!"efficiencyLevel".equals(entry.getKey())) {
+                reordered.put(entry.getKey(), entry.getValue());
+            }
+        }
+        ranges.clear();
+        ranges.putAll(reordered);
+    }
+
+    private static StatRange efficiencyRange(String rarity) {
+        return switch (normalizeRarity(rarity)) {
+            case "UNCOMMON" -> new StatRange(1.0D, 2.0D, 1.0D);
+            case "RARE" -> new StatRange(2.0D, 3.0D, 1.0D);
+            case "EPIC" -> new StatRange(4.0D, 5.0D, 1.0D);
+            case "LEGENDARY" -> new StatRange(5.0D, 7.0D, 1.0D);
+            case "MYTHIC" -> new StatRange(7.0D, 10.0D, 1.0D);
+            default -> new StatRange(0.0D, 1.0D, 1.0D);
+        };
     }
 
     private static String gameplayTier(String rarity) {
-        // Keep harvest level at netherite so even early tools can break all ores; speed is controlled by statRanges.
-        return "NETHERITE";
+        return switch (normalizeRarity(rarity)) {
+            case "COMMON", "UNCOMMON" -> "IRON";
+            case "RARE", "EPIC" -> "DIAMOND";
+            case "LEGENDARY" -> "NETHERITE";
+            case "MYTHIC" -> "GOLD";
+            default -> "IRON";
+        };
     }
 
     private static void ensureDefaultSwordTools() {
@@ -705,16 +735,40 @@ public class ProfessionToolConfig {
         for (ToolData tool : TOOLS.values()) {
             if (tool == null || tool.activeAbility == null || tool.activeAbility.isBlank()) continue;
             String ability = tool.activeAbility.trim().toLowerCase();
-            if (ability.contains("replant")) continue;
             String rarity = normalizeRarity(tool.rarity);
             tool.activeCooldownSeconds = tunedCooldown(ability, rarity, Math.max(1, tool.activeCooldownSeconds));
-            tool.activeDurationSeconds = tunedDuration(ability, rarity, Math.max(0, tool.activeDurationSeconds));
+            if (isTimedActiveAbility(ability)) {
+                tool.activeDurationSeconds = 10;
+                tool.activeDurationSecondsPerLevel = 0.1D;
+            } else {
+                tool.activeDurationSeconds = 0;
+                tool.activeDurationSecondsPerLevel = 0.0D;
+            }
             if (ability.contains("vein_miner")) tool.maxVeinBlocks = Math.max(tool.maxVeinBlocks, rarityValue(rarity, 48, 64, 80, 112, 160, 220));
             if (ability.contains("timber")) tool.maxTimberBlocks = Math.max(tool.maxTimberBlocks, rarityValue(rarity, 64, 80, 96, 128, 192, 256));
             if (ability.contains("leafstorm")) tool.leafstormRadius = Math.max(tool.leafstormRadius, rarityValue(rarity, 5, 6, 7, 8, 10, 12));
             if (ability.contains("treasure_sense")) tool.treasureSenseRadius = Math.max(tool.treasureSenseRadius, rarityValue(rarity, 96, 112, 128, 160, 192, 224));
             if (ability.contains("nature_sense")) tool.natureSenseRadius = Math.max(tool.natureSenseRadius, rarityValue(rarity, 96, 112, 128, 160, 192, 224));
         }
+    }
+
+    private static boolean isTimedActiveAbility(String ability) {
+        if (ability == null || ability.isBlank()) return false;
+        return switch (ability.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "excavation",
+                    "auto_smelt_burst",
+                    "miners_focus",
+                    "vein_miner_burst",
+                    "blast_mine",
+                    "stonebreaker",
+                    "timber_burst",
+                    "leafstorm",
+                    "lumberjack_focus",
+                    "foresters_focus",
+                    "harvest_wave",
+                    "golden_rain" -> true;
+            default -> false;
+        };
     }
 
     private static int tunedCooldown(String ability, String rarity, int current) {
@@ -726,16 +780,15 @@ public class ProfessionToolConfig {
     }
 
     private static int tunedDuration(String ability, String rarity, int current) {
-        int tuned = switch (ability) {
-            case "excavation" -> rarityValue(rarity, 30, 35, 45, 60, 75, 90);
-            case "blast_mine", "stonebreaker" -> rarityValue(rarity, 25, 30, 35, 45, 55, 70);
-            case "vein_miner_burst" -> rarityValue(rarity, 35, 45, 55, 70, 85, 100);
-            case "timber_burst" -> rarityValue(rarity, 30, 40, 50, 65, 80, 100);
-            case "auto_smelt_burst" -> rarityValue(rarity, 40, 50, 60, 75, 90, 110);
-            case "miners_focus", "foresters_focus", "lumberjack_focus", "golden_rain", "harvest_wave" -> rarityValue(rarity, 45, 60, 75, 90, 120, 150);
-            default -> current;
+        if (current <= 0) return 0;
+        int cap = switch (ability) {
+            case "excavation", "vein_miner_burst", "timber_burst", "auto_smelt_burst", "harvest_wave" -> 10;
+            case "blast_mine", "stonebreaker" -> 8;
+            case "miners_focus", "foresters_focus", "lumberjack_focus", "golden_rain" -> 12;
+            case "treasure_sense", "nature_sense" -> 8;
+            default -> 12;
         };
-        return Math.max(current, tuned);
+        return Math.min(current, cap);
     }
 
     private static int rarityValue(String rarity, int common, int uncommon, int rare, int epic, int legendary, int mythic) {

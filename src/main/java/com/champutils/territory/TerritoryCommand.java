@@ -79,7 +79,7 @@ public final class TerritoryCommand {
                             .then(Commands.literal("confirm")
                                     .executes(context -> deletePersonal(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("admin")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.literal("ready")
                                     .then(Commands.argument("territoryId", StringArgumentType.word())
                                             .executes(context -> markReady(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "territoryId")))))
@@ -92,7 +92,7 @@ public final class TerritoryCommand {
                             .then(Commands.literal("rebuildstewards")
                                     .executes(context -> rebuildStewards(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("reloadcache")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(context -> {
                                 TerritoryConfig.load();
                                 TerritoryRepository.refreshAll();
@@ -223,7 +223,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        if (!com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin") && !TerritoryRepository.canManage(player, territory)) {
+        if (!player.hasPermissions(4) && !TerritoryRepository.canManage(player, territory)) {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -238,7 +238,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        if (!com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin") && !TerritoryRepository.canManage(player, territory)) {
+        if (!player.hasPermissions(4) && !TerritoryRepository.canManage(player, territory)) {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -301,7 +301,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        if (!com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin") && !com.champutils.guild.GuildRepository.canManageGuildTerritory(guild.role)) {
+        if (!player.hasPermissions(4) && !com.champutils.guild.GuildRepository.canManageGuildTerritory(guild.role)) {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can create or configure the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -315,7 +315,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("You do not have a personal territory yet. Use /territory create.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (!territory.isReady() && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That territory is being deleted." : "Your territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
@@ -332,7 +332,7 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory yet. Owners/officers can use /gterritory create.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (!territory.isReady() && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That guild territory is being deleted." : "Your guild territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
@@ -364,7 +364,7 @@ public final class TerritoryCommand {
         String clean = name == null ? "" : name.trim();
         for (TerritoryRepository.Territory territory : TerritoryRepository.trustedPersonalFor(player)) {
             if (territory.publicName().equalsIgnoreCase(clean) || territory.ownerName.equalsIgnoreCase(clean)) {
-                if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+                if (!territory.isReady() && !player.hasPermissions(4)) {
                     player.sendSystemMessage(Component.literal("That territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
                     return 0;
                 }

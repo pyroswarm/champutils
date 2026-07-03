@@ -13,10 +13,10 @@ import java.util.Map;
 
 public final class ProfessionSubLevelManager {
 
-    public static final double CHUNK_FIND_BONUS_PER_SUBLEVEL = 0.00035D;
-    public static final double CHUNK_FIND_BONUS_CAP = 0.25D;
-    public static final double RARITY_BONUS_PER_TEN_LEVELS = 0.0035D;
-    public static final double RARITY_BONUS_CAP = 0.25D;
+    public static final double CHUNK_FIND_BONUS_PER_SUBLEVEL = 0.00030D;
+    public static final double CHUNK_FIND_BONUS_CAP = 0.03D;
+    public static final double RARITY_BONUS_PER_TEN_LEVELS = 0.00300D;
+    public static final double RARITY_BONUS_CAP = 0.03D;
     public static final double MASTERED_SUBLEVEL_XP_BONUS = 0.10D;
 
     private ProfessionSubLevelManager() {}
@@ -43,6 +43,7 @@ public final class ProfessionSubLevelManager {
 
     public static void addXp(ServerPlayer player, ProfessionType profession, String category, String rawId, int amount) {
         if (player == null || profession == null || rawId == null || rawId.isBlank() || amount <= 0) return;
+        amount = ProfessionXpBoostManager.applyBoosts(player, profession, amount);
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
         ProfessionDataManager.ensureProfessionDefaults(data);
         String key = key(profession, category, rawId);
@@ -76,12 +77,15 @@ public final class ProfessionSubLevelManager {
     public static int xpRequired(int level) {
         int safeLevel = Math.max(1, Math.min(100, level));
         if (safeLevel >= 100) return Integer.MAX_VALUE / 4;
-        // Sublevels should feel like focused mastery tracks, not a second full profession grind.
-        // They level much faster than the main profession so players can master several logs/ores/crops
-        // while the overall profession level remains the long-term progression track.
-        if (safeLevel < 50) return 35 + (safeLevel * 10);
-        double baseAtFifty = 35.0D + (50.0D * 10.0D);
-        double scaled = baseAtFifty * Math.pow(1.065D, safeLevel - 49);
+
+        ProfessionConfig.ProfessionSettings settings = ProfessionConfig.SETTINGS;
+        int base = Math.max(1, settings == null ? 90 : settings.sublevelXpBase);
+        int perLevel = Math.max(1, settings == null ? 25 : settings.sublevelXpPerLevel);
+        double growthAfter50 = Math.max(1.0D, settings == null ? 1.09D : settings.sublevelXpGrowthAfter50);
+
+        if (safeLevel < 50) return base + (safeLevel * perLevel);
+        double baseAtFifty = base + (50.0D * perLevel);
+        double scaled = baseAtFifty * Math.pow(growthAfter50, safeLevel - 49);
         return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4, Math.round(scaled)));
     }
 
@@ -184,6 +188,7 @@ public final class ProfessionSubLevelManager {
             case "WOOD" -> "Wood";
             case "ORE" -> "Ore";
             case "TYPE" -> "Type Slayer";
+            case "ACTIVE" -> "Active Skill";
             case "BLOCK" -> "Block";
             default -> parts[1];
         };

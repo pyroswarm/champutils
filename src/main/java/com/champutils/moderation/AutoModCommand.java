@@ -1,5 +1,6 @@
 package com.champutils.moderation;
 
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.permissions.PermissionUtil;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -141,7 +142,7 @@ public final class AutoModCommand {
                                 .executes(context -> {
                                     ServerPlayer target = EntityArgument.getPlayer(context, "player");
                                     ServerPlayer actor = context.getSource().getPlayerOrException();
-                                    actor.teleportTo(target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+                                    SafeTeleportManager.teleportNoBack(actor, target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
                                     context.getSource().sendSuccess(() -> Component.literal("Teleported to " + target.getGameProfile().getName() + "."), true);
                                     return 1;
                                 })))
@@ -175,7 +176,7 @@ public final class AutoModCommand {
                                     ServerPlayer target = EntityArgument.getPlayer(context, "player");
                                     ServerPlayer actor = context.getSource().getPlayerOrException();
                                     actor.setGameMode(GameType.SPECTATOR);
-                                    actor.teleportTo(target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+                                    SafeTeleportManager.teleportNoBack(actor, target.serverLevel(), target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
                                     context.getSource().sendSuccess(() -> Component.literal("Spectating " + target.getGameProfile().getName() + "."), true);
                                     return 1;
                                 })))

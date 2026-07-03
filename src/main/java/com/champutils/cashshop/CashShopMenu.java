@@ -12,7 +12,7 @@ public final class CashShopMenu {
     private CashShopMenu() {}
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
-        gui.setTitle(Component.literal("Server Boosters"));
+        gui.setTitle(Component.literal("Boosters"));
         gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
                 .setName(Component.literal("§aBooster Credits: §f" + BoosterCreditManager.credits(player)))
                 .addLoreLine(Component.literal("§7Purchased: §f" + BoosterCreditManager.purchasedCredits(player)))

@@ -1,6 +1,7 @@
 package com.champutils.matchmaking;
 
 import com.champutils.battle.BattleStateManager;
+import com.champutils.teleport.SafeTeleportManager;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +34,7 @@ public class QueueBossBarManager {
             String type
     ) {
 
+        if (!SafeTeleportManager.isLive(player)) return;
         stop(player);
 
         ResourceLocation id =
@@ -90,6 +92,7 @@ public class QueueBossBarManager {
             ServerPlayer player
     ) {
 
+        if (player == null) return;
         CustomBossEvent bar =
                 BARS.remove(
                         player.getUUID()
@@ -135,7 +138,12 @@ public class QueueBossBarManager {
                             .findFirst()
                             .orElse(null);
 
-            if(player==null){
+            if(!SafeTeleportManager.isLive(player)){
+                bar.removeAllPlayers();
+                BARS.remove(id);
+                TIMES.remove(id);
+                TYPES.remove(id);
+                STAGES.remove(id);
                 continue;
             }
 

@@ -1,7 +1,10 @@
 package com.champutils.menu;
 
+import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.profession.ProfessionToolConfig;
+import com.champutils.profession.ProfessionToolManager;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -12,9 +15,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public final class FragmentCraftingMenu {
@@ -69,7 +75,7 @@ public final class FragmentCraftingMenu {
         addTab(gui, player, 20, "Helmets", Items.DIAMOND_HELMET, () -> openCraft(player, backTarget, "helmet", "Helmet", Items.DIAMOND_HELMET));
         addTab(gui, player, 21, "Chestplates", Items.DIAMOND_CHESTPLATE, () -> openCraft(player, backTarget, "chestplate", "Chestplate", Items.DIAMOND_CHESTPLATE));
         addTab(gui, player, 22, "Leggings", Items.DIAMOND_LEGGINGS, () -> openCraft(player, backTarget, "leggings", "Leggings", Items.DIAMOND_LEGGINGS));
-        addTab(gui, player, 23, "Boots", Items.DIAMOND_BOOTS, () -> openCraft(player, backTarget, "boots", "Running Shoes", Items.DIAMOND_BOOTS));
+        addTab(gui, player, 23, "Boots", Items.DIAMOND_BOOTS, () -> openCraft(player, backTarget, "boots", "Boots", Items.DIAMOND_BOOTS));
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
@@ -98,18 +104,65 @@ public final class FragmentCraftingMenu {
                 .addLoreLine(Component.literal("§7Craft using stored fragments.")));
         int[] slots = {20,21,22,23,24,25};
         String[] rarities = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
-        Item[] icons = iconsFor(toolType);
-        for (int i = 0; i < rarities.length; i++) addCraftButton(gui, player, slots[i], rarities[i], toolType, icons[i]);
+        for (int i = 0; i < rarities.length; i++) addCraftButton(gui, player, slots[i], rarities[i], toolType, iconFor(toolType, rarities[i]));
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
 
-    private static Item[] iconsFor(String toolType) {
-        return switch (toolType) {
-            case "axe" -> new Item[]{Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.NETHERITE_AXE};
-            case "hoe" -> new Item[]{Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.NETHERITE_HOE};
-            case "shovel" -> new Item[]{Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.NETHERITE_SHOVEL};
-            case "sword" -> new Item[]{Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD, Items.NETHERITE_SWORD};
+    private static ItemStack iconFor(String toolType, String rarity) {
+        ItemStack toolPreview = professionToolPreview(toolType, rarity);
+        if (!toolPreview.isEmpty()) return toolPreview;
+        return new ItemStack(fallbackIconFor(toolType, rarity));
+    }
+
+    private static ItemStack professionToolPreview(String toolType, String rarity) {
+        String normalizedType = toolType == null ? "" : toolType.trim().toLowerCase(Locale.ROOT);
+        if (!(normalizedType.equals("pickaxe") || normalizedType.equals("axe") || normalizedType.equals("hoe") || normalizedType.equals("shovel") || normalizedType.equals("sword"))) {
+            return ItemStack.EMPTY;
+        }
+
+        String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
+        for (Map.Entry<String, ProfessionToolConfig.ToolData> entry : ProfessionToolConfig.TOOLS.entrySet()) {
+            ProfessionToolConfig.ToolData data = entry.getValue();
+            if (data == null || data.baseItem == null || data.baseItem.isBlank()) continue;
+            if (!ProfessionFragmentConfig.normalizeRarity(data.rarity).equals(normalizedRarity)) continue;
+
+            String base = data.baseItem.toLowerCase(Locale.ROOT);
+            boolean matches = switch (normalizedType) {
+                case "pickaxe" -> base.contains("pickaxe");
+                case "axe" -> !base.contains("pickaxe") && base.contains("axe");
+                case "hoe" -> base.contains("hoe");
+                case "shovel" -> base.contains("shovel");
+                case "sword" -> base.contains("sword");
+                default -> false;
+            };
+            if (!matches) continue;
+
+            ItemStack stack = ProfessionToolManager.createUnidentifiedPreviewStack(
+                    entry.getKey(),
+                    "Unidentified " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(normalizedType)
+            );
+            if (!stack.isEmpty()) return stack;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static Item fallbackIconFor(String toolType, String rarity) {
+        String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
+        int tier = switch (normalizedRarity) {
+            case "COMMON" -> 0;
+            case "UNCOMMON" -> 1;
+            case "RARE" -> 2;
+            case "EPIC" -> 3;
+            case "LEGENDARY" -> 4;
+            case "MYTHIC" -> 5;
+            default -> 0;
+        };
+        Item[] icons = switch (toolType) {
+            case "axe" -> new Item[]{Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.GOLDEN_AXE};
+            case "hoe" -> new Item[]{Items.WOODEN_HOE, Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.GOLDEN_HOE};
+            case "shovel" -> new Item[]{Items.WOODEN_SHOVEL, Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.GOLDEN_SHOVEL};
+            case "sword" -> new Item[]{Items.WOODEN_SWORD, Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD, Items.GOLDEN_SWORD};
             case "helmet" -> new Item[]{Items.LEATHER_HELMET, Items.IRON_HELMET, Items.DIAMOND_HELMET, Items.DIAMOND_HELMET, Items.NETHERITE_HELMET, Items.NETHERITE_HELMET};
             case "chestplate" -> new Item[]{Items.LEATHER_CHESTPLATE, Items.IRON_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_CHESTPLATE};
             case "leggings" -> new Item[]{Items.LEATHER_LEGGINGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS, Items.NETHERITE_LEGGINGS};
@@ -123,29 +176,36 @@ public final class FragmentCraftingMenu {
             case "rare_pokemon_charm" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.NETHER_STAR, Items.NETHER_STAR};
             case "chunky_brick" -> new Item[]{Items.BRICK, Items.BRICK, Items.NETHER_BRICK, Items.NETHER_BRICK, Items.NETHERITE_SCRAP, Items.NETHERITE_SCRAP};
             case "trinket_pouch" -> new Item[]{Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST};
-            default -> new Item[]{Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.NETHERITE_PICKAXE};
+            default -> new Item[]{Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.GOLDEN_PICKAXE};
         };
+        return icons[Math.max(0, Math.min(tier, icons.length - 1))];
     }
 
-    private static void addCraftButton(SimpleGui gui, ServerPlayer player, int slot, String rarity, String toolType, Item icon) {
+
+    private static void addCraftButton(SimpleGui gui, ServerPlayer player, int slot, String rarity, String toolType, ItemStack icon) {
         String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
         ProfessionFragmentConfig.ToolCraftingData trade = ProfessionFragmentConfig.TOOL_CRAFTING.get(normalizedRarity);
         if (trade == null) {
             gui.setSlot(slot, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("§cMissing Craft Config")));
             return;
         }
-        boolean trinketCraft = toolType.equals("magnet") || toolType.equals("shiny_charm") || toolType.equals("profession_xp_gem") || toolType.equals("pokemon_xp_egg") || toolType.equals("friendship_charm") || toolType.equals("level_charm") || toolType.equals("rare_pokemon_charm") || toolType.equals("chunky_brick") || toolType.equals("trinket_pouch");
-        String fragmentKey = trinketCraft ? normalizedRarity : ProfessionFragmentConfig.normalizeRarity(trade.fragment);
-        int cost = trinketCraft ? Math.max(1, com.champutils.profession.ProfessionTrinketConfig.tier(normalizedRarity).sameTierFragmentCost) : Math.max(1, trade.cost);
+        String fragmentKey = normalizedRarity;
+        int cost = 16;
+        long creditCost = ProfessionFragmentManager.craftCreditCost(normalizedRarity);
+        long creditCostCents = EconomyManager.wholeCreditsToCents(creditCost);
         int available = ProfessionFragmentManager.countFragments(player, fragmentKey);
-        GuiElementBuilder builder = new GuiElementBuilder(icon).hideDefaultTooltip()
+        boolean hasCredits = EconomyManager.canAfford(player, creditCostCents);
+        GuiElementBuilder builder = new GuiElementBuilder(icon.copy()).hideDefaultTooltip()
                 .setName(Component.literal("Craft " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(toolType)).withStyle(getRarityColor(normalizedRarity)))
                 .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Fragment"))
-                .addLoreLine(Component.literal("§7You have: §e" + available));
+                .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(creditCost)))
+                .addLoreLine(Component.literal("§7Fragments: §e" + available))
+                .addLoreLine(Component.literal("§7Balance: §e" + EconomyManager.format(EconomyManager.getBalance(player))));
+        boolean trinketCraft = toolType.equals("magnet") || toolType.equals("shiny_charm") || toolType.equals("profession_xp_gem") || toolType.equals("pokemon_xp_egg") || toolType.equals("friendship_charm") || toolType.equals("level_charm") || toolType.equals("rare_pokemon_charm") || toolType.equals("chunky_brick") || toolType.equals("trinket_pouch");
         if (trinketCraft) {
             for (Component line : trinketDescription(toolType, normalizedRarity)) builder.addLoreLine(line);
         }
-        builder.addLoreLine(Component.literal(available >= cost ? "§eClick to craft" : "§cNot enough fragments"))
+        builder.addLoreLine(Component.literal(available >= cost && hasCredits ? "§eClick to craft" : (!hasCredits ? "§cNot enough Credits" : "§cNot enough fragments")))
                 .setCallback((i,c,t) -> {
                     player.closeContainer();
                     player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType);
@@ -207,11 +267,11 @@ public final class FragmentCraftingMenu {
         SimpleGui gui = base(player, downgrade ? "Downgrade Fragments" : "Upgrade Fragments");
         gui.setSlot(4, new GuiElementBuilder(downgrade ? Items.PAPER : Items.AMETHYST_SHARD).hideDefaultTooltip()
                 .setName(Component.literal(downgrade ? "§cDowngrade Fragments" : "§aUpgrade Fragments"))
-                .addLoreLine(Component.literal(downgrade ? "§7Downgrades return half of upgrade value." : "§7Upgrade stored fragments.")));
+                .addLoreLine(Component.literal(downgrade ? "§7Legendary may downgrade to Epic. Mythic cannot downgrade." : "§7Upgrade up to Epic only. Legendary/Mythic are prestige drops.")));
         String[] ids = downgrade
-                ? new String[]{"UNCOMMON_TO_COMMON_DOWNGRADE","RARE_TO_UNCOMMON_DOWNGRADE","EPIC_TO_RARE_DOWNGRADE","LEGENDARY_TO_EPIC_DOWNGRADE","MYTHIC_TO_LEGENDARY_DOWNGRADE"}
-                : new String[]{"COMMON_TO_UNCOMMON","UNCOMMON_TO_RARE","RARE_TO_EPIC","EPIC_TO_LEGENDARY","LEGENDARY_TO_MYTHIC"};
-        int[] slots = {20,21,22,23,24};
+                ? new String[]{"UNCOMMON_TO_COMMON_DOWNGRADE","RARE_TO_UNCOMMON_DOWNGRADE","EPIC_TO_RARE_DOWNGRADE","LEGENDARY_TO_EPIC_DOWNGRADE"}
+                : new String[]{"COMMON_TO_UNCOMMON","UNCOMMON_TO_RARE","RARE_TO_EPIC"};
+        int[] slots = downgrade ? new int[]{20,21,22,23} : new int[]{21,22,23};
         for (int i = 0; i < ids.length; i++) addUpgradeButton(gui, player, slots[i], ids[i], downgrade ? Items.PAPER : Items.AMETHYST_SHARD);
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();

@@ -25,7 +25,12 @@
     "MobSpawnerDisabledMixin",
     "CraftingArmorBlockerMixin",
     "ProfessionArmorDamageReductionMixin",
-    "RedstoneAutoModLevelMixin"
+    "PlayerUnderwaterMiningMixin",
+    "RedstoneAutoModLevelMixin",
+    "AntiAfkServerGamePacketListenerMixin",
+    "AntiAfkContainerClickMixin",
+    "InvalidContainerClickGuardMixin",
+    "BattleSelectActionsHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

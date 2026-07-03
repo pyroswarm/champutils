@@ -48,7 +48,7 @@ public final class NpcAdminCommand {
     }
 
     private static boolean canUse(CommandSourceStack source) {
-        return source.hasPermission(2) || com.champutils.permissions.PermissionUtil.has(source, "champutils.staff");
+        return source.hasPermission(4);
     }
 
     private static int editNearest(CommandSourceStack source, double radius) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

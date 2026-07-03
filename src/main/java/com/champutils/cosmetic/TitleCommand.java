@@ -30,7 +30,7 @@ public final class TitleCommand {
                                         return 1;
                                     })))
                     .then(Commands.literal("unlock")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
                                     .then(Commands.argument("id", StringArgumentType.word())
                                             .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(TitleConfig.titles().stream().map(t -> t.id), builder))
@@ -46,7 +46,7 @@ public final class TitleCommand {
                                                             StringArgumentType.getString(ctx, "display")
                                                     ))))))
                     .then(Commands.literal("admin")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.literal("create")
                                     .then(Commands.argument("id", StringArgumentType.word())
                                             .then(Commands.argument("name", StringArgumentType.greedyString())

@@ -561,8 +561,7 @@ public final class WorldEventManager {
     }
 
     private static void broadcast(MinecraftServer server, Component message) {
-        if (server == null || message == null) return;
-        server.getPlayerList().broadcastSystemMessage(message, false);
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(server, message);
     }
 
     private static long minutesToTicks(int minutes) {

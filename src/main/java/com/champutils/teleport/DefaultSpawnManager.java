@@ -1,10 +1,12 @@
 package com.champutils.teleport;
 
+import com.champutils.profile.IslanderMineManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.io.File;
@@ -85,6 +87,14 @@ public final class DefaultSpawnManager {
 
     public static void handleJoin(ServerPlayer player) {
         if (player == null) {
+            return;
+        }
+
+        // Islander mine worlds are temporary/resetting content. If a player logs out
+        // there, always return them to the configured server spawn on login instead
+        // of letting them rejoin inside a stale or reset mine.
+        if (player.level() instanceof ServerLevel level && IslanderMineManager.isMineWorld(level)) {
+            player.server.execute(() -> teleportToDefaultSpawn(player, false));
             return;
         }
 

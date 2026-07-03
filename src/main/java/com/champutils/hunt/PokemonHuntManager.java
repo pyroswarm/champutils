@@ -135,9 +135,9 @@ public final class PokemonHuntManager {
         save();
 
         if (announce && server != null && PokemonHuntConfig.DATA.settings.announceNewHunts) {
-            server.getPlayerList().broadcastSystemMessage(
-                    Component.literal("§b[Hunts] §fA new group of Pokémon hunts is available! Use §e/hunts§f."),
-                    false
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    server,
+                    Component.literal("§b[Hunts] §fA new group of Pokémon hunts is available! Use §e/hunts§f.")
             );
         }
     }
@@ -243,9 +243,9 @@ public final class PokemonHuntManager {
         String target = displayTarget(hunt);
         player.sendSystemMessage(Component.literal("§a[Hunts] You completed the hunt for §e" + target + "§a! Use §f/hunts claim§a to claim your reward."));
         if (PokemonHuntConfig.DATA.settings.announceWinners && player.server != null) {
-            player.server.getPlayerList().broadcastSystemMessage(
-                    Component.literal("§b[Hunts] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward."),
-                    false
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    player.server,
+                    Component.literal("§b[Hunts] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward.")
             );
         }
     }

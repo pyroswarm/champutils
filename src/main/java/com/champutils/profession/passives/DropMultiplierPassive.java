@@ -48,7 +48,7 @@ public class DropMultiplierPassive implements ProfessionPassive {
     private int rollMultiplier(ServerPlayer player, ItemStack stack, ProfessionType profession) {
         ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(stack);
         String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
-        int level = Math.max(1, ProfessionManager.getLevel(player, profession));
+        int level = Math.max(1, ProfessionManager.getBenefitLevel(player, profession));
         int max = switch (rarity) {
             case "MYTHIC" -> 5;
             case "LEGENDARY" -> 4;

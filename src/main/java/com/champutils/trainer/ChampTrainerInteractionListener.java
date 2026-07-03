@@ -72,14 +72,22 @@ public final class ChampTrainerInteractionListener {
                     if (!GuildBossManager.prepareGuildBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
-                    PluginTrainerBattleStarter.startOrMessage(
-                            serverPlayer,
-                            npc,
-                            BattleContextManager.BattleType.WORLD_BOSS,
-                            "guild_boss",
-                            null,
-                            Component.literal("§cThat guild boss battle could not start. Try again in a few seconds.")
-                    );
+                    try {
+                        PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
+                                serverPlayer,
+                                npc,
+                                BattleContextManager.BattleType.WORLD_BOSS,
+                                "guild_boss",
+                                null,
+                                Component.literal("§cThat guild boss battle could not start. Try again in a few seconds.")
+                        );
+                        if (!result.started()) {
+                            GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());
+                        }
+                    } catch (Exception battleStartError) {
+                        GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());
+                        throw battleStartError;
+                    }
                     return InteractionResult.SUCCESS;
                 }
 
@@ -87,14 +95,22 @@ public final class ChampTrainerInteractionListener {
                     if (!GuildBossManager.prepareWorldBossBattle(serverPlayer, npc)) {
                         return InteractionResult.SUCCESS;
                     }
-                    PluginTrainerBattleStarter.startOrMessage(
-                            serverPlayer,
-                            npc,
-                            BattleContextManager.BattleType.WORLD_BOSS,
-                            "world_boss",
-                            null,
-                            Component.literal("§cThat world boss battle could not start. Try again in a few seconds.")
-                    );
+                    try {
+                        PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
+                                serverPlayer,
+                                npc,
+                                BattleContextManager.BattleType.WORLD_BOSS,
+                                "world_boss",
+                                null,
+                                Component.literal("§cThat world boss battle could not start. Try again in a few seconds.")
+                        );
+                        if (!result.started()) {
+                            GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());
+                        }
+                    } catch (Exception battleStartError) {
+                        GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());
+                        throw battleStartError;
+                    }
                     return InteractionResult.SUCCESS;
                 }
 

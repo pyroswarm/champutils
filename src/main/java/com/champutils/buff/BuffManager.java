@@ -119,7 +119,7 @@ public final class BuffManager {
         }
 
         double perfectIvBonus = getTotalBuff(context, BuffType.PERFECT_IV_CHANCE);
-        int battlingLevel = Math.max(1, com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING));
+        int battlingLevel = Math.max(1, com.champutils.profession.ProfessionManager.getBenefitLevel(player, com.champutils.profession.ProfessionType.BATTLING));
         perfectIvBonus += Math.min(0.10D, (battlingLevel / 10) * 0.01D);
         if (perfectIvBonus > 0.0D && ThreadLocalRandom.current().nextDouble() < perfectIvBonus) {
             String stat = upgradeRandomIvToPerfect(pokemon);
@@ -135,13 +135,13 @@ public final class BuffManager {
     }
 
     /**
-     * Shiny buffs are relative multipliers, not flat shiny odds.
-     * Example: 0.01D means the current/base shiny chance is increased by 1%,
-     * so normal 1/4096 odds only gain an extra 1/409600 roll.
+     * Shiny buffs are additive percentages of the configured base shiny chance, not flat shiny odds
+     * and not multiplicative with each other.
+     * Example: two 0.01D buffs mean base * (0.01 + 0.01), not base * 1.01 * 1.01.
      */
     private static double relativeShinyProcChance(double multiplierBonus) {
         if (multiplierBonus <= 0.0D) return 0.0D;
-        double baseChance = 1.0D / 4096.0D;
+        double baseChance = CatchStreakManager.BASE_SHINY_CHANCE;
         try {
             if (CatchStreakManager.CONFIG != null && CatchStreakManager.CONFIG.baseShinyChance > 0.0D) {
                 baseChance = CatchStreakManager.CONFIG.baseShinyChance;

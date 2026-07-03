@@ -1,9 +1,11 @@
 package com.champutils.crate;
 
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profession.ProfessionToolConfig;
+import com.champutils.economy.EconomyManager;
 import com.champutils.shop.NpcShopService;
 import com.champutils.tm.TMManager;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
@@ -40,6 +42,14 @@ public final class OpenCratesMenu {
     private static final Random RANDOM = new Random();
     private static final String[] ORDER = {"common","uncommon","rare","epic","legendary","mythic","event","guild","world_boss"};
     private static final Map<UUID, Opening> OPENINGS = new ConcurrentHashMap<>();
+    private static final Map<String, Long> CRATE_CREDIT_PRICES = Map.of(
+            "common", 250L,
+            "uncommon", 500L,
+            "rare", 1000L,
+            "epic", 5000L,
+            "legendary", 50000L,
+            "mythic", 100000L
+    );
 
     private static final int[] SPIN_SLOTS = new int[]{9, 10, 11, 12, 13, 14, 15, 16, 17};
     private static final int CENTER_SLOT = 13;
@@ -108,12 +118,23 @@ public final class OpenCratesMenu {
             Item icon = crateIconItem(id, crate);
             List<Component> lore = new ArrayList<>();
             lore.add(Component.literal("Credits: " + credits).withStyle(credits > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
+            long purchasePrice = CRATE_CREDIT_PRICES.getOrDefault(id, 0L);
+            if (purchasePrice > 0L) {
+                lore.add(Component.literal("Right-click: buy 1 for " + EconomyManager.formatWholeCredits(purchasePrice)).withStyle(ChatFormatting.GOLD));
+            }
+            lore.add(Component.literal("Left-click: open 1 credit.").withStyle(ChatFormatting.YELLOW));
             lore.add(Component.literal("No guaranteed fragments. Main reward only.").withStyle(ChatFormatting.GRAY));
             lore.add(Component.literal("Roulette opening animation.").withStyle(ChatFormatting.DARK_GRAY));
-            lore.add(Component.literal("Click to open.").withStyle(ChatFormatting.YELLOW));
             GuiElementBuilder b = new GuiElementBuilder(icon).setName(Component.literal(crate.displayName).withStyle(colorFor(id)));
             for (Component line : lore) b.addLoreLine(line);
-            gui.setSlot(crateSlots[i], b.setCallback((index, type, action) -> openOne(player, id)));
+            gui.setSlot(crateSlots[i], b.setCallback((index, type, action) -> {
+                String clickName = type == null ? "" : String.valueOf(type).toUpperCase(Locale.ROOT);
+                if (clickName.contains("RIGHT")) {
+                    purchaseCrateCredit(player, id);
+                } else {
+                    openOne(player, id);
+                }
+            }));
 
             gui.setSlot(previewSlots[i], new GuiElementBuilder(Items.BOOK)
                     .setName(Component.literal("Preview " + crate.displayName).withStyle(ChatFormatting.AQUA))
@@ -123,6 +144,27 @@ public final class OpenCratesMenu {
                     .setCallback((index, type, action) -> openPreview(player, id)));
         }
         gui.open();
+    }
+
+    private static void purchaseCrateCredit(ServerPlayer player, String id) {
+        if (player == null || id == null) return;
+        long price = CRATE_CREDIT_PRICES.getOrDefault(id, 0L);
+        if (price <= 0L) {
+            player.sendSystemMessage(Component.literal("That crate cannot be purchased with credits.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        EconomyManager.TransactionResult result = EconomyManager.withdraw(
+                player,
+                EconomyManager.wholeCreditsToCents(price),
+                "Crate credit purchase: " + id
+        );
+        if (!result.success) {
+            player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that crate." : result.error).withStyle(ChatFormatting.RED));
+            return;
+        }
+        CrateCreditManager.addCredits(player, id, 1);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.7F, 1.2F);
+        open(player);
     }
 
     private static GuiElementBuilder filler() {
@@ -513,13 +555,13 @@ public final class OpenCratesMenu {
         if (pool != NpcShopService.PokemonCratePool.LEGENDARY && pool != NpcShopService.PokemonCratePool.ULTRA_BEAST && pool != NpcShopService.PokemonCratePool.MYTHICAL) return;
         String name = rewardName == null || rewardName.isBlank() || rewardName.equalsIgnoreCase("Air") ? cleanRewardSummary(reward) : rewardName;
         String crateName = crate == null || crate.displayName == null ? "a crate" : crate.displayName;
-        player.server.getPlayerList().broadcastSystemMessage(
+        ProfessionNotificationSettings.sendBroadcast(
+                player.server,
                 Component.literal("✦ ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(player.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW))
                         .append(Component.literal(" pulled ").withStyle(ChatFormatting.WHITE))
                         .append(Component.literal(name).withStyle(poolColor(pool), ChatFormatting.BOLD))
-                        .append(Component.literal(" from " + crateName + "!").withStyle(ChatFormatting.WHITE)),
-                false
+                        .append(Component.literal(" from " + crateName + "!").withStyle(ChatFormatting.WHITE))
         );
     }
 
@@ -618,8 +660,8 @@ public final class OpenCratesMenu {
             SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.parse(soundId));
             if (sound != null) {
                 // Send roulette sounds directly to the opener so every spin movement has
-                // audible feedback without depending on any profession notification toggle.
-                player.playNotifySound(sound, SoundSource.PLAYERS, volume, pitch);
+                // audible feedback that respects the Sound Effects setting.
+                ProfessionNotificationSettings.playSound(player, sound, SoundSource.PLAYERS, volume, pitch);
             }
         } catch (Throwable ignored) {
         }

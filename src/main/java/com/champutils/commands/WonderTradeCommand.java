@@ -37,7 +37,7 @@ public final class WonderTradeCommand {
                                     return 1;
                                 })
                                 .then(argument("minutes", IntegerArgumentType.integer(0, 10080))
-                                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                        .requires(source -> source.hasPermission(4))
                                         .executes(context -> {
                                             WonderTradeService.setCooldown(
                                                     context.getSource().getPlayerOrException(),
@@ -51,13 +51,13 @@ public final class WonderTradeCommand {
                                     return 1;
                                 }))
                         .then(literal("seed")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     WonderTradeSeeder.seedIfNeeded(context.getSource().getPlayerOrException(), true);
                                     return 1;
                                 }))
                         .then(literal("inject")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(argument("amount", IntegerArgumentType.integer(1, 1000))
                                         .executes(context -> {
                                             WonderTradeSeeder.inject(

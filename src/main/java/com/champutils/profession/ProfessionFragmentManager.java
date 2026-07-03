@@ -1,5 +1,7 @@
 package com.champutils.profession;
 
+import com.champutils.economy.EconomyManager;
+
 import eu.pb4.polymer.core.api.item.PolymerItem;
 
 import net.minecraft.ChatFormatting;
@@ -632,6 +634,10 @@ public final class ProfessionFragmentManager {
         String to =
                 ProfessionFragmentConfig.normalizeRarity(upgrade.toFragment);
 
+        if (ProfessionFragmentConfig.isBlockedPrestigeConversion(from, to)) {
+            return UpgradeResult.fail("That prestige conversion is disabled. Legendary and Mythic fragments must come from prestige sources.");
+        }
+
         int cost =
                 Math.max(1, upgrade.cost);
 
@@ -727,15 +733,11 @@ public final class ProfessionFragmentManager {
                         normalizedToolType.equals("chunky_brick") ||
                         normalizedToolType.equals("trinket_pouch");
 
-        String fragmentKey =
-                trinketCraft
-                        ? normalizedRarity
-                        : ProfessionFragmentConfig.normalizeRarity(trade.fragment);
+        String fragmentKey = normalizedRarity;
 
-        int cost =
-                trinketCraft
-                        ? Math.max(1, ProfessionTrinketConfig.tier(normalizedRarity).sameTierFragmentCost)
-                        : Math.max(1, trade.cost);
+        int cost = 16;
+        long creditCost = craftCreditCost(normalizedRarity);
+        long creditCostCents = EconomyManager.wholeCreditsToCents(creditCost);
 
         int available =
                 countFragments(
@@ -749,6 +751,12 @@ public final class ProfessionFragmentManager {
             );
         }
 
+        if (!EconomyManager.canAfford(player, creditCostCents)) {
+            return CraftResult.fail(
+                    "You need " + EconomyManager.format(creditCostCents) + " to craft this. You have " + EconomyManager.format(EconomyManager.getBalance(player)) + "."
+            );
+        }
+
         if (normalizedToolType.equals("helmet") || normalizedToolType.equals("chestplate") || normalizedToolType.equals("leggings") || normalizedToolType.equals("boots")) {
             ItemStack reward = ProfessionGearManager.createArmor(normalizedToolType, normalizedRarity);
             if (reward.isEmpty()) {
@@ -756,6 +764,11 @@ public final class ProfessionFragmentManager {
             }
             if (!removeFragments(player, fragmentKey, cost)) {
                 return CraftResult.fail("Could not remove fragments.");
+            }
+            EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
+            if (!creditWithdraw.success) {
+                ProfessionManager.addFragments(player, fragmentKey, cost);
+                return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
             }
             boolean added = player.getInventory().add(reward);
             if (!added) player.drop(reward, false);
@@ -765,7 +778,8 @@ public final class ProfessionFragmentManager {
                     normalizedRarity,
                     normalizedToolType,
                     fragmentKey,
-                    cost
+                    cost,
+                    creditCost
             );
         }
 
@@ -777,6 +791,11 @@ public final class ProfessionFragmentManager {
                 if (!removeFragments(player, fragmentKey, cost)) {
                     return CraftResult.fail("Could not remove fragments.");
                 }
+                EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
+                if (!creditWithdraw.success) {
+                    ProfessionManager.addFragments(player, fragmentKey, cost);
+                    return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
+                }
                 ProfessionTrinketManager.unlockOrUpgradeDigitalPouch(player, normalizedRarity);
                 return CraftResult.success(
                         normalizedRarity.toLowerCase() + "_digital_trinket_pouch",
@@ -784,7 +803,8 @@ public final class ProfessionFragmentManager {
                         normalizedRarity,
                         normalizedToolType,
                         fragmentKey,
-                        cost
+                        cost,
+                        creditCost
                 );
             }
 
@@ -792,10 +812,15 @@ public final class ProfessionFragmentManager {
             if (reward.isEmpty()) {
                 return CraftResult.fail("Could not create trinket for rarity: " + normalizedRarity);
             }
-            if (!removeFragments(player, fragmentKey, cost)) {
-                return CraftResult.fail("Could not remove fragments.");
-            }
-            boolean added = player.getInventory().add(reward);
+                if (!removeFragments(player, fragmentKey, cost)) {
+                    return CraftResult.fail("Could not remove fragments.");
+                }
+                EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
+                if (!creditWithdraw.success) {
+                    ProfessionManager.addFragments(player, fragmentKey, cost);
+                    return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
+                }
+                boolean added = player.getInventory().add(reward);
             if (!added) player.drop(reward, false);
             return CraftResult.success(
                     normalizedRarity.toLowerCase() + "_" + normalizedToolType,
@@ -803,7 +828,8 @@ public final class ProfessionFragmentManager {
                     normalizedRarity,
                     normalizedToolType,
                     fragmentKey,
-                    cost
+                    cost,
+                    creditCost
             );
         }
 
@@ -840,6 +866,11 @@ public final class ProfessionFragmentManager {
         if (!removeFragments(player, fragmentKey, cost)) {
             return CraftResult.fail("Could not remove fragments.");
         }
+        EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
+        if (!creditWithdraw.success) {
+            ProfessionManager.addFragments(player, fragmentKey, cost);
+            return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
+        }
 
         boolean added =
                 player.getInventory()
@@ -858,8 +889,21 @@ public final class ProfessionFragmentManager {
                 normalizedRarity,
                 normalizedToolType,
                 fragmentKey,
-                cost
+                cost,
+                creditCost
         );
+    }
+
+    public static long craftCreditCost(String rarity) {
+        return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
+            case "COMMON" -> 50L;
+            case "UNCOMMON" -> 100L;
+            case "RARE" -> 250L;
+            case "EPIC" -> 500L;
+            case "LEGENDARY" -> 1_000L;
+            case "MYTHIC" -> 5_000L;
+            default -> 50L;
+        };
     }
 
     private static List<String> findToolCandidates(
@@ -1166,10 +1210,11 @@ public final class ProfessionFragmentManager {
             String rarity,
             String toolType,
             String fragmentKey,
-            int cost
+            int cost,
+            long creditCost
     ) {
         public static CraftResult fail(String error) {
-            return new CraftResult(false, error, null, null, null, null, null, 0);
+            return new CraftResult(false, error, null, null, null, null, null, 0, 0L);
         }
 
         public static CraftResult success(
@@ -1178,9 +1223,10 @@ public final class ProfessionFragmentManager {
                 String rarity,
                 String toolType,
                 String fragmentKey,
-                int cost
+                int cost,
+                long creditCost
         ) {
-            return new CraftResult(true, null, toolId, displayName, rarity, toolType, fragmentKey, cost);
+            return new CraftResult(true, null, toolId, displayName, rarity, toolType, fragmentKey, cost, creditCost);
         }
     }
 

@@ -43,7 +43,9 @@ public final class TitleConfig {
             e.printStackTrace();
             CONFIG = defaults();
         }
+        ensureChallengeProfileTitles();
         rebuildIndex();
+        save();
     }
 
     public static synchronized void save() {
@@ -71,6 +73,62 @@ public final class TitleConfig {
             if (def.accountBound) def.scope = "ACCOUNT";
             BY_ID.put(def.id, def);
         }
+    }
+
+
+    private static synchronized void ensureChallengeProfileTitles() {
+        if (CONFIG == null) CONFIG = new Config();
+        if (CONFIG.titles == null) CONFIG.titles = new ArrayList<>();
+        addChallengeTitleIfMissing("islander_champion", "Voidbound Champion", "&b", "☁", "Complete the Elite Four and Champion on an Islander profile.", new Object[][] {
+                {BuffType.WORLD_EVENT_REWARDS.name(), 0.030D},
+                {BuffType.CATCH_CHANCE.name(), 0.010D},
+                {BuffType.MINING_XP.name(), 0.030D}
+        });
+        addChallengeTitleIfMissing("ironman_champion", "Iron Will Champion", "&7", "⛓", "Complete the Elite Four and Champion on an Ironman profile.", new Object[][] {
+                {BuffType.BATTLING_XP.name(), 0.030D},
+                {BuffType.POKEMON_XP.name(), 0.020D},
+                {BuffType.CATCH_CHANCE.name(), 0.0075D}
+        });
+        addChallengeTitleIfMissing("nuzlocke_champion", "Deathless Champion", "&c", "❤", "Complete the Elite Four and Champion on a Nuzlocke profile.", new Object[][] {
+                {BuffType.SHINY_CHANCE.name(), 0.0005D},
+                {BuffType.BATTLING_XP.name(), 0.025D},
+                {BuffType.PERFECT_IV_CHANCE.name(), 0.0025D}
+        });
+        addChallengeTitleIfMissing("monotype_champion", "Type Master", "&d", "◆", "Complete the Elite Four and Champion on a Monotype profile.", new Object[][] {
+                {BuffType.POKEMON_XP.name(), 0.030D},
+                {BuffType.CATCH_CHANCE.name(), 0.005D},
+                {BuffType.PERFECT_IV_CHANCE.name(), 0.0025D}
+        });
+    }
+
+    private static void addChallengeTitleIfMissing(String id, String name, String color, String icon, String description, Object[][] buffs) {
+        String normalized = normalizeId(id);
+        for (TitleDef existing : CONFIG.titles) {
+            if (existing != null && existing.id != null && normalizeId(existing.id).equals(normalized)) return;
+        }
+        TitleDef def = new TitleDef();
+        def.id = normalized;
+        def.name = name;
+        def.color = color;
+        def.icon = icon;
+        def.description = description;
+        def.scope = "ACCOUNT";
+        def.accountBound = true;
+        def.unlock = new UnlockCondition();
+        def.unlock.type = "manual";
+        def.buffs = new ArrayList<>();
+        if (buffs != null) {
+            for (Object[] buff : buffs) {
+                if (buff == null || buff.length < 2) continue;
+                TitleBuff tb = new TitleBuff();
+                tb.type = String.valueOf(buff[0]);
+                tb.amount = ((Number) buff[1]).doubleValue();
+                def.buffs.add(tb);
+            }
+        }
+        def.display = formatDisplay(def);
+        def.passiveDescription = buffText(def);
+        CONFIG.titles.add(def);
     }
 
     public static Collection<TitleDef> titles() { return BY_ID.values(); }

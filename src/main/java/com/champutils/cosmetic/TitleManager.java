@@ -105,11 +105,14 @@ public final class TitleManager {
         if (!changed) return false;
         com.champutils.chat.ChatTagResolver.invalidate(player);
         Component title = com.champutils.chat.ChatTagResolver.legacy(display);
-        player.server.getPlayerList().broadcastSystemMessage(Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" unlocked ").withStyle(ChatFormatting.GRAY))
-                .append(title)
-                .append(Component.literal("!").withStyle(ChatFormatting.GRAY)), false);
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                player.server,
+                Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA))
+                        .append(Component.literal(" unlocked ").withStyle(ChatFormatting.GRAY))
+                        .append(title)
+                        .append(Component.literal("!").withStyle(ChatFormatting.GRAY))
+        );
         return true;
     }
 

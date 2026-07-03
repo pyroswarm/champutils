@@ -98,9 +98,8 @@ public final class ExpeditionConfig {
         }
 
         if ("tm".equals(normalized)) {
-            add(out, "minecraft:paper", scale(level, 2, 12));
-            add(out, "minecraft:lapis_lazuli", scale(level, 8, 48));
-            if (level >= 50) add(out, "minecraft:amethyst_shard", scale(level, 4, 24));
+            // TM expeditions grant random real TMs during claim. The preview menu
+            // shows the amount directly instead of placeholder materials.
             return out;
         }
 
@@ -121,6 +120,30 @@ public final class ExpeditionConfig {
         return out;
     }
 
+
+    public static long creditReward(int pokemonLevel, String type) {
+        Tier tier = tier(pokemonLevel);
+        long base = tier == null ? 0L : Math.max(0L, tier.credits);
+        String normalized = normalizeType(type);
+        double multiplier = switch (normalized) {
+            case "general" -> 1.00D;
+            default -> 1.00D;
+        };
+        return Math.max(0L, Math.round(base * multiplier));
+    }
+
+
+    public static int tmRewardCount(int pokemonLevel) {
+        if (pokemonLevel >= 80) return 3;
+        if (pokemonLevel >= 50) return 2;
+        return 1;
+    }
+
+    public static String tmRewardSummary(int pokemonLevel) {
+        int count = tmRewardCount(pokemonLevel);
+        return count + " random TM" + (count == 1 ? "" : "s");
+    }
+
     public static double legendaryPokemonChancePercent(int battlingLevel, int sentPokemonLevel, String expeditionType) {
         return specialPokemonChancePercent(battlingLevel, sentPokemonLevel, expeditionType, true);
     }
@@ -139,13 +162,12 @@ public final class ExpeditionConfig {
             case "candy", "held_item", "tm", "pokeball" -> 0.10D;
             default -> 0.10D;
         };
-        double sentTierMultiplier = mon >= 80 ? 1.35D : (mon >= 50 ? 1.0D : 0.65D);
-        // Everyone has a non-zero chance, but even perfect Pokémon expeditions stay very rare.
-        double base = legendary ? 0.0025D : 0.0040D;
-        double perLevel = legendary ? 0.00080D : 0.00120D;
-        double percent = (base + (battle * perLevel)) * typeMultiplier * sentTierMultiplier;
-        double cap = legendary ? 0.12D : 0.18D;
-        return Math.max(0.0001D, Math.min(cap, percent));
+        double sentTierMultiplier = "pokemon".equals(normalized) ? 1.0D : (mon >= 80 ? 1.0D : (mon >= 50 ? 0.85D : 0.65D));
+        double cap = legendary ? 2.5D : 5.0D;
+        double floor = legendary ? 0.025D : 0.05D;
+        double percent = floor + ((cap - floor) * (battle / 100.0D));
+        percent *= typeMultiplier * sentTierMultiplier;
+        return Math.max(0.0001D, Math.min(cap * typeMultiplier, percent));
     }
 
     public static String specialPokemonChanceSummary(int battlingLevel, int sentPokemonLevel, String expeditionType) {

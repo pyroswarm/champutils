@@ -21,6 +21,8 @@ import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Map;
 import java.util.Random;
 import java.lang.reflect.Field;
@@ -44,9 +46,10 @@ public final class RoamingTrainerPartyBuilder {
 
             npc.initialize(baseLevel);
             NPCPartyStore party = new NPCPartyStore(npc);
+            Set<String> usedSpecies = new HashSet<>();
 
             for (int slot = 0; slot < count; slot++) {
-                Pokemon pokemon = createPokemon(data.rarity, settings, baseLevel, slot);
+                Pokemon pokemon = createPokemon(data.rarity, settings, baseLevel, slot, usedSpecies);
                 if (pokemon == null) continue;
                 try { pokemon.heal(); } catch (Exception ignored) {}
                 party.set(slot, pokemon);
@@ -67,10 +70,11 @@ public final class RoamingTrainerPartyBuilder {
         }
     }
 
-    private static Pokemon createPokemon(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int baseLevel, int slot) {
+    private static Pokemon createPokemon(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int baseLevel, int slot, Set<String> usedSpecies) {
         try {
-            RoamingTrainerConfig.PokemonPoolEntry configured = pickConfiguredSet(settings, slot);
-            String species = configured != null ? configured.species : pickSpecies(rarity, settings, slot);
+            boolean useLargePool = shouldUseLargeRoamingPool(settings);
+            RoamingTrainerConfig.PokemonPoolEntry configured = useLargePool ? null : pickConfiguredSet(settings, slot, usedSpecies);
+            String species = configured != null ? configured.species : pickSpecies(rarity, settings, slot, usedSpecies, useLargePool);
             int level = Math.max(1, Math.min(100, baseLevel));
             Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + sanitize(species) + "\" level=" + level).create();
 
@@ -95,13 +99,22 @@ public final class RoamingTrainerPartyBuilder {
             }
 
             try { pokemon.heal(); } catch (Exception ignored) {}
+            if (usedSpecies != null) usedSpecies.add(sanitize(species));
             return pokemon;
         } catch (Exception e) {
             return null;
         }
     }
 
-    private static RoamingTrainerConfig.PokemonPoolEntry pickConfiguredSet(RoamingTrainerConfig.RaritySettings settings, int slot) {
+    private static boolean shouldUseLargeRoamingPool(RoamingTrainerConfig.RaritySettings settings) {
+        if (settings == null || !RoamingTrainerConfig.DATA.allowAllPokemonFromCobblemonRegistry) {
+            return false;
+        }
+        double chance = Math.max(0.0D, Math.min(1.0D, settings.allPokemonChance));
+        return chance > 0.0D && RANDOM.nextDouble() < chance;
+    }
+
+    private static RoamingTrainerConfig.PokemonPoolEntry pickConfiguredSet(RoamingTrainerConfig.RaritySettings settings, int slot, Set<String> usedSpecies) {
         if (settings == null || settings.pool == null || settings.pool.isEmpty()) return null;
 
         List<RoamingTrainerConfig.PokemonPoolEntry> usable = new ArrayList<>();
@@ -110,25 +123,33 @@ public final class RoamingTrainerPartyBuilder {
         }
         if (usable.isEmpty()) return null;
 
+        List<RoamingTrainerConfig.PokemonPoolEntry> diverse = new ArrayList<>();
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) {
+            if (usedSpecies == null || !usedSpecies.contains(sanitize(entry.species))) {
+                diverse.add(entry);
+            }
+        }
+        List<RoamingTrainerConfig.PokemonPoolEntry> candidates = diverse.isEmpty() ? usable : diverse;
+
         // Prefer a lead in slot 0 and an anchor in the final slot when configured, like gym pools do.
         if (slot == 0) {
-            RoamingTrainerConfig.PokemonPoolEntry lead = pickTagged(usable, "lead");
+            RoamingTrainerConfig.PokemonPoolEntry lead = pickTagged(candidates, "lead");
             if (lead != null) return lead;
         }
         if (slot >= Math.max(1, settings.pokemonCount) - 1) {
-            RoamingTrainerConfig.PokemonPoolEntry anchor = pickTagged(usable, "anchor");
+            RoamingTrainerConfig.PokemonPoolEntry anchor = pickTagged(candidates, "anchor");
             if (anchor != null) return anchor;
         }
 
         double total = 0.0D;
-        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) total += Math.max(0.0D, entry.weight);
-        if (total <= 0.0D) return usable.get(RANDOM.nextInt(usable.size()));
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : candidates) total += Math.max(0.0D, entry.weight);
+        if (total <= 0.0D) return candidates.get(RANDOM.nextInt(candidates.size()));
         double roll = RANDOM.nextDouble() * total;
-        for (RoamingTrainerConfig.PokemonPoolEntry entry : usable) {
+        for (RoamingTrainerConfig.PokemonPoolEntry entry : candidates) {
             roll -= Math.max(0.0D, entry.weight);
             if (roll <= 0.0D) return entry;
         }
-        return usable.get(usable.size() - 1);
+        return candidates.get(candidates.size() - 1);
     }
 
     private static RoamingTrainerConfig.PokemonPoolEntry pickTagged(List<RoamingTrainerConfig.PokemonPoolEntry> usable, String tag) {
@@ -146,9 +167,9 @@ public final class RoamingTrainerPartyBuilder {
         return tagged.get(RANDOM.nextInt(tagged.size()));
     }
 
-    private static String pickSpecies(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int slot) {
-        if (settings.speciesPool != null && !settings.speciesPool.isEmpty()) {
-            String custom = pick(settings.speciesPool);
+    private static String pickSpecies(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, int slot, Set<String> usedSpecies, boolean forceLargePool) {
+        if (!forceLargePool && settings.speciesPool != null && !settings.speciesPool.isEmpty()) {
+            String custom = pickDiverse(settings.speciesPool, usedSpecies);
             return custom == null || custom.isBlank() ? "eevee" : custom;
         }
 
@@ -157,12 +178,12 @@ public final class RoamingTrainerPartyBuilder {
 
         int legendarySlots = Math.max(0, Math.min(6, settings.legendaryPokemonCount));
         if (slot < legendarySlots && RoamingTrainerConfig.DATA.legendarySpeciesPool != null && !RoamingTrainerConfig.DATA.legendarySpeciesPool.isEmpty()) {
-            return pick(RoamingTrainerConfig.DATA.legendarySpeciesPool);
+            return pickDiverse(RoamingTrainerConfig.DATA.legendarySpeciesPool, usedSpecies);
         }
 
         if (RoamingTrainerConfig.DATA.allowAllPokemonFromCobblemonRegistry
-                && RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, settings.allPokemonChance))) {
-            String any = pickAnyRegisteredSpecies();
+                && (forceLargePool || RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, settings.allPokemonChance)))) {
+            String any = pickAnyRegisteredSpecies(usedSpecies);
             if (any != null && !any.isBlank()) return any;
         }
 
@@ -178,7 +199,7 @@ public final class RoamingTrainerPartyBuilder {
             default -> pool = RoamingTrainerConfig.DATA.defaultSpeciesPool;
         }
 
-        String selected = pick(pool);
+        String selected = pickDiverse(pool, usedSpecies);
         return selected == null || selected.isBlank() ? "eevee" : selected;
     }
 
@@ -202,11 +223,11 @@ public final class RoamingTrainerPartyBuilder {
         return picked == null || picked.isBlank() ? null : picked;
     }
 
-    private static String pickAnyRegisteredSpecies() {
+    private static String pickAnyRegisteredSpecies(Set<String> usedSpecies) {
         try {
             List<String> all = getRegisteredSpeciesNames();
-            if (all.isEmpty()) return "";
-            return all.get(RANDOM.nextInt(all.size()));
+            String selected = pickDiverse(all, usedSpecies);
+            return selected == null ? "" : selected;
         } catch (Exception ignored) {
             return "";
         }
@@ -625,6 +646,25 @@ public final class RoamingTrainerPartyBuilder {
         }
         if (clean.isEmpty()) return "";
         return clean.get(RANDOM.nextInt(clean.size()));
+    }
+
+    private static String pickDiverse(List<String> values, Set<String> usedSpecies) {
+        if (values == null || values.isEmpty()) return "";
+        List<String> clean = new ArrayList<>();
+        List<String> unused = new ArrayList<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) continue;
+            String trimmed = value.trim();
+            String normalized = sanitize(trimmed);
+            if (normalized.isBlank() || isBlacklisted(normalized)) continue;
+            clean.add(trimmed);
+            if (usedSpecies == null || !usedSpecies.contains(normalized)) {
+                unused.add(trimmed);
+            }
+        }
+        List<String> candidates = unused.isEmpty() ? clean : unused;
+        if (candidates.isEmpty()) return "";
+        return candidates.get(RANDOM.nextInt(candidates.size()));
     }
 
     private static int randomBetween(int min, int max) {

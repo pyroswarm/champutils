@@ -1,5 +1,7 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
+import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.auction.AuctionHouseService;
 import com.champutils.shop.ShopPokemonCrateOpeningGui;
 import com.champutils.economy.EconomyManager;
@@ -34,7 +36,7 @@ public final class ProfileSessionLoader {
         try {
             runnable.run();
         } finally {
-            System.out.println("[PROFILE-TIMING] " + operation + " took " + (System.currentTimeMillis() - start) + "ms");
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] " + operation + " took " + (System.currentTimeMillis() - start) + "ms");
         }
         return System.currentTimeMillis() - start;
     }
@@ -75,7 +77,7 @@ public final class ProfileSessionLoader {
         final int[] rp = new int[] { 300 };
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.getRp", () -> rp[0] = PlayerDataManager.getRp(playerUuid, safeName));
 
-        System.out.println("[PROFILE-TIMING] ProfileSessionLoader.loadBackground.total took " + (System.currentTimeMillis() - all) + "ms for profile=" + profileId);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileSessionLoader.loadBackground.total took " + (System.currentTimeMillis() - all) + "ms for profile=" + profileId);
         return new BackgroundSnapshot(playerUuid, profileId, rp[0]);
     }
 
@@ -83,10 +85,10 @@ public final class ProfileSessionLoader {
      * Server-thread apply of async results. Verifies the player is still on the same profile.
      */
     public static void applyBackground(ServerPlayer player, BackgroundSnapshot snapshot) {
-        if (player == null || snapshot == null || player.hasDisconnected()) return;
+        if (!SafeTeleportManager.isLive(player) || snapshot == null) return;
         UUID active = PlayerProfileManager.activeProfileId(player);
         if (active == null || snapshot.profileId() == null || !active.equals(snapshot.profileId())) {
-            System.out.println("[PROFILE-TIMING] ProfileSessionLoader.applyBackground skipped stale snapshot active=" + active + " snapshot=" + (snapshot.profileId() == null ? "null" : snapshot.profileId()));
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileSessionLoader.applyBackground skipped stale snapshot active=" + active + " snapshot=" + (snapshot.profileId() == null ? "null" : snapshot.profileId()));
             return;
         }
         time("ProfileSessionLoader.applyBackground.ProfileManager.setElo", () -> ProfileManager.setElo(player, snapshot.storedRp()));
@@ -97,7 +99,7 @@ public final class ProfileSessionLoader {
      * all join systems into the profile-switch tick.
      */
     public static void loadDelayedNonCritical(ServerPlayer player) {
-        if (player == null || player.hasDisconnected()) return;
+        if (!SafeTeleportManager.isLive(player)) return;
         UUID playerUuid = player.getUUID();
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         runDelayed(player, playerUuid, profileId, 1, "ProfileSessionLoader.delayed.NotificationManager.handleJoin", () -> NotificationManager.handleJoin(player));
@@ -117,7 +119,7 @@ public final class ProfileSessionLoader {
         java.util.concurrent.CompletableFuture
                 .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS))
                 .thenRun(() -> player.server.execute(() -> {
-                    if (player.hasDisconnected()) return;
+                    if (!SafeTeleportManager.isLive(player)) return;
                     UUID active = PlayerProfileManager.activeProfileId(player);
                     if (profileId != null && active != null && !profileId.equals(active)) return;
                     time(label, action);

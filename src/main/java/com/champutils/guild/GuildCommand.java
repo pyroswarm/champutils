@@ -111,7 +111,7 @@ public final class GuildCommand {
                                             StringArgumentType.getString(context, "message")
                                     ))))
                     .then(Commands.literal("admin")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .then(Commands.literal("setcreatecooldown")
                                     .then(Commands.argument("minutes", LongArgumentType.longArg(0L))
                                             .executes(context -> setCreateCooldown(
@@ -125,7 +125,7 @@ public final class GuildCommand {
                                                     LongArgumentType.getLong(context, "credits")
                                             )))))
                     .then(Commands.literal("debugreload")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(context -> {
                                 ServerPlayer player = context.getSource().getPlayerOrException();
                                 GuildConfig.load();
@@ -150,7 +150,7 @@ public final class GuildCommand {
             player.sendSystemMessage(Component.literal("Your guild does not have a territory yet.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        if (!territory.isReady() && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (!territory.isReady() && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal(TerritoryRepository.isDeleting(territory) ? "That guild territory is being deleted." : "Your guild territory is being prepared. Try again shortly.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }

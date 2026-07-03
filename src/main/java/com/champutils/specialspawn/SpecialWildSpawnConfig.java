@@ -44,6 +44,16 @@ public final class SpecialWildSpawnConfig {
         mergeMissingSpawns(DATA.paradoxSpawns, d.paradoxSpawns);
         mergeMissingSpawns(DATA.ultraBeastSpawns, d.ultraBeastSpawns);
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = d.disabledDimensions;
+        if (!DATA.riftEventsEnabled) DATA.riftEventsEnabled = d.riftEventsEnabled;
+        if (DATA.shinyRiftSpawns == null) DATA.shinyRiftSpawns = new ArrayList<>();
+        if (DATA.shinyRiftSpawns.isEmpty()) DATA.shinyRiftSpawns.addAll(d.shinyRiftSpawns);
+        if (DATA.riftCheckIntervalTicks <= 0) DATA.riftCheckIntervalTicks = d.riftCheckIntervalTicks;
+        if (DATA.shinyRiftChancePerCheck <= 0.0D) DATA.shinyRiftChancePerCheck = d.shinyRiftChancePerCheck;
+        if (DATA.paradoxRiftChancePerCheck <= 0.0D) DATA.paradoxRiftChancePerCheck = d.paradoxRiftChancePerCheck;
+        if (DATA.ultraBeastRiftChancePerCheck <= 0.0D) DATA.ultraBeastRiftChancePerCheck = d.ultraBeastRiftChancePerCheck;
+        if (DATA.legendaryRiftChancePerCheck <= 0.0D) DATA.legendaryRiftChancePerCheck = d.legendaryRiftChancePerCheck;
+        if (DATA.mythicalRiftChancePerCheck <= 0.0D) DATA.mythicalRiftChancePerCheck = d.mythicalRiftChancePerCheck;
+        if (DATA.shinyRiftLevelRange == null || DATA.shinyRiftLevelRange.isBlank()) DATA.shinyRiftLevelRange = d.shinyRiftLevelRange;
         if (DATA.checkIntervalTicks <= 0) DATA.checkIntervalTicks = d.checkIntervalTicks;
         if (DATA.targetAverageSpawnMinutes <= 0.0D) DATA.targetAverageSpawnMinutes = d.targetAverageSpawnMinutes;
         if (DATA.minimumTargetAverageSpawnMinutes <= 0.0D) DATA.minimumTargetAverageSpawnMinutes = d.minimumTargetAverageSpawnMinutes;
@@ -76,7 +86,8 @@ public final class SpecialWildSpawnConfig {
         if (DATA.levelRangeUltraBeast == null || DATA.levelRangeUltraBeast.isBlank()) DATA.levelRangeUltraBeast = d.levelRangeUltraBeast;
         if (DATA.levelRangeMythical == null || DATA.levelRangeMythical.isBlank()) DATA.levelRangeMythical = d.levelRangeMythical;
         if (DATA.islanderWorldPrefix == null || DATA.islanderWorldPrefix.isBlank()) DATA.islanderWorldPrefix = d.islanderWorldPrefix;
-        if (DATA.islanderMinimumProfilePlaytimeSeconds < 0L) DATA.islanderMinimumProfilePlaytimeSeconds = d.islanderMinimumProfilePlaytimeSeconds;
+        if (DATA.minimumProfilePlaytimeSeconds <= 0L) DATA.minimumProfilePlaytimeSeconds = d.minimumProfilePlaytimeSeconds;
+        if (DATA.islanderMinimumProfilePlaytimeSeconds <= 0L) DATA.islanderMinimumProfilePlaytimeSeconds = d.islanderMinimumProfilePlaytimeSeconds;
         if (DATA.islanderTargetAverageSpawnMinutes <= 0.0D) DATA.islanderTargetAverageSpawnMinutes = d.islanderTargetAverageSpawnMinutes;
         if (DATA.islanderLegendaryChancePerCheck <= 0.0D) DATA.islanderLegendaryChancePerCheck = d.islanderLegendaryChancePerCheck;
         if (DATA.islanderParadoxChancePerCheck < 0.0D) DATA.islanderParadoxChancePerCheck = d.islanderParadoxChancePerCheck;
@@ -96,31 +107,31 @@ public final class SpecialWildSpawnConfig {
         root.enabled = true;
         root.disableVanillaAndAllTheMonsSpecialSpawns = true;
         root.broadcastLegendarySpawns = true;
-        root.broadcastParadoxAndUltraBeastSpawns = false;
+        root.broadcastParadoxAndUltraBeastSpawns = true;
         root.debugSpecialSpawnRolls = false;
         root.checkIntervalTicks = 1200;
-        root.targetAverageSpawnMinutes = 180.0D;
-        root.minimumTargetAverageSpawnMinutes = 60.0D;
+        root.targetAverageSpawnMinutes = 480.0D;
+        root.minimumTargetAverageSpawnMinutes = 480.0D;
         root.baseChanceMultiplier = 1.0D;
         root.pityChanceIncreasePerTargetWindow = 1.0D;
         root.maxPityMultiplier = 6.0D;
         root.paradoxOnlySpawnsEnabled = true;
         root.paradoxCheckIntervalTicks = 1200;
-        root.paradoxTargetAverageSpawnMinutes = 60.0D;
-        root.islanderParadoxTargetAverageSpawnMinutes = 60.0D;
-        root.minimumParadoxTargetAverageSpawnMinutes = 15.0D;
+        root.paradoxTargetAverageSpawnMinutes = 360.0D;
+        root.islanderParadoxTargetAverageSpawnMinutes = 360.0D;
+        root.minimumParadoxTargetAverageSpawnMinutes = 360.0D;
         root.paradoxBaseChanceMultiplier = 1.0D;
         root.paradoxPityChanceIncreasePerTargetWindow = 1.0D;
         root.paradoxMaxPityMultiplier = 6.0D;
-        root.maxAliveParadoxWildPokemon = 2;
+        root.maxAliveParadoxWildPokemon = 1;
         root.ultraBeastCheckIntervalTicks = 1200;
-        root.ultraBeastTargetAverageSpawnMinutes = 120.0D;
-        root.islanderUltraBeastTargetAverageSpawnMinutes = 120.0D;
-        root.minimumUltraBeastTargetAverageSpawnMinutes = 30.0D;
+        root.ultraBeastTargetAverageSpawnMinutes = 360.0D;
+        root.islanderUltraBeastTargetAverageSpawnMinutes = 360.0D;
+        root.minimumUltraBeastTargetAverageSpawnMinutes = 360.0D;
         root.ultraBeastBaseChanceMultiplier = 1.0D;
         root.ultraBeastPityChanceIncreasePerTargetWindow = 1.0D;
         root.ultraBeastMaxPityMultiplier = 6.0D;
-        root.maxAliveUltraBeastWildPokemon = 2;
+        root.maxAliveUltraBeastWildPokemon = 1;
         root.playerScalingStartPlayers = 10;
         root.playerScalingMaxPlayers = 100;
         root.removeBiomeRequirements = true;
@@ -142,13 +153,43 @@ public final class SpecialWildSpawnConfig {
         root.islanderSpecialSpawnsEnabled = true;
         root.islanderWorldPrefix = "islander_";
         root.islanderOnlyNotifyIslanders = true;
+        root.minimumProfilePlaytimeSeconds = 10L * 60L * 60L;
         root.islanderMinimumProfilePlaytimeSeconds = 10L * 60L * 60L;
-        root.islanderTargetAverageSpawnMinutes = 180.0D;
+        root.islanderTargetAverageSpawnMinutes = 480.0D;
         root.islanderLegendaryChancePerCheck = 1.0D;
         root.islanderParadoxChancePerCheck = 1.0D;
         root.islanderUltraBeastChancePerCheck = 1.0D;
         root.islanderMythicalChancePerCheck = 1.0D;
         root.disabledDimensions = new ArrayList<>(List.of("multiworld:spawn1", "multiworld:spawn", "minecraft:the_end"));
+
+        root.riftEventsEnabled = true;
+        root.riftCheckIntervalTicks = 20 * 60 * 60; // one global rift roll per hour
+        root.shinyRiftChancePerCheck = 0.0005D; // 0.05% per hourly check
+        root.paradoxRiftChancePerCheck = 0.00025D;
+        root.ultraBeastRiftChancePerCheck = 0.00025D;
+        root.legendaryRiftChancePerCheck = 0.00020D;
+        root.mythicalRiftChancePerCheck = 0.00020D;
+        root.shinyRiftLevelRange = "10-60";
+        root.shinyRiftSpawns = new ArrayList<>(List.of(
+                entry("pikachu"),
+                entry("eevee"),
+                entry("magikarp"),
+                entry("gastly"),
+                entry("dratini"),
+                entry("riolu"),
+                entry("ralts"),
+                entry("shinx"),
+                entry("zorua"),
+                entry("larvitar"),
+                entry("bagon"),
+                entry("beldum"),
+                entry("gible"),
+                entry("axew"),
+                entry("goomy"),
+                entry("dreepy"),
+                entry("frigibax")
+        ));
+
         root.legendarySpawns = new ArrayList<>(List.of(
                 entry("articuno"),
                 entry("zapdos"),
@@ -396,12 +437,22 @@ public final class SpecialWildSpawnConfig {
         public boolean islanderSpecialSpawnsEnabled;
         public String islanderWorldPrefix;
         public boolean islanderOnlyNotifyIslanders;
+        public long minimumProfilePlaytimeSeconds;
         public long islanderMinimumProfilePlaytimeSeconds;
         public double islanderTargetAverageSpawnMinutes;
         public double islanderLegendaryChancePerCheck;
         public double islanderParadoxChancePerCheck;
         public double islanderUltraBeastChancePerCheck;
         public double islanderMythicalChancePerCheck;
+        public boolean riftEventsEnabled;
+        public int riftCheckIntervalTicks;
+        public double shinyRiftChancePerCheck;
+        public double paradoxRiftChancePerCheck;
+        public double ultraBeastRiftChancePerCheck;
+        public double legendaryRiftChancePerCheck;
+        public double mythicalRiftChancePerCheck;
+        public String shinyRiftLevelRange;
+        public List<SpawnEntry> shinyRiftSpawns;
         public List<String> disabledDimensions;
         public List<SpawnEntry> legendarySpawns;
         public List<SpawnEntry> paradoxSpawns;

@@ -28,7 +28,7 @@ public final class SpawnWarpCommand {
                     .executes(ctx -> spawn(ctx.getSource())));
 
             dispatcher.register(literal("setspawn")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .executes(ctx -> setSpawn(ctx.getSource())));
 
             dispatcher.register(literal("warp")
@@ -44,12 +44,12 @@ public final class SpawnWarpCommand {
                             .executes(ctx -> warp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
 
             dispatcher.register(literal("setwarp")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .then(argument("name", StringArgumentType.word())
                             .executes(ctx -> setWarp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
 
             dispatcher.register(literal("delwarp")
-                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                    .requires(source -> source.hasPermission(4))
                     .then(argument("name", StringArgumentType.word())
                             .suggests(WARP_SUGGESTIONS)
                             .executes(ctx -> delWarp(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));

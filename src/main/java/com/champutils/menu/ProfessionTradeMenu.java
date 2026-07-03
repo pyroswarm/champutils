@@ -8,6 +8,7 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
@@ -54,9 +55,11 @@ public final class ProfessionTradeMenu {
                     .addLoreLine(Component.literal("§7Stored: §a" + have))
                     .addLoreLine(Component.literal("§7Cost: §6" + data.tradeCost + "x"))
                     .addLoreLine(Component.literal("§7Reward: §d" + data.rewardAmount + "x " + ProfessionBackpackConfig.formatName(data.rewardItem)))
-                    .addLoreLine(Component.literal(have >= data.tradeCost ? "§eClick to trade once." : "§cNot enough stored."))
+                    .addLoreLine(Component.literal(have >= data.tradeCost ? "§eLeft Click: trade once." : "§cNot enough stored."))
+                    .addLoreLine(Component.literal(have >= data.tradeCost ? "§eShift Click: trade up to one reward stack." : "§8Shift Click trades your maximum when possible."))
                     .setCallback((slot, click, type) -> {
-                        ProfessionBackpackManager.TradeResult result = ProfessionBackpackManager.trade(player, data.item);
+                        int requestedTrades = type == ClickType.QUICK_MOVE ? 64 : 1;
+                        ProfessionBackpackManager.TradeResult result = ProfessionBackpackManager.trade(player, data.item, requestedTrades);
                         player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
                         openProfession(player, profession, fixedPage);
                     }));

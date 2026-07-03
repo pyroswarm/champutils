@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.teleport.SafeTeleportManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -99,7 +100,7 @@ public final class ProfileLoadingStateManager {
                 ProfileLobbyManager.applyNormalPlayerState(player);
                 if (player.server != null) {
                     player.server.execute(() -> {
-                        if (!player.hasDisconnected() && PlayerProfileManager.hasActiveProfile(player) && !isLoading(player)) {
+                        if (SafeTeleportManager.isLive(player) && PlayerProfileManager.hasActiveProfile(player) && !isLoading(player)) {
                             ProfileLobbyManager.applyNormalPlayerState(player);
                         }
                     });
@@ -148,7 +149,7 @@ public final class ProfileLoadingStateManager {
             if (level == null) level = player.serverLevel();
             boolean wrongDimension = player.serverLevel() == null || !player.serverLevel().dimension().location().toString().equals(state.dimension);
             if (wrongDimension || player.distanceToSqr(state.x, state.y, state.z) > 0.04D) {
-                player.teleportTo(level, state.x, state.y, state.z, state.yaw, state.pitch);
+                SafeTeleportManager.teleportUncheckedNoBack(player, level, state.x, state.y, state.z, state.yaw, state.pitch);
             }
         }
     }
@@ -203,7 +204,7 @@ public final class ProfileLoadingStateManager {
             player.sendSystemMessage(Component.literal("Profile loading world is missing: " + dimension + ". Staying locked at your current position instead of falling back to overworld.").withStyle(ChatFormatting.RED));
             return;
         }
-        player.teleportTo(level, LOADING_X, LOADING_Y, LOADING_Z, LOADING_YAW, LOADING_PITCH);
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, LOADING_X, LOADING_Y, LOADING_Z, LOADING_YAW, LOADING_PITCH);
     }
 
     private static void blankLiveState(ServerPlayer player) {

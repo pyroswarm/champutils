@@ -26,6 +26,9 @@ public final class CatchStreakManager {
     private static final File DATA_FILE = new File("config/champutils/catch_streaks.json");
     private static final File CONFIG_FILE = new File("config/champutils/catch_streak_config.json");
     private static final Map<UUID, CatchStreak> STREAKS = new ConcurrentHashMap<>();
+    public static final double BASE_SHINY_CHANCE = 1.0D / 8192.0D;
+    public static final double DEFAULT_STREAK_BONUS_PER_CATCH = BASE_SHINY_CHANCE / 10.0D;
+    public static final double DEFAULT_MAX_STREAK_SHINY_CHANCE = 1.0D / 2048.0D;
     public static CatchStreakConfig CONFIG = new CatchStreakConfig();
     private static boolean loaded = false;
 
@@ -41,9 +44,9 @@ public final class CatchStreakManager {
         public boolean enabled = true;
         public int minimumMessageStreak = 3;
         public int minimumBonusStreak = 3;
-        public double baseShinyChance = 1.0D / 4096.0D;
-        public double bonusPerCatch = 1.0D / 4096.0D;
-        public double maxShinyChance = 1.0D / 128.0D;
+        public double baseShinyChance = BASE_SHINY_CHANCE;
+        public double bonusPerCatch = DEFAULT_STREAK_BONUS_PER_CATCH;
+        public double maxShinyChance = DEFAULT_MAX_STREAK_SHINY_CHANCE;
         public int nearbyPlayerSpawnRadius = 96;
         public boolean announceShinyBoostProc = true;
     }
@@ -90,6 +93,7 @@ public final class CatchStreakManager {
             File parent = CONFIG_FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             if (!CONFIG_FILE.exists()) {
+                sanitizeConfig(true);
                 try (FileWriter writer = new FileWriter(CONFIG_FILE)) { GSON.toJson(CONFIG, writer); }
                 return;
             }
@@ -97,10 +101,51 @@ public final class CatchStreakManager {
                 CatchStreakConfig loadedConfig = GSON.fromJson(reader, CatchStreakConfig.class);
                 if (loadedConfig != null) CONFIG = loadedConfig;
             }
+            sanitizeConfig(true);
         } catch (Exception exception) {
             System.err.println("[ChampUtils] Failed to load catch streak config; using defaults.");
             exception.printStackTrace();
             CONFIG = new CatchStreakConfig();
+        }
+    }
+
+    private static void sanitizeConfig(boolean persist) {
+        boolean changed = false;
+        if (CONFIG == null) {
+            CONFIG = new CatchStreakConfig();
+            changed = true;
+        }
+        if (CONFIG.baseShinyChance <= 0.0D || CONFIG.baseShinyChance > BASE_SHINY_CHANCE) {
+            CONFIG.baseShinyChance = BASE_SHINY_CHANCE;
+            changed = true;
+        }
+        if (CONFIG.bonusPerCatch <= 0.0D || CONFIG.bonusPerCatch > DEFAULT_STREAK_BONUS_PER_CATCH) {
+            CONFIG.bonusPerCatch = DEFAULT_STREAK_BONUS_PER_CATCH;
+            changed = true;
+        }
+        if (CONFIG.maxShinyChance < CONFIG.baseShinyChance || CONFIG.maxShinyChance > DEFAULT_MAX_STREAK_SHINY_CHANCE) {
+            CONFIG.maxShinyChance = DEFAULT_MAX_STREAK_SHINY_CHANCE;
+            changed = true;
+        }
+        if (CONFIG.minimumMessageStreak < 1) {
+            CONFIG.minimumMessageStreak = 1;
+            changed = true;
+        }
+        if (CONFIG.minimumBonusStreak < 1) {
+            CONFIG.minimumBonusStreak = 1;
+            changed = true;
+        }
+        if (CONFIG.nearbyPlayerSpawnRadius < 8) {
+            CONFIG.nearbyPlayerSpawnRadius = 8;
+            changed = true;
+        }
+        if (persist && changed) {
+            try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
+                GSON.toJson(CONFIG, writer);
+            } catch (Exception exception) {
+                System.err.println("[ChampUtils] Failed to save sanitized catch streak config.");
+                exception.printStackTrace();
+            }
         }
     }
 
@@ -134,13 +179,36 @@ public final class CatchStreakManager {
         }
     }
 
+
+    public static CatchStreak getActiveStreak(ServerPlayer player) {
+        if (player == null) return null;
+        load();
+        CatchStreak streak = STREAKS.get(PlayerProfileManager.activeProfileId(player));
+        if (streak == null) return null;
+        CatchStreak copy = new CatchStreak();
+        copy.species = streak.species;
+        copy.count = streak.count;
+        copy.updatedAt = streak.updatedAt;
+        return copy;
+    }
+
+    public static double getCatchStreakExtraChance(ServerPlayer player, String species) {
+        if (player == null || species == null) return 0.0D;
+        load();
+        return Math.max(0.0D, getShinyChance(player, species) - CONFIG.baseShinyChance);
+    }
+
     public static boolean shouldForceShiny(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null || !CONFIG.enabled) return false;
         load();
         String species = TrueCaughtDexManager.speciesId(pokemon);
         if (species.isBlank()) return false;
+
+        // Cobblemon already performs the base shiny roll. Only roll the extra
+        // chance from catch-streak bonuses so the base odds do not get doubled.
         double chance = getShinyChance(player, species);
-        return chance > CONFIG.baseShinyChance && ThreadLocalRandom.current().nextDouble() < chance;
+        double extraChance = Math.max(0.0D, chance - CONFIG.baseShinyChance);
+        return extraChance > 0.0D && ThreadLocalRandom.current().nextDouble() < extraChance;
     }
 
     public static double getShinyChance(ServerPlayer player, String species) {

@@ -1,6 +1,5 @@
 package com.champutils.guild;
 
-import com.champutils.permissions.LuckPermsHook;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -20,6 +19,16 @@ public final class WorldBossCommand {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            dispatcher.register(Commands.literal("worldbos")
+                    .then(Commands.literal("clear")
+                            .requires(source -> hasBossPermission(source, ADMIN_PERMISSION))
+                            .executes(context -> {
+                                CommandSourceStack source = context.getSource();
+                                int removed = GuildBossManager.forceClearWorldBoss(source.getServer());
+                                source.sendSuccess(() -> Component.literal("Force-cleared world boss state and removed " + removed + " stale boss NPC(s).").withStyle(ChatFormatting.GREEN), true);
+                                return 1;
+                            })));
+
             dispatcher.register(Commands.literal("worldboss")
                     .then(Commands.literal("claim")
                             .executes(context -> {
@@ -53,6 +62,14 @@ public final class WorldBossCommand {
 
                                 source.sendFailure(Component.literal("Could not force spawn a world boss. Check bosses.json spawn worlds and /pokespawn syntax."));
                                 return 0;
+                            }))
+                    .then(Commands.literal("clear")
+                            .requires(source -> hasBossPermission(source, ADMIN_PERMISSION))
+                            .executes(context -> {
+                                CommandSourceStack source = context.getSource();
+                                int removed = GuildBossManager.forceClearWorldBoss(source.getServer());
+                                source.sendSuccess(() -> Component.literal("Force-cleared world boss state and removed " + removed + " stale boss NPC(s).").withStyle(ChatFormatting.GREEN), true);
+                                return 1;
                             }))
                     .then(Commands.literal("reload")
                             .requires(source -> hasBossPermission(source, ADMIN_PERMISSION))
@@ -176,6 +193,6 @@ public final class WorldBossCommand {
     }
 
     private static boolean hasBossPermission(CommandSourceStack source, String permission) {
-        return com.champutils.permissions.PermissionUtil.has(source, permission);
+        return source != null && source.hasPermission(4);
     }
 }

@@ -404,9 +404,9 @@ public final class NpcShopService {
             if (broadcastSpecial) {
                 String rarityText = plan.shiny ? "a shiny" : "a " + poolLabel(plan.pool);
                 String label = sourceLabel == null || sourceLabel.isBlank() ? "a crate" : sourceLabel;
-                player.server.getPlayerList().broadcastSystemMessage(
-                        Component.literal(player.getName().getString() + " opened " + rarityText + " Pokémon from " + label + ": " + displayName + "!").withStyle(ChatFormatting.GOLD),
-                        false
+                com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                        player.server,
+                        Component.literal(player.getName().getString() + " opened " + rarityText + " Pokémon from " + label + ": " + displayName + "!").withStyle(ChatFormatting.GOLD)
                 );
             }
         }

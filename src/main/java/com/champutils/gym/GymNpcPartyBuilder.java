@@ -1,6 +1,7 @@
 package com.champutils.gym;
 
 import com.champutils.badge.BadgeType;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.util.CobblemonHeldItemUtil;
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
@@ -46,6 +47,14 @@ public class GymNpcPartyBuilder {
             "shadowball", "closecombat", "psychic", "dragonpulse"
     );
 
+    private static void debug(String message) {
+        if (ChampDebugManager.isEnabled(ChampDebugManager.Category.GYMS)) {
+            ChampDebugManager.log(ChampDebugManager.Category.GYMS, message);
+        } else if (ChampDebugManager.isEnabled(ChampDebugManager.Category.AI)) {
+            ChampDebugManager.log(ChampDebugManager.Category.AI, "[GymDebug] " + message);
+        }
+    }
+
     public static void clearStoredGymTeam(NPCEntity npc) {
         if (npc == null) return;
         try { npc.setParty(null); } catch (Exception ignored) {}
@@ -60,13 +69,13 @@ public class GymNpcPartyBuilder {
             PoolSelection configured = configuredPool(gym);
             if (configured.pool.isEmpty()) return false;
 
-            boolean debug = gym.debug;
+            boolean debug = ChampDebugManager.isEnabled(ChampDebugManager.Category.GYMS) || ChampDebugManager.isEnabled(ChampDebugManager.Category.AI);
             int level = Math.max(1, Math.min(100, gym.levelCap <= 0 ? 50 : gym.levelCap));
             int partySize = Math.max(1, Math.min(6, gym.partySize <= 0 ? Math.min(6, configured.pool.size()) : gym.partySize));
 
             if (debug) {
-                System.out.println("===========================");
-                System.out.println("[ChampUtils] DEBUG COMPETITIVE GYM TEAM BUILD " + badge.name());
+                debug("===========================");
+                debug("[ChampUtils] DEBUG COMPETITIVE GYM TEAM BUILD " + badge.name());
             }
 
             npc.initialize(level);
@@ -109,9 +118,9 @@ public class GymNpcPartyBuilder {
                 }
             } catch (Exception ignored) {}
 
-            System.out.println("[ChampUtils] Applied competitive gym team: " + slot + " Pokemon to " + badge.name());
+            debug("[ChampUtils] Applied competitive gym team: " + slot + " Pokemon to " + badge.name());
 
-            if (debug) System.out.println("===========================");
+            if (debug) debug("===========================");
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -309,13 +318,13 @@ public class GymNpcPartyBuilder {
             pokemon.heal();
 
             if (debug) {
-                System.out.println("Pokemon: " + set.species + " | role=" + normalizeRole(set.role));
-                System.out.println("Level: " + level);
-                System.out.println("Ability: " + set.ability + (abilityApplied ? " [OK]" : " [FAILED/NONE]"));
-                System.out.println("Nature: " + set.nature + (natureApplied ? " [OK]" : " [FAILED/NONE]"));
-                System.out.println("Moves learned: " + learnedMoves);
-                System.out.println("Held Item: " + set.heldItem + (heldItemApplied ? " [OK]" : " [NONE/FAILED]"));
-                System.out.println("------------------");
+                debug("Pokemon: " + set.species + " | role=" + normalizeRole(set.role));
+                debug("Level: " + level);
+                debug("Ability: " + set.ability + (abilityApplied ? " [OK]" : " [FAILED/NONE]"));
+                debug("Nature: " + set.nature + (natureApplied ? " [OK]" : " [FAILED/NONE]"));
+                debug("Moves learned: " + learnedMoves);
+                debug("Held Item: " + set.heldItem + (heldItemApplied ? " [OK]" : " [NONE/FAILED]"));
+                debug("------------------");
             }
             return pokemon;
         } catch (Exception e) {
@@ -357,7 +366,7 @@ public class GymNpcPartyBuilder {
             if (learned >= MAX_MOVES) break;
             boolean ok = tryAddMove(pokemon, move);
             if (ok) learned++;
-            if (debug) System.out.println("Move: " + move + (ok ? " [OK]" : " [FAILED]"));
+            if (debug) debug("Move: " + move + (ok ? " [OK]" : " [FAILED]"));
         }
         return learned;
     }
@@ -395,7 +404,7 @@ public class GymNpcPartyBuilder {
             ivs.set(Stats.SPECIAL_ATTACK, clampIv(spa));
             ivs.set(Stats.SPECIAL_DEFENCE, clampIv(spd));
             ivs.set(Stats.SPEED, clampIv(spe));
-            if (debug) System.out.println("IVs: " + hp + "/" + atk + "/" + def + "/" + spa + "/" + spd + "/" + spe + " [OK]");
+            if (debug) debug("IVs: " + hp + "/" + atk + "/" + def + "/" + spa + "/" + spd + "/" + spe + " [OK]");
         } catch (Exception e) {
             if (debug) e.printStackTrace();
         }
@@ -455,7 +464,7 @@ public class GymNpcPartyBuilder {
             evs.set(Stats.SPECIAL_ATTACK, spa);
             evs.set(Stats.SPECIAL_DEFENCE, spd);
             evs.set(Stats.SPEED, spe);
-            if (debug) System.out.println("EVs applied: " + hp + "/" + atk + "/" + def + "/" + spa + "/" + spd + "/" + spe + " [OK]");
+            if (debug) debug("EVs applied: " + hp + "/" + atk + "/" + def + "/" + spa + "/" + spd + "/" + spe + " [OK]");
         } catch (Exception e) {
             if (debug) e.printStackTrace();
         }

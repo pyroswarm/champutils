@@ -39,7 +39,7 @@ public final class SpawnWarpCommand {
 
                     dispatcher.register(
                             Commands.literal("setspawn")
-                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                    .requires(source -> source.hasPermission(4))
                                     .executes(context -> setSpawn(
                                             context.getSource()
                                                     .getPlayerOrException()
@@ -65,7 +65,7 @@ public final class SpawnWarpCommand {
 
                     dispatcher.register(
                             Commands.literal("setwarp")
-                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                    .requires(source -> source.hasPermission(4))
                                     .then(Commands.argument(
                                                     "name",
                                                     StringArgumentType.word()
@@ -82,7 +82,7 @@ public final class SpawnWarpCommand {
 
                     dispatcher.register(
                             Commands.literal("delwarp")
-                                    .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                                    .requires(source -> source.hasPermission(4))
                                     .then(Commands.argument(
                                                     "name",
                                                     StringArgumentType.word()

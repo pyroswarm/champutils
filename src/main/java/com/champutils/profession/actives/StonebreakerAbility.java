@@ -1,9 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionActiveDuration;
 import com.champutils.profession.ProfessionNotificationSettings;
-
-import com.champutils.profession.ProfessionNotificationSettings;
-import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
 import net.minecraft.network.chat.Component;
@@ -14,7 +12,7 @@ import net.minecraft.world.item.ItemStack;
 
 public class StonebreakerAbility implements ProfessionActiveAbility {
 
-    private static final int DEFAULT_SECONDS = 25;
+    private static final int DEFAULT_SECONDS = 12;
 
     @Override
     public String id() {
@@ -23,28 +21,24 @@ public class StonebreakerAbility implements ProfessionActiveAbility {
 
     @Override
     public boolean use(ServerPlayer player, ItemStack stack) {
-        int seconds = getDurationSeconds(stack);
+        double seconds = getDurationSeconds(player, stack);
+        String secondsText = ProfessionActiveDuration.formatSeconds(seconds);
 
         ActiveEffectManager.activateTimed(player, "stonebreaker", "Stonebreaker", seconds, stack);
 
-        player.sendSystemMessage(Component.literal("§7Stonebreaker active: §fNatural stone blocks break in a §e5x5 §farea for §e" + seconds + "s§f."));
+        player.sendSystemMessage(Component.literal("§7Stonebreaker active: §fNatural stone blocks break in a §e5x5 §farea for §e" + secondsText + "s§f."));
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§7Stonebreaker active: 5x5 stone clearing for " + seconds + "s"), true);
+            player.displayClientMessage(Component.literal("§7Stonebreaker active: 5x5 stone clearing for " + secondsText + "s"), true);
         }
-        ProfessionNotificationSettings.playSound(player, SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 0.9F, 1.75F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 0.65F, 0.9F);
         return true;
     }
 
-    private int getDurationSeconds(ItemStack stack) {
-        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
-        if (toolData != null && toolData.activeDurationSeconds > 0) {
-            return Math.max(1, toolData.activeDurationSeconds);
-        }
-
+    private double getDurationSeconds(ServerPlayer player, ItemStack stack) {
         double rolledSeconds = ProfessionToolUtil.getStat(stack, "stonebreakerSeconds");
-        if (rolledSeconds <= 0.0D) {
-            return DEFAULT_SECONDS;
-        }
-        return Math.max(1, (int) Math.round(rolledSeconds));
+        double fallback = rolledSeconds <= 0.0D ? DEFAULT_SECONDS : rolledSeconds;
+        return ActiveEffectManager.extendedActiveDurationSeconds(
+                ProfessionActiveDuration.durationSeconds(player, stack, fallback, null)
+        );
     }
 }

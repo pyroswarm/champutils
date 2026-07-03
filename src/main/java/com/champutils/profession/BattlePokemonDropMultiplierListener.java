@@ -28,7 +28,7 @@ public final class BattlePokemonDropMultiplierListener {
             if (!isPokemonEntity(event.getEntity())) return;
 
             ServerPlayer player = event.getPlayer();
-            int level = Math.max(0, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
+            int level = Math.max(0, ProfessionManager.getBenefitLevel(player, ProfessionType.BATTLING));
             if (level < BattleProfessionLootConfig.extraPokemonDropsMinBattlingLevel) return;
 
             int extraCopies = calculateExtraCopies(level);

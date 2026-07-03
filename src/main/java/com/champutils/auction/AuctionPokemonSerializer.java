@@ -2,6 +2,8 @@ package com.champutils.auction;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.storage.party.PartyStore;
+import com.cobblemon.mod.common.api.storage.party.PartyPosition;
+import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonArray;
@@ -13,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -42,31 +45,128 @@ public final class AuctionPokemonSerializer {
         Pokemon pokemon = party.get(slotIndex);
         if (pokemon == null) return;
 
-        // Cobblemon 1.7.x party removal can be sensitive when the object is mutated/serialized
-        // during the same command tick. Prefer clearing the exact slot via PartyStore#set(index, null)
-        // so the client receives a clean slot update instead of a shifted-party remove.
-        if (trySetPartySlot(party, slotIndex, null)) {
-            return;
-        }
-
         UUID expectedUuid = pokemon.getUuid();
-        boolean removed = party.remove(pokemon);
-        if (!removed) {
-            throw new IllegalStateException("Cobblemon refused to remove Pokémon from party slot " + (slotIndex + 1) + ".");
+        boolean removed = false;
+
+        // Prefer removing by the exact party position. This recalls the Pokémon, clears store
+        // coordinates, updates observers, and avoids relying on party shifting behavior.
+        try {
+            removed = party.remove(new PartyPosition(slotIndex));
+        } catch (Throwable ignored) {
+            removed = false;
         }
 
-        Pokemon nowInSlot = slotIndex < party.size() ? party.get(slotIndex) : null;
-        if (nowInSlot != null && expectedUuid.equals(nowInSlot.getUuid())) {
-            throw new IllegalStateException("Cobblemon party slot did not clear correctly.");
+        if (!removed) {
+            try {
+                removed = party.remove(pokemon);
+            } catch (Throwable ignored) {
+                removed = false;
+            }
+        }
+
+        // Last-resort hard clear for any stale/broken storeCoordinates edge case. This is
+        // intentionally followed by a UUID scan so expedition/auction flows cannot silently
+        // continue while the original Pokémon remains in the player's party.
+        if (!removed && forceClearPartySlot(party, slotIndex, pokemon)) {
+            removed = true;
+        }
+
+        if (!removed || partyContainsUuid(party, expectedUuid)) {
+            throw new IllegalStateException("Cobblemon refused to safely remove Pokémon from party slot " + (slotIndex + 1) + ".");
         }
     }
 
-    private static boolean trySetPartySlot(PartyStore party, int slotIndex, Pokemon pokemon) {
+    public static Pokemon getAndValidatePartyPokemon(ServerPlayer player, int slotIndex) {
+        PartyStore party = getParty(player);
+        if (party == null) throw new IllegalStateException("Could not access Cobblemon party.");
+        if (slotIndex < 0 || slotIndex >= party.size()) throw new IllegalArgumentException("Party slot is out of bounds.");
+        return party.get(slotIndex);
+    }
+
+    public static boolean hasPokemonInPartyOrPc(ServerPlayer player, UUID pokemonUuid) {
+        if (player == null || pokemonUuid == null) return false;
         try {
-            party.set(slotIndex, pokemon);
+            PartyStore party = getParty(player);
+            if (party != null && partyContainsUuid(party, pokemonUuid)) return true;
+        } catch (Throwable ignored) {
+        }
+        try {
+            PCStore pc = Cobblemon.INSTANCE.getStorage().getPC(player);
+            if (pc != null) {
+                for (Pokemon pokemon : pc) {
+                    if (pokemon != null && pokemonUuid.equals(pokemon.getUuid())) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    public static UUID uuidFromPayload(JsonObject payload) {
+        if (payload == null) return null;
+        try {
+            if (payload.has("uuid")) return UUID.fromString(payload.get("uuid").getAsString());
+        } catch (Throwable ignored) {
+        }
+        try {
+            String encoded = payload.has("pokemonNbtBase64") ? payload.get("pokemonNbtBase64").getAsString() : "";
+            if (encoded == null || encoded.isBlank()) return null;
+            byte[] bytes = Base64.getDecoder().decode(encoded);
+            CompoundTag tag = TagParser.parseTag(new String(bytes, StandardCharsets.UTF_8));
+            if (tag.hasUUID("UUID")) return tag.getUUID("UUID");
+            if (tag.hasUUID("uuid")) return tag.getUUID("uuid");
+            if (tag.contains("UUID")) return UUID.fromString(tag.getString("UUID"));
+            if (tag.contains("uuid")) return UUID.fromString(tag.getString("uuid"));
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static boolean partyContainsUuid(PartyStore party, UUID expectedUuid) {
+        if (party == null || expectedUuid == null) return false;
+        for (int i = 0; i < party.size(); i++) {
+            Pokemon current = party.get(i);
+            if (current != null && expectedUuid.equals(current.getUuid())) return true;
+        }
+        return false;
+    }
+
+    private static boolean forceClearPartySlot(PartyStore party, int slotIndex, Pokemon pokemon) {
+        try {
+            if (pokemon != null) pokemon.recall();
+        } catch (Throwable ignored) {
+        }
+        try {
+            Method method = PartyStore.class.getDeclaredMethod("setAtPosition", PartyPosition.class, Pokemon.class);
+            method.setAccessible(true);
+            method.invoke(party, new PartyPosition(slotIndex), null);
+            clearStoreCoordinates(pokemon);
             return true;
         } catch (Throwable ignored) {
-            return false;
+        }
+        try {
+            Field slots = PartyStore.class.getDeclaredField("slots");
+            slots.setAccessible(true);
+            Object value = slots.get(party);
+            if (value instanceof java.util.List<?> list && slotIndex >= 0 && slotIndex < list.size()) {
+                @SuppressWarnings("unchecked")
+                java.util.List<Object> mutable = (java.util.List<Object>) list;
+                mutable.set(slotIndex, null);
+                clearStoreCoordinates(pokemon);
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private static void clearStoreCoordinates(Pokemon pokemon) {
+        if (pokemon == null) return;
+        try {
+            Object observable = pokemon.getStoreCoordinates();
+            Method set = observable.getClass().getMethod("set", Object.class);
+            set.invoke(observable, new Object[] { null });
+        } catch (Throwable ignored) {
         }
     }
 
@@ -138,7 +238,21 @@ public final class AuctionPokemonSerializer {
     }
 
     public static DeliveryResult deliverToPartyOrPc(ServerPlayer player, Pokemon pokemon) {
-        if (addToFirstOpenPartySlot(player, pokemon)) {
+        if (player == null || pokemon == null) return DeliveryResult.FAILED;
+
+        // Never deliver a restored Pokémon if that exact UUID is already in the
+        // player's party or PC. This is the safety net that prevents expedition
+        // retries, failed starts, auction recovery, or PC-full edge cases from
+        // creating a second copy of the same Pokémon.
+        if (hasPokemonInPartyOrPc(player, pokemon.getUuid())) {
+            return DeliveryResult.PARTY;
+        }
+
+        // Never call PartyStore#add unless we have positively verified an open party slot.
+        // Some Cobblemon storage paths can behave unexpectedly when the party is full; for
+        // reward/expedition delivery we want a strict PARTY-or-PC result with no duplicate
+        // party insert attempts.
+        if (hasOpenPartySlot(player) && addToFirstOpenPartySlot(player, pokemon)) {
             return DeliveryResult.PARTY;
         }
         if (addToPc(player, pokemon)) {
@@ -161,6 +275,7 @@ public final class AuctionPokemonSerializer {
         payload.addProperty("kind", "POKEMON");
         payload.addProperty("format", "cobblemon_pokemon_nbt_v2");
         payload.addProperty("species", safe(speciesId(pokemon)));
+        payload.addProperty("uuid", pokemon.getUuid().toString());
         payload.addProperty("displayName", safe(pokemon.getDisplayName(true).getString()));
         payload.addProperty("level", pokemon.getLevel());
         payload.addProperty("shiny", pokemon.getShiny());

@@ -32,7 +32,7 @@ public final class TextCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("text")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .then(literal("create")
                                 .then(argument("id", StringArgumentType.word())
                                         .then(argument("text", StringArgumentType.greedyString())

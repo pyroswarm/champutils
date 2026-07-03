@@ -5,6 +5,7 @@ import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.actives.ActiveEffectManager;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -14,6 +15,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -36,12 +39,36 @@ public class FarmingProfessionListener {
     private static final Set<String> MANUALLY_PROCESSED_EXTRA_BLOCKS = new HashSet<>();
 
     public static void register() {
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+            if (!(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
+            if (!(world instanceof ServerLevel serverLevel)) return InteractionResult.PASS;
+            if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+
+            BlockPos pos = hitResult.getBlockPos();
+            BlockState state = serverLevel.getBlockState(pos);
+            if (!isReadyCobblemonBerryBush(state)) return InteractionResult.PASS;
+
+            ItemStack tool = serverPlayer.getMainHandItem();
+            if (!isHoeForRightClickXp(tool)) return InteractionResult.PASS;
+
+            String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            processFarmingRewards(serverPlayer, state, blockId, tool, farmingXpFor(blockId), false);
+
+            // Let Cobblemon run its normal right-click harvest. This callback only adds
+            // farming XP/passives when the player actually right-clicks with a hoe.
+            return InteractionResult.PASS;
+        });
+
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (!(player instanceof ServerPlayer serverPlayer)) return true;
             ItemStack tool = serverPlayer.getMainHandItem();
             if (!isChampUtilsHoeTool(tool)) return true;
             if (world instanceof ServerLevel serverLevel && isLeafBlock(state)) {
                 silkShearLeaf(serverPlayer, serverLevel, pos, state);
+                return false;
+            }
+            if (world instanceof ServerLevel serverLevel && isReadyCobblemonBerryBush(state)) {
+                harvestCobblemonBerryBush(serverPlayer, serverLevel, pos, state);
                 return false;
             }
             if (!isFarmingBlock(state)) return true;
@@ -57,7 +84,7 @@ public class FarmingProfessionListener {
 
             ItemStack tool = serverPlayer.getMainHandItem();
             String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-            int xp = 1;
+            int xp = farmingXpFor(blockId);
             processFarmingRewards(serverPlayer, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasToggle(serverPlayer, "auto_replant", tool)) {
@@ -87,11 +114,11 @@ public class FarmingProfessionListener {
 
 
     private static void processFarmingRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
-        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp / 2.0D)) : baseXp;
+        int xp = Math.max(1, baseXp);
         ProfessionManager.addXp(player, ProfessionType.FARMING, xp);
         ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FARMING, blockId, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FARMING, blockId);
-        // Farming was intentionally nerfed: one mature crop = one base XP.
+        // Farming XP is explicit: vanilla mature crops = 2 XP, Cobblemon plants/berries = 3 XP.
         ProfessionLootManager.rollReward(player, ProfessionType.FARMING);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
         rollXpSurge(player, tool, xp);
@@ -111,10 +138,18 @@ public class FarmingProfessionListener {
         return "FARMING".equals(profession) || baseItem.endsWith("_hoe") || baseItem.contains(":hoe");
     }
 
+    private static boolean isHoeForRightClickXp(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        if (isChampUtilsHoeTool(stack)) return true;
+        String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase(java.util.Locale.ROOT);
+        return itemId.endsWith("_hoe") || itemId.contains(":hoe");
+    }
+
     private static boolean isFarmingBlock(BlockState state) {
         if (state == null || state.isAir()) return false;
         String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         if (ProfessionConfig.SETTINGS.farmingXp.containsKey(blockId)) return true;
+        if (isCobblemonPlantOrBerry(blockId) && findAgeProperty(state) != null) return true;
         return state.getBlock() instanceof CropBlock || state.getBlock() instanceof NetherWartBlock || state.getBlock() instanceof CocoaBlock;
     }
 
@@ -140,7 +175,7 @@ public class FarmingProfessionListener {
             return crop.isMaxAge(state);
         }
 
-        if (state.getBlock() instanceof NetherWartBlock || state.getBlock() instanceof CocoaBlock || configured) {
+        if (state.getBlock() instanceof NetherWartBlock || state.getBlock() instanceof CocoaBlock || configured || isCobblemonPlantOrBerry(blockId)) {
             IntegerProperty age = findAgeProperty(state);
             return age != null && state.getValue(age) >= maxAge(age);
         }
@@ -205,7 +240,7 @@ public class FarmingProfessionListener {
     private static int rollFortuneHarvestMultiplier(ServerPlayer player, ItemStack tool) {
         ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(tool);
         String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
-        int level = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.FARMING));
+        int level = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.FARMING));
         int max = switch (rarity) { case "MYTHIC" -> 5; case "LEGENDARY" -> 4; case "RARE", "EPIC" -> 3; default -> 2; };
         double highBonus = Math.min(0.25D, level / 400.0D);
         double r = RANDOM.nextDouble();
@@ -264,8 +299,12 @@ public class FarmingProfessionListener {
             BlockState state = level.getBlockState(pos);
             if (!isMatureFarmingBlock(state)) continue;
             String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-            if (isCobblemonBerryBush(blockId)) continue;
-            int xp = 1;
+            int xp = farmingXpFor(blockId);
+            if (isReadyCobblemonBerryBush(state)) {
+                harvestCobblemonBerryBush(player, level, pos.immutable(), state);
+                harvested++;
+                continue;
+            }
             processFarmingRewards(player, state, blockId, player.getMainHandItem(), xp, true);
             MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, pos));
             level.destroyBlock(pos.immutable(), true, player);
@@ -281,6 +320,74 @@ public class FarmingProfessionListener {
 
     private static boolean isMelonOrPumpkin(String blockId) {
         return "minecraft:melon".equals(blockId) || "minecraft:pumpkin".equals(blockId);
+    }
+
+    private static int farmingXpFor(String blockId) {
+        return isCobblemonPlantOrBerry(blockId) ? 3 : 2;
+    }
+
+    private static boolean isCobblemonPlantOrBerry(String blockId) {
+        if (blockId == null) return false;
+        String id = blockId.toLowerCase(java.util.Locale.ROOT);
+        return id.startsWith("cobblemon:") && (
+                id.contains("berry") ||
+                        id.contains("berries") ||
+                        id.contains("apricorn") ||
+                        id.contains("mint") ||
+                        id.contains("herb") ||
+                        id.contains("vivichoke") ||
+                        id.contains("pep_up")
+        );
+    }
+
+    private static boolean isReadyCobblemonBerryBush(BlockState state) {
+        if (state == null || state.isAir()) return false;
+        String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if (!isCobblemonBerryBush(blockId)) return false;
+        IntegerProperty age = findAgeProperty(state);
+        return age != null && state.getValue(age) >= maxAge(age);
+    }
+
+    private static void harvestCobblemonBerryBush(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+        if (player == null || level == null || pos == null || state == null || state.isAir()) return;
+        String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        ItemStack tool = player.getMainHandItem();
+        processFarmingRewards(player, state, blockId, tool, farmingXpFor(blockId), false);
+
+        if (!harvestCobblemonBerryEntity(player, level, pos, state)) {
+            Item fallback = state.getBlock().asItem();
+            if (fallback != Items.AIR) {
+                ProfessionBackpackManager.giveOrDrop(player, new ItemStack(fallback, 1), true);
+            }
+            IntegerProperty age = findAgeProperty(state);
+            if (age != null) {
+                int resetAge = Math.min(3, maxAge(age));
+                if (age.getPossibleValues().contains(resetAge)) {
+                    level.setBlock(pos, state.setValue(age, resetAge), 3 | 16);
+                }
+            }
+        }
+        level.playSound(null, pos, SoundEvents.SWEET_BERRY_BUSH_PICK_BERRIES, SoundSource.BLOCKS, 0.8F, 1.0F);
+    }
+
+    private static boolean harvestCobblemonBerryEntity(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+        try {
+            Object blockEntity = level.getBlockEntity(pos);
+            if (blockEntity == null) return false;
+            Object drops = blockEntity.getClass()
+                    .getMethod("harvest", net.minecraft.world.level.Level.class, BlockState.class, BlockPos.class, net.minecraft.world.entity.player.Player.class)
+                    .invoke(blockEntity, level, state, pos, player);
+            if (drops instanceof Iterable<?> iterable) {
+                for (Object drop : iterable) {
+                    if (drop instanceof ItemStack stack && !stack.isEmpty()) {
+                        ProfessionBackpackManager.giveOrDrop(player, stack.copy(), true);
+                    }
+                }
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private static boolean isCobblemonBerryBush(String blockId) {

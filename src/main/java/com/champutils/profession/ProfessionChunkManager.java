@@ -25,7 +25,7 @@ public final class ProfessionChunkManager {
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(key);
         if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return;
 
-        int level = Math.max(1, ProfessionManager.getLevel(player, profession));
+        int level = Math.max(1, ProfessionManager.getBenefitLevel(player, profession));
         double multiplier = Math.max(0.0D, activity.activityMultiplier) * Math.max(0.0D, activityMultiplier);
         int found = 0;
 
@@ -97,6 +97,31 @@ public final class ProfessionChunkManager {
         ProfessionChunkConfig.ChunkData config = ProfessionChunkConfig.CONFIG.chunks.get(normalizeChunk(chunk));
         if (config == null || config.sellCredits <= 0.0D) return 0L;
         return EconomyManager.creditsToCents(config.sellCredits);
+    }
+
+
+    public static SellResult sell(ServerPlayer player, String chunk, int amount) {
+        if (player == null) return new SellResult(false, "Player missing.", 0, 0L, normalizeChunk(chunk));
+        String key = normalizeChunk(chunk);
+        ProfessionChunkConfig.ChunkData config = ProfessionChunkConfig.CONFIG.chunks.get(key);
+        if (config == null || config.sellCredits <= 0.0D) {
+            return new SellResult(false, "This chunk tier is not sellable.", 0, 0L, key);
+        }
+        int available = Math.max(0, count(player, key));
+        int requested = Math.max(1, Math.min(64, amount));
+        int toSell = Math.min(requested, available);
+        if (toSell <= 0) {
+            return new SellResult(false, "You do not have any " + formatChunk(key) + "s to sell.", 0, 0L, key);
+        }
+        int removed = remove(player, key, toSell);
+        if (removed <= 0) {
+            return new SellResult(false, "Could not remove chunks safely.", 0, 0L, key);
+        }
+        long cents = EconomyManager.creditsToCents(config.sellCredits) * removed;
+        if (cents > 0L) {
+            EconomyManager.deposit(player, cents, "profession_chunk_sale:" + key.toLowerCase(Locale.ROOT));
+        }
+        return new SellResult(true, "", removed, cents, key);
     }
 
     public static long sellAllValueCents(ServerPlayer player) {
@@ -208,4 +233,6 @@ public final class ProfessionChunkManager {
     }
 
     public record TradeResult(boolean success, String error, int fragments, String chunk, String rarity) {}
+    public record SellResult(boolean success, String error, int sold, long cents, String chunk) {}
 }
+

@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ItemSafetyService;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
@@ -434,7 +435,9 @@ public class ProfessionSalvageCommand {
                                 result.cost() +
                                 "x " +
                                 ProfessionFragmentManager.formatWords(result.fragmentKey()) +
-                                " Fragment§a. Result: §f" +
+                                " Fragment §a+ §6" +
+                                EconomyManager.formatWholeCredits(result.creditCost()) +
+                                "§a. Result: §f" +
                                 ProfessionFragmentManager.formatWords(result.toolType()) +
                                 "§a."
                 )

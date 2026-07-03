@@ -72,22 +72,31 @@ public final class ExpeditionMenu {
     public static void chooseType(ServerPlayer player, int partySlot, Pokemon pokemon) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setTitle(Component.literal("Choose Expedition Type"));
-        typeButton(gui, player, 10, partySlot, "pokeball", CobblemonItems.POKE_BALL, "§cPoké Ball Expedition", "§7Balls scale with Battling level.");
-        typeButton(gui, player, 11, partySlot, "held_item", CobblemonItems.LUCKY_EGG, "§6Held Item Expedition", "§7Held item rewards scale up.");
-        typeButton(gui, player, 12, partySlot, "candy", Items.SUGAR, "§dCandy Expedition", "§7XP candy rewards scale up.");
-        typeButton(gui, player, 13, partySlot, "tm", Items.PAPER, "§bTM Expedition", "§7TM materials and tech rewards.");
-        typeButton(gui, player, 14, partySlot, "pokemon", Items.EGG, "§aPokémon Expedition", "§7Can find a random Pokémon. Specials are super rare.");
-        typeButton(gui, player, 15, partySlot, "general", Items.MAP, "§eGeneral Expedition", "§7Classic mixed rewards.");
+        typeButton(gui, player, 10, partySlot, pokemon, "pokeball", CobblemonItems.POKE_BALL, "§cPoké Ball Expedition", "§7Balls scale with Battling level.");
+        typeButton(gui, player, 11, partySlot, pokemon, "held_item", CobblemonItems.LUCKY_EGG, "§6Held Item Expedition", "§7Held item rewards scale up.");
+        typeButton(gui, player, 12, partySlot, pokemon, "candy", Items.SUGAR, "§dCandy Expedition", "§7XP candy rewards scale up.");
+        typeButton(gui, player, 13, partySlot, pokemon, "tm", Items.MUSIC_DISC_CAT, "§bTM Expedition", "§7Rewards random real TMs.");
+        typeButton(gui, player, 14, partySlot, pokemon, "pokemon", Items.EGG, "§aPokémon Expedition", "§7Can find a random Pokémon. Specials are super rare.");
+        typeButton(gui, player, 15, partySlot, pokemon, "general", Items.MAP, "§eGeneral Expedition", "§7Classic mixed rewards.");
         gui.setSlot(22, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eGo Back")).setCallback((slot, click, action) -> open(player)));
         gui.open();
     }
 
-    private static void typeButton(SimpleGui gui, ServerPlayer player, int slot, int partySlot, String type, net.minecraft.world.item.Item icon, String name, String lore) {
-        gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
+    private static void typeButton(SimpleGui gui, ServerPlayer player, int slot, int partySlot, Pokemon pokemon, String type, net.minecraft.world.item.Item icon, String name, String lore) {
+        GuiElementBuilder button = new GuiElementBuilder(icon).hideDefaultTooltip()
                 .setName(Component.literal(name))
-                .addLoreLine(Component.literal(lore))
-                .addLoreLine(Component.literal("§eClick to preview"))
-                .setCallback((i, c, t) -> ExpeditionCommand.previewType(player, partySlot, type)));
+                .addLoreLine(Component.literal(lore));
+        int battlingLevel = com.champutils.profession.ProfessionManager.getBenefitLevel(player, com.champutils.profession.ProfessionType.BATTLING);
+        if (pokemon != null) {
+            button.addLoreLine(Component.literal("§7Preview rewards:"));
+            addRewardLore(button, pokemon.getLevel(), type, battlingLevel);
+            if ("tm".equals(ExpeditionConfig.normalizeType(type))) {
+                button.addLoreLine(Component.literal("§8• §b" + ExpeditionConfig.tmRewardSummary(pokemon.getLevel())));
+            }
+        }
+        button.addLoreLine(Component.literal("§eClick to preview"))
+                .setCallback((i, c, t) -> ExpeditionCommand.previewType(player, partySlot, type));
+        gui.setSlot(slot, button);
     }
 
     public static void preview(ServerPlayer player, int partySlot, Pokemon pokemon, long endsAt, String type) {
@@ -103,10 +112,13 @@ public final class ExpeditionMenu {
                 .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
                 .addLoreLine(Component.literal("§7Online speed: §a2x §8(online time counts double)"))
                 .addLoreLine(Component.literal("§7Returns at: §f" + relativeTime(endsAt)))
-                .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
+                .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(ExpeditionConfig.creditReward(pokemon.getLevel(), type))))
                 .addLoreLine(Component.literal("§7Rewards:"));
-        int battlingLevel = com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING);
+        int battlingLevel = com.champutils.profession.ProfessionManager.getBenefitLevel(player, com.champutils.profession.ProfessionType.BATTLING);
         addRewardLore(summary, pokemon.getLevel(), type, battlingLevel);
+        if ("tm".equals(ExpeditionConfig.normalizeType(type))) {
+            summary.addLoreLine(Component.literal("§8• §b" + ExpeditionConfig.tmRewardSummary(pokemon.getLevel())));
+        }
         if ("pokemon".equals(ExpeditionConfig.normalizeType(type))) {
             summary.addLoreLine(Component.literal("§7Special Pokémon odds:"));
             summary.addLoreLine(Component.literal("§8• §6" + ExpeditionConfig.specialPokemonChanceSummary(battlingLevel, pokemon.getLevel(), type)));
@@ -120,7 +132,7 @@ public final class ExpeditionMenu {
                 .setCallback((slot, click, action) -> ExpeditionCommand.confirm(player)));
         gui.setSlot(15, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip()
                 .setName(Component.literal("§eGo Back"))
-                .setCallback((slot, click, action) -> open(player)));
+                .setCallback((slot, click, action) -> chooseType(player, partySlot, pokemon)));
         gui.open();
     }
 

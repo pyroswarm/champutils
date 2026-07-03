@@ -20,7 +20,7 @@ public final class RoamingTrainerCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("roamingtrainer")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .then(Commands.literal("reload")
                                 .executes(ctx -> reload(ctx.getSource())))
                         .then(Commands.literal("spawn")

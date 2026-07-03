@@ -29,7 +29,7 @@ public final class PokemonHuntCommand {
                             })
                     )
                     .then(literal("refresh")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(ctx -> {
                                 PokemonHuntManager.forceRefresh(ctx.getSource().getServer());
                                 ctx.getSource().sendSuccess(() -> Component.literal("Refreshed Pokémon hunts."), false);
@@ -37,7 +37,7 @@ public final class PokemonHuntCommand {
                             })
                     )
                     .then(literal("reload")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                            .requires(source -> source.hasPermission(4))
                             .executes(ctx -> {
                                 PokemonHuntConfig.load();
                                 PokemonHuntManager.load();
@@ -47,7 +47,7 @@ public final class PokemonHuntCommand {
                             })
                     )
                     .then(literal("interval")
-                            .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                            .requires(source -> source.hasPermission(4))
                             .then(argument("hours", DoubleArgumentType.doubleArg(0.05, 168.0))
                                     .executes(ctx -> {
                                         double hours = DoubleArgumentType.getDouble(ctx, "hours");

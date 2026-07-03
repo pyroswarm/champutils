@@ -42,7 +42,7 @@ public final class PokemonExperienceBuffListener {
                     BuffContext.builder(player, BuffContext.Source.NPC_BATTLE).pokemon(pre.getPokemon()).build(),
                     BuffType.POKEMON_XP
             );
-            int battlingLevel = Math.max(1, ProfessionManager.getLevel(player, ProfessionType.BATTLING));
+            int battlingLevel = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.BATTLING));
             double battlingBonus = Math.max(0, Math.min(100, battlingLevel)) / 100.0D;
             BattleContextManager.BattleType battleType = BattleContextManager.getContext(player.getUUID());
             double pvpBonus = battleType == BattleContextManager.BattleType.RANKED

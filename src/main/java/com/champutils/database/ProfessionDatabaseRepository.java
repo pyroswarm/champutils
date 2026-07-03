@@ -3,6 +3,7 @@ package com.champutils.database;
 import com.champutils.profession.ProfessionDataManager;
 import com.champutils.profession.ProfessionType;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.debug.ChampDebugManager;
 
 import java.sql.PreparedStatement;
 import java.util.UUID;
@@ -68,12 +69,22 @@ public final class ProfessionDatabaseRepository {
     }
 
     public static void sync(ProfessionDataManager.ProfessionData data) {
+        sync(null, data);
+    }
+
+    public static void sync(UUID ownerPlayerUuid, ProfessionDataManager.ProfessionData data) {
         if (data == null || data.uuid == null || data.uuid.isBlank()) return;
 
         DatabaseManager.executeCoalescedAsync("profession:" + data.uuid, "sync profile professions " + data.uuid, connection -> {
             ensureSchema(connection);
 
             UUID profileId = UUID.fromString(data.uuid);
+            if (!profileRowExists(connection, profileId)) {
+                ChampDebugManager.log(ChampDebugManager.Category.DATABASE,
+                        "[ChampUtils DB] Skipped profession SQL sync for unknown profile id " + profileId +
+                                ". This is expected for legacy player-UUID profession files and prevents ghost /profiles entries.");
+                return;
+            }
             try (PreparedStatement professionStatement = connection.prepareStatement(
                     "insert into profile_professions (profile_id, profession, level, xp, updated_at) values (?, ?, ?, ?, now()) " +
                             "on conflict (profile_id, profession) do update set level = excluded.level, xp = excluded.xp, updated_at = now()"
@@ -174,10 +185,24 @@ public final class ProfessionDatabaseRepository {
         });
     }
 
+    private static boolean profileRowExists(java.sql.Connection connection, UUID profileId) throws Exception {
+        if (profileId == null) return false;
+        try (PreparedStatement exists = connection.prepareStatement("select 1 from player_profiles where id = ? and deleted_at is null")) {
+            exists.setObject(1, profileId);
+            try (var rs = exists.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public static void saveAsync(UUID uuid, ProfessionDataManager.ProfessionData data) {
         if (data == null) return;
-        data.uuid = PlayerProfileManager.activeProfileId(uuid).toString();
-        sync(data);
+        UUID activeProfileId = PlayerProfileManager.activeProfileIdOrNull(uuid);
+        if (activeProfileId == null) {
+            return;
+        }
+        data.uuid = activeProfileId.toString();
+        sync(uuid, data);
     }
 
     public static void touchPlayer(UUID uuid, String name) {

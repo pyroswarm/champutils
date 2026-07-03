@@ -476,6 +476,14 @@ public class MiningProfessionListener {
         };
     }
 
+    private static boolean isHeldAutoSmeltTool(ServerPlayer player) {
+        if (player == null) return false;
+        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(player.getMainHandItem());
+        if (toolData == null || toolData.activeAbility == null) return false;
+        String ability = toolData.activeAbility.trim().toLowerCase(java.util.Locale.ROOT);
+        return ability.equals("auto_smelt_burst") || ability.equals("auto_smelt_toggle");
+    }
+
     private static boolean handleAutoSmeltActive(
             ServerPlayer player,
             BlockPos pos,
@@ -483,7 +491,7 @@ public class MiningProfessionListener {
             String blockId
     ) {
 
-        if (!ActiveEffectManager.hasAutoSmelt(
+        if (!isHeldAutoSmeltTool(player) || !ActiveEffectManager.hasAutoSmelt(
                 player,
                 player.getMainHandItem()
         )) {
@@ -938,11 +946,18 @@ public class MiningProfessionListener {
             handleShovelDiggingProgress(player, level, target, targetBlockId);
         }
         else if (xp != null && xp > 0) {
-            int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
+            int extraXp = reducedActiveExtraBlockXp(xp);
 
             ProfessionManager.addXp(
                     player,
                     ProfessionType.MINING,
+                    extraXp
+            );
+
+            ProfessionSubLevelManager.addBlockXp(
+                    player,
+                    ProfessionType.MINING,
+                    targetBlockId,
                     extraXp
             );
 
@@ -959,7 +974,7 @@ public class MiningProfessionListener {
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
         }
 
-        if (ActiveEffectManager.hasAutoSmelt(
+        if (isHeldAutoSmeltTool(player) && ActiveEffectManager.hasAutoSmelt(
                 player,
                 player.getMainHandItem()
         )) {
@@ -999,6 +1014,10 @@ public class MiningProfessionListener {
                 true,
                 player
         );
+    }
+
+    private static int reducedActiveExtraBlockXp(int baseXp) {
+        return Math.max(1, (int) Math.ceil(Math.max(0, baseXp) * 0.25D));
     }
 
     private static boolean isOreBlock(
@@ -1346,7 +1365,7 @@ public class MiningProfessionListener {
                         handleShovelDiggingProgress(player, level, target, targetBlockId);
                     }
                     else if (xp != null && xp > 0) {
-                        int extraXp = Math.max(1, (int) Math.ceil(xp / 2.0D));
+                        int extraXp = reducedActiveExtraBlockXp(xp);
                         ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
                         ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, targetBlockId, extraXp);
                         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
@@ -1355,7 +1374,7 @@ public class MiningProfessionListener {
                     }
                 }
 
-                if (ActiveEffectManager.hasAutoSmelt(
+                if (isHeldAutoSmeltTool(player) && ActiveEffectManager.hasAutoSmelt(
                         player,
                         player.getMainHandItem()
                 )) {

@@ -1,7 +1,7 @@
 package com.champutils.profession.actives;
 
+import com.champutils.profession.ProfessionActiveDuration;
 import com.champutils.profession.ProfessionSpecialCelebration;
-import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolUtil;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -15,51 +15,24 @@ public class ForestersFocusAbility implements ProfessionActiveAbility {
     }
 
     @Override
-    public boolean use(
-            ServerPlayer player,
-            ItemStack stack
-    ) {
+    public boolean use(ServerPlayer player, ItemStack stack) {
+        double duration = ActiveEffectManager.extendedActiveDurationSeconds(
+                ProfessionActiveDuration.durationSeconds(player, stack, 20.0D, null)
+        );
 
-        ProfessionToolConfig.ToolData data =
-                ProfessionToolUtil.getToolData(
-                        stack
-                );
-
-        int duration =
-                data == null || data.activeDurationSeconds <= 0
-                        ? 20
-                        : data.activeDurationSeconds;
-
-        double boostPercent =
-                ProfessionToolUtil.getStat(
-                        stack,
-                        "forestersFocusBoost"
-                );
-
+        double boostPercent = ProfessionToolUtil.getStat(stack, "forestersFocusBoost");
         if (boostPercent <= 0.0D) {
             boostPercent = 75.0D;
         }
 
-        double multiplier =
-                1.0D +
-                        Math.max(
-                                0.0D,
-                                boostPercent
-                        ) / 100.0D;
+        double multiplier = 1.0D + Math.max(0.0D, boostPercent) / 100.0D;
 
-        ActiveEffectManager.activateTimedWithMultiplier(
-                player,
-                "forestry_focus",
-                "Forester's Focus",
-                duration,
-                stack,
-                multiplier
-        );
+        ActiveEffectManager.activateTimedWithMultiplier(player, "forestry_focus", "Forester's Focus", duration, stack, multiplier);
 
         ProfessionSpecialCelebration.celebrateSpecialActive(
                 player,
                 "§2Forester's Focus!",
-                "§fForestry passive chances boosted"
+                "§fForestry passive chances boosted for §a" + ProfessionActiveDuration.formatSeconds(duration) + "s"
         );
 
         return true;

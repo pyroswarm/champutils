@@ -14,7 +14,7 @@ import static net.minecraft.commands.Commands.argument;import static net.minecra
 
 public final class GymRewardCommand {
     private GymRewardCommand() {}
-    public static void register(){ CommandRegistrationCallback.EVENT.register((dispatcher,r,e)->dispatcher.register(literal("gymrewards").requires(source -> source.hasPermission(2))
+    public static void register(){ CommandRegistrationCallback.EVENT.register((dispatcher,r,e)->dispatcher.register(literal("gymrewards").requires(source -> source.hasPermission(4))
         .executes(ctx->{ list(ctx.getSource().getPlayerOrException()); return 1; })
         .then(literal("claim").then(argument("badge", StringArgumentType.word()).executes(ctx->{ claim(ctx.getSource().getPlayerOrException(), BadgeType.fromString(StringArgumentType.getString(ctx,"badge"))); return 1; })))
         .then(literal("claimall").executes(ctx->{ claimAll(ctx.getSource().getPlayerOrException()); return 1; })))); }

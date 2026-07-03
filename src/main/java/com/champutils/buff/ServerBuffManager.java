@@ -63,7 +63,10 @@ public final class ServerBuffManager {
     public static void activateAndAnnounce(MinecraftServer server, String id, BuffType type, double amount, long durationMillis) {
         activate(id, type, amount, durationMillis);
         if (server == null || type == null) return;
-        server.getPlayerList().broadcastSystemMessage(Component.literal("[Server Boost] +" + BuffManager.percent(amount) + " " + type.displayName + " is now active!").withStyle(ChatFormatting.GOLD), false);
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                server,
+                Component.literal("[Boost] +" + BuffManager.percent(amount) + " " + type.displayName + " is now active!").withStyle(type.color)
+        );
     }
 
     public static void deactivate(String id) {
@@ -93,8 +96,6 @@ public final class ServerBuffManager {
         long now = System.currentTimeMillis();
         for (ActiveServerBoost boost : ACTIVE_BOOSTS.values()) {
             long remaining = Math.max(0L, boost.expiresAt - now);
-            maybeBroadcastReminder(server, boost, remaining, 10);
-            maybeBroadcastReminder(server, boost, remaining, 5);
             maybeBroadcastReminder(server, boost, remaining, 1);
         }
     }
@@ -105,10 +106,31 @@ public final class ServerBuffManager {
         synchronized (boost.remindedMinutes) {
             if (!boost.remindedMinutes.add(minutes)) return;
         }
-        server.getPlayerList().broadcastSystemMessage(
-                Component.literal("[Server Boost] " + boost.displayName + " has " + minutes + " minute" + (minutes == 1 ? "" : "s") + " left.").withStyle(ChatFormatting.GOLD),
-                false
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                server,
+                Component.literal("[Boost] " + playerFacingBoostName(boost.displayName) + " has " + minutes + " minute" + (minutes == 1 ? "" : "s") + " left.").withStyle(boostColor(boost.id))
         );
+    }
+
+    private static String playerFacingBoostName(String displayName) {
+        if (displayName == null || displayName.isBlank()) return "Boost";
+        String clean = displayName.replaceAll("§.", "").trim();
+        if (clean.toLowerCase(Locale.ROOT).startsWith("server ")) clean = clean.substring(7).trim();
+        return clean.isBlank() ? "Boost" : clean;
+    }
+
+    private static ChatFormatting boostColor(String id) {
+        String key = id == null ? "" : id.toLowerCase(Locale.ROOT);
+        if (key.contains("shiny")) return ChatFormatting.LIGHT_PURPLE;
+        if (key.contains("special") || key.contains("legend")) return ChatFormatting.GOLD;
+        if (key.contains("paradox")) return ChatFormatting.DARK_PURPLE;
+        if (key.contains("ultra")) return ChatFormatting.AQUA;
+        if (key.contains("pokemon")) return ChatFormatting.BLUE;
+        if (key.contains("mining")) return ChatFormatting.DARK_AQUA;
+        if (key.contains("forestry")) return ChatFormatting.GREEN;
+        if (key.contains("farming")) return ChatFormatting.YELLOW;
+        if (key.contains("battling")) return ChatFormatting.RED;
+        return ChatFormatting.GOLD;
     }
 
     public static synchronized void clearExpired() {

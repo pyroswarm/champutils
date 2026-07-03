@@ -21,7 +21,7 @@ public final class ChampAICommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("champutils")
                         .then(literal("ai")
-                                .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                                .requires(source -> source.hasPermission(4))
                                 .then(literal("status").executes(context -> status(context.getSource())))
                                 .then(literal("reload").executes(context -> reload(context.getSource())))
                                 .then(literal("debug")

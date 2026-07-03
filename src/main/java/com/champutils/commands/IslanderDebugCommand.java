@@ -31,12 +31,12 @@ public final class IslanderDebugCommand {
                     ctx.getSource().sendSuccess(() -> Component.literal("Islander debug disabled for you."), false);
                     return 1;
                 }))
-                .then(Commands.literal("global_on").requires(source -> source.hasPermission(2)).executes(ctx -> {
+                .then(Commands.literal("global_on").requires(source -> source.hasPermission(4)).executes(ctx -> {
                     IslanderDebugManager.setGlobalEnabled(true);
                     ctx.getSource().sendSuccess(() -> Component.literal("Global Islander debug enabled."), true);
                     return 1;
                 }))
-                .then(Commands.literal("global_off").requires(source -> source.hasPermission(2)).executes(ctx -> {
+                .then(Commands.literal("global_off").requires(source -> source.hasPermission(4)).executes(ctx -> {
                     IslanderDebugManager.setGlobalEnabled(false);
                     ctx.getSource().sendSuccess(() -> Component.literal("Global Islander debug disabled."), true);
                     return 1;

@@ -10,6 +10,7 @@ import com.champutils.battle.BattleStateManager;
 import com.champutils.worldevent.WorldEventManager;
 import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.cosmetic.TitleManager;
+import com.champutils.profile.ChallengeProfileTitleManager;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
@@ -315,19 +316,17 @@ public class GymBattleHandler {
  GLOBAL BROADCAST
 ========================= */
 
-            winner.getServer()
-                    .getPlayerList()
-                    .broadcastSystemMessage(
-                            Component.literal(
-                                    "§6"
-                                            + winner.getName()
-                                            .getString()
-                                            + " defeated the "
-                                            + badge.getDisplayName()
-                                            + " gym!"
-                            ),
-                            false
-                    );
+            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                    winner.getServer(),
+                    Component.literal(
+                            "§6"
+                                    + winner.getName()
+                                    .getString()
+                                    + " defeated the "
+                                    + badge.getDisplayName()
+                                    + " gym!"
+                    )
+            );
 
         }
         catch(Exception ex){
@@ -359,7 +358,10 @@ public class GymBattleHandler {
             case BRUNO -> TitleManager.unlock(player, "bruno_badge");
             case AGATHA -> TitleManager.unlock(player, "agatha_badge");
             case LANCE -> TitleManager.unlock(player, "lance_badge");
-            case CHAMPION -> TitleManager.unlock(player, "champion");
+            case CHAMPION -> {
+                TitleManager.unlock(player, "champion");
+                ChallengeProfileTitleManager.handleChampionVictory(player);
+            }
         }
         if (GymProgressRepository.defeatedCount(player) >= 8) TitleManager.unlock(player, "gym_champion");
     }

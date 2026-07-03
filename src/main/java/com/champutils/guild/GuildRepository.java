@@ -1,6 +1,7 @@
 package com.champutils.guild;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.debug.ChampDebugManager;
 import com.champutils.network.NetworkServerConfig;
 import com.champutils.territory.TerritoryRepository;
 
@@ -88,12 +89,13 @@ public final class GuildRepository {
     }
 
     private static void guildDebug(String action, String message) {
-        System.out.println("[ChampUtils][GuildDebug][" + action + "] " + message);
+        ChampDebugManager.log(ChampDebugManager.Category.GUILDS, "[ChampUtils][GuildDebug][" + action + "] " + message);
     }
 
     private static void guildDebugError(String action, Throwable error, String context) {
+        if (!ChampDebugManager.isEnabled(ChampDebugManager.Category.GUILDS)) return;
         String detail = error.getClass().getSimpleName() + (error.getMessage() == null ? "" : ": " + error.getMessage());
-        System.err.println("[ChampUtils][GuildDebug][" + action + "] FAILED: " + context + " | " + detail);
+        ChampDebugManager.log(ChampDebugManager.Category.GUILDS, "[ChampUtils][GuildDebug][" + action + "] FAILED: " + context + " | " + detail);
         error.printStackTrace(System.err);
     }
 

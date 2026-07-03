@@ -53,8 +53,12 @@ public final class ChampBattleAIConfig {
     }
 
     public static final class Data {
-        public boolean enabled = false; // default to Cobblemon AI; /champai can re-enable ChampUtils AI
+        public boolean enabled = true;
         public boolean debug = false;
+        public String engine = "rctapi";
+        public boolean fallbackToStrongAi = true;
+        public boolean fallbackToRandomAi = true;
+        public boolean debugDecisions = false;
         public int defaultAiSkill = 5;
         public BattleBucket wildBattles = BattleBucket.wildDefaults();
         public BattleBucket trainerBattles = BattleBucket.competitiveDefaults();
@@ -67,6 +71,8 @@ public final class ChampBattleAIConfig {
 
         void normalize() {
             defaultAiSkill = clamp(defaultAiSkill, 0, 5);
+            if (engine == null || engine.isBlank()) engine = "rctapi";
+            debug = debug || debugDecisions;
             if (wildBattles == null) wildBattles = BattleBucket.wildDefaults();
             if (trainerBattles == null) trainerBattles = BattleBucket.competitiveDefaults();
             if (gymBattles == null) gymBattles = BattleBucket.competitiveDefaults();
@@ -83,7 +89,7 @@ public final class ChampBattleAIConfig {
     }
 
     public static final class BattleBucket {
-        public boolean enabled = false; // default to Cobblemon AI; /champai can re-enable ChampUtils AI
+        public boolean enabled = true;
         public int skill = 5;
         public boolean competitiveLayer = false;
         public boolean antiSpamLayer = false;
@@ -91,7 +97,7 @@ public final class ChampBattleAIConfig {
         static BattleBucket competitiveDefaults() {
             BattleBucket b = new BattleBucket();
             b.skill = 5;
-            b.competitiveLayer = false;
+            b.competitiveLayer = true;
             b.antiSpamLayer = false;
             return b;
         }

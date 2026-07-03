@@ -427,17 +427,17 @@ public final class WonderTradeService {
 
     private static void announceOffered(ServerPlayer player, String pokemonName, boolean shiny, boolean legendary) {
         String tag = shiny && legendary ? "a shiny legendary" : shiny ? "a shiny" : "a legendary";
-        player.server.getPlayerList().broadcastSystemMessage(
-                Component.literal("✦ " + player.getName().getString() + " added " + tag + " " + pokemonName + " to Wondertrade!").withStyle(shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE),
-                false
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                player.server,
+                Component.literal("✦ " + player.getName().getString() + " added " + tag + " " + pokemonName + " to Wondertrade!").withStyle(shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE)
         );
     }
 
     private static void announceReceived(ServerPlayer player, String pokemonName, boolean shiny, boolean legendary) {
         String tag = shiny && legendary ? "a shiny legendary" : shiny ? "a shiny" : "a legendary";
-        player.server.getPlayerList().broadcastSystemMessage(
-                Component.literal("✦ " + player.getName().getString() + " received " + tag + " " + pokemonName + " from Wondertrade!").withStyle(shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE),
-                false
+        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                player.server,
+                Component.literal("✦ " + player.getName().getString() + " received " + tag + " " + pokemonName + " from Wondertrade!").withStyle(shiny ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE)
         );
     }
 

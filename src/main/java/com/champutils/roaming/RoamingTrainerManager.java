@@ -1,9 +1,11 @@
 package com.champutils.roaming;
 
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profile.ProfilePlaytimeManager;
+import com.champutils.spawn.SpawnBlockRules;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -219,7 +221,7 @@ public final class RoamingTrainerManager {
         if (player == null || player.isSpectator()) return;
         ServerLevel level = player.serverLevel();
         String dimensionId = level.dimension().location().toString();
-        if (RoamingTrainerConfig.isBlockedDimension(dimensionId)) return;
+        if (RoamingTrainerConfig.isBlockedDimension(dimensionId) || SpawnBlockRules.isBlockedSpawnLevel(level)) return;
         if (countNearbyRoamingTrainers(level, player.position(), RoamingTrainerConfig.DATA.activePlayerRadius) >= RoamingTrainerConfig.DATA.maxTrainersPerPlayer) return;
         if (countWorldRoamingTrainers(level) >= RoamingTrainerConfig.DATA.maxTrainersPerWorld) return;
         if (RANDOM.nextDouble() > RoamingTrainerConfig.DATA.spawnChancePerScan) return;
@@ -229,7 +231,7 @@ public final class RoamingTrainerManager {
     private static boolean spawnNearPlayer(ServerPlayer player, RoamingTrainerRarity rarity, boolean force) {
         ServerLevel level = player.serverLevel();
         String dimensionId = level.dimension().location().toString();
-        if (!force && RoamingTrainerConfig.isBlockedDimension(dimensionId)) return false;
+        if (RoamingTrainerConfig.isBlockedDimension(dimensionId) || SpawnBlockRules.isBlockedSpawnLevel(level)) return false;
 
         Vec3 pos = findSpawnPosition(level, player.position());
         if (pos == null) return false;
@@ -290,12 +292,14 @@ public final class RoamingTrainerManager {
             int z = (int)Math.floor(origin.z + Math.sin(angle) * distance);
             int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
             if (y <= level.getMinBuildHeight() || y >= level.getMaxBuildHeight() - 2) continue;
+            net.minecraft.core.BlockPos candidate = new net.minecraft.core.BlockPos(x, y, z);
+            if (SpawnBlockRules.isBlockedSpawnPosition(level, candidate)) continue;
             if (RoamingTrainerConfig.DATA.requireSolidGround) {
-                if (level.getBlockState(new net.minecraft.core.BlockPos(x, y - 1, z)).isAir()) continue;
-                if (!level.getBlockState(new net.minecraft.core.BlockPos(x, y, z)).isAir()) continue;
-                if (!level.getBlockState(new net.minecraft.core.BlockPos(x, y + 1, z)).isAir()) continue;
-                if (level.getBlockState(new net.minecraft.core.BlockPos(x, y - 1, z)).is(Blocks.WATER)) continue;
-                if (level.getBlockState(new net.minecraft.core.BlockPos(x, y - 1, z)).is(Blocks.LAVA)) continue;
+                if (level.getBlockState(candidate.below()).isAir()) continue;
+                if (!level.getBlockState(candidate).isAir()) continue;
+                if (!level.getBlockState(candidate.above()).isAir()) continue;
+                if (level.getBlockState(candidate.below()).is(Blocks.WATER)) continue;
+                if (level.getBlockState(candidate.below()).is(Blocks.LAVA)) continue;
             }
             return new Vec3(x + 0.5D, y, z + 0.5D);
         }
@@ -487,6 +491,8 @@ public final class RoamingTrainerManager {
             int z = (int)Math.floor(data.spawnZ + Math.sin(angle) * distance);
             int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
             if (y <= level.getMinBuildHeight() || y >= level.getMaxBuildHeight() - 2) continue;
+            net.minecraft.core.BlockPos candidate = new net.minecraft.core.BlockPos(x, y, z);
+            if (SpawnBlockRules.isBlockedSpawnPosition(level, candidate)) continue;
             net.minecraft.core.BlockPos feet = new net.minecraft.core.BlockPos(x, y, z);
             net.minecraft.core.BlockPos ground = feet.below();
             if (level.getBlockState(ground).isAir()) continue;
@@ -736,7 +742,7 @@ public final class RoamingTrainerManager {
         double radius = Math.max(32.0D, RoamingTrainerConfig.DATA.activePlayerRadius);
         for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, box(pos, radius), p -> !p.isSpectator())) {
             player.sendSystemMessage(Component.literal("A " + pretty(rarity.name()) + " trainer appeared nearby: " + displayName + "!").withStyle(rarity.color));
-            try { player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F); } catch (Exception ignored) {}
+            try { ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F); } catch (Exception ignored) {}
         }
     }
 

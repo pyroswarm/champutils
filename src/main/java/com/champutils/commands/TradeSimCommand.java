@@ -43,7 +43,7 @@ public final class TradeSimCommand {
     }
 
     private static int run(ServerPlayer player, int slot, Integer partnerSlot) {
-        if (!PlayerProfileManager.isIronman(player) && !com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.admin")) {
+        if (!PlayerProfileManager.isIronman(player) && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal("/tradesim is only for Ironman profiles.").withStyle(ChatFormatting.RED));
             return 0;
         }

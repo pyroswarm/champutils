@@ -16,14 +16,14 @@ public final class MegaShopCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("megashop")
-                        .requires(source -> source.hasPermission(2) || com.champutils.permissions.PermissionUtil.has(source, "champutils.staff"))
+                        .requires(source -> source.hasPermission(4))
                         .executes(context -> {
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             MegaShopMenu.open(player);
                             return 1;
                         })
                         .then(Commands.literal("reload")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     MegaShopConfig.load();
                                     context.getSource().sendSuccess(() -> Component.literal("§aReloaded mega_shop.json."), false);
@@ -31,7 +31,7 @@ public final class MegaShopCommand {
                                 })
                         )
                         .then(Commands.literal("save")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .executes(context -> {
                                     MegaShopConfig.save();
                                     context.getSource().sendSuccess(() -> Component.literal("§aSaved mega_shop.json."), false);
@@ -39,7 +39,7 @@ public final class MegaShopCommand {
                                 })
                         )
                         .then(Commands.literal("add")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("item", StringArgumentType.word())
                                         .then(Commands.argument("price", DoubleArgumentType.doubleArg(0.0D))
                                                 .then(Commands.argument("category", StringArgumentType.greedyString())
@@ -67,7 +67,7 @@ public final class MegaShopCommand {
                                 )
                         )
                         .then(Commands.literal("remove")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("item", StringArgumentType.word())
                                         .executes(context -> {
                                             String item = StringArgumentType.getString(context, "item");
@@ -80,7 +80,7 @@ public final class MegaShopCommand {
                                 )
                         )
                         .then(Commands.literal("price")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("item", StringArgumentType.word())
                                         .then(Commands.argument("price", DoubleArgumentType.doubleArg(0.0D))
                                                 .executes(context -> {
@@ -100,7 +100,7 @@ public final class MegaShopCommand {
                                 )
                         )
                         .then(Commands.literal("amount")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.hasPermission(4))
                                 .then(Commands.argument("item", StringArgumentType.word())
                                         .then(Commands.argument("amount", IntegerArgumentType.integer(1, 64))
                                                 .executes(context -> {

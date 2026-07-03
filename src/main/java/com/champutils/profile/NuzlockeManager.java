@@ -2,6 +2,7 @@ package com.champutils.profile;
 
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
+import com.champutils.cosmetic.TitleManager;
 import com.champutils.hunt.PokemonHuntReflection;
 import com.champutils.util.CobblemonEventReflection;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -73,8 +74,8 @@ public final class NuzlockeManager {
             e.printStackTrace();
             return "Could not save Nuzlocke completion rewards.";
         }
-        String converted = PlayerProfileManager.convertActiveToNormalBlocking(player);
-        return "Nuzlocke complete! Rewards saved: title=nuzlocke_champion, shiny bonus=+0.05%, profession XP=+5%. " + converted;
+        TitleManager.unlock(player, "nuzlocke_champion");
+        return "Nuzlocke complete! Account-bound title unlocked: nuzlocke_champion. This profile remains Nuzlocke unless you manually convert it to Normal after it is at least 24 hours old.";
     }
 
     public static boolean hasCompletedReward(ServerPlayer player) {

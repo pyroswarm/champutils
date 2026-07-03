@@ -1,5 +1,6 @@
 package com.champutils.emblem;
 
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
@@ -112,7 +113,7 @@ public final class EmblemManager {
         ItemStack emblem = createEmblemStack(id, 1);
         if (emblem.isEmpty()) return CraftResult.fail("Could not create emblem item.");
         if (!player.getInventory().add(emblem)) player.drop(emblem, false);
-        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6F, 1.5F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6F, 1.5F);
         return CraftResult.success(data.displayName == null ? id : data.displayName);
     }
 
@@ -159,7 +160,7 @@ public final class EmblemManager {
 
     private static void successEffects(ServerPlayer player, String message) {
         player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GOLD));
-        player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8F, 1.3F);
+        ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8F, 1.3F);
     }
 
     public static boolean isLegendary(String s) { return contains(EmblemConfig.CONFIG.legendarySpecies, s); }

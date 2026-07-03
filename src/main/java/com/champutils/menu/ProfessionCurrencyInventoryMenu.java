@@ -1,5 +1,6 @@
 package com.champutils.menu;
 
+import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionChunkConfig;
 import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.profession.ProfessionFragmentConfig;
@@ -8,14 +9,22 @@ import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 public final class ProfessionCurrencyInventoryMenu {
+    private static final java.util.Map<java.util.UUID, PendingChunkSale> PENDING_CHUNK_SALES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long PENDING_CONFIRM_MS = 10_000L;
+
     private ProfessionCurrencyInventoryMenu() {}
 
     public static void openChunks(ServerPlayer player) {
+        openChunks(player, null);
+    }
+
+    private static void openChunks(ServerPlayer player, String confirmingChunk) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setLockPlayerInventory(true);
         gui.setTitle(Component.literal("Chunk Inventory"));
@@ -37,13 +46,30 @@ public final class ProfessionCurrencyInventoryMenu {
             int chunksPer = data == null ? 1 : Math.max(1, data.chunksPerFragment);
             int fragmentsPer = data == null ? 1 : Math.max(1, data.fragmentsPerTrade);
 
-            gui.setSlot(slots[index++], new GuiElementBuilder(iconForChunk(chunk))
+            boolean confirming = ProfessionChunkManager.normalizeChunk(chunk).equals(ProfessionChunkManager.normalizeChunk(confirmingChunk));
+            GuiElementBuilder builder = new GuiElementBuilder(iconForChunk(chunk))
                     .hideDefaultTooltip()
                     .setName(Component.literal("§e" + (data == null ? ProfessionChunkManager.formatChunk(chunk) : data.displayName)))
                     .addLoreLine(Component.literal("§7Balance: §6" + amount))
                     .addLoreLine(Component.literal("§7Sell Value: §a" + sellCredits + " Credits each"))
                     .addLoreLine(Component.literal("§7Foreman Trade: §b" + chunksPer + " chunk" + (chunksPer == 1 ? "" : "s") + " → " + fragmentsPer + " " + ProfessionFragmentManager.formatWords(fragment) + " Fragment" + (fragmentsPer == 1 ? "" : "s")))
-                    .addLoreLine(Component.literal("§8Stored on your active profile.")));
+                    .addLoreLine(Component.literal(amount > 0 ? "§eLeft Click: sell 1 chunk." : "§8No chunks to sell."));
+            if (confirming) {
+                builder.addLoreLine(Component.literal("§cShift click again to confirm."))
+                        .addLoreLine(Component.literal("§7This will sell up to a full stack of this chunk."));
+            } else {
+                builder.addLoreLine(Component.literal(amount > 0 ? "§eShift Click: review selling up to 64." : "§8Shift Click sells up to 64 when you have chunks."));
+            }
+            builder.addLoreLine(Component.literal("§8Stored on your active profile."))
+                    .setCallback((slot, click, type) -> {
+                        if (type == ClickType.QUICK_MOVE) {
+                            handleShiftChunkSale(player, chunk);
+                        } else {
+                            sellChunks(player, chunk, 1);
+                            openChunks(player);
+                        }
+                    });
+            gui.setSlot(slots[index++], builder);
         }
 
         gui.setSlot(22, new GuiElementBuilder(Items.EMERALD)
@@ -54,6 +80,29 @@ public final class ProfessionCurrencyInventoryMenu {
                 .setCallback((i, c, t) -> ProfessionForemanMenu.open(player)));
 
         gui.open();
+    }
+
+    private static void handleShiftChunkSale(ServerPlayer player, String chunk) {
+        String normalized = ProfessionChunkManager.normalizeChunk(chunk);
+        long now = System.currentTimeMillis();
+        PendingChunkSale pending = PENDING_CHUNK_SALES.get(player.getUUID());
+        if (pending != null && pending.chunk.equals(normalized) && pending.expiresAt >= now) {
+            PENDING_CHUNK_SALES.remove(player.getUUID());
+            sellChunks(player, normalized, 64);
+            openChunks(player);
+            return;
+        }
+        PENDING_CHUNK_SALES.put(player.getUUID(), new PendingChunkSale(normalized, now + PENDING_CONFIRM_MS));
+        openChunks(player, normalized);
+    }
+
+    private static void sellChunks(ServerPlayer player, String chunk, int amount) {
+        ProfessionChunkManager.SellResult result = ProfessionChunkManager.sell(player, chunk, amount);
+        if (!result.success()) {
+            player.sendSystemMessage(Component.literal("§c" + result.error()));
+            return;
+        }
+        player.sendSystemMessage(Component.literal("§aSold §6" + result.sold() + "x " + ProfessionChunkManager.formatChunk(result.chunk()) + " §afor §6" + EconomyManager.format(result.cents()) + "§a."));
     }
 
     public static void openFragments(ServerPlayer player) {
@@ -108,6 +157,8 @@ public final class ProfessionCurrencyInventoryMenu {
             default -> Items.COBBLESTONE;
         };
     }
+
+    private record PendingChunkSale(String chunk, long expiresAt) {}
 
     private static Item fragmentIcon(String fragment) {
         return switch (ProfessionFragmentConfig.normalizeRarity(fragment)) {

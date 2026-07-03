@@ -122,7 +122,7 @@ public class QuestManager {
             String id = safe(t.id);
             if (!seen.add(id.toLowerCase(Locale.ROOT))) continue;
             ProfessionType profession = parseProfession(t.profession);
-            int level = profession == null ? 1 : ProfessionManager.getLevel(player, profession);
+            int level = profession == null ? 1 : ProfessionManager.getBenefitLevel(player, profession);
             if (level >= Math.max(1, t.minLevel) && Math.max(1, t.weight) > 0) out.add(t);
         }
         return out;
@@ -631,7 +631,7 @@ public class QuestManager {
         for (QuestConfig.ContractTemplate t : QuestConfig.SETTINGS.contractTemplates) {
             if (t == null || t.id == null || t.objectiveType == null) continue;
             ProfessionType profession = parseProfession(t.profession);
-            int level = profession == null ? 1 : ProfessionManager.getLevel(player, profession);
+            int level = profession == null ? 1 : ProfessionManager.getBenefitLevel(player, profession);
             if (level >= Math.max(1, t.minLevel) && Math.max(1, t.weight) > 0) out.add(t);
         }
         return out;
@@ -665,7 +665,7 @@ public class QuestManager {
             return false;
         }
         ProfessionType profession = parseProfession(t.profession);
-        int level = profession == null ? 1 : ProfessionManager.getLevel(player, profession);
+        int level = profession == null ? 1 : ProfessionManager.getBenefitLevel(player, profession);
         if (level < Math.max(1, t.minLevel)) {
             player.sendSystemMessage(Component.literal("You need " + t.profession + " level " + t.minLevel + " for that contract.").withStyle(ChatFormatting.RED));
             return false;

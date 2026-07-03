@@ -60,6 +60,12 @@ public final class SurvivalWorldConfig {
         public boolean runWorldCommands = true;
         public int defaultMaxHomes = 3;
 
+        /** Soft cap used only by /rtp world selection. Homes, claims, tpa, portals, etc. are not blocked by this. */
+        public int maxRtpPlayersPerWorld = 50;
+
+        /** Future proxy/backend hook for split survival servers. Local RTP still only checks worlds loaded on this server. */
+        public String remoteRtpTransferCommand = "server {player} {target_server}";
+
         public List<String> overworldCreateCommands = new ArrayList<>(List.of(
                 "mw create {world_id} NORMAL -g=NORMAL",
                 "mw load {world_id}"
@@ -87,6 +93,9 @@ public final class SurvivalWorldConfig {
             if (borderRadius != 10000) borderRadius = 10000;
             if (spawnY < -64) spawnY = 100;
             if (defaultMaxHomes < 1) defaultMaxHomes = 3;
+            if (maxRtpPlayersPerWorld < 1) maxRtpPlayersPerWorld = 50;
+            if (maxRtpPlayersPerWorld > 500) maxRtpPlayersPerWorld = 500;
+            if (remoteRtpTransferCommand == null || remoteRtpTransferCommand.isBlank()) remoteRtpTransferCommand = "server {player} {target_server}";
             if (overworldCreateCommands == null || overworldCreateCommands.isEmpty()) overworldCreateCommands = new ArrayList<>(List.of("mw create {world_id} NORMAL -g=NORMAL", "mw load {world_id}"));
             if (netherCreateCommands == null || netherCreateCommands.isEmpty()) netherCreateCommands = new ArrayList<>(List.of("mw create {world_id} NETHER -g=NETHER", "mw load {world_id}"));
             if (endCreateCommands == null || endCreateCommands.isEmpty()) endCreateCommands = new ArrayList<>(List.of("mw create {world_id} THE_END -g=THE_END", "mw load {world_id}"));

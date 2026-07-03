@@ -24,7 +24,7 @@ public final class ChunkPregenerationTeleportCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("pregentp")
-                        .requires(source -> com.champutils.permissions.PermissionUtil.has(source, "champutils.admin"))
+                        .requires(source -> source.hasPermission(4))
                         .then(literal("start")
                                 .then(argument("radiusChunks", IntegerArgumentType.integer(1, 5000))
                                         .executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radiusChunks"), 20))

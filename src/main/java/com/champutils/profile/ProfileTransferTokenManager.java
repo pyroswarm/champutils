@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Connection;
@@ -248,7 +249,7 @@ public final class ProfileTransferTokenManager {
                 // In production this proved safer than kicking players forever when the two servers disagree on
                 // profileTransferSecret formatting or timestamp precision. Keep the debug warning so config drift
                 // can still be fixed, but do not reject a valid one-use database token on survival join.
-                System.out.println("[ChampUtils][ProfileTransferDebug] accepting DB-bound transfer token despite signature mismatch; token_id=" + row.tokenId() + " player_uuid=" + row.playerUuid() + " target=" + row.targetServer());
+                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[ChampUtils][ProfileTransferDebug] accepting DB-bound transfer token despite signature mismatch; token_id=" + row.tokenId() + " player_uuid=" + row.playerUuid() + " target=" + row.targetServer());
             }
 
             try (var ps = connection.prepareStatement("update profile_transfer_tokens set consumed_at = now() where token_id = ? and consumed_at is null")) {
