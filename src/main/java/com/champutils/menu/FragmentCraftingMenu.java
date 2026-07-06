@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public final class FragmentCraftingMenu {
+    private static final String[] RARITIES = {"F","E","D","C","B","A","S"};
+    private static final int[] RARITY_ROW_SLOTS = {19,20,21,22,23,24,25};
+
     private FragmentCraftingMenu() {}
 
     public static void open(ServerPlayer player) { open(player, GearWorkshopMenu::open); }
@@ -33,10 +36,10 @@ public final class FragmentCraftingMenu {
     }
 
     private static void openTabs(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
-        SimpleGui gui = base(player, "Fragment Crafting");
+        SimpleGui gui = base(player, "Essence Crafting");
         gui.setSlot(4, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
-                .setName(Component.literal("§aFragment Crafting"))
-                .addLoreLine(Component.literal("§7Choose an item type or fragment action.")));
+                .setName(Component.literal("§aEssence Crafting"))
+                .addLoreLine(Component.literal("§7Choose an item type or essence action.")));
 
         addTab(gui, player, 10, "Pickaxe", Items.DIAMOND_PICKAXE, () -> openCraft(player, backTarget, "pickaxe", "Pickaxe", Items.DIAMOND_PICKAXE));
         addTab(gui, player, 11, "Axe", Items.DIAMOND_AXE, () -> openCraft(player, backTarget, "axe", "Axe", Items.DIAMOND_AXE));
@@ -45,9 +48,9 @@ public final class FragmentCraftingMenu {
         addTab(gui, player, 14, "Sword", Items.DIAMOND_SWORD, () -> openCraft(player, backTarget, "sword", "Sword", Items.DIAMOND_SWORD));
         addTab(gui, player, 15, "Armor", Items.DIAMOND_CHESTPLATE, () -> openArmorTabs(player, backTarget));
         addTab(gui, player, 16, "Trinkets", Items.AMETHYST_SHARD, () -> openTrinketTabs(player, backTarget));
-        addTab(gui, player, 20, "Upgrade Fragment", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget, false));
-        addTab(gui, player, 21, "Downgrade Fragment", Items.PAPER, () -> openUpgrade(player, backTarget, true));
-        addTab(gui, player, 22, "Withdraw Fragment", Items.CHEST, () -> openWithdraw(player, backTarget));
+        addTab(gui, player, 20, "Upgrade Essence", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget, false));
+        addTab(gui, player, 21, "Downgrade Essence", Items.PAPER, () -> openUpgrade(player, backTarget, true));
+        addTab(gui, player, 22, "Withdraw Essence", Items.CHEST, () -> openWithdraw(player, backTarget));
 
         MenuUtil.addBackButton(gui, 49, () -> { if (backTarget != null) backTarget.accept(player); else GearWorkshopMenu.open(player); });
         gui.open();
@@ -101,10 +104,10 @@ public final class FragmentCraftingMenu {
     private static void openCraft(ServerPlayer player, Consumer<ServerPlayer> backTarget, String toolType, String title, Item icon) {
         SimpleGui gui = base(player, "Craft " + title);
         gui.setSlot(4, new GuiElementBuilder(icon).hideDefaultTooltip().setName(Component.literal("§aCraft " + title))
-                .addLoreLine(Component.literal("§7Craft using stored fragments.")));
-        int[] slots = {20,21,22,23,24,25};
-        String[] rarities = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
-        for (int i = 0; i < rarities.length; i++) addCraftButton(gui, player, slots[i], rarities[i], toolType, iconFor(toolType, rarities[i]));
+                .addLoreLine(Component.literal("§7Craft using stored essence.")));
+        for (int i = 0; i < Math.min(RARITIES.length, RARITY_ROW_SLOTS.length); i++) {
+            addCraftButton(gui, player, RARITY_ROW_SLOTS[i], RARITIES[i], toolType, iconFor(toolType, RARITIES[i]));
+        }
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
@@ -140,7 +143,7 @@ public final class FragmentCraftingMenu {
 
             ItemStack stack = ProfessionToolManager.createUnidentifiedPreviewStack(
                     entry.getKey(),
-                    "Unidentified " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(normalizedType)
+                    "Unidentified " + ProfessionFragmentManager.displayRankName(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(normalizedType)
             );
             if (!stack.isEmpty()) return stack;
         }
@@ -150,33 +153,34 @@ public final class FragmentCraftingMenu {
     private static Item fallbackIconFor(String toolType, String rarity) {
         String normalizedRarity = ProfessionFragmentConfig.normalizeRarity(rarity);
         int tier = switch (normalizedRarity) {
-            case "COMMON" -> 0;
-            case "UNCOMMON" -> 1;
-            case "RARE" -> 2;
-            case "EPIC" -> 3;
-            case "LEGENDARY" -> 4;
-            case "MYTHIC" -> 5;
+            case "F" -> 0;
+            case "E" -> 1;
+            case "D" -> 2;
+            case "C" -> 3;
+            case "B" -> 4;
+            case "A" -> 5;
+            case "S" -> 6;
             default -> 0;
         };
         Item[] icons = switch (toolType) {
-            case "axe" -> new Item[]{Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.GOLDEN_AXE};
-            case "hoe" -> new Item[]{Items.WOODEN_HOE, Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.GOLDEN_HOE};
-            case "shovel" -> new Item[]{Items.WOODEN_SHOVEL, Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.GOLDEN_SHOVEL};
-            case "sword" -> new Item[]{Items.WOODEN_SWORD, Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD, Items.GOLDEN_SWORD};
-            case "helmet" -> new Item[]{Items.LEATHER_HELMET, Items.IRON_HELMET, Items.DIAMOND_HELMET, Items.DIAMOND_HELMET, Items.NETHERITE_HELMET, Items.NETHERITE_HELMET};
-            case "chestplate" -> new Item[]{Items.LEATHER_CHESTPLATE, Items.IRON_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_CHESTPLATE};
-            case "leggings" -> new Item[]{Items.LEATHER_LEGGINGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS, Items.NETHERITE_LEGGINGS};
-            case "boots" -> new Item[]{Items.LEATHER_BOOTS, Items.IRON_BOOTS, Items.DIAMOND_BOOTS, Items.DIAMOND_BOOTS, Items.NETHERITE_BOOTS, Items.NETHERITE_BOOTS};
-            case "magnet" -> new Item[]{Items.IRON_INGOT, Items.IRON_INGOT, Items.GOLD_INGOT, Items.GOLD_INGOT, Items.NETHERITE_INGOT, Items.NETHERITE_INGOT};
-            case "shiny_charm" -> new Item[]{Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.ECHO_SHARD, Items.ECHO_SHARD, Items.NETHER_STAR, Items.NETHER_STAR};
-            case "profession_xp_gem" -> new Item[]{Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD_BLOCK, Items.EMERALD_BLOCK};
-            case "pokemon_xp_egg" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD};
-            case "friendship_charm" -> new Item[]{Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.NETHER_STAR, Items.NETHER_STAR};
-            case "level_charm" -> new Item[]{Items.NETHER_STAR, Items.NETHER_STAR, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.DRAGON_BREATH, Items.DRAGON_BREATH};
-            case "rare_pokemon_charm" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.NETHER_STAR, Items.NETHER_STAR};
-            case "chunky_brick" -> new Item[]{Items.BRICK, Items.BRICK, Items.NETHER_BRICK, Items.NETHER_BRICK, Items.NETHERITE_SCRAP, Items.NETHERITE_SCRAP};
-            case "trinket_pouch" -> new Item[]{Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST};
-            default -> new Item[]{Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.GOLDEN_PICKAXE};
+            case "axe" -> new Item[]{Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE, Items.GOLDEN_AXE, Items.NETHERITE_AXE};
+            case "hoe" -> new Item[]{Items.WOODEN_HOE, Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE, Items.GOLDEN_HOE, Items.NETHERITE_HOE};
+            case "shovel" -> new Item[]{Items.WOODEN_SHOVEL, Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL, Items.GOLDEN_SHOVEL, Items.NETHERITE_SHOVEL};
+            case "sword" -> new Item[]{Items.WOODEN_SWORD, Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD, Items.GOLDEN_SWORD, Items.NETHERITE_SWORD};
+            case "helmet" -> new Item[]{Items.LEATHER_HELMET, Items.IRON_HELMET, Items.DIAMOND_HELMET, Items.DIAMOND_HELMET, Items.NETHERITE_HELMET, Items.NETHERITE_HELMET, Items.NETHERITE_HELMET};
+            case "chestplate" -> new Item[]{Items.LEATHER_CHESTPLATE, Items.IRON_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_CHESTPLATE};
+            case "leggings" -> new Item[]{Items.LEATHER_LEGGINGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS, Items.NETHERITE_LEGGINGS, Items.NETHERITE_LEGGINGS};
+            case "boots" -> new Item[]{Items.LEATHER_BOOTS, Items.IRON_BOOTS, Items.DIAMOND_BOOTS, Items.DIAMOND_BOOTS, Items.NETHERITE_BOOTS, Items.NETHERITE_BOOTS, Items.NETHERITE_BOOTS};
+            case "magnet" -> new Item[]{Items.IRON_INGOT, Items.IRON_INGOT, Items.GOLD_INGOT, Items.GOLD_INGOT, Items.NETHERITE_INGOT, Items.NETHERITE_INGOT, Items.NETHERITE_INGOT};
+            case "shiny_charm" -> new Item[]{Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.ECHO_SHARD, Items.ECHO_SHARD, Items.NETHER_STAR, Items.NETHER_STAR, Items.NETHER_STAR};
+            case "profession_xp_gem" -> new Item[]{Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD, Items.EMERALD_BLOCK, Items.EMERALD_BLOCK, Items.EMERALD_BLOCK};
+            case "pokemon_xp_egg" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.NETHER_STAR};
+            case "friendship_charm" -> new Item[]{Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.HEART_OF_THE_SEA, Items.NETHER_STAR, Items.NETHER_STAR, Items.NETHER_STAR};
+            case "level_charm" -> new Item[]{Items.NETHER_STAR, Items.NETHER_STAR, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.DRAGON_BREATH, Items.DRAGON_BREATH, Items.DRAGON_EGG};
+            case "rare_pokemon_charm" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.NETHER_STAR, Items.NETHER_STAR, Items.NETHER_STAR};
+            case "chunky_brick" -> new Item[]{Items.BRICK, Items.BRICK, Items.NETHER_BRICK, Items.NETHER_BRICK, Items.NETHERITE_SCRAP, Items.NETHERITE_SCRAP, Items.NETHERITE_BLOCK};
+            case "trinket_pouch" -> new Item[]{Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST};
+            default -> new Item[]{Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.GOLDEN_PICKAXE, Items.NETHERITE_PICKAXE};
         };
         return icons[Math.max(0, Math.min(tier, icons.length - 1))];
     }
@@ -196,19 +200,19 @@ public final class FragmentCraftingMenu {
         int available = ProfessionFragmentManager.countFragments(player, fragmentKey);
         boolean hasCredits = EconomyManager.canAfford(player, creditCostCents);
         GuiElementBuilder builder = new GuiElementBuilder(icon.copy()).hideDefaultTooltip()
-                .setName(Component.literal("Craft " + ProfessionFragmentManager.formatWords(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(toolType)).withStyle(getRarityColor(normalizedRarity)))
-                .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Fragment"))
+                .setName(Component.literal("Craft " + ProfessionFragmentManager.displayRankName(normalizedRarity) + " " + ProfessionFragmentManager.formatWords(toolType)).withStyle(getRarityColor(normalizedRarity)))
+                .addLoreLine(Component.literal("§7Requires: §6" + cost + " " + ProfessionFragmentManager.displayRankName(fragmentKey) + " Essence"))
                 .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(creditCost)))
-                .addLoreLine(Component.literal("§7Fragments: §e" + available))
+                .addLoreLine(Component.literal("§7Essence: §e" + available))
                 .addLoreLine(Component.literal("§7Balance: §e" + EconomyManager.format(EconomyManager.getBalance(player))));
         boolean trinketCraft = toolType.equals("magnet") || toolType.equals("shiny_charm") || toolType.equals("profession_xp_gem") || toolType.equals("pokemon_xp_egg") || toolType.equals("friendship_charm") || toolType.equals("level_charm") || toolType.equals("rare_pokemon_charm") || toolType.equals("chunky_brick") || toolType.equals("trinket_pouch");
         if (trinketCraft) {
             for (Component line : trinketDescription(toolType, normalizedRarity)) builder.addLoreLine(line);
         }
-        builder.addLoreLine(Component.literal(available >= cost && hasCredits ? "§eClick to craft" : (!hasCredits ? "§cNot enough Credits" : "§cNot enough fragments")))
+        builder.addLoreLine(Component.literal(available >= cost && hasCredits ? "§eClick to craft" : (!hasCredits ? "§cNot enough Credits" : "§cNot enough essence")))
                 .setCallback((i,c,t) -> {
                     player.closeContainer();
-                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments craft " + normalizedRarity.toLowerCase() + " " + toolType);
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "essence craft " + normalizedRarity.toLowerCase() + " " + toolType);
                 });
         gui.setSlot(slot, builder);
     }
@@ -264,15 +268,17 @@ public final class FragmentCraftingMenu {
     }
 
     private static void openUpgrade(ServerPlayer player, Consumer<ServerPlayer> backTarget, boolean downgrade) {
-        SimpleGui gui = base(player, downgrade ? "Downgrade Fragments" : "Upgrade Fragments");
+        SimpleGui gui = base(player, downgrade ? "Downgrade Essence" : "Upgrade Essence");
         gui.setSlot(4, new GuiElementBuilder(downgrade ? Items.PAPER : Items.AMETHYST_SHARD).hideDefaultTooltip()
-                .setName(Component.literal(downgrade ? "§cDowngrade Fragments" : "§aUpgrade Fragments"))
-                .addLoreLine(Component.literal(downgrade ? "§7Legendary may downgrade to Epic. Mythic cannot downgrade." : "§7Upgrade up to Epic only. Legendary/Mythic are prestige drops.")));
+                .setName(Component.literal(downgrade ? "§cDowngrade Essence" : "§aUpgrade Essence"))
+                .addLoreLine(Component.literal(downgrade ? "§7B/A may downgrade one step. S cannot downgrade." : "§7Upgrade up to C Rank only. B/A/S are prestige drops.")));
         String[] ids = downgrade
-                ? new String[]{"UNCOMMON_TO_COMMON_DOWNGRADE","RARE_TO_UNCOMMON_DOWNGRADE","EPIC_TO_RARE_DOWNGRADE","LEGENDARY_TO_EPIC_DOWNGRADE"}
-                : new String[]{"COMMON_TO_UNCOMMON","UNCOMMON_TO_RARE","RARE_TO_EPIC"};
-        int[] slots = downgrade ? new int[]{20,21,22,23} : new int[]{21,22,23};
-        for (int i = 0; i < ids.length; i++) addUpgradeButton(gui, player, slots[i], ids[i], downgrade ? Items.PAPER : Items.AMETHYST_SHARD);
+                ? new String[]{"E_TO_F_DOWNGRADE","D_TO_E_DOWNGRADE","C_TO_D_DOWNGRADE","B_TO_C_DOWNGRADE","A_TO_B_DOWNGRADE"}
+                : new String[]{"F_TO_E","E_TO_D","D_TO_C","C_TO_B"};
+        int[] slots = downgrade ? new int[]{19,20,21,22,23} : new int[]{20,21,22,23};
+        for (int i = 0; i < Math.min(ids.length, slots.length); i++) {
+            addUpgradeButton(gui, player, slots[i], ids[i], downgrade ? Items.PAPER : Items.AMETHYST_SHARD);
+        }
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
@@ -290,22 +296,22 @@ public final class FragmentCraftingMenu {
         int available = ProfessionFragmentManager.countFragments(player, from);
         gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
                 .setName(Component.literal(ProfessionFragmentManager.formatWords(from) + " → " + ProfessionFragmentManager.formatWords(to)).withStyle(getRarityColor(to)))
-                .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionFragmentManager.formatWords(from) + " Fragment"))
-                .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(to) + " Fragment"))
+                .addLoreLine(Component.literal("§7Requires: §6" + cost + " " + ProfessionFragmentManager.displayRankName(from) + " Essence"))
+                .addLoreLine(Component.literal("§7Output: §a" + output + " " + ProfessionFragmentManager.displayRankName(to) + " Essence"))
                 .addLoreLine(Component.literal("§7You have: §e" + available))
-                .addLoreLine(Component.literal(available >= cost ? "§eClick to convert" : "§cNot enough fragments"))
+                .addLoreLine(Component.literal(available >= cost ? "§eClick to convert" : "§cNot enough essence"))
                 .setCallback((i,c,t) -> {
                     player.closeContainer();
-                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments upgrade " + upgradeId);
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "essence upgrade " + upgradeId);
                 }));
     }
 
     private static void openWithdraw(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
-        SimpleGui gui = base(player, "Withdraw Fragments");
-        gui.setSlot(4, new GuiElementBuilder(Items.CHEST).hideDefaultTooltip().setName(Component.literal("§aWithdraw Fragments")));
-        int[] slots = {20,21,22,23,24,25};
-        String[] rarities = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
-        for (int i = 0; i < rarities.length; i++) addWithdrawButton(gui, player, slots[i], rarities[i], Items.PAPER);
+        SimpleGui gui = base(player, "Withdraw Essence");
+        gui.setSlot(4, new GuiElementBuilder(Items.CHEST).hideDefaultTooltip().setName(Component.literal("§aWithdraw Essence")));
+        for (int i = 0; i < Math.min(RARITIES.length, RARITY_ROW_SLOTS.length); i++) {
+            addWithdrawButton(gui, player, RARITY_ROW_SLOTS[i], RARITIES[i], Items.PAPER);
+        }
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
@@ -315,24 +321,25 @@ public final class FragmentCraftingMenu {
         int available = ProfessionFragmentManager.countFragments(player, normalizedRarity);
         int amount = Math.min(16, Math.max(1, available));
         gui.setSlot(slot, new GuiElementBuilder(icon).hideDefaultTooltip()
-                .setName(Component.literal("Withdraw " + ProfessionFragmentManager.formatWords(normalizedRarity) + " Fragments").withStyle(getRarityColor(normalizedRarity)))
+                .setName(Component.literal("Withdraw " + ProfessionFragmentManager.displayRankName(normalizedRarity) + " Essence").withStyle(getRarityColor(normalizedRarity)))
                 .addLoreLine(Component.literal("§7Stored: §e" + available))
-                .addLoreLine(Component.literal(available > 0 ? "§eClick to withdraw " + amount : "§cNo stored fragments"))
+                .addLoreLine(Component.literal(available > 0 ? "§eClick to withdraw " + amount : "§cNo stored essence"))
                 .setCallback((i,c,t) -> {
                     if (available <= 0) return;
                     player.closeContainer();
-                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "fragments withdraw " + normalizedRarity.toLowerCase() + " " + amount);
+                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "essence withdraw " + normalizedRarity.toLowerCase() + " " + amount);
                 }));
     }
 
     private static ChatFormatting getRarityColor(String rarity) {
         if (rarity == null) return ChatFormatting.WHITE;
         return switch (rarity.trim().toUpperCase()) {
-            case "UNCOMMON" -> ChatFormatting.GREEN;
-            case "RARE" -> ChatFormatting.BLUE;
-            case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
-            case "LEGENDARY" -> ChatFormatting.GOLD;
-            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
+            case "E" -> ChatFormatting.GREEN;
+            case "D" -> ChatFormatting.BLUE;
+            case "C" -> ChatFormatting.LIGHT_PURPLE;
+            case "B" -> ChatFormatting.DARK_AQUA;
+            case "A" -> ChatFormatting.GOLD;
+            case "S" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }

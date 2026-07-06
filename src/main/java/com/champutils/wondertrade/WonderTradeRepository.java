@@ -62,7 +62,7 @@ public final class WonderTradeRepository {
         addColumnIfMissing(connection, "wondertrade_pool", "display_name", "text not null default 'unknown'");
         addColumnIfMissing(connection, "wondertrade_pool", "pokemon_level", "integer not null default 1");
         addColumnIfMissing(connection, "wondertrade_pool", "shiny", "boolean not null default false");
-        addColumnIfMissing(connection, "wondertrade_pool", "legendary", "boolean not null default false");
+        addColumnIfMissing(connection, "wondertrade_pool", "a", "boolean not null default false");
         addColumnIfMissing(connection, "wondertrade_pool", "payload", "jsonb not null default '{}'::jsonb");
         addColumnIfMissing(connection, "wondertrade_pool", "created_at", "timestamptz not null default now()");
 
@@ -544,7 +544,7 @@ public final class WonderTradeRepository {
                 rs.getString("species"),
                 rs.getString("display_name"),
                 rs.getBoolean("shiny"),
-                rs.getBoolean("legendary"),
+                rs.getBoolean("a"),
                 rs.getInt("pokemon_level"),
                 payload
         );

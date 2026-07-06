@@ -1,5 +1,6 @@
 package com.champutils.expeditions;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
@@ -123,6 +124,7 @@ public final class ExpeditionManager {
                 save.sourcePokemonRemoved = true;
                 save.sourcePartySlot = slotIndex;
                 saveOrThrow(player, save);
+                AdventureGuideManager.increment(player, "expedition_start", 1);
                 return displayName;
             } catch (Exception e) {
                 if (removed && !AuctionPokemonSerializer.hasPokemonInPartyOrPc(player, pokemonUuid)) {
@@ -168,6 +170,7 @@ public final class ExpeditionManager {
         save.sourcePokemonRemoved = false;
         save.sourcePartySlot = slot - 1;
         save(player, save);
+        AdventureGuideManager.increment(player, "expedition_start", 1);
     }
 
     public static void notifyIfReady(ServerPlayer player) {
@@ -402,7 +405,7 @@ public final class ExpeditionManager {
         List<ItemStack> rewards = new ArrayList<>();
         int count = ExpeditionConfig.tmRewardCount(pokemonLevel);
         for (int i = 0; i < count; i++) {
-            ItemStack tm = TMManager.createRandomTMStack("COMMON", 1);
+            ItemStack tm = TMManager.createRandomTMStack("F", 1);
             if (tm != null && !tm.isEmpty()) rewards.add(tm);
         }
         return rewards;

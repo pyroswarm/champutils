@@ -85,7 +85,6 @@ public final class ChestShopCommand {
         if (ProfileRestrictions.blockIronmanTrade(player, "chest shops")) {
             return 0;
         }
-
         Target target = getTargetChest(player);
         if (target == null) {
             player.sendSystemMessage(Component.literal("Look at a chest or barrel within 6 blocks first.").withStyle(ChatFormatting.RED));

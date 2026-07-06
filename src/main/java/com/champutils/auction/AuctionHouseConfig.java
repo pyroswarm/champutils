@@ -9,6 +9,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class AuctionHouseConfig {
 
@@ -23,6 +25,10 @@ public final class AuctionHouseConfig {
     public int maxActiveListingsPerPlayer = 10;
     public long maxListingPrice = 9_000_000_000_000_000L;
     public int listingDurationDays = 7;
+    public boolean filterBadListingNames = true;
+    public boolean announceNewListings = true;
+    public int listingAnnouncementCooldownSeconds = 30;
+    public List<String> blockedListingWords = new ArrayList<>(List.of("fuck", "shit", "bitch", "cunt", "nigger", "nigga", "fag", "faggot", "retard", "kike", "spic", "chink"));
 
     private AuctionHouseConfig() {
     }
@@ -78,6 +84,8 @@ public final class AuctionHouseConfig {
         maxActiveListingsPerPlayer = safeMaxActiveListingsPerPlayer();
         maxListingPrice = safeMaxListingPrice();
         listingDurationDays = safeListingDurationDays();
+        if (blockedListingWords == null) blockedListingWords = new ArrayList<>();
+        if (listingAnnouncementCooldownSeconds < 0) listingAnnouncementCooldownSeconds = 0;
         save();
     }
 

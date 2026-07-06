@@ -1,6 +1,7 @@
 package com.champutils.profession;
 
 import com.champutils.database.ProfessionDatabaseRepository;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.profile.PlayerProfileManager;
 
 import com.google.gson.Gson;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ProfessionDataManager {
+    private static final String STATE_KEY = "professions";
 
     private static final Gson GSON =
             new GsonBuilder()
@@ -47,6 +49,10 @@ public class ProfessionDataManager {
 
         /** Per-profile profession specializations. Key format: PROFESSION:CATEGORY:ID. */
         public Map<String, SubLevelData> sublevels =
+                new HashMap<>();
+
+        /** Fractional profession XP bonuses banked per profession for exact decimal boosts. */
+        public Map<String, Double> xpBonusBank =
                 new HashMap<>();
 
         public static class SubLevelData {
@@ -149,43 +155,46 @@ public class ProfessionDataManager {
         try {
 
             File file = getProfileFile(uuid);
-            if (!file.exists()) {
-                ProfessionData created = new ProfessionData();
-                created.uuid = uuid.toString();
-                created.name = name;
-                ensureProfessionDefaults(created);
-                save(uuid, created);
-            }
+            ProfessionData data = new ProfessionData();
 
-            try (
-                    FileReader r =
-                            new FileReader(
-                                    file
-                            )
-            ) {
-                ProfessionData data =
-                        GSON.fromJson(
-                                r,
-                                ProfessionData.class
-                        );
-
-                if (data == null) {
-                    data =
-                            new ProfessionData();
+            if (file.exists()) {
+                try (
+                        FileReader r =
+                                new FileReader(
+                                        file
+                                )
+                ) {
+                    ProfessionData local =
+                            GSON.fromJson(
+                                    r,
+                                    ProfessionData.class
+                            );
+                    if (local != null) {
+                        data =
+                                local;
+                    }
                 }
-
-                data.uuid =
-                        uuid.toString();
-
-                data.name =
-                        name;
-
-                ensureProfessionDefaults(
-                        data
-                );
-
-                return data;
             }
+
+            data =
+                    SharedJsonStateRepository.loadProfile(
+                            uuid,
+                            STATE_KEY,
+                            ProfessionData.class,
+                            data
+                    );
+
+            data.uuid =
+                    uuid.toString();
+
+            data.name =
+                    name;
+
+            ensureProfessionDefaults(
+                    data
+            );
+
+            return data;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -347,6 +356,22 @@ public class ProfessionDataManager {
                     new ConcurrentHashMap<>(data.sublevels);
         }
 
+        if (data.xpBonusBank == null) {
+            data.xpBonusBank =
+                    new ConcurrentHashMap<>();
+        } else if (!(data.xpBonusBank instanceof ConcurrentHashMap)) {
+            data.xpBonusBank =
+                    new ConcurrentHashMap<>(data.xpBonusBank);
+        }
+
+        data.xpBonusBank.entrySet().removeIf(entry ->
+                entry.getKey() == null ||
+                        entry.getKey().isBlank() ||
+                        entry.getValue() == null ||
+                        !Double.isFinite(entry.getValue()) ||
+                        entry.getValue() <= 0.0D
+        );
+
         data.sublevels.entrySet().removeIf(entry -> entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null);
         for (ProfessionData.SubLevelData sublevel : data.sublevels.values()) {
             sublevel.level = Math.max(1, Math.min(100, sublevel.level));
@@ -408,6 +433,7 @@ public class ProfessionDataManager {
             copy.fragments = new HashMap<>(data.fragments);
             copy.chunks = new HashMap<>(data.chunks);
             copy.backpack = new HashMap<>(data.backpack);
+            copy.xpBonusBank = new HashMap<>(data.xpBonusBank);
             copy.sublevels = new HashMap<>();
             if (data.sublevels != null) {
                 for (Map.Entry<String, ProfessionData.SubLevelData> entry : data.sublevels.entrySet()) {
@@ -509,6 +535,17 @@ public class ProfessionDataManager {
             ProfessionDatabaseRepository.sync(
                     ownerPlayerUuid,
                     data
+            );
+
+            SharedJsonStateRepository.saveProfile(
+                    profileId,
+                    STATE_KEY,
+                    data
+            );
+
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation(
+                    "PROFESSIONS",
+                    profileId
             );
 
             return true;

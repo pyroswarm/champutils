@@ -27,7 +27,7 @@ public final class ProfessionFragmentConfig {
 
     /**
      * Config for crafting random unidentified profession tools from stored fragments.
-     * Keyed by rarity: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC.
+     * Keyed by backend Adventurer rank: F, E, D, C, B, A, S.
      */
     public static Map<String, ToolCraftingData> TOOL_CRAFTING =
             new LinkedHashMap<>();
@@ -45,6 +45,10 @@ public final class ProfessionFragmentConfig {
 
     public static class ConfigRoot {
         public Map<String, FragmentData> fragments =
+                new LinkedHashMap<>();
+
+        /** Preferred name after the Adventurer Rank Essence rename. */
+        public Map<String, FragmentData> essence =
                 new LinkedHashMap<>();
 
         public Map<String, SalvageData> salvage =
@@ -75,19 +79,23 @@ public final class ProfessionFragmentConfig {
 
     public static class SalvageData {
         public String fragment = "";
+        public String essence = "";
         public int min = 1;
         public int max = 1;
     }
 
     public static class UpgradeData {
         public String fromFragment = "";
+        public String fromEssence = "";
         public int cost = 10;
         public String toFragment = "";
+        public String toEssence = "";
         public int output = 1;
     }
 
     public static class ToolCraftingData {
         public String fragment = "";
+        public String essence = "";
         public int cost = 64;
     }
 
@@ -103,8 +111,18 @@ public final class ProfessionFragmentConfig {
             File file =
                     new File(
                             dir,
+                            "profession_essence.json"
+                    );
+
+            File legacyFile =
+                    new File(
+                            dir,
                             "profession_fragments.json"
                     );
+
+            if (!file.exists() && legacyFile.exists()) {
+                file = legacyFile;
+            }
 
             if (!file.exists()) {
                 createDefault(file);
@@ -117,9 +135,13 @@ public final class ProfessionFragmentConfig {
                                 ConfigRoot.class
                         );
 
-                FRAGMENTS = root == null || root.fragments == null
-                        ? new LinkedHashMap<>()
-                        : root.fragments;
+                if (root == null) {
+                    FRAGMENTS = new LinkedHashMap<>();
+                } else if (root.essence != null && !root.essence.isEmpty()) {
+                    FRAGMENTS = root.essence;
+                } else {
+                    FRAGMENTS = root.fragments == null ? new LinkedHashMap<>() : root.fragments;
+                }
 
                 SALVAGE = root == null || root.salvage == null
                         ? new LinkedHashMap<>()
@@ -144,13 +166,14 @@ public final class ProfessionFragmentConfig {
             }
 
             ensureDefaultsIfEmpty();
+            applyRankFragmentDisplay();
             TRADES = TOOL_CRAFTING;
             saveLoaded();
 
             System.out.println(
                     "[ChampUtils] Loaded " +
                             FRAGMENTS.size() +
-                            " profession fragments and " +
+                            " profession essences and " +
                             TOOL_CRAFTING.size() +
                             " tool crafting rules."
             );
@@ -194,6 +217,8 @@ public final class ProfessionFragmentConfig {
             TOOL_CRAFTING = defaults.toolCrafting;
         }
 
+        normalizeEssenceAliases();
+
         for (Map.Entry<String, FragmentData> entry : defaults.fragments.entrySet()) {
             FRAGMENTS.putIfAbsent(entry.getKey(), entry.getValue());
         }
@@ -229,13 +254,48 @@ public final class ProfessionFragmentConfig {
         }
     }
 
+    private static void normalizeEssenceAliases() {
+        if (SALVAGE != null) {
+            for (SalvageData data : SALVAGE.values()) {
+                if (data == null) continue;
+                if ((data.fragment == null || data.fragment.isBlank()) && data.essence != null && !data.essence.isBlank()) {
+                    data.fragment = data.essence;
+                }
+                data.essence = data.fragment;
+            }
+        }
+        if (UPGRADES != null) {
+            for (UpgradeData data : UPGRADES.values()) {
+                if (data == null) continue;
+                if ((data.fromFragment == null || data.fromFragment.isBlank()) && data.fromEssence != null && !data.fromEssence.isBlank()) {
+                    data.fromFragment = data.fromEssence;
+                }
+                if ((data.toFragment == null || data.toFragment.isBlank()) && data.toEssence != null && !data.toEssence.isBlank()) {
+                    data.toFragment = data.toEssence;
+                }
+                data.fromEssence = data.fromFragment;
+                data.toEssence = data.toFragment;
+            }
+        }
+        if (TOOL_CRAFTING != null) {
+            for (ToolCraftingData data : TOOL_CRAFTING.values()) {
+                if (data == null) continue;
+                if ((data.fragment == null || data.fragment.isBlank()) && data.essence != null && !data.essence.isBlank()) {
+                    data.fragment = data.essence;
+                }
+                data.essence = data.fragment;
+            }
+        }
+    }
+
     private static void saveLoaded() {
         try {
             File dir = new File("config/champutils");
             if (!dir.exists()) dir.mkdirs();
-            File file = new File(dir, "profession_fragments.json");
+            File file = new File(dir, "profession_essence.json");
             ConfigRoot root = new ConfigRoot();
-            root.fragments = FRAGMENTS;
+            root.fragments = new LinkedHashMap<>();
+            root.essence = FRAGMENTS;
             root.salvage = SALVAGE;
             root.upgrades = UPGRADES;
             root.toolCrafting = TOOL_CRAFTING;
@@ -257,37 +317,42 @@ public final class ProfessionFragmentConfig {
         ConfigRoot root =
                 new ConfigRoot();
 
-        addFragment(root, "COMMON", "common_tool_fragment", "Common Tool Fragment", "minecraft:paper", 0, "WHITE");
-        addFragment(root, "UNCOMMON", "uncommon_tool_fragment", "Uncommon Tool Fragment", "minecraft:paper", 0, "GREEN");
-        addFragment(root, "RARE", "rare_tool_fragment", "Rare Tool Fragment", "minecraft:paper", 0, "BLUE");
-        addFragment(root, "EPIC", "epic_tool_fragment", "Epic Tool Fragment", "minecraft:paper", 0, "LIGHT_PURPLE");
-        addFragment(root, "LEGENDARY", "legendary_tool_fragment", "Legendary Tool Fragment", "minecraft:paper", 0, "GOLD");
-        addFragment(root, "MYTHIC", "mythic_tool_fragment", "Mythic Tool Fragment", "minecraft:paper", 0, "DARK_PURPLE");
+        addFragment(root, "F", "f_rank_essence", "F Rank Essence", "minecraft:paper", 0, "WHITE");
+        addFragment(root, "E", "e_rank_essence", "E Rank Essence", "minecraft:paper", 0, "GREEN");
+        addFragment(root, "D", "d_rank_essence", "D Rank Essence", "minecraft:paper", 0, "BLUE");
+        addFragment(root, "C", "c_rank_essence", "C Rank Essence", "minecraft:paper", 0, "LIGHT_PURPLE");
+        addFragment(root, "B", "b_rank_essence", "B Rank Essence", "minecraft:paper", 0, "YELLOW");
+        addFragment(root, "A", "a_rank_essence", "A Rank Essence", "minecraft:paper", 0, "GOLD");
+        addFragment(root, "S", "s_rank_essence", "S Rank Essence", "minecraft:paper", 0, "DARK_PURPLE");
 
-        addSalvage(root, "COMMON", "COMMON", 3, 5);
-        addSalvage(root, "UNCOMMON", "UNCOMMON", 3, 5);
-        addSalvage(root, "RARE", "RARE", 3, 5);
-        addSalvage(root, "EPIC", "EPIC", 2, 4);
-        addSalvage(root, "LEGENDARY", "LEGENDARY", 1, 3);
-        addSalvage(root, "MYTHIC", "MYTHIC", 1, 2);
+        addSalvage(root, "F", "F", 3, 5);
+        addSalvage(root, "E", "E", 3, 5);
+        addSalvage(root, "D", "D", 3, 5);
+        addSalvage(root, "C", "C", 2, 4);
+        addSalvage(root, "B", "B", 1, 3);
+        addSalvage(root, "A", "A", 1, 2);
+        addSalvage(root, "S", "S", 1, 2);
 
-        addUpgrade(root, "COMMON_TO_UNCOMMON", "COMMON", 16, "UNCOMMON", 1);
-        addUpgrade(root, "UNCOMMON_TO_RARE", "UNCOMMON", 16, "RARE", 1);
-        addUpgrade(root, "RARE_TO_EPIC", "RARE", 12, "EPIC", 1);
-        // Legendary and Mythic fragments are intentionally source-only prestige rewards.
-        // Do not allow normal fragment upgrading into Legendary/Mythic.
-        addUpgrade(root, "UNCOMMON_TO_COMMON_DOWNGRADE", "UNCOMMON", 1, "COMMON", 8);
-        addUpgrade(root, "RARE_TO_UNCOMMON_DOWNGRADE", "RARE", 1, "UNCOMMON", 8);
-        addUpgrade(root, "EPIC_TO_RARE_DOWNGRADE", "EPIC", 1, "RARE", 6);
-        addUpgrade(root, "LEGENDARY_TO_EPIC_DOWNGRADE", "LEGENDARY", 1, "EPIC", 4);
-        // Mythic fragments should never be downgraded into Legendary fragments.
+        addUpgrade(root, "F_TO_E", "F", 16, "E", 1);
+        addUpgrade(root, "E_TO_D", "E", 16, "D", 1);
+        addUpgrade(root, "D_TO_C", "D", 12, "C", 1);
+        addUpgrade(root, "C_TO_B", "C", 32, "B", 1);
+        // A and S fragments are intentionally source-only prestige rewards.
+        // B exists as the high grind bridge between C and A.
+        addUpgrade(root, "E_TO_F_DOWNGRADE", "E", 1, "F", 8);
+        addUpgrade(root, "D_TO_E_DOWNGRADE", "D", 1, "E", 8);
+        addUpgrade(root, "C_TO_D_DOWNGRADE", "C", 1, "D", 6);
+        addUpgrade(root, "B_TO_C_DOWNGRADE", "B", 1, "C", 4);
+        addUpgrade(root, "A_TO_B_DOWNGRADE", "A", 1, "B", 3);
+        // S fragments should never be downgraded.
 
-        addToolCrafting(root, "COMMON", "COMMON", 16);
-        addToolCrafting(root, "UNCOMMON", "UNCOMMON", 16);
-        addToolCrafting(root, "RARE", "RARE", 16);
-        addToolCrafting(root, "EPIC", "EPIC", 16);
-        addToolCrafting(root, "LEGENDARY", "LEGENDARY", 16);
-        addToolCrafting(root, "MYTHIC", "MYTHIC", 16);
+        addToolCrafting(root, "F", "F", 16);
+        addToolCrafting(root, "E", "E", 16);
+        addToolCrafting(root, "D", "D", 16);
+        addToolCrafting(root, "C", "C", 16);
+        addToolCrafting(root, "B", "B", 16);
+        addToolCrafting(root, "A", "A", 16);
+        addToolCrafting(root, "S", "S", 16);
 
         return root;
     }
@@ -308,9 +373,13 @@ public final class ProfessionFragmentConfig {
         data.baseItem = baseItem;
         data.customModelData = customModelData;
         data.color = color;
-        data.lore = "Salvaged profession tool material. Upgrade into higher-tier fragments.";
+        data.lore = "Salvaged profession tool material. Upgrade into higher-tier essence.";
 
         root.fragments.put(
+                rarity,
+                data
+        );
+        root.essence.put(
                 rarity,
                 data
         );
@@ -326,6 +395,7 @@ public final class ProfessionFragmentConfig {
         SalvageData data =
                 new SalvageData();
         data.fragment = fragment;
+        data.essence = fragment;
         data.min = min;
         data.max = max;
 
@@ -346,8 +416,10 @@ public final class ProfessionFragmentConfig {
         UpgradeData data =
                 new UpgradeData();
         data.fromFragment = fromFragment;
+        data.fromEssence = fromFragment;
         data.cost = cost;
         data.toFragment = toFragment;
+        data.toEssence = toFragment;
         data.output = output;
 
         root.upgrades.put(
@@ -365,6 +437,7 @@ public final class ProfessionFragmentConfig {
         ToolCraftingData data =
                 new ToolCraftingData();
         data.fragment = fragment;
+        data.essence = fragment;
         data.cost = cost;
 
         root.toolCrafting.put(
@@ -373,22 +446,38 @@ public final class ProfessionFragmentConfig {
         );
     }
 
+
+    private static void applyRankFragmentDisplay() {
+        for (Map.Entry<String, FragmentData> entry : FRAGMENTS.entrySet()) {
+            if (entry == null || entry.getValue() == null) continue;
+            String rarity = normalizeRarity(entry.getKey());
+            String rank = rankForRarity(rarity);
+            if (rank == null) continue;
+            entry.getValue().displayName = rank + " Rank Essence";
+            if (entry.getValue().lore == null || entry.getValue().lore.isBlank() || entry.getValue().lore.toLowerCase(java.util.Locale.ROOT).contains("essence")) {
+                entry.getValue().lore = "Used for " + rank + " Rank profession crafting, upgrades, and prestige progression.";
+            }
+        }
+    }
+
+    public static String rankForRarity(String rarity) {
+        return normalizeRarity(rarity);
+    }
+
     public static boolean isBlockedPrestigeConversion(String fromFragment, String toFragment) {
         String from = normalizeRarity(fromFragment);
         String to = normalizeRarity(toFragment);
 
-        // Epic should be the normal long-term baseline. Legendary/Mythic must come
-        // from intended prestige sources, not fragment ladder conversion.
-        if (from.equals("EPIC") && to.equals("LEGENDARY")) return true;
-        if (from.equals("LEGENDARY") && to.equals("MYTHIC")) return true;
-        if (from.equals("MYTHIC") && to.equals("LEGENDARY")) return true;
+        // C should be the normal long-term baseline. B is craftable but expensive; A/S must come
+        // from intended prestige sources, not normal fragment ladder conversion.
+        if (from.equals("B") && to.equals("A")) return true;
+        if (from.equals("A") && to.equals("S")) return true;
+        if (from.equals("S") && !to.equals("S")) return true;
 
         return false;
     }
 
     public static String normalizeRarity(String rarity) {
-        return rarity == null
-                ? "COMMON"
-                : rarity.trim().toUpperCase();
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 }

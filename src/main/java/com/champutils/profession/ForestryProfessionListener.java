@@ -19,6 +19,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -55,7 +56,7 @@ public class ForestryProfessionListener {
                 clearNearbyLeaves(serverPlayer, pos, getIntStat(tool, "leafstormRadius", 5));
             }
 
-            if (ActiveEffectManager.hasToggle(serverPlayer, "tree_replant", tool)) {
+            if (hasTreeReplantToggle(serverPlayer, tool)) {
                 tryReplantSapling(serverPlayer, pos, state);
             }
 
@@ -158,18 +159,102 @@ public class ForestryProfessionListener {
             if (cleared >= 80) return;
             BlockState state = level.getBlockState(pos);
             if (!state.is(BlockTags.LEAVES)) continue;
-            level.destroyBlock(pos.immutable(), true, player);
-            cleared++;
+            if (breakLeafWithToolDrops(player, level, pos.immutable(), state)) {
+                cleared++;
+            }
         }
         if (cleared > 0 && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aLeafstorm cleared " + cleared + " leaves."), true);
         }
     }
 
+    private static boolean breakLeafWithToolDrops(
+            ServerPlayer player,
+            ServerLevel level,
+            BlockPos pos,
+            BlockState state
+    ) {
+
+        if (player == null || level == null || pos == null || state == null || state.isAir()) {
+            return false;
+        }
+
+        ItemStack tool = player.getMainHandItem();
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+
+        java.util.List<ItemStack> drops =
+                Block.getDrops(
+                        state,
+                        level,
+                        pos,
+                        blockEntity,
+                        player,
+                        tool
+                );
+
+        double professionFortuneChance =
+                ProfessionToolUtil.getStat(
+                        tool,
+                        "fortuneChance"
+                );
+
+        boolean duplicateDrops =
+                professionFortuneChance > 0.0D &&
+                        RANDOM.nextDouble() * 100.0D < Math.min(100.0D, professionFortuneChance);
+
+        level.setBlock(
+                pos,
+                Blocks.AIR.defaultBlockState(),
+                3
+        );
+
+        for (ItemStack drop : drops) {
+            if (drop == null || drop.isEmpty()) {
+                continue;
+            }
+
+            ProfessionBackpackManager.giveOrDrop(
+                    player,
+                    drop.copy(),
+                    true
+            );
+
+            if (duplicateDrops) {
+                ProfessionBackpackManager.giveOrDrop(
+                        player,
+                        drop.copy(),
+                        true
+                );
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean hasTreeReplantToggle(ServerPlayer player, ItemStack tool) {
+        return ActiveEffectManager.hasToggle(player, "tree_replant", tool)
+                || ActiveEffectManager.hasToggle(player, "forestry_replant", tool)
+                || ActiveEffectManager.hasToggle(player, "auto_replant", tool);
+    }
+
     private static void tryReplantSapling(ServerPlayer player, BlockPos pos, BlockState oldState) {
+        if (player == null || pos == null || oldState == null || oldState.isAir()) return;
+
         Block sapling = ForestryBlockUtil.getSaplingForLog(getBlockId(oldState.getBlock()));
         if (sapling == Blocks.AIR) return;
-        player.serverLevel().setBlock(pos, sapling.defaultBlockState(), 3);
+
+        ServerLevel level = player.serverLevel();
+        BlockState replanted = sapling.defaultBlockState();
+
+        // This listener runs from PlayerBlockBreakEvents.BEFORE. Replanting immediately here can
+        // cause vanilla's normal block break to remove the sapling right after we place it.
+        // Queue the sapling placement for the next server task, after the original log is gone.
+        level.getServer().execute(() -> {
+            if (!level.getBlockState(pos).isAir()) return;
+            if (!replanted.canSurvive(level, pos)) return;
+            level.setBlock(pos, replanted, 3 | 16);
+            level.blockUpdated(pos, replanted.getBlock());
+        });
     }
 
     private static String extraBlockKey(ServerPlayer player, BlockPos pos) {

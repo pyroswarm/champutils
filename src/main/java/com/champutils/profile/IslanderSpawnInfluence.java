@@ -126,7 +126,7 @@ public final class IslanderSpawnInfluence implements SpawningInfluence {
 
     private static boolean isRareNonSpecialPokemon(SpawnDetail detail) {
         String bucket = detail.getBucket() == null || detail.getBucket().getName() == null ? "" : detail.getBucket().getName().toLowerCase(java.util.Locale.ROOT);
-        if (!(bucket.contains("rare") || bucket.contains("uncommon") || bucket.contains("ultra"))) return false;
+        if (!(bucket.contains("d") || bucket.contains("e") || bucket.contains("ultra"))) return false;
         if (detail instanceof PokemonSpawnDetail pokemonDetail) {
             String species = pokemonDetail.getPokemon().getSpecies();
             return species != null && !isSpecialSpecies(species);

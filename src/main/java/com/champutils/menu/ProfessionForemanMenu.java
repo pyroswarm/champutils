@@ -39,7 +39,7 @@ public final class ProfessionForemanMenu {
                     .addLoreLine(Component.literal("§7This will sell every stored chunk."))
                     .addLoreLine(Component.literal("§7Total: §6" + EconomyManager.format(sellAllPreview)))
                     .addLoreLine(Component.literal("§cThis cannot be undone."))
-                    .addLoreLine(Component.literal("§eClick again to confirm."))
+                    .addLoreLine(Component.literal("§eClick to confirm."))
                     .setCallback((i,c,t) -> {
                         long cents = ProfessionChunkManager.sellAll(player);
                         if (cents <= 0L) player.sendSystemMessage(Component.literal("§cYou do not have any sellable chunks."));
@@ -51,13 +51,30 @@ public final class ProfessionForemanMenu {
                     .setName(Component.literal("§6Sell All Chunks"))
                     .addLoreLine(Component.literal("§7Converts all stored chunks into Credits."))
                     .addLoreLine(Component.literal("§7Total: §6" + EconomyManager.format(sellAllPreview)))
-                    .addLoreLine(Component.literal("§eClick to review and confirm."))
-                    .setCallback((i,c,t) -> open(player, true)));
+                    .addLoreLine(Component.literal("§eClick to review."))
+                    .setCallback((i,c,t) -> ConfirmationMenu.open(
+                            player,
+                            "Confirm Sell All Chunks",
+                            Items.GOLD_INGOT,
+                            "§eSell All Chunks",
+                            new String[]{
+                                    "§7This will sell every stored chunk.",
+                                    "§7Total: §6" + EconomyManager.format(sellAllPreview),
+                                    "§cThis cannot be undone."
+                            },
+                            () -> {
+                                long cents = ProfessionChunkManager.sellAll(player);
+                                if (cents <= 0L) player.sendSystemMessage(Component.literal("§cYou do not have any sellable chunks."));
+                                else player.sendSystemMessage(Component.literal("§aSold all chunks for §6" + EconomyManager.format(cents) + "§a."));
+                                open(player);
+                            },
+                            () -> open(player)
+                    )));
         }
 
         gui.setSlot(22, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
-                .setName(Component.literal("§dTrade Chunks for Fragments"))
-                .addLoreLine(Component.literal("§7Use chunk currencies for tool fragments."))
+                .setName(Component.literal("§dTrade Chunks for Essence"))
+                .addLoreLine(Component.literal("§7Use chunk currencies for rank essences."))
                 .addLoreLine(Component.literal("§eClick to choose a chunk tier."))
                 .setCallback((i,c,t) -> openTrade(player)));
 
@@ -91,7 +108,7 @@ public final class ProfessionForemanMenu {
 
     private static void openTrade(ServerPlayer player) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
-        gui.setTitle(Component.literal("Chunk Fragment Trades"));
+        gui.setTitle(Component.literal("Chunk Essence Trades"));
         MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
         List<String> chunks = new ArrayList<>(ProfessionChunkConfig.CONFIG.chunks.keySet());
         int[] slots = {20,21,22,23,24,25};
@@ -101,12 +118,12 @@ public final class ProfessionForemanMenu {
             int have = ProfessionChunkManager.count(player, chunk);
             int cost = data == null ? 1 : Math.max(1, data.chunksPerFragment);
             int output = data == null ? 1 : Math.max(1, data.fragmentsPerTrade);
-            String rarity = data == null ? "COMMON" : data.fragmentRarity;
+            String rarity = data == null ? "F" : data.fragmentRarity;
             int maxTrades = cost <= 0 ? 0 : have / cost;
             gui.setSlot(slots[idx], new GuiElementBuilder(icon(chunk)).hideDefaultTooltip()
-                    .setName(Component.literal(ProfessionChunkManager.formatChunk(chunk) + " → " + ProfessionFragmentManager.formatWords(rarity) + " Fragment").withStyle(ProfessionChunkManager.color(chunk)))
+                    .setName(Component.literal(ProfessionChunkManager.formatChunk(chunk) + " → " + ProfessionFragmentManager.displayRankName(rarity) + " Essence").withStyle(ProfessionChunkManager.color(chunk)))
                     .addLoreLine(Component.literal("§7Cost: §6" + cost + "x " + ProfessionChunkManager.formatChunk(chunk)))
-                    .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.formatWords(rarity) + " Fragment"))
+                    .addLoreLine(Component.literal("§7Output: §a" + output + "x " + ProfessionFragmentManager.displayRankName(rarity) + " Essence"))
                     .addLoreLine(Component.literal("§7You have: §e" + have))
                     .addLoreLine(Component.literal("§7Max right now: §e" + maxTrades + " trades"))
                     .addLoreLine(Component.literal(have >= cost ? "§eLeft Click: trade once" : "§cNot enough chunks"))
@@ -115,7 +132,7 @@ public final class ProfessionForemanMenu {
                         int requestedTrades = t == ClickType.QUICK_MOVE ? 64 : 1;
                         ProfessionChunkManager.TradeResult result = ProfessionChunkManager.tradeChunkForFragments(player, chunk, requestedTrades);
                         if (!result.success()) player.sendSystemMessage(Component.literal("§c" + result.error()));
-                        else player.sendSystemMessage(Component.literal("§aTraded chunks for §6" + result.fragments() + "x " + ProfessionFragmentManager.formatWords(result.rarity()) + " Fragment§a."));
+                        else player.sendSystemMessage(Component.literal("§aTraded chunks for §6" + result.fragments() + "x " + ProfessionFragmentManager.displayRankName(result.rarity()) + " Essence§a."));
                         openTrade(player);
                     }));
         }

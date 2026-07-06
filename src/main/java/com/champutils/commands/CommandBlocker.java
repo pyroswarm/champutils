@@ -2,6 +2,8 @@ package com.champutils.commands;
 
 import com.champutils.permissions.PermissionUtil;
 import com.champutils.permissions.LuckPermsHook;
+import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profile.PlayerProfileManager;
 import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -52,8 +54,15 @@ public final class CommandBlocker {
 
         // /msg, /tell and /w are intentionally gone for every player, including OPs.
         // Staff should use /pm too so there is only one private messaging path to support.
+        ServerPlayer sourcePlayer = source.getPlayer();
         if (isVanillaPrivateMessageRoot(parsed.root)) {
             deny(source, Component.literal("§c/msg is disabled on this server. Use §d/pm <player> <message>§c or §d/r <message>§c."));
+            return true;
+        }
+
+
+        if (sourcePlayer != null && !sourcePlayer.hasPermissions(4) && AdventureGuideManager.isLockedUntilTalk(sourcePlayer) && !isFirstGuideAllowedRoot(parsed.root)) {
+            deny(source, Component.literal("§eTalk to the Adventurer's Guild Representative first. §7They are beside you at spawn."));
             return true;
         }
 
@@ -61,7 +70,6 @@ public final class CommandBlocker {
         if (permission == null) return false;
 
         // Do not let vanilla OP bypass VIP progression commands. Staff still bypass through explicit LuckPerms nodes.
-        ServerPlayer sourcePlayer = source.getPlayer();
         if (sourcePlayer != null && (LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.admin") || LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.staff"))) return false;
 
         if (sourcePlayer != null && !sourcePlayer.hasPermissions(4) && !PlayerProfileManager.hasActiveProfile(sourcePlayer)) {
@@ -82,7 +90,12 @@ public final class CommandBlocker {
             return true;
         }
 
-        if (sourcePlayer == null || !LuckPermsHook.hasExactPermissionNode(sourcePlayer, permission)) {
+        if (sourcePlayer != null && AdventurerGuildManager.isAttemptingBattleTower(sourcePlayer) && isBattleTowerHealRoot(parsed.root)) {
+            deny(source, Component.literal("§cYou cannot heal or access Pokémon storage during a Battle Tower attempt. You will be healed at checkpoints."));
+            return true;
+        }
+
+        if (sourcePlayer == null || !PermissionUtil.has(source, permission)) {
             deny(source, denyMessageFor(parsed.root));
             return true;
         }
@@ -100,6 +113,14 @@ public final class CommandBlocker {
         return root != null && (root.equals("msg") || root.equals("tell") || root.equals("w"));
     }
 
+    private static boolean isFirstGuideAllowedRoot(String root) {
+        return root != null && (root.equals("help")
+                || root.equals("discord")
+                || root.equals("rules")
+                || root.equals("profile")
+                || root.equals("profiles"));
+    }
+
     private static String requiredPermission(String root) {
         return switch (root) {
             case "ec", "enderchest" -> "champutils.command.ec";
@@ -108,6 +129,15 @@ public final class CommandBlocker {
             case "pokeivs", "ivs" -> "champutils.command.pokeivs";
             default -> null;
         };
+    }
+
+    private static boolean isBattleTowerHealRoot(String root) {
+        return root != null && (root.equals("pc")
+                || root.equals("pokeheal")
+                || root.equals("healpokemon")
+                || root.equals("healparty")
+                || root.equals("pokehealother")
+                || root.equals("pokemonheal"));
     }
 
     private static Component denyMessageFor(String root) {

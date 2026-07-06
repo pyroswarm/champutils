@@ -135,11 +135,19 @@ public final class BattleAIDifficultyManager {
             return skill;
         }
         String marker = actorMarker(actor);
-        if (marker.contains("mythic") || marker.contains("legendary") || marker.contains("epic")) return 5;
-        if (marker.contains("rare")) return 4;
-        if (marker.contains("uncommon")) return 3;
-        if (marker.contains("common")) return 2;
+        if (hasRankMarker(marker, "s") || hasRankMarker(marker, "a") || hasRankMarker(marker, "b") || hasRankMarker(marker, "c")) return 5;
+        if (hasRankMarker(marker, "d")) return 4;
+        if (hasRankMarker(marker, "e")) return 3;
+        if (hasRankMarker(marker, "f")) return 2;
         return skill;
+    }
+
+    private static boolean hasRankMarker(String marker, String rank) {
+        if (marker == null || rank == null) return false;
+        for (String token : marker.toLowerCase(Locale.ROOT).split("[^a-z0-9]+")) {
+            if (token.equals(rank) || token.equals(rank + "rank")) return true;
+        }
+        return false;
     }
 
     private static String actorMarker(Object actor) {

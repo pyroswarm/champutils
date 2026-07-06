@@ -47,6 +47,8 @@ public final class NetworkReadySchemaManager {
                                 "metadata jsonb not null default '{}'::jsonb" +
                                 ")"
                 );
+                statement.executeUpdate("create index if not exists server_nodes_role_heartbeat_idx on server_nodes (server_role, last_heartbeat desc)");
+                statement.executeUpdate("create index if not exists server_nodes_survival_capacity_idx on server_nodes (server_role, online_players, last_heartbeat desc)");
 
 
                 statement.executeUpdate(
@@ -65,7 +67,12 @@ public final class NetworkReadySchemaManager {
 
                 AccountLinkDatabaseRepository.ensureSchema(connection);
                 ProfileTransferTokenManager.ensureSchema(connection);
+                com.champutils.profile.PreferredSurvivalServerManager.ensureSchema(connection);
                 ProfileTransferTokenManager.cleanupExpired(connection);
+                com.champutils.network.NetworkEventManager.ensureSchema(connection);
+                com.champutils.network.NetworkPlayerDirectory.ensureSchema(connection);
+                com.champutils.database.SharedJsonStateRepository.ensureSchema(connection);
+                com.champutils.matchmaking.GlobalMatchmakingRepository.ensureSchema(connection);
 
                 statement.executeUpdate(
                         "create table if not exists guilds (" +

@@ -6,6 +6,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class ProfessionToolMetadata {
@@ -28,6 +29,7 @@ public final class ProfessionToolMetadata {
     private static final String CUSTOM_ENCHANTS_KEY = "CustomEnchants";
     private static final String LOCKED_KEY = "Locked";
     private static final String ACTIVE_INSTANCE_ID_KEY = "ActiveInstanceId";
+    private static final String ACTIVE_ABILITY_KEY = "ActiveAbility";
     private static final String ACTIVE_TOGGLES_KEY = "ActiveToggles";
     private static final String TOOL_VERSION_KEY = "ToolVersion";
 
@@ -104,6 +106,65 @@ public final class ProfessionToolMetadata {
                         toolId
                 )
         );
+    }
+
+    public static String getActiveAbility(
+            ItemStack stack
+    ) {
+
+        CompoundTag root =
+                getRoot(stack);
+
+        if (!root.contains(ACTIVE_ABILITY_KEY)) {
+            return null;
+        }
+
+        String ability = root.getString(ACTIVE_ABILITY_KEY);
+        if (ability == null || ability.isBlank()) {
+            return null;
+        }
+
+        return ability.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static void setActiveAbility(
+            ItemStack stack,
+            String activeAbility
+    ) {
+
+        updateRoot(
+                stack,
+                root -> {
+                    if (activeAbility == null || activeAbility.isBlank()) {
+                        root.remove(ACTIVE_ABILITY_KEY);
+                        return;
+                    }
+
+                    root.putString(
+                            ACTIVE_ABILITY_KEY,
+                            activeAbility.trim().toLowerCase(Locale.ROOT)
+                    );
+                }
+        );
+    }
+
+    public static String getResolvedActiveAbility(
+            ItemStack stack,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        String rolledAbility =
+                getActiveAbility(stack);
+
+        if (rolledAbility != null && !rolledAbility.isBlank()) {
+            return rolledAbility;
+        }
+
+        if (toolData == null || toolData.activeAbility == null || toolData.activeAbility.isBlank()) {
+            return null;
+        }
+
+        return toolData.activeAbility.trim().toLowerCase(Locale.ROOT);
     }
 
     public static boolean isIdentified(
@@ -1044,6 +1105,10 @@ public final class ProfessionToolMetadata {
 
                     root.remove(
                             ACTIVE_INSTANCE_ID_KEY
+                    );
+
+                    root.remove(
+                            ACTIVE_ABILITY_KEY
                     );
 
                     root.remove(

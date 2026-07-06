@@ -27,7 +27,8 @@ public class BattleMenu {
                 4,
                 CobblemonItems.POKE_BALL,
                 "§cBattle Queues",
-                "§7Choose a queue or leave your current queue.",
+                "§7Ranked is the main progression path.",
+                "§7Queue, earn rewards, and climb.",
                 "§7Ranked queued: §e" + rankedQueued,
                 "§7Casual queued: §e" + casualQueued
         );
@@ -38,6 +39,8 @@ public class BattleMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§cRanked Queue"))
                         .addLoreLine(Component.literal("§7Queue for competitive RP battles."))
+                        .addLoreLine(Component.literal("§7Earn Credits, RP, and Ranked Tokens."))
+                        .addLoreLine(Component.literal("§7Also progresses Guild PvP quests."))
                         .addLoreLine(Component.literal("§7Currently queued: §e" + rankedQueued))
                         .addLoreLine(Component.literal("§eClick to join"))
                         .setCallback((i, c, t) -> MatchmakingManager.joinQueue(player, "ranked"))
@@ -59,7 +62,7 @@ public class BattleMenu {
                 new GuiElementBuilder(Items.SPYGLASS)
                         .hideDefaultTooltip()
                         .setName(Component.literal("§bSpectate Battles"))
-                        .addLoreLine(Component.literal("§7Watch random high-MMR battles or pick a player."))
+                        .addLoreLine(Component.literal("§7Watch a top-ranked battle or pick a player."))
                         .addLoreLine(Component.literal("§eClick to open"))
                         .setCallback((i, c, t) -> BattleSpectateMenu.open(player))
         );

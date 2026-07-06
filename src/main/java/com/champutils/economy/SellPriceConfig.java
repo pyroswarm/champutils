@@ -205,7 +205,7 @@ public final class SellPriceConfig {
         root.blockedItemContains.add("crate_key");
         root.blockedItemContains.add("tm_item");
 
-        // Block common AFK-farmable drops and Cobblemon plant materials from server selling.
+        // Block F-rank AFK-farmable drops and Cobblemon plant materials from server selling.
         root.blockedItemContains.add("apricorn");
         root.blockedItemContains.add("berry");
         root.blockedItemContains.add("mint_leaf");
@@ -255,7 +255,7 @@ public final class SellPriceConfig {
     }
 
     private static void addLowValueProfessionMaterials(ConfigRoot root) {
-        // Stone and common mine bulk should be sellable, but intentionally pays almost nothing.
+        // Stone and F-rank mine bulk should be sellable, but intentionally pays almost nothing.
         putAll(root.itemPrices, 0.01D,
                 "minecraft:stone", "minecraft:cobblestone", "minecraft:deepslate", "minecraft:cobbled_deepslate",
                 "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:tuff", "minecraft:calcite",

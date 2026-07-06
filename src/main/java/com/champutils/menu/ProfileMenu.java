@@ -294,17 +294,17 @@ public class ProfileMenu {
         gui.setSlot(
                 25,
                 new GuiElementBuilder(
-                        Items.CHEST
+                        Items.NETHER_STAR
                 )
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Reward Track"
+                                        "§dPvP Token Shop"
                                 )
                         )
                         .addLoreLine(
                                 Component.literal(
-                                        "§7Ranked PvP missions and tier rewards"
+                                        "§7Spend Ranked Tokens from PvP"
                                 )
                         )
                         .addLoreLine(
@@ -314,7 +314,7 @@ public class ProfileMenu {
                         )
                         .setCallback(
                                 (i,c,t)->
-                                        com.champutils.rewardtrack.RewardTrackMenu.open(player)
+                                        RankedShopMenu.open(player)
                         )
         );
 MenuUtil.addBackButton(

@@ -1,5 +1,6 @@
 package com.champutils.protection;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -38,6 +39,10 @@ public final class SpawnRealmProtectionListener {
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return true;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return true;
+            if (AdventureGuideManager.isLockedUntilTalk(sp)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return false;
+            }
             deny(sp, "Spawn is protected.");
             return false;
         });
@@ -47,6 +52,10 @@ public final class SpawnRealmProtectionListener {
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
+            if (AdventureGuideManager.isLockedUntilTalk(sp)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return InteractionResult.FAIL;
+            }
             deny(sp, "Spawn is protected.");
             return InteractionResult.FAIL;
         });
@@ -54,6 +63,10 @@ public final class SpawnRealmProtectionListener {
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
+            if (AdventureGuideManager.isLockedUntilTalk(sp)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return InteractionResult.FAIL;
+            }
             if (isAllowedEntityAttack(entity)) return InteractionResult.PASS;
             deny(sp, "Entities are protected in spawn.");
             return InteractionResult.FAIL;
@@ -62,6 +75,10 @@ public final class SpawnRealmProtectionListener {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
+            if (AdventureGuideManager.isLockedUntilTalk(sp) && !isAllowedEntityUse(entity)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return InteractionResult.FAIL;
+            }
             if (isAllowedEntityUse(entity)) return InteractionResult.PASS;
             deny(sp, "Only NPCs and your Pokémon can be used in spawn.");
             return InteractionResult.FAIL;
@@ -70,6 +87,10 @@ public final class SpawnRealmProtectionListener {
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return InteractionResult.PASS;
+            if (AdventureGuideManager.isLockedUntilTalk(sp)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return InteractionResult.FAIL;
+            }
 
             ItemStack stack = sp.getItemInHand(hand);
             if (isPlacementItem(stack)) {
@@ -95,6 +116,10 @@ public final class SpawnRealmProtectionListener {
                 return net.minecraft.world.InteractionResultHolder.pass(sp.getItemInHand(hand));
             }
             ItemStack stack = sp.getItemInHand(hand);
+            if (AdventureGuideManager.isLockedUntilTalk(sp)) {
+                AdventureGuideManager.denyUntilTalk(sp);
+                return net.minecraft.world.InteractionResultHolder.fail(stack);
+            }
             if (isPlacementItem(stack)) {
                 deny(sp, "You cannot place or deploy items in spawn.");
                 return net.minecraft.world.InteractionResultHolder.fail(stack);

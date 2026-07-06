@@ -20,8 +20,8 @@ public final class AccountUpgradeMenu {
 
         gui.setSlot(13, new GuiElementBuilder(Items.EMERALD).hideDefaultTooltip()
                 .setName(Component.literal("§aAccount Upgrades"))
-                .addLoreLine(Component.literal("§7Spend in-game Credits to earn"))
-                .addLoreLine(Component.literal("§7permanent LuckPerms ranks."))
+                .addLoreLine(Component.literal("§7Spend in-game Credits to unlock"))
+                .addLoreLine(Component.literal("§7permanent account perks."))
                 .addLoreLine(Component.literal("§7Balance: §6" + EconomyManager.format(EconomyManager.getBalance(player)))));
 
         addUpgrade(gui, player, 11, AccountUpgradeManager.Tier.VIP, Items.GOLD_INGOT);
@@ -36,12 +36,12 @@ public final class AccountUpgradeMenu {
         long price = AccountUpgradeConfig.priceCents(upgrade);
         GuiElementBuilder builder = new GuiElementBuilder(icon).hideDefaultTooltip()
                 .setName(Component.literal((owned ? "§a" : "§6") + upgrade.displayName))
-                .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.format(price)))
-                .addLoreLine(Component.literal("§7LuckPerms group: §f" + upgrade.luckPermsGroup));
+                .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.format(price)));
 
         if (tier == AccountUpgradeManager.Tier.VIP) {
             builder.addLoreLine(Component.literal("§7Unlocks: §f/pokeheal, /pc, /ec"));
         } else {
+            builder.addLoreLine(Component.literal("§7Includes VIP perks."));
             builder.addLoreLine(Component.literal("§7Unlocks: §f/pokeivs"));
             builder.addLoreLine(Component.literal("§7Daily VIP+ booster credits: §fup to 3"));
             builder.addLoreLine(Component.literal("§7VIP+ earned credit cap: §f10"));

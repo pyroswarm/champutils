@@ -63,55 +63,55 @@ public final class ExplorationLootConfig {
     private static Data defaults() {
         Data root = new Data();
         root.tables.put("overworld", table(1, 3,
-                loot("COMMON", "minecraft:iron_ingot", 80, 2, 8),
-                loot("COMMON", "minecraft:gold_ingot", 60, 2, 6),
-                loot("COMMON", "minecraft:emerald", 45, 1, 4),
-                loot("COMMON", "minecraft:name_tag", 18, 1, 1),
-                loot("UNCOMMON", "minecraft:diamond", 20, 1, 2),
-                loot("UNCOMMON", "minecraft:experience_bottle", 35, 4, 12),
-                loot("UNCOMMON", "cobblemon:great_ball", 45, 2, 6),
-                loot("UNCOMMON", "cobblemon:ultra_ball", 28, 1, 4),
-                loot("UNCOMMON", "cobblemon:rare_candy", 16, 1, 2),
-                loot("RARE", "cobblemon:exp_candy_l", 14, 1, 2),
-                loot("RARE", "cobblemon:ability_capsule", 8, 1, 1),
-                loot("RARE", "cobblemon:fire_stone", 7, 1, 1),
-                loot("RARE", "cobblemon:water_stone", 7, 1, 1),
-                loot("RARE", "cobblemon:thunder_stone", 7, 1, 1),
-                loot("EPIC", "cobblemon:ability_patch", 3, 1, 1),
-                loot("EPIC", "cobblemon:master_ball", 1, 1, 1),
-                loot("EPIC", "genesisforms:tera_orb", 2, 1, 1),
-                loot("EPIC", "genesisforms:adamant_crystal", 2, 1, 1),
-                loot("EPIC", "genesisforms:lustrous_globe", 2, 1, 1),
-                loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
+                loot("F", "minecraft:iron_ingot", 80, 2, 8),
+                loot("F", "minecraft:gold_ingot", 60, 2, 6),
+                loot("F", "minecraft:emerald", 45, 1, 4),
+                loot("F", "minecraft:name_tag", 18, 1, 1),
+                loot("E", "minecraft:diamond", 20, 1, 2),
+                loot("E", "minecraft:experience_bottle", 35, 4, 12),
+                loot("E", "cobblemon:great_ball", 45, 2, 6),
+                loot("E", "cobblemon:ultra_ball", 28, 1, 4),
+                loot("E", "cobblemon:rare_candy", 16, 1, 2),
+                loot("D", "cobblemon:exp_candy_l", 14, 1, 2),
+                loot("D", "cobblemon:ability_capsule", 8, 1, 1),
+                loot("D", "cobblemon:fire_stone", 7, 1, 1),
+                loot("D", "cobblemon:water_stone", 7, 1, 1),
+                loot("D", "cobblemon:thunder_stone", 7, 1, 1),
+                loot("C", "cobblemon:ability_patch", 3, 1, 1),
+                loot("C", "cobblemon:master_ball", 1, 1, 1),
+                loot("C", "genesisforms:tera_orb", 2, 1, 1),
+                loot("C", "genesisforms:adamant_crystal", 2, 1, 1),
+                loot("C", "genesisforms:lustrous_globe", 2, 1, 1),
+                loot("C", "genesisforms:griseous_core", 2, 1, 1)
         ));
         root.tables.put("nether", table(1, 3,
-                loot("COMMON", "minecraft:gold_ingot", 80, 3, 10),
-                loot("COMMON", "minecraft:quartz", 70, 6, 20),
-                loot("COMMON", "minecraft:blaze_rod", 45, 1, 4),
-                loot("UNCOMMON", "minecraft:netherite_scrap", 12, 1, 1),
-                loot("UNCOMMON", "minecraft:diamond", 20, 1, 2),
-                loot("UNCOMMON", "cobblemon:ultra_ball", 35, 1, 5),
-                loot("UNCOMMON", "cobblemon:burn_heal", 30, 2, 5),
-                loot("RARE", "cobblemon:fire_stone", 14, 1, 2),
-                loot("RARE", "cobblemon:exp_candy_l", 14, 1, 2),
-                loot("RARE", "cobblemon:ability_capsule", 8, 1, 1),
-                loot("EPIC", "cobblemon:ability_patch", 3, 1, 1),
-                loot("EPIC", "genesisforms:adamant_crystal", 2, 1, 1),
-                loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
+                loot("F", "minecraft:gold_ingot", 80, 3, 10),
+                loot("F", "minecraft:quartz", 70, 6, 20),
+                loot("F", "minecraft:blaze_rod", 45, 1, 4),
+                loot("E", "minecraft:netherite_scrap", 12, 1, 1),
+                loot("E", "minecraft:diamond", 20, 1, 2),
+                loot("E", "cobblemon:ultra_ball", 35, 1, 5),
+                loot("E", "cobblemon:burn_heal", 30, 2, 5),
+                loot("D", "cobblemon:fire_stone", 14, 1, 2),
+                loot("D", "cobblemon:exp_candy_l", 14, 1, 2),
+                loot("D", "cobblemon:ability_capsule", 8, 1, 1),
+                loot("C", "cobblemon:ability_patch", 3, 1, 1),
+                loot("C", "genesisforms:adamant_crystal", 2, 1, 1),
+                loot("C", "genesisforms:griseous_core", 2, 1, 1)
         ));
         root.tables.put("end", table(1, 3,
-                loot("COMMON", "minecraft:ender_pearl", 80, 4, 12),
-                loot("COMMON", "minecraft:chorus_fruit", 70, 8, 24),
-                loot("UNCOMMON", "minecraft:diamond", 30, 1, 3),
-                loot("UNCOMMON", "minecraft:shulker_shell", 18, 1, 2),
-                loot("UNCOMMON", "cobblemon:ultra_ball", 35, 2, 6),
-                loot("UNCOMMON", "cobblemon:quick_ball", 30, 2, 6),
-                loot("RARE", "minecraft:elytra", 1, 1, 1),
-                loot("RARE", "cobblemon:exp_candy_xl", 8, 1, 1),
-                loot("RARE", "cobblemon:ability_capsule", 8, 1, 1),
-                loot("EPIC", "cobblemon:ability_patch", 3, 1, 1),
-                loot("EPIC", "genesisforms:lustrous_globe", 2, 1, 1),
-                loot("EPIC", "genesisforms:griseous_core", 2, 1, 1)
+                loot("F", "minecraft:ender_pearl", 80, 4, 12),
+                loot("F", "minecraft:chorus_fruit", 70, 8, 24),
+                loot("E", "minecraft:diamond", 30, 1, 3),
+                loot("E", "minecraft:shulker_shell", 18, 1, 2),
+                loot("E", "cobblemon:ultra_ball", 35, 2, 6),
+                loot("E", "cobblemon:quick_ball", 30, 2, 6),
+                loot("D", "minecraft:elytra", 1, 1, 1),
+                loot("D", "cobblemon:exp_candy_xl", 8, 1, 1),
+                loot("D", "cobblemon:ability_capsule", 8, 1, 1),
+                loot("C", "cobblemon:ability_patch", 3, 1, 1),
+                loot("C", "genesisforms:lustrous_globe", 2, 1, 1),
+                loot("C", "genesisforms:griseous_core", 2, 1, 1)
         ));
         return root;
     }
@@ -119,7 +119,7 @@ public final class ExplorationLootConfig {
 
     private static void applyBetaBalance(Data d) {
         if (d == null) return;
-        d.maxRarity = "RARE";
+        d.maxRarity = "D";
         if (d.bannedItemContains == null) d.bannedItemContains = new ArrayList<>();
         for (String banned : List.of("master_ball", "tera_orb", "adamant_crystal", "lustrous_globe", "griseous_core", "elytra", "netherite_block")) {
             if (!d.bannedItemContains.contains(banned)) d.bannedItemContains.add(banned);
@@ -145,47 +145,47 @@ public final class ExplorationLootConfig {
     }
 
     private static void addDilutionItems(LootTable table, String tableId) {
-        addLootIfMissing(table, "COMMON", "cobblemon:poke_ball", 120, 3, 8);
-        addLootIfMissing(table, "COMMON", "cobblemon:potion", 80, 2, 4);
-        addLootIfMissing(table, "COMMON", "cobblemon:super_potion", 55, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:antidote", 45, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:paralyze_heal", 45, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:awakening", 35, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:oran_berry", 80, 2, 6);
-        addLootIfMissing(table, "COMMON", "cobblemon:sitrus_berry", 35, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:exp_candy_xs", 55, 1, 3);
-        addLootIfMissing(table, "COMMON", "cobblemon:exp_candy_s", 35, 1, 2);
-        addLootIfMissing(table, "COMMON", "cobblemon:red_apricorn", 60, 2, 6);
-        addLootIfMissing(table, "COMMON", "cobblemon:blue_apricorn", 60, 2, 6);
-        addLootIfMissing(table, "COMMON", "cobblemon:yellow_apricorn", 60, 2, 6);
-        addLootIfMissing(table, "COMMON", "cobblemon:green_apricorn", 50, 2, 6);
-        addLootIfMissing(table, "COMMON", "cobblemon:black_apricorn", 40, 1, 4);
-        addLootIfMissing(table, "COMMON", "cobblemon:white_apricorn", 40, 1, 4);
-        addLootIfMissing(table, "COMMON", "cobblemon:pink_apricorn", 40, 1, 4);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:tumblestone", 55, 2, 6);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:black_tumblestone", 45, 2, 5);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:sky_tumblestone", 45, 2, 5);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:great_ball", 70, 2, 5);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:heal_ball", 45, 2, 4);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:net_ball", 35, 1, 3);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:dive_ball", 35, 1, 3);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:dusk_ball", 30, 1, 2);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:quick_ball", 28, 1, 2);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:revive", 28, 1, 2);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:exp_candy_m", 22, 1, 2);
-        addLootIfMissing(table, "UNCOMMON", "cobblemon:link_cable", 8, 1, 1);
-        addLootIfMissing(table, "RARE", "cobblemon:dawn_stone", 6, 1, 1);
-        addLootIfMissing(table, "RARE", "cobblemon:dusk_stone", 6, 1, 1);
-        addLootIfMissing(table, "RARE", "cobblemon:moon_stone", 6, 1, 1);
-        addLootIfMissing(table, "RARE", "cobblemon:shiny_stone", 6, 1, 1);
-        addLootIfMissing(table, "RARE", "cobblemon:rare_candy", 5, 1, 1);
+        addLootIfMissing(table, "F", "cobblemon:poke_ball", 120, 3, 8);
+        addLootIfMissing(table, "F", "cobblemon:potion", 80, 2, 4);
+        addLootIfMissing(table, "F", "cobblemon:super_potion", 55, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:antidote", 45, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:paralyze_heal", 45, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:awakening", 35, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:oran_berry", 80, 2, 6);
+        addLootIfMissing(table, "F", "cobblemon:sitrus_berry", 35, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:exp_candy_xs", 55, 1, 3);
+        addLootIfMissing(table, "F", "cobblemon:exp_candy_s", 35, 1, 2);
+        addLootIfMissing(table, "F", "cobblemon:red_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "F", "cobblemon:blue_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "F", "cobblemon:yellow_apricorn", 60, 2, 6);
+        addLootIfMissing(table, "F", "cobblemon:green_apricorn", 50, 2, 6);
+        addLootIfMissing(table, "F", "cobblemon:black_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "F", "cobblemon:white_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "F", "cobblemon:pink_apricorn", 40, 1, 4);
+        addLootIfMissing(table, "E", "cobblemon:tumblestone", 55, 2, 6);
+        addLootIfMissing(table, "E", "cobblemon:black_tumblestone", 45, 2, 5);
+        addLootIfMissing(table, "E", "cobblemon:sky_tumblestone", 45, 2, 5);
+        addLootIfMissing(table, "E", "cobblemon:great_ball", 70, 2, 5);
+        addLootIfMissing(table, "E", "cobblemon:heal_ball", 45, 2, 4);
+        addLootIfMissing(table, "E", "cobblemon:net_ball", 35, 1, 3);
+        addLootIfMissing(table, "E", "cobblemon:dive_ball", 35, 1, 3);
+        addLootIfMissing(table, "E", "cobblemon:dusk_ball", 30, 1, 2);
+        addLootIfMissing(table, "E", "cobblemon:quick_ball", 28, 1, 2);
+        addLootIfMissing(table, "E", "cobblemon:revive", 28, 1, 2);
+        addLootIfMissing(table, "E", "cobblemon:exp_candy_m", 22, 1, 2);
+        addLootIfMissing(table, "E", "cobblemon:link_cable", 8, 1, 1);
+        addLootIfMissing(table, "D", "cobblemon:dawn_stone", 6, 1, 1);
+        addLootIfMissing(table, "D", "cobblemon:dusk_stone", 6, 1, 1);
+        addLootIfMissing(table, "D", "cobblemon:moon_stone", 6, 1, 1);
+        addLootIfMissing(table, "D", "cobblemon:shiny_stone", 6, 1, 1);
+        addLootIfMissing(table, "D", "cobblemon:rare_candy", 5, 1, 1);
         if (tableId != null && tableId.equalsIgnoreCase("nether")) {
-            addLootIfMissing(table, "COMMON", "cobblemon:burn_heal", 60, 1, 3);
-            addLootIfMissing(table, "RARE", "cobblemon:nether_fire_stone_ore", 4, 1, 1);
+            addLootIfMissing(table, "F", "cobblemon:burn_heal", 60, 1, 3);
+            addLootIfMissing(table, "D", "cobblemon:nether_fire_stone_ore", 4, 1, 1);
         }
         if (tableId != null && tableId.equalsIgnoreCase("end")) {
-            addLootIfMissing(table, "UNCOMMON", "cobblemon:ultra_ball", 45, 1, 3);
-            addLootIfMissing(table, "RARE", "cobblemon:exp_candy_l", 6, 1, 1);
+            addLootIfMissing(table, "E", "cobblemon:ultra_ball", 45, 1, 3);
+            addLootIfMissing(table, "D", "cobblemon:exp_candy_l", 6, 1, 1);
         }
     }
 
@@ -220,7 +220,7 @@ public final class ExplorationLootConfig {
         public boolean virtualPerPlayerLoot = true;
         public boolean protectDiscoveredLootStructures = true;
         public int discoveredStructureProtectionRadius = 24;
-        public String maxRarity = "RARE";
+        public String maxRarity = "D";
         public boolean skipUnknownItems = true;
 
         /**
@@ -254,8 +254,8 @@ public final class ExplorationLootConfig {
         public Map<String, LootTable> tables = new LinkedHashMap<>();
 
         private Data withDefaults() {
-            if (maxRarity == null || maxRarity.isBlank()) maxRarity = "RARE";
-            if (rarityRank(maxRarity) > rarityRank("RARE")) maxRarity = "RARE";
+            if (maxRarity == null || maxRarity.isBlank()) maxRarity = "D";
+            if (rarityRank(maxRarity) > rarityRank("D")) maxRarity = "D";
             if (discoveredStructureProtectionRadius < 0) discoveredStructureProtectionRadius = 24;
             if (bannedItemContains == null) bannedItemContains = new ArrayList<>(List.of(
                     "dynamax", "max_band", "dynamax_band", "mega_bracelet", "mega_charm", "mega_ring", "mega_cuff", "mega_anklet", "keystone", "key_stone"
@@ -297,7 +297,7 @@ public final class ExplorationLootConfig {
     }
 
     public static final class LootEntry {
-        public String rarity = "COMMON";
+        public String rarity = "F";
         public String itemId;
         public int weight = 1;
         public int minAmount = 1;
@@ -306,11 +306,12 @@ public final class ExplorationLootConfig {
         public int rarityRank() {
             if (rarity == null) return 0;
             return switch (rarity.toUpperCase(Locale.ROOT)) {
-                case "UNCOMMON" -> 1;
-                case "RARE" -> 2;
-                case "EPIC" -> 3;
-                case "LEGENDARY" -> 4;
-                case "MYTHIC" -> 5;
+                case "E" -> 1;
+                case "D" -> 2;
+                case "C" -> 3;
+                case "B" -> 4;
+                case "A" -> 5;
+                case "S" -> 6;
                 default -> 0;
             };
         }
@@ -319,12 +320,13 @@ public final class ExplorationLootConfig {
     public static int rarityRank(String rarity) {
         if (rarity == null) return 3;
         return switch (rarity.toUpperCase(Locale.ROOT)) {
-            case "COMMON" -> 0;
-            case "UNCOMMON" -> 1;
-            case "RARE" -> 2;
-            case "EPIC" -> 3;
-            case "LEGENDARY" -> 4;
-            case "MYTHIC" -> 5;
+            case "F" -> 0;
+            case "E" -> 1;
+            case "D" -> 2;
+            case "C" -> 3;
+            case "B" -> 4;
+            case "A" -> 5;
+            case "S" -> 6;
             default -> 3;
         };
     }

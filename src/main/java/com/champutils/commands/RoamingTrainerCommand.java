@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.adventurer.AdventurerRankUtil;
 import com.champutils.roaming.RoamingTrainerConfig;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.roaming.RoamingTrainerRarity;
@@ -24,17 +25,17 @@ public final class RoamingTrainerCommand {
                         .then(Commands.literal("reload")
                                 .executes(ctx -> reload(ctx.getSource())))
                         .then(Commands.literal("spawn")
-                                .executes(ctx -> spawn(ctx.getSource(), RoamingTrainerRarity.COMMON))
+                                .executes(ctx -> spawn(ctx.getSource(), RoamingTrainerRarity.F))
                                 .then(Commands.argument("rarity", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             for (RoamingTrainerRarity rarity : RoamingTrainerRarity.values()) {
-                                                builder.suggest(rarity.name().toLowerCase());
+                                                builder.suggest(AdventurerRankUtil.fromRarity(rarity).toLowerCase());
                                             }
                                             return builder.buildFuture();
                                         })
                                         .executes(ctx -> spawn(
                                                 ctx.getSource(),
-                                                RoamingTrainerRarity.parse(StringArgumentType.getString(ctx, "rarity"), RoamingTrainerRarity.COMMON)
+                                                RoamingTrainerRarity.parse(StringArgumentType.getString(ctx, "rarity"), RoamingTrainerRarity.F)
                                         ))))
                         .then(Commands.literal("despawn")
                                 .then(Commands.literal("all")
@@ -60,7 +61,7 @@ public final class RoamingTrainerCommand {
                 source.sendFailure(Component.literal("§cCould not spawn a roaming trainer near you."));
                 return 0;
             }
-            source.sendSuccess(() -> Component.literal("§aSpawned a " + rarity.name().toLowerCase() + " roaming trainer nearby."), true);
+            source.sendSuccess(() -> Component.literal("§aSpawned a " + AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(rarity)) + " nearby."), true);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cOnly players can use /roamingtrainer spawn."));

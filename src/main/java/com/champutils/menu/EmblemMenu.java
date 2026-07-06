@@ -49,7 +49,7 @@ public final class EmblemMenu {
                 .setName(Component.literal(data.displayName == null ? id : data.displayName).withStyle(color(data.type), ChatFormatting.BOLD));
 
         if (data.lore != null && !data.lore.isBlank()) builder.addLoreLine(Component.literal("§7" + data.lore));
-        builder.addLoreLine(Component.literal("§7Shard Cost: §6" + fragmentCost + "x " + ProfessionFragmentManager.formatWords(fragment) + " Fragment"));
+        builder.addLoreLine(Component.literal("§7Requires: §6" + fragmentCost + " " + ProfessionFragmentManager.displayRankName(fragment) + " Essence"));
         builder.addLoreLine(Component.literal("§7You have: §e" + available));
         if (data.itemCosts != null && !data.itemCosts.isEmpty()) {
             builder.addLoreLine(Component.literal("§7Rare Item Costs:"));

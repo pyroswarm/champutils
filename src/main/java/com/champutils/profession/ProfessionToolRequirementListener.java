@@ -314,7 +314,7 @@ public class ProfessionToolRequirementListener {
         }
 
         // Profession mining tools are progression tools, not vanilla-tier-locked tools.
-        // Let even common mining tools break higher-tier ores such as diamond ore;
+        // Let even F-rank mining tools break higher-tier ores such as diamond ore;
         // XP/abilities still require the correct identified, unbroken profession tool.
         return true;
     }
@@ -461,16 +461,16 @@ public class ProfessionToolRequirementListener {
             ProfessionToolConfig.ToolData toolData
     ) {
 
-        if (
-                toolData != null &&
-                        toolData.displayName != null &&
-                        !toolData.displayName.isBlank()
-        ) {
-            return toolData.displayName;
+        if (toolData != null) {
+            return ProfessionToolConfig.getDisplayName(
+                    "",
+                    toolData
+            );
         }
 
         return "this item";
     }
+
 
     private static String formatWords(
             String value

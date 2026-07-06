@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop" -> true;
+            case "adventurersguild", "adventurer", "aguild", "guildhall", "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, accountupgrade, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
+        return "adventurersguild, profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, accountupgrade, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
     }
 
     public static String normalize(String menu) {
@@ -146,6 +146,7 @@ public final class MenuNpcBindingRegistry {
         String value = menu.trim().toLowerCase();
         return switch (value) {
             case "pvp", "battle", "battles" -> "battles";
+            case "adventurer", "adventurersguild", "aguild", "guildhall" -> "adventurersguild";
             case "profile", "profiles", "profilemenu" -> "profiles";
             case "guild", "guilds" -> "guilds";
             case "foreman", "professionforeman", "profession_foreman", "chunks" -> "professionforeman";

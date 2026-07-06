@@ -7,6 +7,8 @@ import com.cobblemon.mod.common.battles.BattleSide;
 import com.cobblemon.mod.common.battles.DefaultActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownMoveset;
+import com.cobblemon.mod.common.battles.SwitchActionResponse;
+import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.battles.ai.RandomBattleAI;
 import com.cobblemon.mod.common.battles.ai.StrongBattleAI;
 
@@ -37,16 +39,21 @@ public final class ChampSmartBattleAI implements BattleAI {
     @Override
     public ShowdownActionResponse choose(ActiveBattlePokemon active, PokemonBattle battle, BattleSide aiSide, ShowdownMoveset moveset, boolean forceSwitch) {
         ShowdownActionResponse response = chooseSafely(primary, active, battle, aiSide, moveset, forceSwitch, "primary");
-        if (isUsable(response)) return response;
+        if (isUsable(response, forceSwitch)) return response;
 
         if (fallbackToStrong) {
             response = chooseSafely(strongFallback, active, battle, aiSide, moveset, forceSwitch, "strong");
-            if (isUsable(response)) return response;
+            if (isUsable(response, forceSwitch)) return response;
         }
 
         if (fallbackToRandom) {
             response = chooseSafely(randomFallback, active, battle, aiSide, moveset, forceSwitch, "random");
-            if (isUsable(response)) return response;
+            if (isUsable(response, forceSwitch)) return response;
+        }
+
+        if (forceSwitch) {
+            ShowdownActionResponse emergencySwitch = emergencySwitch(active);
+            if (emergencySwitch != null) return emergencySwitch;
         }
 
         return new DefaultActionResponse();
@@ -62,7 +69,24 @@ public final class ChampSmartBattleAI implements BattleAI {
         }
     }
 
-    private boolean isUsable(ShowdownActionResponse response) {
-        return response != null;
+    private boolean isUsable(ShowdownActionResponse response, boolean forceSwitch) {
+        if (response == null) return false;
+        if (!forceSwitch) return true;
+        return response instanceof SwitchActionResponse;
+    }
+
+    private ShowdownActionResponse emergencySwitch(ActiveBattlePokemon active) {
+        try {
+            for (BattlePokemon pokemon : active.getActor().getPokemonList()) {
+                if (pokemon != null && pokemon.canBeSentOut()) {
+                    pokemon.setWillBeSwitchedIn(true);
+                    BattleAIDifficultyManager.debug("AI emergency switch selected after all normal force-switch handlers failed.");
+                    return new SwitchActionResponse(pokemon.getUuid());
+                }
+            }
+        } catch (Throwable t) {
+            BattleAIDifficultyManager.debug("AI emergency switch failed: " + t.getClass().getSimpleName());
+        }
+        return null;
     }
 }

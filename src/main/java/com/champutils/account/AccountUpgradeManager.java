@@ -1,6 +1,7 @@
 package com.champutils.account;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.commerce.AccountCommerceRepository;
 import com.champutils.permissions.LuckPermsHook;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -28,13 +29,15 @@ public final class AccountUpgradeManager {
         if (tier == Tier.VIP_PLUS && hasVipPlus(player)) return PurchaseResult.fail("You already have VIP+.");
 
         long price = AccountUpgradeConfig.priceCents(upgrade);
+        if (price <= 0L) return PurchaseResult.fail("This upgrade has an invalid price. Ask staff to check account_upgrades.json.");
+
         EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(player, price, "Account upgrade: " + upgrade.displayName);
         if (!withdrawn.success) return PurchaseResult.fail(withdrawn.error == null ? "You cannot afford that upgrade." : withdrawn.error);
 
         boolean applied = LuckPermsHook.addGroup(player, upgrade.luckPermsGroup);
         if (!applied) {
             EconomyManager.deposit(player, price, "Refund failed account upgrade: " + upgrade.displayName);
-            return PurchaseResult.fail("LuckPerms could not apply the group. Credits were refunded.");
+            return PurchaseResult.fail("The account rank could not be applied. Credits were refunded.");
         }
 
         if (tier == Tier.VIP_PLUS) {
@@ -43,6 +46,15 @@ public final class AccountUpgradeManager {
             }
             com.champutils.cashshop.BoosterCreditManager.updateVipPlusProgress(player, true);
         }
+
+        AccountCommerceRepository.recordPurchaseAsync(
+                new AccountCommerceRepository.ResolvedAccount(player.getUUID(), player.getName().getString(), true),
+                "IN_GAME",
+                tier == Tier.VIP_PLUS ? "rank_vipplus" : "rank_vip",
+                1,
+                "accountupgrade:" + player.getUUID(),
+                "Purchased with in-game Credits"
+        );
 
         player.sendSystemMessage(Component.literal("Account upgrade purchased: " + upgrade.displayName + "!").withStyle(ChatFormatting.LIGHT_PURPLE));
         return PurchaseResult.success(upgrade.displayName, price);

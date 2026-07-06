@@ -520,6 +520,14 @@ public class ProfessionManager {
         });
     }
 
+    public static void invalidateSharedCache(UUID profileId) {
+        if (profileId == null || DIRTY_PLAYERS.contains(profileId)) {
+            return;
+        }
+        CACHE.remove(profileId);
+        PROFILE_OWNER_CACHE.remove(profileId);
+    }
+
     public static void unloadPlayer(
             ServerPlayer player
     ) {

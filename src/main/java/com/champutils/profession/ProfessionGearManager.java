@@ -54,7 +54,7 @@ public final class ProfessionGearManager {
     private ProfessionGearManager() {}
 
     public static void registerItems() {
-        for (String rarity : new String[]{"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"}) {
+        for (String rarity : new String[]{"F","E","D","C","B","A","S"}) {
             register(rarity.toLowerCase(Locale.ROOT) + "_profession_helmet", rarity, "helmet", ArmorItem.Type.HELMET, helmetBase(rarity));
             register(rarity.toLowerCase(Locale.ROOT) + "_profession_chestplate", rarity, "chestplate", ArmorItem.Type.CHESTPLATE, chestBase(rarity));
             register(rarity.toLowerCase(Locale.ROOT) + "_profession_leggings", rarity, "leggings", ArmorItem.Type.LEGGINGS, legBase(rarity));
@@ -306,7 +306,7 @@ public final class ProfessionGearManager {
 
     private static List<Component> lore(String type, String rarity, CompoundTag tag) {
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal("§8" + ProfessionFragmentManager.formatWords(rarity) + " Profession Gear"));
+        lore.add(Component.literal("§8" + ProfessionFragmentManager.displayRankName(rarity) + " Profession Gear"));
         lore.add(Component.literal(" "));
         lore.add(Component.literal("§6Stats"));
         if ("helmet".equals(type)) {
@@ -347,11 +347,12 @@ public final class ProfessionGearManager {
 
     private static int tier(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> 2;
-            case "RARE" -> 3;
-            case "EPIC" -> 4;
-            case "LEGENDARY" -> 5;
-            case "MYTHIC" -> 6;
+            case "E" -> 2;
+            case "D" -> 3;
+            case "C" -> 4;
+            case "B" -> 5;
+            case "A" -> 6;
+            case "S" -> 7;
             default -> 1;
         };
     }
@@ -373,16 +374,16 @@ public final class ProfessionGearManager {
 
     private static Holder<ArmorMaterial> armorMaterial(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> ArmorMaterials.IRON;
-            case "RARE", "EPIC" -> ArmorMaterials.DIAMOND;
-            case "LEGENDARY", "MYTHIC" -> ArmorMaterials.NETHERITE;
+            case "E" -> ArmorMaterials.IRON;
+            case "D", "C" -> ArmorMaterials.DIAMOND;
+            case "B", "A", "S" -> ArmorMaterials.NETHERITE;
             default -> ArmorMaterials.LEATHER;
         };
     }
 
-    private static Item helmetBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "COMMON" -> Items.LEATHER_HELMET; case "UNCOMMON" -> Items.IRON_HELMET; case "RARE", "EPIC" -> Items.DIAMOND_HELMET; default -> Items.NETHERITE_HELMET; }; }
-    private static Item chestBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "COMMON" -> Items.LEATHER_CHESTPLATE; case "UNCOMMON" -> Items.IRON_CHESTPLATE; case "RARE", "EPIC" -> Items.DIAMOND_CHESTPLATE; default -> Items.NETHERITE_CHESTPLATE; }; }
-    private static Item legBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "COMMON" -> Items.LEATHER_LEGGINGS; case "UNCOMMON" -> Items.IRON_LEGGINGS; case "RARE", "EPIC" -> Items.DIAMOND_LEGGINGS; default -> Items.NETHERITE_LEGGINGS; }; }
+    private static Item helmetBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "F" -> Items.LEATHER_HELMET; case "E" -> Items.IRON_HELMET; case "D", "C" -> Items.DIAMOND_HELMET; default -> Items.NETHERITE_HELMET; }; }
+    private static Item chestBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "F" -> Items.LEATHER_CHESTPLATE; case "E" -> Items.IRON_CHESTPLATE; case "D", "C" -> Items.DIAMOND_CHESTPLATE; default -> Items.NETHERITE_CHESTPLATE; }; }
+    private static Item legBase(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "F" -> Items.LEATHER_LEGGINGS; case "E" -> Items.IRON_LEGGINGS; case "D", "C" -> Items.DIAMOND_LEGGINGS; default -> Items.NETHERITE_LEGGINGS; }; }
 
     private static int getInt(ItemStack stack, String key) {
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
@@ -396,20 +397,21 @@ public final class ProfessionGearManager {
 
     private static ChatFormatting color(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> ChatFormatting.GREEN;
-            case "RARE" -> ChatFormatting.BLUE;
-            case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
-            case "LEGENDARY" -> ChatFormatting.GOLD;
-            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
+            case "E" -> ChatFormatting.GREEN;
+            case "D" -> ChatFormatting.BLUE;
+            case "C" -> ChatFormatting.LIGHT_PURPLE;
+            case "B" -> ChatFormatting.DARK_AQUA;
+            case "A" -> ChatFormatting.GOLD;
+            case "S" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }
 
     private static Rarity rarity(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> Rarity.UNCOMMON;
-            case "RARE" -> Rarity.RARE;
-            case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC;
+            case "E" -> Rarity.UNCOMMON;
+            case "D" -> Rarity.RARE;
+            case "C", "B", "A", "S" -> Rarity.EPIC;
             default -> Rarity.COMMON;
         };
     }

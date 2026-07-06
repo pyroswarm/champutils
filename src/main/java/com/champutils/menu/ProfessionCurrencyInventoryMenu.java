@@ -21,6 +21,9 @@ public final class ProfessionCurrencyInventoryMenu {
     private ProfessionCurrencyInventoryMenu() {}
 
     public static void openChunks(ServerPlayer player) {
+        // Opening the chunk menu fresh should never inherit an old bulk-sell confirmation.
+        // Confirmations are only shown after the player shift-clicks a chunk in the currently-open menu.
+        PENDING_CHUNK_SALES.remove(player.getUUID());
         openChunks(player, null);
     }
 
@@ -42,7 +45,7 @@ public final class ProfessionCurrencyInventoryMenu {
             ProfessionChunkConfig.ChunkData data = ProfessionChunkConfig.CONFIG.chunks.get(chunk);
             int amount = ProfessionChunkManager.count(player, chunk);
             double sellCredits = data == null ? 0.0D : Math.max(0.0D, data.sellCredits);
-            String fragment = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.fragmentRarity);
+            String fragment = data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.fragmentRarity);
             int chunksPer = data == null ? 1 : Math.max(1, data.chunksPerFragment);
             int fragmentsPer = data == null ? 1 : Math.max(1, data.fragmentsPerTrade);
 
@@ -52,10 +55,10 @@ public final class ProfessionCurrencyInventoryMenu {
                     .setName(Component.literal("§e" + (data == null ? ProfessionChunkManager.formatChunk(chunk) : data.displayName)))
                     .addLoreLine(Component.literal("§7Balance: §6" + amount))
                     .addLoreLine(Component.literal("§7Sell Value: §a" + sellCredits + " Credits each"))
-                    .addLoreLine(Component.literal("§7Foreman Trade: §b" + chunksPer + " chunk" + (chunksPer == 1 ? "" : "s") + " → " + fragmentsPer + " " + ProfessionFragmentManager.formatWords(fragment) + " Fragment" + (fragmentsPer == 1 ? "" : "s")))
+                    .addLoreLine(Component.literal("§7Foreman Trade: §b" + chunksPer + " chunk" + (chunksPer == 1 ? "" : "s") + " → " + fragmentsPer + " " + ProfessionFragmentManager.displayRankName(fragment) + " Essence" + (fragmentsPer == 1 ? "" : "s")))
                     .addLoreLine(Component.literal(amount > 0 ? "§eLeft Click: sell 1 chunk." : "§8No chunks to sell."));
             if (confirming) {
-                builder.addLoreLine(Component.literal("§cShift click again to confirm."))
+                builder.addLoreLine(Component.literal("§cConfirm in the UI to continue."))
                         .addLoreLine(Component.literal("§7This will sell up to a full stack of this chunk."));
             } else {
                 builder.addLoreLine(Component.literal(amount > 0 ? "§eShift Click: review selling up to 64." : "§8Shift Click sells up to 64 when you have chunks."));
@@ -75,7 +78,7 @@ public final class ProfessionCurrencyInventoryMenu {
         gui.setSlot(22, new GuiElementBuilder(Items.EMERALD)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§aOpen Profession Foreman"))
-                .addLoreLine(Component.literal("§7Sell chunks or trade them for fragments."))
+                .addLoreLine(Component.literal("§7Sell chunks or trade them for essence."))
                 .addLoreLine(Component.literal("§eClick to open"))
                 .setCallback((i, c, t) -> ProfessionForemanMenu.open(player)));
 
@@ -84,16 +87,29 @@ public final class ProfessionCurrencyInventoryMenu {
 
     private static void handleShiftChunkSale(ServerPlayer player, String chunk) {
         String normalized = ProfessionChunkManager.normalizeChunk(chunk);
-        long now = System.currentTimeMillis();
-        PendingChunkSale pending = PENDING_CHUNK_SALES.get(player.getUUID());
-        if (pending != null && pending.chunk.equals(normalized) && pending.expiresAt >= now) {
-            PENDING_CHUNK_SALES.remove(player.getUUID());
-            sellChunks(player, normalized, 64);
+        int amount = Math.min(64, ProfessionChunkManager.count(player, normalized));
+        if (amount <= 0) {
+            player.sendSystemMessage(Component.literal("§cYou do not have any " + ProfessionChunkManager.formatChunk(normalized) + " to sell."));
             openChunks(player);
             return;
         }
-        PENDING_CHUNK_SALES.put(player.getUUID(), new PendingChunkSale(normalized, now + PENDING_CONFIRM_MS));
-        openChunks(player, normalized);
+        long value = (long) amount * ProfessionChunkManager.valueCents(normalized);
+        ConfirmationMenu.open(
+                player,
+                "Confirm Chunk Sale",
+                iconForChunk(normalized),
+                "§eSell " + ProfessionChunkManager.formatChunk(normalized),
+                new String[]{
+                        "§7Amount: §f" + amount,
+                        "§7Total: §6" + EconomyManager.format(value),
+                        "§cThis cannot be undone."
+                },
+                () -> {
+                    sellChunks(player, normalized, 64);
+                    openChunks(player);
+                },
+                () -> openChunks(player)
+        );
     }
 
     private static void sellChunks(ServerPlayer player, String chunk, int amount) {
@@ -108,12 +124,12 @@ public final class ProfessionCurrencyInventoryMenu {
     public static void openFragments(ServerPlayer player) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setLockPlayerInventory(true);
-        gui.setTitle(Component.literal("Fragment Inventory"));
+        gui.setTitle(Component.literal("Essence Inventory"));
 
         gui.setSlot(4, new GuiElementBuilder(Items.AMETHYST_SHARD)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§dFragment Inventory"))
-                .addLoreLine(Component.literal("§7Digital fragments are saved per profile."))
+                .setName(Component.literal("§dEssence Inventory"))
+                .addLoreLine(Component.literal("§7Digital essence are saved per profile."))
                 .addLoreLine(Component.literal("§7Hover each icon to view your balance.")));
 
         int[] slots = {10, 11, 12, 13, 14, 15};
@@ -125,7 +141,7 @@ public final class ProfessionCurrencyInventoryMenu {
             int amount = ProfessionFragmentManager.countFragments(player, normalized);
             Item icon = fragmentIcon(normalized);
             String display = data == null || data.displayName == null || data.displayName.isBlank()
-                    ? ProfessionFragmentManager.formatWords(normalized) + " Fragment"
+                    ? ProfessionFragmentManager.displayRankName(normalized) + " Essence"
                     : data.displayName;
 
             gui.setSlot(slots[index++], new GuiElementBuilder(icon)
@@ -139,8 +155,8 @@ public final class ProfessionCurrencyInventoryMenu {
 
         gui.setSlot(22, new GuiElementBuilder(Items.CRAFTING_TABLE)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§aOpen Fragment Crafting"))
-                .addLoreLine(Component.literal("§7Craft, upgrade, downgrade, or withdraw fragments."))
+                .setName(Component.literal("§aOpen Essence Crafting"))
+                .addLoreLine(Component.literal("§7Craft, upgrade, downgrade, or withdraw essence."))
                 .addLoreLine(Component.literal("§eClick to open"))
                 .setCallback((i, c, t) -> FragmentCraftingMenu.open(player)));
 
@@ -162,11 +178,12 @@ public final class ProfessionCurrencyInventoryMenu {
 
     private static Item fragmentIcon(String fragment) {
         return switch (ProfessionFragmentConfig.normalizeRarity(fragment)) {
-            case "UNCOMMON" -> Items.COPPER_INGOT;
-            case "RARE" -> Items.IRON_INGOT;
-            case "EPIC" -> Items.GOLD_INGOT;
-            case "LEGENDARY" -> Items.DIAMOND;
-            case "MYTHIC" -> Items.NETHERITE_INGOT;
+            case "E" -> Items.COPPER_INGOT;
+            case "D" -> Items.IRON_INGOT;
+            case "C" -> Items.GOLD_INGOT;
+            case "B" -> Items.AMETHYST_SHARD;
+            case "A" -> Items.DIAMOND;
+            case "S" -> Items.NETHERITE_INGOT;
             default -> Items.AMETHYST_SHARD;
         };
     }

@@ -25,7 +25,7 @@ public final class GearWorkshopMenu {
                 Items.ANVIL,
                 "§aRepair Gear",
                 "§7Repair the profession gear in your hand.",
-                "§7Uses the configured repair materials.",
+                "§7Shows the cost before you confirm.",
                 "itemroll repair",
                 true
         );
@@ -49,7 +49,7 @@ public final class GearWorkshopMenu {
                 Items.GRINDSTONE,
                 "§cSalvage Gear",
                 "§7Salvage the profession gear in your hand.",
-                "§7Returns fragments based on rarity.",
+                "§7Returns essence based on rarity.",
                 "salvage",
                 true
         );
@@ -61,7 +61,7 @@ public final class GearWorkshopMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§dEmblem Crafting"))
                         .addLoreLine(Component.literal("§7Craft shiny and Mega emblems."))
-                        .addLoreLine(Component.literal("§7Uses fragments and clear item costs."))
+                        .addLoreLine(Component.literal("§7Uses essence and clear item costs."))
                         .addLoreLine(Component.literal("§eClick to open"))
                         .setCallback((i, c, t) -> EmblemMenu.open(player))
         );
@@ -70,8 +70,8 @@ public final class GearWorkshopMenu {
                 5,
                 new GuiElementBuilder(Items.EMERALD)
                         .hideDefaultTooltip()
-                        .setName(Component.literal("§aFragment Crafting"))
-                        .addLoreLine(Component.literal("§7Upgrade fragments and craft mystery gear."))
+                        .setName(Component.literal("§aEssence Crafting"))
+                        .addLoreLine(Component.literal("§7Upgrade essence and craft mystery gear."))
                         .addLoreLine(Component.literal("§7The back button returns here."))
                         .addLoreLine(Component.literal("§eClick to open"))
                         .setCallback((i, c, t) -> FragmentCraftingMenu.open(player, GearWorkshopMenu::open))
@@ -83,7 +83,7 @@ public final class GearWorkshopMenu {
                         .hideDefaultTooltip()
                         .setName(Component.literal("§6Crate Key Crafting"))
                         .addLoreLine(Component.literal("§7Craft regular crate keys."))
-                        .addLoreLine(Component.literal("§7Costs fragments, ores, Cobblemon items,"))
+                        .addLoreLine(Component.literal("§7Costs essence, ores, Cobblemon items,"))
                         .addLoreLine(Component.literal("§7and netherite at high tiers."))
                         .addLoreLine(Component.literal("§eClick to open"))
                         .setCallback((i, c, t) -> CrateKeyCraftingMenu.open(player, GearWorkshopMenu::open))
@@ -94,10 +94,10 @@ public final class GearWorkshopMenu {
                 player,
                 15,
                 Items.PRISMARINE_SHARD,
-                "§6Fragment Storage",
-                "§7View your stored fragment balances.",
-                "§7Right-click fragments to deposit them.",
-                "fragments list",
+                "§6Essence Storage",
+                "§7View your stored essence balances.",
+                "§7Right-click essence to deposit them.",
+                "essence list",
                 true
         );
 

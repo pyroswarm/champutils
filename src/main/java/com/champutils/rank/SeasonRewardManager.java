@@ -1,5 +1,6 @@
 package com.champutils.rank;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerDataManager;
@@ -35,6 +36,7 @@ public final class SeasonRewardManager {
     public static final int MIN_RANKED_GAMES = 25;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/season_reward_claims.json");
+    private static final String STATE_KEY = "season_reward_claims";
     private static RewardState STATE = new RewardState();
     private static boolean loaded = false;
 
@@ -153,17 +155,17 @@ public final class SeasonRewardManager {
     private static List<RewardEntry> rewardsForRating(int rating) {
         List<RewardEntry> out = new ArrayList<>();
         if (rating <= 300) {
-            money(out, 100); crate(out, "common", 3); item(out, "cobblemon:poke_ball", 16); item(out, "cobblemon:potion", 8); tm(out, "COMMON", 1);
+            money(out, 100); crate(out, "f", 3); item(out, "cobblemon:poke_ball", 16); item(out, "cobblemon:potion", 8); tm(out, "F", 1);
         } else if (rating < 600) {
-            money(out, 250); crate(out, "common", 4); crate(out, "uncommon", 1); item(out, "cobblemon:great_ball", 12); item(out, "cobblemon:exp_candy_s", 6); tm(out, "UNCOMMON", 1);
+            money(out, 250); crate(out, "f", 4); crate(out, "e", 1); item(out, "cobblemon:great_ball", 12); item(out, "cobblemon:exp_candy_s", 6); tm(out, "E", 1);
         } else if (rating < 900) {
-            money(out, 600); crate(out, "common", 3); crate(out, "uncommon", 3); crate(out, "rare", 1); item(out, "cobblemon:ultra_ball", 10); item(out, "cobblemon:rare_candy", 2); tm(out, "RARE", 1);
+            money(out, 600); crate(out, "f", 3); crate(out, "e", 3); crate(out, "d", 1); item(out, "cobblemon:ultra_ball", 10); item(out, "cobblemon:rare_candy", 2); tm(out, "D", 1);
         } else if (rating < 1200) {
-            money(out, 1400); crate(out, "uncommon", 3); crate(out, "rare", 3); crate(out, "epic", 1); item(out, "cobblemon:ability_capsule", 1); item(out, "genesisforms:mega_bracelet", 1); tm(out, "EPIC", 1);
+            money(out, 1400); crate(out, "e", 3); crate(out, "d", 3); crate(out, "c", 1); item(out, "cobblemon:ability_capsule", 1); item(out, "genesisforms:mega_bracelet", 1); tm(out, "C", 1);
         } else if (rating < 1500) {
-            money(out, 3500); crate(out, "rare", 3); crate(out, "epic", 3); crate(out, "legendary", 1); item(out, "cobblemon:ability_patch", 1); item(out, "genesisforms:tera_orb", 1); item(out, "cobblemon:master_ball", 1); tm(out, "LEGENDARY", 1);
+            money(out, 3500); crate(out, "d", 3); crate(out, "c", 3); crate(out, "a", 1); item(out, "cobblemon:ability_patch", 1); item(out, "genesisforms:tera_orb", 1); item(out, "cobblemon:master_ball", 1); tm(out, "A", 1);
         } else {
-            money(out, 10000); crate(out, "epic", 3); crate(out, "legendary", 2); crate(out, "mythic", 1); item(out, "cobblemon:ability_patch", 2); item(out, "cobblemon:master_ball", 2); item(out, "genesisforms:tera_orb", 1); item(out, "genesisforms:adamant_crystal", 1); item(out, "genesisforms:lustrous_globe", 1); item(out, "genesisforms:griseous_core", 1); tm(out, "MYTHIC", 2);
+            money(out, 10000); crate(out, "c", 3); crate(out, "a", 2); crate(out, "s", 1); item(out, "cobblemon:ability_patch", 2); item(out, "cobblemon:master_ball", 2); item(out, "genesisforms:tera_orb", 1); item(out, "genesisforms:adamant_crystal", 1); item(out, "genesisforms:lustrous_globe", 1); item(out, "genesisforms:griseous_core", 1); tm(out, "S", 2);
         }
         return out;
     }
@@ -208,13 +210,20 @@ public final class SeasonRewardManager {
         try {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
-            if (!FILE.exists()) { save(); return; }
-            try (FileReader reader = new FileReader(FILE)) {
-                RewardState read = GSON.fromJson(reader, RewardState.class);
-                STATE = read == null ? new RewardState() : read;
-                if (STATE.rewards == null) STATE.rewards = new LinkedHashMap<>();
-                if (STATE.claimedAt == null) STATE.claimedAt = new LinkedHashMap<>();
+            if (!FILE.exists()) {
+                save();
             }
+            else {
+                try (FileReader reader = new FileReader(FILE)) {
+                    RewardState read = GSON.fromJson(reader, RewardState.class);
+                    STATE = read == null ? new RewardState() : read;
+                    if (STATE.rewards == null) STATE.rewards = new LinkedHashMap<>();
+                    if (STATE.claimedAt == null) STATE.claimedAt = new LinkedHashMap<>();
+                }
+            }
+            STATE = SharedJsonStateRepository.loadGlobal(STATE_KEY, RewardState.class, STATE);
+            if (STATE.rewards == null) STATE.rewards = new LinkedHashMap<>();
+            if (STATE.claimedAt == null) STATE.claimedAt = new LinkedHashMap<>();
         } catch (Exception e) {
             e.printStackTrace();
             STATE = new RewardState();
@@ -226,6 +235,7 @@ public final class SeasonRewardManager {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(STATE, writer); }
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
         } catch (Exception e) { e.printStackTrace(); }
     }
 }

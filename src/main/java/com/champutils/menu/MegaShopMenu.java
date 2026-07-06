@@ -1,5 +1,6 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.genesis.MegaShopConfig;
 import com.champutils.genesis.MegaShopService;
@@ -28,6 +29,7 @@ public final class MegaShopMenu {
     private MegaShopMenu() {}
 
     public static void open(ServerPlayer player) {
+        AdventureGuideManager.increment(player, "shop", 1);
         openCategories(player);
     }
 

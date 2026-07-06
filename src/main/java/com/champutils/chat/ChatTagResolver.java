@@ -7,6 +7,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
+import com.champutils.permissions.LuckPermsHook;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -33,34 +34,11 @@ public final class ChatTagResolver {
 
         MutableComponent result = Component.empty();
 
-        if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
-            String prefix = luckPermsMeta(player, "getPrefix");
-            if (prefix != null && !prefix.isBlank()) {
-                prefix = removeDeprecatedRankTags(prefix);
-                if (!prefix.isBlank()) result.append(legacy(prefix)).append(Component.literal(" "));
-            }
-        }
+        appendProfileIcon(result, player);
 
-        ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
-        if (profileMode == ProfileGameMode.NORMAL) {
-            result.append(Component.literal("🌿").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)).append(Component.literal(" "));
-        } else if (profileMode == ProfileGameMode.IRONMAN) {
-            result.append(Component.literal("⚒").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
-        } else if (profileMode == ProfileGameMode.MONOTYPE) {
-            String type = PlayerProfileManager.monotypeType(player);
-            if (type == null || type.isBlank()) type = "Unknown";
-            result.append(Component.literal(typeEmoji(type)).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
-        } else if (profileMode == ProfileGameMode.NUZLOCKE) {
-            result.append(Component.literal("☠").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)).append(Component.literal(" "));
-        } else if (profileMode == ProfileGameMode.ISLANDER) {
-            result.append(Component.literal("🏝").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)).append(Component.literal(" "));
-        }
-
-        List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
-        for (ChatTagConfig.TagDefinition tag : tags) {
-            if (tag == null || tag.display == null || tag.display.isBlank()) continue;
-            if (tag.permission != null && !tag.permission.isBlank() && !player.hasPermissions(4) && !hasPermission(player, tag.permission)) continue;
-            result.append(legacy(tag.display)).append(Component.literal(" "));
+        MutableComponent rankTag = rankTagFor(player);
+        if (rankTag != null) {
+            result.append(rankTag).append(Component.literal(" "));
         }
 
         String selectedTitle = com.champutils.cosmetic.TitleManager.selected(player.getUUID());
@@ -72,6 +50,13 @@ public final class ChatTagResolver {
                 titleComponent.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
                 result.append(titleComponent).append(Component.literal(" "));
             }
+        }
+
+        List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
+        for (ChatTagConfig.TagDefinition tag : tags) {
+            if (tag == null || tag.display == null || tag.display.isBlank()) continue;
+            if (tag.permission != null && !tag.permission.isBlank() && !player.hasPermissions(4) && !hasPermission(player, tag.permission)) continue;
+            result.append(legacy(tag.display)).append(Component.literal(" "));
         }
 
         com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
@@ -92,6 +77,50 @@ public final class ChatTagResolver {
         return result;
     }
 
+
+    private static void appendProfileIcon(MutableComponent result, ServerPlayer player) {
+        ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
+        if (profileMode == ProfileGameMode.NORMAL) {
+            result.append(Component.literal("🌿").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.IRONMAN) {
+            result.append(Component.literal("⚒").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.MONOTYPE) {
+            String type = PlayerProfileManager.monotypeType(player);
+            if (type == null || type.isBlank()) type = "Unknown";
+            result.append(Component.literal(typeEmoji(type)).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.NUZLOCKE) {
+            result.append(Component.literal("☠").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)).append(Component.literal(" "));
+        } else if (profileMode == ProfileGameMode.ISLANDER) {
+            result.append(Component.literal("🏝").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)).append(Component.literal(" "));
+        }
+    }
+
+    private static MutableComponent rankTagFor(ServerPlayer player) {
+        if (player == null) return null;
+
+        if (LuckPermsHook.hasGroup(player, "vipplus")
+                || LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
+                || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")
+                || LuckPermsHook.hasPermission(player, "champutils.boosters.daily.vipplus")) {
+            return Component.literal("[VIP+]").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
+        }
+
+        if (LuckPermsHook.hasGroup(player, "vip")
+                || LuckPermsHook.hasPermission(player, "champutils.rank.vip")
+                || LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) {
+            return Component.literal("[VIP]").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+        }
+
+        if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
+            String prefix = luckPermsMeta(player, "getPrefix");
+            if (prefix != null && !prefix.isBlank()) {
+                prefix = removeDeprecatedRankTags(prefix);
+                if (!prefix.isBlank()) return legacy(prefix);
+            }
+        }
+
+        return null;
+    }
 
     private static void requestGuildRefresh(ServerPlayer player) {
         if (player == null) return;
@@ -128,9 +157,9 @@ public final class ChatTagResolver {
 
     private static String removeDeprecatedRankTags(String raw) {
         if (raw == null) return "";
-        return raw.replaceAll("(?i)&[0-9a-fk-or]?\\[(helper|champion|vip)\\]", "")
-                .replaceAll("(?i)§[0-9a-fk-or]?\\[(helper|champion|vip)\\]", "")
-                .replaceAll("(?i)\\[(helper|champion|vip)\\]", "")
+        return raw.replaceAll("(?i)&[0-9a-fk-or]?\\[(helper|champion)\\]", "")
+                .replaceAll("(?i)§[0-9a-fk-or]?\\[(helper|champion)\\]", "")
+                .replaceAll("(?i)\\[(helper|champion)\\]", "")
                 .trim();
     }
 

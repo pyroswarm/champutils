@@ -1,9 +1,11 @@
 package com.champutils.claims;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.EconomyManager.TransactionResult;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.menu.ConfirmationMenu;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -13,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -100,8 +103,20 @@ public final class LandClaimCommand {
         PendingClaim pending = buildPending(player);
         if (pending == null) return 0;
         PENDING.put(player.getUUID(), pending);
-        player.sendSystemMessage(Component.literal("Claim area: " + pending.area + " blocks (X/Z only, all Y levels)." ).withStyle(ChatFormatting.AQUA));
-        player.sendSystemMessage(Component.literal("Cost: " + EconomyManager.format(pending.costCents) + ". Run /claims confirm to buy this claim.").withStyle(ChatFormatting.GOLD));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Land Claim",
+                Items.GRASS_BLOCK,
+                "§eBuy Land Claim",
+                new String[]{
+                        "§7Area: §f" + pending.area + " blocks §8(X/Z only, all Y levels)",
+                        "§7Cost: §6" + EconomyManager.format(pending.costCents),
+                        "§7World: §f" + pending.worldName,
+                        "§cThis spends credits immediately."
+                },
+                () -> confirm(player),
+                () -> cancel(player)
+        );
         return 1;
     }
 
@@ -119,13 +134,13 @@ public final class LandClaimCommand {
         }
         PendingClaim pending = PENDING.get(player.getUUID());
         if (pending == null) {
-            player.sendSystemMessage(Component.literal("Run /claims claim first to preview the cost.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Preview the claim first with /claims claim.").withStyle(ChatFormatting.RED));
             return 0;
         }
         PendingClaim current = buildPending(player);
         if (current == null || !current.sameArea(pending)) {
             PENDING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Your selection changed. Run /claims claim again.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Your selection changed. Preview the claim again with /claims claim.").withStyle(ChatFormatting.RED));
             return 0;
         }
         TransactionResult withdraw = EconomyManager.withdraw(player, pending.costCents, "Land claim purchase");
@@ -141,6 +156,7 @@ public final class LandClaimCommand {
         }
         PENDING.remove(player.getUUID());
         SELECTIONS.remove(player.getUUID());
+        AdventureGuideManager.increment(player, "land_claim", 1);
         player.sendSystemMessage(Component.literal("Land claimed for " + EconomyManager.format(pending.costCents) + ".").withStyle(ChatFormatting.GREEN));
         player.sendSystemMessage(Component.literal("Stand inside it and run /claims settings to manage it.").withStyle(ChatFormatting.GRAY));
         return 1;
@@ -338,7 +354,19 @@ public final class LandClaimCommand {
             player.sendSystemMessage(Component.literal("Stand inside one of your claims to delete it.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("Run /claims delete confirm to permanently delete this claim. No refund is given.").withStyle(ChatFormatting.RED));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Claim Delete",
+                Items.BARRIER,
+                "§cDelete Claim",
+                new String[]{
+                        "§7This permanently deletes the claim you are standing in.",
+                        "§cNo refund is given.",
+                        "§cThis cannot be undone."
+                },
+                () -> deleteConfirm(player),
+                () -> player.sendSystemMessage(Component.literal("§eClaim deletion cancelled."))
+        );
         return 1;
     }
 

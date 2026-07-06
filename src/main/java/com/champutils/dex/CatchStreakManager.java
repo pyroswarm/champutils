@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -25,6 +26,7 @@ public final class CatchStreakManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File DATA_FILE = new File("config/champutils/catch_streaks.json");
     private static final File CONFIG_FILE = new File("config/champutils/catch_streak_config.json");
+    private static final String STATE_KEY = "catch_streaks";
     private static final Map<UUID, CatchStreak> STREAKS = new ConcurrentHashMap<>();
     public static final double BASE_SHINY_CHANCE = 1.0D / 8192.0D;
     public static final double DEFAULT_STREAK_BONUS_PER_CATCH = BASE_SHINY_CHANCE / 10.0D;
@@ -56,22 +58,23 @@ public final class CatchStreakManager {
         loaded = true;
         loadConfig();
         STREAKS.clear();
-        if (!DATA_FILE.exists()) return;
-        try (FileReader reader = new FileReader(DATA_FILE)) {
-            Type type = new TypeToken<Map<String, CatchStreak>>() {}.getType();
-            Map<String, CatchStreak> loadedData = GSON.fromJson(reader, type);
-            if (loadedData == null) return;
-            for (Map.Entry<String, CatchStreak> entry : loadedData.entrySet()) {
-                try {
-                    UUID uuid = UUID.fromString(entry.getKey());
-                    CatchStreak streak = sanitize(entry.getValue());
-                    if (!streak.species.isBlank() && streak.count > 0) STREAKS.put(uuid, streak);
-                } catch (Throwable ignored) {}
+
+        State state = new State();
+        if (DATA_FILE.exists()) {
+            try (FileReader reader = new FileReader(DATA_FILE)) {
+                Type type = new TypeToken<Map<String, CatchStreak>>() {}.getType();
+                Map<String, CatchStreak> loadedData = GSON.fromJson(reader, type);
+                if (loadedData != null) {
+                    state.streaks.putAll(loadedData);
+                }
+            } catch (Exception exception) {
+                System.err.println("[ChampUtils] Failed to load catch streak data.");
+                exception.printStackTrace();
             }
-        } catch (Exception exception) {
-            System.err.println("[ChampUtils] Failed to load catch streak data.");
-            exception.printStackTrace();
         }
+
+        state = SharedJsonStateRepository.loadGlobal(STATE_KEY, State.class, state);
+        applyState(state);
     }
 
     public static synchronized void save() {
@@ -82,6 +85,9 @@ public final class CatchStreakManager {
             Map<String, CatchStreak> out = new LinkedHashMap<>();
             for (Map.Entry<UUID, CatchStreak> entry : STREAKS.entrySet()) out.put(entry.getKey().toString(), entry.getValue());
             try (FileWriter writer = new FileWriter(DATA_FILE)) { GSON.toJson(out, writer); }
+            State state = new State();
+            state.streaks.putAll(out);
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, state);
         } catch (Exception exception) {
             System.err.println("[ChampUtils] Failed to save catch streak data.");
             exception.printStackTrace();
@@ -166,6 +172,7 @@ public final class CatchStreakManager {
         next.count = species.equals(previousSpecies) ? previousCount + 1 : 1;
         STREAKS.put(profileId, next);
         save();
+        com.champutils.network.NetworkEventManager.publishCacheInvalidation("CATCH_STREAKS", profileId);
 
         int minMessage = Math.max(1, CONFIG.minimumMessageStreak);
         if (!previousSpecies.isBlank() && !species.equals(previousSpecies) && previousCount >= minMessage) {
@@ -219,6 +226,11 @@ public final class CatchStreakManager {
         if (streak == null || !key.equals(streak.species) || streak.count < CONFIG.minimumBonusStreak) return CONFIG.baseShinyChance;
         int bonusCatches = Math.max(0, streak.count - CONFIG.minimumBonusStreak + 1);
         return Math.min(Math.max(CONFIG.baseShinyChance, CONFIG.maxShinyChance), CONFIG.baseShinyChance + (bonusCatches * CONFIG.bonusPerCatch));
+    }
+
+    public static synchronized void invalidateSharedCache(UUID profileId) {
+        loaded = false;
+        STREAKS.clear();
     }
 
     public static boolean setShiny(Object pokemon, boolean shiny) {
@@ -309,5 +321,20 @@ public final class CatchStreakManager {
             try { return current.getDeclaredField(name); } catch (Throwable ignored) { current = current.getSuperclass(); }
         }
         return null;
+    }
+
+    private static void applyState(State state) {
+        if (state == null || state.streaks == null) return;
+        for (Map.Entry<String, CatchStreak> entry : state.streaks.entrySet()) {
+            try {
+                UUID uuid = UUID.fromString(entry.getKey());
+                CatchStreak streak = sanitize(entry.getValue());
+                if (!streak.species.isBlank() && streak.count > 0) STREAKS.put(uuid, streak);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    public static final class State {
+        public Map<String, CatchStreak> streaks = new LinkedHashMap<>();
     }
 }

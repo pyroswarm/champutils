@@ -131,7 +131,6 @@ public final class WorldEventManager {
 
         ServerLevel level = getEventLevel(server, event);
         if (level == null) { lastStartFailure = "Could not find the configured event world/dimension."; return false; }
-
         BlockPos spawnPos = WorldEventSpawnFinder.find(level, event);
         if (spawnPos == null) {
             lastStartFailure = "No safe ground spawn was found. Check spawnRadiusMin/spawnRadiusMax, ocean-heavy maps, world border, and land claims.";
@@ -381,7 +380,7 @@ public final class WorldEventManager {
             return;
         }
 
-        String tier = active.definition == null ? "RARE" : active.definition.tier;
+        String tier = active.definition == null ? "D" : active.definition.tier;
         GuildXpManager.awardWorldEvent(newlyRewarded, tier, active.eventId);
 
         String winnerNames = newlyRewarded.get(0).getName().getString();
@@ -419,7 +418,7 @@ public final class WorldEventManager {
         if (!awarded.isEmpty()) {
             player.sendSystemMessage(Component.literal("§dWorld Event Rewards:"));
             for (Map.Entry<String, Integer> entry : awarded.entrySet()) {
-                player.sendSystemMessage(Component.literal("§7- §6" + entry.getValue() + "x §f" + ProfessionFragmentManager.formatWords(entry.getKey()) + " Fragment"));
+                player.sendSystemMessage(Component.literal("§7- §6" + entry.getValue() + "x §f" + ProfessionFragmentManager.displayRankName(entry.getKey()) + " Essence"));
             }
         }
 
@@ -433,20 +432,20 @@ public final class WorldEventManager {
 
         String normalized = rarity.trim().toUpperCase();
 
-        return normalized.equals("LEGENDARY") || normalized.equals("MYTHIC");
+        return normalized.equals("A") || normalized.equals("S");
     }
 
     private static String rollFragmentRarity(Map<String, Integer> weights) {
-        if (weights == null || weights.isEmpty()) return "EPIC";
+        if (weights == null || weights.isEmpty()) return "C";
         int total = 0;
         for (int weight : weights.values()) total += Math.max(0, weight);
-        if (total <= 0) return "EPIC";
+        if (total <= 0) return "C";
         int roll = RANDOM.nextInt(total);
         for (Map.Entry<String, Integer> entry : weights.entrySet()) {
             roll -= Math.max(0, entry.getValue());
             if (roll < 0) return entry.getKey();
         }
-        return "EPIC";
+        return "C";
     }
 
     private static void expireOldEvents(MinecraftServer server, long now) {
@@ -519,7 +518,7 @@ public final class WorldEventManager {
 
     private static void announceStart(MinecraftServer server, ActiveEvent active) {
         String tier = active.definition == null || active.definition.tier == null || active.definition.tier.isBlank()
-                ? "Rare"
+                ? "D Rank"
                 : formatTierName(active.definition.tier);
         String tierColor = tierColor(active.definition == null ? null : active.definition.tier);
 
@@ -542,7 +541,9 @@ public final class WorldEventManager {
     }
 
     private static String formatTierName(String tier) {
-        if (tier == null || tier.isBlank()) return "Rare";
+        if (tier == null || tier.isBlank()) return "D Rank";
+        String normalized = ProfessionFragmentConfig.normalizeRarity(tier);
+        if (normalized != null && normalized.matches("[FEDCBAS]")) return normalized + " Rank";
         String lower = tier.trim().toLowerCase(java.util.Locale.ROOT);
         return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
@@ -550,12 +551,13 @@ public final class WorldEventManager {
     private static String tierColor(String tier) {
         if (tier == null) return "§9";
         return switch (tier.trim().toUpperCase(java.util.Locale.ROOT)) {
-            case "COMMON" -> "§f";
-            case "UNCOMMON" -> "§a";
-            case "RARE" -> "§9";
-            case "EPIC" -> "§5";
-            case "LEGENDARY" -> "§6";
-            case "MYTHIC" -> "§d";
+            case "F" -> "§f";
+            case "E" -> "§a";
+            case "D" -> "§9";
+            case "C" -> "§5";
+            case "B" -> "§3";
+            case "A" -> "§6";
+            case "S" -> "§d";
             default -> "§9";
         };
     }

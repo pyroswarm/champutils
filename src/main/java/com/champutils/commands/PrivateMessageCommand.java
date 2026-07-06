@@ -1,10 +1,11 @@
 package com.champutils.commands;
 
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkPlayerDirectory;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -20,11 +21,12 @@ public final class PrivateMessageCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("pm")
-                    .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests(NetworkPlayerDirectory::suggestNames)
                             .then(Commands.argument("message", StringArgumentType.greedyString())
                                     .executes(ctx -> send(
                                             ctx.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(ctx, "player"),
+                                            StringArgumentType.getString(ctx, "player"),
                                             StringArgumentType.getString(ctx, "message")
                                     )))));
 
@@ -44,15 +46,17 @@ public final class PrivateMessageCommand {
         });
     }
 
-    private static int send(ServerPlayer sender, ServerPlayer target, String message) {
+    private static int send(ServerPlayer sender, String targetName, String message) {
         if (sender == null || sender.server == null) return 0;
         if (message == null || message.isBlank()) {
             sender.sendSystemMessage(Component.literal("Usage: /pm <player> <message>").withStyle(ChatFormatting.RED));
             return 0;
         }
+        ServerPlayer target = findLocalByName(sender, targetName);
         if (target == null) {
-            sender.sendSystemMessage(Component.literal("That player is not online.").withStyle(ChatFormatting.RED));
-            return 0;
+            NetworkEventManager.publishPrivateMessage(sender, targetName, message);
+            sender.sendSystemMessage(Component.literal("§d§l[PM] §dyou → " + targetName + ": §d" + message));
+            return 1;
         }
         deliver(sender, target, message);
         return 1;
@@ -67,8 +71,9 @@ public final class PrivateMessageCommand {
         }
         ServerPlayer target = sender.server.getPlayerList().getPlayer(targetId);
         if (target == null) {
-            sender.sendSystemMessage(Component.literal("That player is no longer online.").withStyle(ChatFormatting.RED));
-            return 0;
+            NetworkEventManager.publishPrivateMessage(sender, targetId.toString(), message);
+            sender.sendSystemMessage(Component.literal("§d§l[PM] §dyou → " + targetId + ": §d" + message));
+            return 1;
         }
         deliver(sender, target, message);
         return 1;
@@ -82,5 +87,23 @@ public final class PrivateMessageCommand {
         Component toSender = Component.literal("§d§l[PM] §dyou → " + target.getGameProfile().getName() + ": §d" + message);
         target.sendSystemMessage(toTarget);
         sender.sendSystemMessage(toSender);
+    }
+
+    private static ServerPlayer findLocalByName(ServerPlayer sender, String targetName) {
+        if (sender == null || sender.server == null || targetName == null || targetName.isBlank()) {
+            return null;
+        }
+        for (ServerPlayer player : sender.server.getPlayerList().getPlayers()) {
+            if (player.getGameProfile().getName().equalsIgnoreCase(targetName)) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    public static void rememberReply(UUID receiver, UUID sender) {
+        if (receiver != null && sender != null) {
+            LAST_REPLY.put(receiver, sender);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.champutils.battle;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.config.Config;
 import com.champutils.config.Rank;
 import com.champutils.database.RankedStatsDatabaseRepository;
@@ -9,11 +10,12 @@ import com.champutils.profile.PlayerDataManager;
 import com.champutils.profile.ProfileManager;
 import com.champutils.guild.GuildXpManager;
 import com.champutils.guild.GuildBossManager;
-import com.champutils.rewardtrack.RewardTrackCommand;
+import com.champutils.adventurer.AdventurerGuildManager;
 import java.util.UUID;
 
 import com.champutils.profession.*;
 
+import com.champutils.rank.RankedMatchRewardManager;
 import com.champutils.rank.RankManager;
 import com.champutils.scoreboard.PlayerSidebarManager;
 import com.champutils.validation.TeamSnapshotManager;
@@ -55,10 +57,24 @@ public class BattleListener {
             battleType = BattleContextManager.BattleType.UNKNOWN;
         }
 
+        AdventurerGuildManager.recordBattleResult(
+                winner,
+                loser,
+                battleType
+        );
+
         com.champutils.quest.QuestManager.recordBattleWin(
                 winner,
                 battleType
         );
+
+        if (battleType == BattleContextManager.BattleType.WORLD_BOSS || battleType == BattleContextManager.BattleType.MEGA_BOSS) {
+            AdventureGuideManager.increment(
+                    winner,
+                    "world_boss",
+                    1
+            );
+        }
 
         com.champutils.cosmetic.TitleRegistry.handleBattleWin(
                 winner,
@@ -115,6 +131,11 @@ public class BattleListener {
         if (queuedPvpBattle) {
             healAfterQueuedBattle(winner);
             healAfterQueuedBattle(loser);
+            AdventureGuideManager.increment(
+                    loser,
+                    "pvp_play",
+                    1
+            );
         }
 
         if (!ranked) {
@@ -123,9 +144,7 @@ public class BattleListener {
         }
 
         com.champutils.rank.RankedTokenManager.awardRankedVictory(winner, loser);
-
-        RewardTrackCommand.addXp(winner, 250, "ranked_win");
-        RewardTrackCommand.addXp(loser, 100, "ranked_play");
+        RankedMatchRewardManager.awardRankedMatch(winner, loser, upsetWin);
 
         int winnerElo =
                 ProfileManager.getCurrentRp(winner);
@@ -276,6 +295,15 @@ public class BattleListener {
 
             case PROFESSION:
                 xp = getBattleXp("profession");
+                break;
+
+            case ADVENTURE_TOWER:
+                xp = getBattleXp("npc");
+                break;
+
+            case ADVENTURE_ROAMING:
+                xp = getBattleXp("npc");
+                rewardRoll = () -> NpcBattleRewardManager.rollReward(winner);
                 break;
 
             case UNKNOWN:

@@ -1,5 +1,7 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.adventurer.AdventurerGuildMenu;
 import com.champutils.economy.EconomyManager;
 import com.champutils.quest.QuestConfig;
 import com.champutils.quest.QuestDataManager;
@@ -19,17 +21,18 @@ public final class ContractMenu {
         QuestDataManager.QuestData data = QuestManager.getData(player);
         QuestManager.refreshIfNeeded(player, data, true);
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
-        gui.setTitle(Component.literal("Contracts"));
-        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 13, 14, 15, 16, 28, 29, 30, 31, 32, 33, 34, 49);
+        gui.setTitle(Component.literal("Adventurer Contracts"));
+        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 13, 14, 15, 16, 28, 29, 30, 31, 32, 33, 34, 45, 49);
 
         gui.setSlot(4, new GuiElementBuilder(Items.CLOCK)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Contracts"))
-                .addLoreLine(Component.literal("§7Longer objectives with clear fixed rewards."))
+                .setName(Component.literal("§6Adventurer Contracts"))
+                .addLoreLine(Component.literal("§7Timed tasks from the Adventurer's Guild."))
                 .addLoreLine(Component.literal("§7Max active: §f" + QuestConfig.SETTINGS.maxActiveContracts)));
 
         setActiveContracts(gui, player, data);
         setAvailableContracts(gui, player);
+        gui.setSlot(45, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eBack to Adventurer's Guild")).setCallback((slot, click, action) -> AdventurerGuildMenu.open(player)));
         gui.open();
     }
 
@@ -52,7 +55,7 @@ public final class ContractMenu {
             GuiElementBuilder item = new GuiElementBuilder(done ? Items.LIME_DYE : Items.PAPER)
                     .hideDefaultTooltip()
                     .setName(Component.literal((done ? "§a" : "§e") + c.description))
-                    .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
+                    .addLoreLine(Component.literal("§7Contract Rank: §f" + com.champutils.quest.QuestConfig.rankForDifficulty(c.difficulty) + " Rank"))
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(c.progress, c.required) + "§7/§f" + c.required))
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
@@ -67,9 +70,17 @@ public final class ContractMenu {
         List<QuestConfig.ContractTemplate> contracts = QuestManager.eligibleContracts(player);
         gui.setSlot(28, new GuiElementBuilder(Items.GOLD_INGOT)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Available Contracts"))
-                .addLoreLine(Component.literal("§7Click a contract to buy it.")));
+                .setName(Component.literal("§6Create Contract"))
+                .addLoreLine(Component.literal("§7Pick a contract to start.")));
         int[] slots = {29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+        if (contracts == null || contracts.isEmpty()) {
+            gui.setSlot(29, new GuiElementBuilder(Items.GRAY_DYE)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§7No eligible contracts"))
+                    .addLoreLine(Component.literal("§7Finish more Adventurer tasks"))
+                    .addLoreLine(Component.literal("§7or level professions to unlock more.")));
+            return;
+        }
         for (int i = 0; i < Math.min(slots.length, contracts.size()); i++) {
             QuestConfig.ContractTemplate c = contracts.get(i);
             GuiElementBuilder item = new GuiElementBuilder(Items.WRITABLE_BOOK)
@@ -77,11 +88,12 @@ public final class ContractMenu {
                     .setName(Component.literal("§e" + c.description))
                     .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.formatWholeCredits(c.creditCost)))
                     .addLoreLine(Component.literal("§7Time: §f" + c.durationHours + "h"))
-                    .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
+                    .addLoreLine(Component.literal("§7Contract Rank: §f" + com.champutils.quest.QuestConfig.rankForDifficulty(c.difficulty) + " Rank"))
+                    .addLoreLine(Component.literal("§7Adventurer Rank Required: §f" + c.minAdventurerRank + " Rank"))
                     .addLoreLine(Component.literal("§7Profession: §f" + c.profession))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
-            item.addLoreLine(Component.literal("§eClick to buy"));
+            item.addLoreLine(Component.literal("§eClick to create"));
             item.setCallback((index, click, action) -> { QuestManager.buyContract(player, c.id); open(player); });
             gui.setSlot(slots[i], item);
         }

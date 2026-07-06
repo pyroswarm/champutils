@@ -1,11 +1,13 @@
 package com.champutils.commands;
 
 import com.champutils.profession.ProfessionToolMigrationService;
+import com.champutils.menu.ConfirmationMenu;
 import com.mojang.brigadier.Command;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Items;
 
 import java.util.Map;
 import java.util.UUID;
@@ -46,10 +48,24 @@ public final class ProfessionToolsCommand {
                                 }))
                         .then(Commands.literal("migrate")
                                 .executes(context -> {
-                                    context.getSource().sendSuccess(() -> Component.literal(
-                                            "This will update profession tools, swords, trinkets, and pouches for online players, their ender chests, and loaded dropped items. " +
-                                                    "It does not run on reboot. Run /professiontools migrate confirm to start."
-                                    ), false);
+                                    ServerPlayer player = context.getSource().getPlayerOrException();
+                                    ConfirmationMenu.open(
+                                            player,
+                                            "Confirm Tool Migration",
+                                            Items.ANVIL,
+                                            "§eProfession Tool Migration",
+                                            new String[]{
+                                                    "§7Updates profession tools, swords, trinkets, and pouches.",
+                                                    "§7Includes online players, ender chests, and loaded dropped items.",
+                                                    "§cIt does not run on reboot."
+                                            },
+                                            () -> {
+                                                ProfessionToolMigrationService.MigrationReport report =
+                                                        ProfessionToolMigrationService.migrateOnlineAndLoaded(player.server);
+                                                player.sendSystemMessage(report.toComponent("Profession Tool Migration Complete"));
+                                            },
+                                            () -> player.sendSystemMessage(Component.literal("§eProfession tool migration cancelled."))
+                                    );
                                     return Command.SINGLE_SUCCESS;
                                 })
                                 .then(Commands.literal("confirm")

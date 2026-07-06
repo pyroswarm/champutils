@@ -1,5 +1,6 @@
 package com.champutils.teleport;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.survival.SurvivalWorldManager;
 import com.champutils.survival.SurvivalWorldConfig;
@@ -53,6 +54,7 @@ public final class RandomTeleportCommand {
     private static final Random RANDOM = new Random();
     private static final Map<UUID, Long> LAST_USE_MS = new ConcurrentHashMap<>();
     private static final Map<UUID, SearchTask> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
+    private static final Map<UUID, Runnable> AFTER_SUCCESS_CALLBACKS = new ConcurrentHashMap<>();
 
     private static final int ATTEMPTS_PER_TICK = 1;
     private static final int BIOME_ATTEMPTS_PER_TICK = 1;
@@ -126,8 +128,29 @@ public final class RandomTeleportCommand {
 
 
 
+    public static boolean requestRtp(ServerPlayer player, String survivalType, Runnable afterSuccess) {
+        if (player == null) return false;
+        UUID playerId = player.getUUID();
+        if (afterSuccess != null) AFTER_SUCCESS_CALLBACKS.put(playerId, afterSuccess);
+        int result = rtpSurvival(player.createCommandSourceStack(), survivalType == null ? "overworld" : survivalType, null);
+        if (result <= 0) AFTER_SUCCESS_CALLBACKS.remove(playerId);
+        return result > 0;
+    }
+
+    private static void runAfterSuccess(ServerPlayer player) {
+        if (player == null) return;
+        AdventureGuideManager.increment(player, "rtp", 1);
+        Runnable callback = AFTER_SUCCESS_CALLBACKS.remove(player.getUUID());
+        if (callback == null) return;
+        try {
+            callback.run();
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
     private static int rtpUsage(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("Use /rtp for overworld, /rtp nether, or /rtp end. Biome-specific RTP is disabled to protect server performance.").withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("Use /rtp, /rtp nether, or /rtp end. Biome-specific RTP is disabled to protect server performance.").withStyle(ChatFormatting.YELLOW), false);
         return 1;
     }
 
@@ -240,6 +263,11 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
+        if (!player.hasPermissions(4) && AdventureGuideManager.isLockedUntilTalk(player)) {
+            AdventureGuideManager.denyUntilTalk(player);
+            return 0;
+        }
+
         if (PlayerProfileManager.isIslander(player) && !player.hasPermissions(4)) {
             player.sendSystemMessage(Component.literal("Islander profiles cannot use RTP. Islanders are limited to spawn and Islander worlds.").withStyle(ChatFormatting.RED));
             return 0;
@@ -290,12 +318,10 @@ public final class RandomTeleportCommand {
 
         SurvivalWorldManager.RtpTarget survivalTarget = SurvivalWorldManager.pickRtpTarget(player.server, normalizedType);
         ServerLevel targetLevel = survivalTarget == null ? null : survivalTarget.level;
-        String targetWorldName = survivalTarget == null || survivalTarget.entry == null ? null : survivalTarget.entry.worldName;
         if (targetLevel == null && dimensionMatchesType(startLevel, normalizedType) && !TeleportConfig.isRtpBlocked(currentDimension)) {
             boolean startWorldIsSoftCapped = SurvivalWorldManager.isSurvivalLevel(startLevel) && SurvivalWorldManager.isAtOrOverRtpCap(startLevel);
             if (!startWorldIsSoftCapped) {
                 targetLevel = startLevel;
-                targetWorldName = currentDimension;
             }
         }
         if (targetLevel == null) {
@@ -311,16 +337,10 @@ public final class RandomTeleportCommand {
 
         player.sendSystemMessage(Component.literal("Looking for a RTP location...").withStyle(ChatFormatting.YELLOW));
 
-        BlockPos target = findSimpleRtpPosition(player, targetLevel, bounds, normalizedType);
-        if (target != null) {
-            LAST_USE_MS.put(playerId, now);
-            SafeTeleportManager.teleport(player, targetLevel, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
-            return 1;
-        }
-
-        // No already-loaded safe chunk was found immediately. Do not synchronously generate
-        // chunks on the server tick; that was causing 800ms+ RTP stalls and visible movement
-        // desync. Hand off to the existing throttled async search instead.
+        // Do not run loaded-chunk heightmap/block validation inside the command tick.
+        // Even "loaded only" probing can stall when many dimensions are saving or chunk
+        // tickets are busy. The existing SearchTask spreads all candidate checks across
+        // later server ticks and throttles chunk generation globally.
         SearchTask task = new SearchTask(playerId, targetLevel, bounds, normalizedType, desiredBiome, MAX_RTP_SEARCH_ATTEMPTS);
         ACTIVE_SEARCHES.put(playerId, task);
         return 1;
@@ -392,6 +412,7 @@ public final class RandomTeleportCommand {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) {
                 ACTIVE_SEARCHES.remove(entry.getKey());
+                AFTER_SUCCESS_CALLBACKS.remove(entry.getKey());
                 continue;
             }
 
@@ -794,6 +815,7 @@ public final class RandomTeleportCommand {
                     String biomeText = desiredBiome == null ? "" : " in " + desiredBiome.location();
                     player.sendSystemMessage(Component.literal("RTP could not find a safe location" + biomeText + " after checking " + attempts + " spots within the slow anti-lag search cap.").withStyle(ChatFormatting.RED));
                     player.sendSystemMessage(Component.literal("Skipped unloaded chunks: " + skippedUnloadedChunks + ". Generated chunks for this search: " + generatedChunksTotal + ". Try again or increase pregenerated survival area for very rare biomes.").withStyle(ChatFormatting.GRAY));
+                    AFTER_SUCCESS_CALLBACKS.remove(player.getUUID());
                     return true;
                 }
                 if (ticks % 100 == 0) {
@@ -808,6 +830,7 @@ public final class RandomTeleportCommand {
 
             LAST_USE_MS.put(player.getUUID(), System.currentTimeMillis());
             SafeTeleportManager.teleport(player, level, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            runAfterSuccess(player);
             return true;
         }
 

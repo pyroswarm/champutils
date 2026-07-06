@@ -89,10 +89,16 @@ public class ProfessionToolActiveAbilityListener {
                         return InteractionResult.FAIL;
                     }
 
+                    String ability =
+                            ProfessionToolMetadata.getResolvedActiveAbility(
+                                    stack,
+                                    toolData
+                            );
+
                     if (
                             toolData == null ||
-                                    toolData.activeAbility == null ||
-                                    toolData.activeAbility.isBlank()
+                                    ability == null ||
+                                    ability.isBlank()
                     ) {
                         return InteractionResult.PASS;
                     }
@@ -106,9 +112,7 @@ public class ProfessionToolActiveAbilityListener {
                         return InteractionResult.FAIL;
                     }
 
-                    String ability =
-                            toolData.activeAbility
-                                    .toLowerCase();
+                    ability = ability.toLowerCase();
 
                     if (!ActiveEffectManager.canActivateAbility(
                             serverPlayer,
@@ -156,7 +160,7 @@ public class ProfessionToolActiveAbilityListener {
                     setCooldown(
                             serverPlayer,
                             ability,
-                            getCooldownAfterDurationSeconds(serverPlayer, toolData)
+                            getCooldownAfterDurationSeconds(serverPlayer, toolData, ability)
                     );
 
                     return InteractionResult.SUCCESS;
@@ -192,9 +196,9 @@ public class ProfessionToolActiveAbilityListener {
         return true;
     }
 
-    private static int getCooldownAfterDurationSeconds(ServerPlayer player, ProfessionToolConfig.ToolData toolData) {
+    private static int getCooldownAfterDurationSeconds(ServerPlayer player, ProfessionToolConfig.ToolData toolData, String ability) {
         int cooldown = Math.max(0, toolData.activeCooldownSeconds);
-        int duration = ProfessionToolManager.isTimedActiveAbility(toolData.activeAbility)
+        int duration = ProfessionToolManager.isTimedActiveAbility(ability)
                 ? ProfessionActiveDuration.cooldownPaddingSeconds(player, toolData)
                 : 0;
         return duration + cooldown;

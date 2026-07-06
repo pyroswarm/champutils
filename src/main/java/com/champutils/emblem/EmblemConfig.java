@@ -63,25 +63,26 @@ public final class EmblemConfig {
         if (CONFIG.paradoxSpecies == null) CONFIG.paradoxSpecies = defaults.paradoxSpecies;
         if (CONFIG.megaCapableSpecies == null) CONFIG.megaCapableSpecies = defaults.megaCapableSpecies;
         if (CONFIG.megaStoneOverrides == null) CONFIG.megaStoneOverrides = new LinkedHashMap<>();
+        normalizeEssenceAliases();
     }
 
     private static Root defaultRoot() {
         Root root = new Root();
         root.emblems.put("regular_shiny", emblem(
                 "regular_shiny", "Regular Shiny Emblem", "REGULAR_SHINY", "minecraft:nether_star", 9101,
-                "Turns one regular Pokémon shiny.", "RARE", 120,
+                "Turns one regular Pokémon shiny.", "D", 120,
                 item("cobblemon:shiny_stone", 2), item("minecraft:diamond", 4)));
         root.emblems.put("ultra_paradox_shiny", emblem(
                 "ultra_paradox_shiny", "Ultra/Paradox Shiny Emblem", "ULTRA_PARADOX_SHINY", "minecraft:nether_star", 9102,
-                "Turns one Ultra Beast or Paradox Pokémon shiny.", "EPIC", 200,
+                "Turns one Ultra Beast or Paradox Pokémon shiny.", "C", 200,
                 item("cobblemon:shiny_stone", 4), item("minecraft:netherite_ingot", 1)));
         root.emblems.put("legendary_shiny", emblem(
                 "legendary_shiny", "Legendary Shiny Emblem", "LEGENDARY_SHINY", "minecraft:nether_star", 9103,
-                "Turns one Legendary Pokémon shiny.", "LEGENDARY", 300,
+                "Turns one Legendary Pokémon shiny.", "A", 300,
                 item("cobblemon:shiny_stone", 8), item("minecraft:netherite_ingot", 4)));
         root.emblems.put("megastone", emblem(
                 "megastone", "Megastone Emblem", "MEGASTONE", "minecraft:amethyst_shard", 9104,
-                "Right-click a Pokémon that has a Mega Evolution to receive its Mega Stone.", "EPIC", 150,
+                "Right-click a Pokémon that has a Mega Evolution to receive its Mega Stone.", "C", 150,
                 item("minecraft:diamond", 16), item("minecraft:emerald", 16)));
 
         root.ultraBeastSpecies = set("nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon");
@@ -94,10 +95,21 @@ public final class EmblemConfig {
         return root;
     }
 
+    private static void normalizeEssenceAliases() {
+        if (CONFIG == null || CONFIG.emblems == null) return;
+        for (EmblemData data : CONFIG.emblems.values()) {
+            if (data == null) continue;
+            if ((data.fragment == null || data.fragment.isBlank()) && data.essence != null && !data.essence.isBlank()) data.fragment = data.essence;
+            if (data.fragmentCost <= 0 && data.essenceCost > 0) data.fragmentCost = data.essenceCost;
+            data.essence = data.fragment;
+            data.essenceCost = data.fragmentCost;
+        }
+    }
+
     private static EmblemData emblem(String id, String name, String type, String base, int model, String lore, String fragment, int amount, ItemCost... costs) {
         EmblemData data = new EmblemData();
         data.id = id; data.displayName = name; data.type = type; data.baseItem = base; data.customModelData = model; data.lore = lore;
-        data.fragment = fragment; data.fragmentCost = amount;
+        data.fragment = fragment; data.essence = fragment; data.fragmentCost = amount; data.essenceCost = amount;
         for (ItemCost cost : costs) data.itemCosts.add(cost);
         return data;
     }
@@ -123,7 +135,9 @@ public final class EmblemConfig {
         public int customModelData;
         public String lore;
         public String fragment;
+        public String essence;
         public int fragmentCost;
+        public int essenceCost;
         public List<ItemCost> itemCosts = new ArrayList<>();
     }
 

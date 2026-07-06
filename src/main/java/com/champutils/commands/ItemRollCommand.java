@@ -1,13 +1,17 @@
 package com.champutils.commands;
 
 import com.champutils.economy.EconomyCraftHook;
+import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profession.ProfessionToolAnnouncementManager;
 import com.champutils.profession.ProfessionToolMetadata;
 import com.champutils.profession.ProfessionToolRollService;
+import com.champutils.profession.ProfessionFragmentManager;
+import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ItemSafetyService;
 import com.champutils.profession.ProfessionNotificationSettings;
+import com.champutils.menu.ConfirmationMenu;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -39,11 +43,7 @@ public class ItemRollCommand {
                                     .then(
                                             Commands.literal("identify")
                                                     .executes(context -> {
-                                                        ServerPlayer player = context.getSource().getPlayerOrException();
-                                                        ItemStack stack = player.getMainHandItem();
-                                                        long cost = ProfessionToolRollService.getIdentifyCost(stack);
-                                                        player.sendSystemMessage(Component.literal("§eIdentify this item for §6" + EconomyCraftHook.formatMoney(cost) + "§e?"));
-                                                        player.sendSystemMessage(Component.literal("§7Run §a/itemroll identify confirm §7to continue."));
+                                                        openIdentifyConfirmation(context.getSource().getPlayerOrException());
                                                         return 1;
                                                     })
                                                     .then(
@@ -76,20 +76,7 @@ public class ItemRollCommand {
                                                             return 0;
                                                         }
 
-                                                        if (
-                                                                ItemSafetyService.requestConfirmationIfNeeded(
-                                                                        player,
-                                                                        stack,
-                                                                        "reroll",
-                                                                        "/itemroll reroll confirm"
-                                                                )
-                                                        ) {
-                                                            return 0;
-                                                        }
-
-                                                        long cost = ProfessionToolRollService.getRerollCost(stack);
-                                                        player.sendSystemMessage(Component.literal("§eReroll this item for §6" + EconomyCraftHook.formatMoney(cost) + "§e?"));
-                                                        player.sendSystemMessage(Component.literal("§7Run §a/itemroll reroll confirm §7to continue."));
+                                                        openRerollConfirmation(player);
                                                         return 1;
                                                     })
                                                     .then(
@@ -113,16 +100,7 @@ public class ItemRollCommand {
                                                                             return 0;
                                                                         }
 
-                                                                        if (
-                                                                                ItemSafetyService.requestConfirmationIfNeeded(
-                                                                                        player,
-                                                                                        stack,
-                                                                                        "reroll",
-                                                                                        "/itemroll reroll confirm"
-                                                                                )
-                                                                        ) {
-                                                                            return 0;
-                                                                        }
+                                                                        ItemSafetyService.clear(player, "reroll");
 
                                                                         return executeReroll(
                                                                                 player,
@@ -150,6 +128,57 @@ public class ItemRollCommand {
         );
     }
 
+
+    private static void openIdentifyConfirmation(ServerPlayer player) {
+        ItemStack stack = player.getMainHandItem();
+        long cost = ProfessionToolRollService.getIdentifyCost(stack);
+        Item icon = stack == null || stack.isEmpty() ? Items.PAPER : stack.getItem();
+        ConfirmationMenu.open(
+                player,
+                "Confirm Identify",
+                icon,
+                "§eIdentify Item",
+                new String[]{
+                        "§7This will identify the item in your main hand.",
+                        "§7Cost: §6" + EconomyCraftHook.formatMoney(cost),
+                        "§cThis spends credits immediately."
+                },
+                () -> executeIdentify(player, player.getMainHandItem()),
+                () -> player.sendSystemMessage(Component.literal("§eIdentify cancelled."))
+        );
+    }
+
+    private static void openRerollConfirmation(ServerPlayer player) {
+        ItemStack stack = player.getMainHandItem();
+        int fragmentCost = ProfessionToolRollService.getRerollFragmentCost(stack);
+        long creditCost = ProfessionToolRollService.getRerollCost(stack);
+        String fragmentKey = ProfessionToolRollService.getRerollFragmentKey(stack);
+        Item icon = stack == null || stack.isEmpty() ? Items.ANVIL : stack.getItem();
+        java.util.List<Component> lore = new java.util.ArrayList<>();
+        lore.add(Component.literal("§7This will reroll the item in your main hand."));
+        lore.add(Component.literal("§7Cost: §6" + EconomyCraftHook.formatMoney(creditCost)));
+        lore.add(Component.literal("§7Essence: §6" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost)));
+        String riskReason = ItemSafetyService.getRiskReason(stack);
+        if (riskReason != null) {
+            lore.add(Component.literal("§cCareful: " + riskReason + "."));
+        }
+        lore.add(Component.literal("§cThis cannot be undone."));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Reroll",
+                icon,
+                "§eReroll Item",
+                lore,
+                () -> {
+                    ItemSafetyService.clear(player, "reroll");
+                    executeReroll(player, player.getMainHandItem());
+                },
+                () -> {
+                    ItemSafetyService.clear(player, "reroll");
+                    player.sendSystemMessage(Component.literal("§eReroll cancelled."));
+                }
+        );
+    }
 
     private static int executeIdentify(ServerPlayer player, ItemStack stack) {
         long cost = ProfessionToolRollService.getIdentifyCost(stack);
@@ -183,24 +212,67 @@ public class ItemRollCommand {
             ItemStack stack
     ) {
 
-        long cost =
+        int fragmentCost =
+                ProfessionToolRollService.getRerollFragmentCost(
+                        stack
+                );
+
+        long creditCost =
                 ProfessionToolRollService.getRerollCost(
                         stack
                 );
 
-        EconomyCraftHook.AffordResult affordResult =
-                EconomyCraftHook.canAfford(
-                        player,
-                        cost
+        String fragmentKey =
+                ProfessionToolRollService.getRerollFragmentKey(
+                        stack
                 );
 
-        if (!affordResult.success) {
+        if (fragmentCost <= 0 || creditCost < 0L || fragmentKey == null || fragmentKey.isBlank()) {
             player.sendSystemMessage(
                     Component.literal(
-                            "§c" + affordResult.error
+                            "§cThis item cannot be rerolled."
                     )
             );
+            return 0;
+        }
 
+        EconomyCraftHook.AffordResult affordResult = EconomyCraftHook.canAfford(player, creditCost);
+        if (!affordResult.success) {
+            player.sendSystemMessage(Component.literal("§c" + affordResult.error));
+            return 0;
+        }
+
+        int available =
+                ProfessionFragmentManager.countFragments(
+                        player,
+                        fragmentKey
+                );
+
+        if (available < fragmentCost) {
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§cYou need §f" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) +
+                                    "§c to reroll this tool. You have §f" + available + "§c."
+                    )
+            );
+            return 0;
+        }
+
+        EconomyCraftHook.ChargeResult chargeResult = EconomyCraftHook.withdraw(player, creditCost);
+        if (!chargeResult.success) {
+            player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
+            return 0;
+        }
+
+        if (!ProfessionFragmentManager.removeFragments(player, fragmentKey, fragmentCost)) {
+            if (creditCost > 0L) {
+                EconomyManager.deposit(player, creditCost, "itemroll_reroll_essence_refund");
+            }
+            player.sendSystemMessage(
+                    Component.literal(
+                            "§cCould not remove the required essence. Your credits were refunded."
+                    )
+            );
             return 0;
         }
 
@@ -211,6 +283,11 @@ public class ItemRollCommand {
                 );
 
         if (!result.success) {
+            ProfessionManager.addFragments(player, fragmentKey, fragmentCost);
+            if (creditCost > 0L) {
+                EconomyManager.deposit(player, creditCost, "itemroll_reroll_failed_refund");
+            }
+            ProfessionManager.savePlayer(player);
             player.sendSystemMessage(
                     Component.literal(
                             "§c" + result.error
@@ -220,21 +297,7 @@ public class ItemRollCommand {
             return 0;
         }
 
-        EconomyCraftHook.ChargeResult chargeResult =
-                EconomyCraftHook.withdraw(
-                        player,
-                        cost
-                );
-
-        if (!chargeResult.success) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§c" + chargeResult.error
-                    )
-            );
-
-            return 0;
-        }
+        ProfessionManager.savePlayer(player);
 
         ProfessionToolManager.refreshToolStack(
                 stack
@@ -253,22 +316,20 @@ public class ItemRollCommand {
                 )
         );
 
-        if (cost > 0L) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§7Paid §6" +
-                                    EconomyCraftHook.formatMoney(
-                                            cost
-                                    ) +
-                                    "§7. New Balance: §6" +
-                                    EconomyCraftHook.formatMoney(
-                                            chargeResult.newBalance
-                                    )
-                    )
-            );
-        }
+        player.sendSystemMessage(
+                Component.literal(
+                        "§7Spent §6" + EconomyCraftHook.formatMoney(creditCost) + " §7and §6" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) + "§7. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)
+                )
+        );
 
         return 1;
+    }
+
+    private static String formatFragmentName(String fragmentKey, int amount) {
+        if (fragmentKey == null || fragmentKey.isBlank()) {
+            return "Rank Essence";
+        }
+        return ProfessionFragmentManager.displayRankName(fragmentKey) + " Essence";
     }
 
 
@@ -299,21 +360,19 @@ public class ItemRollCommand {
             return 0;
         }
 
-        player.sendSystemMessage(
-                Component.literal(
-                        "§eRepair " + check.displayName + " from §f" + check.current + "/" + check.max +
-                                "§e to §f" + check.after + "/" + check.max + "§e durability."
-                )
-        );
-        player.sendSystemMessage(
-                Component.literal(
-                        "§eCost: §6" + EconomyCraftHook.formatMoney(check.creditCost)
-                )
-        );
-        player.sendSystemMessage(
-                Component.literal(
-                        "§7Run §a/itemroll repair confirm §7to repair."
-                )
+        Item icon = check.stack == null || check.stack.isEmpty() ? Items.ANVIL : check.stack.getItem();
+        ConfirmationMenu.open(
+                player,
+                "Confirm Repair",
+                icon,
+                "§eRepair " + check.displayName,
+                new String[]{
+                        "§7Current: §f" + check.current + "/" + check.max,
+                        "§7After: §f" + check.after + "/" + check.max,
+                        "§7Cost: §6" + EconomyCraftHook.formatMoney(check.creditCost)
+                },
+                () -> executeRepairConfirmed(player),
+                () -> player.sendSystemMessage(Component.literal("§eRepair cancelled."))
         );
 
         return 1;

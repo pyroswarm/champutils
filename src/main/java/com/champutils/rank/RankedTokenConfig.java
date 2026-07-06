@@ -1,5 +1,6 @@
 package com.champutils.rank;
 
+import com.champutils.economy.EconomyManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
@@ -15,9 +16,15 @@ public final class RankedTokenConfig {
     private RankedTokenConfig() {}
 
     public static class Config {
-        public int tokensPerRankedWin = 1;
-        public int dailyTokenCap = 10;
+        public int tokensPerRankedWin = 2;
+        public int dailyTokenCap = 20;
         public int sameOpponentCooldownHours = 1;
+        public long rankedParticipationCredits = EconomyManager.wholeCreditsToCents(75L);
+        public long rankedWinBonusCredits = EconomyManager.wholeCreditsToCents(175L);
+        public long rankedFirstWinOfDayCredits = EconomyManager.wholeCreditsToCents(300L);
+        public long rankedUpsetWinBonusCredits = EconomyManager.wholeCreditsToCents(100L);
+        public long rankedWinStreakBonusCredits = EconomyManager.wholeCreditsToCents(25L);
+        public int rankedWinStreakBonusCap = 4;
         public List<PokemonEntry> pokemon = new ArrayList<>();
         public List<ItemEntry> items = new ArrayList<>();
     }
@@ -38,6 +45,12 @@ public final class RankedTokenConfig {
         if (c.tokensPerRankedWin <= 0) c.tokensPerRankedWin = d.tokensPerRankedWin;
         if (c.dailyTokenCap <= 0) c.dailyTokenCap = d.dailyTokenCap;
         if (c.sameOpponentCooldownHours < 0) c.sameOpponentCooldownHours = d.sameOpponentCooldownHours;
+        if (c.rankedParticipationCredits <= 0L) c.rankedParticipationCredits = d.rankedParticipationCredits;
+        if (c.rankedWinBonusCredits <= 0L) c.rankedWinBonusCredits = d.rankedWinBonusCredits;
+        if (c.rankedFirstWinOfDayCredits < 0L) c.rankedFirstWinOfDayCredits = d.rankedFirstWinOfDayCredits;
+        if (c.rankedUpsetWinBonusCredits < 0L) c.rankedUpsetWinBonusCredits = d.rankedUpsetWinBonusCredits;
+        if (c.rankedWinStreakBonusCredits < 0L) c.rankedWinStreakBonusCredits = d.rankedWinStreakBonusCredits;
+        if (c.rankedWinStreakBonusCap < 0) c.rankedWinStreakBonusCap = d.rankedWinStreakBonusCap;
         if (c.pokemon == null || c.pokemon.isEmpty()) c.pokemon = d.pokemon;
         if (c.items == null || c.items.isEmpty()) {
             c.items = d.items;

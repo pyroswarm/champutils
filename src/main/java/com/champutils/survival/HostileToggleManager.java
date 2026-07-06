@@ -8,6 +8,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.item.Items;
+import com.champutils.menu.ConfirmationMenu;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.server.level.ServerLevel;
 
@@ -76,17 +78,26 @@ public final class HostileToggleManager {
             return 0;
         }
         boolean currentlyDisabled = Boolean.TRUE.equals(DISABLED.get(player.getUUID()));
-        player.sendSystemMessage(Component.literal(currentlyDisabled
-                ? "Run /togglehostile confirm to turn hostile mob spawning near you back ON. This uses your 24 hour toggle."
-                : "Run /togglehostile confirm to turn hostile mob spawning near you OFF. Cobblemon spawns will still work. This uses your 24 hour toggle.").withStyle(ChatFormatting.GOLD));
-        PENDING_CONFIRM.add(player.getUUID());
+        ConfirmationMenu.open(
+                player,
+                "Confirm Hostile Toggle",
+                currentlyDisabled ? Items.ZOMBIE_HEAD : Items.TORCH,
+                currentlyDisabled ? "§eEnable Hostile Mobs" : "§eDisable Hostile Mobs",
+                new String[]{
+                        currentlyDisabled
+                                ? "§7Hostile mob spawning near you will be turned back ON."
+                                : "§7Hostile mob spawning near you will be turned OFF.",
+                        "§7Cobblemon spawns are not affected.",
+                        "§cThis uses your 24 hour hostile toggle."
+                },
+                () -> toggle(player),
+                () -> player.sendSystemMessage(Component.literal("§eHostile toggle cancelled."))
+        );
         return 1;
     }
 
     private static int toggle(ServerPlayer player) {
-        if (!PENDING_CONFIRM.remove(player.getUUID())) {
-            return requestToggle(player);
-        }
+        PENDING_CONFIRM.remove(player.getUUID());
         long now = System.currentTimeMillis();
         long wait = cooldownRemaining(player);
         if (wait > 0 && !player.hasPermissions(4)) {

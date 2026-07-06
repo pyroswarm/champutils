@@ -95,7 +95,7 @@ public final class EmblemManager {
         int fragmentCost = Math.max(0, data.fragmentCost);
         int fragments = ProfessionFragmentManager.countFragments(player, fragmentKey);
         if (fragmentCost > 0 && fragments < fragmentCost) {
-            return CraftResult.fail("You need " + fragmentCost + " " + ProfessionFragmentManager.formatWords(fragmentKey) + " fragments. You have " + fragments + ".");
+            return CraftResult.fail("You need " + fragmentCost + " " + ProfessionFragmentManager.displayRankName(fragmentKey) + " Essence. You have " + fragments + ".");
         }
 
         for (EmblemConfig.ItemCost cost : data.itemCosts) {
@@ -107,7 +107,7 @@ public final class EmblemManager {
             if (have < need) return CraftResult.fail("You need " + need + "x " + item.getDescription().getString() + ". You have " + have + ".");
         }
 
-        if (fragmentCost > 0 && !ProfessionManager.removeFragments(player, fragmentKey, fragmentCost)) return CraftResult.fail("Could not remove fragments.");
+        if (fragmentCost > 0 && !ProfessionManager.removeFragments(player, fragmentKey, fragmentCost)) return CraftResult.fail("Could not remove essence.");
         for (EmblemConfig.ItemCost cost : data.itemCosts) removeItem(player, resolveItem(cost.item), Math.max(0, cost.amount));
 
         ItemStack emblem = createEmblemStack(id, 1);

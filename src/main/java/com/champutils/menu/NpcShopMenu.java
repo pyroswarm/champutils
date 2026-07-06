@@ -1,5 +1,6 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.shop.NpcShopConfig;
 import com.champutils.shop.NpcShopService;
@@ -22,6 +23,7 @@ public final class NpcShopMenu {
     }
 
     public static void open(ServerPlayer player) {
+        AdventureGuideManager.increment(player, "shop", 1);
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal(NpcShopConfig.CONFIG.title == null ? "Essentials Shop" : NpcShopConfig.CONFIG.title));
 

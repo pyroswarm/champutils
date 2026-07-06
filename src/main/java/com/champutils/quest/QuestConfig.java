@@ -28,8 +28,8 @@ public class QuestConfig {
         public int dailyProfessionXpPerObjective = 75;
         public int weeklyProfessionXpPerObjective = 350;
         public int crateCreditChancePercent = 100;
-        public String dailyCrateCreditId = "common";
-        public String weeklyCrateCreditId = "rare";
+        public String dailyCrateCreditId = "f";
+        public String weeklyCrateCreditId = "d";
         public int guildWeeklyObjectiveCount = 3;
         public int guildWeeklyRequiredPlayers = 10;
         public int guildWeeklyCompletionCredits = 2500;
@@ -59,6 +59,8 @@ public class QuestConfig {
         public int rewardCredits;
         public int durationHours;
         public String difficulty;
+        /** Minimum Adventurer rank required to buy this contract: F, E, D, C, B, A, S. */
+        public String minAdventurerRank = "F";
         public List<String> rewardCommands = new ArrayList<>();
     }
 
@@ -95,6 +97,7 @@ public class QuestConfig {
         if (SETTINGS.guildWeeklyTemplates.isEmpty()) addDefaultGuildWeeklyTemplates(SETTINGS);
         if (SETTINGS.dailyRewardCommands == null) SETTINGS.dailyRewardCommands = new ArrayList<>();
         if (SETTINGS.weeklyRewardCommands == null) SETTINGS.weeklyRewardCommands = new ArrayList<>();
+        ensureStarterContracts(SETTINGS);
         for (ContractTemplate c : SETTINGS.contractTemplates) {
             if (c == null) continue;
             if (c.rewardCommands == null) c.rewardCommands = new ArrayList<>();
@@ -103,30 +106,58 @@ public class QuestConfig {
         if (SETTINGS.maxActiveContracts <= 0) SETTINGS.maxActiveContracts = 1;
     }
 
+
+    private static void ensureStarterContracts(Settings s) {
+        if (s == null) return;
+        if (s.contractTemplates == null) s.contractTemplates = new ArrayList<>();
+
+        boolean hasStarter = false;
+        for (ContractTemplate c : s.contractTemplates) {
+            if (c == null) continue;
+            String rank = normalizeAdventurerRank(c.minAdventurerRank, c.difficulty);
+            String difficulty = normalizeDifficulty(c.difficulty);
+            if ("F".equals(rank) || "F".equals(difficulty)) {
+                hasStarter = true;
+                break;
+            }
+        }
+
+        if (hasStarter) return;
+
+        contract(s, "contract_coal_shift", "Mine 160 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 160, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:poke_ball 10");
+        contract(s, "contract_log_shift", "Chop 220 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 220, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:oran_berry 8");
+        contract(s, "contract_crop_shift", "Harvest 220 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 220, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:poke_ball 10");
+        contract(s, "contract_trainer_shift", "Win 12 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 12, 1, 8, 25, 100, 6, "F", "give %player% cobblemon:potion 6");
+    }
+
     private static void normalizeContractEconomy(ContractTemplate c) {
         c.difficulty = normalizeDifficulty(c.difficulty);
+        c.minAdventurerRank = normalizeAdventurerRank(c.minAdventurerRank, c.difficulty);
         int cost = switch (c.difficulty) {
-            case "UNCOMMON" -> 35;
-            case "RARE" -> 55;
-            case "EPIC" -> 90;
-            case "LEGENDARY" -> 140;
-            case "MYTHIC" -> 200;
-            default -> 20;
+            case "E" -> 100;
+            case "D" -> 200;
+            case "C" -> 450;
+            case "B" -> 800;
+            case "A" -> 1400;
+            case "S" -> 2400;
+            default -> 50;
         };
         int rewardCredits = switch (c.difficulty) {
-            case "UNCOMMON" -> 450;
-            case "RARE" -> 850;
-            case "EPIC" -> 1700;
-            case "LEGENDARY" -> 3400;
-            case "MYTHIC" -> 7000;
-            default -> 220;
+            case "E" -> 1000;
+            case "D" -> 2500;
+            case "C" -> 6000;
+            case "B" -> 11000;
+            case "A" -> 20000;
+            case "S" -> 40000;
+            default -> 450;
         };
         int hours = switch (c.difficulty) {
-            case "UNCOMMON" -> 7;
-            case "RARE" -> 8;
-            case "EPIC" -> 10;
-            case "LEGENDARY" -> 11;
-            case "MYTHIC" -> 12;
+            case "E" -> 7;
+            case "D" -> 8;
+            case "C" -> 10;
+            case "B" -> 12;
+            case "A" -> 14;
+            case "S" -> 18;
             default -> 6;
         };
 
@@ -138,14 +169,16 @@ public class QuestConfig {
     }
 
     private static String normalizeDifficulty(String difficulty) {
-        String value = difficulty == null ? "" : difficulty.trim().toUpperCase();
-        return switch (value) {
-            case "MEDIUM" -> "UNCOMMON";
-            case "HARD" -> "RARE";
-            case "EXPERT" -> "EPIC";
-            case "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC" -> value;
-            default -> "COMMON";
-        };
+        return com.champutils.rarity.RarityScale.normalize(difficulty);
+    }
+
+    public static String rankForDifficulty(String difficulty) {
+        return normalizeDifficulty(difficulty);
+    }
+
+    private static String normalizeAdventurerRank(String raw, String difficulty) {
+        if (raw == null || raw.isBlank()) return rankForDifficulty(difficulty);
+        return com.champutils.rarity.RarityScale.normalize(raw);
     }
 
     private static void createDefault(File file) {
@@ -218,28 +251,30 @@ public class QuestConfig {
 
             // Purchasable single-objective contracts. Only auto-trackable objectives are used.
             // Crate credits and rarity fragments are guaranteed, matching the contract rarity.
-            contract(s, "contract_coal_shift", "Mine 160 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 160, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");
-            contract(s, "contract_log_shift", "Chop 220 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:oran_berry 8");
-            contract(s, "contract_crop_shift", "Harvest 220 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 220, 1, 10, 25, 75, 6, "COMMON", "give %player% cobblemon:poke_ball 10");
-            contract(s, "contract_trainer_shift", "Win 12 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 12, 1, 8, 25, 100, 6, "COMMON", "give %player% cobblemon:potion 6");
+            contract(s, "contract_coal_shift", "Mine 160 coal ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:coal_ore", 160, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:poke_ball 10");
+            contract(s, "contract_log_shift", "Chop 220 natural logs", "CHOP_BLOCK_TAG", ProfessionType.FORESTRY, "logs", 220, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:oran_berry 8");
+            contract(s, "contract_crop_shift", "Harvest 220 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 220, 1, 10, 25, 75, 6, "F", "give %player% cobblemon:poke_ball 10");
+            contract(s, "contract_trainer_shift", "Win 12 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 12, 1, 8, 25, 100, 6, "F", "give %player% cobblemon:potion 6");
 
-            contract(s, "contract_iron_run", "Mine 180 iron ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:iron_ore", 180, 1, 9, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:great_ball 8");
-            contract(s, "contract_apricorn_run", "Chop 140 apricorn logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "apricorn", 140, 5, 7, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:friend_ball 4");
-            contract(s, "contract_harvest_run", "Harvest 400 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 400, 1, 9, 50, 150, 7, "UNCOMMON", "give %player% cobblemon:sitrus_berry 8");
-            contract(s, "contract_type_run", "Defeat 45 Fire-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "fire", 45, 1, 7, 50, 175, 7, "UNCOMMON", "give %player% cobblemon:dive_ball 6");
+            contract(s, "contract_iron_run", "Mine 180 iron ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:iron_ore", 180, 1, 9, 50, 150, 7, "E", "give %player% cobblemon:great_ball 8");
+            contract(s, "contract_apricorn_run", "Chop 140 apricorn logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "apricorn", 140, 5, 7, 50, 150, 7, "E", "give %player% cobblemon:friend_ball 4");
+            contract(s, "contract_harvest_run", "Harvest 400 fully grown crops", "HARVEST_CROP", ProfessionType.FARMING, "any", 400, 1, 9, 50, 150, 7, "E", "give %player% cobblemon:sitrus_berry 8");
+            contract(s, "contract_type_run", "Defeat 45 Fire-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "fire", 45, 1, 7, 50, 175, 7, "E", "give %player% cobblemon:dive_ball 6");
 
-            contract(s, "contract_diamond_rush", "Mine 36 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 36, 10, 8, 75, 350, 8, "RARE", "give %player% cobblemon:ultra_ball 6");
-            contract(s, "contract_evo_ores", "Mine 70 Cobblemon evolution stone ores", "MINE_BLOCK_CONTAINS", ProfessionType.MINING, "stone_ore", 70, 10, 8, 75, 350, 8, "RARE", "give %player% cobblemon:thunder_stone 1", "give %player% cobblemon:water_stone 1");
-            contract(s, "contract_dark_forest", "Chop 500 dark oak logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "dark_oak_log", 500, 5, 8, 75, 350, 8, "RARE", "give %player% cobblemon:dusk_ball 8");
-            contract(s, "contract_ranked_push", "Win 8 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 8, 15, 5, 75, 400, 8, "RARE", "give %player% cobblemon:quick_ball 8");
+            contract(s, "contract_diamond_rush", "Mine 36 diamond ore", "MINE_BLOCK", ProfessionType.MINING, "minecraft:diamond_ore", 36, 10, 8, 75, 350, 8, "D", "give %player% cobblemon:ultra_ball 6");
+            contract(s, "contract_evo_ores", "Mine 70 Cobblemon evolution stone ores", "MINE_BLOCK_CONTAINS", ProfessionType.MINING, "stone_ore", 70, 10, 8, 75, 350, 8, "D", "give %player% cobblemon:thunder_stone 1", "give %player% cobblemon:water_stone 1");
+            contract(s, "contract_dark_forest", "Chop 500 dark oak logs", "CHOP_BLOCK_CONTAINS", ProfessionType.FORESTRY, "dark_oak_log", 500, 5, 8, 75, 350, 8, "D", "give %player% cobblemon:dusk_ball 8");
+            contract(s, "contract_ranked_push", "Win 8 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 8, 15, 5, 75, 400, 8, "D", "give %player% cobblemon:quick_ball 8");
 
-            contract(s, "contract_ancient_debris", "Mine 20 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 20, 35, 5, 125, 800, 10, "EPIC", "give %player% cobblemon:ultra_ball 10");
-            contract(s, "contract_dragon_hunter", "Defeat 75 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 75, 25, 4, 125, 800, 10, "EPIC", "give %player% cobblemon:dragon_fang 1");
+            contract(s, "contract_ancient_debris", "Mine 20 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 20, 35, 5, 125, 800, 10, "C", "give %player% cobblemon:ultra_ball 10");
+            contract(s, "contract_dragon_hunter", "Defeat 75 Dragon-type Pokémon", "DEFEAT_TYPE", ProfessionType.BATTLING, "dragon", 75, 25, 4, 125, 800, 10, "C", "give %player% cobblemon:dragon_fang 1");
 
-            contract(s, "contract_ranked_marathon", "Win 20 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 20, 20, 3, 175, 1500, 11, "LEGENDARY", "give %player% cobblemon:focus_sash 1");
-            contract(s, "contract_trainer_marathon", "Win 120 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 120, 1, 4, 175, 1500, 11, "LEGENDARY", "give %player% cobblemon:revive 12");
+            contract(s, "contract_netherite_sprint", "Mine 36 ancient debris", "MINE_BLOCK", ProfessionType.MINING, "minecraft:ancient_debris", 36, 45, 4, 175, 1500, 12, "B", "give %player% cobblemon:ability_capsule 1");
+            contract(s, "contract_elite_adventurers", "Win 35 Adventurer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 35, 25, 4, 175, 1500, 12, "B", "give %player% cobblemon:max_revive 6");
+            contract(s, "contract_ranked_marathon", "Win 20 ranked battles", "WIN_BATTLE", ProfessionType.BATTLING, "RANKED", 20, 30, 3, 225, 2600, 14, "A", "give %player% cobblemon:focus_sash 1");
+            contract(s, "contract_trainer_marathon", "Win 120 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 120, 20, 3, 225, 2600, 14, "A", "give %player% cobblemon:revive 12");
 
-            contract(s, "contract_master_grind", "Defeat 300 wild Pokémon by type quests", "DEFEAT_TYPE", ProfessionType.BATTLING, "any", 300, 30, 1, 250, 3000, 12, "MYTHIC", "give %player% cobblemon:rare_candy 2");
+            contract(s, "contract_master_grind", "Defeat 300 wild Pokémon by type quests", "DEFEAT_TYPE", ProfessionType.BATTLING, "any", 300, 45, 1, 350, 5000, 18, "S", "give %player% cobblemon:rare_candy 2");
 
             try (FileWriter writer = new FileWriter(file)) { GSON.toJson(s, writer); }
         } catch (Exception e) {
@@ -297,6 +332,7 @@ public class QuestConfig {
         t.rewardCredits = rewardCredits;
         t.durationHours = hours;
         t.difficulty = difficulty;
+        t.minAdventurerRank = rankForDifficulty(difficulty);
         for (String r : rewards) t.rewardCommands.add(r);
         s.contractTemplates.add(t);
     }

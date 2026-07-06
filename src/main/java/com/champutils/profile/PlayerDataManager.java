@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.database.PlayerDatabaseRepository;
 
 import com.google.gson.Gson;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PlayerDataManager {
+    private static final String STATE_KEY = "player_profile_stats";
 
     private static final Gson GSON =
             new GsonBuilder()
@@ -117,29 +119,9 @@ public class PlayerDataManager {
             String name
     ){
 
-        File file=
-                getFile(uuid);
-
-        if(file.exists()){
-            PlayerDatabaseRepository.touchPlayer(
-                    uuid,
-                    name
-            );
-            return;
-        }
-
-        PlayerData data=
-                new PlayerData();
-
-        data.uuid=
-                PlayerProfileManager.activeProfileId(uuid).toString();
-
-        data.name=
-                name;
-
-        save(
+        PlayerDatabaseRepository.touchPlayer(
                 uuid,
-                data
+                name
         );
     }
 
@@ -149,6 +131,8 @@ public class PlayerDataManager {
             UUID uuid,
             String fallbackName
     ){
+        UUID profileId =
+                PlayerProfileManager.activeProfileId(uuid);
 
         try{
 
@@ -157,32 +141,46 @@ public class PlayerDataManager {
                     fallbackName
             );
 
-            try(
-                    FileReader r=
-                            new FileReader(
-                                    getFile(uuid)
-                            )
-            ){
+            PlayerData data =
+                    new PlayerData();
 
-                PlayerData data=
-                        GSON.fromJson(
-                                r,
-                                PlayerData.class
-                        );
+            File file =
+                    getFile(uuid);
 
-                if(data==null){
-                    data=
-                            new PlayerData();
+            if(file.exists()){
+                try(
+                        FileReader r=
+                                new FileReader(
+                                        file
+                                )
+                ){
+                    PlayerData local =
+                            GSON.fromJson(
+                                    r,
+                                    PlayerData.class
+                            );
+                    if(local!=null){
+                        data =
+                                local;
+                    }
                 }
-
-                data.uuid=
-                        PlayerProfileManager.activeProfileId(uuid).toString();
-
-                data.name=
-                        fallbackName;
-
-                return data;
             }
+
+            data =
+                    SharedJsonStateRepository.loadProfile(
+                            profileId,
+                            STATE_KEY,
+                            PlayerData.class,
+                            data
+                    );
+
+            sanitize(
+                    data,
+                    profileId,
+                    fallbackName
+            );
+
+            return data;
 
         }catch(Exception e){
 
@@ -192,7 +190,7 @@ public class PlayerDataManager {
                     new PlayerData();
 
             d.uuid=
-                    PlayerProfileManager.activeProfileId(uuid).toString();
+                    profileId.toString();
 
             d.name=
                     fallbackName;
@@ -207,6 +205,14 @@ public class PlayerDataManager {
             UUID uuid,
             PlayerData data
     ){
+        UUID profileId =
+                PlayerProfileManager.activeProfileId(uuid);
+
+        sanitize(
+                data,
+                profileId,
+                data == null ? null : data.name
+        );
 
         try(
                 FileWriter w=
@@ -222,6 +228,17 @@ public class PlayerDataManager {
 
             PlayerDatabaseRepository.sync(
                     data
+            );
+
+            SharedJsonStateRepository.saveProfile(
+                    profileId,
+                    STATE_KEY,
+                    data
+            );
+
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation(
+                    "PLAYER_DATA",
+                    profileId
             );
 
         }catch(Exception e){
@@ -340,13 +357,40 @@ public class PlayerDataManager {
         }
 
         data.uuid = profileId.toString();
+        sanitize(data, profileId, data.name);
 
         try(FileWriter w = new FileWriter(new File(profilesDir(), profileId.toString()+".json"))){
             GSON.toJson(data, w);
             PlayerDatabaseRepository.sync(data);
+            SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, data);
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation("PLAYER_DATA", profileId);
         }catch(Exception e){
             e.printStackTrace();
         }
+    }
+
+    private static void sanitize(PlayerData data, UUID profileId, String fallbackName){
+        if(data==null || profileId==null){
+            return;
+        }
+        data.uuid = profileId.toString();
+        if(fallbackName!=null && !fallbackName.isBlank()){
+            data.name = fallbackName;
+        } else if(data.name==null){
+            data.name = "";
+        }
+        data.rp = Math.max(0, data.rp);
+        data.peakRp = Math.max(data.rp, data.peakRp);
+        data.rankedWins = Math.max(0, data.rankedWins);
+        data.rankedLosses = Math.max(0, data.rankedLosses);
+        data.casualWins = Math.max(0, data.casualWins);
+        data.casualLosses = Math.max(0, data.casualLosses);
+        data.currentStreak = Math.max(0, data.currentStreak);
+        data.bestStreak = Math.max(data.currentStreak, data.bestStreak);
+        data.upsetWins = Math.max(0, data.upsetWins);
+        data.highestRank = Math.max(0, data.highestRank);
+        data.seasonsPlayed = Math.max(0, data.seasonsPlayed);
+        data.playtimeSeconds = Math.max(0L, data.playtimeSeconds);
     }
 
 

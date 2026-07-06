@@ -32,7 +32,7 @@ public final class LobbyCommandTreePruner {
         ALLOWED_ROOTS.add("npcedit");
         ALLOWED_ROOTS.add("npcdelete");
 
-        // Common vanilla setup/admin commands needed to build and manage the lobby.
+        // F Rank vanilla setup/admin commands needed to build and manage the lobby.
         ALLOWED_ROOTS.add("advancement");
         ALLOWED_ROOTS.add("attribute");
         ALLOWED_ROOTS.add("ban");

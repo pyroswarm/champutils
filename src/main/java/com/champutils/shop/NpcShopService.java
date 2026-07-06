@@ -125,7 +125,7 @@ public final class NpcShopService {
             return;
         }
 
-        long price = Math.max(0L, entry.price);
+        long price = priceCents(entry);
         if (price > 0L) {
             EconomyManager.TransactionResult result = EconomyManager.withdraw(player, price, "NPC shop purchase: " + safeName(entry));
             if (!result.success) {
@@ -154,6 +154,14 @@ public final class NpcShopService {
         player.sendSystemMessage(Component.literal("Purchased " + stripColor(safeName(entry)) + " for " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
     }
 
+
+    private static long priceCents(NpcShopConfig.ShopEntry entry) {
+        if (entry == null) return 0L;
+        if (entry.priceCredits >= 0.0D) {
+            return EconomyManager.creditsToCents(entry.priceCredits);
+        }
+        return Math.max(0L, entry.price);
+    }
     private static boolean giveItem(ServerPlayer player, NpcShopConfig.ShopEntry entry) {
         Item item = resolveItem(entry.id);
         if (item == Items.AIR) {
@@ -237,7 +245,7 @@ public final class NpcShopService {
             selected = candidate;
 
             // Only protect special/rare moments from repeating back-to-back.
-            // Regular common Pokémon can repeat normally.
+            // Regular F-rank Pokémon can repeat normally.
             if (player == null || !candidate.special() || !isSameAsLastRareRoll(player.getUUID(), candidate)) {
                 break;
             }

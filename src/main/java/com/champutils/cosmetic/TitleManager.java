@@ -1,5 +1,6 @@
 package com.champutils.cosmetic;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -193,6 +194,7 @@ public final class TitleManager {
         }
         subtitles.add(normalizedId);
         saveSubtitles(profileId, subtitles);
+        AdventureGuideManager.increment(player, "cosmetic", 1);
         player.sendSystemMessage(Component.literal("Equipped hidden sub title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))).append(Component.literal(" §7(50% buff power)")));
     }
 
@@ -229,6 +231,7 @@ public final class TitleManager {
         }
         if (removedFromSubtitles) saveSubtitles(profileId, subtitles);
         com.champutils.chat.ChatTagResolver.invalidate(player);
+        AdventureGuideManager.increment(player, "cosmetic", 1);
         player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
     }
 

@@ -188,7 +188,7 @@ public final class ItemSafetyService {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§7Use the same action again within 30 seconds to confirm."
+                        "§7Use the confirmation UI to continue."
                 )
         );
 

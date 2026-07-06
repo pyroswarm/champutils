@@ -23,6 +23,7 @@ public final class ProfessionTrinketConfig {
 
     public static class Tier {
         public int sameTierFragmentCost;
+        public int sameTierEssenceCost;
         public double magnetRadiusBonus;
         /** Extra flat percent chance. Capped in ProfessionTrinketManager so old configs cannot become overpowered. */
         public double shinyChancePercent;
@@ -64,7 +65,7 @@ public final class ProfessionTrinketConfig {
 
     public static Tier tier(String rarity) {
         if (CONFIG == null || CONFIG.tiers == null) CONFIG = defaults();
-        return CONFIG.tiers.getOrDefault(ProfessionFragmentConfig.normalizeRarity(rarity), defaults().tiers.get("COMMON"));
+        return CONFIG.tiers.getOrDefault(ProfessionFragmentConfig.normalizeRarity(rarity), defaults().tiers.get("F"));
     }
 
     private static Config merge(Config c) {
@@ -73,9 +74,11 @@ public final class ProfessionTrinketConfig {
         for (Map.Entry<String, Tier> e : d.tiers.entrySet()) c.tiers.putIfAbsent(e.getKey(), e.getValue());
         for (Map.Entry<String, Tier> e : c.tiers.entrySet()) {
             Tier t = e.getValue();
-            if (t == null) { e.setValue(d.tiers.getOrDefault(e.getKey(), d.tiers.get("COMMON"))); continue; }
-            Tier def = d.tiers.getOrDefault(e.getKey(), d.tiers.get("COMMON"));
+            if (t == null) { e.setValue(d.tiers.getOrDefault(e.getKey(), d.tiers.get("F"))); continue; }
+            Tier def = d.tiers.getOrDefault(e.getKey(), d.tiers.get("F"));
+            if (t.sameTierFragmentCost <= 0 && t.sameTierEssenceCost > 0) t.sameTierFragmentCost = t.sameTierEssenceCost;
             if (t.sameTierFragmentCost <= 0) t.sameTierFragmentCost = def.sameTierFragmentCost;
+            t.sameTierEssenceCost = t.sameTierFragmentCost;
             if (t.magnetRadiusBonus < 0) t.magnetRadiusBonus = def.magnetRadiusBonus;
             if (t.shinyChancePercent < 0) t.shinyChancePercent = def.shinyChancePercent;
             if (t.pouchSlots <= 0) t.pouchSlots = def.pouchSlots;
@@ -91,12 +94,13 @@ public final class ProfessionTrinketConfig {
 
     private static Config defaults() {
         Config c = new Config();
-        add(c, "COMMON", 16, 1, 0.0025, 2, 0.5, 1, 5, 10, 1, 1);
-        add(c, "UNCOMMON", 16, 2, 0.0050, 3, 1.0, 3, 10, 20, 3, 2);
-        add(c, "RARE", 16, 3, 0.0075, 5, 2.0, 5, 15, 30, 5, 4);
-        add(c, "EPIC", 16, 4, 0.0125, 7, 3.0, 10, 20, 40, 8, 7);
-        add(c, "LEGENDARY", 16, 5, 0.0175, 9, 6.0, 17, 25, 55, 11, 12);
-        add(c, "MYTHIC", 16, 7, 0.0250, 15, 10.0, 25, 35, 70, 15, 20);
+        add(c, "F", 16, 1, 0.0025, 2, 0.5, 1, 5, 10, 1, 1);
+        add(c, "E", 16, 2, 0.0050, 3, 1.0, 3, 10, 20, 3, 2);
+        add(c, "D", 16, 3, 0.0075, 5, 2.0, 5, 15, 30, 5, 4);
+        add(c, "C", 16, 4, 0.0125, 7, 3.0, 10, 20, 40, 8, 7);
+        add(c, "B", 16, 5, 0.0150, 8, 4.5, 14, 23, 48, 10, 9);
+        add(c, "A", 16, 6, 0.0175, 10, 6.5, 18, 27, 58, 12, 13);
+        add(c, "S", 16, 7, 0.0250, 15, 10.0, 25, 35, 70, 15, 20);
         return c;
     }
 
@@ -105,6 +109,7 @@ public final class ProfessionTrinketConfig {
                             double rarePokemon, double chunkyBrick) {
         Tier t = new Tier();
         t.sameTierFragmentCost = cost;
+        t.sameTierEssenceCost = cost;
         t.magnetRadiusBonus = magnet;
         t.shinyChancePercent = shiny;
         t.pouchSlots = pouch;

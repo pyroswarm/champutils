@@ -5,6 +5,8 @@ import com.champutils.database.DatabaseManager;
 import com.champutils.profile.ProfileLobbyLockManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileNetworkTransferFlow;
+import com.champutils.profile.SurvivalQueueManager;
+import com.champutils.profile.PreferredSurvivalServerManager;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.ChatFormatting;
@@ -24,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 
 public final class ProfileSelectionMenu {
     private ProfileSelectionMenu() {}
@@ -39,6 +42,7 @@ public final class ProfileSelectionMenu {
     private record MenuSnapshot(
             List<PlayerProfileManager.ProfileRecord> profiles,
             PlayerProfileManager.ProfileLimit limit,
+            PreferredSurvivalServerManager.Preference preferredServer,
             long createdAtMillis
     ) {}
 
@@ -58,14 +62,28 @@ public final class ProfileSelectionMenu {
             return CompletableFuture.completedFuture(new MenuSnapshot(
                     List.copyOf(PlayerProfileManager.listBlocking(player)),
                     PlayerProfileManager.limitBlocking(player),
+                    PreferredSurvivalServerManager.defaultPreference(),
                     now
             ));
         }
-        return DatabaseManager.supplyAsync("load profile selection snapshot", connection -> new MenuSnapshot(
-                List.copyOf(PlayerProfileManager.readProfiles(connection, player.getUUID())),
-                PlayerProfileManager.readLimit(connection, player),
-                now
-        ));
+        return DatabaseManager.supplyAsync("load profile selection snapshot", connection -> {
+            PreferredSurvivalServerManager.ensureSchema(connection);
+            PreferredSurvivalServerManager.Preference preference = PreferredSurvivalServerManager.defaultPreference();
+            try (var ps = connection.prepareStatement("select server_id from player_survival_server_preferences where player_uuid = ?")) {
+                ps.setObject(1, player.getUUID());
+                try (var rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        preference = PreferredSurvivalServerManager.toPreference(rs.getString(1)).orElse(preference);
+                    }
+                }
+            }
+            return new MenuSnapshot(
+                    List.copyOf(PlayerProfileManager.readProfiles(connection, player.getUUID())),
+                    PlayerProfileManager.readLimit(connection, player),
+                    preference,
+                    now
+            );
+        });
     }
 
     private static void invalidateSnapshot(ServerPlayer player) {
@@ -146,6 +164,9 @@ public final class ProfileSelectionMenu {
 
         List<PlayerProfileManager.ProfileRecord> profiles = snapshot.profiles();
         PlayerProfileManager.ProfileLimit limit = snapshot.limit();
+        PreferredSurvivalServerManager.Preference preferredServer = snapshot.preferredServer() == null
+                ? PreferredSurvivalServerManager.defaultPreference()
+                : snapshot.preferredServer();
 
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
@@ -174,10 +195,25 @@ public final class ProfileSelectionMenu {
                         .setName(Component.literal("Loading " + profile.profileName() + " Profile...").withStyle(ChatFormatting.YELLOW))
                         .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
                 ProfileNetworkTransferFlow.sendLoadingTitle(player, profile.profileName());
-                if (ProfileNetworkTransferFlow.shouldUseLobbyTransferFlow()) {
-                    ProfileNetworkTransferFlow.issueTransferFromLobby(player, profile, result -> {
-                        boolean issued = result.startsWith("Profile transfer token issued");
-                        if (issued) {
+
+                Consumer<String> loadProfileAction = targetServerId -> {
+                    if (ProfileNetworkTransferFlow.shouldUseLobbyTransferFlow()) {
+                        ProfileNetworkTransferFlow.issueTransferFromLobby(player, profile, targetServerId, result -> {
+                            boolean issued = result.startsWith("Profile transfer token issued");
+                            if (issued) {
+                                clearForcedReopener(player);
+                                gui.close();
+                            } else {
+                                player.sendSystemMessage(Component.literal(result).withStyle(ChatFormatting.RED));
+                                navigate(player, () -> open(player));
+                            }
+                        });
+                        return;
+                    }
+
+                    PlayerProfileManager.switchAsync(player, profile.profileName(), result -> {
+                        boolean loaded = result.startsWith("Loaded");
+                        if (loaded) {
                             clearForcedReopener(player);
                             gui.close();
                         } else {
@@ -185,19 +221,20 @@ public final class ProfileSelectionMenu {
                             navigate(player, () -> open(player));
                         }
                     });
-                    return;
-                }
+                };
 
-                PlayerProfileManager.switchAsync(player, profile.profileName(), result -> {
-                    boolean loaded = result.startsWith("Loaded");
-                    if (loaded) {
-                        clearForcedReopener(player);
-                        gui.close();
-                    } else {
-                        player.sendSystemMessage(Component.literal(result).withStyle(ChatFormatting.RED));
-                        navigate(player, () -> open(player));
-                    }
-                });
+                SurvivalQueueManager.enqueueOrRun(
+                        player,
+                        profile.profileName(),
+                        preferredServer.serverId(),
+                        false,
+                        loadProfileAction,
+                        message -> player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.YELLOW)),
+                        () -> {
+                            clearForcedReopener(player);
+                            gui.close();
+                        }
+                );
             }));
         }
 
@@ -215,6 +252,14 @@ public final class ProfileSelectionMenu {
                     navigate(player, () -> openCreateModeMenu(player));
                 }));
 
+
+        gui.setSlot(8, new GuiElementBuilder(preferredServer.serverId().equalsIgnoreCase(PreferredSurvivalServerManager.OMEGA_SERVER_ID) ? Items.ENDER_EYE : Items.COMPASS)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Join Server: " + preferredServer.displayName()).withStyle(ChatFormatting.AQUA))
+                .addLoreLine(Component.literal("Your profiles will load into " + preferredServer.displayName() + ".").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("Click to change Alpha/Omega.").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openServerPreferenceMenu(player, preferredServer.serverId()))));
+
         gui.setSlot(26, new GuiElementBuilder(Items.BARRIER)
                 .hideDefaultTooltip()
                 .setName(Component.literal("Delete Profiles").withStyle(ChatFormatting.RED))
@@ -222,8 +267,51 @@ public final class ProfileSelectionMenu {
                 .addLoreLine(Component.literal("Click to choose a profile.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
 
-        MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 22, 26);
+        MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 8, 22, 26);
         gui.open();
+    }
+
+
+    private static void openServerPreferenceMenu(ServerPlayer player, String currentServerId) {
+        SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openServerPreferenceMenu(player, currentServerId));
+        gui.setTitle(Component.literal("Choose Server"));
+
+        setServerPreferenceButton(gui, player, 11, PreferredSurvivalServerManager.ALPHA_SERVER_ID, "Alpha", Items.GRASS_BLOCK, currentServerId);
+        setServerPreferenceButton(gui, player, 15, PreferredSurvivalServerManager.OMEGA_SERVER_ID, "Omega", Items.ENDER_EYE, currentServerId);
+
+        MenuUtil.addBackButton(gui, 18, () -> navigate(player, () -> open(player)));
+        MenuUtil.fillBordersForced(gui, 11, 15, 18);
+        gui.open();
+    }
+
+    private static void setServerPreferenceButton(SimpleGui gui, ServerPlayer player, int slot, String serverId, String displayName, Item icon, String currentServerId) {
+        boolean selected = currentServerId != null && currentServerId.equalsIgnoreCase(serverId);
+        gui.setSlot(slot, new GuiElementBuilder(icon)
+                .hideDefaultTooltip()
+                .setName(Component.literal((selected ? "★ " : "") + displayName).withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA))
+                .addLoreLine(Component.literal("Backend: " + serverId).withStyle(ChatFormatting.DARK_GRAY))
+                .addLoreLine(Component.literal(selected ? "Currently selected." : "Click to make this your default join server.").withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> {
+                    if (selected) {
+                        navigate(player, () -> open(player));
+                        return;
+                    }
+                    gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
+                            .hideDefaultTooltip()
+                            .setName(Component.literal("Saving " + displayName + "...").withStyle(ChatFormatting.YELLOW))
+                            .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+                    PreferredSurvivalServerManager.setAsync(player, serverId).whenComplete((saved, error) -> player.server.execute(() -> {
+                        if (player.hasDisconnected()) return;
+                        invalidateSnapshot(player);
+                        if (error != null || saved == null || !saved) {
+                            player.sendSystemMessage(Component.literal("Could not save your preferred server. Please try again.").withStyle(ChatFormatting.RED));
+                            if (error != null) error.printStackTrace();
+                        } else {
+                            player.sendSystemMessage(Component.literal("Preferred join server set to " + displayName + ".").withStyle(ChatFormatting.GREEN));
+                        }
+                        navigate(player, () -> open(player));
+                    }));
+                }));
     }
 
     private static void openCreateModeMenu(ServerPlayer player) {
@@ -302,7 +390,7 @@ public final class ProfileSelectionMenu {
                                 String finalResult = result;
                                 if (error != null) {
                                     error.printStackTrace();
-                                    finalResult = "Could not create profile. Check console/database logs.";
+                                    finalResult = "Could not create profile. Please try again or contact staff.";
                                 }
                                 invalidateSnapshot(player);
                                 boolean created = finalResult.startsWith("Created");
@@ -426,7 +514,7 @@ public final class ProfileSelectionMenu {
         gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
                 .hideDefaultTooltip()
                 .setName(Component.literal("No, keep this profile").withStyle(ChatFormatting.RED))
-                .addLoreLine(Component.literal("Cancel and go back.").withStyle(ChatFormatting.YELLOW))
+                .addLoreLine(Component.literal("Go back without changes.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
 
         MenuUtil.fillBordersForced(gui, 11, 13, 15);

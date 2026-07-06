@@ -1,8 +1,8 @@
 {
-  "item.champutils.miners_fang": "Miner's Fang",
-  "item.champutils.titanbreaker": "Titanbreaker",
-  "item.champutils.woodcleaver": "Woodcleaver",
-  "item.champutils.worldtree_axe": "Worldtree Axe",
-  "item.champutils.poseidons_line": "Poseidon's Line",
-  "item.champutils.gaias_blessing": "Gaia's Blessing"
+  "item.champutils.miners_fang": "Pickaxe",
+  "item.champutils.titanbreaker": "Pickaxe",
+  "item.champutils.woodcleaver": "Axe",
+  "item.champutils.worldtree_axe": "Axe",
+  "item.champutils.poseidons_line": "Fishing Rod",
+  "item.champutils.gaias_blessing": "Hoe"
 }

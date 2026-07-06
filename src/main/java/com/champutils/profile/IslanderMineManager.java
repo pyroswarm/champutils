@@ -29,6 +29,7 @@ public final class IslanderMineManager {
     private static long nextAutoResetAtMs = 0L;
     private static long lastDailyResetKeyMs = Long.MIN_VALUE;
     private static long lastAccessCheckAtMs = 0L;
+    private static long lastEntityCleanupAtMs = 0L;
 
     private IslanderMineManager() {}
 
@@ -40,9 +41,12 @@ public final class IslanderMineManager {
 
     public static void tick(MinecraftServer server) {
         if (server == null || !IslanderMineConfig.get().enabled) return;
-        removePokemonFromMineWorlds(server);
 
         long now = System.currentTimeMillis();
+        if (now - lastEntityCleanupAtMs >= 5_000L) {
+            lastEntityCleanupAtMs = now;
+            removePokemonFromMineWorlds(server);
+        }
         if (now - lastAccessCheckAtMs >= 5_000L) {
             lastAccessCheckAtMs = now;
             teleportInvalidProfilesOut(server);
@@ -211,11 +215,13 @@ public final class IslanderMineManager {
 
         IslanderMineConfig.Data cfg = IslanderMineConfig.get();
         int budget = cfg.blocksPerTick;
+        long deadline = System.nanoTime() + Math.max(1, cfg.generationMaxMillisPerTick) * 1_000_000L;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         while (budget-- > 0 && !task.done(cfg)) {
             pos.set(cfg.centerX + task.dx, cfg.centerY + task.dy, cfg.centerZ + task.dz);
             placeMineBlock(level, pos, cfg, task);
             task.advance(cfg);
+            if ((budget & 31) == 0 && System.nanoTime() >= deadline) break;
         }
         if (task.done(cfg)) {
             buildEntrance(level, cfg);

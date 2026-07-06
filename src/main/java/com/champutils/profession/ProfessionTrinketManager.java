@@ -56,7 +56,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class ProfessionTrinketManager {
     private static final Map<String, Item> REGISTERED = new ConcurrentHashMap<>();
-    private static final String[] RARITIES = {"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};
+    private static final String[] RARITIES = {"F","E","D","C","B","A","S"};
     private static boolean effectsRegistered = false;
 
     private ProfessionTrinketManager() {}
@@ -364,7 +364,7 @@ public final class ProfessionTrinketManager {
         writeDigitalPouchItems(player, readDigitalPouchItems(player));
         ProfessionManager.markDirtyProfile(com.champutils.profile.PlayerProfileManager.activeProfileId(player));
         ProfessionManager.savePlayer(player);
-        player.sendSystemMessage(Component.literal("§aUnlocked " + ProfessionFragmentManager.formatWords(r) + " digital Trinket Pouch with " + data.trinketPouchSlots + " slots."));
+        player.sendSystemMessage(Component.literal("§aUnlocked " + ProfessionFragmentManager.displayRankName(r) + " digital Trinket Pouch with " + data.trinketPouchSlots + " slots."));
         return true;
     }
 
@@ -373,7 +373,7 @@ public final class ProfessionTrinketManager {
         migratePhysicalPouchesToDigital(player, true);
         int capacity = digitalPouchSlots(player);
         if (capacity <= 0) {
-            player.sendSystemMessage(Component.literal("§eYou do not have a trinket pouch yet. Craft one from Fragment Crafting to unlock digital pouch slots."));
+            player.sendSystemMessage(Component.literal("§eYou do not have a trinket pouch yet. Craft one from Essence Crafting to unlock digital pouch slots."));
             return;
         }
         List<ItemStack> sanitized = readDigitalPouchItems(player);
@@ -513,7 +513,7 @@ public final class ProfessionTrinketManager {
             ItemStack pouch = player.getInventory().items.get(i);
             if (!isPouch(pouch)) continue;
             CustomData data = pouch.get(DataComponents.CUSTOM_DATA);
-            String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
+            String rarity = data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
             if (tier(rarity) > tier(bestRarity)) {
                 bestRarity = rarity;
                 bestSlots = Math.min(54, Math.max(1, ProfessionTrinketConfig.tier(rarity).pouchSlots));
@@ -765,7 +765,7 @@ public final class ProfessionTrinketManager {
 
     private static String rarity(ItemStack stack) {
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        return data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
+        return data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.copyTag().getString("rarity"));
     }
 
     private static void toggle(ItemStack stack, Player player) {
@@ -862,9 +862,9 @@ public final class ProfessionTrinketManager {
         };
         return base + tier(rarity);
     }
-    private static int tier(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> 2; case "RARE" -> 3; case "EPIC" -> 4; case "LEGENDARY" -> 5; case "MYTHIC" -> 6; default -> 1; }; }
-    private static ChatFormatting color(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> ChatFormatting.GREEN; case "RARE" -> ChatFormatting.BLUE; case "EPIC" -> ChatFormatting.LIGHT_PURPLE; case "LEGENDARY" -> ChatFormatting.GOLD; case "MYTHIC" -> ChatFormatting.DARK_PURPLE; default -> ChatFormatting.WHITE; }; }
-    private static Rarity rarity(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "UNCOMMON" -> Rarity.UNCOMMON; case "RARE" -> Rarity.RARE; case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC; default -> Rarity.COMMON; }; }
+    private static int tier(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "E" -> 2; case "D" -> 3; case "C" -> 4; case "B" -> 5; case "A" -> 6; case "S" -> 7; default -> 1; }; }
+    private static ChatFormatting color(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "E" -> ChatFormatting.GREEN; case "D" -> ChatFormatting.BLUE; case "C" -> ChatFormatting.LIGHT_PURPLE; case "B" -> ChatFormatting.DARK_AQUA; case "A" -> ChatFormatting.GOLD; case "S" -> ChatFormatting.DARK_PURPLE; default -> ChatFormatting.WHITE; }; }
+    private static Rarity rarity(String rarity) { return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) { case "E" -> Rarity.UNCOMMON; case "D" -> Rarity.RARE; case "C", "B", "A", "S" -> Rarity.EPIC; default -> Rarity.COMMON; }; }
 
 
     private static final class DigitalTrinketPouchGui extends SimpleGui {

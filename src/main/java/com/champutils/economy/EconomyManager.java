@@ -3,6 +3,9 @@ package com.champutils.economy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.champutils.database.CreditsDatabaseRepository;
+import com.champutils.database.DatabaseManager;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.profile.PlayerProfileManager;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -14,10 +17,16 @@ import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.NumberFormat;
+import java.time.ZoneOffset;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class EconomyManager {
@@ -37,8 +46,13 @@ public final class EconomyManager {
     private static final File FILE = new File(DIR, "economy.json");
     private static final File TEMP_FILE = new File(DIR, "economy.json.tmp");
     private static final File LEDGER_FILE = new File(DIR, "economy_ledger.jsonl");
+    private static final long LEDGER_ROTATE_BYTES = 8L * 1024L * 1024L;
+    private static final int LEDGER_ARCHIVES_TO_KEEP = 5;
+    private static final DateTimeFormatter LEDGER_ARCHIVE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC);
 
     private static EconomyRoot DATA = new EconomyRoot();
+    private static final Set<UUID> SQL_LOADED = new HashSet<>();
     private static boolean loaded = false;
 
     private EconomyManager() {
@@ -83,11 +97,16 @@ public final class EconomyManager {
 
         ensureLoadedLocked();
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (useSqlSourceOfTruth()) {
+            ensureSqlLoadedLocked(profileId);
+        }
         Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         account.updatedAt = Instant.now().toString();
         saveLocked();
-        syncAccountLocked(profileId, account);
+        if (!useSqlSourceOfTruth()) {
+            syncAccountLocked(profileId, account);
+        }
     }
 
     public static synchronized long getBalance(UUID playerId) {
@@ -127,6 +146,17 @@ public final class EconomyManager {
             return TransactionResult.fail("Amount must be positive.");
         }
 
+        if (useSqlSourceOfTruth()) {
+            CreditsDatabaseRepository.MutationResult sql = CreditsDatabaseRepository.deposit(
+                    playerId,
+                    username,
+                    amount,
+                    reason,
+                    NetworkServerConfig.serverId()
+            );
+            return applySqlMutation(playerId, username, sql);
+        }
+
         ensureLoadedLocked();
         Account account = getOrCreateLocked(playerId);
         updateUsername(account, username);
@@ -163,6 +193,20 @@ public final class EconomyManager {
             return TransactionResult.success(0L, getBalance(playerId));
         }
 
+        if (useSqlSourceOfTruth()) {
+            CreditsDatabaseRepository.MutationResult sql = CreditsDatabaseRepository.withdraw(
+                    playerId,
+                    username,
+                    amount,
+                    reason,
+                    NetworkServerConfig.serverId()
+            );
+            if (!sql.success && sql.error != null && sql.error.contains("cents")) {
+                return TransactionResult.fail("You do not have enough Credits.");
+            }
+            return applySqlMutation(playerId, username, sql);
+        }
+
         ensureLoadedLocked();
         Account account = getOrCreateLocked(playerId);
         updateUsername(account, username);
@@ -193,8 +237,19 @@ public final class EconomyManager {
             return TransactionResult.fail("Amount must be between 0 and " + MAX_BALANCE + ".");
         }
 
-        ensureLoadedLocked();
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (useSqlSourceOfTruth()) {
+            CreditsDatabaseRepository.MutationResult sql = CreditsDatabaseRepository.setBalance(
+                    profileId,
+                    player.getName().getString(),
+                    amount,
+                    reason,
+                    NetworkServerConfig.serverId()
+            );
+            return applySqlMutation(profileId, player.getName().getString(), sql);
+        }
+
+        ensureLoadedLocked();
         Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         account.balance = amount;
@@ -221,6 +276,26 @@ public final class EconomyManager {
 
         if (amount <= 0L) {
             return TransactionResult.fail("Amount must be positive.");
+        }
+
+        if (useSqlSourceOfTruth()) {
+            CreditsDatabaseRepository.MutationResult sql = CreditsDatabaseRepository.transfer(
+                    fromProfileId,
+                    from.getName().getString(),
+                    toProfileId,
+                    to.getName().getString(),
+                    amount,
+                    reason,
+                    NetworkServerConfig.serverId()
+            );
+            if (!sql.success && sql.error != null && sql.error.contains("cents")) {
+                return TransactionResult.fail("You do not have enough Credits.");
+            }
+            if (sql.success) {
+                invalidateSharedCache(toProfileId);
+                NetworkEventManager.publishCacheInvalidation("ECONOMY", toProfileId);
+            }
+            return applySqlMutation(fromProfileId, from.getName().getString(), sql);
         }
 
         ensureLoadedLocked();
@@ -310,7 +385,53 @@ public final class EconomyManager {
 
     private static Account getOrCreateLocked(UUID playerId) {
         sanitizeRoot();
+        ensureSqlLoadedLocked(playerId);
         return DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
+    }
+
+    private static void ensureSqlLoadedLocked(UUID playerId) {
+        if (playerId == null || !SQL_LOADED.add(playerId)) {
+            return;
+        }
+        CreditsDatabaseRepository.AccountSnapshot snapshot = CreditsDatabaseRepository.load(playerId);
+        if (snapshot == null) {
+            return;
+        }
+        Account account = DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
+        account.username = snapshot.username;
+        account.balance = Math.max(0L, Math.min(MAX_BALANCE, snapshot.credits));
+        account.lifetimeEarned = Math.max(account.balance, snapshot.lifetimeEarned);
+        account.lifetimeSpent = Math.max(0L, snapshot.lifetimeSpent);
+        account.updatedAt = Instant.now().toString();
+        saveLocked();
+    }
+
+    private static boolean useSqlSourceOfTruth() {
+        try {
+            NetworkServerConfig config = NetworkServerConfig.get();
+            return DatabaseManager.isEnabled() && config.databaseIsSourceOfTruth;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static TransactionResult applySqlMutation(UUID playerId, String username, CreditsDatabaseRepository.MutationResult sql) {
+        if (sql == null || !sql.success) {
+            String error = sql == null ? "Economy database is unavailable. Please try again." : sql.error;
+            return TransactionResult.fail(error == null ? "Economy database is unavailable. Please try again." : error);
+        }
+        ensureLoadedLocked();
+        Account account = DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
+        updateUsername(account, username);
+        account.balance = Math.max(0L, Math.min(MAX_BALANCE, sql.newBalance));
+        account.lifetimeEarned = Math.max(0L, sql.lifetimeEarned);
+        account.lifetimeSpent = Math.max(0L, sql.lifetimeSpent);
+        account.updatedAt = Instant.now().toString();
+        SQL_LOADED.add(playerId);
+        writeLedgerLocked("SQL_COMMIT", playerId, username, sql.amount, account.balance, "database_source_of_truth", null);
+        saveLocked();
+        NetworkEventManager.publishCacheInvalidation("ECONOMY", playerId);
+        return TransactionResult.success(sql.amount, account.balance);
     }
 
     private static void updateUsername(Account account, String username) {
@@ -401,12 +522,50 @@ public final class EconomyManager {
             entry.reason = reason == null ? "unspecified" : reason;
             entry.createdAt = Instant.now().toString();
 
+            rotateLedgerIfNeededLocked();
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(LEDGER_FILE, true))) {
                 writer.write(GSON.toJson(entry));
                 writer.newLine();
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void rotateLedgerIfNeededLocked() {
+        try {
+            if (!LEDGER_FILE.exists() || LEDGER_FILE.length() < LEDGER_ROTATE_BYTES) return;
+
+            String stamp = LEDGER_ARCHIVE_FORMAT.format(Instant.now());
+            File archive = new File(DIR, "economy_ledger-" + stamp + ".jsonl");
+            int suffix = 1;
+            while (archive.exists()) {
+                archive = new File(DIR, "economy_ledger-" + stamp + "-" + suffix++ + ".jsonl");
+            }
+
+            Files.move(LEDGER_FILE.toPath(), archive.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            pruneLedgerArchivesLocked();
+        } catch (Exception atomicMoveFailed) {
+            try {
+                String stamp = LEDGER_ARCHIVE_FORMAT.format(Instant.now());
+                File archive = new File(DIR, "economy_ledger-" + stamp + ".jsonl");
+                Files.move(LEDGER_FILE.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                pruneLedgerArchivesLocked();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private static void pruneLedgerArchivesLocked() {
+        File[] archives = DIR.listFiles((dir, name) -> name.startsWith("economy_ledger-") && name.endsWith(".jsonl"));
+        if (archives == null || archives.length <= LEDGER_ARCHIVES_TO_KEEP) return;
+        Arrays.sort(archives, Comparator.comparingLong(File::lastModified).reversed());
+        for (int i = LEDGER_ARCHIVES_TO_KEEP; i < archives.length; i++) {
+            try {
+                Files.deleteIfExists(archives[i].toPath());
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -436,6 +595,9 @@ public final class EconomyManager {
     }
 
     public static synchronized void syncAllToDatabase() {
+        if (useSqlSourceOfTruth()) {
+            return;
+        }
         ensureLoadedLocked();
         sanitizeRoot();
 
@@ -467,6 +629,17 @@ public final class EconomyManager {
                 account.lifetimeEarned,
                 account.lifetimeSpent
         );
+        NetworkEventManager.publishCacheInvalidation("ECONOMY", playerId);
+    }
+
+    public static synchronized void invalidateSharedCache(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        SQL_LOADED.remove(playerId);
+        if (DATA != null && DATA.players != null) {
+            DATA.players.remove(playerId.toString());
+        }
     }
 
     public static final class TransactionResult {

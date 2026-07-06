@@ -1,9 +1,9 @@
 package com.champutils.party;
 
+import com.champutils.network.NetworkPlayerDirectory;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
@@ -23,10 +23,11 @@ public final class PartyCommand {
                     .then(Commands.literal("create")
                             .executes(context -> respond(context.getSource().getPlayerOrException(), PartyManager.create(context.getSource().getPlayerOrException()))))
                     .then(Commands.literal("invite")
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> respond(
                                             context.getSource().getPlayerOrException(),
-                                            PartyManager.invite(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"))
+                                            PartyManager.invite(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player"))
                                     ))))
                     .then(Commands.literal("accept")
                             .executes(context -> respond(context.getSource().getPlayerOrException(), PartyManager.accept(context.getSource().getPlayerOrException()))))

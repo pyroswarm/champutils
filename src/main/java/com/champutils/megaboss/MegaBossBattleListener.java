@@ -216,13 +216,14 @@ public final class MegaBossBattleListener {
 
     private static long megaBossCreditReward(String rarity) {
         if (rarity == null) return 100L;
-        return switch (rarity.trim().toUpperCase(Locale.ROOT)) {
-            case "COMMON" -> 25L;
-            case "UNCOMMON" -> 50L;
-            case "RARE" -> 100L;
-            case "EPIC" -> 250L;
-            case "LEGEND", "LEGENDARY" -> 500L;
-            case "MYTHIC", "MYTHICAL" -> 1000L;
+        return switch (com.champutils.rarity.RarityScale.normalize(rarity)) {
+            case "F" -> 25L;
+            case "E" -> 50L;
+            case "D" -> 100L;
+            case "C" -> 250L;
+            case "B" -> 375L;
+            case "A" -> 500L;
+            case "S" -> 1000L;
             default -> 100L;
         };
     }
@@ -296,7 +297,7 @@ public final class MegaBossBattleListener {
             if (bossUuid == null) continue;
             Entity boss = findEntityByUuid(players, bossUuid);
             if (boss != null && MegaBossManager.isMegaBoss(boss)) return BossRewardSnapshot.from(boss);
-            return new BossRewardSnapshot(bossUuid, "RARE", List.of());
+            return new BossRewardSnapshot(bossUuid, "D", List.of());
         }
         return null;
     }

@@ -1,5 +1,7 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.adventurer.AdventurerGuildMenu;
 import com.champutils.matchmaking.PokemonIconUtil;
 import com.champutils.hunt.PokemonHuntManager;
 import com.champutils.hunt.PokemonHuntState;
@@ -26,8 +28,8 @@ public final class PokemonHuntMenu {
         PokemonHuntManager.ensureStarted(player.server);
 
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
-        gui.setTitle(Component.literal("§bPokémon Hunts"));
-        MenuUtil.fillBordersForced(gui, 10, 11, 12, 14, 15, 16, 22);
+        gui.setTitle(Component.literal("§bAdventurer Hunts"));
+        MenuUtil.fillBordersForced(gui, 10, 11, 12, 14, 15, 16, 18, 22);
 
         List<PokemonHuntState.HuntEntry> hunts = PokemonHuntManager.sortedHunts();
         int[] slots = {10, 11, 12, 14, 15, 16};
@@ -38,12 +40,12 @@ public final class PokemonHuntMenu {
             GuiElementBuilder builder = new GuiElementBuilder(icon)
                     .hideDefaultTooltip()
                     .setName(Component.literal((done ? "§a" : rarityColor(hunt.difficulty)) + PokemonHuntManager.prettySpecies(hunt.species)))
-                    .addLoreLine(Component.literal("§7First player to catch this exact target wins."))
+                    .addLoreLine(Component.literal("§7Catch this target for the Adventurer's Guild."))
                     .addLoreLine(Component.literal("§7Species: §f" + PokemonHuntManager.prettySpecies(hunt.species)))
                     .addLoreLine(Component.literal("§7Nature: §f" + PokemonHuntManager.prettyNature(hunt.nature)))
                     .addLoreLine(Component.literal("§7Gender: §f" + PokemonHuntManager.prettyGender(hunt.gender)))
                     .addLoreLine(Component.literal("§7Ability: §f" + PokemonHuntManager.prettyAbility(hunt.ability)))
-                    .addLoreLine(Component.literal("§7Difficulty: §f" + (hunt.difficulty == null ? "Common" : hunt.difficulty)))
+                    .addLoreLine(Component.literal("§7Hunt Rank: §f" + PokemonHuntConfig.displayDifficulty(hunt.difficulty)))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addRewardLore(builder, hunt.rewards, hunt.difficulty);
             builder.addLoreLine(Component.literal(" "));
@@ -57,30 +59,35 @@ public final class PokemonHuntMenu {
                 }
             } else {
                 builder.addLoreLine(Component.literal("§eStatus: §fAvailable"));
-                builder.addLoreLine(Component.literal("§8Trades, evolutions, and Wondertrade do not count."));
+                builder.addLoreLine(Component.literal("§7Only wild catches count."));
             }
 
             gui.setSlot(slots[i], builder);
         }
 
+        gui.setSlot(18, new GuiElementBuilder(Items.ARROW)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§eBack to Adventurer's Guild"))
+                .setCallback((slot, click, action) -> AdventurerGuildMenu.open(player)));
+
         gui.setSlot(22, new GuiElementBuilder(Items.CLOCK)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§bNext Refresh"))
                 .addLoreLine(Component.literal("§7Refreshes in: §f" + formatDuration(PokemonHuntManager.millisUntilRefresh())))
-                .addLoreLine(Component.literal("§7Use §e/hunts§7 anytime to check active hunts."))
+                .addLoreLine(Component.literal("§7Use §e/hunts§7 or visit the Adventurer's Guild."))
         );
 
         gui.open();
     }
 
     private static String rarityColor(String difficulty) {
-        String d = difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(java.util.Locale.ROOT);
-        return switch (d) {
-            case "UNCOMMON" -> "§a";
-            case "RARE" -> "§9";
-            case "EPIC" -> "§5";
-            case "LEGENDARY" -> "§6";
-            case "MYTHIC" -> "§d";
+        return switch (PokemonHuntConfig.normalizeDifficulty(difficulty)) {
+            case "E" -> "§a";
+            case "D" -> "§9";
+            case "C" -> "§5";
+            case "B" -> "§e";
+            case "A" -> "§6";
+            case "S" -> "§d";
             default -> "§f";
         };
     }
@@ -104,7 +111,8 @@ public final class PokemonHuntMenu {
                 if (++shown >= 6) break;
             }
         }
-        builder.addLoreLine(Component.literal("§7- §e" + PokemonHuntConfig.DATA.settings.crateCreditChancePercent + "% chance for 1 " + PokemonHuntManager.displayCrateForDifficulty(difficulty)));
+        builder.addLoreLine(Component.literal("§7- §eAdventurer XP and Marks"));
+        builder.addLoreLine(Component.literal("§7- §e1 " + PokemonHuntManager.displayCrateForDifficulty(difficulty)));
     }
 
     private static String formatDuration(long millis) {

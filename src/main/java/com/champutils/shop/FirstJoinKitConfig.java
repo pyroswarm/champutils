@@ -36,7 +36,7 @@ public final class FirstJoinKitConfig {
         public String id = "minecraft:stone";
         public int amount = 1;
         public String toolType = "pickaxe";
-        public String rarity = "COMMON";
+        public String rarity = "F";
         public List<String> commands = new ArrayList<>();
     }
 
@@ -86,7 +86,7 @@ public final class FirstJoinKitConfig {
             if (entry.id == null) entry.id = "";
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
-            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
+            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "F";
             if (entry.commands == null) entry.commands = new ArrayList<>();
         }
         for (KitEntry entry : CONFIG.islanderEntries) {
@@ -94,7 +94,7 @@ public final class FirstJoinKitConfig {
             if (entry.id == null) entry.id = "";
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
-            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
+            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "F";
             if (entry.commands == null) entry.commands = new ArrayList<>();
         }
     }
@@ -202,7 +202,7 @@ public final class FirstJoinKitConfig {
         KitEntry entry = new KitEntry();
         entry.type = "tool";
         entry.toolType = toolType;
-        entry.rarity = "COMMON";
+        entry.rarity = "F";
         entry.amount = 1;
         return entry;
     }

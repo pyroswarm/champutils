@@ -44,7 +44,7 @@ public final class WorldEventConfig {
     public static class EventDefinition {
         public boolean enabled = true;
         public String displayName = "World Event";
-        public String tier = "RARE";
+        public String tier = "D";
         public int weight = 1;
         public String bossName = "World Boss";
         public String spawnName = "";
@@ -67,10 +67,13 @@ public final class WorldEventConfig {
 
     public static class RewardTable {
         public int minFragments = 2;
+        public int minEssence = 0;
         public int maxFragments = 5;
-        public String crateCreditId = "rare";
+        public int maxEssence = 0;
+        public String crateCreditId = "d";
         public int crateCredits = 1;
         public Map<String, Integer> fragmentWeights = new LinkedHashMap<>();
+        public Map<String, Integer> essenceWeights = new LinkedHashMap<>();
     }
 
     public static class TeamDefinition {
@@ -127,6 +130,7 @@ public final class WorldEventConfig {
                 if (root.events == null || root.events.isEmpty()) root.events = defaults.events;
                 for (Map.Entry<String, EventDefinition> entry : defaults.events.entrySet()) root.events.putIfAbsent(entry.getKey(), entry.getValue());
                 EVENTS = root.events;
+                normalizeEssenceAliases();
                 normalizeTieredEvents();
                 if (upgradedSpawnCadence) {
                     try (FileWriter writer = new FileWriter(file)) { GSON.toJson(root, writer); }
@@ -140,14 +144,29 @@ public final class WorldEventConfig {
         }
     }
 
+    private static void normalizeEssenceAliases() {
+        if (EVENTS == null) return;
+        for (EventDefinition event : EVENTS.values()) {
+            if (event == null || event.rewards == null) continue;
+            RewardTable r = event.rewards;
+            if (r.minFragments <= 0 && r.minEssence > 0) r.minFragments = r.minEssence;
+            if (r.maxFragments <= 0 && r.maxEssence > 0) r.maxFragments = r.maxEssence;
+            if ((r.fragmentWeights == null || r.fragmentWeights.isEmpty()) && r.essenceWeights != null && !r.essenceWeights.isEmpty()) r.fragmentWeights = r.essenceWeights;
+            if (r.fragmentWeights == null) r.fragmentWeights = new LinkedHashMap<>();
+            r.minEssence = r.minFragments;
+            r.maxEssence = r.maxFragments;
+            r.essenceWeights = r.fragmentWeights;
+        }
+    }
+
     private static void normalizeTieredEvents() {
-        EventDefinition event = EVENTS.getOrDefault("world_boss", event("World Boss", "World Boss", "LEGENDARY", 100, poolWorldBossCompetitive()));
+        EventDefinition event = EVENTS.getOrDefault("world_boss", event("World Boss", "World Boss", "A", 100, poolWorldBossCompetitive()));
         event.enabled = true;
         event.displayName = "World Boss";
         event.bossName = "World Boss";
-        event.tier = "LEGENDARY";
+        event.tier = "A";
         event.weight = 100;
-        event.rewards = rewardsForTier("LEGENDARY");
+        event.rewards = rewardsForTier("A");
         TeamDefinition team = event.teams == null || event.teams.isEmpty() ? new TeamDefinition() : event.teams.get(0);
         team.name = "World Boss Competitive Pool";
         team.weight = 1;
@@ -182,34 +201,38 @@ public final class WorldEventConfig {
 
     private static Root defaultRoot() {
         Root root = new Root();
-        root.events.put("world_boss", event("World Boss", "World Boss", "LEGENDARY", 100, poolWorldBossCompetitive()));
+        root.events.put("world_boss", event("World Boss", "World Boss", "A", 100, poolWorldBossCompetitive()));
         return root;
     }
 
     private static EventDefinition event(String display, String boss, String tier, int weight, List<PokemonSet> pool) {
         EventDefinition e = new EventDefinition();
         e.displayName = display; e.bossName = boss; e.tier = tier; e.weight = weight; e.rewards = rewardsForTier(tier);
-        TeamDefinition t = new TeamDefinition(); t.name = display + " 32-Pokémon " + tier + " Pool"; t.levelCap = switch (tier) { case "COMMON" -> 55; case "UNCOMMON" -> 65; case "RARE" -> 75; case "EPIC" -> 85; default -> 100; }; t.party.addAll(pool); e.teams.add(t);
+        TeamDefinition t = new TeamDefinition(); t.name = display + " 32-Pokémon " + tier + " Rank Pool"; t.levelCap = switch (tier) { case "F" -> 55; case "E" -> 65; case "D" -> 75; case "C" -> 85; case "B" -> 92; default -> 100; }; t.party.addAll(pool); e.teams.add(t);
         return e;
     }
 
     private static RewardTable rewardsForTier(String tier) {
-        String normalized = tier == null ? "RARE" : tier.trim().toUpperCase(Locale.ROOT);
+        String normalized = tier == null ? "D" : tier.trim().toUpperCase(Locale.ROOT);
         RewardTable r = new RewardTable();
         switch (normalized) {
-            case "COMMON" -> { r.minFragments = 1; r.maxFragments = 3; r.crateCreditId = "common"; r.fragmentWeights.put("COMMON", 85); r.fragmentWeights.put("UNCOMMON", 15); }
-            case "UNCOMMON" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "uncommon"; r.fragmentWeights.put("UNCOMMON", 80); r.fragmentWeights.put("RARE", 20); }
-            case "RARE" -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "rare"; r.fragmentWeights.put("RARE", 75); r.fragmentWeights.put("EPIC", 22); r.fragmentWeights.put("LEGENDARY", 3); }
-            case "EPIC" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "epic"; r.fragmentWeights.put("EPIC", 100); }
-            case "LEGENDARY" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "legendary"; r.fragmentWeights.put("LEGENDARY", 100); }
-            case "MYTHIC" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "mythic"; r.fragmentWeights.put("LEGENDARY", 100); }
-            default -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "rare"; r.fragmentWeights.put("RARE", 80); r.fragmentWeights.put("EPIC", 20); }
+            case "F" -> { r.minFragments = 1; r.maxFragments = 3; r.crateCreditId = "f"; r.fragmentWeights.put("F", 85); r.fragmentWeights.put("E", 15); }
+            case "E" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "e"; r.fragmentWeights.put("E", 80); r.fragmentWeights.put("D", 20); }
+            case "D" -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "d"; r.fragmentWeights.put("D", 75); r.fragmentWeights.put("C", 22); r.fragmentWeights.put("B", 3); }
+            case "C" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "c"; r.fragmentWeights.put("C", 100); }
+            case "B" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "b"; r.fragmentWeights.put("B", 100); }
+            case "A" -> { r.minFragments = 2; r.maxFragments = 4; r.crateCreditId = "a"; r.fragmentWeights.put("A", 100); }
+            case "S" -> { r.minFragments = 3; r.maxFragments = 5; r.crateCreditId = "s"; r.fragmentWeights.put("S", 100); }
+            default -> { r.minFragments = 3; r.maxFragments = 6; r.crateCreditId = "d"; r.fragmentWeights.put("D", 80); r.fragmentWeights.put("C", 20); }
         }
         r.crateCredits = 1;
+        r.minEssence = r.minFragments;
+        r.maxEssence = r.maxFragments;
+        r.essenceWeights = r.fragmentWeights;
         return r;
     }
 
-    private static List<PokemonSet> poolCommonFire() { return pool(
+    private static List<PokemonSet> poolFRankFire() { return pool(
             mon("arcanine","jolly","intimidate","life_orb","flare_blitz","wild_charge","extreme_speed","crunch"), mon("charizard","timid","blaze","heavy_duty_boots","flamethrower","air_slash","dragon_pulse","roost"), mon("talonflame","jolly","flame_body","heavy_duty_boots","brave_bird","flare_blitz","roost","u_turn"), mon("coalossal","careful","flame_body","leftovers","stealth_rock","heat_crash","rock_slide","rapid_spin"),
             mon("centiskorch","adamant","flash_fire","silver_powder","fire_lash","leech_life","power_whip","coil"), mon("houndoom","timid","flash_fire","choice_specs","dark_pulse","flamethrower","sludge_bomb","nasty_plot"), mon("magmortar","modest","flame_body","choice_specs","fire_blast","thunderbolt","psychic","focus_blast"), mon("ninetales","timid","drought","heat_rock","flamethrower","solar_beam","will_o_wisp","nasty_plot"),
             mon("rapidash","jolly","flash_fire","choice_band","flare_blitz","wild_charge","high_horsepower","megahorn"), mon("delphox","timid","blaze","wise_glasses","fire_blast","psychic","grass_knot","calm_mind"), mon("infernape","jolly","blaze","focus_sash","close_combat","flare_blitz","mach_punch","stealth_rock"), mon("blaziken","adamant","speed_boost","life_orb","swords_dance","flare_blitz","close_combat","thunder_punch"),
@@ -220,21 +243,21 @@ public final class WorldEventConfig {
             mon("heatmor","modest","flash_fire","expert_belt","fire_blast","giga_drain","focus_blast","sucker_punch"), mon("simisear","timid","gluttony","life_orb","nasty_plot","fire_blast","grass_knot","focus_blast"), mon("oricorio_baile","timid","dancer","heavy_duty_boots","revelation_dance","hurricane","roost","quiver_dance"), mon("houndstone","adamant","sand_rush","spell_tag","last_respects","play_rough","will_o_wisp","shadow_sneak")
     ); }
 
-    private static List<PokemonSet> poolUncommonWater() { return pool(
+    private static List<PokemonSet> poolERankWater() { return pool(
             "gyarados","milotic","lapras","kingdra","swampert","greninja","empoleon","samurott","feraligatr","primarina","slowbro","slowking","starmie","cloyster","toxapex","tentacruel","pelipper","barraskewda","dondozo","veluza","gastrodon","quagsire","rotom_wash","vaporeon","azumarill","crawdaunt","politoed","alomomola","walrein","floatzel","sharpedo","golisopod"); }
-    private static List<PokemonSet> poolRareNature() { return pool(
+    private static List<PokemonSet> poolDRankNature() { return pool(
             "venusaur","meowscarada","rillaboom","serperior","amoonguss","breloom","ferrothorn","kartana","tsareena","decidueye","chesnaught","roserade","trevenant","tangrowth","abomasnow","lilligant","sceptile","torterra","goodra","dragonite","kommo_o","hydreigon","garchomp","tyranitar","metagross","salamence","dragapult","haxorus","noivern","volcarona","gliscor","mamoswine"); }
-    private static List<PokemonSet> poolEpicVoid() { return pool(
+    private static List<PokemonSet> poolCRankVoid() { return pool(
             "flutter_mane","iron_bundle","iron_valiant","roaring_moon","walking_wake","gouging_fire","raging_bolt","iron_crown","iron_boulder","iron_moth","iron_hands","iron_treads","sandy_shocks","scream_tail","brute_bonnet","slither_wing","great_tusk","gholdengo","kingambit","annihilape","dragapult","garchomp","dragonite","ursaluna","basculegion","ceruledge","armarouge","skeledirge","greninja","volcarona","toxapex","glimmora"); }
     private static List<PokemonSet> poolWorldBossCompetitive() {
         List<PokemonSet> list = new ArrayList<>();
-        list.addAll(poolLegendarySteel());
-        list.addAll(poolEpicVoid());
-        list.addAll(poolRareNature());
+        list.addAll(poolARankSteel());
+        list.addAll(poolCRankVoid());
+        list.addAll(poolDRankNature());
         return list;
     }
 
-    private static List<PokemonSet> poolLegendarySteel() { return pool(
+    private static List<PokemonSet> poolARankSteel() { return pool(
             "mewtwo","rayquaza","kyogre","groudon","lugia","ho_oh","dialga","palkia","giratina","reshiram","zekrom","kyurem","xerneas","yveltal","zygarde","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","koraidon","miraidon","calyrex","landorus","thundurus","tornadus","urshifu","kartana","guzzlord","celesteela","magearna"); }
 
     private static List<PokemonSet> pool(String... species) {

@@ -53,7 +53,21 @@ public class ActiveAbilityRegistry {
     }
 
     public static boolean use(String abilityId, ServerPlayer player, ItemStack stack) {
-        ProfessionActiveAbility ability = ABILITIES.get(normalize(abilityId));
+        String normalized = normalize(abilityId);
+        ProfessionActiveAbility ability = ABILITIES.get(normalized);
+
+        if (ability == null) {
+            // Older/generated tool configs sometimes store the effect id instead of the
+            // registered active ability id. Accept those ids so existing tools do not
+            // become dead actives after config or naming changes.
+            ability = switch (normalized) {
+                case "tree_replant", "forestry_replant" -> ABILITIES.get("tree_replant_toggle");
+                case "auto_replant" -> ABILITIES.get("auto_replant_toggle");
+                case "auto_smelt" -> ABILITIES.get("auto_smelt_toggle");
+                case "ore_magnet" -> ABILITIES.get("ore_magnet_toggle");
+                default -> ABILITIES.get(normalized + "_toggle");
+            };
+        }
 
         if (ability == null) {
             return false;

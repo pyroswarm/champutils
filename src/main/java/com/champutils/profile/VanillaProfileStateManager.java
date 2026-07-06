@@ -92,7 +92,7 @@ public final class VanillaProfileStateManager {
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to apply vanilla profile state for " + player.getGameProfile().getName());
             e.printStackTrace();
-            player.sendSystemMessage(Component.literal("Profile load failed. Staff should check console/database logs.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Profile load failed. Please try again or contact staff.").withStyle(ChatFormatting.RED));
         }
     }
 
@@ -160,7 +160,7 @@ public final class VanillaProfileStateManager {
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load vanilla profile state for " + player.getGameProfile().getName());
             e.printStackTrace();
-            player.sendSystemMessage(Component.literal("Profile load failed. Staff should check console/database logs.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Profile load failed. Please try again or contact staff.").withStyle(ChatFormatting.RED));
         }
     }
 

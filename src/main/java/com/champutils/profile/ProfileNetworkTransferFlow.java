@@ -54,6 +54,12 @@ public final class ProfileNetworkTransferFlow {
     }
 
     public static void issueTransferFromLobby(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, Consumer<String> callback) {
+        NetworkServerConfig config = NetworkServerConfig.get();
+        String targetServerId = config.survivalServerId == null || config.survivalServerId.isBlank() ? "main_survival1" : config.survivalServerId;
+        issueTransferFromLobby(player, profile, targetServerId, callback);
+    }
+
+    public static void issueTransferFromLobby(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, String targetServerId, Consumer<String> callback) {
         if (player == null || profile == null) {
             if (callback != null) callback.accept("Could not start profile transfer.");
             return;
@@ -64,11 +70,18 @@ public final class ProfileNetworkTransferFlow {
         }
 
         NetworkServerConfig config = NetworkServerConfig.get();
+        String cleanTargetServerId = targetServerId == null || targetServerId.isBlank()
+                ? (config.survivalServerId == null || config.survivalServerId.isBlank() ? "main_survival1" : config.survivalServerId)
+                : targetServerId.trim();
         UUID playerUuid = player.getUUID();
         long now = System.currentTimeMillis();
         Long existingTransfer = LOBBY_TRANSFER_IN_FLIGHT.get(playerUuid);
         if (existingTransfer != null && now - existingTransfer < LOBBY_TRANSFER_DEDUPE_MS) {
             if (callback != null) callback.accept("Profile transfer is already in progress.");
+            return;
+        }
+        if (!ProfileStateFlushService.flushBeforeTransfer(player, "network_profile_transfer", 3, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (callback != null) callback.accept("Could not safely save your profile before transfer. Please try again.");
             return;
         }
         LOBBY_TRANSFER_IN_FLIGHT.put(playerUuid, now);
@@ -83,7 +96,7 @@ public final class ProfileNetworkTransferFlow {
                     profile.profileId(),
                     config.profileTransferSecret,
                     config.serverId,
-                    config.survivalServerId,
+                    cleanTargetServerId,
                     config.profileTransferTtlSeconds
             );
             issuedWireToken.set(token.wireValue());
@@ -102,16 +115,24 @@ public final class ProfileNetworkTransferFlow {
             if (error != null) {
                 LOBBY_TRANSFER_IN_FLIGHT.remove(playerUuid);
                 error.printStackTrace();
-                if (callback != null) callback.accept("Could not create profile transfer token. Check profileTransferSecret/database logs.");
+                if (callback != null) callback.accept("Could not prepare your profile transfer. Please try again or contact staff.");
                 return;
             }
 
-            scheduleProxyTransfer(player, profile, config, issuedWireToken.get());
+            ChampDebugManager.log(
+                    ChampDebugManager.Category.PROFILES,
+                    "[ChampUtils][ProfileTransferDebug] issuing lobby transfer player=" + player.getGameProfile().getName()
+                            + " profile=" + profile.profileName()
+                            + " source=" + config.serverId
+                            + " target=" + cleanTargetServerId
+                            + " backends=" + config.survivalBackendCsv()
+            );
+            scheduleProxyTransfer(player, profile, config, cleanTargetServerId, issuedWireToken.get());
             if (callback != null) callback.accept("Profile transfer token issued for " + profile.profileName() + ". Transfer scheduled.");
         }));
     }
 
-    private static void scheduleProxyTransfer(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String wireToken) {
+    private static void scheduleProxyTransfer(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String targetServerId, String wireToken) {
         if (player == null || player.server == null || config == null) return;
         try {
             // Close SGUI/vanilla containers before asking Velocity to switch servers. This keeps the transfer
@@ -140,9 +161,9 @@ public final class ProfileNetworkTransferFlow {
                     // the proxy transfer through the standard BungeeCord/Velocity plugin-message
                     // channel first. Keep the configured command only as a last-resort fallback for
                     // unusual proxy setups that expose a real backend command.
-                    boolean transferRequested = executeProxyTransfer(live, config);
+                    boolean transferRequested = executeProxyTransfer(live, config, targetServerId);
                     if (!transferRequested) {
-                        executeLobbyTransferCommand(live, profile, config, wireToken);
+                        executeLobbyTransferCommand(live, profile, config, targetServerId, wireToken);
                     } else {
                         // If the proxy plugin-message channel is disabled/misconfigured, the send call
                         // can succeed locally but the player will still be sitting in profile_lobby.
@@ -153,7 +174,7 @@ public final class ProfileNetworkTransferFlow {
                                 .thenRun(() -> live.server.execute(() -> {
                                     ServerPlayer stillHere = live.server.getPlayerList().getPlayer(playerUuid);
                                     if (SafeTeleportManager.isLive(stillHere)) {
-                                        executeLobbyTransferCommand(stillHere, profile, config, wireToken);
+                                        executeLobbyTransferCommand(stillHere, profile, config, targetServerId, wireToken);
                                     }
                                 }));
                     }
@@ -241,6 +262,10 @@ public final class ProfileNetworkTransferFlow {
             if (profileName == null || profileName.isBlank()) {
                 throw new IllegalStateException("Transferred profile no longer exists or belongs to a different player.");
             }
+            if (PlayerProfileManager.shouldSpawnAtServerSpawnForTransfer(connection, profileId, config.serverId)) {
+                PlayerProfileManager.forceSpawnAtServerSpawnOnNextLoad(playerUuid, profileId);
+            }
+            PlayerProfileManager.markProfileServerSeen(connection, profileId, config.serverId);
             transferredProfileName.set(profileName);
             ACCEPTED_SURVIVAL_SESSIONS.put(playerUuid, new AcceptedTransferSession(profileName, System.currentTimeMillis()));
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
@@ -306,22 +331,43 @@ public final class ProfileNetworkTransferFlow {
         }
     }
 
-    private static boolean executeProxyTransfer(ServerPlayer player, NetworkServerConfig config) {
-        String targetServer = resolveVelocityTargetServer(config);
-        if (targetServer == null || targetServer.isBlank()) {
+    private static boolean executeProxyTransfer(ServerPlayer player, NetworkServerConfig config, String targetServerId) {
+        if (config == null || !config.useProxyPluginMessageTransfer) {
+            ChampDebugManager.log(
+                    ChampDebugManager.Category.PROFILES,
+                    "[ChampUtils][ProfileTransferDebug] proxy plugin-message transfer disabled by network_server.json."
+            );
             return false;
         }
-        return ProxyTransferBridge.connect(player, targetServer);
+        String targetServer = resolveVelocityTargetServer(config, targetServerId);
+        if (targetServer == null || targetServer.isBlank()) {
+            ChampDebugManager.log(
+                    ChampDebugManager.Category.PROFILES,
+                    "[ChampUtils][ProfileTransferDebug] proxy transfer target was blank for targetServerId=" + targetServerId
+            );
+            return false;
+        }
+        boolean requested = ProxyTransferBridge.connect(player, targetServer);
+        ChampDebugManager.log(
+                ChampDebugManager.Category.PROFILES,
+                "[ChampUtils][ProfileTransferDebug] proxy transfer request result=" + requested
+                        + " player=" + (player == null ? "unknown" : player.getGameProfile().getName())
+                        + " target=" + targetServer
+        );
+        return requested;
     }
 
-    private static String resolveVelocityTargetServer(NetworkServerConfig config) {
+    private static String resolveVelocityTargetServer(NetworkServerConfig config, String targetServerId) {
         if (config == null) return "";
+        String target = targetServerId == null || targetServerId.isBlank()
+                ? (config.survivalServerId == null ? "" : config.survivalServerId)
+                : targetServerId.trim();
 
         String command = config.lobbyTransferCommand == null ? "" : config.lobbyTransferCommand.trim();
         if (!command.isBlank()) {
             String expanded = command
                     .replace("{player}", "__player__")
-                    .replace("{target_server}", config.survivalServerId == null ? "" : config.survivalServerId)
+                    .replace("{target_server}", target)
                     .replace("{profile}", "__profile__")
                     .replace("{token}", "__token__")
                     .replace("/", "")
@@ -331,19 +377,26 @@ public final class ProfileNetworkTransferFlow {
                 return parts[parts.length - 1];
             }
         }
-        return config.survivalServerId == null ? "" : config.survivalServerId;
+        return target;
     }
 
-    private static void executeLobbyTransferCommand(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String wireToken) {
+    private static void executeLobbyTransferCommand(ServerPlayer player, PlayerProfileManager.ProfileRecord profile, NetworkServerConfig config, String targetServerId, String wireToken) {
         if (player == null || player.server == null || config == null) return;
         String command = config.lobbyTransferCommand;
         if (command == null || command.isBlank()) return;
+        String target = targetServerId == null || targetServerId.isBlank()
+                ? (config.survivalServerId == null ? "" : config.survivalServerId)
+                : targetServerId.trim();
         command = command
                 .replace("{player}", player.getGameProfile().getName())
-                .replace("{target_server}", config.survivalServerId == null ? "" : config.survivalServerId)
+                .replace("{target_server}", target)
                 .replace("{profile}", profile.profileName() == null ? "" : profile.profileName())
                 .replace("{token}", wireToken == null ? "" : wireToken);
         if (command.startsWith("/")) command = command.substring(1);
+        ChampDebugManager.log(
+                ChampDebugManager.Category.PROFILES,
+                "[ChampUtils][ProfileTransferDebug] running configured transfer fallback command=\"" + command + "\" player=" + player.getGameProfile().getName()
+        );
         player.server.getCommands().performPrefixedCommand(player.server.createCommandSourceStack().withSuppressedOutput(), command);
     }
 

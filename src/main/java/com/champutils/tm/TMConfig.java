@@ -17,7 +17,7 @@ public final class TMConfig {
     private static final File SHOP_FILE = new File("config/champutils/tm_shop.json");
 
     // Kept only so older command/config references still compile; the shop no longer uses rarity.
-    public static final List<String> RARITIES = List.of("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC");
+    public static final List<String> RARITIES = List.of("F", "E", "D", "C", "B", "A", "S");
     public static Map<String, List<String>> configuredRarities = new LinkedHashMap<>();
     public static Map<String, Map<String, Integer>> selectedCosts = new LinkedHashMap<>();
     public static Map<String, Map<String, Integer>> randomCosts = new LinkedHashMap<>();
@@ -76,15 +76,16 @@ public final class TMConfig {
     }
 
     public static String normalizeRarity(String value) {
-        if (value == null) return "COMMON";
+        if (value == null) return "F";
         String clean = value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
         return switch (clean) {
-            case "UNCOMMON" -> "UNCOMMON";
-            case "RARE" -> "RARE";
-            case "EPIC" -> "EPIC";
-            case "LEGENDARY" -> "LEGENDARY";
-            case "MYTHIC" -> "MYTHIC";
-            default -> "COMMON";
+            case "E" -> "E";
+            case "D" -> "D";
+            case "C" -> "C";
+            case "B" -> "B";
+            case "A" -> "A";
+            case "S" -> "S";
+            default -> "F";
         };
     }
 

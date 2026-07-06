@@ -3,6 +3,7 @@ package com.champutils.profession;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import com.champutils.network.NetworkEventManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -186,6 +187,7 @@ public final class ProfessionNotificationSettings {
                 target.sendSystemMessage(message);
             }
         }
+        NetworkEventManager.publishBroadcast(message);
     }
 
 
@@ -196,6 +198,7 @@ public final class ProfessionNotificationSettings {
                 target.sendSystemMessage(message);
             }
         }
+        NetworkEventManager.publishQueueBroadcast(message);
     }
 
     public static void playBroadcastSound(

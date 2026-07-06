@@ -307,18 +307,23 @@ public final class DatabaseManager {
      * Use this only on lifecycle safety points such as /forcesaverestart, player disconnect cleanup, and server stop.
      */
     public static boolean flushSubmittedTasks(long timeout, TimeUnit unit) {
+        boolean serverThread = Thread.currentThread().getName() != null && Thread.currentThread().getName().equalsIgnoreCase("Server thread");
         long deadline = System.nanoTime() + unit.toNanos(timeout);
         long target = SUBMITTED_TASKS.get();
         while (COMPLETED_TASKS.get() < target) {
             if (System.nanoTime() >= deadline) {
-                System.err.println("[ChampUtils] Database flush timed out. completed=" + COMPLETED_TASKS.get() + " target=" + target);
-                return false;
+                System.err.println("[ChampUtils] Database flush timed out. completed=" + COMPLETED_TASKS.get() + " target=" + target + " serverThread=" + serverThread);
+                // Never make player-facing profile flows fail only because unrelated async database
+                // work is still draining. Callers that require a hard lifecycle flush can invoke this
+                // off-thread or during shutdown; server-thread gameplay paths should continue after
+                // queueing atomic/coalesced saves.
+                return serverThread;
             }
             try {
-                Thread.sleep(10L);
+                Thread.sleep(serverThread ? 1L : 10L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return false;
+                return serverThread;
             }
         }
         return true;

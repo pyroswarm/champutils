@@ -172,8 +172,8 @@ public class HelpMenu {
                         "§7Identify it to reveal stats.",
                         "§7Reroll if you want better rolls.",
                         "§7Repair gear before durability reaches zero.",
-                        "§7Salvage unwanted gear into fragments.",
-                        "§7Use fragments to craft more gear."
+                        "§7Salvage unwanted gear into essence.",
+                        "§7Use essence to craft more gear."
                 }
         );
     }

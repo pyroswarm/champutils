@@ -99,6 +99,21 @@ public final class TitleConfig {
                 {BuffType.CATCH_CHANCE.name(), 0.005D},
                 {BuffType.PERFECT_IV_CHANCE.name(), 0.0025D}
         });
+
+        addChallengeTitleIfMissing("adventurer_rank_e", "E-Rank Adventurer", "&a", "✦", "Reach Adventurer Rank E.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.005D}, {BuffType.POKEMON_XP.name(), 0.010D}});
+        addChallengeTitleIfMissing("adventurer_rank_d", "D-Rank Adventurer", "&2", "✦", "Reach Adventurer Rank D.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.0075D}, {BuffType.BATTLING_XP.name(), 0.015D}});
+        addChallengeTitleIfMissing("adventurer_rank_c", "C-Rank Adventurer", "&b", "✦", "Reach Adventurer Rank C.", new Object[][] {{BuffType.PERFECT_IV_CHANCE.name(), 0.0025D}, {BuffType.POKEMON_XP.name(), 0.020D}});
+        addChallengeTitleIfMissing("adventurer_rank_b", "B-Rank Adventurer", "&5", "✦", "Reach Adventurer Rank B.", new Object[][] {{BuffType.WORLD_EVENT_REWARDS.name(), 0.020D}, {BuffType.BATTLING_XP.name(), 0.020D}});
+        addChallengeTitleIfMissing("adventurer_rank_a", "A-Rank Adventurer", "&6", "✦", "Reach Adventurer Rank A.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
+        addChallengeTitleIfMissing("adventurer_rank_s", "S-Rank Adventurer", "&d", "✦", "Reach Adventurer Rank S.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.001D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.040D}, {BuffType.CATCH_CHANCE.name(), 0.020D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.005D}});
+
+        addChallengeTitleIfMissing("tower_climber", "Tower Climber", "&b", "▲", "Clear several Battle Tower floors.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.020D}, {BuffType.NPC_MONEY.name(), 0.020D}});
+        addChallengeTitleIfMissing("tower_conqueror", "Tower Conqueror", "&6", "▲", "Clear the full Battle Tower.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.035D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}});
+        addChallengeTitleIfMissing("dex_cartographer", "Dex Cartographer", "&a", "◇", "Complete a major True Dex milestone.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
+        addChallengeTitleIfMissing("mark_mogul", "Mark Mogul", "&e", "$", "Earn a large pile of Guild Marks.", new Object[][] {{BuffType.NPC_MONEY.name(), 0.030D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.015D}});
+        addChallengeTitleIfMissing("contract_titan", "Contract Titan", "&6", "✍", "Complete high-rank contracts.", new Object[][] {{BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}, {BuffType.BATTLING_XP.name(), 0.015D}});
+        addChallengeTitleIfMissing("karp_royalty", "Karp Royalty", "&6", "♕", "Prove suspicious dedication to Magikarp.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.010D}});
+        addChallengeTitleIfMissing("bidoof_believer", "Bidoof Believer", "&e", "☻", "The Bidoof chose you.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.010D}, {BuffType.POKEMON_XP.name(), 0.015D}});
     }
 
     private static void addChallengeTitleIfMissing(String id, String name, String color, String icon, String description, Object[][] buffs) {
@@ -282,11 +297,15 @@ public final class TitleConfig {
 
     private static double worldFirstBuffAmount(String titleId, BuffType type) {
         if (titleId == null || type == null) return 0.0D;
-        if (type == BuffType.SHINY_CHANCE && titleId.contains("shiny")) return 0.001D;
-        if (type == BuffType.CATCH_CHANCE && (titleId.contains("catch") || titleId.contains("legendary") || titleId.contains("ultra_beast"))) return 0.01D;
-        if (type == BuffType.BATTLING_XP && titleId.contains("battle")) return 0.03D;
-        if (type.isProfessionXp() && titleId.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.03D;
-        return type == BuffType.CATCH_CHANCE ? 0.0025D : 0.0D;
+        String id = titleId.toLowerCase(Locale.ROOT);
+        if (type == BuffType.SHINY_CHANCE && id.contains("shiny")) return 0.0015D;
+        if (type == BuffType.SHINY_CHANCE && (id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.0005D;
+        if (type == BuffType.CATCH_CHANCE && (id.contains("catch") || id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.015D;
+        if (type == BuffType.BATTLING_XP && (id.contains("battle") || id.contains("boss") || id.contains("tower"))) return 0.035D;
+        if (type == BuffType.WORLD_EVENT_REWARDS && (id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.025D;
+        if (type == BuffType.POKEMON_XP && (id.contains("starter") || id.contains("karp") || id.contains("bidoof") || id.contains("ditto"))) return 0.025D;
+        if (type.isProfessionXp() && id.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.04D;
+        return type == BuffType.CATCH_CHANCE ? 0.005D : 0.0D;
     }
 
 
@@ -456,7 +475,7 @@ public final class TitleConfig {
         add(c, "gym_champion", "Gym Champion", "&6", "🏅", "manual", null, null, 0, "Complete all gyms.");
         add(c, "mega_hunter", "Mega Hunter", "&5", "✹", "boss_win", null, null, 0, "Defeat a Mega Boss.");
         add(c, "tm_collector", "TM Collector", "&b", "▣", "manual", null, null, 0, "Craft or earn TMs.");
-        add(c, "fragment_forger", "Fragment Forger", "&d", "◇", "manual", null, null, 0, "Upgrade or use profession fragments.");
+        add(c, "essence_forger", "Essence Forger", "&d", "◇", "manual", null, null, 0, "Upgrade or use profession essences.");
         for (ProfessionType type : ProfessionType.values()) {
             String p = pretty(type.name());
             add(c, type.name().toLowerCase(Locale.ROOT) + "_apprentice", p + " Apprentice", "&b", "✦", "profession_level", null, type.name(), 10, "Reach " + p + " level 10.");

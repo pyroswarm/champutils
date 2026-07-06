@@ -6,6 +6,8 @@ import com.champutils.battle.BattleStateManager;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.spawn.SpawnBlockRules;
+import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.adventurer.AdventurerRankUtil;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -67,6 +69,8 @@ public final class RoamingTrainerManager {
         public float spawnYaw;
         public long nextWanderMillis;
         public TrainerTier tier = TrainerTier.ROOKIE;
+        public String adventureSource = "";
+        public int towerFloor = 0;
     }
 
     public static void tick(MinecraftServer server) {
@@ -187,7 +191,84 @@ public final class RoamingTrainerManager {
 
     public static boolean spawnManual(ServerPlayer player, RoamingTrainerRarity rarity) {
         if (player == null) return false;
-        return spawnNearPlayer(player, rarity == null ? chooseRarity() : rarity, true);
+        return spawnNearPlayer(player, rarity == null ? chooseRarity() : rarity, true) != null;
+    }
+
+    public static UUID spawnForAdventureGuild(ServerPlayer player, RoamingTrainerRarity rarity, String source, int towerFloor) {
+        if (player == null) return null;
+        RoamingTrainerData data = spawnNearPlayer(player, rarity == null ? RoamingTrainerRarity.F : rarity, true);
+        if (data == null) return null;
+        data.adventureSource = source == null ? "" : source;
+        data.towerFloor = Math.max(0, towerFloor);
+        NPCEntity npc = findNpc(player.getServer(), data.npcUuid);
+        if (npc != null) {
+            String label;
+            if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+                label = "Battle Tower Floor " + Math.max(1, data.towerFloor);
+            } else if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
+                label = AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(data.rarity));
+            } else {
+                label = data.displayName;
+            }
+            data.displayName = label;
+            try { npc.setCustomName(Component.literal(label).withStyle(data.rarity.color)); } catch (Exception ignored) {}
+            try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        }
+        return data.npcUuid;
+    }
+
+
+    public static UUID spawnForAdventureGuildAt(ServerPlayer player, ServerLevel level, Vec3 pos, float yaw, RoamingTrainerRarity rarity, String source, int towerFloor) {
+        if (player == null || level == null || pos == null) return null;
+
+        RoamingTrainerRarity safeRarity = rarity == null ? RoamingTrainerRarity.F : rarity;
+        RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(safeRarity);
+        int targetLevel = playerPartyHighestLevelForRarity(player, safeRarity);
+        TrainerIdentity identity = chooseIdentity(safeRarity, settings);
+        String displayName = identity.displayName;
+        String skin = identity.skin;
+
+        ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, yaw, displayName, skin);
+        if (!result.success || result.npc == null) return null;
+
+        RoamingTrainerData data = new RoamingTrainerData();
+        data.npcUuid = result.npc.getUUID();
+        data.ownerPlayerUuid = player.getUUID();
+        data.rarity = safeRarity;
+        data.tier = tierFor(player);
+        data.targetLevel = targetLevel;
+        data.lastNearbyPlayerMillis = System.currentTimeMillis();
+        data.spawnedMillis = data.lastNearbyPlayerMillis;
+        data.displayName = displayName;
+        data.spawnX = pos.x;
+        data.spawnY = pos.y;
+        data.spawnZ = pos.z;
+        data.spawnYaw = yaw;
+        data.adventureSource = source == null ? "" : source;
+        data.towerFloor = Math.max(0, towerFloor);
+
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+            data.displayName = "Battle Tower Floor " + Math.max(1, data.towerFloor);
+        } else if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
+            data.displayName = AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(data.rarity));
+        }
+
+        try { result.npc.setCustomName(Component.literal(data.displayName).withStyle(data.rarity.color)); } catch (Exception ignored) {}
+        try { result.npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+
+        TRAINERS.put(data.npcUuid, data);
+        scheduleNextWander(data, data.spawnedMillis);
+        applyRoamingProtections(result.npc, data);
+        RoamingTrainerPartyBuilder.apply(result.npc, data);
+        return data.npcUuid;
+    }
+
+    public static BattleContextManager.BattleType battleTypeFor(UUID npcUuid) {
+        RoamingTrainerData data = get(npcUuid);
+        if (data == null) return BattleContextManager.BattleType.NPC;
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) return BattleContextManager.BattleType.ADVENTURE_TOWER;
+        if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) return BattleContextManager.BattleType.ADVENTURE_ROAMING;
+        return BattleContextManager.BattleType.NPC;
     }
 
     public static void handleVictory(ServerPlayer winner, UUID losingNpcUuid) {
@@ -196,6 +277,18 @@ public final class RoamingTrainerManager {
         if (data == null || data.rewardsClaimed) return;
         data.rewardsClaimed = true;
 
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+            AdventurerGuildManager.completeBattleTowerFloor(winner, data);
+            NPCEntity npc = findNpc(winner.getServer(), losingNpcUuid);
+            if (npc != null) removeNpc(npc);
+            TRAINERS.remove(losingNpcUuid);
+            return;
+        }
+
+        if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
+            AdventurerGuildManager.completeRoamingLeagueTrainer(winner, data);
+        }
+
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(data.rarity);
         int fragments = randomBetween(settings.fragmentMin, settings.fragmentMax);
         if (fragments > 0) {
@@ -203,12 +296,12 @@ public final class RoamingTrainerManager {
             if (stack != null && !stack.isEmpty()) {
                 boolean added = winner.getInventory().add(stack);
                 if (!added) winner.drop(stack, false);
-                winner.sendSystemMessage(Component.literal("You received " + fragments + " " + pretty(data.rarity.name()) + " Fragment(s).").withStyle(data.rarity.color));
+                winner.sendSystemMessage(Component.literal("You received " + fragments + " " + AdventurerRankUtil.displayRank(AdventurerRankUtil.fromRarity(data.rarity)) + " Essence.").withStyle(data.rarity.color));
             }
         }
 
         runCommands(winner, settings.rewardCommands, data);
-        winner.sendSystemMessage(Component.literal("You defeated a " + pretty(data.rarity.name()) + " trainer!").withStyle(data.rarity.color));
+        winner.sendSystemMessage(Component.literal("You defeated a " + AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(data.rarity)) + "!").withStyle(data.rarity.color));
 
         NPCEntity npc = findNpc(winner.getServer(), losingNpcUuid);
         if (npc != null) {
@@ -228,13 +321,13 @@ public final class RoamingTrainerManager {
         spawnNearPlayer(player, chooseRarityFor(player), false);
     }
 
-    private static boolean spawnNearPlayer(ServerPlayer player, RoamingTrainerRarity rarity, boolean force) {
+    private static RoamingTrainerData spawnNearPlayer(ServerPlayer player, RoamingTrainerRarity rarity, boolean force) {
         ServerLevel level = player.serverLevel();
         String dimensionId = level.dimension().location().toString();
-        if (RoamingTrainerConfig.isBlockedDimension(dimensionId) || SpawnBlockRules.isBlockedSpawnLevel(level)) return false;
+        if (RoamingTrainerConfig.isBlockedDimension(dimensionId) || SpawnBlockRules.isBlockedSpawnLevel(level)) return null;
 
         Vec3 pos = findSpawnPosition(level, player.position());
-        if (pos == null) return false;
+        if (pos == null) return null;
 
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(rarity);
         int targetLevel = playerPartyHighestLevelForRarity(player, rarity);
@@ -242,7 +335,7 @@ public final class RoamingTrainerManager {
         String displayName = identity.displayName;
         String skin = identity.skin;
         ChampTrainerSpawner.SpawnResult result = ChampTrainerSpawner.spawnRoaming(level, pos, player.getYRot() + 180.0F, displayName, skin);
-        if (!result.success || result.npc == null) return false;
+        if (!result.success || result.npc == null) return null;
 
         RoamingTrainerData data = new RoamingTrainerData();
         data.npcUuid = result.npc.getUUID();
@@ -268,7 +361,7 @@ public final class RoamingTrainerManager {
         if (rarity.alertsPlayers()) {
             alertNearbyPlayers(level, result.npc.position(), rarity, displayName);
         }
-        return true;
+        return data;
     }
 
     private static Vec3 findSpawnPosition(ServerLevel level, Vec3 origin) {
@@ -530,6 +623,10 @@ public final class RoamingTrainerManager {
         }
     }
 
+    public static NPCEntity findTrainerNpc(MinecraftServer server, UUID uuid) {
+        return findNpc(server, uuid);
+    }
+
     private static NPCEntity findNpc(MinecraftServer server, UUID uuid) {
         if (server == null || uuid == null) return null;
         for (ServerLevel level : server.getAllLevels()) {
@@ -587,19 +684,20 @@ public final class RoamingTrainerManager {
 
         int offset = rarityLevelOffset(rarity);
         // Roaming trainer level scaling is based on spawn rarity, not playtime tier:
-        // common +5, uncommon +10, rare +15, epic +20, legendary +25, mythic +30.
+        // F +5, E +10, D +15, C +20, B +25, A +30, S +35.
         return clamp(highest <= 0 ? 15 + offset : highest + offset, 1, 100);
     }
 
     private static int rarityLevelOffset(RoamingTrainerRarity rarity) {
         if (rarity == null) return 5;
         return switch (rarity) {
-            case COMMON -> 5;
-            case UNCOMMON -> 10;
-            case RARE -> 15;
-            case EPIC -> 20;
-            case LEGENDARY -> 25;
-            case MYTHIC -> 30;
+            case F -> 5;
+            case E -> 10;
+            case D -> 15;
+            case C -> 20;
+            case B -> 25;
+            case A -> 30;
+            case S -> 35;
         };
     }
 
@@ -618,23 +716,23 @@ public final class RoamingTrainerManager {
         TrainerTier tier = tierFor(player);
         Map<RoamingTrainerRarity, Double> weights = new LinkedHashMap<>();
         switch (tier) {
-            case ROOKIE -> { weights.put(RoamingTrainerRarity.COMMON, 85.0D); weights.put(RoamingTrainerRarity.UNCOMMON, 15.0D); }
-            case VETERAN -> { weights.put(RoamingTrainerRarity.COMMON, 45.0D); weights.put(RoamingTrainerRarity.UNCOMMON, 45.0D); weights.put(RoamingTrainerRarity.RARE, 10.0D); }
-            case ACE -> { weights.put(RoamingTrainerRarity.UNCOMMON, 30.0D); weights.put(RoamingTrainerRarity.RARE, 60.0D); weights.put(RoamingTrainerRarity.EPIC, 10.0D); }
-            case CHAMPION -> { weights.put(RoamingTrainerRarity.RARE, 75.0D); weights.put(RoamingTrainerRarity.EPIC, 25.0D); }
+            case ROOKIE -> { weights.put(RoamingTrainerRarity.F, 85.0D); weights.put(RoamingTrainerRarity.E, 15.0D); }
+            case VETERAN -> { weights.put(RoamingTrainerRarity.F, 45.0D); weights.put(RoamingTrainerRarity.E, 45.0D); weights.put(RoamingTrainerRarity.D, 10.0D); }
+            case ACE -> { weights.put(RoamingTrainerRarity.E, 30.0D); weights.put(RoamingTrainerRarity.D, 60.0D); weights.put(RoamingTrainerRarity.C, 10.0D); }
+            case CHAMPION -> { weights.put(RoamingTrainerRarity.D, 75.0D); weights.put(RoamingTrainerRarity.C, 25.0D); }
         }
         return rollWeighted(weights);
     }
 
     private static RoamingTrainerRarity rollWeighted(Map<RoamingTrainerRarity, Double> weights) {
         double total = weights.values().stream().mapToDouble(v -> Math.max(0.0D, v)).sum();
-        if (total <= 0.0D) return RoamingTrainerRarity.COMMON;
+        if (total <= 0.0D) return RoamingTrainerRarity.F;
         double roll = RANDOM.nextDouble() * total;
         for (Map.Entry<RoamingTrainerRarity, Double> entry : weights.entrySet()) {
             roll -= Math.max(0.0D, entry.getValue());
             if (roll <= 0.0D) return entry.getKey();
         }
-        return RoamingTrainerRarity.COMMON;
+        return RoamingTrainerRarity.F;
     }
 
     private static RoamingTrainerRarity chooseRarity() {
@@ -645,13 +743,13 @@ public final class RoamingTrainerManager {
             weights.put(rarity, weight);
             total += weight;
         }
-        if (total <= 0.0D) return RoamingTrainerRarity.COMMON;
+        if (total <= 0.0D) return RoamingTrainerRarity.F;
         double roll = RANDOM.nextDouble() * total;
         for (Map.Entry<RoamingTrainerRarity, Double> entry : weights.entrySet()) {
             roll -= entry.getValue();
             if (roll <= 0.0D) return entry.getKey();
         }
-        return RoamingTrainerRarity.COMMON;
+        return RoamingTrainerRarity.F;
     }
 
     private enum TrainerGender {
@@ -686,7 +784,7 @@ public final class RoamingTrainerManager {
     }
 
     private static String chooseName(RoamingTrainerRarity rarity, RoamingTrainerConfig.RaritySettings settings, TrainerGender gender) {
-        String title = pretty(rarity.name()) + " Trainer";
+        String title = AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(rarity));
         List<String> names = settings.trainerNames;
         if (names != null && !names.isEmpty()) {
             List<String> clean = names.stream().filter(s -> s != null && !s.isBlank()).toList();
@@ -741,7 +839,7 @@ public final class RoamingTrainerManager {
     private static void alertNearbyPlayers(ServerLevel level, Vec3 pos, RoamingTrainerRarity rarity, String displayName) {
         double radius = Math.max(32.0D, RoamingTrainerConfig.DATA.activePlayerRadius);
         for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, box(pos, radius), p -> !p.isSpectator())) {
-            player.sendSystemMessage(Component.literal("A " + pretty(rarity.name()) + " trainer appeared nearby: " + displayName + "!").withStyle(rarity.color));
+            player.sendSystemMessage(Component.literal("A " + AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(rarity)) + " appeared nearby: " + displayName + "!").withStyle(rarity.color));
             try { ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F); } catch (Exception ignored) {}
         }
     }
@@ -772,7 +870,7 @@ public final class RoamingTrainerManager {
     }
 
     private static String pretty(String value) {
-        if (value == null || value.isBlank()) return "Common";
+        if (value == null || value.isBlank()) return "F Rank";
         String lower = value.toLowerCase(Locale.ROOT).replace('_', ' ');
         return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }

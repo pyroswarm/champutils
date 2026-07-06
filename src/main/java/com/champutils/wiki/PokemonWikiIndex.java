@@ -255,9 +255,13 @@ public final class PokemonWikiIndex {
     private static String prettyBucket(String raw) {
         String v = raw == null ? "" : raw.toLowerCase(Locale.ROOT).replace("_", "-");
         return switch (v) {
-            case "common" -> "Common";
-            case "uncommon" -> "Uncommon";
-            case "rare" -> "Rare";
+            case "f" -> "F Rank";
+            case "e" -> "E Rank";
+            case "d" -> "D Rank";
+            case "c" -> "C Rank";
+            case "b" -> "B Rank";
+            case "a" -> "A Rank";
+            case "s" -> "S Rank";
             case "ultra-rare", "ultrarare" -> "Ultra Rare";
             default -> prettyId(raw);
         };

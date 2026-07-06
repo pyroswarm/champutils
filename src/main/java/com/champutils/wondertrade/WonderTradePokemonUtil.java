@@ -62,7 +62,7 @@ public final class WonderTradePokemonUtil {
     public static JsonObject toPayload(ServerPlayer player, Pokemon pokemon) {
         JsonObject payload = AuctionPokemonSerializer.toPayload(player, pokemon);
         String species = payload.has("species") ? payload.get("species").getAsString() : "unknown";
-        payload.addProperty("legendary", isLegendarySpecies(species));
+        payload.addProperty("a", isLegendarySpecies(species));
         payload.addProperty("wondertrade", true);
         return payload;
     }

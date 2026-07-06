@@ -1,5 +1,10 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.adventurer.AdventurerGuildMenu;
+import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.adventurer.AdventurerGuildConfig;
+import com.champutils.adventurer.AdventurerGuildDataManager;
 import com.champutils.economy.EconomyManager;
 
 import com.champutils.quest.QuestConfig;
@@ -19,23 +24,25 @@ import java.util.List;
 public class QuestMenu {
 
     public static void open(ServerPlayer player) {
+        AdventureGuideManager.increment(player, "guild_board", 1);
         QuestDataManager.QuestData data = QuestManager.getData(player);
         QuestManager.refreshIfNeeded(player, data, true);
         QuestDataManager.GuildQuestData guildData = QuestManager.getGuildData(player);
 
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
-        gui.setTitle(Component.literal("Quests"));
-        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 22, 23, 24, 31, 40, 49);
+        gui.setTitle(Component.literal("Adventurer Board"));
+        MenuUtil.fillBorders(gui, 4, 10, 11, 12, 14, 15, 16, 19, 20, 21, 22, 23, 24, 31, 40, 49);
 
         gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Quests & Guild Weeklies"))
-                .addLoreLine(Component.literal("§7Daily period: §f" + QuestManager.dailyPeriodKey()))
-                .addLoreLine(Component.literal("§7Weekly period: §f" + QuestManager.weeklyPeriodKey())));
+                .setName(Component.literal("§6Adventurer Board"))
+                .addLoreLine(Component.literal("§7Daily, weekly, contract,"))
+                .addLoreLine(Component.literal("§7guild, and PvP quests.")));
 
-        setSet(gui, 10, data.daily, "§bDaily Quests", "", true);
-        setSet(gui, 14, data.weekly, "§dWeekly Quests", "", false);
-        setGuildWeekly(gui, 19, player, guildData);
+        setSet(gui, 10, data.daily, "§bDaily Tasks", "", true);
+        setSet(gui, 14, data.weekly, "§dWeekly Tasks", "", false);
+        setPvpGuildMissions(gui, 19, player);
+        setGuildWeekly(gui, 28, player, guildData);
 
         GuiElementBuilder dailyClaim = new GuiElementBuilder(Items.EMERALD)
                 .hideDefaultTooltip()
@@ -43,7 +50,7 @@ public class QuestMenu {
                 .addLoreLine(Component.literal("§7Ready: " + readyText(data.daily)))
                 .addLoreLine(Component.literal("§6Rewards:"));
         addLore(dailyClaim, QuestManager.rewardLore(true));
-        dailyClaim.addLoreLine(Component.literal("§eClick to claim daily rewards"));
+        dailyClaim.addLoreLine(Component.literal("§eClick to claim"));
         dailyClaim.setCallback((index, click, action) -> {
             QuestManager.complete(player, true);
             open(player);
@@ -56,7 +63,7 @@ public class QuestMenu {
                 .addLoreLine(Component.literal("§7Ready: " + readyText(data.weekly)))
                 .addLoreLine(Component.literal("§6Rewards:"));
         addLore(weeklyClaim, QuestManager.rewardLore(false));
-        weeklyClaim.addLoreLine(Component.literal("§eClick to claim weekly rewards"));
+        weeklyClaim.addLoreLine(Component.literal("§eClick to claim"));
         weeklyClaim.setCallback((index, click, action) -> {
             QuestManager.complete(player, false);
             open(player);
@@ -65,23 +72,36 @@ public class QuestMenu {
 
         GuiElementBuilder guildClaim = new GuiElementBuilder(Items.TRIAL_KEY)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Claim Guild Weekly"))
+                .setName(Component.literal("§6Claim Player Guild Weekly"))
                 .addLoreLine(Component.literal("§7Ready: " + readyText(guildData == null ? null : guildData.weekly)))
                 .addLoreLine(Component.literal("§7Claimed: " + (QuestManager.hasClaimedGuildWeekly(player) ? "§aYes" : "§cNo")))
                 .addLoreLine(Component.literal("§6Rewards:"));
         addLore(guildClaim, QuestManager.guildRewardLore());
-        guildClaim.addLoreLine(Component.literal("§eClick to claim guild weekly rewards"));
+        guildClaim.addLoreLine(Component.literal("§eClick to claim"));
         guildClaim.setCallback((index, click, action) -> {
             QuestManager.completeGuildWeekly(player);
             open(player);
         });
         gui.setSlot(24, guildClaim);
 
+        gui.setSlot(40, new GuiElementBuilder(Items.NETHERITE_SWORD)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§cBattle Queues"))
+                .addLoreLine(Component.literal("§7Queue ranked or casual PvP."))
+                .addLoreLine(Component.literal("§7Ranked is the main progression path."))
+                .addLoreLine(Component.literal("§eClick to open"))
+                .setCallback((index, click, action) -> BattleMenu.open(player)));
+
+        gui.setSlot(45, new GuiElementBuilder(Items.ARROW)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§eBack to Adventurer's Guild"))
+                .setCallback((index, click, action) -> AdventurerGuildMenu.open(player)));
+
         gui.setSlot(49, new GuiElementBuilder(Items.CHEST)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Open Contracts"))
-                .addLoreLine(Component.literal("§7Contracts have their own spawn NPC and menu."))
-                .addLoreLine(Component.literal("§eClick to open contracts"))
+                .addLoreLine(Component.literal("§7Contracts are part of the Adventurer's Guild."))
+                .addLoreLine(Component.literal("§eClick to open"))
                 .setCallback((index, click, action) -> ContractMenu.open(player)));
 
         gui.open();
@@ -110,10 +130,54 @@ public class QuestMenu {
         }
     }
 
+    private static void setPvpGuildMissions(SimpleGui gui, int start, ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = AdventurerGuildManager.getData(player);
+        gui.setSlot(start, new GuiElementBuilder(Items.NETHERITE_SWORD)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§cPvP Quests"))
+                .addLoreLine(Component.literal("§7Queued battle objectives."))
+                .addLoreLine(Component.literal("§7Ranked is the main progression path."))
+                .addLoreLine(Component.literal("§7Daily Wins: §f" + data.dailyPvpWins + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpDailyRequiredWins))
+                .addLoreLine(Component.literal("§7Weekly Matches: §f" + data.weeklyPvpMatches + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredMatches))
+                .addLoreLine(Component.literal("§7Weekly Wins: §f" + data.weeklyPvpWins + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredWins))
+                .addLoreLine(Component.literal("§eClick to open battle queues"))
+                .setCallback((slot, click, action) -> BattleMenu.open(player)));
+
+        gui.setSlot(start + 1, new GuiElementBuilder(AdventurerGuildManager.isDailyPvpReady(data) ? Items.LIME_DYE : Items.PAPER)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§cDaily PvP Quest"))
+                .addLoreLine(Component.literal("§7Win queued PvP battles."))
+                .addLoreLine(Component.literal("§7Ranked and casual wins both count."))
+                .addLoreLine(Component.literal("§7Progress: §f" + data.dailyPvpWins + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpDailyRequiredWins))
+                .addLoreLine(Component.literal("§7Claimed: " + (data.dailyPvpClaimed ? "§aYes" : "§cNo")))
+                .addLoreLine(Component.literal("§6Rewards:"))
+                .addLoreLine(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(AdventurerGuildConfig.SETTINGS.pvpDailyRewardCredits)))
+                .addLoreLine(Component.literal("§7• §e" + AdventurerGuildConfig.SETTINGS.pvpDailyRewardRenown + " Adventurer XP"))
+                .addLoreLine(Component.literal("§7• §b" + AdventurerGuildConfig.SETTINGS.pvpDailyRewardMarks + " Adventurer's Marks"))
+                .addLoreLine(Component.literal("§eClick to claim"))
+                .setCallback((slot, click, action) -> { AdventurerGuildManager.claimDailyPvp(player); open(player); }));
+
+        gui.setSlot(start + 2, new GuiElementBuilder(AdventurerGuildManager.isWeeklyPvpReady(data) ? Items.LIME_DYE : Items.MAP)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§cWeekly PvP Quest"))
+                .addLoreLine(Component.literal("§7Play and win queued PvP battles."))
+                .addLoreLine(Component.literal("§7Ranked wins are tracked here."))
+                .addLoreLine(Component.literal("§7Matches: §f" + data.weeklyPvpMatches + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredMatches))
+                .addLoreLine(Component.literal("§7Wins: §f" + data.weeklyPvpWins + "§7/§f" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredWins))
+                .addLoreLine(Component.literal("§7Ranked Wins: §f" + data.weeklyRankedWins))
+                .addLoreLine(Component.literal("§7Claimed: " + (data.weeklyPvpClaimed ? "§aYes" : "§cNo")))
+                .addLoreLine(Component.literal("§6Rewards:"))
+                .addLoreLine(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardCredits)))
+                .addLoreLine(Component.literal("§7• §e" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardRenown + " Adventurer XP"))
+                .addLoreLine(Component.literal("§7• §b" + AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardMarks + " Adventurer's Marks"))
+                .addLoreLine(Component.literal("§eClick to claim"))
+                .setCallback((slot, click, action) -> { AdventurerGuildManager.claimWeeklyPvp(player); open(player); }));
+    }
+
     private static void setGuildWeekly(SimpleGui gui, int start, ServerPlayer player, QuestDataManager.GuildQuestData guildData) {
         GuiElementBuilder main = new GuiElementBuilder(Items.BELL)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Guild Weekly Quests"))
+                .setName(Component.literal("§6Player Guild Weekly Tasks"))
                 .addLoreLine(Component.literal("§7Unique members required: §f" + QuestConfig.SETTINGS.guildWeeklyRequiredPlayers))
                 .addLoreLine(Component.literal("§7Status: " + (guildData == null ? "§cNo Guild" : QuestManager.isReady(guildData.weekly) ? "§6Ready" : "§fIn Progress")))
                 .addLoreLine(Component.literal("§6Rewards:"));
@@ -122,8 +186,8 @@ public class QuestMenu {
 
         if (guildData == null || guildData.weekly == null || guildData.weekly.objectives == null) {
             gui.setSlot(start + 1, new GuiElementBuilder(Items.GRAY_DYE)
-                    .hideDefaultTooltip()
-                    .setName(Component.literal("§7Join a guild to participate.")));
+                .hideDefaultTooltip()
+                .setName(Component.literal("§7Join a guild to participate.")));
             return;
         }
         for (int i = 0; i < Math.min(4, guildData.weekly.objectives.size()); i++) {
@@ -144,7 +208,7 @@ public class QuestMenu {
         gui.setSlot(start, new GuiElementBuilder(Items.CLOCK)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Active Contracts"))
-                .addLoreLine(Component.literal("§7Paid, timed, single-objective quests."))
+                .addLoreLine(Component.literal("§7Timed Adventurer's Guild tasks."))
                 .addLoreLine(Component.literal("§7Max active: §f" + QuestConfig.SETTINGS.maxActiveContracts)));
 
         if (data == null || data.contracts == null || data.contracts.isEmpty()) {
@@ -162,7 +226,7 @@ public class QuestMenu {
             GuiElementBuilder item = new GuiElementBuilder(done ? Items.LIME_DYE : Items.MAP)
                     .hideDefaultTooltip()
                     .setName(Component.literal((done ? "§a" : "§e") + c.description))
-                    .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
+                    .addLoreLine(Component.literal("§7Contract Rank: §f" + com.champutils.quest.QuestConfig.rankForDifficulty(c.difficulty) + " Rank"))
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(c.progress, c.required) + "§7/§f" + c.required))
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
@@ -183,17 +247,16 @@ public class QuestMenu {
         gui.setSlot(start - 1, new GuiElementBuilder(Items.GOLD_INGOT)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Available Contracts"))
-                .addLoreLine(Component.literal("§7Click a contract to buy it."))
+                .addLoreLine(Component.literal("§7Start a contract to earn Adventure rewards."))
                 .addLoreLine(Component.literal("§7Rewards are shown on each contract.")));
         for (int i = 0; i < Math.min(8, contracts.size()); i++) {
             QuestConfig.ContractTemplate c = contracts.get(i);
             GuiElementBuilder item = new GuiElementBuilder(Items.PAPER)
                     .hideDefaultTooltip()
                     .setName(Component.literal("§e" + c.description))
-                    .addLoreLine(Component.literal("§7ID: §f" + c.id))
-                    .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.formatWholeCredits(c.creditCost)))
+                                        .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.formatWholeCredits(c.creditCost)))
                     .addLoreLine(Component.literal("§7Time: §f" + c.durationHours + "h"))
-                    .addLoreLine(Component.literal("§7Difficulty: §f" + c.difficulty))
+                    .addLoreLine(Component.literal("§7Contract Rank: §f" + com.champutils.quest.QuestConfig.rankForDifficulty(c.difficulty) + " Rank"))
                     .addLoreLine(Component.literal("§7Profession: §f" + c.profession))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));

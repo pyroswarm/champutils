@@ -16,6 +16,8 @@ public class BattleContextManager {
         WORLD_BOSS,
         MEGA_BOSS,
         PROFESSION,
+        ADVENTURE_TOWER,
+        ADVENTURE_ROAMING,
         UNKNOWN
     }
 

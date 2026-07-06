@@ -75,63 +75,68 @@ public final class MegaBossConfig {
         if (DATA.nameTagFormat == null || DATA.nameTagFormat.isBlank()) DATA.nameTagFormat = defaultData.nameTagFormat;
         if (DATA.disabledDimensions == null) DATA.disabledDimensions = defaultData.disabledDimensions;
         if (DATA.rarityWeights == null) DATA.rarityWeights = defaultData.rarityWeights;
+        if (DATA.fragmentMin <= 0 && DATA.essenceMin > 0) DATA.fragmentMin = DATA.essenceMin;
+        if (DATA.fragmentMax <= 0 && DATA.essenceMax > 0) DATA.fragmentMax = DATA.essenceMax;
+        DATA.essenceMin = DATA.fragmentMin;
+        DATA.essenceMax = DATA.fragmentMax;
     }
 
     private static Data defaults() {
         Data d = new Data();
         d.bosses = new ArrayList<>(Arrays.asList(
-                boss("abomasnow", "COMMON", "mega=true", "snowwarning", "modest", "blizzard", "gigadrain", "earthpower", "iceshard"),
-                boss("audino", "COMMON", "mega=true", "healer", "bold", "wish", "protect", "dazzlinggleam", "calmmind"),
-                boss("banette", "COMMON", "mega=true", "prankster", "adamant", "shadowsneak", "willowisp", "destinybond", "poltergeist"),
-                boss("beedrill", "COMMON", "mega=true", "adaptability", "jolly", "poisonjab", "uturn", "knockoff", "drillrun"),
-                boss("camerupt", "COMMON", "mega=true", "sheerforce", "quiet", "fireblast", "earthpower", "flashcannon", "stealthrock"),
-                boss("glalie", "COMMON", "mega=true", "refrigerate", "jolly", "doubledge", "earthquake", "explosion", "iceshard"),
-                boss("houndoom", "COMMON", "mega=true", "solarpower", "timid", "nastyplot", "fireblast", "darkpulse", "sludgebomb"),
-                boss("manectric", "COMMON", "mega=true", "intimidate", "timid", "thunderbolt", "overheat", "voltswitch", "hiddenpowerice"),
-                boss("pidgeot", "COMMON", "mega=true", "noguard", "timid", "hurricane", "heatwave", "roost", "uturn"),
-                boss("sharpedo", "COMMON", "mega=true", "strongjaw", "adamant", "protect", "crunch", "psychicfangs", "waterfall"),
+                boss("abomasnow", "F", "mega=true", "snowwarning", "modest", "blizzard", "gigadrain", "earthpower", "iceshard"),
+                boss("audino", "F", "mega=true", "healer", "bold", "wish", "protect", "dazzlinggleam", "calmmind"),
+                boss("banette", "F", "mega=true", "prankster", "adamant", "shadowsneak", "willowisp", "destinybond", "poltergeist"),
+                boss("beedrill", "F", "mega=true", "adaptability", "jolly", "poisonjab", "uturn", "knockoff", "drillrun"),
+                boss("camerupt", "F", "mega=true", "sheerforce", "quiet", "fireblast", "earthpower", "flashcannon", "stealthrock"),
+                boss("glalie", "F", "mega=true", "refrigerate", "jolly", "doubledge", "earthquake", "explosion", "iceshard"),
+                boss("houndoom", "F", "mega=true", "solarpower", "timid", "nastyplot", "fireblast", "darkpulse", "sludgebomb"),
+                boss("manectric", "F", "mega=true", "intimidate", "timid", "thunderbolt", "overheat", "voltswitch", "hiddenpowerice"),
+                boss("pidgeot", "F", "mega=true", "noguard", "timid", "hurricane", "heatwave", "roost", "uturn"),
+                boss("sharpedo", "F", "mega=true", "strongjaw", "adamant", "protect", "crunch", "psychicfangs", "waterfall"),
 
-                boss("absol", "UNCOMMON", "mega=true", "magicbounce", "jolly", "swordsdance", "knockoff", "suckerpunch", "playrough"),
-                boss("aerodactyl", "UNCOMMON", "mega=true", "toughclaws", "jolly", "stoneedge", "dualwingbeat", "earthquake", "dragondance"),
-                boss("aggron", "UNCOMMON", "mega=true", "filter", "impish", "heavyslam", "bodypress", "earthquake", "stealthrock"),
-                boss("altaria", "UNCOMMON", "mega=true", "pixilate", "adamant", "dragondance", "return", "earthquake", "roost"),
-                boss("ampharos", "UNCOMMON", "mega=true", "moldbreaker", "modest", "thunderbolt", "dragonpulse", "focusblast", "voltswitch"),
-                boss("blastoise", "UNCOMMON", "mega=true", "megalauncher", "modest", "waterpulse", "darkpulse", "aurasphere", "icebeam"),
-                boss("sableye", "UNCOMMON", "mega=true", "magicbounce", "careful", "recover", "willowisp", "knockoff", "calmmind"),
-                boss("slowbro", "UNCOMMON", "mega=true", "shellarmor", "bold", "calmmind", "scald", "psyshock", "slackoff"),
-                boss("steelix", "UNCOMMON", "mega=true", "sandforce", "impish", "earthquake", "heavyslam", "bodypress", "stealthrock"),
-                boss("venusaur", "UNCOMMON", "mega=true", "thickfat", "bold", "gigadrain", "sludgebomb", "synthesis", "leechseed"),
+                boss("absol", "E", "mega=true", "magicbounce", "jolly", "swordsdance", "knockoff", "suckerpunch", "playrough"),
+                boss("aerodactyl", "E", "mega=true", "toughclaws", "jolly", "stoneedge", "dualwingbeat", "earthquake", "dragondance"),
+                boss("aggron", "E", "mega=true", "filter", "impish", "heavyslam", "bodypress", "earthquake", "stealthrock"),
+                boss("altaria", "E", "mega=true", "pixilate", "adamant", "dragondance", "return", "earthquake", "roost"),
+                boss("ampharos", "E", "mega=true", "moldbreaker", "modest", "thunderbolt", "dragonpulse", "focusblast", "voltswitch"),
+                boss("blastoise", "E", "mega=true", "megalauncher", "modest", "waterpulse", "darkpulse", "aurasphere", "icebeam"),
+                boss("sableye", "E", "mega=true", "magicbounce", "careful", "recover", "willowisp", "knockoff", "calmmind"),
+                boss("slowbro", "E", "mega=true", "shellarmor", "bold", "calmmind", "scald", "psyshock", "slackoff"),
+                boss("steelix", "E", "mega=true", "sandforce", "impish", "earthquake", "heavyslam", "bodypress", "stealthrock"),
+                boss("venusaur", "E", "mega=true", "thickfat", "bold", "gigadrain", "sludgebomb", "synthesis", "leechseed"),
 
-                boss("alakazam", "RARE", "mega=true", "trace", "timid", "psychic", "focusblast", "shadowball", "nastyplot"),
-                boss("gallade", "RARE", "mega=true", "innerfocus", "jolly", "swordsdance", "closecombat", "psychocut", "knockoff"),
-                boss("gardevoir", "RARE", "mega=true", "pixilate", "timid", "hypervoice", "psyshock", "focusblast", "calmmind"),
-                boss("heracross", "RARE", "mega=true", "skilllink", "adamant", "pinmissile", "rockblast", "closecombat", "swordsdance"),
-                boss("lopunny", "RARE", "mega=true", "scrappy", "jolly", "fakeout", "closecombat", "return", "uturn"),
-                boss("medicham", "RARE", "mega=true", "purepower", "jolly", "fakeout", "highjumpkick", "zenheadbutt", "icepunch"),
-                boss("pinsir", "RARE", "mega=true", "aerilate", "jolly", "swordsdance", "return", "quickattack", "earthquake"),
-                boss("scizor", "RARE", "mega=true", "technician", "adamant", "swordsdance", "bulletpunch", "knockoff", "roost"),
+                boss("alakazam", "D", "mega=true", "trace", "timid", "psychic", "focusblast", "shadowball", "nastyplot"),
+                boss("gallade", "D", "mega=true", "innerfocus", "jolly", "swordsdance", "closecombat", "psychocut", "knockoff"),
+                boss("gardevoir", "D", "mega=true", "pixilate", "timid", "hypervoice", "psyshock", "focusblast", "calmmind"),
+                boss("heracross", "D", "mega=true", "skilllink", "adamant", "pinmissile", "rockblast", "closecombat", "swordsdance"),
+                boss("lopunny", "D", "mega=true", "scrappy", "jolly", "fakeout", "closecombat", "return", "uturn"),
+                boss("medicham", "D", "mega=true", "purepower", "jolly", "fakeout", "highjumpkick", "zenheadbutt", "icepunch"),
+                boss("pinsir", "D", "mega=true", "aerilate", "jolly", "swordsdance", "return", "quickattack", "earthquake"),
+                boss("scizor", "D", "mega=true", "technician", "adamant", "swordsdance", "bulletpunch", "knockoff", "roost"),
 
-                boss("blaziken", "EPIC", "mega=true", "speedboost", "adamant", "swordsdance", "flareblitz", "closecombat", "protect"),
-                boss("charizard", "EPIC", "mega_x=true", "toughclaws", "jolly", "dragondance", "flareblitz", "dragonclaw", "earthquake"),
-                boss("charizard", "EPIC", "mega_y=true", "drought", "timid", "fireblast", "solarbeam", "airslash", "focusblast"),
-                boss("garchomp", "EPIC", "mega=true", "sandforce", "jolly", "swordsdance", "earthquake", "scaleshot", "stoneedge"),
-                boss("gyarados", "EPIC", "mega=true", "moldbreaker", "jolly", "dragondance", "waterfall", "crunch", "earthquake"),
-                boss("lucario", "EPIC", "mega=true", "adaptability", "jolly", "swordsdance", "closecombat", "meteormash", "extremespeed"),
-                boss("mawile", "EPIC", "mega=true", "hugepower", "adamant", "swordsdance", "playrough", "suckerpunch", "knockoff"),
-                boss("sceptile", "EPIC", "mega=true", "lightningrod", "timid", "leafstorm", "dragonpulse", "focusblast", "substitute"),
-                boss("swampert", "EPIC", "mega=true", "swiftswim", "adamant", "raindance", "waterfall", "earthquake", "icepunch"),
+                boss("charizard", "C", "mega_x=true", "toughclaws", "jolly", "dragondance", "flareblitz", "dragonclaw", "earthquake"),
+                boss("charizard", "C", "mega_y=true", "drought", "timid", "fireblast", "solarbeam", "airslash", "focusblast"),
+                boss("lucario", "C", "mega=true", "adaptability", "jolly", "swordsdance", "closecombat", "meteormash", "extremespeed"),
 
-                boss("diancie", "LEGENDARY", "mega=true", "magicbounce", "naive", "diamondstorm", "moonblast", "earthpower", "stealthrock"),
-                boss("gengar", "LEGENDARY", "mega=true", "shadowtag", "timid", "shadowball", "sludgewave", "focusblast", "nastyplot"),
-                boss("kangaskhan", "LEGENDARY", "mega=true", "parentalbond", "jolly", "fakeout", "poweruppunch", "return", "suckerpunch"),
-                boss("metagross", "LEGENDARY", "mega=true", "toughclaws", "jolly", "meteormash", "zenheadbutt", "earthquake", "agility"),
-                boss("salamence", "LEGENDARY", "mega=true", "aerilate", "jolly", "dragondance", "return", "earthquake", "roost"),
-                boss("tyranitar", "LEGENDARY", "mega=true", "sandstream", "jolly", "dragondance", "stoneedge", "crunch", "earthquake"),
+                boss("blaziken", "B", "mega=true", "speedboost", "adamant", "swordsdance", "flareblitz", "closecombat", "protect"),
+                boss("garchomp", "B", "mega=true", "sandforce", "jolly", "swordsdance", "earthquake", "scaleshot", "stoneedge"),
+                boss("gyarados", "B", "mega=true", "moldbreaker", "jolly", "dragondance", "waterfall", "crunch", "earthquake"),
+                boss("mawile", "B", "mega=true", "hugepower", "adamant", "swordsdance", "playrough", "suckerpunch", "knockoff"),
+                boss("sceptile", "B", "mega=true", "lightningrod", "timid", "leafstorm", "dragonpulse", "focusblast", "substitute"),
+                boss("swampert", "B", "mega=true", "swiftswim", "adamant", "raindance", "waterfall", "earthquake", "icepunch"),
 
-                boss("latias", "MYTHIC", "mega=true", "levitate", "timid", "calmmind", "storedpower", "aurasphere", "recover"),
-                boss("latios", "MYTHIC", "mega=true", "levitate", "timid", "dracometeor", "lusterpurge", "aurasphere", "calmmind"),
-                boss("mewtwo", "MYTHIC", "mega_x=true", "steadfast", "jolly", "bulkup", "drainpunch", "psystrike", "icepunch"),
-                boss("mewtwo", "MYTHIC", "mega_y=true", "insomnia", "timid", "psystrike", "fireblast", "icebeam", "nastyplot")
+                boss("diancie", "A", "mega=true", "magicbounce", "naive", "diamondstorm", "moonblast", "earthpower", "stealthrock"),
+                boss("gengar", "A", "mega=true", "shadowtag", "timid", "shadowball", "sludgewave", "focusblast", "nastyplot"),
+                boss("kangaskhan", "A", "mega=true", "parentalbond", "jolly", "fakeout", "poweruppunch", "return", "suckerpunch"),
+                boss("metagross", "A", "mega=true", "toughclaws", "jolly", "meteormash", "zenheadbutt", "earthquake", "agility"),
+                boss("salamence", "A", "mega=true", "aerilate", "jolly", "dragondance", "return", "earthquake", "roost"),
+                boss("tyranitar", "A", "mega=true", "sandstream", "jolly", "dragondance", "stoneedge", "crunch", "earthquake"),
+
+                boss("latias", "S", "mega=true", "levitate", "timid", "calmmind", "storedpower", "aurasphere", "recover"),
+                boss("latios", "S", "mega=true", "levitate", "timid", "dracometeor", "lusterpurge", "aurasphere", "calmmind"),
+                boss("mewtwo", "S", "mega_x=true", "steadfast", "jolly", "bulkup", "drainpunch", "psystrike", "icepunch"),
+                boss("mewtwo", "S", "mega_y=true", "insomnia", "timid", "psystrike", "fireblast", "icebeam", "nastyplot")
         ));
         return d;
     }
@@ -148,7 +153,7 @@ public final class MegaBossConfig {
     }
 
     public static final class Data {
-        public int configVersion = 8;
+        public int configVersion = 9;
         public boolean enabled = true;
         public int checkIntervalTicks = 1200;
         /**
@@ -186,10 +191,12 @@ public final class MegaBossConfig {
         public double scaleModifier = 1.7D;
         public long despawnMinutes = 30L;
         public int battlingXpReward = 350;
-        /** Deprecated: Mega Bosses no longer grant profession fragments. */
+        /** Deprecated: Mega Bosses no longer grant profession Essence. */
         public int fragmentMin = 0;
-        /** Deprecated: Mega Bosses no longer grant profession fragments. */
+        public int essenceMin = 0;
+        /** Deprecated: Mega Bosses no longer grant profession Essence. */
         public int fragmentMax = 0;
+        public int essenceMax = 0;
         public double megaStoneDropChance = 0.50D;
         /** Deprecated: kept so old configs still deserialize safely. */
         public double megaStoneBaseChance = 0.50D;
@@ -209,18 +216,19 @@ public final class MegaBossConfig {
          * Deprecated: natural megaboss selection no longer uses rarity weights.
          * Rarity is still used for difficulty/reward scaling and /megaboss force.
          */
-        public int COMMON = 1;
-        public int UNCOMMON = 1;
-        public int RARE = 1;
-        public int EPIC = 1;
-        public int LEGENDARY = 1;
-        public int MYTHIC = 1;
+        public double F = 1.0D;
+        public double E = 1.0D;
+        public double D = 1.0D;
+        public double C = 1.0D;
+        public double B = 1.0D;
+        public double A = 1.0D;
+        public double S = 1.0D;
     }
 
     public static final class BossEntry {
         public boolean enabled = true;
         public String species = "lucario";
-        public String rarity = "EPIC";
+        public String rarity = "C";
         public String megaStoneItem = "";
         public List<String> megaStoneItems = new ArrayList<>();
         public String extraProperties = "mega=true";

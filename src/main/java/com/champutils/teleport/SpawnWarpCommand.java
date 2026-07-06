@@ -84,7 +84,6 @@ public final class SpawnWarpCommand {
             source.sendFailure(Component.literal("Only players can use /setspawn."));
             return 0;
         }
-
         TeleportConfig.setSpawn(TeleportConfig.capture(player));
         player.sendSystemMessage(Component.literal("Set server spawn to your current location.").withStyle(ChatFormatting.GREEN));
         return 1;
@@ -139,7 +138,6 @@ public final class SpawnWarpCommand {
             source.sendFailure(Component.literal("Only players can use /setwarp."));
             return 0;
         }
-
         TeleportConfig.setWarp(name, TeleportConfig.capture(player));
         player.sendSystemMessage(Component.literal("Set warp: " + name.toLowerCase()).withStyle(ChatFormatting.GREEN));
         return 1;

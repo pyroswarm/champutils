@@ -1,5 +1,8 @@
 package com.champutils.party;
 
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkPlayerDirectory;
 import com.champutils.profile.ProfileRestrictions;
 
 import net.minecraft.ChatFormatting;
@@ -26,15 +29,20 @@ public final class PartyManager {
     private static final Map<UUID, Party> PARTIES_BY_OWNER = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> PLAYER_TO_OWNER = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingInvite> INVITES_BY_TARGET = new ConcurrentHashMap<>();
+    private static final String STATE_KEY = "parties";
+    private static final long SHARED_LOAD_COOLDOWN_MS = 30_000L;
+    private static long lastSharedLoadMillis = 0L;
 
     private PartyManager() {
     }
 
     public static boolean hasParty(UUID playerId) {
+        loadSharedIfNeeded();
         return PLAYER_TO_OWNER.containsKey(playerId);
     }
 
     public static PartySnapshot snapshot(UUID playerId) {
+        loadSharedIfNeeded();
         UUID ownerId = PLAYER_TO_OWNER.get(playerId);
         if (ownerId == null) return null;
         Party party = PARTIES_BY_OWNER.get(ownerId);
@@ -76,6 +84,7 @@ public final class PartyManager {
         PARTIES_BY_OWNER.put(owner.getUUID(), party);
         PLAYER_TO_OWNER.put(owner.getUUID(), owner.getUUID());
         INVITES_BY_TARGET.remove(owner.getUUID());
+        saveShared();
         return Result.ok("Party created. Use /party invite <player> to invite someone.");
     }
 
@@ -94,12 +103,40 @@ public final class PartyManager {
 
         PendingInvite invite = new PendingInvite(party.ownerId, inviter.getUUID(), inviter.getGameProfile().getName(), System.currentTimeMillis() + INVITE_EXPIRE_MS);
         INVITES_BY_TARGET.put(target.getUUID(), invite);
+        saveShared();
         target.sendSystemMessage(Component.literal(inviter.getGameProfile().getName() + " invited you to their party. Use /party accept or /party deny.").withStyle(ChatFormatting.LIGHT_PURPLE));
         return Result.ok("Invited " + target.getGameProfile().getName() + " to your party.");
     }
 
+    public static Result invite(ServerPlayer inviter, String targetName) {
+        if (inviter == null || inviter.server == null || targetName == null || targetName.isBlank()) return Result.fail("Could not send that invite.");
+        for (ServerPlayer player : inviter.server.getPlayerList().getPlayers()) {
+            if (player.getGameProfile().getName().equalsIgnoreCase(targetName)) {
+                return invite(inviter, player);
+            }
+        }
+        NetworkPlayerDirectory.OnlinePlayer remote = NetworkPlayerDirectory.find(targetName);
+        if (remote == null) return Result.fail("Player not found on the network.");
+        if (ProfileRestrictions.blockIronmanTrade(inviter, "player parties")) return Result.fail("Ironman profiles cannot invite players to parties.");
+        if (inviter.getUUID().equals(remote.playerUuid())) return Result.fail("You cannot invite yourself.");
+
+        UUID ownerId = PLAYER_TO_OWNER.get(inviter.getUUID());
+        Party party = ownerId == null ? null : PARTIES_BY_OWNER.get(ownerId);
+        if (party == null) return Result.fail("Create a party first with /party create.");
+        if (!party.ownerId.equals(inviter.getUUID())) return Result.fail("Only the party leader can invite players.");
+        if (hasParty(remote.playerUuid())) return Result.fail(remote.playerName() + " is already in a party.");
+        if (party.members.size() >= DEFAULT_MAX_SIZE) return Result.fail("Your party is full.");
+
+        PendingInvite invite = new PendingInvite(party.ownerId, inviter.getUUID(), inviter.getGameProfile().getName(), System.currentTimeMillis() + INVITE_EXPIRE_MS);
+        INVITES_BY_TARGET.put(remote.playerUuid(), invite);
+        saveShared();
+        NetworkEventManager.publishPrivateMessage(inviter, remote.playerUuid().toString(), "You were invited to " + inviter.getGameProfile().getName() + "'s party. Use /party accept or /party deny.");
+        return Result.ok("Invited " + remote.playerName() + " to your party.");
+    }
+
     public static Result accept(ServerPlayer player) {
         if (player == null) return Result.fail("Could not accept that invite.");
+        forceLoadShared();
         if (ProfileRestrictions.blockIronmanTrade(player, "player parties")) {
             INVITES_BY_TARGET.remove(player.getUUID());
             return Result.fail("Ironman profiles cannot join player parties.");
@@ -118,14 +155,17 @@ public final class PartyManager {
 
         party.members.add(new PartyMember(player.getUUID(), player.getGameProfile().getName()));
         PLAYER_TO_OWNER.put(player.getUUID(), party.ownerId);
+        saveShared();
         broadcast(player.server, party, player.getGameProfile().getName() + " joined the party.", ChatFormatting.GREEN);
         return Result.ok("You joined the party.");
     }
 
     public static Result deny(ServerPlayer player) {
         if (player == null) return Result.fail("Could not deny that invite.");
+        forceLoadShared();
         PendingInvite invite = INVITES_BY_TARGET.remove(player.getUUID());
         if (invite == null) return Result.fail("You do not have a pending party invite.");
+        saveShared();
         return Result.ok("Party invite denied.");
     }
 
@@ -146,6 +186,7 @@ public final class PartyManager {
 
         party.members.removeIf(member -> member.id.equals(player.getUUID()));
         PLAYER_TO_OWNER.remove(player.getUUID());
+        saveShared();
         broadcast(player.server, party, player.getGameProfile().getName() + " left the party.", ChatFormatting.YELLOW);
         player.sendSystemMessage(Component.literal("You left the party.").withStyle(ChatFormatting.YELLOW));
         return Result.silentOk();
@@ -168,6 +209,7 @@ public final class PartyManager {
 
         party.members.removeIf(member -> member.id.equals(target.getUUID()));
         PLAYER_TO_OWNER.remove(target.getUUID());
+        saveShared();
         target.sendSystemMessage(Component.literal("You were removed from the party.").withStyle(ChatFormatting.RED));
         broadcast(leader.server, party, target.getGameProfile().getName() + " was removed from the party.", ChatFormatting.YELLOW);
         return Result.ok("Removed " + target.getGameProfile().getName() + " from the party.");
@@ -185,25 +227,30 @@ public final class PartyManager {
         party.ownerName = target.getGameProfile().getName();
         PARTIES_BY_OWNER.put(party.ownerId, party);
         for (PartyMember member : party.members) PLAYER_TO_OWNER.put(member.id, party.ownerId);
+        saveShared();
         broadcast(leader.server, party, target.getGameProfile().getName() + " is now the party leader.", ChatFormatting.GOLD);
         return Result.ok("Transferred party leadership to " + target.getGameProfile().getName() + ".");
     }
 
     public static void handleDisconnect(ServerPlayer player) {
         if (player == null) return;
-        leave(player);
         INVITES_BY_TARGET.remove(player.getUUID());
+        saveShared();
     }
 
     public static void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
-        INVITES_BY_TARGET.entrySet().removeIf(entry -> entry.getValue().expiresAtMs <= now);
+        boolean changed = INVITES_BY_TARGET.entrySet().removeIf(entry -> entry.getValue().expiresAtMs <= now);
 
         Set<UUID> emptyOwners = new HashSet<>();
         for (Party party : PARTIES_BY_OWNER.values()) {
             if (party.members.isEmpty()) emptyOwners.add(party.ownerId);
         }
-        for (UUID ownerId : emptyOwners) PARTIES_BY_OWNER.remove(ownerId);
+        for (UUID ownerId : emptyOwners) {
+            PARTIES_BY_OWNER.remove(ownerId);
+            changed = true;
+        }
+        if (changed) saveShared();
     }
 
     private static Party ownedParty(ServerPlayer player) {
@@ -215,6 +262,7 @@ public final class PartyManager {
     private static void disbandParty(MinecraftServer server, Party party, String message) {
         for (PartyMember member : new ArrayList<>(party.members)) PLAYER_TO_OWNER.remove(member.id);
         PARTIES_BY_OWNER.remove(party.ownerId);
+        saveShared();
         if (server != null) {
             for (PartyMember member : party.members) {
                 ServerPlayer online = server.getPlayerList().getPlayer(member.id);
@@ -229,6 +277,46 @@ public final class PartyManager {
             ServerPlayer online = server.getPlayerList().getPlayer(member.id);
             if (online != null) online.sendSystemMessage(Component.literal(message).withStyle(color));
         }
+    }
+
+    private static void loadSharedIfNeeded() {
+        long now = System.currentTimeMillis();
+        if (now - lastSharedLoadMillis < SHARED_LOAD_COOLDOWN_MS) return;
+        lastSharedLoadMillis = now;
+        State state = new State();
+        state.partiesByOwner.putAll(PARTIES_BY_OWNER);
+        state.playerToOwner.putAll(PLAYER_TO_OWNER);
+        state.invitesByTarget.putAll(INVITES_BY_TARGET);
+        State shared = SharedJsonStateRepository.loadGlobal(STATE_KEY, State.class, state);
+        if (shared == null) return;
+        if (shared.partiesByOwner == null) shared.partiesByOwner = new HashMap<>();
+        if (shared.playerToOwner == null) shared.playerToOwner = new HashMap<>();
+        if (shared.invitesByTarget == null) shared.invitesByTarget = new HashMap<>();
+        PARTIES_BY_OWNER.clear();
+        PARTIES_BY_OWNER.putAll(shared.partiesByOwner);
+        PLAYER_TO_OWNER.clear();
+        PLAYER_TO_OWNER.putAll(shared.playerToOwner);
+        INVITES_BY_TARGET.clear();
+        INVITES_BY_TARGET.putAll(shared.invitesByTarget);
+    }
+
+    private static void forceLoadShared() {
+        lastSharedLoadMillis = 0L;
+        loadSharedIfNeeded();
+    }
+
+    private static void saveShared() {
+        State state = new State();
+        state.partiesByOwner.putAll(PARTIES_BY_OWNER);
+        state.playerToOwner.putAll(PLAYER_TO_OWNER);
+        state.invitesByTarget.putAll(INVITES_BY_TARGET);
+        SharedJsonStateRepository.saveGlobal(STATE_KEY, state);
+    }
+
+    private static final class State {
+        Map<UUID, Party> partiesByOwner = new HashMap<>();
+        Map<UUID, UUID> playerToOwner = new HashMap<>();
+        Map<UUID, PendingInvite> invitesByTarget = new HashMap<>();
     }
 
     private static final class Party {

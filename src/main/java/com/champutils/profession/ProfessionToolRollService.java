@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
@@ -77,6 +79,18 @@ public final class ProfessionToolRollService {
                         rolledStats
                 );
 
+        String activeAbility =
+                rollActiveAbility(
+                        toolId,
+                        toolData,
+                        null
+                );
+
+        ProfessionToolMetadata.setActiveAbility(
+                stack,
+                activeAbility
+        );
+
         ProfessionToolMetadata.applyRoll(
                 stack,
                 rolledStats,
@@ -97,6 +111,7 @@ public final class ProfessionToolRollService {
                 rolledStats,
                 quality,
                 ProfessionToolMetadata.getRerolls(stack),
+                activeAbility,
                 "Identified " +
                         ProfessionToolConfig.getDisplayName(
                                 toolId,
@@ -167,6 +182,24 @@ public final class ProfessionToolRollService {
                         rolledStats
                 );
 
+        String previousActiveAbility =
+                ProfessionToolMetadata.getResolvedActiveAbility(
+                        stack,
+                        toolData
+                );
+
+        String activeAbility =
+                rollActiveAbility(
+                        toolId,
+                        toolData,
+                        previousActiveAbility
+                );
+
+        ProfessionToolMetadata.setActiveAbility(
+                stack,
+                activeAbility
+        );
+
         ProfessionToolMetadata.applyRoll(
                 stack,
                 rolledStats,
@@ -180,6 +213,7 @@ public final class ProfessionToolRollService {
                 rolledStats,
                 quality,
                 ProfessionToolMetadata.getRerolls(stack),
+                activeAbility,
                 "Rerolled " +
                         ProfessionToolConfig.getDisplayName(
                                 toolId,
@@ -224,10 +258,7 @@ public final class ProfessionToolRollService {
                         stack
                 );
 
-        if (
-                toolId == null ||
-                        toolId.isBlank()
-        ) {
+        if (toolId == null || toolId.isBlank()) {
             return 0L;
         }
 
@@ -241,10 +272,94 @@ public final class ProfessionToolRollService {
                         stack
                 );
 
-        return ProfessionToolConfig.getRerollCost(
-                toolData,
-                rerolls
-        );
+        return ProfessionToolConfig.getRerollCost(toolData, rerolls);
+    }
+
+    public static int getRerollFragmentCost(
+            ItemStack stack
+    ) {
+
+        String toolId =
+                ProfessionToolMetadata.getToolId(
+                        stack
+                );
+
+        if (toolId == null || toolId.isBlank()) {
+            return 0;
+        }
+
+        ProfessionToolConfig.ToolData toolData =
+                ProfessionToolConfig.TOOLS.get(
+                        toolId
+                );
+
+        int rerolls =
+                ProfessionToolMetadata.getRerolls(
+                        stack
+                );
+
+        return getRerollFragmentCost(toolData, rerolls);
+    }
+
+    public static int getRerollFragmentCost(
+            ProfessionToolConfig.ToolData toolData,
+            int rerolls
+    ) {
+
+        if (toolData == null || toolData.rarity == null || toolData.rarity.isBlank()) {
+            return 0;
+        }
+
+        int safeRerolls =
+                Math.max(0, rerolls);
+
+        if (safeRerolls >= 30) {
+            return 1_073_741_824;
+        }
+
+        return Math.max(1, 1 << safeRerolls);
+    }
+
+    public static String getRerollFragmentKey(
+            ItemStack stack
+    ) {
+
+        String toolId = ProfessionToolMetadata.getToolId(stack);
+        ProfessionToolConfig.ToolData toolData = toolId == null ? null : ProfessionToolConfig.TOOLS.get(toolId);
+        if (toolData == null || toolData.rarity == null || toolData.rarity.isBlank()) {
+            return null;
+        }
+        return ProfessionFragmentConfig.normalizeRarity(toolData.rarity);
+    }
+
+    public static String rollActiveAbility(
+            String toolId,
+            ProfessionToolConfig.ToolData toolData,
+            String previousAbility
+    ) {
+
+        List<String> pool =
+                ProfessionToolConfig.getActiveAbilityPool(
+                        toolId,
+                        toolData
+                );
+
+        if (pool.isEmpty()) {
+            return null;
+        }
+
+        if (pool.size() == 1) {
+            return pool.get(0);
+        }
+
+        String previous = previousAbility == null ? null : previousAbility.trim().toLowerCase(Locale.ROOT);
+        String selected = pool.get(RANDOM.nextInt(pool.size()));
+
+        for (int attempt = 0; attempt < 8 && previous != null && previous.equals(selected); attempt++) {
+            selected = pool.get(RANDOM.nextInt(pool.size()));
+        }
+
+        return selected;
     }
 
     public static Map<String, Double> rollStats(
@@ -546,8 +661,28 @@ public final class ProfessionToolRollService {
                         result.message +
                         " §7Quality: §e" +
                         (int) Math.floor(result.quality) +
-                        "%"
+                        "%" +
+                        (result.activeAbility == null || result.activeAbility.isBlank()
+                                ? ""
+                                : " §7Active: §b" + formatWords(result.activeAbility))
         );
+    }
+
+    private static String formatWords(
+            String value
+    ) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String[] parts = value.replace("_", " ").replace("-", " ").trim().toLowerCase(Locale.ROOT).split("\\s+");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) continue;
+            builder.append(Character.toUpperCase(part.charAt(0)));
+            if (part.length() > 1) builder.append(part.substring(1));
+            builder.append(" ");
+        }
+        return builder.toString().trim().replaceAll("\\bXp\\b", "XP");
     }
 
     private static double roundOneDecimal(
@@ -569,6 +704,7 @@ public final class ProfessionToolRollService {
         public final Map<String, Double> rolledStats;
         public final double quality;
         public final int rerolls;
+        public final String activeAbility;
         public final String message;
 
         private RollResult(
@@ -579,6 +715,7 @@ public final class ProfessionToolRollService {
                 Map<String, Double> rolledStats,
                 double quality,
                 int rerolls,
+                String activeAbility,
                 String message
         ) {
 
@@ -603,6 +740,9 @@ public final class ProfessionToolRollService {
             this.rerolls =
                     rerolls;
 
+            this.activeAbility =
+                    activeAbility;
+
             this.message =
                     message;
         }
@@ -613,6 +753,7 @@ public final class ProfessionToolRollService {
                 Map<String, Double> rolledStats,
                 double quality,
                 int rerolls,
+                String activeAbility,
                 String message
         ) {
 
@@ -624,6 +765,7 @@ public final class ProfessionToolRollService {
                     rolledStats,
                     quality,
                     rerolls,
+                    activeAbility,
                     message
             );
         }
@@ -640,6 +782,7 @@ public final class ProfessionToolRollService {
                     new LinkedHashMap<>(),
                     0.0D,
                     0,
+                    null,
                     null
             );
         }

@@ -1,5 +1,6 @@
 package com.champutils.crate;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionManager;
@@ -40,15 +41,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class OpenCratesMenu {
     private static final Random RANDOM = new Random();
-    private static final String[] ORDER = {"common","uncommon","rare","epic","legendary","mythic","event","guild","world_boss"};
+    private static final String[] ORDER = {"f","e","d","c","a","s","event","guild","world_boss"};
     private static final Map<UUID, Opening> OPENINGS = new ConcurrentHashMap<>();
     private static final Map<String, Long> CRATE_CREDIT_PRICES = Map.of(
-            "common", 250L,
-            "uncommon", 500L,
-            "rare", 1000L,
-            "epic", 5000L,
-            "legendary", 50000L,
-            "mythic", 100000L
+            "f", 250L,
+            "e", 500L,
+            "d", 1000L,
+            "c", 5000L,
+            "a", 50000L,
+            "s", 100000L
     );
 
     private static final int[] SPIN_SLOTS = new int[]{9, 10, 11, 12, 13, 14, 15, 16, 17};
@@ -123,7 +124,6 @@ public final class OpenCratesMenu {
                 lore.add(Component.literal("Right-click: buy 1 for " + EconomyManager.formatWholeCredits(purchasePrice)).withStyle(ChatFormatting.GOLD));
             }
             lore.add(Component.literal("Left-click: open 1 credit.").withStyle(ChatFormatting.YELLOW));
-            lore.add(Component.literal("No guaranteed fragments. Main reward only.").withStyle(ChatFormatting.GRAY));
             lore.add(Component.literal("Roulette opening animation.").withStyle(ChatFormatting.DARK_GRAY));
             GuiElementBuilder b = new GuiElementBuilder(icon).setName(Component.literal(crate.displayName).withStyle(colorFor(id)));
             for (Component line : lore) b.addLoreLine(line);
@@ -138,8 +138,7 @@ public final class OpenCratesMenu {
 
             gui.setSlot(previewSlots[i], new GuiElementBuilder(Items.BOOK)
                     .setName(Component.literal("Preview " + crate.displayName).withStyle(ChatFormatting.AQUA))
-                    .addLoreLine(Component.literal("See possible Pokémon, items, tools,").withStyle(ChatFormatting.GRAY))
-                    .addLoreLine(Component.literal("and guaranteed shard range.").withStyle(ChatFormatting.GRAY))
+                    .addLoreLine(Component.literal("See possible Pokémon rewards.").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("Click to preview.").withStyle(ChatFormatting.YELLOW))
                     .setCallback((index, type, action) -> openPreview(player, id)));
         }
@@ -228,9 +227,7 @@ public final class OpenCratesMenu {
     private static List<PreviewEntry> buildPreviewEntries(CrateConfig.CrateDefinition crate, String crateId) {
         List<PreviewEntry> entries = new ArrayList<>();
         int pokemonCategoryWeight = pokemonCategoryWeight(crateId);
-        int itemCategoryWeight = itemCategoryWeight(crateId);
         double pokemonTotal = totalWeight(crate.pokemon);
-        double itemTotal = totalWeight(crate.items);
 
         if (crate.pokemon != null) {
             for (CrateConfig.WeightedPokemon p : crate.pokemon) {
@@ -238,18 +235,6 @@ public final class OpenCratesMenu {
                 entries.add(new PreviewEntry("Pokémon", p, Items.EGG, effectiveWeight));
             }
         }
-        if (crate.items != null) {
-            for (CrateConfig.WeightedItem i : crate.items) {
-                double effectiveWeight = itemCategoryWeight * (Math.max(0, i.weight) / Math.max(1.0D, itemTotal));
-                entries.add(new PreviewEntry("Items", i, Items.CHEST, effectiveWeight));
-            }
-        }
-
-        Map<String, List<CrateConfig.WeightedTool>> toolsByType = eligibleToolsByType(crate);
-        addCondensedToolPreview(entries, crate, toolsByType, "pickaxe");
-        addCondensedToolPreview(entries, crate, toolsByType, "axe");
-        addCondensedToolPreview(entries, crate, toolsByType, "hoe");
-        addCondensedToolPreview(entries, crate, toolsByType, "shovel");
 
         return entries;
     }
@@ -266,7 +251,7 @@ public final class OpenCratesMenu {
             if (sampleToolId == null) sampleToolId = tool.toolId;
         }
         if (typeWeight <= 0 || sampleToolId == null) return;
-        String rarity = ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
+        String rarity = ProfessionFragmentManager.displayRankName(crate.guaranteedShardRarity);
         double effectiveWeight = toolCategoryWeight(crate) / Math.max(1.0D, (double) toolsByType.size());
         entries.add(new PreviewEntry("Tools", new PreviewToolEntry(sampleToolId, "Unidentified " + rarity + " " + displayToolType(type), typeWeight), toolFallback(type), effectiveWeight));
     }
@@ -382,6 +367,7 @@ public final class OpenCratesMenu {
                 player.closeContainer();
                 // Guaranteed crate fragments removed; main reward only.
                 String actualMainReward = grantReward(player, opening.mainReward);
+                AdventureGuideManager.increment(player, "crate", 1);
                 player.sendSystemMessage(Component.literal("Opened " + opening.crate.displayName + ": ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(actualMainReward == null || actualMainReward.isBlank() ? cleanRewardSummary(opening.mainReward) : actualMainReward).withStyle(ChatFormatting.WHITE)));
                 announceSpecialCratePokemon(player, opening.crate, opening.mainReward, actualMainReward);
@@ -398,51 +384,39 @@ public final class OpenCratesMenu {
         int max = Math.max(min, Math.max(crate.guaranteedShardMin, crate.guaranteedShardMax));
         plan.shardAmount = min + RANDOM.nextInt((max - min) + 1);
         plan.shardRarity = crate.guaranteedShardRarity;
-        plan.summary = plan.shardAmount + " " + ProfessionFragmentManager.formatWords(plan.shardRarity) + " shards";
+        plan.summary = plan.shardAmount + " " + ProfessionFragmentManager.displayRankName(plan.shardRarity) + " shards";
         plan.icon = new ItemStack(Items.AMETHYST_SHARD);
         return plan;
     }
 
     private static int pokemonCategoryWeight(String crateId) {
-        return crateId.equals("mythic") ? 48 : crateId.equals("legendary") || crateId.equals("world_boss") ? 42 : 35;
+        return crateId.equals("s") ? 48 : crateId.equals("a") || crateId.equals("world_boss") ? 42 : 35;
     }
 
     private static int itemCategoryWeight(String crateId) {
-        return 50;
+        return 0;
     }
 
     private static int toolCategoryWeight(CrateConfig.CrateDefinition crate) {
-        if (crate == null || crate.tools == null || crate.tools.isEmpty()) return 0;
-        int weight = 0;
-        for (CrateConfig.WeightedTool tool : crate.tools) {
-            if (isEligibleToolForCrate(crate, tool)) {
-                weight += Math.max(0, tool.weight);
-            }
-        }
-        return Math.max(0, weight);
+        return 0;
     }
 
     private static double totalMainRewardWeight(CrateConfig.CrateDefinition crate, String crateId) {
-        return Math.max(1.0D, pokemonCategoryWeight(crateId) + itemCategoryWeight(crateId) + toolCategoryWeight(crate));
+        return Math.max(1.0D, pokemonCategoryWeight(crateId));
     }
 
     private static RewardPlan rollMainReward(CrateConfig.CrateDefinition crate, String crateId) {
-        int pokemonWeight = pokemonCategoryWeight(crateId);
-        int itemWeight = itemCategoryWeight(crateId);
-        int total = pokemonWeight + itemWeight;
-        int roll = RANDOM.nextInt(Math.max(1, total));
-        if ((roll -= pokemonWeight) < 0) return planPokemon(crate, crateId);
-        return planItem(crate);
+        return planPokemon(crate, crateId);
     }
 
     private static RewardPlan planPokemon(CrateConfig.CrateDefinition crate, String crateId) {
         CrateConfig.WeightedPokemon wp = weighted(crate.pokemon);
-        if (wp == null) return planItem(crate);
+        if (wp == null) return planMissingPokemon();
         int level = 1;
         boolean shiny = RANDOM.nextDouble() * 100.0D < adjustedShinyChance(crate, crateId, wp.species);
         NpcShopService.PokemonCratePool pool = pool(wp.pool, wp.species);
         NpcShopService.PlannedPokemonCrateReward reward = NpcShopService.restorePlannedPokemonCrateReward(wp.species, level, shiny, pool);
-        if (reward == null) return planItem(crate);
+        if (reward == null) return planMissingPokemon();
         RewardPlan plan = new RewardPlan();
         plan.type = RewardType.POKEMON;
         plan.species = wp.species;
@@ -451,6 +425,14 @@ public final class OpenCratesMenu {
         plan.pool = pool;
         plan.summary = (shiny ? "Shiny " : "") + pretty(wp.species);
         plan.icon = reward.icon() == null ? new ItemStack(Items.EGG) : reward.icon().copy();
+        return plan;
+    }
+
+    private static RewardPlan planMissingPokemon() {
+        RewardPlan plan = new RewardPlan();
+        plan.type = RewardType.POKEMON;
+        plan.summary = "No Pokemon available";
+        plan.icon = new ItemStack(Items.EGG);
         return plan;
     }
 
@@ -510,7 +492,7 @@ public final class OpenCratesMenu {
         switch (plan.type) {
             case SHARDS -> {
                 ProfessionManager.addFragments(player, plan.shardRarity, Math.max(1, plan.shardAmount));
-                String name = Math.max(1, plan.shardAmount) + " " + ProfessionFragmentManager.formatWords(plan.shardRarity) + " Shards";
+                String name = Math.max(1, plan.shardAmount) + " " + ProfessionFragmentManager.displayRankName(plan.shardRarity) + " Shards";
                 player.sendSystemMessage(Component.literal("+" + name).withStyle(ChatFormatting.LIGHT_PURPLE));
                 return name;
             }
@@ -598,7 +580,7 @@ public final class OpenCratesMenu {
         if (reward.shiny) return "§6§lSHINY";
         if (reward.type == RewardType.TOOL) return "§d§lTOOL";
         if (reward.type == RewardType.TM) return "§b§lTM";
-        if (reward.type == RewardType.ITEM) return reward.itemId != null && reward.itemId.toLowerCase(Locale.ROOT).contains("master_ball") ? "§6§lRARE ITEM" : "§bITEM";
+        if (reward.type == RewardType.ITEM) return reward.itemId != null && reward.itemId.toLowerCase(Locale.ROOT).contains("master_ball") ? "§6§lD ITEM" : "§bITEM";
         if (reward.type == RewardType.SHARDS) return "§dSHARDS";
         return switch (reward.pool) {
             case LEGENDARY -> "§6§lLEGENDARY";
@@ -682,13 +664,13 @@ public final class OpenCratesMenu {
             return (reward.shiny ? "Shiny " : "") + prettyName(reward.species);
         }
         if (reward.type == RewardType.SHARDS) {
-            return Math.max(1, reward.shardAmount) + " " + ProfessionFragmentManager.formatWords(reward.shardRarity) + " Shards";
+            return Math.max(1, reward.shardAmount) + " " + ProfessionFragmentManager.displayRankName(reward.shardRarity) + " Shards";
         }
         return reward.summary == null || reward.summary.isBlank() ? "Reward" : prettyName(reward.summary);
     }
 
     private static String unidentifiedToolRewardName(CrateConfig.CrateDefinition crate, String toolId) {
-        String rarity = crate == null ? "" : ProfessionFragmentManager.formatWords(crate.guaranteedShardRarity);
+        String rarity = crate == null ? "" : ProfessionFragmentManager.displayRankName(crate.guaranteedShardRarity);
         String type = displayToolType(toolType(toolId));
         if (rarity == null || rarity.isBlank()) {
             return "Unidentified " + type;
@@ -826,11 +808,10 @@ public final class OpenCratesMenu {
     }
 
     private static String normalizeRarity(String rarity) {
-        if (rarity == null || rarity.isBlank()) return "COMMON";
-        return rarity.trim().toUpperCase(Locale.ROOT);
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 
-    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("mythic")) return 25.0D; return Math.max(0D, crate.shinyChance); }
+    private static double adjustedShinyChance(CrateConfig.CrateDefinition crate, String crateId, String species) { if (crateId.equals("s")) return 25.0D; return Math.max(0D, crate.shinyChance); }
     private static <T> T weighted(List<T> list) { if (list == null || list.isEmpty()) return null; int total = 0; for (T t : list) total += Math.max(0, weightOf(t)); if (total <= 0) return list.get(RANDOM.nextInt(list.size())); int roll = RANDOM.nextInt(total); for (T t : list) { roll -= Math.max(0, weightOf(t)); if (roll < 0) return t; } return list.get(0); }
     private static int weightOf(Object o) { if (o instanceof CrateConfig.WeightedPokemon p) return p.weight; if (o instanceof CrateConfig.WeightedItem i) return i.weight; if (o instanceof CrateConfig.WeightedTool t) return t.weight; return 1; }
     private static Item crateIconItem(String crateId, CrateConfig.CrateDefinition crate) {
@@ -841,19 +822,19 @@ public final class OpenCratesMenu {
 
     private static String gildedChestIconId(String crateId) {
         return switch (CrateCreditManager.normalize(crateId)) {
-            case "common" -> "cobblemon:gilded_chest";
-            case "uncommon" -> "cobblemon:yellow_gilded_chest";
-            case "rare" -> "cobblemon:green_gilded_chest";
-            case "epic" -> "cobblemon:blue_gilded_chest";
-            case "legendary" -> "cobblemon:pink_gilded_chest";
-            case "mythic" -> "cobblemon:black_gilded_chest";
+            case "f" -> "cobblemon:gilded_chest";
+            case "e" -> "cobblemon:yellow_gilded_chest";
+            case "d" -> "cobblemon:green_gilded_chest";
+            case "c" -> "cobblemon:blue_gilded_chest";
+            case "a" -> "cobblemon:pink_gilded_chest";
+            case "s" -> "cobblemon:black_gilded_chest";
             case "guild", "world_boss" -> "cobblemon:white_gilded_chest";
             default -> "cobblemon:gilded_chest";
         };
     }
 
     private static Item resolveItem(String id) { try { Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id)); return item == null ? Items.AIR : item; } catch (Exception e) { return Items.AIR; } }
-    private static ChatFormatting colorFor(String id) { return switch (id) { case "common" -> ChatFormatting.WHITE; case "uncommon" -> ChatFormatting.GREEN; case "rare" -> ChatFormatting.AQUA; case "epic", "guild" -> ChatFormatting.DARK_PURPLE; case "legendary", "event", "world_boss" -> ChatFormatting.GOLD; case "mythic" -> ChatFormatting.LIGHT_PURPLE; default -> ChatFormatting.GRAY; }; }
+    private static ChatFormatting colorFor(String id) { return switch (id) { case "f" -> ChatFormatting.WHITE; case "e" -> ChatFormatting.GREEN; case "d" -> ChatFormatting.AQUA; case "c", "guild" -> ChatFormatting.DARK_PURPLE; case "a", "event", "world_boss" -> ChatFormatting.GOLD; case "s" -> ChatFormatting.LIGHT_PURPLE; default -> ChatFormatting.GRAY; }; }
     private static ChatFormatting poolColor(NpcShopService.PokemonCratePool pool) { return switch (pool) { case LEGENDARY -> ChatFormatting.GOLD; case ULTRA_BEAST, PARADOX -> ChatFormatting.LIGHT_PURPLE; case MYTHICAL -> ChatFormatting.RED; default -> ChatFormatting.AQUA; }; }
     private static String poolLabel(NpcShopService.PokemonCratePool pool) { return switch (pool) { case LEGENDARY -> "Legendary"; case ULTRA_BEAST -> "Ultra Beast"; case PARADOX -> "Paradox"; case MYTHICAL -> "Mythical"; default -> "Regular"; }; }
     private static String pretty(String species) { if (species == null) return "Pokemon"; int c=species.indexOf(':'); if(c>=0) species=species.substring(c+1); return species.replace('_',' '); }

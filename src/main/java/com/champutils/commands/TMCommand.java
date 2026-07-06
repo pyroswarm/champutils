@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.menu.TMCrafterMenu;
+import com.champutils.menu.ConfirmationMenu;
 import com.champutils.tm.TMManager;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -10,11 +11,10 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.Comparator;
 import java.util.stream.Collectors;
@@ -62,7 +62,7 @@ public final class TMCommand {
     }
 
     private static int usage(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("TM commands: /tms shop, /tms buy <move>, /tms teach <partySlot> [replaceMoveSlot], then click Confirm in chat. Admin: /tms give <player> <move> [amount], /tms list"), false);
+        source.sendSuccess(() -> Component.literal("TM commands: /tms shop, /tms buy <move>, /tms teach <partySlot> [replaceMoveSlot], then confirm in the UI. Admin: /tms give <player> <move> [amount], /tms list"), false);
         return 1;
     }
 
@@ -89,20 +89,24 @@ public final class TMCommand {
                 player.sendSystemMessage(Component.literal("Hold the TM in your main hand first.").withStyle(ChatFormatting.RED));
                 return 0;
             }
-            Component confirm = Component.literal("[CONFIRM]")
-                    .withStyle(style -> style
-                            .withColor(ChatFormatting.GREEN)
-                            .withBold(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tms confirm " + token))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Click to use this TM."))));
-            Component cancel = Component.literal("  [CANCEL]")
-                    .withStyle(style -> style
-                            .withColor(ChatFormatting.RED)
-                            .withBold(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tms cancel " + token))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Cancel this TM choice. No TM use will be consumed."))));
-            player.sendSystemMessage(Component.literal(preview.message()).withStyle(ChatFormatting.YELLOW));
-            player.sendSystemMessage(confirm.copy().append(Component.literal("  ")).append(cancel));
+            ConfirmationMenu.open(
+                    player,
+                    "Confirm TM Teach",
+                    Items.MUSIC_DISC_CAT,
+                    "§eUse TM",
+                    new String[]{
+                            "§7" + preview.message(),
+                            "§cThe TM will be consumed if teaching succeeds."
+                    },
+                    () -> {
+                        TMManager.TeachResult result = TMManager.confirmPendingTeach(player, token.toString());
+                        player.sendSystemMessage(Component.literal(result.message()).withStyle(result.success() ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    },
+                    () -> {
+                        TMManager.TeachResult result = TMManager.cancelPendingTeach(player, token.toString());
+                        player.sendSystemMessage(Component.literal(result.message()).withStyle(result.success() ? ChatFormatting.YELLOW : ChatFormatting.RED));
+                    }
+            );
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("Only players can use /tms teach."));

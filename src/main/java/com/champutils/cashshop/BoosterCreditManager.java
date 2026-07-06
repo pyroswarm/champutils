@@ -1,5 +1,7 @@
 package com.champutils.cashshop;
 
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkEventManager;
 import com.champutils.permissions.LuckPermsHook;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -15,7 +17,9 @@ import java.io.FileWriter;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class BoosterCreditManager {
@@ -27,6 +31,8 @@ public final class BoosterCreditManager {
     private static final long ONE_HOUR_MILLIS = 60L * 60L * 1000L;
 
     private static State state = new State();
+    private static final Set<UUID> SQL_LOADED = new HashSet<>();
+    private static final String STATE_KEY = "booster_credits";
     private static boolean registered = false;
     private static int tickCounter = 0;
 
@@ -85,6 +91,7 @@ public final class BoosterCreditManager {
         if (uuid == null || amount <= 0) return;
         entry(uuid).purchasedCredits += amount;
         save();
+        savePlayer(uuid);
     }
 
     public static synchronized boolean spend(ServerPlayer player, int amount) {
@@ -98,6 +105,7 @@ public final class BoosterCreditManager {
         int remaining = amount - fromPurchased;
         if (remaining > 0) e.vipPlusCredits = Math.max(0, e.vipPlusCredits - remaining);
         save();
+        savePlayer(player.getUUID());
         return true;
     }
 
@@ -124,7 +132,10 @@ public final class BoosterCreditManager {
         }
 
         boolean changed = grantEligibleVipPlusCredits(player, e);
-        if (changed) save();
+        if (changed) {
+            save();
+            savePlayer(player.getUUID());
+        }
     }
 
     public static synchronized void saveVipPlusSession(ServerPlayer player) {
@@ -135,6 +146,7 @@ public final class BoosterCreditManager {
             e.vipPlusDailyOnlineMillis += Math.min(Math.max(0L, now - e.vipPlusLastSeenMillis), 5L * 60L * 1000L);
             e.vipPlusLastSeenMillis = 0L;
             save();
+            savePlayer(player.getUUID());
         }
     }
 
@@ -162,9 +174,31 @@ public final class BoosterCreditManager {
 
     private static Entry entry(UUID uuid) {
         if (state.players == null) state.players = new HashMap<>();
-        Entry e = state.players.computeIfAbsent(uuid.toString(), ignored -> new Entry());
+        Entry fallback = state.players.computeIfAbsent(uuid.toString(), ignored -> new Entry());
+        Entry e = fallback;
+        if (uuid != null && SQL_LOADED.add(uuid)) {
+            e = SharedJsonStateRepository.loadPlayer(uuid, STATE_KEY, Entry.class, fallback);
+            state.players.put(uuid.toString(), e);
+        }
         migrateLegacy(e);
         return e;
+    }
+
+    private static void savePlayer(UUID uuid) {
+        if (uuid == null || state.players == null) return;
+        Entry entry = state.players.get(uuid.toString());
+        if (entry != null) {
+            SharedJsonStateRepository.savePlayer(uuid, STATE_KEY, entry);
+            NetworkEventManager.publishCacheInvalidation("BOOSTER_CREDITS", uuid);
+        }
+    }
+
+    public static synchronized void invalidateSharedCache(UUID uuid) {
+        if (uuid == null) return;
+        SQL_LOADED.remove(uuid);
+        if (state.players != null) {
+            state.players.remove(uuid.toString());
+        }
     }
 
     private static void sanitize() {
@@ -193,6 +227,14 @@ public final class BoosterCreditManager {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(state, writer); }
+            if (state.players != null) {
+                for (String key : state.players.keySet()) {
+                    try {
+                        savePlayer(UUID.fromString(key));
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
 

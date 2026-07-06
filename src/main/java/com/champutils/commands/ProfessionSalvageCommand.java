@@ -6,6 +6,7 @@ import com.champutils.profession.ProfessionFragmentConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.menu.FragmentCraftingMenu;
 import com.champutils.menu.ProfessionCurrencyInventoryMenu;
+import com.champutils.menu.ConfirmationMenu;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -16,6 +17,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class ProfessionSalvageCommand {
 
@@ -73,7 +75,7 @@ public class ProfessionSalvageCommand {
                     );
 
                     dispatcher.register(
-                            Commands.literal("fragments")
+                            Commands.literal("essence")
                                     .then(
                                             Commands.literal("upgrade")
                                                     .then(
@@ -325,16 +327,27 @@ public class ProfessionSalvageCommand {
             return 0;
         }
 
-        if (
-                ItemSafetyService.requestConfirmationIfNeeded(
-                        player,
-                        stack,
-                        "salvage",
-                        "/salvage confirm"
-                )
-        ) {
-            return 0;
+        if (!confirm) {
+            java.util.List<Component> lore = new java.util.ArrayList<>();
+            lore.add(Component.literal("§7This will permanently salvage the item in your main hand."));
+            String riskReason = ItemSafetyService.getRiskReason(stack);
+            if (riskReason != null) {
+                lore.add(Component.literal("§cCareful: " + riskReason + "."));
+            }
+            lore.add(Component.literal("§cThis cannot be undone."));
+            ConfirmationMenu.open(
+                    player,
+                    "Confirm Salvage",
+                    stack == null || stack.isEmpty() ? Items.ANVIL : stack.getItem(),
+                    "§eSalvage Item",
+                    lore,
+                    () -> trySalvage(player, true),
+                    () -> player.sendSystemMessage(Component.literal("§eSalvage cancelled."))
+            );
+            return 1;
         }
+
+        ItemSafetyService.clear(player, "salvage");
 
         ProfessionFragmentManager.SalvageResult result =
                 ProfessionFragmentManager.salvageHeldTool(
@@ -361,8 +374,8 @@ public class ProfessionSalvageCommand {
                                 ") §afor §6" +
                                 result.amount() +
                                 "x " +
-                                ProfessionFragmentManager.formatWords(result.fragmentKey()) +
-                                " Fragment§a."
+                                ProfessionFragmentManager.displayRankName(result.fragmentKey()) +
+                                " Essence§a."
                 )
         );
 
@@ -394,12 +407,12 @@ public class ProfessionSalvageCommand {
                         "§aUpgraded §6" +
                                 result.cost() +
                                 "x " +
-                                ProfessionFragmentManager.formatWords(result.fromFragment()) +
-                                " Fragment §ato §d" +
+                                ProfessionFragmentManager.displayRankName(result.fromFragment()) +
+                                " Essence §ato §d" +
                                 result.output() +
                                 "x " +
-                                ProfessionFragmentManager.formatWords(result.toFragment()) +
-                                " Fragment§a."
+                                ProfessionFragmentManager.displayRankName(result.toFragment()) +
+                                " Essence§a."
                 )
         );
 
@@ -434,8 +447,8 @@ public class ProfessionSalvageCommand {
                         "§aCrafted using §6" +
                                 result.cost() +
                                 "x " +
-                                ProfessionFragmentManager.formatWords(result.fragmentKey()) +
-                                " Fragment §a+ §6" +
+                                ProfessionFragmentManager.displayRankName(result.fragmentKey()) +
+                                " Essence §a+ §6" +
                                 EconomyManager.formatWholeCredits(result.creditCost()) +
                                 "§a. Result: §f" +
                                 ProfessionFragmentManager.formatWords(result.toolType()) +
@@ -473,8 +486,8 @@ public class ProfessionSalvageCommand {
                         "§aWithdrew §6" +
                                 result.amount() +
                                 "x " +
-                                ProfessionFragmentManager.formatWords(result.fragmentKey()) +
-                                " Fragment§a."
+                                ProfessionFragmentManager.displayRankName(result.fragmentKey()) +
+                                " Essence§a."
                 )
         );
 
@@ -487,7 +500,7 @@ public class ProfessionSalvageCommand {
     ) {
         player.sendSystemMessage(
                 Component.literal(
-                        "§6Profession Fragments:"
+                        "§6Profession Essences:"
                 )
         );
 

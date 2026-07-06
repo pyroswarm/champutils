@@ -118,10 +118,10 @@ public final class TMManager {
     }
 
     private static void assignRarities() {
-        // Rarity is intentionally retired. Keep legacy maps populated as COMMON so old admin commands/configs do not crash.
+        // Rarity is intentionally retired. Keep legacy maps populated as F so old admin commands/configs do not crash.
         for (String moveId : REGISTERED.keySet()) {
-            RARITY_BY_MOVE.put(moveId, "COMMON");
-            MOVES_BY_RARITY.computeIfAbsent("COMMON", k -> new ArrayList<>()).add(moveId);
+            RARITY_BY_MOVE.put(moveId, "F");
+            MOVES_BY_RARITY.computeIfAbsent("F", k -> new ArrayList<>()).add(moveId);
         }
         for (List<String> moves : MOVES_BY_RARITY.values()) moves.sort(java.util.Comparator.comparing(TMManager::prettyMove, String.CASE_INSENSITIVE_ORDER));
     }
@@ -167,7 +167,7 @@ public final class TMManager {
 
     public static String rarityForMove(String rawMove) {
         ensureRegistryReady();
-        return RARITY_BY_MOVE.getOrDefault(sanitizeMove(rawMove), "COMMON");
+        return RARITY_BY_MOVE.getOrDefault(sanitizeMove(rawMove), "F");
     }
 
     public static List<String> movesForRarity(String rawRarity) {
@@ -385,9 +385,9 @@ public final class TMManager {
         if (currentMoves.size() >= 4) {
             int replaceIndex = replaceSlotOneBased - 1;
             replacedMove = prettyMove(currentMoves.get(replaceIndex));
-            message = replacedMove + " will be replaced with " + newMove + " on " + pokemonName + ". Click confirm to confirm your choice.";
+            message = replacedMove + " will be replaced with " + newMove + " on " + pokemonName + ". Confirm in the UI to continue.";
         } else {
-            message = pokemonName + " will learn " + newMove + ". Click confirm to confirm your choice.";
+            message = pokemonName + " will learn " + newMove + ". Confirm in the UI to continue.";
         }
         return TeachPreview.success(message, pokemonName, newMove, replacedMove);
     }
@@ -410,12 +410,12 @@ public final class TMManager {
 
     public static TeachResult confirmPendingTeach(ServerPlayer player, String rawToken) {
         UUID token;
-        try { token = UUID.fromString(rawToken); } catch (Throwable ignored) { return TeachResult.fail("That TM confirmation is invalid. Run /tms teach again."); }
+        try { token = UUID.fromString(rawToken); } catch (Throwable ignored) { return TeachResult.fail("That TM confirmation is invalid. Start the TM teach flow again."); }
         PendingTeach pending = PENDING_TEACHES.remove(token);
-        if (pending == null || !pending.playerId().equals(player.getUUID())) return TeachResult.fail("That TM confirmation expired or does not belong to you. Run /tms teach again.");
-        if (System.currentTimeMillis() > pending.expiresAt()) return TeachResult.fail("That TM confirmation expired. Run /tms teach again.");
+        if (pending == null || !pending.playerId().equals(player.getUUID())) return TeachResult.fail("That TM confirmation expired or does not belong to you. Start the TM teach flow again.");
+        if (System.currentTimeMillis() > pending.expiresAt()) return TeachResult.fail("That TM confirmation expired. Start the TM teach flow again.");
         String heldMove = getMoveId(player.getMainHandItem());
-        if (heldMove == null || !heldMove.equals(pending.moveId())) return TeachResult.fail("You must still be holding the same TM you confirmed. Run /tms teach again.");
+        if (heldMove == null || !heldMove.equals(pending.moveId())) return TeachResult.fail("You must still be holding the same TM you confirmed. Start the TM teach flow again.");
         return teachHeldTM(player, pending.partySlot(), pending.replaceSlot(), true);
     }
 

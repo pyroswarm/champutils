@@ -184,7 +184,7 @@ public final class BetaDoctorCommand {
                 "arena_locations.json",
                 "world_events.json",
                 "profession_tools.json",
-                "profession_fragments.json",
+                "profession_essence.json",
                 "profession_reward_passives.json",
                 "battle_profession_loot.json",
                 "auction_npc_binding.json",
@@ -224,7 +224,7 @@ public final class BetaDoctorCommand {
 
     private static void checkProgressionConfigs(List<CheckResult> results) {
         checkJsonHasArrayOrObject(results, "profession_tools.json", "Profession tools", "tools");
-        checkJsonHasArrayOrObject(results, "profession_fragments.json", "Profession fragments", "fragments");
+        checkJsonHasArrayOrObject(results, "profession_essence.json", "Profession essences", "essence");
         checkJsonHasArrayOrObject(results, "battle_profession_loot.json", "Battle profession loot", "rewards");
         checkDexRewards(results);
     }
@@ -314,7 +314,7 @@ public final class BetaDoctorCommand {
         if (polymerLoaded) {
             results.add(CheckResult.ok("Polymer", "Polymer detected."));
         } else {
-            results.add(CheckResult.warn("Polymer", "Polymer was not detected by common mod ids. Verify your bundled Polymer jar is loaded."));
+            results.add(CheckResult.warn("Polymer", "Polymer was not detected by F-rank mod ids. Verify your bundled Polymer jar is loaded."));
         }
 
         if (luckPermsLoaded) {
@@ -326,7 +326,7 @@ public final class BetaDoctorCommand {
         if (economyCraftLoaded) {
             results.add(CheckResult.ok("Economy", "EconomyCraft detected."));
         } else {
-            results.add(CheckResult.warn("Economy", "EconomyCraft was not detected by common mod ids. Verify credits/economy features in-game."));
+            results.add(CheckResult.warn("Economy", "EconomyCraft was not detected by F-rank mod ids. Verify credits/economy features in-game."));
         }
     }
 

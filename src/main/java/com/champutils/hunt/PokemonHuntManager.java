@@ -1,7 +1,10 @@
 package com.champutils.hunt;
 
+import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.shop.NpcShopService;
@@ -39,6 +42,8 @@ public final class PokemonHuntManager {
     private static final Random RANDOM = new Random();
 
     private static PokemonHuntState STATE = new PokemonHuntState();
+    private static final String STATE_KEY = "pokemon_hunts";
+    private static int followerSyncCounter = 0;
 
     private PokemonHuntManager() {}
 
@@ -48,18 +53,45 @@ public final class PokemonHuntManager {
             if (!FILE.exists()) {
                 STATE = new PokemonHuntState();
                 save();
-                return;
             }
-            try (FileReader reader = new FileReader(FILE)) {
-                PokemonHuntState loaded = GSON.fromJson(reader, PokemonHuntState.class);
-                STATE = loaded == null ? new PokemonHuntState() : loaded;
+            else {
+                try (FileReader reader = new FileReader(FILE)) {
+                    PokemonHuntState loaded = GSON.fromJson(reader, PokemonHuntState.class);
+                    STATE = loaded == null ? new PokemonHuntState() : loaded;
+                }
             }
             if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
             if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+            STATE = SharedJsonStateRepository.loadGlobal(STATE_KEY, PokemonHuntState.class, STATE);
+            if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
+            if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+            boolean repaired = repairLoadedHuntGenders();
+            if (repaired) save();
         } catch (Exception e) {
             e.printStackTrace();
             STATE = new PokemonHuntState();
         }
+    }
+
+    private static boolean repairLoadedHuntGenders() {
+        boolean changed = false;
+        if (STATE == null || STATE.hunts == null) {
+            return false;
+        }
+        for (PokemonHuntState.HuntEntry hunt : STATE.hunts) {
+            if (hunt == null || hunt.species == null) {
+                continue;
+            }
+            String repaired = forcedGenderForSpecies(hunt.species, hunt.gender == null ? java.util.List.of() : java.util.List.of(hunt.gender));
+            if (repaired == null || repaired.isBlank()) {
+                repaired = "any";
+            }
+            if (!normalizeGender(repaired).equals(normalizeGender(hunt.gender))) {
+                hunt.gender = repaired;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public static synchronized void save() {
@@ -68,6 +100,7 @@ public final class PokemonHuntManager {
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(STATE, writer);
             }
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -98,6 +131,9 @@ public final class PokemonHuntManager {
 
     public static synchronized void ensureStarted(MinecraftServer server) {
         if (!PokemonHuntConfig.DATA.settings.enabled) return;
+        if (!NetworkServerConfig.isAuthoritativeGameplayServer()) {
+            return;
+        }
         long now = System.currentTimeMillis();
         if (STATE.hunts == null || STATE.hunts.isEmpty() || STATE.nextRefreshAtMillis <= 0L) {
             refresh(server, false);
@@ -108,10 +144,26 @@ public final class PokemonHuntManager {
 
     public static synchronized void tick(MinecraftServer server) {
         if (server == null || server.getTickCount() % 20 != 0) return;
+        if (!NetworkServerConfig.isAuthoritativeGameplayServer()) {
+            followerSyncCounter++;
+            if (followerSyncCounter >= 60) {
+                followerSyncCounter = 0;
+                STATE = SharedJsonStateRepository.loadGlobal(STATE_KEY, PokemonHuntState.class, STATE);
+                if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
+                if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+            }
+            return;
+        }
         ensureStarted(server);
     }
 
     public static synchronized void forceRefresh(MinecraftServer server) {
+        if (!NetworkServerConfig.isAuthoritativeGameplayServer()) {
+            if (server != null) {
+                server.getPlayerList().broadcastSystemMessage(Component.literal("§c[Hunts] Hunt refreshes are controlled by " + NetworkServerConfig.get().survivalServerId + "."), false);
+            }
+            return;
+        }
         refresh(server, true);
     }
 
@@ -137,7 +189,7 @@ public final class PokemonHuntManager {
         if (announce && server != null && PokemonHuntConfig.DATA.settings.announceNewHunts) {
             com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                     server,
-                    Component.literal("§b[Hunts] §fA new group of Pokémon hunts is available! Use §e/hunts§f.")
+                    Component.literal("§6[Adventurer's Guild] §fNew Pokémon hunts are available. Use §e/hunts§f or visit the Guild.")
             );
         }
     }
@@ -146,8 +198,8 @@ public final class PokemonHuntManager {
         PokemonHuntState.HuntEntry entry = new PokemonHuntState.HuntEntry();
         entry.id = UUID.randomUUID().toString();
         entry.species = normalSpecies(target.species);
-        entry.difficulty = target.difficulty == null ? "COMMON" : target.difficulty.trim().toUpperCase(Locale.ROOT);
-        boolean requiresNature = entry.difficulty.equals("LEGENDARY") || entry.difficulty.equals("MYTHIC");
+        entry.difficulty = PokemonHuntConfig.normalizeDifficulty(target.difficulty);
+        boolean requiresNature = entry.difficulty.equals("A") || entry.difficulty.equals("S");
         entry.nature = requiresNature ? pick(target.natures, "jolly").toLowerCase(Locale.ROOT) : "any";
         entry.gender = forcedGenderForSpecies(entry.species, target.genders);
         entry.ability = normalizeAbility(pick(target.abilities, "any"));
@@ -157,15 +209,76 @@ public final class PokemonHuntManager {
 
 
     private static String forcedGenderForSpecies(String species, java.util.List<String> configured) {
-        String normalized = normalSpecies(species);
-        if (isAlwaysGenderlessSpecies(normalized)) return "genderless";
-        String picked = normalizeGender(pick(configured, "male"));
-        return picked.isBlank() ? "any" : picked;
+        String normalized = genderKey(species);
+
+        if (GENDERLESS_SPECIES.contains(normalized)) {
+            return "genderless";
+        }
+
+        String fixedGender = SINGLE_GENDER_SPECIES.get(normalized);
+        if (fixedGender != null && !fixedGender.isBlank()) {
+            return fixedGender;
+        }
+
+        java.util.List<String> valid = new java.util.ArrayList<>();
+        if (configured != null) {
+            for (String raw : configured) {
+                String gender = normalizeGender(raw);
+                if (gender.equals("male") || gender.equals("female") || gender.equals("any")) {
+                    valid.add(gender);
+                }
+            }
+        }
+
+        if (valid.isEmpty()) {
+            valid.add("male");
+            valid.add("female");
+        }
+
+        String picked = normalizeGender(pick(valid, "any"));
+        return picked.isBlank() || picked.equals("genderless") ? "any" : picked;
     }
 
+    private static String genderKey(String species) {
+        return normalSpecies(species).replace("_", "").replace("-", "").toLowerCase(Locale.ROOT);
+    }
+
+    private static final java.util.Set<String> GENDERLESS_SPECIES = java.util.Set.of(
+            "magnemite","magneton","voltorb","electrode","staryu","starmie","ditto","porygon","unown","porygon2","porygonz",
+            "shedinja","lunatone","solrock","baltoy","claydol","beldum","metang","metagross",
+            "bronzor","bronzong","magnezone","rotom","klink","klang","klinklang","cryogonal","golett","golurk",
+            "carbink","minior","dhelmise","sinistea","polteageist","poltchageist","sinistcha","falinks","tandemaus","maushold","gimmighoul","gholdengo",
+            "mew","celebi","jirachi","deoxys","phione","manaphy","darkrai","shaymin","arceus","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt",
+            "articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","hooh","regirock","regice","registeel",
+            "kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","regigigas","giratina",
+            "cobalion","terrakion","virizion","reshiram","zekrom","kyurem","xerneas","yveltal","zygarde",
+            "typenull","silvally","tapukoko","tapulele","tapubulu","tapufini","cosmog","cosmoem","solgaleo","lunala","necrozma",
+            "zacian","zamazenta","eternatus","regieleki","regidrago","glastrier","spectrier","calyrex",
+            "wochien","chienpao","tinglu","chiyu","koraidon","miraidon",
+            "greattusk","screamtail","brutebonnet","fluttermane","slitherwing","sandyshocks","roaringmoon","walkingwake",
+            "irontreads","ironbundle","ironhands","ironjugulis","ironmoth","ironthorns","ironvaliant","ironleaves","ironcrown","ironboulder",
+            "nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon"
+    );
+
+    private static final java.util.Map<String, String> SINGLE_GENDER_SPECIES = java.util.Map.ofEntries(
+            java.util.Map.entry("nidoranfemale", "female"),
+            java.util.Map.entry("nidoranmale", "male"),
+            java.util.Map.entry("latias", "female"),
+            java.util.Map.entry("latios", "male"),
+            java.util.Map.entry("cresselia", "female"),
+            java.util.Map.entry("tornadus", "male"),
+            java.util.Map.entry("thundurus", "male"),
+            java.util.Map.entry("landorus", "male"),
+            java.util.Map.entry("enamorus", "female"),
+            java.util.Map.entry("ogerpon", "female"),
+            java.util.Map.entry("okidogi", "male"),
+            java.util.Map.entry("munkidori", "male"),
+            java.util.Map.entry("fezandipiti", "male"),
+            java.util.Map.entry("terapagos", "male")
+    );
+
     private static boolean isAlwaysGenderlessSpecies(String species) {
-        String s = normalSpecies(species);
-        return java.util.Set.of("magnemite","magneton","voltorb","electrode","staryu","starmie","porygon","porygon2","porygonz","shedinja","lunatone","solrock","baltoy","claydol","beldum","metang","metagross","bronzor","bronzong","rotom","klink","klang","klinklang","cryogonal","golett","golurk","carbink","minior","dhelmise","sinistea","polteageist","falinks","tandemaus","maushold","gimmighoul","gholdengo","mew","celebi","jirachi","deoxys","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt","articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","hooh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","type_null","silvally","tapukoko","tapulele","tapubulu","tapufini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wochien","chienpao","tinglu","chiyu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon","nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon").contains(s.replace("_", ""));
+        return GENDERLESS_SPECIES.contains(genderKey(species));
     }
 
     private static PokemonHuntConfig.HuntTarget pickWeightedTarget(List<PokemonHuntConfig.HuntTarget> targets, Set<String> usedSpecies) {
@@ -241,11 +354,11 @@ public final class PokemonHuntManager {
         save();
 
         String target = displayTarget(hunt);
-        player.sendSystemMessage(Component.literal("§a[Hunts] You completed the hunt for §e" + target + "§a! Use §f/hunts claim§a to claim your reward."));
+        player.sendSystemMessage(Component.literal("§a[Adventurer's Guild] Hunt complete: §e" + target + "§a. Use §f/hunts claim§a or visit the Guild to claim your reward."));
         if (PokemonHuntConfig.DATA.settings.announceWinners && player.server != null) {
             com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                     player.server,
-                    Component.literal("§b[Hunts] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward.")
+                    Component.literal("§6[Adventurer's Guild] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward.")
             );
         }
     }
@@ -329,6 +442,7 @@ public final class PokemonHuntManager {
         awardCrateCredit(player, hunt.difficulty);
         awardHuntChunks(player, hunt.difficulty);
         awardFragments(player, hunt.difficulty);
+        AdventurerGuildManager.awardGuildActivity(player, guildXpForDifficulty(hunt.difficulty), guildMarksForDifficulty(hunt.difficulty), "Pokémon hunt");
 
         if (rewards.items != null) {
             for (PokemonHuntConfig.RewardItem reward : rewards.items) {
@@ -339,13 +453,14 @@ public final class PokemonHuntManager {
     }
 
     private static void awardHuntChunks(ServerPlayer player, String difficulty) {
-        String tier = difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(Locale.ROOT);
+        String tier = PokemonHuntConfig.normalizeDifficulty(difficulty);
         switch (tier) {
-            case "UNCOMMON" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
-            case "RARE" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 4, false); ProfessionChunkManager.addChunk(player, "IRON", 1, false); }
-            case "EPIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 16, false); ProfessionChunkManager.addChunk(player, "COPPER", 6, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
-            case "LEGENDARY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 8, false); ProfessionChunkManager.addChunk(player, "IRON", 4, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
-            case "MYTHIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 12, false); ProfessionChunkManager.addChunk(player, "IRON", 6, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); }
+            case "E" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
+            case "D" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 4, false); ProfessionChunkManager.addChunk(player, "IRON", 1, false); }
+            case "C" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 16, false); ProfessionChunkManager.addChunk(player, "COPPER", 6, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
+            case "B" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 22, false); ProfessionChunkManager.addChunk(player, "COPPER", 8, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
+            case "A" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 28, false); ProfessionChunkManager.addChunk(player, "COPPER", 10, false); ProfessionChunkManager.addChunk(player, "IRON", 5, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); }
+            case "S" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 36, false); ProfessionChunkManager.addChunk(player, "COPPER", 14, false); ProfessionChunkManager.addChunk(player, "IRON", 7, false); ProfessionChunkManager.addChunk(player, "GOLD", 3, false); ProfessionChunkManager.addChunk(player, "DIAMOND", 1, false); }
             default -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 6, false); ProfessionChunkManager.addChunk(player, "COPPER", 1, false); }
         }
     }
@@ -360,23 +475,48 @@ public final class PokemonHuntManager {
         String rarity = crateIdForDifficulty(difficulty).toUpperCase(Locale.ROOT);
         int amount = 1 + RANDOM.nextInt(3);
         ProfessionFragmentManager.giveFragments(player, rarity, amount);
-        player.sendSystemMessage(Component.literal("+" + amount + " " + displayCrateForDifficulty(difficulty) + " Fragment" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
+        player.sendSystemMessage(Component.literal("+" + amount + " " + PokemonHuntConfig.displayDifficulty(difficulty) + " Essence" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
+    }
+
+
+    private static int guildXpForDifficulty(String difficulty) {
+        return switch (PokemonHuntConfig.normalizeDifficulty(difficulty)) {
+            case "E" -> 75;
+            case "D" -> 110;
+            case "C" -> 170;
+            case "B" -> 260;
+            case "A" -> 400;
+            case "S" -> 650;
+            default -> 50;
+        };
+    }
+
+    private static int guildMarksForDifficulty(String difficulty) {
+        return switch (PokemonHuntConfig.normalizeDifficulty(difficulty)) {
+            case "E" -> 2;
+            case "D" -> 3;
+            case "C" -> 5;
+            case "B" -> 7;
+            case "A" -> 11;
+            case "S" -> 16;
+            default -> 1;
+        };
     }
 
     public static String crateIdForDifficulty(String difficulty) {
-        String value = difficulty == null ? "" : difficulty.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
-        return switch (value) {
-            case "uncommon" -> "uncommon";
-            case "rare" -> "rare";
-            case "epic" -> "epic";
-            case "legendary" -> "legendary";
-            case "mythic" -> "mythic";
-            default -> "common";
+        return switch (PokemonHuntConfig.normalizeDifficulty(difficulty)) {
+            case "E" -> "e";
+            case "D" -> "d";
+            case "C" -> "c";
+            case "B" -> "b";
+            case "A" -> "a";
+            case "S" -> "s";
+            default -> "f";
         };
     }
 
     public static String displayCrateForDifficulty(String difficulty) {
-        return title(crateIdForDifficulty(difficulty)) + " Crate Credit";
+        return PokemonHuntConfig.displayDifficulty(difficulty) + " Crate Credit";
     }
 
     public static String prettyItemId(String itemId) {

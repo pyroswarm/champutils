@@ -1,6 +1,7 @@
 package com.champutils.territory;
 
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.menu.ConfirmationMenu;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -15,6 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -198,8 +200,19 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("You cannot delete this territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("WARNING: This will permanently delete your territory and wipe all builds/items inside its border.").withStyle(ChatFormatting.RED));
-        player.sendSystemMessage(Component.literal("Run /territory delete confirm to continue.").withStyle(ChatFormatting.YELLOW));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Territory Delete",
+                Items.BARRIER,
+                "§cDelete Personal Territory",
+                new String[]{
+                        "§7This permanently deletes your territory.",
+                        "§cAll builds/items inside its border will be wiped.",
+                        "§cThis cannot be undone."
+                },
+                () -> deletePersonal(player),
+                () -> player.sendSystemMessage(Component.literal("§eTerritory deletion cancelled."))
+        );
         return 1;
     }
 
@@ -227,8 +240,19 @@ public final class TerritoryCommand {
             player.sendSystemMessage(Component.literal("Only guild leaders/officers can delete the guild territory.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("WARNING: This will permanently delete your guild territory and wipe all builds/items inside its border.").withStyle(ChatFormatting.RED));
-        player.sendSystemMessage(Component.literal("Run /gterritory delete confirm to continue.").withStyle(ChatFormatting.YELLOW));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Territory Delete",
+                Items.BARRIER,
+                "§cDelete Guild Territory",
+                new String[]{
+                        "§7This permanently deletes your guild territory.",
+                        "§cAll builds/items inside its border will be wiped.",
+                        "§cThis cannot be undone."
+                },
+                () -> deleteGuild(player),
+                () -> player.sendSystemMessage(Component.literal("§eGuild territory deletion cancelled."))
+        );
         return 1;
     }
 
@@ -659,7 +683,7 @@ public final class TerritoryCommand {
         player.sendSystemMessage(Component.literal("/territory set border true|false - Lock players inside the territory border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory border show|hide - Display or hide a particle outline of the border").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/territory trust|untrust|ban|unban|kick <player> - Manage player access").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal("/territory delete confirm - Permanently delete and wipe your personal territory").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("/territory delete - Opens a UI to permanently delete and wipe your personal territory").withStyle(ChatFormatting.GRAY));
         player.sendSystemMessage(Component.literal("/gterritory ban|unban|kick <player> - Guild territory access control").withStyle(ChatFormatting.GRAY));
         return 1;
     }

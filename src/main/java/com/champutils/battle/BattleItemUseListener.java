@@ -1,5 +1,7 @@
 package com.champutils.battle;
 
+import com.champutils.adventurer.AdventurerGuildManager;
+
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
 import net.minecraft.world.InteractionResultHolder;
@@ -15,13 +17,41 @@ import net.minecraft.world.item.Item;
 public class BattleItemUseListener {
 
     private static final TagKey<Item> COBBLEMON_BATTLE_ITEMS =
-            TagKey.create(
-                    Registries.ITEM,
-                    ResourceLocation.fromNamespaceAndPath(
-                            "cobblemon",
-                            "battle_items"
-                    )
-            );
+            cobblemonTag("battle_items");
+
+    private static final TagKey<Item> COBBLEMON_POTIONS =
+            cobblemonTag("potions");
+
+    private static final TagKey<Item> COBBLEMON_RESTORES =
+            cobblemonTag("restores");
+
+    private static final TagKey<Item> COBBLEMON_REVIVES =
+            cobblemonTag("revives");
+
+    private static final TagKey<Item> COBBLEMON_REMEDIES =
+            cobblemonTag("remedies");
+
+    private static final TagKey<Item> COBBLEMON_ETHERS =
+            cobblemonTag("ethers");
+
+    private static TagKey<Item> cobblemonTag(String name) {
+        return TagKey.create(
+                Registries.ITEM,
+                ResourceLocation.fromNamespaceAndPath(
+                        "cobblemon",
+                        name
+                )
+        );
+    }
+
+    private static boolean isBattleTowerHealingItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        return stack.is(COBBLEMON_POTIONS)
+                || stack.is(COBBLEMON_RESTORES)
+                || stack.is(COBBLEMON_REVIVES)
+                || stack.is(COBBLEMON_REMEDIES)
+                || stack.is(COBBLEMON_ETHERS);
+    }
 
     public static void register() {
 
@@ -38,6 +68,26 @@ public class BattleItemUseListener {
                     }
 
 
+                    ItemStack stack =
+                            player.getItemInHand(
+                                    hand
+                            );
+
+
+                    if (
+                            AdventurerGuildManager.isAttemptingBattleTower(serverPlayer)
+                                    &&
+                            isBattleTowerHealingItem(stack)
+                    ) {
+                        serverPlayer.sendSystemMessage(
+                                Component.literal(
+                                        "§cYou cannot heal Pokémon during a Battle Tower attempt. You will be healed at checkpoints."
+                                )
+                        );
+                        return InteractionResultHolder.fail(stack);
+                    }
+
+
                     if (
                             !BattleStateManager.isInBattle(
                                     serverPlayer
@@ -45,7 +95,7 @@ public class BattleItemUseListener {
                     ) {
 
                         return InteractionResultHolder.pass(
-                                player.getItemInHand(hand)
+                                stack
                         );
                     }
 
@@ -57,15 +107,9 @@ public class BattleItemUseListener {
                     ) {
 
                         return InteractionResultHolder.pass(
-                                player.getItemInHand(hand)
+                                stack
                         );
                     }
-
-
-                    ItemStack stack =
-                            player.getItemInHand(
-                                    hand
-                            );
 
 
                     if (

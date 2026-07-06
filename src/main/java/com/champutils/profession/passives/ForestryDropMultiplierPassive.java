@@ -42,9 +42,9 @@ public class ForestryDropMultiplierPassive implements ProfessionPassive {
 
     private int rollMultiplier(ServerPlayer player, ItemStack stack) {
         ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(stack);
-        String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
+        String rarity = data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
         int level = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.FORESTRY));
-        int max = switch (rarity) { case "MYTHIC" -> 5; case "LEGENDARY" -> 4; case "RARE", "EPIC" -> 3; default -> 2; };
+        int max = switch (rarity) { case "S" -> 6; case "A" -> 5; case "B" -> 4; case "D", "C" -> 3; default -> 2; };
         double highBonus = Math.min(0.25D, level / 400.0D);
         double r = RANDOM.nextDouble();
         if (max >= 5 && r < 0.08D + highBonus) return 5;

@@ -17,6 +17,7 @@ public final class RankedTokenManager {
     public static void register() {
         RankedTokenConfig.load();
         ensureSchemaAsync();
+        RankedMatchRewardManager.ensureSchemaAsync();
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> loadAsync(handler.player));
     }
 

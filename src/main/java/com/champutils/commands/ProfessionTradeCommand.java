@@ -53,9 +53,10 @@ public final class ProfessionTradeCommand {
             source.sendFailure(Component.literal("§cItem is not in profession_backpack.json yet: " + id));
             return 0;
         }
-        data.tradeCost = amount;
+        int normalizedAmount = ProfessionBackpackConfig.normalizeConfiguredTradeCost(id, amount);
+        data.tradeCost = normalizedAmount;
         ProfessionBackpackConfig.save();
-        source.sendSuccess(() -> Component.literal("§aSet profession trade cost for §f" + id + "§a to §e" + amount + "§a."), true);
+        source.sendSuccess(() -> Component.literal("§aSet profession trade cost for §f" + id + "§a to §e" + normalizedAmount + "§a." + (normalizedAmount != amount ? " §7(Minimum safe value enforced.)" : "")), true);
         return 1;
     }
 

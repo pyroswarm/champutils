@@ -49,8 +49,11 @@ public final class SurvivalWorldConfig {
 
     public static final class Data {
         public boolean enabled = true;
+        public int overworldStartIndex = 1;
         public int overworldCount = 1;
+        public int netherStartIndex = 1;
         public int netherWorldCount = 1;
+        public int endStartIndex = 1;
         public int endWorldCount = 1;
         public String overworldPrefix = "multiworld:survival_overworld";
         public String netherPrefix = "multiworld:survival_nether";
@@ -84,8 +87,11 @@ public final class SurvivalWorldConfig {
         ));
 
         private Data withDefaults() {
+            if (overworldStartIndex < 1) overworldStartIndex = 1;
             if (overworldCount < 1) overworldCount = 1;
+            if (netherStartIndex < 1) netherStartIndex = 1;
             if (netherWorldCount < 0) netherWorldCount = 1;
+            if (endStartIndex < 1) endStartIndex = 1;
             if (endWorldCount < 0) endWorldCount = 1;
             if (overworldPrefix == null || overworldPrefix.isBlank()) overworldPrefix = "multiworld:survival_overworld";
             if (netherPrefix == null || netherPrefix.isBlank()) netherPrefix = "multiworld:survival_nether";

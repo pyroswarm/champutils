@@ -118,9 +118,7 @@ public final class AuctionItemSerializer {
             }
 
             if (toolData != null) {
-                if (toolData.displayName != null && !toolData.displayName.isBlank()) {
-                    data.addProperty("tool_name", toolData.displayName);
-                }
+                data.addProperty("tool_name", ProfessionToolConfig.getDisplayName(toolId, toolData));
                 data.addProperty("rarity", safe(toolData.rarity));
                 data.addProperty("profession", safe(toolData.profession));
                 data.addProperty("required_level", toolData.requiredLevel);
@@ -131,9 +129,10 @@ public final class AuctionItemSerializer {
                     data.addProperty("image_url", "/auction-icons/tools/" + toolId + ".png");
                 }
 
-                if (toolData.activeAbility != null && !toolData.activeAbility.isBlank()) {
-                    data.addProperty("active_ability_id", toolData.activeAbility);
-                    data.addProperty("active_ability", formatWords(toolData.activeAbility));
+                String activeAbility = ProfessionToolMetadata.getResolvedActiveAbility(stack, toolData);
+                if (activeAbility != null && !activeAbility.isBlank()) {
+                    data.addProperty("active_ability_id", activeAbility);
+                    data.addProperty("active_ability", formatWords(activeAbility));
                     data.addProperty("active_cooldown_seconds", toolData.activeCooldownSeconds);
                     if (toolData.activeDurationSeconds > 0) {
                         data.addProperty("active_duration_seconds", toolData.activeDurationSeconds);

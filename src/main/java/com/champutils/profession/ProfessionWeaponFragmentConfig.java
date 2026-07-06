@@ -28,6 +28,7 @@ public final class ProfessionWeaponFragmentConfig {
         public boolean enabled = true;
         public DropSettings dropSettings = new DropSettings();
         public Map<String, FragmentData> fragments = new LinkedHashMap<>();
+        public Map<String, FragmentData> essence = new LinkedHashMap<>();
         public Map<String, Integer> rarityWeights = new LinkedHashMap<>();
     }
 
@@ -35,7 +36,7 @@ public final class ProfessionWeaponFragmentConfig {
         public double baseDropChance = 0.0125D;
         public double chancePerLevel = 0.0010D;
         public double maxDropChance = 0.15D;
-        public boolean announceLegendaryAndMythicToServer = true;
+        public boolean announceTopRanksToServer = true;
         public boolean actionBarMessage = true;
         /**
          * Guarantees a fragment after this many eligible profession actions without one.
@@ -62,7 +63,7 @@ public final class ProfessionWeaponFragmentConfig {
         public String baseItem = "minecraft:paper";
         public int customModelData = 0;
         public String color = "WHITE";
-        public String lore = "A weapon fragment earned from profession activities.";
+        public String lore = "A weapon essence earned from profession activities.";
     }
 
     public static void load() {
@@ -73,7 +74,11 @@ public final class ProfessionWeaponFragmentConfig {
                 dir.mkdirs();
             }
 
-            File file = new File(dir, "profession_weapon_fragments.json");
+            File file = new File(dir, "profession_weapon_essence.json");
+            File legacyFile = new File(dir, "profession_weapon_fragments.json");
+            if (!file.exists() && legacyFile.exists()) {
+                file = legacyFile;
+            }
 
             if (!file.exists()) {
                 createDefault(file);
@@ -88,13 +93,18 @@ public final class ProfessionWeaponFragmentConfig {
 
                 ENABLED = root.enabled;
                 DROP_SETTINGS = root.dropSettings == null ? new DropSettings() : root.dropSettings;
-                FRAGMENTS = root.fragments == null ? new LinkedHashMap<>() : root.fragments;
+                if (root.essence != null && !root.essence.isEmpty()) {
+                    FRAGMENTS = root.essence;
+                } else {
+                    FRAGMENTS = root.fragments == null ? new LinkedHashMap<>() : root.fragments;
+                }
                 RARITY_WEIGHTS = root.rarityWeights == null ? new LinkedHashMap<>() : root.rarityWeights;
             }
 
             ensureDefaultsIfEmpty();
+            applyRankFragmentDisplay();
 
-            System.out.println("[ChampUtils] Loaded " + FRAGMENTS.size() + " weapon fragment definitions.");
+            System.out.println("[ChampUtils] Loaded " + FRAGMENTS.size() + " weapon essence definitions.");
         } catch (Exception e) {
             e.printStackTrace();
             ConfigRoot defaults = defaultRoot();
@@ -193,19 +203,21 @@ public final class ProfessionWeaponFragmentConfig {
     private static ConfigRoot defaultRoot() {
         ConfigRoot root = new ConfigRoot();
 
-        addFragment(root, "COMMON", "common_weapon_fragment", "Common Weapon Fragment", 9201, "WHITE");
-        addFragment(root, "UNCOMMON", "uncommon_weapon_fragment", "Uncommon Weapon Fragment", 9202, "GREEN");
-        addFragment(root, "RARE", "rare_weapon_fragment", "Rare Weapon Fragment", 9203, "BLUE");
-        addFragment(root, "EPIC", "epic_weapon_fragment", "Epic Weapon Fragment", 9204, "LIGHT_PURPLE");
-        addFragment(root, "LEGENDARY", "legendary_weapon_fragment", "Legendary Weapon Fragment", 9205, "GOLD");
-        addFragment(root, "MYTHIC", "mythic_weapon_fragment", "Mythic Weapon Fragment", 9206, "DARK_PURPLE");
+        addFragment(root, "F", "f_weapon_essence", "F Rank Weapon Essence", 9201, "WHITE");
+        addFragment(root, "E", "e_weapon_essence", "E Rank Weapon Essence", 9202, "GREEN");
+        addFragment(root, "D", "d_weapon_essence", "D Rank Weapon Essence", 9203, "BLUE");
+        addFragment(root, "C", "c_weapon_essence", "C Rank Weapon Essence", 9204, "LIGHT_PURPLE");
+        addFragment(root, "B", "b_weapon_essence", "B Rank Weapon Essence", 9205, "YELLOW");
+        addFragment(root, "A", "a_weapon_essence", "A Rank Weapon Essence", 9206, "GOLD");
+        addFragment(root, "S", "s_weapon_essence", "S Rank Weapon Essence", 9207, "DARK_PURPLE");
 
-        root.rarityWeights.put("COMMON", 800000);
-        root.rarityWeights.put("UNCOMMON", 150000);
-        root.rarityWeights.put("RARE", 40000);
-        root.rarityWeights.put("EPIC", 9000);
-        root.rarityWeights.put("LEGENDARY", 950);
-        root.rarityWeights.put("MYTHIC", 50);
+        root.rarityWeights.put("F", 800000);
+        root.rarityWeights.put("E", 150000);
+        root.rarityWeights.put("D", 40000);
+        root.rarityWeights.put("C", 9000);
+        root.rarityWeights.put("B", 2500);
+        root.rarityWeights.put("A", 650);
+        root.rarityWeights.put("S", 50);
 
         return root;
     }
@@ -224,15 +236,27 @@ public final class ProfessionWeaponFragmentConfig {
         data.baseItem = "minecraft:paper";
         data.customModelData = customModelData;
         data.color = color;
-        data.lore = "A rare weapon crafting fragment found while training professions.";
+        data.lore = "A rare weapon crafting essence found while training professions.";
         root.fragments.put(normalizeRarity(rarity), data);
+        root.essence.put(normalizeRarity(rarity), data);
+    }
+
+
+    private static void applyRankFragmentDisplay() {
+        for (Map.Entry<String, FragmentData> entry : FRAGMENTS.entrySet()) {
+            if (entry == null || entry.getValue() == null) continue;
+            String rank = rankForRarity(entry.getKey());
+            if (rank == null) continue;
+            entry.getValue().displayName = rank + " Rank Weapon Essence";
+            entry.getValue().lore = "A " + rank + " Rank weapon crafting essence found while training professions.";
+        }
+    }
+
+    public static String rankForRarity(String rarity) {
+        return normalizeRarity(rarity);
     }
 
     public static String normalizeRarity(String rarity) {
-        if (rarity == null || rarity.isBlank()) {
-            return "COMMON";
-        }
-
-        return rarity.trim().toUpperCase();
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 }

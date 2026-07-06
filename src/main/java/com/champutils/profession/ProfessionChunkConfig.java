@@ -26,10 +26,13 @@ public final class ProfessionChunkConfig {
 
     public static class ChunkData {
         public String displayName = "Cobblestone Chunk";
-        public String fragmentRarity = "COMMON";
+        public String fragmentRarity = "F";
+        public String essenceRarity = "";
         public double sellCredits = 1.0D;
         public int chunksPerFragment = 1;
+        public int chunksPerEssence = 0;
         public int fragmentsPerTrade = 1;
+        public int essencePerTrade = 0;
     }
 
     public static class ActivityData {
@@ -94,10 +97,16 @@ public final class ProfessionChunkConfig {
         for (ChunkData data : CONFIG.chunks.values()) {
             if (data == null) continue;
             if (data.displayName == null || data.displayName.isBlank()) data.displayName = "Chunk";
-            if (data.fragmentRarity == null || data.fragmentRarity.isBlank()) data.fragmentRarity = "COMMON";
+            if ((data.fragmentRarity == null || data.fragmentRarity.isBlank()) && data.essenceRarity != null && !data.essenceRarity.isBlank()) data.fragmentRarity = data.essenceRarity;
+            if (data.fragmentRarity == null || data.fragmentRarity.isBlank()) data.fragmentRarity = "F";
+            data.essenceRarity = data.fragmentRarity;
             data.sellCredits = Math.max(0.0D, data.sellCredits);
+            if (data.chunksPerFragment <= 0 && data.chunksPerEssence > 0) data.chunksPerFragment = data.chunksPerEssence;
             data.chunksPerFragment = Math.max(1, data.chunksPerFragment);
+            data.chunksPerEssence = data.chunksPerFragment;
+            if (data.fragmentsPerTrade <= 0 && data.essencePerTrade > 0) data.fragmentsPerTrade = data.essencePerTrade;
             data.fragmentsPerTrade = Math.max(1, data.fragmentsPerTrade);
+            data.essencePerTrade = data.fragmentsPerTrade;
         }
         for (ActivityData activity : CONFIG.activities.values()) {
             if (activity == null) continue;
@@ -117,12 +126,12 @@ public final class ProfessionChunkConfig {
 
     private static ConfigRoot defaultConfig() {
         ConfigRoot root = new ConfigRoot();
-        addChunk(root, "COBBLESTONE", "Cobblestone Chunk", "COMMON", 2.0D);
-        addChunk(root, "COPPER", "Copper Chunk", "UNCOMMON", 10.0D);
-        addChunk(root, "IRON", "Iron Chunk", "RARE", 25.0D);
-        addChunk(root, "GOLD", "Gold Chunk", "EPIC", 100.0D);
-        addChunk(root, "DIAMOND", "Diamond Chunk", "LEGENDARY", 300.0D);
-        addChunk(root, "NETHERITE", "Netherite Chunk", "MYTHIC", 1000.0D);
+        addChunk(root, "COBBLESTONE", "Cobblestone Chunk", "F", 2.0D);
+        addChunk(root, "COPPER", "Copper Chunk", "E", 10.0D);
+        addChunk(root, "IRON", "Iron Chunk", "D", 25.0D);
+        addChunk(root, "GOLD", "Gold Chunk", "C", 100.0D);
+        addChunk(root, "DIAMOND", "Diamond Chunk", "A", 300.0D);
+        addChunk(root, "NETHERITE", "Netherite Chunk", "S", 1000.0D);
 
         // Each chunk rolls independently. These odds are tuned around action speed:
         // farming is almost instant, forestry/mining are steady, and battling is intentionally best.

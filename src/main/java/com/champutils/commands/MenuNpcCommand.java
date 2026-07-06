@@ -26,6 +26,7 @@ public final class MenuNpcCommand {
                         .then(Commands.literal("bind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
+                                            builder.suggest("adventurersguild");
                                             builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearworkshop");
@@ -57,6 +58,7 @@ public final class MenuNpcCommand {
                         .then(Commands.literal("unbind")
                                 .then(Commands.argument("menu", StringArgumentType.word())
                                         .suggests((context, builder) -> {
+                                            builder.suggest("adventurersguild");
                                             builder.suggest("profiles");
                                             builder.suggest("gearworkshop");
                                             builder.suggest("gearworkshop");
@@ -91,6 +93,7 @@ public final class MenuNpcCommand {
 
     private static String normalizeMenu(String menu) {
         return switch (menu.toLowerCase()) {
+            case "adventurer", "adventurersguild", "aguild", "guildhall" -> "adventurersguild";
             case "profile", "profiles", "profilemenu" -> "profiles";
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";

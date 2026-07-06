@@ -2,6 +2,7 @@ package com.champutils.commands;
 
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.SellPriceConfig;
+import com.champutils.menu.ConfirmationMenu;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 
 import java.util.Map;
@@ -15,6 +16,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public final class ServerSellCommand {
 
@@ -164,10 +166,23 @@ public final class ServerSellCommand {
         String name = held.getHoverName().getString();
         PENDING_PREVIEWS.put(player.getUUID(), PendingSellPreview.handInventory(itemId, preview.amount, preview.stacks, preview.total));
 
-        player.sendSystemMessage(Component.literal(
-                "§e/sell hand inventory will sell §f" + preview.amount + "x " + name + " §7(" + preview.stacks + " stacks§7) §efor §6" + EconomyManager.format(preview.total) + "§e."
-        ));
-        player.sendSystemMessage(Component.literal("§cThis cannot be undone. Use §e/sell hand inventory confirm §cwithin 30 seconds to continue."));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Sale",
+                held.getItem(),
+                "§eSell Matching Inventory",
+                new String[]{
+                        "§7Item: §f" + name,
+                        "§7Amount: §f" + preview.amount + "x §8(" + preview.stacks + " stacks)",
+                        "§7Total: §6" + EconomyManager.format(preview.total),
+                        "§cThis cannot be undone."
+                },
+                () -> sellHandInventory(player),
+                () -> {
+                    PENDING_PREVIEWS.remove(player.getUUID());
+                    player.sendSystemMessage(Component.literal("§eSale cancelled."));
+                }
+        );
         return 1;
     }
 
@@ -203,7 +218,7 @@ public final class ServerSellCommand {
         PendingSellPreview pending = PENDING_PREVIEWS.get(player.getUUID());
         if (!isValidPending(pending, PendingSellType.HAND_INVENTORY, itemId, amount, stacks, total)) {
             PENDING_PREVIEWS.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("§cPlease preview this sale first with §e/sell hand inventory§c, then confirm within 30 seconds."));
+            player.sendSystemMessage(Component.literal("§cPlease preview this sale first with §e/sell hand inventory§c, then confirm in the UI."));
             return 0;
         }
         PENDING_PREVIEWS.remove(player.getUUID());
@@ -245,10 +260,23 @@ public final class ServerSellCommand {
         }
 
         PENDING_PREVIEWS.put(player.getUUID(), PendingSellPreview.sellAll(preview.itemsSold, preview.stacksSold, preview.total));
-        player.sendSystemMessage(Component.literal(
-                "§e/sellall will sell §f" + preview.itemsSold + " items §7(" + preview.stacksSold + " stacks§7) §efor §6" + EconomyManager.format(preview.total) + "§e."
-        ));
-        player.sendSystemMessage(Component.literal("§cThis cannot be undone. Use §e/sellall confirm §cor §e/sell all confirm §cwithin 30 seconds to continue."));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Sell All",
+                Items.EMERALD,
+                "§eSell All Sellable Items",
+                new String[]{
+                        "§7Items: §f" + preview.itemsSold,
+                        "§7Stacks: §f" + preview.stacksSold,
+                        "§7Total: §6" + EconomyManager.format(preview.total),
+                        "§cThis cannot be undone."
+                },
+                () -> sellAll(player),
+                () -> {
+                    PENDING_PREVIEWS.remove(player.getUUID());
+                    player.sendSystemMessage(Component.literal("§eSale cancelled."));
+                }
+        );
         return 1;
     }
 
@@ -267,7 +295,7 @@ public final class ServerSellCommand {
         PendingSellPreview pending = PENDING_PREVIEWS.get(player.getUUID());
         if (!isValidPending(pending, PendingSellType.SELL_ALL, null, preview.itemsSold, preview.stacksSold, preview.total)) {
             PENDING_PREVIEWS.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("§cPlease preview this sale first with §e/sellall §cor §e/sell all§c, then confirm within 30 seconds."));
+            player.sendSystemMessage(Component.literal("§cPlease preview this sale first with §e/sellall §cor §e/sell all§c, then confirm in the UI."));
             return 0;
         }
         PENDING_PREVIEWS.remove(player.getUUID());

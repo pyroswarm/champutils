@@ -1,7 +1,9 @@
 package com.champutils.dex;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.database.DatabaseManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.leaderboard.ProfileLeaderboardRepository;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -27,6 +29,7 @@ public final class TrueCaughtDexManager {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/true_caught_dex.json");
+    private static final String STATE_KEY = "true_caught_dex";
     private static final Map<UUID, Set<String>> TRUE_CAUGHT = new ConcurrentHashMap<>();
     private static boolean loaded = false;
 
@@ -38,33 +41,22 @@ public final class TrueCaughtDexManager {
         loaded = true;
         TRUE_CAUGHT.clear();
 
-        if (!FILE.exists()) {
-            return;
-        }
-
-        try (FileReader reader = new FileReader(FILE)) {
-            Type type = new TypeToken<Map<String, Set<String>>>() {}.getType();
-            Map<String, Set<String>> loadedData = GSON.fromJson(reader, type);
-            if (loadedData == null) return;
-
-            for (Map.Entry<String, Set<String>> entry : loadedData.entrySet()) {
-                try {
-                    UUID uuid = UUID.fromString(entry.getKey());
-                    Set<String> normalized = ConcurrentHashMap.newKeySet();
-                    if (entry.getValue() != null) {
-                        for (String species : entry.getValue()) {
-                            String key = normalizeSpecies(species);
-                            if (!key.isBlank()) normalized.add(key);
-                        }
-                    }
-                    TRUE_CAUGHT.put(uuid, normalized);
-                } catch (Throwable ignored) {
+        State state = new State();
+        if (FILE.exists()) {
+            try (FileReader reader = new FileReader(FILE)) {
+                Type type = new TypeToken<Map<String, Set<String>>>() {}.getType();
+                Map<String, Set<String>> loadedData = GSON.fromJson(reader, type);
+                if (loadedData != null) {
+                    state.caught.putAll(loadedData);
                 }
+            } catch (Exception exception) {
+                System.err.println("[ChampUtils] Failed to load true caught dex data.");
+                exception.printStackTrace();
             }
-        } catch (Exception exception) {
-            System.err.println("[ChampUtils] Failed to load true caught dex data.");
-            exception.printStackTrace();
         }
+
+        state = SharedJsonStateRepository.loadGlobal(STATE_KEY, State.class, state);
+        applyState(state);
     }
 
     public static synchronized void save() {
@@ -81,6 +73,9 @@ public final class TrueCaughtDexManager {
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(out, writer);
             }
+            State state = new State();
+            state.caught.putAll(out);
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, state);
         } catch (Exception exception) {
             System.err.println("[ChampUtils] Failed to save true caught dex data.");
             exception.printStackTrace();
@@ -90,7 +85,9 @@ public final class TrueCaughtDexManager {
     public static boolean markTrueCaught(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null) return false;
         String species = speciesId(pokemon);
-        return markTrueCaught(PlayerProfileManager.activeProfileId(player), species);
+        boolean added = markTrueCaught(PlayerProfileManager.activeProfileId(player), species);
+        if (added) AdventureGuideManager.increment(player, "catch_species", 1);
+        return added;
     }
 
     public static boolean markTrueCaught(UUID playerId, String species) {
@@ -104,9 +101,34 @@ public final class TrueCaughtDexManager {
         if (added) {
             save();
             syncTrueCaughtSql(playerId, key);
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation("TRUE_CAUGHT_DEX", playerId);
             ProfileLeaderboardRepository.invalidateCache();
         }
         return added;
+    }
+
+    public static synchronized void invalidateSharedCache(UUID profileId) {
+        loaded = false;
+        TRUE_CAUGHT.clear();
+        ProfileLeaderboardRepository.invalidateCache();
+    }
+
+    private static void applyState(State state) {
+        if (state == null || state.caught == null) return;
+        for (Map.Entry<String, Set<String>> entry : state.caught.entrySet()) {
+            try {
+                UUID uuid = UUID.fromString(entry.getKey());
+                Set<String> normalized = ConcurrentHashMap.newKeySet();
+                if (entry.getValue() != null) {
+                    for (String species : entry.getValue()) {
+                        String key = normalizeSpecies(species);
+                        if (!key.isBlank()) normalized.add(key);
+                    }
+                }
+                TRUE_CAUGHT.put(uuid, normalized);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     public static boolean hasTrueCaught(ServerPlayer player, String species) {
@@ -209,5 +231,9 @@ public final class TrueCaughtDexManager {
             }
         }
         return null;
+    }
+
+    public static final class State {
+        public Map<String, Set<String>> caught = new LinkedHashMap<>();
     }
 }

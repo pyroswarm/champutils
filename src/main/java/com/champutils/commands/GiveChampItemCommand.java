@@ -32,12 +32,13 @@ public class GiveChampItemCommand {
     };
 
     private static final String[] RARITIES = {
-            "common",
-            "uncommon",
-            "rare",
-            "epic",
-            "legendary",
-            "mythic"
+            "f",
+            "e",
+            "d",
+            "c",
+            "b",
+            "a",
+            "s"
     };
 
     public static void register() {
@@ -71,14 +72,7 @@ public class GiveChampItemCommand {
                                                     builder
                                             ) -> {
 
-                                                for (
-                                                        String toolId :
-                                                        ProfessionToolConfig.TOOLS.keySet()
-                                                ) {
-                                                    builder.suggest(
-                                                            toolId
-                                                    );
-                                                }
+                                                suggestGenericToolAliases(builder);
 
                                                 for (ProfessionFragmentConfig.FragmentData fragmentData : ProfessionFragmentConfig.FRAGMENTS.values()) {
                                                     if (fragmentData != null && fragmentData.itemId != null && !fragmentData.itemId.isBlank()) {
@@ -313,7 +307,7 @@ public class GiveChampItemCommand {
         if (resolvedToolId == null) {
             player.sendSystemMessage(
                     Component.literal(
-                            "§cNo " + rarity.toLowerCase(Locale.ROOT) + " " + toolType.toLowerCase(Locale.ROOT) + " found named: " + requestedToolId
+                            "§cNo " + rarity.toLowerCase(Locale.ROOT) + " " + toolType.toLowerCase(Locale.ROOT) + " found for: " + requestedToolId
                     )
             );
             player.sendSystemMessage(
@@ -347,8 +341,23 @@ public class GiveChampItemCommand {
             }
 
             builder.suggest(
-                    toolId
+                    aliasForTool(toolId, toolData)
             );
+        }
+    }
+
+    private static void suggestGenericToolAliases(com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        java.util.Set<String> aliases = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, ProfessionToolConfig.ToolData> entry : ProfessionToolConfig.TOOLS.entrySet()) {
+            ProfessionToolConfig.ToolData toolData = entry.getValue();
+            if (toolData == null) continue;
+            String alias = aliasForTool(entry.getKey(), toolData);
+            if (alias != null && !alias.isBlank()) {
+                aliases.add(alias);
+            }
+        }
+        for (String alias : aliases) {
+            builder.suggest(alias);
         }
     }
 
@@ -398,6 +407,10 @@ public class GiveChampItemCommand {
                 return toolId;
             }
 
+            if (normalizeLookup(aliasForTool(toolId, toolData)).equals(normalizedRequest)) {
+                return toolId;
+            }
+
             if (
                     toolData.displayName != null &&
                             normalizeLookup(toolData.displayName).equals(normalizedRequest)
@@ -407,6 +420,33 @@ public class GiveChampItemCommand {
         }
 
         return null;
+    }
+
+
+    private static String aliasForTool(
+            String toolId,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+
+        if (toolData == null) {
+            return toolId == null ? "" : toolId;
+        }
+
+        String rarity = toolData.rarity == null ? "" : toolData.rarity.trim().toLowerCase(Locale.ROOT);
+        String baseItem = toolData.baseItem == null ? "" : toolData.baseItem.toLowerCase(Locale.ROOT);
+        String family;
+        if (baseItem.contains("pickaxe")) family = "pickaxe";
+        else if (baseItem.contains("shovel")) family = "shovel";
+        else if (baseItem.contains("axe")) family = "axe";
+        else if (baseItem.contains("hoe")) family = "hoe";
+        else if (baseItem.contains("sword")) family = "sword";
+        else family = "tool";
+
+        if (rarity.isBlank()) {
+            return toolId == null ? family : toolId;
+        }
+
+        return rarity + "_rank_" + family;
     }
 
     private static boolean matchesTypeAndRarity(
@@ -466,6 +506,10 @@ public class GiveChampItemCommand {
             int amount,
             boolean ascended
     ) {
+        String genericToolId = resolveGenericRankToolId(itemId);
+        if (genericToolId != null) {
+            return giveTool(player, genericToolId, amount, ascended);
+        }
 
         String fragmentKey =
                 ProfessionFragmentManager.getFragmentKeyByItemId(itemId);
@@ -479,6 +523,15 @@ public class GiveChampItemCommand {
             );
         }
 
+        return giveTool(player, itemId, amount, ascended);
+    }
+
+    private static int giveTool(
+            ServerPlayer player,
+            String itemId,
+            int amount,
+            boolean ascended
+    ) {
         int given =
                 0;
 
@@ -530,6 +583,22 @@ public class GiveChampItemCommand {
         return given;
     }
 
+    private static String resolveGenericRankToolId(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return null;
+        }
+
+        String normalized = normalizeLookup(itemId);
+        for (Map.Entry<String, ProfessionToolConfig.ToolData> entry : ProfessionToolConfig.TOOLS.entrySet()) {
+            ProfessionToolConfig.ToolData toolData = entry.getValue();
+            if (toolData == null) continue;
+            if (normalizeLookup(aliasForTool(entry.getKey(), toolData)).equals(normalized)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
     private static int giveFragment(
             ServerPlayer player,
             String itemId,
@@ -546,7 +615,7 @@ public class GiveChampItemCommand {
         if (!given) {
             player.sendSystemMessage(
                     Component.literal(
-                            "§cCould not create fragment item: " + itemId
+                            "§cCould not create essence item: " + itemId
                     )
             );
 
@@ -555,7 +624,7 @@ public class GiveChampItemCommand {
 
         player.sendSystemMessage(
                 Component.literal(
-                        "§aGiven " + amount + "x " + ProfessionFragmentManager.formatWords(fragmentKey) + " Tool Fragment."
+                        "§aGiven " + amount + "x " + ProfessionFragmentManager.displayRankName(fragmentKey) + " Essence."
                 )
         );
 

@@ -1,5 +1,6 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.scoreboard.PlayerSidebarManager;
 import com.champutils.scoreboard.ScoreboardPreferenceManager;
@@ -16,6 +17,7 @@ import net.minecraft.world.item.Items;
 public class SettingsMenu {
 
     public static void open(ServerPlayer player) {
+        AdventureGuideManager.increment(player, "settings", 1);
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x2, player);
         gui.setTitle(Component.literal("Settings"));
 
@@ -63,7 +65,7 @@ public class SettingsMenu {
                 gui,
                 4,
                 "Repair Confirmation",
-                "Requires /itemroll repair confirm before spending materials.",
+                "Opens a UI confirmation before spending materials.",
                 ProfessionNotificationSettings.isRepairConfirmationEnabled(player),
                 () -> ProfessionNotificationSettings.toggleRepairConfirmation(player),
                 player
@@ -72,8 +74,8 @@ public class SettingsMenu {
         setToggle(
                 gui,
                 5,
-                "Auto Repair Broken Tools",
-                "Automatically charges credits and repairs profession tools when they hit zero durability.",
+                "Auto Repair Tools",
+                "Repairs broken profession tools automatically for the normal credit cost.",
                 ProfessionNotificationSettings.isAutoRepairEnabled(player),
                 () -> ProfessionNotificationSettings.toggleAutoRepair(player),
                 player
@@ -83,7 +85,7 @@ public class SettingsMenu {
                 gui,
                 6,
                 "Trinket Success Messages",
-                "Controls chat messages from trinket procs that matter.",
+                "Controls important trinket messages in chat.",
                 ProfessionNotificationSettings.areTrinketMessagesEnabled(player),
                 () -> ProfessionNotificationSettings.toggleTrinketMessages(player),
                 player
@@ -93,9 +95,20 @@ public class SettingsMenu {
                 gui,
                 7,
                 "Scoreboard Display",
-                "Shows money, RP, dex progress, and skill levels in the sidebar.",
+                "Shows credits, ranks, dex progress, and skills in the sidebar.",
                 ScoreboardPreferenceManager.isEnabled(player.getUUID()),
                 () -> toggleScoreboard(player),
+                player
+        );
+
+
+        setToggle(
+                gui,
+                8,
+                "Adventure Guide Boss Bar",
+                "Shows your current Adventure Guide objective.",
+                AdventureGuideManager.isBossBarVisible(player),
+                () -> AdventureGuideManager.toggleBossBar(player),
                 player
         );
 

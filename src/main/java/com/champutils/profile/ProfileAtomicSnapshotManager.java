@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.database.DatabaseMaintenanceManager;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -115,6 +116,7 @@ public final class ProfileAtomicSnapshotManager {
                 complete.executeUpdate();
             }
             connection.commit();
+            DatabaseMaintenanceManager.requestCleanupIfDue("profile-snapshot-save");
         } catch (Exception e) {
             try { connection.rollback(); } catch (Exception ignored) {}
             throw e;
@@ -180,6 +182,7 @@ public final class ProfileAtomicSnapshotManager {
                 complete.executeUpdate();
             }
             connection.commit();
+            DatabaseMaintenanceManager.requestCleanupIfDue("profile-snapshot-save");
         } catch (Exception e) {
             try { connection.rollback(); } catch (Exception ignored) {}
             throw e;

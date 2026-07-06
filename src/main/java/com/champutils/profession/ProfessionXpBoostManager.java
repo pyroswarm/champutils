@@ -91,15 +91,16 @@ public final class ProfessionXpBoostManager {
         int wholeBonus = 0;
 
         if (totalBonus > 0.0D) {
-            String bankKey = player.getUUID() + ":" + profession.name();
-            double rawBonus = (baseAmount * totalBonus) + FRACTION_BANK.getOrDefault(bankKey, 0.0D);
+            String bankKey = bankKey(player, profession);
+            double stored = storedBonus(player, profession, bankKey);
+            double rawBonus = (baseAmount * totalBonus) + stored;
             wholeBonus = (int) Math.floor(rawBonus);
             double remainder = rawBonus - wholeBonus;
 
             if (remainder > 0.0D) {
-                FRACTION_BANK.put(bankKey, remainder);
+                storeBonus(player, profession, bankKey, remainder);
             } else {
-                FRACTION_BANK.remove(bankKey);
+                clearStoredBonus(player, profession, bankKey);
             }
 
             boosted += Math.max(0, wholeBonus);
@@ -202,6 +203,47 @@ public final class ProfessionXpBoostManager {
 
         String prefix = playerUuid + ":";
         FRACTION_BANK.keySet().removeIf(key -> key.startsWith(prefix));
+    }
+
+    private static String bankKey(ServerPlayer player, ProfessionType profession) {
+        java.util.UUID profileId = com.champutils.profile.PlayerProfileManager.activeProfileIdOrNull(player.getUUID());
+        java.util.UUID id = profileId == null ? player.getUUID() : profileId;
+        return id + ":" + profession.name();
+    }
+
+    private static double storedBonus(ServerPlayer player, ProfessionType profession, String fallbackKey) {
+        try {
+            ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+            if (data.xpBonusBank != null) {
+                return Math.max(0.0D, data.xpBonusBank.getOrDefault(profession.name(), 0.0D));
+            }
+        } catch (Exception ignored) {
+        }
+        return Math.max(0.0D, FRACTION_BANK.getOrDefault(fallbackKey, 0.0D));
+    }
+
+    private static void storeBonus(ServerPlayer player, ProfessionType profession, String fallbackKey, double amount) {
+        double safe = Math.max(0.0D, Math.min(0.9999D, amount));
+        try {
+            ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+            if (data.xpBonusBank != null) {
+                data.xpBonusBank.put(profession.name(), safe);
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+        FRACTION_BANK.put(fallbackKey, safe);
+    }
+
+    private static void clearStoredBonus(ServerPlayer player, ProfessionType profession, String fallbackKey) {
+        try {
+            ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+            if (data.xpBonusBank != null) {
+                data.xpBonusBank.remove(profession.name());
+            }
+        } catch (Exception ignored) {
+        }
+        FRACTION_BANK.remove(fallbackKey);
     }
 
     private static String formatPercent(double value) {

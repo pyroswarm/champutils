@@ -51,7 +51,7 @@ public final class TutorialManager {
                     "§6Professions reward you for playing the server.",
                     "§7Mining, Forestry, Farming, and Battling all level as you use the right tools or battle systems.",
                     "§7Profession tools can roll passives and actives. Higher tiers are stronger and give you more ways to earn resources.",
-                    "§7Use §f/professions §7and related profession menus to check progress, tools, fragments, and trades."
+                    "§7Use §f/professions §7and related profession menus to check progress, tools, essence, and trades."
             )),
             new SpawnGuideNpc("economy", "Economy Guide", List.of(
                     "§6Credits are the main server currency.",
@@ -85,7 +85,7 @@ public final class TutorialManager {
             )),
             new SpawnGuideNpc("quests", "Quest Guide", List.of(
                     "§6Daily and weekly activities give steady progress.",
-                    "§7Quests, hunts, contracts, daily login rewards, crates, expeditions, and the reward track all give you goals outside gyms.",
+                    "§7Quests, hunts, contracts, daily login rewards, crates, and expeditions all give you goals outside gyms.",
                     "§7Use §f/quest §7and §f/menu §7when you are not sure what to do next."
             )),
             new SpawnGuideNpc("crafting", "Crafting Guide", List.of(

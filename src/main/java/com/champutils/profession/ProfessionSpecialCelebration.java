@@ -139,14 +139,14 @@ public final class ProfessionSpecialCelebration {
         );
     }
 
-    public static void celebrateEpicChunk(
+    public static void celebrateHighRankChunk(
             ServerPlayer player,
             String chunkName
     ) {
         String safeName = chunkName == null || chunkName.isBlank() ? "Rare Chunk" : chunkName;
         show(
                 player,
-                "§6§lRARE CHUNK!",
+                "§6§lD CHUNK!",
                 "§e" + safeName,
                 "§6Rare Chunk Found: §e" + safeName,
                 5,

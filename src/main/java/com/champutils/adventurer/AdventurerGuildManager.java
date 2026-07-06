@@ -1,0 +1,786 @@
+package com.champutils.adventurer;
+
+import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.battle.BattleContextManager;
+import com.champutils.battle.BattlePrepManager;
+import com.champutils.battle.PluginTrainerBattleStarter;
+import com.champutils.economy.EconomyManager;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.roaming.RoamingTrainerRarity;
+import com.champutils.roaming.RoamingTrainerManager;
+import com.champutils.spawn.SpawnBlockRules;
+import com.champutils.teleport.RandomTeleportCommand;
+import com.cobblemon.mod.common.battles.BattleFormat;
+import com.cobblemon.mod.common.entity.npc.NPCEntity;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.lang.reflect.Method;
+import java.time.ZoneId;
+import java.time.temporal.WeekFields;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+public final class AdventurerGuildManager {
+    public static final String SOURCE_BATTLE_TOWER = "battle_tower";
+    public static final String SOURCE_ROAMING_LEAGUE = "adventurer_request";
+
+    private static final ZoneId ZONE = ZoneId.systemDefault();
+    private static final Map<UUID, AdventurerGuildDataManager.PlayerData> CACHE = new HashMap<>();
+    private static final HashSet<UUID> DIRTY = new HashSet<>();
+    private static int tickCounter = 0;
+
+    private AdventurerGuildManager() {}
+
+    public static void load() {
+        AdventurerGuildConfig.load();
+        AdventurerGuildDataManager.ensureSchemaAsync();
+    }
+
+    public static void handleJoin(ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        refreshPeriods(data);
+        notifyRankProgress(player, data);
+        savePlayer(player);
+    }
+
+    public static void tick(MinecraftServer server) {
+        if (server == null || !AdventurerGuildConfig.SETTINGS.enabled) return;
+        tickCounter++;
+        if (tickCounter < 1200) return;
+        tickCounter = 0;
+        long now = System.currentTimeMillis();
+        long activeLimit = Math.max(5, AdventurerGuildConfig.SETTINGS.battleTowerActiveMinutes) * 60_000L;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!PlayerProfileManager.hasActiveProfile(player)) continue;
+            AdventurerGuildDataManager.PlayerData data = getData(player);
+            refreshPeriods(data);
+            if (data.activeTowerFloor > 0 && data.activeTowerStartedMillis > 0L && now - data.activeTowerStartedMillis > activeLimit) {
+                clearActiveTower(data);
+                data.towerFloor = checkpointForBest(data.bestTowerFloor);
+                markDirty(player);
+                player.sendSystemMessage(Component.literal("Your Battle Tower challenge expired. You can restart from floor " + data.towerFloor + ".").withStyle(ChatFormatting.YELLOW));
+            }
+            savePlayer(player);
+        }
+    }
+
+    public static AdventurerGuildDataManager.PlayerData getData(ServerPlayer player) {
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) {
+            AdventurerGuildDataManager.PlayerData fallback = new AdventurerGuildDataManager.PlayerData();
+            fallback.name = player == null ? "" : player.getName().getString();
+            refreshPeriods(fallback);
+            return fallback;
+        }
+        AdventurerGuildDataManager.PlayerData data = CACHE.get(profileId);
+        if (data != null) {
+            refreshPeriods(data);
+            return data;
+        }
+        data = AdventurerGuildDataManager.load(profileId, player.getName().getString());
+        refreshPeriods(data);
+        CACHE.put(profileId, data);
+        return data;
+    }
+
+    public static void recordBattleResult(ServerPlayer winner, ServerPlayer loser, BattleContextManager.BattleType battleType) {
+        if (!AdventurerGuildConfig.SETTINGS.enabled || winner == null || battleType == null) return;
+        if (battleType != BattleContextManager.BattleType.RANKED && battleType != BattleContextManager.BattleType.CASUAL) return;
+        recordQueuedPvp(winner, battleType == BattleContextManager.BattleType.RANKED, true);
+        if (loser != null) recordQueuedPvp(loser, battleType == BattleContextManager.BattleType.RANKED, false);
+    }
+
+    public static void recordBattleLoss(ServerPlayer player, BattleContextManager.BattleType battleType) {
+        if (player == null || battleType == null) return;
+        if (battleType == BattleContextManager.BattleType.ADVENTURE_TOWER) {
+            AdventurerGuildDataManager.PlayerData data = getData(player);
+            if (data.activeTowerFloor > 0) {
+                int failed = data.activeTowerFloor;
+                clearActiveTower(data);
+                data.towerFloor = checkpointForBest(data.bestTowerFloor);
+                markDirty(player);
+                savePlayer(player);
+                player.sendSystemMessage(Component.literal("Battle Tower floor " + failed + " failed. You can retry from floor " + data.towerFloor + " at the Guild Clerk.").withStyle(ChatFormatting.RED));
+            }
+        }
+    }
+
+    public static boolean startBattleTowerFloor(ServerPlayer player) {
+        return startBattleTowerFloor(player, false);
+    }
+
+    private static boolean startBattleTowerFloor(ServerPlayer player, boolean ignoreCooldown) {
+        if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L;
+        if (data.activeTowerFloor > 0) {
+            player.sendSystemMessage(Component.literal("You already have an active Battle Tower trainer. Defeat it or wait for it to expire.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (!ignoreCooldown && cooldown > 0 && now - data.lastTowerStartMillis < cooldown) {
+            player.sendSystemMessage(Component.literal("Battle Tower is preparing your next floor. Try again in " + secondsLeft(cooldown - (now - data.lastTowerStartMillis)) + ".").withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+
+        int floor = Math.max(1, Math.min(AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor, data.towerFloor));
+        if (!isCheckpointFloor(floor) && floor != 1 && floor > data.bestTowerFloor + 1) {
+            floor = checkpointForBest(data.bestTowerFloor);
+            data.towerFloor = floor;
+        }
+
+        AdventurerGuildConfig.BattleTowerFloor floorData = AdventurerGuildConfig.floor(floor);
+        if (!floorData.locationSet) {
+            player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " has no arena center yet. Ask an admin to stand at the center and run /adventurer admin settowerfloor " + floor + ".").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        ServerLevel targetLevel = resolveTowerLevel(player, floorData);
+        if (targetLevel == null) {
+            player.sendSystemMessage(Component.literal("Could not find the configured Battle Tower world for floor " + floor + ".").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        TowerPlacement placement = towerPlacement(floorData);
+        if (!teleportTo(player, targetLevel, placement.playerPos, placement.playerYaw, 0.0F)) {
+            player.sendSystemMessage(Component.literal("Could not teleport you to Battle Tower floor " + floor + ". Check the configured world/location.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        RoamingTrainerRarity rarity = RoamingTrainerRarity.parse(floorData.rarity, AdventurerGuildConfig.rarityForFloor(floor));
+        UUID npcUuid = RoamingTrainerManager.spawnForAdventureGuildAt(player, targetLevel, placement.npcPos, placement.npcYaw, rarity, SOURCE_BATTLE_TOWER, floor);
+        if (npcUuid == null) {
+            player.sendSystemMessage(Component.literal("Could not create your Battle Tower adventurer at this floor. Make sure the center has open space 7 blocks out.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        data.activeTowerFloor = floor;
+        data.activeTowerNpcUuid = npcUuid.toString();
+        data.activeTowerStartedMillis = now;
+        data.lastTowerStartMillis = now;
+        markDirty(player);
+        savePlayer(player);
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " has begun. Healing and Pokémon storage are locked until the next checkpoint.").withStyle(ChatFormatting.GOLD));
+
+        NPCEntity npc = RoamingTrainerManager.findTrainerNpc(player.getServer(), npcUuid);
+        if (npc != null) {
+            try {
+                RoamingTrainerManager.tryStartChallenge(player, npc);
+                PluginTrainerBattleStarter.startOrMessage(player, npc, BattleContextManager.BattleType.ADVENTURE_TOWER, SOURCE_BATTLE_TOWER, null, true, false, Component.literal("§cCould not start the Battle Tower battle."));
+            } catch (Exception e) {
+                e.printStackTrace();
+                player.sendSystemMessage(Component.literal("Could not auto-start this Battle Tower battle. Right-click the trainer to begin.").withStyle(ChatFormatting.YELLOW));
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity) {
+        if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        RoamingTrainerRarity safeRarity = rarity == null ? RoamingTrainerRarity.F : rarity;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        AdventurerGuildConfig.RoamingLeagueEntry entry = AdventurerGuildConfig.roamingEntry(safeRarity);
+        if (data.renown < Math.max(0, entry.minRenown)) {
+            player.sendSystemMessage(Component.literal("You need " + entry.minRenown + " Adventurer XP to request that Adventurer.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        if (shouldRtpBeforeAdventurerRequest(player)) {
+            player.closeContainer();
+            player.sendSystemMessage(Component.literal("Taking you out into the world before your Adventurer arrives...").withStyle(ChatFormatting.YELLOW));
+            return RandomTeleportCommand.requestRtp(player, "overworld", () -> startRoamingLeague(player, safeRarity));
+        }
+
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.roamingLeagueCooldownMinutes) * 60_000L;
+        if (cooldown > 0 && now - data.lastRoamingLeagueStartMillis < cooldown) {
+            player.sendSystemMessage(Component.literal("Adventurer requests are on cooldown for " + secondsLeft(cooldown - (now - data.lastRoamingLeagueStartMillis)) + ".").withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+
+        int cost = Math.max(0, entry.creditCost);
+        boolean free = data.roamingLeagueDailySpawns < Math.max(0, AdventurerGuildConfig.SETTINGS.roamingLeagueDailyFreeSpawns);
+        if (!free && cost > 0) {
+            EconomyManager.TransactionResult result = EconomyManager.withdraw(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league:" + safeRarity.name().toLowerCase(Locale.ROOT));
+            if (!result.success) {
+                player.sendSystemMessage(Component.literal(result.error == null ? "Not enough Credits." : result.error).withStyle(ChatFormatting.RED));
+                return false;
+            }
+        }
+
+        net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+        net.minecraft.world.phys.Vec3 spawnPos = player.position().add(look.x * 2.0D, 0.0D, look.z * 2.0D);
+        UUID npcUuid = RoamingTrainerManager.spawnForAdventureGuildAt(
+                player,
+                player.serverLevel(),
+                spawnPos,
+                player.getYRot() + 180.0F,
+                safeRarity,
+                SOURCE_ROAMING_LEAGUE,
+                0
+        );
+        if (npcUuid == null) {
+            npcUuid = RoamingTrainerManager.spawnForAdventureGuild(player, safeRarity, SOURCE_ROAMING_LEAGUE, 0);
+        }
+        if (npcUuid == null) {
+            if (!free && cost > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
+            player.sendSystemMessage(Component.literal("Could not summon an Adventurer nearby. Move to a safer open area and try again.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        data.lastRoamingLeagueStartMillis = now;
+        if (free) data.roamingLeagueDailySpawns++;
+        markDirty(player);
+        savePlayer(player);
+        player.closeContainer();
+        AdventureGuideManager.increment(player, "adventurer_request", 1);
+        player.sendSystemMessage(Component.literal("A " + AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(safeRarity)) + " has arrived nearby.").withStyle(safeRarity.color));
+        return true;
+    }
+
+    public static void completeBattleTowerFloor(ServerPlayer player, RoamingTrainerManager.RoamingTrainerData trainerData) {
+        if (player == null || trainerData == null) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        int floor = trainerData.towerFloor > 0 ? trainerData.towerFloor : data.activeTowerFloor;
+        if (floor <= 0) floor = 1;
+        int maxFloor = Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
+        int previousBest = Math.max(0, data.bestTowerFloor);
+        boolean checkpointReached = isCheckpointFloor(floor) || floor >= maxFloor;
+        boolean newProgressCheckpoint = checkpointReached && floor > previousBest;
+
+        if (newProgressCheckpoint) {
+            int startFloor = Math.max(previousCheckpointFloor(floor) + 1, previousBest + 1);
+            awardTowerCheckpoint(player, data, startFloor, floor);
+            healParty(player);
+            AdventureGuideManager.increment(player, "battle_tower_checkpoint", 1);
+            player.sendSystemMessage(Component.literal("Battle Tower checkpoint reached at floor " + floor + "! Your party has been healed.").withStyle(ChatFormatting.GOLD));
+        }
+
+        data.bestTowerFloor = Math.max(data.bestTowerFloor, floor);
+        clearActiveTower(data);
+
+        if (floor >= maxFloor) {
+            data.towerClears++;
+            data.towerFloor = 9;
+            addRenown(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusRenown));
+            addMarks(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusMarks));
+            if (AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits > 0) {
+                EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits), "adventurer_battle_tower_clear");
+            }
+            markDirty(player);
+            savePlayer(player);
+            notifyRankProgress(player, data);
+            player.sendSystemMessage(Component.literal("Battle Tower cleared! You can start future attempts from floor 9.").withStyle(ChatFormatting.GOLD));
+            return;
+        }
+
+        data.towerFloor = floor + 1;
+        markDirty(player);
+        savePlayer(player);
+        notifyRankProgress(player, data);
+
+        player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " cleared! Advancing to floor " + data.towerFloor + ".").withStyle(ChatFormatting.GREEN));
+        startBattleTowerFloor(player, true);
+    }
+
+    public static void completeRoamingLeagueTrainer(ServerPlayer player, RoamingTrainerManager.RoamingTrainerData trainerData) {
+        if (player == null || trainerData == null) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        RoamingTrainerRarity rarity = trainerData.rarity == null ? RoamingTrainerRarity.F : trainerData.rarity;
+        AdventurerGuildConfig.RoamingLeagueEntry entry = AdventurerGuildConfig.roamingEntry(rarity);
+        addRenown(data, Math.max(0, entry.rewardRenown));
+        addMarks(data, Math.max(0, entry.rewardMarks));
+        runRewardCommands(player, entry.rewardCommands);
+        markDirty(player);
+        savePlayer(player);
+        player.sendSystemMessage(Component.literal("Adventurer request reward: +" + entry.rewardRenown + " Adventurer XP, +" + entry.rewardMarks + " Adventurer's Marks.").withStyle(rarity.color));
+        notifyRankProgress(player, data);
+    }
+
+    public static boolean setBattleTowerFloorLocation(ServerPlayer player, int floorNumber) {
+        if (player == null) return false;
+        int floor = Math.max(1, Math.min(25, floorNumber));
+        AdventurerGuildConfig.BattleTowerFloor entry = AdventurerGuildConfig.ensureFloor(floor);
+        entry.locationSet = true;
+        entry.world = player.serverLevel().dimension().location().toString();
+        entry.x = player.getX();
+        entry.y = player.getY();
+        entry.z = player.getZ();
+        entry.yaw = player.getYRot();
+        entry.pitch = player.getXRot();
+        AdventurerGuildConfig.save();
+        player.sendSystemMessage(Component.literal("Set Battle Tower floor " + floor + " center to " + entry.world + " @ "
+                + String.format(Locale.US, "%.1f %.1f %.1f", entry.x, entry.y, entry.z) + ". Player and trainer will spawn 7 blocks apart facing each other.").withStyle(ChatFormatting.GREEN));
+        return true;
+    }
+
+    public static boolean claimDailyPvp(ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (data.dailyPvpClaimed) {
+            player.sendSystemMessage(Component.literal("You already claimed today's PvP quest.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (data.dailyPvpWins < Math.max(1, AdventurerGuildConfig.SETTINGS.pvpDailyRequiredWins)) {
+            player.sendSystemMessage(Component.literal("Daily PvP quest is not complete yet.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        data.dailyPvpClaimed = true;
+        awardConfigured(player, data, AdventurerGuildConfig.SETTINGS.pvpDailyRewardCredits, AdventurerGuildConfig.SETTINGS.pvpDailyRewardRenown, AdventurerGuildConfig.SETTINGS.pvpDailyRewardMarks, AdventurerGuildConfig.SETTINGS.pvpDailyRewardCommands, "adventurer_daily_pvp");
+        player.sendSystemMessage(Component.literal("Daily PvP quest claimed!").withStyle(ChatFormatting.GREEN));
+        markDirty(player);
+        savePlayer(player);
+        return true;
+    }
+
+    public static boolean claimWeeklyPvp(ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (data.weeklyPvpClaimed) {
+            player.sendSystemMessage(Component.literal("You already claimed this week's PvP quest.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (data.weeklyPvpMatches < Math.max(1, AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredMatches)
+                || data.weeklyPvpWins < Math.max(0, AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredWins)) {
+            player.sendSystemMessage(Component.literal("Weekly PvP quest is not complete yet.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        data.weeklyPvpClaimed = true;
+        awardConfigured(player, data, AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardCredits, AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardRenown, AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardMarks, AdventurerGuildConfig.SETTINGS.pvpWeeklyRewardCommands, "adventurer_weekly_pvp");
+        player.sendSystemMessage(Component.literal("Weekly PvP quest claimed!").withStyle(ChatFormatting.GREEN));
+        markDirty(player);
+        savePlayer(player);
+        return true;
+    }
+
+    public static boolean claimNextRankReward(ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        AdventurerGuildConfig.RankDefinition bestClaimable = null;
+        if (AdventurerGuildConfig.SETTINGS.ranks != null) {
+            for (AdventurerGuildConfig.RankDefinition rank : AdventurerGuildConfig.SETTINGS.ranks) {
+                if (rank == null || rank.id == null) continue;
+                boolean hasReward = rank.rewardCredits > 0 || rank.rewardMarks > 0 || (rank.rewardCommands != null && !rank.rewardCommands.isEmpty());
+                if (!hasReward) continue;
+                if (data.renown < Math.max(0, rank.renownRequired)) continue;
+                if (data.claimedRankRewards.contains(rank.id.toUpperCase(Locale.ROOT))) continue;
+                if (bestClaimable == null || rank.renownRequired < bestClaimable.renownRequired) bestClaimable = rank;
+            }
+        }
+        if (bestClaimable == null) {
+            player.sendSystemMessage(Component.literal("No Adventurer Rank reward is ready to claim.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        data.claimedRankRewards.add(bestClaimable.id.toUpperCase(Locale.ROOT));
+        awardConfigured(player, data, bestClaimable.rewardCredits, 0, bestClaimable.rewardMarks, bestClaimable.rewardCommands, "adventurer_rank:" + bestClaimable.id);
+        player.sendSystemMessage(Component.literal("Claimed " + bestClaimable.displayName + " rank reward.").withStyle(ChatFormatting.GOLD));
+        markDirty(player);
+        savePlayer(player);
+        return true;
+    }
+
+    public static String currentRankId(ServerPlayer player) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        AdventurerGuildConfig.RankDefinition rank = AdventurerGuildConfig.currentRank(data.renown);
+        return rank == null || rank.id == null ? "F" : AdventurerRankUtil.normalizeRank(rank.id);
+    }
+
+    public static boolean hasRank(ServerPlayer player, String requiredRank) {
+        return AdventurerRankUtil.atLeast(currentRankId(player), requiredRank);
+    }
+
+    public static boolean spendGuildMarks(ServerPlayer player, long amount) {
+        if (player == null) return false;
+        long safe = Math.max(0L, amount);
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (safe <= 0L) return true;
+        if (data.guildMarks < safe) return false;
+        data.guildMarks -= safe;
+        markDirty(player);
+        savePlayer(player);
+        return true;
+    }
+
+    public static void addGuildMarks(ServerPlayer player, long amount) {
+        if (player == null || amount <= 0L) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        data.guildMarks = Math.max(0L, data.guildMarks + amount);
+        markDirty(player);
+        savePlayer(player);
+    }
+
+
+    public static void awardGuildActivity(ServerPlayer player, int renown, int marks, String reason) {
+        if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        int safeRenown = Math.max(0, renown);
+        int safeMarks = Math.max(0, marks);
+        addRenown(data, safeRenown);
+        addMarks(data, safeMarks);
+        markDirty(player);
+        savePlayer(player);
+        notifyRankProgress(player, data);
+        if (safeRenown > 0 || safeMarks > 0) {
+            player.sendSystemMessage(Component.literal("Adventurer's Guild: +" + safeRenown + " XP, +" + safeMarks + " Adventurer's Marks" + (reason == null || reason.isBlank() ? "." : " from " + reason + ".")).withStyle(ChatFormatting.GOLD));
+        }
+    }
+
+    public static String dailyKey() {
+        LocalDateTime now = LocalDateTime.now(ZONE);
+        LocalDate date = now.toLocalDate();
+        LocalDateTime reset = date.atTime(AdventurerGuildConfig.SETTINGS.dailyResetHour, AdventurerGuildConfig.SETTINGS.dailyResetMinute);
+        if (now.isBefore(reset)) date = date.minusDays(1);
+        return date.toString();
+    }
+
+    public static String weeklyKey() {
+        LocalDateTime now = LocalDateTime.now(ZONE);
+        DayOfWeek resetDay = AdventurerGuildConfig.weeklyResetDay();
+        LocalDate date = now.toLocalDate();
+        while (date.getDayOfWeek() != resetDay) date = date.minusDays(1);
+        LocalDateTime reset = date.atTime(AdventurerGuildConfig.SETTINGS.weeklyResetHour, AdventurerGuildConfig.SETTINGS.weeklyResetMinute);
+        if (now.isBefore(reset)) date = date.minusWeeks(1);
+        WeekFields wf = WeekFields.ISO;
+        return date.getYear() + "-W" + String.format("%02d", date.get(wf.weekOfWeekBasedYear()));
+    }
+
+    public static boolean isDailyPvpReady(AdventurerGuildDataManager.PlayerData data) {
+        return data != null && !data.dailyPvpClaimed && data.dailyPvpWins >= Math.max(1, AdventurerGuildConfig.SETTINGS.pvpDailyRequiredWins);
+    }
+
+    public static boolean isWeeklyPvpReady(AdventurerGuildDataManager.PlayerData data) {
+        return data != null && !data.weeklyPvpClaimed
+                && data.weeklyPvpMatches >= Math.max(1, AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredMatches)
+                && data.weeklyPvpWins >= Math.max(0, AdventurerGuildConfig.SETTINGS.pvpWeeklyRequiredWins);
+    }
+
+    public static boolean isAttemptingBattleTower(ServerPlayer player) {
+        return player != null && getData(player).activeTowerFloor > 0;
+    }
+
+    public static boolean selectTowerCheckpoint(ServerPlayer player, int checkpointFloor) {
+        if (player == null) return false;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (data.activeTowerFloor > 0) {
+            player.sendSystemMessage(Component.literal("Finish or fail the current Battle Tower attempt before changing checkpoints.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        int checkpoint = normalizeCheckpoint(checkpointFloor);
+        if (!isCheckpointUnlocked(data, checkpoint)) {
+            player.sendSystemMessage(Component.literal("That Battle Tower checkpoint is not unlocked yet.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        data.towerFloor = checkpoint;
+        markDirty(player);
+        savePlayer(player);
+        player.sendSystemMessage(Component.literal("Battle Tower start floor set to checkpoint " + checkpoint + ".").withStyle(ChatFormatting.GREEN));
+        return true;
+    }
+
+    public static boolean isCheckpointUnlocked(AdventurerGuildDataManager.PlayerData data, int checkpointFloor) {
+        int checkpoint = normalizeCheckpoint(checkpointFloor);
+        return checkpoint <= 1 || (data != null && data.bestTowerFloor >= checkpoint);
+    }
+
+    public static String timeUntilRoamingReady(AdventurerGuildDataManager.PlayerData data) {
+        if (data == null) return "Ready";
+        long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.roamingLeagueCooldownMinutes) * 60_000L;
+        long left = cooldown - (System.currentTimeMillis() - data.lastRoamingLeagueStartMillis);
+        return left <= 0L ? "Ready" : secondsLeft(left);
+    }
+
+    public static String timeUntilTowerReady(AdventurerGuildDataManager.PlayerData data) {
+        if (data == null) return "Ready";
+        long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L;
+        long left = cooldown - (System.currentTimeMillis() - data.lastTowerStartMillis);
+        return left <= 0L ? "Ready" : secondsLeft(left);
+    }
+
+    public static void savePlayer(ServerPlayer player) {
+        if (player == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return;
+        if (!DIRTY.contains(profileId)) return;
+        AdventurerGuildDataManager.PlayerData data = CACHE.get(profileId);
+        if (data != null) AdventurerGuildDataManager.save(profileId, data);
+        DIRTY.remove(profileId);
+    }
+
+    public static void unloadPlayer(ServerPlayer player) {
+        if (player == null) return;
+        savePlayer(player);
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId != null) CACHE.remove(profileId);
+    }
+
+    public static void saveAll() {
+        for (UUID profileId : new HashSet<>(DIRTY)) {
+            AdventurerGuildDataManager.PlayerData data = CACHE.get(profileId);
+            if (data != null) AdventurerGuildDataManager.save(profileId, data);
+        }
+        DIRTY.clear();
+    }
+
+    public static void reload() {
+        AdventurerGuildConfig.load();
+    }
+
+    private static void recordQueuedPvp(ServerPlayer player, boolean ranked, boolean won) {
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        data.dailyPvpMatches++;
+        data.weeklyPvpMatches++;
+        if (won) {
+            data.dailyPvpWins++;
+            data.weeklyPvpWins++;
+            if (ranked) data.weeklyRankedWins++;
+        }
+        markDirty(player);
+        savePlayer(player);
+        if (isDailyPvpReady(data) || isWeeklyPvpReady(data)) {
+            player.sendSystemMessage(Component.literal("PvP quest ready! Open the Adventurer Board to claim.").withStyle(ChatFormatting.GOLD));
+        }
+    }
+
+    private static void awardConfigured(ServerPlayer player, AdventurerGuildDataManager.PlayerData data, int credits, int renown, int marks, List<String> commands, String reason) {
+        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), reason);
+        addRenown(data, Math.max(0, renown));
+        addMarks(data, Math.max(0, marks));
+        runRewardCommands(player, commands);
+        notifyRankProgress(player, data);
+    }
+
+    private static void runRewardCommands(ServerPlayer player, List<String> commands) {
+        MinecraftServer server = player == null ? null : player.getServer();
+        if (server == null || commands == null) return;
+        for (String raw : commands) {
+            if (raw == null || raw.isBlank()) continue;
+            String cmd = raw.replace("%player%", player.getName().getString()).replace("%uuid%", PlayerProfileManager.activeProfileId(player).toString());
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), cmd);
+        }
+    }
+
+    private static void refreshPeriods(AdventurerGuildDataManager.PlayerData data) {
+        if (data == null) return;
+        String daily = dailyKey();
+        if (!daily.equals(data.dailyKey)) {
+            data.dailyKey = daily;
+            data.dailyPvpMatches = 0;
+            data.dailyPvpWins = 0;
+            data.dailyPvpClaimed = false;
+            data.roamingLeagueDailyKey = daily;
+            data.roamingLeagueDailySpawns = 0;
+        } else if (!daily.equals(data.roamingLeagueDailyKey)) {
+            data.roamingLeagueDailyKey = daily;
+            data.roamingLeagueDailySpawns = 0;
+        }
+        String weekly = weeklyKey();
+        if (!weekly.equals(data.weeklyKey)) {
+            data.weeklyKey = weekly;
+            data.weeklyPvpMatches = 0;
+            data.weeklyPvpWins = 0;
+            data.weeklyRankedWins = 0;
+            data.weeklyPvpClaimed = false;
+        }
+    }
+
+    private static void clearActiveTower(AdventurerGuildDataManager.PlayerData data) {
+        if (data == null) return;
+        data.activeTowerFloor = 0;
+        data.activeTowerNpcUuid = "";
+        data.activeTowerStartedMillis = 0L;
+    }
+
+    private static void addRenown(AdventurerGuildDataManager.PlayerData data, int amount) {
+        if (data == null || amount <= 0) return;
+        data.renown = Math.max(0L, data.renown + amount);
+    }
+
+    private static void addMarks(AdventurerGuildDataManager.PlayerData data, int amount) {
+        if (data == null || amount <= 0) return;
+        data.guildMarks = Math.max(0L, data.guildMarks + amount);
+    }
+
+    private static void notifyRankProgress(ServerPlayer player, AdventurerGuildDataManager.PlayerData data) {
+        if (player == null || data == null) return;
+        AdventurerGuildConfig.RankDefinition current = AdventurerGuildConfig.currentRank(data.renown);
+        AdventurerGuildConfig.RankDefinition next = AdventurerGuildConfig.nextRank(data.renown);
+        if (current != null && current.id != null) {
+            String rankId = AdventurerRankUtil.normalizeRank(current.id);
+            if (AdventurerRankUtil.rankIndex(rankId) > 0) {
+                com.champutils.cosmetic.TitleManager.unlock(player, "adventurer_rank_" + rankId.toLowerCase(Locale.ROOT));
+            }
+        }
+        if (next == null && current != null) {
+            player.sendSystemMessage(Component.literal("Adventurer Rank: " + current.displayName + " (max rank reached)").withStyle(ChatFormatting.GOLD));
+        }
+    }
+
+
+    private static boolean shouldRtpBeforeAdventurerRequest(ServerPlayer player) {
+        if (player == null) return false;
+        String id = player.serverLevel().dimension().location().toString().toLowerCase(Locale.ROOT);
+        return id.equals("multiworld:spawn1")
+                || id.equals("minecraft:spawn1")
+                || id.equals("spawn1")
+                || id.endsWith(":spawn1")
+                || id.contains("spawn1");
+    }
+
+    private static void awardTowerCheckpoint(ServerPlayer player, AdventurerGuildDataManager.PlayerData data, int fromFloor, int toFloor) {
+        if (player == null || data == null) return;
+        int start = Math.max(1, fromFloor);
+        int end = Math.max(start, toFloor);
+        for (int i = start; i <= end; i++) {
+            AdventurerGuildConfig.BattleTowerFloor reward = AdventurerGuildConfig.floor(i);
+            addRenown(data, Math.max(0, reward.rewardRenown));
+            addMarks(data, Math.max(0, reward.rewardMarks));
+            if (reward.rewardCredits > 0) {
+                EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_checkpoint:" + i);
+            }
+            runRewardCommands(player, reward.rewardCommands);
+        }
+    }
+
+    private static void healParty(ServerPlayer player) {
+        try {
+            BattlePrepManager.healParty(player);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static int normalizeCheckpoint(int floor) {
+        if (floor >= 9) return 9;
+        if (floor >= 6) return 6;
+        if (floor >= 3) return 3;
+        return 1;
+    }
+
+    private static int checkpointForBest(int bestFloor) {
+        return normalizeCheckpoint(bestFloor);
+    }
+
+    private static int previousCheckpointFloor(int floor) {
+        if (floor >= 12) return 9;
+        if (floor >= 9) return 6;
+        if (floor >= 6) return 3;
+        return 0;
+    }
+
+    private static boolean isCheckpointFloor(int floor) {
+        return floor == 3 || floor == 6 || floor == 9 || floor >= Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
+    }
+
+    private record TowerPlacement(Vec3 playerPos, float playerYaw, Vec3 npcPos, float npcYaw) {}
+
+    private static TowerPlacement towerPlacement(AdventurerGuildConfig.BattleTowerFloor floor) {
+        double radians = Math.toRadians(floor.yaw);
+        double dx = -Math.sin(radians);
+        double dz = Math.cos(radians);
+        Vec3 center = new Vec3(floor.x, floor.y, floor.z);
+        Vec3 playerPos = center.add(dx * -3.5D, 0.0D, dz * -3.5D);
+        Vec3 npcPos = center.add(dx * 3.5D, 0.0D, dz * 3.5D);
+        float playerYaw = floor.yaw;
+        float npcYaw = wrapYaw(floor.yaw + 180.0F);
+        return new TowerPlacement(playerPos, playerYaw, npcPos, npcYaw);
+    }
+
+    private static float wrapYaw(float yaw) {
+        float wrapped = yaw % 360.0F;
+        if (wrapped > 180.0F) wrapped -= 360.0F;
+        if (wrapped < -180.0F) wrapped += 360.0F;
+        return wrapped;
+    }
+
+    private static ServerLevel resolveTowerLevel(ServerPlayer player, AdventurerGuildConfig.BattleTowerFloor floor) {
+        if (player == null || floor == null) return null;
+        MinecraftServer server = player.getServer();
+        ServerLevel target = player.serverLevel();
+        if (server != null && floor.world != null && !floor.world.isBlank()) {
+            for (ServerLevel level : server.getAllLevels()) {
+                if (level.dimension().location().toString().equalsIgnoreCase(floor.world.trim())) {
+                    target = level;
+                    break;
+                }
+            }
+        }
+        return target;
+    }
+
+    private static boolean teleportTo(ServerPlayer player, ServerLevel target, Vec3 pos, float yaw, float pitch) {
+        if (player == null || target == null || pos == null) return false;
+        if (target != player.serverLevel()) {
+            return invokeServerLevelTeleport(player, target, pos.x, pos.y, pos.z, yaw, pitch);
+        }
+        try {
+            player.teleportTo(pos.x, pos.y, pos.z);
+            player.moveTo(pos.x, pos.y, pos.z, yaw, pitch);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean teleportToTowerFloor(ServerPlayer player, AdventurerGuildConfig.BattleTowerFloor floor) {
+        ServerLevel target = resolveTowerLevel(player, floor);
+        return target != null && teleportTo(player, target, new Vec3(floor.x, floor.y, floor.z), floor.yaw, floor.pitch);
+    }
+
+    private static boolean invokeServerLevelTeleport(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch) {
+        if (player == null || level == null) return false;
+        for (Method method : ServerPlayer.class.getMethods()) {
+            if (!method.getName().equals("teleportTo")) continue;
+            Class<?>[] types = method.getParameterTypes();
+            try {
+                if (types.length == 7 && ServerLevel.class.isAssignableFrom(types[0])) {
+                    method.invoke(player, level, x, y, z, Set.of(), yaw, pitch);
+                    return true;
+                }
+                if (types.length == 8 && ServerLevel.class.isAssignableFrom(types[0])) {
+                    method.invoke(player, level, x, y, z, Set.of(), yaw, pitch, true);
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    private static void markDirty(ServerPlayer player) {
+        if (player == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId != null) DIRTY.add(profileId);
+    }
+
+    private static String secondsLeft(long millis) {
+        long seconds = Math.max(1L, (long)Math.ceil(millis / 1000.0D));
+        long minutes = seconds / 60L;
+        long leftover = seconds % 60L;
+        if (minutes <= 0) return seconds + "s";
+        return leftover <= 0 ? minutes + "m" : minutes + "m " + leftover + "s";
+    }
+
+    public static String pretty(String value) {
+        if (value == null || value.isBlank()) return "Unknown";
+        String[] parts = value.toLowerCase(Locale.ROOT).replace('_', ' ').split(" ");
+        StringBuilder out = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return out.toString();
+    }
+}

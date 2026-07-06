@@ -167,9 +167,19 @@ public final class CobblemonProfileStorageBridge {
                     done.complete(null);
                     return;
                 }
-                long syncStart = System.currentTimeMillis();
-                try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
-                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon onPlayerDataSync delayed took " + (System.currentTimeMillis() - syncStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+                // Do not call Cobblemon's full onPlayerDataSync here. In Cobblemon 1.7.3 that path can
+                // request the PC store, which lazy-loads a large SQL blob and parses SNBT on the server
+                // thread. We already send the active party above, and PC storage will lazy-load only when
+                // the player actually opens/uses a PC. This keeps login/profile activation from producing
+                // DatabaseManager.getConnection() server-thread warnings and 70ms+ tick stalls.
+                CompletableFuture.runAsync(() -> player.server.execute(() -> {
+                    try {
+                        if (!player.hasDisconnected() && profileId.equals(PlayerProfileManager.activeProfileId(player))) {
+                            party.sendTo(player);
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }), CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS));
                 done.complete(null);
             } catch (Throwable t) {
                 done.completeExceptionally(t);

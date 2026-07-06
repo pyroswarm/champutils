@@ -37,7 +37,7 @@ public final class ProfessionWeaponFragmentManager {
             registerFragment(entry.getKey(), entry.getValue());
         }
 
-        System.out.println("[ChampUtils] Registered " + REGISTERED_FRAGMENTS.size() + " weapon fragment items.");
+        System.out.println("[ChampUtils] Registered " + REGISTERED_FRAGMENTS.size() + " weapon essence items.");
     }
 
     private static void registerFragment(String fragmentKey, ProfessionWeaponFragmentConfig.FragmentData data) {
@@ -129,7 +129,7 @@ public final class ProfessionWeaponFragmentManager {
         );
 
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal(formatWords(rarity) + " Weapon Fragment").withStyle(color));
+        lore.add(Component.literal(displayRankName(rarity) + " Weapon Essence").withStyle(color));
 
         if (data.lore != null && !data.lore.isBlank()) {
             lore.add(Component.literal(data.lore).withStyle(ChatFormatting.GRAY));
@@ -142,6 +142,11 @@ public final class ProfessionWeaponFragmentManager {
         if (data.customModelData > 0) {
             stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(data.customModelData));
         }
+    }
+
+    private static String displayRankName(String rarity) {
+        String rank = ProfessionWeaponFragmentConfig.rankForRarity(rarity);
+        return rank == null ? formatWords(rarity) : rank + " Rank";
     }
 
     private static ChatFormatting parseColor(String color) {
@@ -158,7 +163,7 @@ public final class ProfessionWeaponFragmentManager {
 
     private static String formatWords(String input) {
         if (input == null || input.isBlank()) {
-            return "Common";
+            return "E Rank";
         }
 
         String[] parts = input.toLowerCase().split("_");
@@ -200,7 +205,7 @@ public final class ProfessionWeaponFragmentManager {
 
             if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
                 serverPlayer.sendSystemMessage(
-                        Component.literal("§eWeapon fragments will be used in the weapon crafting menu soon. Keep this item safe.")
+                        Component.literal("§eWeapon essence will be used in the weapon crafting menu soon. Keep this item safe.")
                 );
             }
 

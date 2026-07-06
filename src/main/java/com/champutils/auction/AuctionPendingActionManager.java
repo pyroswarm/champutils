@@ -1,11 +1,12 @@
 package com.champutils.auction;
 
 import com.champutils.economy.EconomyManager;
+import com.champutils.menu.ConfirmationMenu;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.Map;
 import java.util.UUID;
@@ -24,10 +25,19 @@ public final class AuctionPendingActionManager {
         action.itemSnapshot = stackSnapshot == null ? ItemStack.EMPTY : stackSnapshot.copy();
         PENDING.put(player.getUUID(), action);
 
-        player.sendSystemMessage(Component.literal("Confirm auction listing:").withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("Item: " + action.itemSnapshot.getHoverName().getString()).withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Price: " + EconomyManager.format(price)).withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Type /ah confirm to list it, or /ah cancel to stop.").withStyle(ChatFormatting.GREEN));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Auction Listing",
+                action.itemSnapshot.isEmpty() ? Items.CHEST : action.itemSnapshot.getItem(),
+                "§eList Item Auction",
+                new String[]{
+                        "§7Item: §f" + action.itemSnapshot.getHoverName().getString(),
+                        "§7Price: §6" + EconomyManager.format(price),
+                        "§cThe item is removed when the listing is created."
+                },
+                () -> AuctionHouseService.confirmPending(player),
+                () -> AuctionHouseService.cancelPending(player)
+        );
     }
 
     public static void setPokemonListing(ServerPlayer player, int slotIndex, String pokemonName, long price) {
@@ -38,10 +48,20 @@ public final class AuctionPendingActionManager {
         action.pokemonName = pokemonName;
         PENDING.put(player.getUUID(), action);
 
-        player.sendSystemMessage(Component.literal("Confirm auction listing:").withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("Pokémon: " + pokemonName + " in party slot " + (slotIndex + 1)).withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Price: " + EconomyManager.format(price)).withStyle(ChatFormatting.YELLOW));
-        player.sendSystemMessage(Component.literal("Type /ah confirm to list it, or /ah cancel to stop.").withStyle(ChatFormatting.GREEN));
+        ConfirmationMenu.open(
+                player,
+                "Confirm Auction Listing",
+                Items.PAPER,
+                "§eList Pokémon Auction",
+                new String[]{
+                        "§7Pokémon: §f" + pokemonName,
+                        "§7Party Slot: §f" + (slotIndex + 1),
+                        "§7Price: §6" + EconomyManager.format(price),
+                        "§cThe Pokémon is removed when the listing is created."
+                },
+                () -> AuctionHouseService.confirmPending(player),
+                () -> AuctionHouseService.cancelPending(player)
+        );
     }
 
     public static PendingAction get(ServerPlayer player) {

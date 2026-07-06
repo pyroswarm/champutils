@@ -1,5 +1,7 @@
 package com.champutils.shop;
 
+import com.champutils.database.DatabaseManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.profession.ProfessionToolManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
@@ -32,6 +34,7 @@ public final class FirstJoinKitManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File DIR = new File("config/champutils");
     private static final File FILE = new File(DIR, "first_join_claims.json");
+    private static final String STATE_KEY = "first_join_claims";
     private static final Random RANDOM = new Random();
 
     private static ClaimRoot DATA = new ClaimRoot();
@@ -51,15 +54,17 @@ public final class FirstJoinKitManager {
             if (!FILE.exists()) {
                 DATA = new ClaimRoot();
                 save();
-                return;
             }
-
-            try (FileReader reader = new FileReader(FILE)) {
-                ClaimRoot loaded = GSON.fromJson(reader, ClaimRoot.class);
-                DATA = loaded == null ? new ClaimRoot() : loaded;
+            else {
+                try (FileReader reader = new FileReader(FILE)) {
+                    ClaimRoot loaded = GSON.fromJson(reader, ClaimRoot.class);
+                    DATA = loaded == null ? new ClaimRoot() : loaded;
+                }
             }
 
             if (DATA.claimed == null) DATA.claimed = new HashSet<>();
+            ClaimRoot shared = SharedJsonStateRepository.loadGlobal(STATE_KEY, ClaimRoot.class, DATA);
+            if (shared != null && shared.claimed != null) DATA = shared;
         } catch (Exception exception) {
             exception.printStackTrace();
             DATA = new ClaimRoot();
@@ -72,6 +77,7 @@ public final class FirstJoinKitManager {
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(DATA, writer);
             }
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, DATA);
         } catch (Exception exception) {
             exception.printStackTrace();
         }
@@ -87,11 +93,50 @@ public final class FirstJoinKitManager {
             // Do not consume the starter kit in the lobby or during profile hydration.
             return;
         }
+        UUID playerUuid = player.getUUID();
         String oldProfileKey = profileId.toString();
         String profileKey = "profile:" + profileId;
-        String playerProfileKey = "player:" + player.getUUID() + ":profile:" + profileId;
+        String playerProfileKey = "player:" + playerUuid + ":profile:" + profileId;
 
-        if (DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey) || DATA.claimed.contains(playerProfileKey)) {
+        boolean legacyClaimed = DATA.claimed.contains(oldProfileKey) || DATA.claimed.contains(profileKey) || DATA.claimed.contains(playerProfileKey);
+        if (DatabaseManager.isEnabled()) {
+            DatabaseManager.supplyAsync("claim first join kit " + profileId, connection -> {
+                try (var st = connection.createStatement()) {
+                    st.executeUpdate("create table if not exists profile_first_join_kit_claims (" +
+                            "profile_id uuid primary key references player_profiles(id) on delete cascade, " +
+                            "player_uuid uuid not null, " +
+                            "claimed_at timestamptz not null default now())");
+                }
+                if (legacyClaimed) {
+                    try (var ps = connection.prepareStatement("insert into profile_first_join_kit_claims (profile_id, player_uuid, claimed_at) values (?, ?, now()) on conflict (profile_id) do nothing")) {
+                        ps.setObject(1, profileId);
+                        ps.setObject(2, playerUuid);
+                        ps.executeUpdate();
+                    }
+                    return false;
+                }
+                try (var ps = connection.prepareStatement("insert into profile_first_join_kit_claims (profile_id, player_uuid, claimed_at) values (?, ?, now()) on conflict (profile_id) do nothing")) {
+                    ps.setObject(1, profileId);
+                    ps.setObject(2, playerUuid);
+                    return ps.executeUpdate() > 0;
+                }
+            }).whenComplete((claimed, error) -> player.server.execute(() -> {
+                if (error != null) {
+                    System.err.println("[ChampUtils] Failed to claim first join kit for profile " + profileId + ".");
+                    error.printStackTrace();
+                    return;
+                }
+                DATA.claimed.add(profileKey);
+                DATA.claimed.add(playerProfileKey);
+                save();
+                if (!Boolean.TRUE.equals(claimed)) return;
+                if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+                giveKit(player);
+            }));
+            return;
+        }
+
+        if (legacyClaimed) {
             DATA.claimed.add(profileKey);
             DATA.claimed.add(playerProfileKey);
             save();
@@ -103,6 +148,10 @@ public final class FirstJoinKitManager {
         DATA.claimed.add(playerProfileKey);
         save();
 
+        giveKit(player);
+    }
+
+    private static void giveKit(ServerPlayer player) {
         for (FirstJoinKitConfig.KitEntry entry : FirstJoinKitConfig.CONFIG.entries) {
             give(player, entry);
         }

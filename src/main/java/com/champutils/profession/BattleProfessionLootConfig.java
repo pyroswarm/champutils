@@ -94,7 +94,7 @@ public final class BattleProfessionLootConfig {
 
             fragmentJackpots = loaded.fragmentJackpots != null
                     ? loaded.fragmentJackpots
-                    : new FragmentJackpotSettings();
+                    : (loaded.essenceJackpots != null ? loaded.essenceJackpots : new FragmentJackpotSettings());
 
             rewards = loaded.rewards != null
                     ? loaded.rewards
@@ -134,6 +134,7 @@ public final class BattleProfessionLootConfig {
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
+        public FragmentJackpotSettings essenceJackpots = fragmentJackpots;
         public List<LootEntry> rewards = new ArrayList<>();
     }
 
@@ -167,15 +168,16 @@ public final class BattleProfessionLootConfig {
         public double chancePerBattlingLevel = 0.00075D;
         public double maxChance = 0.10D;
         public int minBattlingLevel = 1;
-        public boolean allowMythic = false;
-        public Map<String, Integer> rarityWeights = new LinkedHashMap<>();
+        public boolean allowSRank = false;
+        public Map<String, Double> rarityWeights = new LinkedHashMap<>();
 
         public FragmentJackpotSettings() {
-            rarityWeights.put("COMMON", 1);
-            rarityWeights.put("UNCOMMON", 1);
-            rarityWeights.put("RARE", 1);
-            rarityWeights.put("EPIC", 1);
-            rarityWeights.put("LEGENDARY", 1);
+            rarityWeights.put("F", 1.0D);
+            rarityWeights.put("E", 1.0D);
+            rarityWeights.put("D", 1.0D);
+            rarityWeights.put("C", 1.0D);
+            rarityWeights.put("B", 1.0D);
+            rarityWeights.put("A", 1.0D);
         }
     }
 

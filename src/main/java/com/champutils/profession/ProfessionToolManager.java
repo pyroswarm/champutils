@@ -58,40 +58,45 @@ public class ProfessionToolManager {
     private static final int UNIDENTIFIED_SWORD_MODEL_DATA = 9904;
     private static final int UNIDENTIFIED_SHOVEL_MODEL_DATA = 9905;
 
-    private static final int UNIDENTIFIED_PICKAXE_COMMON_MODEL_DATA = 9911;
-    private static final int UNIDENTIFIED_PICKAXE_UNCOMMON_MODEL_DATA = 9912;
-    private static final int UNIDENTIFIED_PICKAXE_RARE_MODEL_DATA = 9913;
-    private static final int UNIDENTIFIED_PICKAXE_EPIC_MODEL_DATA = 9914;
-    private static final int UNIDENTIFIED_PICKAXE_LEGENDARY_MODEL_DATA = 9915;
-    private static final int UNIDENTIFIED_PICKAXE_MYTHIC_MODEL_DATA = 9916;
+    private static final int UNIDENTIFIED_PICKAXE_F_MODEL_DATA = 9911;
+    private static final int UNIDENTIFIED_PICKAXE_E_MODEL_DATA = 9912;
+    private static final int UNIDENTIFIED_PICKAXE_D_MODEL_DATA = 9913;
+    private static final int UNIDENTIFIED_PICKAXE_C_MODEL_DATA = 9914;
+    private static final int UNIDENTIFIED_PICKAXE_B_MODEL_DATA = 9915;
+    private static final int UNIDENTIFIED_PICKAXE_A_MODEL_DATA = 9916;
+    private static final int UNIDENTIFIED_PICKAXE_S_MODEL_DATA = 9917;
 
-    private static final int UNIDENTIFIED_AXE_COMMON_MODEL_DATA = 9921;
-    private static final int UNIDENTIFIED_AXE_UNCOMMON_MODEL_DATA = 9922;
-    private static final int UNIDENTIFIED_AXE_RARE_MODEL_DATA = 9923;
-    private static final int UNIDENTIFIED_AXE_EPIC_MODEL_DATA = 9924;
-    private static final int UNIDENTIFIED_AXE_LEGENDARY_MODEL_DATA = 9925;
-    private static final int UNIDENTIFIED_AXE_MYTHIC_MODEL_DATA = 9926;
+    private static final int UNIDENTIFIED_AXE_F_MODEL_DATA = 9921;
+    private static final int UNIDENTIFIED_AXE_E_MODEL_DATA = 9922;
+    private static final int UNIDENTIFIED_AXE_D_MODEL_DATA = 9923;
+    private static final int UNIDENTIFIED_AXE_C_MODEL_DATA = 9924;
+    private static final int UNIDENTIFIED_AXE_B_MODEL_DATA = 9925;
+    private static final int UNIDENTIFIED_AXE_A_MODEL_DATA = 9926;
+    private static final int UNIDENTIFIED_AXE_S_MODEL_DATA = 9927;
 
-    private static final int UNIDENTIFIED_HOE_COMMON_MODEL_DATA = 9931;
-    private static final int UNIDENTIFIED_HOE_UNCOMMON_MODEL_DATA = 9932;
-    private static final int UNIDENTIFIED_HOE_RARE_MODEL_DATA = 9933;
-    private static final int UNIDENTIFIED_HOE_EPIC_MODEL_DATA = 9934;
-    private static final int UNIDENTIFIED_HOE_LEGENDARY_MODEL_DATA = 9935;
-    private static final int UNIDENTIFIED_HOE_MYTHIC_MODEL_DATA = 9936;
+    private static final int UNIDENTIFIED_HOE_F_MODEL_DATA = 9931;
+    private static final int UNIDENTIFIED_HOE_E_MODEL_DATA = 9932;
+    private static final int UNIDENTIFIED_HOE_D_MODEL_DATA = 9933;
+    private static final int UNIDENTIFIED_HOE_C_MODEL_DATA = 9934;
+    private static final int UNIDENTIFIED_HOE_B_MODEL_DATA = 9935;
+    private static final int UNIDENTIFIED_HOE_A_MODEL_DATA = 9936;
+    private static final int UNIDENTIFIED_HOE_S_MODEL_DATA = 9937;
 
-    private static final int UNIDENTIFIED_SWORD_COMMON_MODEL_DATA = 9941;
-    private static final int UNIDENTIFIED_SWORD_UNCOMMON_MODEL_DATA = 9942;
-    private static final int UNIDENTIFIED_SWORD_RARE_MODEL_DATA = 9943;
-    private static final int UNIDENTIFIED_SWORD_EPIC_MODEL_DATA = 9944;
-    private static final int UNIDENTIFIED_SWORD_LEGENDARY_MODEL_DATA = 9945;
-    private static final int UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA = 9946;
+    private static final int UNIDENTIFIED_SWORD_F_MODEL_DATA = 9941;
+    private static final int UNIDENTIFIED_SWORD_E_MODEL_DATA = 9942;
+    private static final int UNIDENTIFIED_SWORD_D_MODEL_DATA = 9943;
+    private static final int UNIDENTIFIED_SWORD_C_MODEL_DATA = 9944;
+    private static final int UNIDENTIFIED_SWORD_B_MODEL_DATA = 9945;
+    private static final int UNIDENTIFIED_SWORD_A_MODEL_DATA = 9946;
+    private static final int UNIDENTIFIED_SWORD_S_MODEL_DATA = 9947;
 
-    private static final int UNIDENTIFIED_SHOVEL_COMMON_MODEL_DATA = 9951;
-    private static final int UNIDENTIFIED_SHOVEL_UNCOMMON_MODEL_DATA = 9952;
-    private static final int UNIDENTIFIED_SHOVEL_RARE_MODEL_DATA = 9953;
-    private static final int UNIDENTIFIED_SHOVEL_EPIC_MODEL_DATA = 9954;
-    private static final int UNIDENTIFIED_SHOVEL_LEGENDARY_MODEL_DATA = 9955;
-    private static final int UNIDENTIFIED_SHOVEL_MYTHIC_MODEL_DATA = 9956;
+    private static final int UNIDENTIFIED_SHOVEL_F_MODEL_DATA = 9951;
+    private static final int UNIDENTIFIED_SHOVEL_E_MODEL_DATA = 9952;
+    private static final int UNIDENTIFIED_SHOVEL_D_MODEL_DATA = 9953;
+    private static final int UNIDENTIFIED_SHOVEL_C_MODEL_DATA = 9954;
+    private static final int UNIDENTIFIED_SHOVEL_B_MODEL_DATA = 9955;
+    private static final int UNIDENTIFIED_SHOVEL_A_MODEL_DATA = 9956;
+    private static final int UNIDENTIFIED_SHOVEL_S_MODEL_DATA = 9957;
 
     private static final Map<String, Item> REGISTERED_TOOLS =
             new HashMap<>();
@@ -617,7 +622,7 @@ public class ProfessionToolManager {
         return Math.random() * 100.0D < chancePercent;
     }
 
-    private static boolean isLegendaryOrMythic(
+    private static boolean isTopRank(
             String rarity
     ) {
 
@@ -629,9 +634,9 @@ public class ProfessionToolManager {
                 rarity.trim().toUpperCase();
 
         return normalized.equals(
-                "LEGENDARY"
+                "A"
         ) || normalized.equals(
-                "MYTHIC"
+                "S"
         );
     }
 
@@ -688,7 +693,7 @@ public class ProfessionToolManager {
         if (
                 finalAscended &&
                         !toolData.hasAscendedVariant &&
-                        !isLegendaryOrMythic(
+                        !isTopRank(
                                 toolData.rarity
                         )
         ) {
@@ -763,6 +768,15 @@ public class ProfessionToolManager {
                         toolData,
                         rolledStats
                 );
+
+        ProfessionToolMetadata.setActiveAbility(
+                stack,
+                ProfessionToolRollService.rollActiveAbility(
+                        toolId,
+                        toolData,
+                        null
+                )
+        );
 
         ProfessionToolMetadata.applyRoll(
                 stack,
@@ -866,8 +880,11 @@ public class ProfessionToolManager {
         if (!ProfessionToolMetadata.isIdentified(stack)) {
             Map<String, Double> rolledStats = ProfessionToolRollService.rollStats(toolData);
             double quality = ProfessionToolRollService.calculateQuality(toolData, rolledStats);
+            ProfessionToolMetadata.setActiveAbility(stack, ProfessionToolRollService.rollActiveAbility(toolId, toolData, null));
             ProfessionToolMetadata.applyRoll(stack, rolledStats, quality, false);
         }
+
+        ensureActiveAbility(stack, toolId, toolData);
 
         applyIdentifiedDisplay(
                 stack,
@@ -909,9 +926,29 @@ public class ProfessionToolManager {
         if (!ProfessionToolMetadata.isIdentified(stack)) {
             Map<String, Double> rolledStats = ProfessionToolRollService.rollStats(toolData);
             double quality = ProfessionToolRollService.calculateQuality(toolData, rolledStats);
+            ProfessionToolMetadata.setActiveAbility(stack, ProfessionToolRollService.rollActiveAbility(toolId, toolData, null));
             ProfessionToolMetadata.applyRoll(stack, rolledStats, quality, false);
         }
+        ensureActiveAbility(stack, toolId, toolData);
         applyIdentifiedDisplay(stack, toolId, toolData, player);
+    }
+
+    private static void ensureActiveAbility(
+            ItemStack stack,
+            String toolId,
+            ProfessionToolConfig.ToolData toolData
+    ) {
+        if (stack == null || stack.isEmpty() || toolData == null) {
+            return;
+        }
+        String current = ProfessionToolMetadata.getActiveAbility(stack);
+        if (current != null && !current.isBlank()) {
+            return;
+        }
+        ProfessionToolMetadata.setActiveAbility(
+                stack,
+                ProfessionToolRollService.rollActiveAbility(toolId, toolData, null)
+        );
     }
 
     private static void applyUnidentifiedDisplay(
@@ -956,6 +993,14 @@ public class ProfessionToolManager {
                 )
         );
 
+        lore.add(
+                Component.literal(
+                        "Tier: " + formatRarity(toolData.rarity)
+                ).withStyle(
+                        getRarityColor(toolData.rarity)
+                )
+        );
+
         addItemLockLore(
                 lore,
                 stack
@@ -975,7 +1020,7 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        "Identify this item to reveal its name, rarity, stats, level requirement, and abilities."
+                        "Identify this item to reveal its stats, tier, level requirement, and abilities."
                 ).withStyle(
                         ChatFormatting.DARK_GRAY
                 )
@@ -1126,9 +1171,11 @@ public class ProfessionToolManager {
                         ChatFormatting.GRAY
                 )
         );
-        long nextRerollCost = ProfessionToolRollService.getRerollCost(stack);
+        int nextRerollFragmentCost = ProfessionToolRollService.getRerollFragmentCost(stack);
+        long nextRerollCreditCost = ProfessionToolRollService.getRerollCost(stack);
+        String fragmentKey = ProfessionToolRollService.getRerollFragmentKey(stack);
         lore.add(
-                Component.literal("Next Reroll Cost: " + com.champutils.economy.EconomyCraftHook.formatMoney(nextRerollCost))
+                Component.literal("Next Reroll Cost: " + EconomyCraftHook.formatMoney(nextRerollCreditCost) + " + " + nextRerollFragmentCost + " " + ProfessionFragmentManager.displayRankName(fragmentKey) + " Essence")
                         .withStyle(ChatFormatting.GOLD)
         );
 
@@ -1149,6 +1196,7 @@ public class ProfessionToolManager {
 
         addActiveAbilityLore(
                 lore,
+                stack,
                 toolData,
                 player
         );
@@ -1168,16 +1216,23 @@ public class ProfessionToolManager {
 
         lore.add(
                 Component.literal(
-                        formatRarity(
+                        "Tier: " + formatRarity(
                                 toolData.rarity
-                        ) +
-                                (toolData.profession == null || toolData.profession.isBlank()
-                                        ? " Combat Weapon"
-                                        : " " + formatWords(toolData.profession) + " Tool")
+                        )
                 ).withStyle(
                         getRarityColor(
                                 toolData.rarity
                         )
+                )
+        );
+
+        lore.add(
+                Component.literal(
+                        toolData.profession == null || toolData.profession.isBlank()
+                                ? "Role: Combat Weapon"
+                                : "Role: " + formatWords(toolData.profession) + " Tool"
+                ).withStyle(
+                        ChatFormatting.GRAY
                 )
         );
 
@@ -1461,13 +1516,20 @@ public class ProfessionToolManager {
 
     private static void addActiveAbilityLore(
             List<Component> lore,
+            ItemStack stack,
             ProfessionToolConfig.ToolData toolData,
             ServerPlayer player
     ) {
 
+        String activeAbility =
+                ProfessionToolMetadata.getResolvedActiveAbility(
+                        stack,
+                        toolData
+                );
+
         if (
-                toolData.activeAbility == null ||
-                        toolData.activeAbility.isBlank()
+                activeAbility == null ||
+                        activeAbility.isBlank()
         ) {
             return;
         }
@@ -1488,7 +1550,7 @@ public class ProfessionToolManager {
                 Component.literal(
                         " " +
                                 formatWords(
-                                        toolData.activeAbility
+                                        activeAbility
                                 )
                 ).withStyle(
                         ChatFormatting.GRAY
@@ -1505,7 +1567,7 @@ public class ProfessionToolManager {
                 )
         );
 
-        if (isTimedActiveAbility(toolData.activeAbility)) {
+        if (isTimedActiveAbility(activeAbility)) {
             double durationSeconds = ProfessionActiveDuration.durationSeconds(
                     player,
                     toolData,
@@ -1940,14 +2002,15 @@ public class ProfessionToolManager {
 
     public static long getRepairCreditCost(ProfessionToolConfig.ToolData toolData) {
         String rarity = toolData == null || toolData.rarity == null
-                ? "common"
+                ? "f"
                 : toolData.rarity.toLowerCase(java.util.Locale.ROOT);
         long credits = switch (rarity) {
-            case "uncommon" -> 20L;
-            case "rare" -> 35L;
-            case "epic" -> 50L;
-            case "legendary" -> 100L;
-            case "mythic" -> 250L;
+            case "e" -> 20L;
+            case "d" -> 35L;
+            case "c" -> 50L;
+            case "b" -> 75L;
+            case "a" -> 125L;
+            case "s" -> 250L;
             default -> 10L;
         };
         return credits * 100L;
@@ -2357,17 +2420,7 @@ public class ProfessionToolManager {
     private static String normalizeRarityName(
             String rarity
     ) {
-
-        if (
-                rarity == null ||
-                        rarity.isBlank()
-        ) {
-            return "COMMON";
-        }
-
-        return rarity
-                .trim()
-                .toUpperCase();
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 
     private static int getUnidentifiedPickaxeModelData(
@@ -2375,12 +2428,13 @@ public class ProfessionToolManager {
     ) {
 
         return switch (rarity) {
-            case "UNCOMMON" -> UNIDENTIFIED_PICKAXE_UNCOMMON_MODEL_DATA;
-            case "RARE" -> UNIDENTIFIED_PICKAXE_RARE_MODEL_DATA;
-            case "EPIC" -> UNIDENTIFIED_PICKAXE_EPIC_MODEL_DATA;
-            case "LEGENDARY" -> UNIDENTIFIED_PICKAXE_LEGENDARY_MODEL_DATA;
-            case "MYTHIC" -> UNIDENTIFIED_PICKAXE_MYTHIC_MODEL_DATA;
-            case "COMMON" -> UNIDENTIFIED_PICKAXE_COMMON_MODEL_DATA;
+            case "E" -> UNIDENTIFIED_PICKAXE_E_MODEL_DATA;
+            case "D" -> UNIDENTIFIED_PICKAXE_D_MODEL_DATA;
+            case "C" -> UNIDENTIFIED_PICKAXE_C_MODEL_DATA;
+            case "B" -> UNIDENTIFIED_PICKAXE_B_MODEL_DATA;
+            case "A" -> UNIDENTIFIED_PICKAXE_A_MODEL_DATA;
+            case "S" -> UNIDENTIFIED_PICKAXE_S_MODEL_DATA;
+            case "F" -> UNIDENTIFIED_PICKAXE_F_MODEL_DATA;
             default -> UNIDENTIFIED_PICKAXE_MODEL_DATA;
         };
     }
@@ -2390,12 +2444,13 @@ public class ProfessionToolManager {
     ) {
 
         return switch (rarity) {
-            case "UNCOMMON" -> UNIDENTIFIED_AXE_UNCOMMON_MODEL_DATA;
-            case "RARE" -> UNIDENTIFIED_AXE_RARE_MODEL_DATA;
-            case "EPIC" -> UNIDENTIFIED_AXE_EPIC_MODEL_DATA;
-            case "LEGENDARY" -> UNIDENTIFIED_AXE_LEGENDARY_MODEL_DATA;
-            case "MYTHIC" -> UNIDENTIFIED_AXE_MYTHIC_MODEL_DATA;
-            case "COMMON" -> UNIDENTIFIED_AXE_COMMON_MODEL_DATA;
+            case "E" -> UNIDENTIFIED_AXE_E_MODEL_DATA;
+            case "D" -> UNIDENTIFIED_AXE_D_MODEL_DATA;
+            case "C" -> UNIDENTIFIED_AXE_C_MODEL_DATA;
+            case "B" -> UNIDENTIFIED_AXE_B_MODEL_DATA;
+            case "A" -> UNIDENTIFIED_AXE_A_MODEL_DATA;
+            case "S" -> UNIDENTIFIED_AXE_S_MODEL_DATA;
+            case "F" -> UNIDENTIFIED_AXE_F_MODEL_DATA;
             default -> UNIDENTIFIED_AXE_MODEL_DATA;
         };
     }
@@ -2405,12 +2460,13 @@ public class ProfessionToolManager {
     ) {
 
         return switch (rarity) {
-            case "UNCOMMON" -> UNIDENTIFIED_HOE_UNCOMMON_MODEL_DATA;
-            case "RARE" -> UNIDENTIFIED_HOE_RARE_MODEL_DATA;
-            case "EPIC" -> UNIDENTIFIED_HOE_EPIC_MODEL_DATA;
-            case "LEGENDARY" -> UNIDENTIFIED_HOE_LEGENDARY_MODEL_DATA;
-            case "MYTHIC" -> UNIDENTIFIED_HOE_MYTHIC_MODEL_DATA;
-            case "COMMON" -> UNIDENTIFIED_HOE_COMMON_MODEL_DATA;
+            case "E" -> UNIDENTIFIED_HOE_E_MODEL_DATA;
+            case "D" -> UNIDENTIFIED_HOE_D_MODEL_DATA;
+            case "C" -> UNIDENTIFIED_HOE_C_MODEL_DATA;
+            case "B" -> UNIDENTIFIED_HOE_B_MODEL_DATA;
+            case "A" -> UNIDENTIFIED_HOE_A_MODEL_DATA;
+            case "S" -> UNIDENTIFIED_HOE_S_MODEL_DATA;
+            case "F" -> UNIDENTIFIED_HOE_F_MODEL_DATA;
             default -> UNIDENTIFIED_HOE_MODEL_DATA;
         };
     }
@@ -2420,12 +2476,13 @@ public class ProfessionToolManager {
     ) {
 
         return switch (rarity) {
-            case "UNCOMMON" -> UNIDENTIFIED_SWORD_UNCOMMON_MODEL_DATA;
-            case "RARE" -> UNIDENTIFIED_SWORD_RARE_MODEL_DATA;
-            case "EPIC" -> UNIDENTIFIED_SWORD_EPIC_MODEL_DATA;
-            case "LEGENDARY" -> UNIDENTIFIED_SWORD_LEGENDARY_MODEL_DATA;
-            case "MYTHIC" -> UNIDENTIFIED_SWORD_MYTHIC_MODEL_DATA;
-            case "COMMON" -> UNIDENTIFIED_SWORD_COMMON_MODEL_DATA;
+            case "E" -> UNIDENTIFIED_SWORD_E_MODEL_DATA;
+            case "D" -> UNIDENTIFIED_SWORD_D_MODEL_DATA;
+            case "C" -> UNIDENTIFIED_SWORD_C_MODEL_DATA;
+            case "B" -> UNIDENTIFIED_SWORD_B_MODEL_DATA;
+            case "A" -> UNIDENTIFIED_SWORD_A_MODEL_DATA;
+            case "S" -> UNIDENTIFIED_SWORD_S_MODEL_DATA;
+            case "F" -> UNIDENTIFIED_SWORD_F_MODEL_DATA;
             default -> UNIDENTIFIED_SWORD_MODEL_DATA;
         };
     }
@@ -2435,12 +2492,13 @@ public class ProfessionToolManager {
     ) {
 
         return switch (rarity) {
-            case "UNCOMMON" -> UNIDENTIFIED_SHOVEL_UNCOMMON_MODEL_DATA;
-            case "RARE" -> UNIDENTIFIED_SHOVEL_RARE_MODEL_DATA;
-            case "EPIC" -> UNIDENTIFIED_SHOVEL_EPIC_MODEL_DATA;
-            case "LEGENDARY" -> UNIDENTIFIED_SHOVEL_LEGENDARY_MODEL_DATA;
-            case "MYTHIC" -> UNIDENTIFIED_SHOVEL_MYTHIC_MODEL_DATA;
-            case "COMMON" -> UNIDENTIFIED_SHOVEL_COMMON_MODEL_DATA;
+            case "E" -> UNIDENTIFIED_SHOVEL_E_MODEL_DATA;
+            case "D" -> UNIDENTIFIED_SHOVEL_D_MODEL_DATA;
+            case "C" -> UNIDENTIFIED_SHOVEL_C_MODEL_DATA;
+            case "B" -> UNIDENTIFIED_SHOVEL_B_MODEL_DATA;
+            case "A" -> UNIDENTIFIED_SHOVEL_A_MODEL_DATA;
+            case "S" -> UNIDENTIFIED_SHOVEL_S_MODEL_DATA;
+            case "F" -> UNIDENTIFIED_SHOVEL_F_MODEL_DATA;
             default -> UNIDENTIFIED_SHOVEL_MODEL_DATA;
         };
     }
@@ -2512,17 +2570,7 @@ public class ProfessionToolManager {
     private static String formatRarity(
             String rarity
     ) {
-
-        if (
-                rarity == null ||
-                        rarity.isBlank()
-        ) {
-            return "COMMON";
-        }
-
-        return rarity
-                .replace("_", " ")
-                .toUpperCase();
+        return com.champutils.rarity.RarityScale.display(rarity);
     }
 
     private static String formatWords(
@@ -2665,9 +2713,9 @@ public class ProfessionToolManager {
         return switch (
                 rarity.toUpperCase()
                 ) {
-            case "UNCOMMON" -> Rarity.UNCOMMON;
-            case "RARE" -> Rarity.RARE;
-            case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC;
+            case "E" -> Rarity.UNCOMMON;
+            case "D" -> Rarity.RARE;
+            case "C", "B", "A", "S" -> Rarity.EPIC;
             default -> Rarity.COMMON;
         };
     }
@@ -2716,11 +2764,12 @@ public class ProfessionToolManager {
         return switch (
                 rarity.toUpperCase()
                 ) {
-            case "UNCOMMON" -> ChatFormatting.DARK_GREEN;
-            case "RARE" -> ChatFormatting.AQUA;
-            case "EPIC" -> ChatFormatting.DARK_PURPLE;
-            case "LEGENDARY" -> ChatFormatting.GOLD;
-            case "MYTHIC" -> ChatFormatting.LIGHT_PURPLE;
+            case "E" -> ChatFormatting.DARK_GREEN;
+            case "D" -> ChatFormatting.AQUA;
+            case "C" -> ChatFormatting.DARK_PURPLE;
+            case "B" -> ChatFormatting.YELLOW;
+            case "A" -> ChatFormatting.GOLD;
+            case "S" -> ChatFormatting.LIGHT_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }
@@ -2781,13 +2830,13 @@ public class ProfessionToolManager {
         }
 
         String rarity = toolData == null || toolData.rarity == null
-                ? "COMMON"
-                : toolData.rarity.trim().toUpperCase(java.util.Locale.ROOT);
+                ? "F"
+                : com.champutils.rarity.RarityScale.normalize(toolData.rarity);
         return switch (rarity) {
-            case "COMMON", "UNCOMMON" -> "IRON";
-            case "RARE", "EPIC" -> "DIAMOND";
-            case "LEGENDARY" -> "NETHERITE";
-            case "MYTHIC" -> "GOLD";
+            case "F", "E" -> "IRON";
+            case "D", "C" -> "DIAMOND";
+            case "B", "A" -> "NETHERITE";
+            case "S" -> "GOLD";
             default -> "IRON";
         };
     }
@@ -2842,12 +2891,13 @@ public class ProfessionToolManager {
 
     private static int rarityTier(String rarity) {
         if (rarity == null) return 1;
-        return switch (rarity.trim().toUpperCase()) {
-            case "UNCOMMON" -> 2;
-            case "RARE" -> 3;
-            case "EPIC" -> 4;
-            case "LEGENDARY" -> 5;
-            case "MYTHIC" -> 6;
+        return switch (com.champutils.rarity.RarityScale.normalize(rarity)) {
+            case "E" -> 2;
+            case "D" -> 3;
+            case "C" -> 4;
+            case "B" -> 5;
+            case "A" -> 6;
+            case "S" -> 7;
             default -> 1;
         };
     }

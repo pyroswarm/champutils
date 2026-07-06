@@ -63,7 +63,7 @@ public final class ProfessionFragmentManager {
         System.out.println(
                 "[ChampUtils] Registered " +
                         REGISTERED_FRAGMENTS.size() +
-                        " profession fragment items."
+                        " profession essence items."
         );
     }
 
@@ -185,7 +185,7 @@ public final class ProfessionFragmentManager {
 
         lore.add(
                 Component.literal(
-                        formatWords(fragmentKey) + " Fragment"
+                        displayRankName(fragmentKey) + " Essence"
                 ).withStyle(color)
         );
 
@@ -198,7 +198,7 @@ public final class ProfessionFragmentManager {
 
         lore.add(
                 Component.literal(
-                        "Right-click to deposit into your fragment storage."
+                        "Right-click to deposit into your essence storage."
                 ).withStyle(ChatFormatting.DARK_GRAY)
         );
 
@@ -294,8 +294,8 @@ public final class ProfessionFragmentManager {
                         "§aDeposited §6" +
                                 amount +
                                 "x " +
-                                formatWords(normalized) +
-                                " Fragment§a."
+                                displayRankName(normalized) +
+                                " Essence§a."
                 )
         );
 
@@ -338,7 +338,7 @@ public final class ProfessionFragmentManager {
                 ProfessionFragmentConfig.normalizeRarity(salvageData.fragment);
 
         if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(fragmentKey)) {
-            return SalvageResult.fail("Salvage rule points to an unknown fragment: " + fragmentKey);
+            return SalvageResult.fail("Salvage rule points to an unknown essence: " + fragmentKey);
         }
 
         int min =
@@ -415,7 +415,7 @@ public final class ProfessionFragmentManager {
                 ProfessionFragmentConfig.normalizeRarity(fragmentKey);
 
         if (!ProfessionFragmentConfig.FRAGMENTS.containsKey(normalized)) {
-            return WithdrawResult.fail("Unknown fragment rarity: " + normalized);
+            return WithdrawResult.fail("Unknown essence rarity: " + normalized);
         }
 
         if (amount <= 0) {
@@ -429,7 +429,7 @@ public final class ProfessionFragmentManager {
                 player.getUUID();
 
         if (!WITHDRAW_LOCKS.add(uuid)) {
-            return WithdrawResult.fail("Your previous fragment withdrawal is still processing.");
+            return WithdrawResult.fail("Your previous essence withdrawal is still processing.");
         }
 
         try {
@@ -440,7 +440,7 @@ public final class ProfessionFragmentManager {
                     WITHDRAW_COOLDOWNS.getOrDefault(uuid, 0L);
 
             if (now < nextAllowed) {
-                return WithdrawResult.fail("Please wait a moment before withdrawing fragments again.");
+                return WithdrawResult.fail("Please wait a moment before withdrawing essence again.");
             }
 
             WITHDRAW_COOLDOWNS.put(
@@ -456,16 +456,16 @@ public final class ProfessionFragmentManager {
 
             if (available < safeAmount) {
                 return WithdrawResult.fail(
-                        "You need " + safeAmount + " " + formatWords(normalized) + " fragments. You have " + available + "."
+                        "You need " + safeAmount + " " + displayRankName(normalized) + " essence. You have " + available + "."
                 );
             }
 
             if (!canFitFragmentStacks(player, normalized, safeAmount)) {
-                return WithdrawResult.fail("You do not have enough inventory space for that many fragment items.");
+                return WithdrawResult.fail("You do not have enough inventory space for that many essence items.");
             }
 
             if (!removeFragments(player, normalized, safeAmount)) {
-                return WithdrawResult.fail("Could not remove stored fragments.");
+                return WithdrawResult.fail("Could not remove stored essence.");
             }
 
             boolean inserted =
@@ -484,7 +484,7 @@ public final class ProfessionFragmentManager {
 
                 ProfessionManager.savePlayer(player);
 
-                return WithdrawResult.fail("Could not place fragments in your inventory. Your stored fragments were restored.");
+                return WithdrawResult.fail("Could not place essence in your inventory. Your stored essence were restored.");
             }
 
             ProfessionManager.savePlayer(player);
@@ -635,7 +635,7 @@ public final class ProfessionFragmentManager {
                 ProfessionFragmentConfig.normalizeRarity(upgrade.toFragment);
 
         if (ProfessionFragmentConfig.isBlockedPrestigeConversion(from, to)) {
-            return UpgradeResult.fail("That prestige conversion is disabled. Legendary and Mythic fragments must come from prestige sources.");
+            return UpgradeResult.fail("That prestige conversion is disabled. B/A/S Rank essence must come from prestige sources.");
         }
 
         int cost =
@@ -652,12 +652,12 @@ public final class ProfessionFragmentManager {
 
         if (available < cost) {
             return UpgradeResult.fail(
-                    "You need " + cost + " " + formatWords(from) + " fragments. You have " + available + "."
+                    "You need " + cost + " " + displayRankName(from) + " essence. You have " + available + "."
             );
         }
 
         if (!removeFragments(player, from, cost)) {
-            return UpgradeResult.fail("Could not remove input fragments.");
+            return UpgradeResult.fail("Could not remove input essence.");
         }
 
         ProfessionManager.addFragments(
@@ -719,7 +719,7 @@ public final class ProfessionFragmentManager {
                 ProfessionFragmentConfig.TOOL_CRAFTING.get(normalizedRarity);
 
         if (trade == null) {
-            return CraftResult.fail("No fragment crafting rule exists for rarity: " + normalizedRarity);
+            return CraftResult.fail("No essence crafting rule exists for rarity: " + normalizedRarity);
         }
 
         boolean trinketCraft =
@@ -747,7 +747,7 @@ public final class ProfessionFragmentManager {
 
         if (available < cost) {
             return CraftResult.fail(
-                    "You need " + cost + " " + formatWords(fragmentKey) + " fragments. You have " + available + "."
+                    "You need " + cost + " " + displayRankName(fragmentKey) + " Essence. You have " + available + "."
             );
         }
 
@@ -763,7 +763,7 @@ public final class ProfessionFragmentManager {
                 return CraftResult.fail("Could not create profession gear for rarity: " + normalizedRarity);
             }
             if (!removeFragments(player, fragmentKey, cost)) {
-                return CraftResult.fail("Could not remove fragments.");
+                return CraftResult.fail("Could not remove essence.");
             }
             EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
             if (!creditWithdraw.success) {
@@ -774,7 +774,7 @@ public final class ProfessionFragmentManager {
             if (!added) player.drop(reward, false);
             return CraftResult.success(
                     normalizedRarity.toLowerCase() + "_profession_" + normalizedToolType,
-                    formatWords(normalizedRarity) + " Profession " + formatWords(normalizedToolType),
+                    displayRankName(normalizedRarity) + " Profession " + formatWords(normalizedToolType),
                     normalizedRarity,
                     normalizedToolType,
                     fragmentKey,
@@ -789,7 +789,7 @@ public final class ProfessionFragmentManager {
                     return CraftResult.fail("You already have an equal or better digital trinket pouch. Lesser pouches cannot be purchased.");
                 }
                 if (!removeFragments(player, fragmentKey, cost)) {
-                    return CraftResult.fail("Could not remove fragments.");
+                    return CraftResult.fail("Could not remove essence.");
                 }
                 EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
                 if (!creditWithdraw.success) {
@@ -799,7 +799,7 @@ public final class ProfessionFragmentManager {
                 ProfessionTrinketManager.unlockOrUpgradeDigitalPouch(player, normalizedRarity);
                 return CraftResult.success(
                         normalizedRarity.toLowerCase() + "_digital_trinket_pouch",
-                        formatWords(normalizedRarity) + " Digital Trinket Pouch",
+                        displayRankName(normalizedRarity) + " Digital Trinket Pouch",
                         normalizedRarity,
                         normalizedToolType,
                         fragmentKey,
@@ -813,7 +813,7 @@ public final class ProfessionFragmentManager {
                 return CraftResult.fail("Could not create trinket for rarity: " + normalizedRarity);
             }
                 if (!removeFragments(player, fragmentKey, cost)) {
-                    return CraftResult.fail("Could not remove fragments.");
+                    return CraftResult.fail("Could not remove essence.");
                 }
                 EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
                 if (!creditWithdraw.success) {
@@ -824,7 +824,7 @@ public final class ProfessionFragmentManager {
             if (!added) player.drop(reward, false);
             return CraftResult.success(
                     normalizedRarity.toLowerCase() + "_" + normalizedToolType,
-                    formatWords(normalizedRarity) + " " + formatWords(normalizedToolType),
+                    displayRankName(normalizedRarity) + " " + formatWords(normalizedToolType),
                     normalizedRarity,
                     normalizedToolType,
                     fragmentKey,
@@ -841,7 +841,7 @@ public final class ProfessionFragmentManager {
 
         if (candidates.isEmpty()) {
             return CraftResult.fail(
-                    "No " + formatWords(normalizedRarity) + " " + formatWords(normalizedToolType) + " tools exist in profession_tools.json."
+                    "No " + displayRankName(normalizedRarity) + " " + formatWords(normalizedToolType) + " tools exist in profession_tools.json."
             );
         }
 
@@ -864,7 +864,7 @@ public final class ProfessionFragmentManager {
         }
 
         if (!removeFragments(player, fragmentKey, cost)) {
-            return CraftResult.fail("Could not remove fragments.");
+            return CraftResult.fail("Could not remove essence.");
         }
         EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
         if (!creditWithdraw.success) {
@@ -896,12 +896,13 @@ public final class ProfessionFragmentManager {
 
     public static long craftCreditCost(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "COMMON" -> 50L;
-            case "UNCOMMON" -> 100L;
-            case "RARE" -> 250L;
-            case "EPIC" -> 500L;
-            case "LEGENDARY" -> 1_000L;
-            case "MYTHIC" -> 5_000L;
+            case "F" -> 50L;
+            case "E" -> 100L;
+            case "D" -> 250L;
+            case "C" -> 500L;
+            case "B" -> 750L;
+            case "A" -> 1_250L;
+            case "S" -> 5_000L;
             default -> 50L;
         };
     }
@@ -1099,6 +1100,11 @@ public final class ProfessionFragmentManager {
         } catch (Exception e) {
             return ChatFormatting.WHITE;
         }
+    }
+
+    public static String displayRankName(String rarity) {
+        String rank = ProfessionFragmentConfig.rankForRarity(rarity);
+        return rank == null ? formatWords(rarity) : rank + " Rank";
     }
 
     public static String formatWords(String value) {

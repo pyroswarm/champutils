@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import com.champutils.afk.PvPBattleStallManager;
+import com.champutils.adventurer.AdventurerGuildManager;
 
 import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profession.ProfessionManager;
@@ -72,6 +73,8 @@ public class CobblemonBattleHandler {
             }
 
             PvPBattleStallManager.recordBattleStarted(e.getBattle());
+
+            PluginTrainerBattleStarter.releaseStartLocks(firstPlayerUuid, firstNpcUuid);
 
             BattleContextManager.TrainerBattleContext trainerBattleContext =
                     BattleContextManager.attachTrainerBattleContext(
@@ -180,6 +183,10 @@ public class CobblemonBattleHandler {
             if (anyRoamingNpcUuid != null) {
                 com.champutils.roaming.RoamingTrainerManager.handleBattleEnded(anyRoamingNpcUuid);
             }
+            PluginTrainerBattleStarter.releaseStartLocks(
+                    trainerBattleContext == null ? null : trainerBattleContext.playerId(),
+                    anyNpcUuid
+            );
 
             if (anyNpcUuid != null) {
                 for (Object actor : e.getBattle().getActors()) {
@@ -187,6 +194,14 @@ public class CobblemonBattleHandler {
                         com.champutils.guild.GuildBossManager.recordBossBattleEnded((ServerPlayer) playerActor.getEntity(), anyNpcUuid);
                     }
                 }
+            }
+
+            if (winner == null && loser != null) {
+                AdventurerGuildManager.recordBattleLoss(
+                        loser,
+                        BattleContextManager.getContext(loser.getUUID())
+                );
+                BattleContextManager.clearContext(loser.getUUID());
             }
 
             /*

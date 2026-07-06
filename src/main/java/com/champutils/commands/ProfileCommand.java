@@ -5,6 +5,7 @@ import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileMainMenuManager;
 import com.champutils.profile.ProfileLobbyDebug;
 import com.champutils.profile.ProfileNetworkTransferFlow;
+import com.champutils.profile.ProfileStateFlushService;
 import com.champutils.profile.ProxyTransferBridge;
 import com.champutils.network.NetworkServerConfig;
 import com.champutils.profile.NuzlockeManager;
@@ -96,6 +97,10 @@ public final class ProfileCommand {
 
     private static int openOrEnterMenu(ServerPlayer player) {
         if (ProfileNetworkTransferFlow.isSurvivalServer()) {
+            if (!ProfileStateFlushService.flushBeforeTransfer(player, "return_to_profile_lobby", 3, java.util.concurrent.TimeUnit.SECONDS)) {
+                player.sendSystemMessage(Component.literal("Could not safely save your profile yet. Please wait a moment and try again.").withStyle(ChatFormatting.RED));
+                return 0;
+            }
             NetworkServerConfig config = NetworkServerConfig.get();
             String targetServer = config.profileLobbyServerId == null || config.profileLobbyServerId.isBlank() ? "profile_lobby" : config.profileLobbyServerId;
             String command = config.returnToProfileLobbyCommand == null || config.returnToProfileLobbyCommand.isBlank()

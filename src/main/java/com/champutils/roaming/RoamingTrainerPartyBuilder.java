@@ -190,12 +190,13 @@ public final class RoamingTrainerPartyBuilder {
         List<String> pool;
         double roll = RANDOM.nextDouble();
         switch (rarity) {
-            case COMMON -> pool = RoamingTrainerConfig.DATA.basicSpeciesPool;
-            case UNCOMMON -> pool = roll < 0.70D ? RoamingTrainerConfig.DATA.basicSpeciesPool : RoamingTrainerConfig.DATA.strongSpeciesPool;
-            case RARE -> pool = roll < 0.20D ? RoamingTrainerConfig.DATA.basicSpeciesPool : RoamingTrainerConfig.DATA.strongSpeciesPool;
-            case EPIC -> pool = roll < 0.65D ? RoamingTrainerConfig.DATA.strongSpeciesPool : RoamingTrainerConfig.DATA.eliteSpeciesPool;
-            case LEGENDARY -> pool = roll < 0.35D ? RoamingTrainerConfig.DATA.strongSpeciesPool : RoamingTrainerConfig.DATA.eliteSpeciesPool;
-            case MYTHIC -> pool = RoamingTrainerConfig.DATA.eliteSpeciesPool;
+            case F -> pool = RoamingTrainerConfig.DATA.basicSpeciesPool;
+            case E -> pool = roll < 0.70D ? RoamingTrainerConfig.DATA.basicSpeciesPool : RoamingTrainerConfig.DATA.strongSpeciesPool;
+            case D -> pool = roll < 0.20D ? RoamingTrainerConfig.DATA.basicSpeciesPool : RoamingTrainerConfig.DATA.strongSpeciesPool;
+            case C -> pool = roll < 0.65D ? RoamingTrainerConfig.DATA.strongSpeciesPool : RoamingTrainerConfig.DATA.eliteSpeciesPool;
+            case B -> pool = roll < 0.40D ? RoamingTrainerConfig.DATA.strongSpeciesPool : RoamingTrainerConfig.DATA.eliteSpeciesPool;
+            case A -> pool = roll < 0.35D ? RoamingTrainerConfig.DATA.strongSpeciesPool : RoamingTrainerConfig.DATA.eliteSpeciesPool;
+            case S -> pool = RoamingTrainerConfig.DATA.eliteSpeciesPool;
             default -> pool = RoamingTrainerConfig.DATA.defaultSpeciesPool;
         }
 
@@ -206,9 +207,10 @@ public final class RoamingTrainerPartyBuilder {
     private static String forcedSpeciesForSlot(RoamingTrainerRarity rarity, int slot) {
         return switch (rarity) {
             // Epic: exactly 1 legendary, then strong/elite regular Pokemon.
-            case EPIC -> null;
-            case LEGENDARY -> null;
-            case MYTHIC -> null;
+            case C -> null;
+            case B -> null;
+            case A -> null;
+            case S -> null;
             default -> null;
         };
     }
@@ -316,8 +318,8 @@ public final class RoamingTrainerPartyBuilder {
         List<String> moves = new ArrayList<>();
         if (RoamingTrainerConfig.DATA.allowCompetitiveMoves) moves.addAll(competitiveMovesFor(species));
         moves.addAll(levelUpMoves(species, level));
-        if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.UNCOMMON.ordinal()) moves.addAll(tmStyleMoves(species));
-        if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.RARE.ordinal()) moves.addAll(eggStyleMoves(species));
+        if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.E.ordinal()) moves.addAll(tmStyleMoves(species));
+        if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.D.ordinal()) moves.addAll(eggStyleMoves(species));
         if (moves.isEmpty()) moves.addAll(List.of("tackle", "quickattack", "growl", "leer"));
         return moves;
     }

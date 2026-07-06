@@ -32,8 +32,8 @@ public final class ProfessionsMenu {
         gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Profession Details"))
-                .addLoreLine(Component.literal("§7Click for detailed rates, passives,"))
-                .addLoreLine(Component.literal("§7chunk rolls, and speed scaling."))
+                .addLoreLine(Component.literal("§7View rewards, passives,"))
+                .addLoreLine(Component.literal("§7chunk odds, and tool scaling."))
                 .addLoreLine(Component.literal("§eClick to open details"))
                 .setCallback((i, c, t) -> openDetails(player, null)));
 
@@ -62,8 +62,7 @@ public final class ProfessionsMenu {
                 .addLoreLine(Component.literal("§7Chunk chance bonus: §a+" + pct(chunkFind)))
                 .addLoreLine(Component.literal("§7Chunk rarity bonus: §d+" + pct(rarity)))
                 .addLoreLine(Component.literal("§7Mastered sublevels: §6" + mastered + " §8(+10% sublevel XP each)"))
-                .addLoreLine(Component.literal("§7Default chunk rolls: §f" + chunkRollSummary(profession)))
-                .addLoreLine(Component.literal("§8Left-click: sublevels · Right-click: details"));
+                .addLoreLine(Component.literal("§7Chunk rolls: §f" + chunkRollSummary(profession)));
 
         if (counts.isEmpty()) {
             builder.addLoreLine(Component.literal("§8No sublevels discovered yet."));
@@ -208,10 +207,9 @@ public final class ProfessionsMenu {
                     "§7and only one sound is played.");
             MenuUtil.addInfoCard(gui, 30, Items.BOOK, "§bTool Speed",
                     "§7Tool speed is fixed server-side",
-                    "§7and client-side with Polymer proxy",
-                    "§7items so progression feels stable.",
-                    "§7Common+ pickaxes no longer feel",
-                    "§7like slow wooden tools.");
+                    "§7and scales cleanly by rank.",
+                    "§7Better tools should feel",
+                    "§7noticeably better to use.");
             gui.setSlot(32, new GuiElementBuilder(Items.CHEST)
                     .hideDefaultTooltip()
                     .setName(Component.literal("§eView Sublevels"))
@@ -244,13 +242,13 @@ public final class ProfessionsMenu {
 
     private static String chunkRollSummary(ProfessionType profession) {
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
-        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return "No chunk rolls configured.";
+        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return "No chunk rewards yet.";
         return "Base x" + String.format(java.util.Locale.US, "%.2f", activity.activityMultiplier) + " · " + activity.rolls.size() + " rarities";
     }
 
     private static String[] chunkRollLines(ProfessionType profession) {
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
-        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return new String[]{"§7No chunk rolls configured."};
+        if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return new String[]{"§7No chunk rewards yet."};
         java.util.List<String> lines = new java.util.ArrayList<>();
         lines.add("§7Activity multiplier: §f" + String.format(java.util.Locale.US, "%.2fx", activity.activityMultiplier));
         for (var entry : activity.rolls.entrySet()) {

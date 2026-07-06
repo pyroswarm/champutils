@@ -74,9 +74,9 @@ public final class ProfessionWeaponFragmentDropManager {
         }
 
         if (rarity == null || rarity.isBlank()) {
-            // Absolute last-resort safety. COMMON is always supported by the default config and the storage layer
+            // Absolute last-resort safety. F is always supported by the default config and the storage layer
             // only needs a normalized text key, so a successful roll should never become a silent miss.
-            rarity = "COMMON";
+            rarity = "F";
         }
 
         rarity = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
@@ -114,11 +114,11 @@ public final class ProfessionWeaponFragmentDropManager {
     }
 
     private static String maxRarityForLevel(int level) {
-        if (level >= 50) return "LEGENDARY";
-        if (level >= 30) return "EPIC";
-        if (level >= 20) return "RARE";
-        if (level >= 10) return "UNCOMMON";
-        return "COMMON";
+        if (level >= 50) return "A";
+        if (level >= 30) return "C";
+        if (level >= 20) return "D";
+        if (level >= 10) return "E";
+        return "F";
     }
 
     private static String fallbackRarityForLevel(int level) {
@@ -129,7 +129,7 @@ public final class ProfessionWeaponFragmentDropManager {
                 return rarity;
             }
         }
-        return "COMMON";
+        return "F";
     }
 
     private static String rollRarity(String toolRarity) {
@@ -173,7 +173,7 @@ public final class ProfessionWeaponFragmentDropManager {
                 return rarity;
             }
         }
-        return "COMMON";
+        return "F";
     }
 
     private static String pityKey(ServerPlayer player, ProfessionType profession) {
@@ -205,7 +205,7 @@ public final class ProfessionWeaponFragmentDropManager {
         return result;
     }
 
-    private static final String[] TIER_ORDER = new String[]{"COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"};
+    private static final String[] TIER_ORDER = new String[]{"F", "E", "D", "C", "B", "A", "S"};
 
     private static int tierIndex(String rarity) {
         String normalized = ProfessionWeaponFragmentConfig.normalizeRarity(rarity);
@@ -245,7 +245,7 @@ public final class ProfessionWeaponFragmentDropManager {
 
         if (settings.actionBarMessage) {
             player.displayClientMessage(
-                    Component.literal("Profession Fragment! ")
+                    Component.literal("Profession Essence! ")
                             .withStyle(ChatFormatting.GOLD)
                             .append(Component.literal(prettyRarity + " x1").withStyle(color))
                             .append(Component.literal(" stored from " + professionName).withStyle(ChatFormatting.YELLOW)),
@@ -253,21 +253,21 @@ public final class ProfessionWeaponFragmentDropManager {
             );
         } else {
             player.sendSystemMessage(
-                    Component.literal("Profession Fragment! ")
+                    Component.literal("Profession Essence! ")
                             .withStyle(ChatFormatting.GOLD)
                             .append(Component.literal(prettyRarity + " x1").withStyle(color))
                             .append(Component.literal(" stored from " + professionName).withStyle(ChatFormatting.YELLOW))
             );
         }
 
-        if ("MYTHIC".equals(rarity)) {
+        if ("S".equals(rarity)) {
             playGlobalSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F, 0.6F);
             playGlobalSound(player, SoundEvents.ENDER_DRAGON_GROWL, 0.45F, 1.7F);
             broadcast(player, rarity, profession, settings);
             return;
         }
 
-        if ("LEGENDARY".equals(rarity)) {
+        if ("A".equals(rarity)) {
             ProfessionNotificationSettings.playSound(player, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
             broadcast(player, rarity, profession, settings);
             return;
@@ -289,7 +289,7 @@ public final class ProfessionWeaponFragmentDropManager {
             ProfessionType profession,
             ProfessionWeaponFragmentConfig.DropSettings settings
     ) {
-        if (!settings.announceLegendaryAndMythicToServer) {
+        if (!settings.announceTopRanksToServer) {
             return;
         }
 
@@ -309,25 +309,31 @@ public final class ProfessionWeaponFragmentDropManager {
                 server,
                 Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA)
                         .append(Component.literal(" found a ").withStyle(ChatFormatting.GRAY))
-                        .append(Component.literal(formatWords(rarity) + " Profession Fragment").withStyle(color))
+                        .append(Component.literal(displayRankName(rarity) + " Weapon Essence").withStyle(color))
                         .append(Component.literal(" while training " + formatWords(profession.name()) + "!").withStyle(ChatFormatting.GRAY))
         );
     }
 
+    private static String displayRankName(String rarity) {
+        String rank = ProfessionWeaponFragmentConfig.rankForRarity(rarity);
+        return rank == null ? formatWords(rarity) : rank + " Rank";
+    }
+
     private static ChatFormatting colorFor(String rarity) {
         return switch (ProfessionWeaponFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> ChatFormatting.GREEN;
-            case "RARE" -> ChatFormatting.BLUE;
-            case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
-            case "LEGENDARY" -> ChatFormatting.GOLD;
-            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
+            case "E" -> ChatFormatting.GREEN;
+            case "D" -> ChatFormatting.BLUE;
+            case "C" -> ChatFormatting.LIGHT_PURPLE;
+            case "B" -> ChatFormatting.DARK_AQUA;
+            case "A" -> ChatFormatting.GOLD;
+            case "S" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }
 
     private static String formatWords(String input) {
         if (input == null || input.isBlank()) {
-            return "Common";
+            return "E Rank";
         }
 
         String[] parts = input.toLowerCase().split("_");

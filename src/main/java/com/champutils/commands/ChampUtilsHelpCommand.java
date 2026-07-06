@@ -84,13 +84,14 @@ public final class ChampUtilsHelpCommand {
         line(source, "/itemroll identify", "Identify the custom profession tool in your hand.");
         line(source, "/itemroll reroll", "Reroll the custom profession tool in your hand.");
         line(source, "/salvage", "Salvage the custom profession tool in your hand.");
-        line(source, "/fragments menu", "Open the fragment crafting menu.");
-        line(source, "/fragments withdraw <rarity> <amount>", "Turn stored digital fragments back into physical items.");
+        line(source, "/essence menu", "Open the essence crafting menu.");
+        line(source, "/essence withdraw <rarity> <amount>", "Turn stored digital essence back into physical items.");
         section(source, "Battles + Training");
         line(source, "/evtrain <stat>", "Open EV training for the selected stat.");
         line(source, "/gym list", "View gym progression and available gyms.");
         line(source, "/worldevent list", "View configured world events.");
         line(source, "/hunt", "Open Pokémon hunts.");
+        line(source, "Guild Clerk NPC", "Talk to the Adventurer's Guild NPC to open the guild hub.");
         line(source, "/wondertrade", "Use Wonder Trade.");
     }
 

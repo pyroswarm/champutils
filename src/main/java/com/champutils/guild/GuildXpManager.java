@@ -26,7 +26,7 @@ public final class GuildXpManager {
         Set<UUID> rewardedPlayers = new HashSet<>();
         for (ServerPlayer winner : winners) {
             if (winner == null || !rewardedPlayers.add(winner.getUUID())) continue;
-            String cleanTier = tier == null || tier.isBlank() ? "rare" : tier.trim().toLowerCase(java.util.Locale.ROOT);
+            String cleanTier = tier == null || tier.isBlank() ? "d" : tier.trim().toLowerCase(java.util.Locale.ROOT);
             String cleanEvent = eventId == null || eventId.isBlank() ? "unknown" : eventId.trim().toLowerCase(java.util.Locale.ROOT);
             awardPlayer(winner, "world_event_" + cleanTier + ":" + cleanEvent, amount, true);
         }

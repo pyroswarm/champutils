@@ -220,6 +220,9 @@ public class FarmingProfessionListener {
         }
         if (chance <= 0.0D || RANDOM.nextDouble() * 100.0D >= chance) return;
         int multiplier = rollFortuneHarvestMultiplier(player, tool);
+        if (ActiveEffectManager.hasTimedEffect(player, "golden_rain", tool)) {
+            multiplier = Math.min(6, multiplier + 1);
+        }
         if (multiplier <= 1) return;
         Item item = cropReward(cropBlock);
         if (item == Items.AIR) return;
@@ -239,9 +242,9 @@ public class FarmingProfessionListener {
 
     private static int rollFortuneHarvestMultiplier(ServerPlayer player, ItemStack tool) {
         ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(tool);
-        String rarity = data == null ? "COMMON" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
+        String rarity = data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
         int level = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.FARMING));
-        int max = switch (rarity) { case "MYTHIC" -> 5; case "LEGENDARY" -> 4; case "RARE", "EPIC" -> 3; default -> 2; };
+        int max = switch (rarity) { case "S" -> 6; case "A" -> 5; case "B" -> 4; case "D", "C" -> 3; default -> 2; };
         double highBonus = Math.min(0.25D, level / 400.0D);
         double r = RANDOM.nextDouble();
         if (max >= 5 && r < 0.08D + highBonus) return 5;
@@ -284,8 +287,13 @@ public class FarmingProfessionListener {
     private static boolean roll(ServerPlayer player, ItemStack tool, String stat) {
         double chance = ProfessionToolUtil.getStat(tool, stat);
         if (ActiveEffectManager.hasTimedEffect(player, "golden_rain", tool)) {
-            chance *= 1.0D + (ProfessionToolUtil.getStat(tool, "goldenRainBoost") / 100.0D);
+            double boost = ProfessionToolUtil.getStat(tool, "goldenRainBoost");
+            if (boost <= 0.0D) {
+                boost = 100.0D;
+            }
+            chance *= 1.0D + (boost / 100.0D);
         }
+        chance = Math.min(100.0D, chance);
         return chance > 0.0D && RANDOM.nextDouble() * 100.0D < chance;
     }
 

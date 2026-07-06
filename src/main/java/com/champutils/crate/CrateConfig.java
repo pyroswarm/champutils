@@ -67,9 +67,9 @@ public final class CrateConfig {
     public static class Root { public Map<String, CrateDefinition> crates = new LinkedHashMap<>(); }
     public static class CrateDefinition {
         public boolean enabled = true;
-        public String displayName = "Common Crate";
+        public String displayName = "F Rank Crate";
         public String iconItem = "minecraft:chest";
-        public String guaranteedShardRarity = "COMMON";
+        public String guaranteedShardRarity = "F";
         public int guaranteedShardMin = 1;
         public int guaranteedShardMax = 3;
         public int minPokemonLevel = 5;
@@ -102,11 +102,13 @@ public final class CrateConfig {
                     applyGildedChestIcons(root.crates);
                     applySeasonCrateBalance(root.crates);
                     applyLegendaryMythicHighValueOnly(root.crates);
+                    applyRankCrateDisplay(root.crates);
                     CRATES = root.crates;
                 }
                 applyGildedChestIcons(CRATES);
                 applySeasonCrateBalance(CRATES);
                 applyLegendaryMythicHighValueOnly(CRATES);
+                applyRankCrateDisplay(CRATES);
                 // Event crate was removed. World events now award regular crate credits by event tier.
                 CRATES.remove("event");
                 Root saved = new Root();
@@ -124,12 +126,13 @@ public final class CrateConfig {
 
     private static void applyGildedChestIcons(Map<String, CrateDefinition> crates) {
         if (crates == null) return;
-        setIcon(crates, "common", "cobblemon:gilded_chest");
-        setIcon(crates, "uncommon", "cobblemon:yellow_gilded_chest");
-        setIcon(crates, "rare", "cobblemon:green_gilded_chest");
-        setIcon(crates, "epic", "cobblemon:blue_gilded_chest");
-        setIcon(crates, "legendary", "cobblemon:pink_gilded_chest");
-        setIcon(crates, "mythic", "cobblemon:black_gilded_chest");
+        setIcon(crates, "f", "cobblemon:gilded_chest");
+        setIcon(crates, "e", "cobblemon:yellow_gilded_chest");
+        setIcon(crates, "d", "cobblemon:green_gilded_chest");
+        setIcon(crates, "c", "cobblemon:blue_gilded_chest");
+        setIcon(crates, "b", "cobblemon:pink_gilded_chest");
+        setIcon(crates, "a", "cobblemon:white_gilded_chest");
+        setIcon(crates, "s", "cobblemon:black_gilded_chest");
         setIcon(crates, "guild", "cobblemon:white_gilded_chest");
         setIcon(crates, "world_boss", "cobblemon:white_gilded_chest");
     }
@@ -141,7 +144,7 @@ public final class CrateConfig {
 
     private static void upgradeNewCrates(Map<String, CrateDefinition> loaded, Root defaults) {
         if (loaded == null || defaults == null || defaults.crates == null) return;
-        String[] ids = {"epic", "legendary", "mythic", "guild", "world_boss"};
+        String[] ids = {"c", "b", "a", "s", "guild", "world_boss"};
         for (String id : ids) {
             CrateDefinition updated = defaults.crates.get(id);
             if (updated != null) loaded.put(id, updated);
@@ -153,22 +156,22 @@ public final class CrateConfig {
 
     private static Root defaultRoot() {
         Root root = new Root();
-        add(root,"common","Common Crate","cobblemon:gilded_chest","COMMON",1,3,5,20,0.05D,
+        add(root,"f","F Rank Crate","cobblemon:gilded_chest","F",1,3,5,20,0.05D,
                 listP("pidgey:35","rattata:35","caterpie:25","weedle:25","zigzagoon:25","bidoof:20","sentret:20","wurmple:20","patrat:15","poochyena:15"),
                 listI("cobblemon:poke_ball:4:10:45","cobblemon:potion:2:5:30","cobblemon:oran_berry:3:8:25"),
                 listT("rookies_pick:2","woodcleaver:1","gaias_blessing:1"));
 
-        add(root,"uncommon","Uncommon Crate","cobblemon:yellow_gilded_chest","UNCOMMON",2,4,15,35,0.12D,
+        add(root,"e","E Rank Crate","cobblemon:yellow_gilded_chest","E",2,4,15,35,0.12D,
                 listP("pidgey:8","rattata:8","eevee:16","growlithe:14","magikarp:16","shinx:14","riolu:10","mareep:14","sandile:10","starly:12"),
                 listI("cobblemon:great_ball:3:8:35","cobblemon:super_potion:2:5:25","cobblemon:exp_candy_s:2:5:20","cobblemon:link_cable:1:1:5"),
                 listT("rookies_pick:3","woodcleaver:2","gaias_blessing:2"));
 
-        add(root,"rare","Rare Crate","cobblemon:green_gilded_chest","RARE",3,6,25,50,0.25D,
+        add(root,"d","D Rank Crate","cobblemon:green_gilded_chest","D",3,6,25,50,0.25D,
                 listP("eevee:8","riolu:8","larvitar:8","bagon:8","beldum:8","gible:8","dratini:8","axew:7","goomy:7","deino:7","rotom:6"),
                 listI("cobblemon:ultra_ball:3:8:30","cobblemon:rare_candy:1:3:18","cobblemon:exp_candy_m:2:5:20","cobblemon:ability_capsule:1:1:8","cobblemon:choice_scarf:1:1:4"),
                 listT("miners_fang:3","woodcleaver:3","gaias_blessing:2"));
 
-        add(root,"epic","Epic Crate","cobblemon:blue_gilded_chest","EPIC",4,8,40,65,0.5D,
+        add(root,"c","C Rank Crate","cobblemon:blue_gilded_chest","C",4,8,40,65,0.5D,
                 mergeP(
                         weighted(STRONG_FILLER_SPECIES, 4, "REGULAR"),
                         weighted(MID_FILLER_SPECIES, 2, "REGULAR"),
@@ -180,7 +183,19 @@ public final class CrateConfig {
                         "cobblemon:ability_capsule:1:1:10","cobblemon:ability_patch:1:1:8","cobblemon:leftovers:1:1:6","cobblemon:life_orb:1:1:5","cobblemon:choice_band:1:1:4","cobblemon:choice_specs:1:1:4","cobblemon:choice_scarf:1:1:4","cobblemon:focus_sash:1:1:4","cobblemon:master_ball:1:1:1","minecraft:diamond:2:6:8"),
                 listT("miners_fang:4","deep_prospector:3","cavern_breaker:2","woodcleaver:4","worldtree_axe:2","gaias_blessing:3"));
 
-        add(root,"legendary","Legendary Crate","cobblemon:pink_gilded_chest","LEGENDARY",6,12,65,90,2.5D,
+        add(root,"b","B Rank Crate","cobblemon:pink_gilded_chest","B",5,10,55,80,1.25D,
+                mergeP(
+                        weighted(STRONG_FILLER_SPECIES, 5, "REGULAR"),
+                        weighted(MID_FILLER_SPECIES, 3, "REGULAR"),
+                        weighted(new String[]{"roaring_moon","iron_valiant","iron_hands","flutter_mane","great_tusk","sandy_shocks","iron_bundle","iron_moth","kartana","buzzwole","guzzlord"}, 2, null),
+                        weighted(new String[]{"articuno","zapdos","moltres","raikou","entei","suicune","regirock","regice","registeel","latias","latios"}, 1, null)
+                ),
+                listI(
+                        "cobblemon:ultra_ball:6:14:24","cobblemon:luxury_ball:4:10:14","cobblemon:rare_candy:3:6:18","cobblemon:exp_candy_l:3:6:18","cobblemon:exp_candy_xl:1:4:12",
+                        "cobblemon:ability_capsule:1:2:10","cobblemon:ability_patch:1:1:9","cobblemon:leftovers:1:1:7","cobblemon:life_orb:1:1:6","cobblemon:choice_band:1:1:5","cobblemon:choice_specs:1:1:5","cobblemon:choice_scarf:1:1:5","cobblemon:focus_sash:1:1:5","minecraft:diamond:4:8:8"),
+                listT("deep_prospector:3","cavern_breaker:3","treasure_seer:2","obsidian_edge:2","worldtree_axe:3","gaias_blessing:3"));
+
+        add(root,"a","A Rank Crate","cobblemon:pink_gilded_chest","A",6,12,65,90,2.5D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"),
@@ -191,7 +206,7 @@ public final class CrateConfig {
                         "cobblemon:ability_patch:1:2:10","cobblemon:leftovers:1:1:8","cobblemon:life_orb:1:1:8","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6","cobblemon:focus_sash:1:1:6","cobblemon:eviolite:1:1:5","cobblemon:heavy_duty_boots:1:1:5","minecraft:netherite_ingot:1:2:6"),
                 listT("lodestone_maw:3","treasure_seer:2","obsidian_edge:2","titanbreaker:2","worldtree_axe:3","gaias_blessing:3"));
 
-        add(root,"mythic","Mythic Crate","cobblemon:black_gilded_chest","MYTHIC",10,18,75,100,25.0D,
+        add(root,"s","S Rank Crate","cobblemon:black_gilded_chest","S",10,18,75,100,25.0D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 2, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 2, "MYTHICAL"),
@@ -202,7 +217,7 @@ public final class CrateConfig {
                         "cobblemon:ability_patch:1:3:12","cobblemon:leftovers:1:1:7","cobblemon:life_orb:1:1:7","cobblemon:choice_band:1:1:6","cobblemon:choice_specs:1:1:6","cobblemon:choice_scarf:1:1:6","cobblemon:focus_sash:1:1:6","cobblemon:eviolite:1:1:4","cobblemon:heavy_duty_boots:1:1:4","minecraft:netherite_block:1:1:3"),
                 listT("starfall:2","void_rift:2","infernal_core:2","vein_reaper:1","titanbreaker:2","worldtree_axe:2","gaias_blessing:2"));
 
-        add(root,"guild","Guild Crate","cobblemon:white_gilded_chest","EPIC",4,8,40,65,0.5D,
+        add(root,"guild","Guild Crate","cobblemon:white_gilded_chest","C",4,8,40,65,0.5D,
                 mergeP(
                         weighted(STRONG_FILLER_SPECIES, 4, "REGULAR"),
                         weighted(MID_FILLER_SPECIES, 2, "REGULAR"),
@@ -212,7 +227,7 @@ public final class CrateConfig {
                 listI("cobblemon:ultra_ball:5:12:24","cobblemon:luxury_ball:3:8:14","cobblemon:rare_candy:2:5:18","cobblemon:exp_candy_l:2:5:18","cobblemon:ability_capsule:1:1:10","cobblemon:ability_patch:1:1:8","cobblemon:master_ball:1:1:1"),
                 listT("deep_prospector:3","cavern_breaker:2","woodcleaver:3","worldtree_axe:2","gaias_blessing:3"));
 
-        add(root,"world_boss","World Boss Crate","cobblemon:white_gilded_chest","LEGENDARY",6,12,65,90,2.5D,
+        add(root,"world_boss","World Boss Crate","cobblemon:white_gilded_chest","A",6,12,65,90,2.5D,
                 mergeP(
                         weighted(LEGENDARY_SPECIES, 1, "LEGENDARY"),
                         weighted(MYTHICAL_SPECIES, 1, "MYTHICAL"),
@@ -232,27 +247,51 @@ public final class CrateConfig {
         }
     }
 
+
+    private static void applyRankCrateDisplay(Map<String, CrateDefinition> crates) {
+        if (crates == null) return;
+        setCrateDisplay(crates, "f", "F Rank Crate", "F");
+        setCrateDisplay(crates, "e", "E Rank Crate", "E");
+        setCrateDisplay(crates, "d", "D Rank Crate", "D");
+        setCrateDisplay(crates, "c", "C Rank Crate", "C");
+        setCrateDisplay(crates, "b", "B Rank Crate", "B");
+        setCrateDisplay(crates, "a", "A Rank Crate", "A");
+        setCrateDisplay(crates, "s", "S Rank Crate", "S");
+        setCrateDisplay(crates, "guild", "C Rank Guild Crate", "C");
+        setCrateDisplay(crates, "world_boss", "A Rank World Boss Crate", "A");
+    }
+
+    private static void setCrateDisplay(Map<String, CrateDefinition> crates, String id, String name, String shardRarity) {
+        CrateDefinition crate = crates.get(id);
+        if (crate == null) return;
+        crate.displayName = name;
+        if (crate.guaranteedShardRarity == null || crate.guaranteedShardRarity.isBlank()) {
+            crate.guaranteedShardRarity = shardRarity;
+        }
+    }
+
     private static int defaultToolWeight(String rarity, ProfessionToolConfig.ToolData toolData) {
         String base = toolData == null || toolData.baseItem == null ? "" : toolData.baseItem.toLowerCase();
         boolean shovel = base.contains("shovel");
         return switch (normalizeRarity(rarity)) {
-            case "COMMON" -> shovel ? 2 : 1;
-            case "UNCOMMON" -> shovel ? 2 : 2;
-            case "RARE" -> shovel ? 3 : 3;
-            case "EPIC" -> shovel ? 3 : 3;
-            case "LEGENDARY" -> shovel ? 2 : 2;
-            case "MYTHIC" -> shovel ? 2 : 2;
+            case "F" -> shovel ? 2 : 1;
+            case "E" -> shovel ? 2 : 2;
+            case "D" -> shovel ? 3 : 3;
+            case "C" -> shovel ? 3 : 3;
+            case "B" -> shovel ? 3 : 3;
+            case "A" -> shovel ? 2 : 2;
+            case "S" -> shovel ? 2 : 2;
             default -> 1;
         };
     }
 
     private static void applySeasonCrateBalance(Map<String, CrateDefinition> crates) {
         if (crates == null) return;
-        CrateDefinition legendary = crates.get("legendary");
+        CrateDefinition legendary = crates.get("a");
         if (legendary != null) {
             legendary.items = listI("cobblemon:master_ball:1:1:6", "cobblemon:dream_ball:2:4:12", "cobblemon:beast_ball:2:4:12");
         }
-        CrateDefinition mythic = crates.get("mythic");
+        CrateDefinition mythic = crates.get("s");
         if (mythic != null) {
             mythic.shinyChance = 25.0D;
             mythic.items = listI("cobblemon:master_ball:1:2:25", "cobblemon:beast_ball:2:5:15");
@@ -304,8 +343,8 @@ public final class CrateConfig {
 
     private static void applyLegendaryMythicHighValueOnly(Map<String, CrateDefinition> crates) {
         if (crates == null) return;
-        keepOnlyPremiumPokemon(crates.get("legendary"));
-        keepOnlyPremiumPokemon(crates.get("mythic"));
+        keepOnlyPremiumPokemon(crates.get("a"));
+        keepOnlyPremiumPokemon(crates.get("s"));
     }
 
     private static void keepOnlyPremiumPokemon(CrateDefinition crate) {
@@ -400,8 +439,7 @@ public final class CrateConfig {
     }
 
     private static String normalizeRarity(String rarity) {
-        if (rarity == null || rarity.isBlank()) return "COMMON";
-        return rarity.trim().toUpperCase(java.util.Locale.ROOT);
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 
     private static List<WeightedItem> listI(String... vals){ List<WeightedItem> out=new ArrayList<>(); for(String v:vals){String[] p=v.split(":"); out.add(new WeightedItem(p[0]+":"+p[1], Integer.parseInt(p[2]), Integer.parseInt(p[3]), Integer.parseInt(p[4])));} return out; }

@@ -31,13 +31,14 @@ public final class NpcShopConfig {
         public String id = "minecraft:stone";
         public String displayName = "Stone";
         public String icon = "minecraft:stone";
-        public long price = 100L;
+        public long price = 100L; // legacy cents. Kept for old configs.
+        public double priceCredits = -1.0D; // preferred; supports decimals like 12.50.
         public int amount = 1;
         public int slot = -1;
 
         /** Used by type=tool. pickaxe, axe, hoe, or sword. */
         public String toolType = "pickaxe";
-        public String rarity = "COMMON";
+        public String rarity = "F";
 
         /** Used by type=pokemon_crate. Chances are percentages, so 1.0 = 1%. */
         public double shinyChance = 1.0D;
@@ -111,9 +112,11 @@ public final class NpcShopConfig {
             if (entry.icon == null || entry.icon.isBlank()) entry.icon = entry.id == null || entry.id.isBlank() ? "minecraft:chest" : entry.id;
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.price < 0L) entry.price = 0L;
+            if (entry.priceCredits < 0.0D && entry.price > 0L) entry.priceCredits = entry.price / 100.0D;
+            if (entry.priceCredits < 0.0D) entry.priceCredits = 0.0D;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
-            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "COMMON";
-            if ("tool".equalsIgnoreCase(entry.type) && "COMMON".equalsIgnoreCase(entry.rarity)) entry.price = commonToolPrice();
+            if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "F";
+            if ("tool".equalsIgnoreCase(entry.type) && "F".equalsIgnoreCase(entry.rarity)) entry.price = commonToolPrice();
             if (entry.shinyChance < 0.0D) entry.shinyChance = 0.0D;
             if (entry.legendaryChance < 0.0D) entry.legendaryChance = 0.0D;
             if (entry.ultraBeastChance < 0.0D) entry.ultraBeastChance = 0.0D;
@@ -143,12 +146,20 @@ public final class NpcShopConfig {
 
         CONFIG.entries.removeIf(entry -> entry != null && "pokemon_crate".equalsIgnoreCase(entry.type == null ? "" : entry.type.trim()));
 
-        upsertDefaultEntry("common_crate_credit", crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
-                "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("uncommon_crate_credit", crateCredit(22, "§aUncommon Crate Credit", "minecraft:barrel", "uncommon", 1, 15000L,
-                "§7Adds 1 Uncommon Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("rare_crate_credit", crateCredit(24, "§bRare Crate Credit", "minecraft:ender_chest", "rare", 1, 40000L,
-                "§7Adds 1 Rare Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("f_crate_credit", crateCredit(20, "§fF Rank Crate Credit", "minecraft:chest", "f", 1, 5000L,
+                "§7Adds 1 F Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("e_crate_credit", crateCredit(21, "§aE Rank Crate Credit", "minecraft:barrel", "e", 1, 15000L,
+                "§7Adds 1 E Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("d_crate_credit", crateCredit(22, "§bD Rank Crate Credit", "minecraft:ender_chest", "d", 1, 40000L,
+                "§7Adds 1 D Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("c_crate_credit", crateCredit(23, "§5C Rank Crate Credit", "minecraft:purple_shulker_box", "c", 1, 90000L,
+                "§7Adds 1 C Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("b_crate_credit", crateCredit(24, "§eB Rank Crate Credit", "minecraft:gold_block", "b", 1, 175000L,
+                "§7Adds 1 B Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("a_crate_credit", crateCredit(25, "§6A Rank Crate Credit", "minecraft:netherite_block", "a", 1, 350000L,
+                "§7Adds 1 A Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        upsertDefaultEntry("s_crate_credit", crateCredit(26, "§dS Rank Crate Credit", "minecraft:dragon_egg", "s", 1, 750000L,
+                "§7Adds 1 S Rank Crate credit.", "§7Open it from §f/opencrates§7."));
     }
 
     private static boolean isRemovedLegacyEntry(ShopEntry entry) {
@@ -159,6 +170,7 @@ public final class NpcShopConfig {
         if (id.equals("cobblemon:great_ball") || id.equals("cobblemon:ultra_ball")) return true;
         if (name.contains("great ball") || name.contains("ultra ball")) return true;
         if (type.equals("pokemon_crate") || id.equals("store_pokemon_crate") || name.contains("store pokémon crate") || name.contains("store pokemon crate")) return true;
+        if (id.equals("common_crate_credit") || id.equals("uncommon_crate_credit") || id.equals("rare_crate_credit") || id.equals("epic_crate_credit") || id.equals("legendary_crate_credit") || id.equals("mythic_crate_credit")) return true;
         return name.contains("legacy crate") || name.contains("removed crate");
     }
 
@@ -194,16 +206,24 @@ public final class NpcShopConfig {
         root.entries.add(item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
 
-        root.entries.add(tool(14, "§aCommon Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", commonToolPrice()));
-        root.entries.add(tool(15, "§aCommon Mystery Axe", "minecraft:stone_axe", "axe", commonToolPrice()));
-        root.entries.add(tool(16, "§aCommon Mystery Hoe", "minecraft:stone_hoe", "hoe", commonToolPrice()));
+        root.entries.add(tool(14, "§fF Rank Mystery Pickaxe", "minecraft:stone_pickaxe", "pickaxe", commonToolPrice()));
+        root.entries.add(tool(15, "§fF Rank Mystery Axe", "minecraft:stone_axe", "axe", commonToolPrice()));
+        root.entries.add(tool(16, "§fF Rank Mystery Hoe", "minecraft:stone_hoe", "hoe", commonToolPrice()));
 
-        root.entries.add(crateCredit(20, "§fCommon Crate Credit", "minecraft:chest", "common", 1, 5000L,
-                "§7Adds 1 Common Crate credit.", "§7Open it from §f/opencrates§7."));
-        root.entries.add(crateCredit(22, "§aUncommon Crate Credit", "minecraft:barrel", "uncommon", 1, 15000L,
-                "§7Adds 1 Uncommon Crate credit.", "§7Open it from §f/opencrates§7."));
-        root.entries.add(crateCredit(24, "§bRare Crate Credit", "minecraft:ender_chest", "rare", 1, 40000L,
-                "§7Adds 1 Rare Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(20, "§fF Rank Crate Credit", "minecraft:chest", "f", 1, 5000L,
+                "§7Adds 1 F Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(21, "§aE Rank Crate Credit", "minecraft:barrel", "e", 1, 15000L,
+                "§7Adds 1 E Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(22, "§bD Rank Crate Credit", "minecraft:ender_chest", "d", 1, 40000L,
+                "§7Adds 1 D Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(23, "§5C Rank Crate Credit", "minecraft:purple_shulker_box", "c", 1, 90000L,
+                "§7Adds 1 C Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(24, "§eB Rank Crate Credit", "minecraft:gold_block", "b", 1, 175000L,
+                "§7Adds 1 B Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(25, "§6A Rank Crate Credit", "minecraft:netherite_block", "a", 1, 350000L,
+                "§7Adds 1 A Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        root.entries.add(crateCredit(26, "§dS Rank Crate Credit", "minecraft:dragon_egg", "s", 1, 750000L,
+                "§7Adds 1 S Rank Crate credit.", "§7Open it from §f/opencrates§7."));
 
         root.entries.add(item(28, "§6Copper Incubator", "daycareplus:copper_incubator", "daycareplus:copper_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(100L),
                 "§7DaycarePlus incubator tier: Copper."));
@@ -222,7 +242,7 @@ public final class NpcShopConfig {
     }
 
     private static long commonToolPrice() {
-        // Economy values are stored in cents now. Keep common starter tools at 50.00 credits,
+        // Economy values are stored in cents now. Keep F-rank starter tools at 50.00 credits,
         // even for older npc_shop.json files that still had the pre-decimal value of 50.
         return com.champutils.economy.EconomyManager.wholeCreditsToCents(50L);
     }
@@ -236,6 +256,7 @@ public final class NpcShopConfig {
         entry.id = id;
         entry.amount = amount;
         entry.price = price;
+        entry.priceCredits = price / 100.0D;
         entry.lore = new ArrayList<>(List.of(lore));
         return entry;
     }
@@ -247,10 +268,11 @@ public final class NpcShopConfig {
         entry.displayName = name;
         entry.icon = icon;
         entry.toolType = toolType;
-        entry.rarity = "COMMON";
+        entry.rarity = "F";
         entry.amount = 1;
         entry.price = price;
-        entry.lore.add("§7Random unidentified common " + toolType + ".");
+        entry.priceCredits = price / 100.0D;
+        entry.lore.add("§7Random unidentified F-rank " + toolType + ".");
         entry.lore.add("§8Starter-friendly progression gear.");
         return entry;
     }
@@ -265,6 +287,7 @@ public final class NpcShopConfig {
         entry.icon = icon;
         entry.amount = Math.max(1, amount);
         entry.price = price;
+        entry.priceCredits = price / 100.0D;
         entry.lore = new ArrayList<>(List.of(lore));
         return entry;
     }
@@ -278,6 +301,7 @@ public final class NpcShopConfig {
         entry.icon = icon;
         entry.amount = 1;
         entry.price = price;
+        entry.priceCredits = price / 100.0D;
         entry.shinyChance = 1.0D;
         entry.legendaryChance = 0.1D;
         entry.ultraBeastChance = 0.5D;

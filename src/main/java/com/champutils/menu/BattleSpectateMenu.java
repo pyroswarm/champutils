@@ -40,9 +40,9 @@ public class BattleSpectateMenu {
         ServerPlayer high = BattleSpectateCommand.getHighestMmrTarget(player.getServer(), player);
         GuiElementBuilder highButton = new GuiElementBuilder(Items.NETHER_STAR)
                 .hideDefaultTooltip()
-                .setName(Component.literal("§6Highest MMR Battle"));
+                .setName(Component.literal("§6Top Ranked Battle"));
         if (high == null) {
-            highButton.addLoreLine(Component.literal("§7No ranked/high-MMR PvP battle is active."));
+            highButton.addLoreLine(Component.literal("§7No top ranked PvP battle is active."));
         } else {
             highButton.addLoreLine(Component.literal("§7" + BattleSpectateCommand.getBattleLabel(high)));
             highButton.addLoreLine(Component.literal("§7Top visible RP: §e" + BattleSpectateCommand.getRp(high)));

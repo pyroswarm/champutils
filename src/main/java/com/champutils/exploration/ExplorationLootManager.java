@@ -123,7 +123,7 @@ public final class ExplorationLootManager {
     }
 
     private static List<ExplorationLootConfig.LootEntry> validEntries(ExplorationLootConfig.LootTable table) {
-        int maxRarity = Math.min(ExplorationLootConfig.rarityRank(ExplorationLootConfig.get().maxRarity), ExplorationLootConfig.rarityRank("EPIC"));
+        int maxRarity = Math.min(ExplorationLootConfig.rarityRank(ExplorationLootConfig.get().maxRarity), ExplorationLootConfig.rarityRank("C"));
         List<ExplorationLootConfig.LootEntry> valid = new ArrayList<>();
         for (ExplorationLootConfig.LootEntry entry : table.items) {
             if (entry == null || entry.itemId == null || entry.itemId.isBlank()) continue;
@@ -262,28 +262,24 @@ public final class ExplorationLootManager {
 
     private static String chestRarity(ServerLevel level, BlockPos pos) {
         String id = blockId(level, pos).toLowerCase(Locale.ROOT);
-        if (id.contains("black_gilded_chest")) return "Mythic";
-        if (id.contains("pink_gilded_chest")) return "Legendary";
-        if (id.contains("blue_gilded_chest")) return "Epic";
-        if (id.contains("green_gilded_chest")) return "Rare";
-        if (id.contains("yellow_gilded_chest")) return "Uncommon";
-        if (id.contains("white_gilded_chest")) return "Guild";
-        if (id.contains("gilded_chest")) return "Common";
+        if (id.contains("black_gilded_chest")) return "S Rank";
+        if (id.contains("white_gilded_chest")) return "A Rank";
+        if (id.contains("pink_gilded_chest")) return "B Rank";
+        if (id.contains("blue_gilded_chest")) return "C Rank";
+        if (id.contains("green_gilded_chest")) return "D Rank";
+        if (id.contains("yellow_gilded_chest")) return "E Rank";
+        if (id.contains("gilded_chest")) return "F Rank";
 
         String table = tableId(level, pos);
         if ("nether".equals(table)) return "Nether";
         if ("end".equals(table)) return "End";
-        return "Common";
+        return "F Rank";
     }
 
     private static ChatFormatting rarityColor(String rarity) {
         if (rarity == null) return ChatFormatting.WHITE;
+        if (com.champutils.rarity.RarityScale.isRankLike(rarity)) return com.champutils.rarity.RarityScale.color(rarity);
         return switch (rarity.toUpperCase(Locale.ROOT)) {
-            case "UNCOMMON" -> ChatFormatting.YELLOW;
-            case "RARE" -> ChatFormatting.GREEN;
-            case "EPIC" -> ChatFormatting.BLUE;
-            case "LEGENDARY" -> ChatFormatting.LIGHT_PURPLE;
-            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
             case "GUILD" -> ChatFormatting.AQUA;
             case "NETHER" -> ChatFormatting.RED;
             case "END" -> ChatFormatting.DARK_AQUA;

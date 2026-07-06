@@ -2,6 +2,7 @@ package com.champutils.chat;
 
 import com.champutils.guild.GuildRepository;
 import com.champutils.moderation.ModerationManager;
+import com.champutils.network.NetworkEventManager;
 import com.champutils.party.PartyManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -31,6 +32,7 @@ public final class ServerChatManager {
         }
         Component formatted = format(sender, mode, message);
         for (ServerPlayer player : recipients) player.sendSystemMessage(formatted);
+        publishCrossServer(sender, mode, message);
         return true;
     }
 
@@ -71,5 +73,37 @@ public final class ServerChatManager {
         component.append(Component.literal(": ").withStyle(ChatFormatting.GRAY));
         component.append(Component.literal(message).withStyle(ChatFormatting.WHITE));
         return component;
+    }
+
+    private static void publishCrossServer(ServerPlayer sender, ChatMode mode, String message) {
+        if (sender == null || mode == null || message == null || message.isBlank()) {
+            return;
+        }
+        if (mode == ChatMode.GLOBAL) {
+            NetworkEventManager.publishGlobalChat(sender, plainFormat(sender, mode, message));
+        }
+        else if (mode == ChatMode.GUILD) {
+            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(sender.getUUID());
+            if (guild != null) {
+                NetworkEventManager.publishGuildChat(sender, guild.id, plainFormat(sender, mode, message));
+            }
+        }
+        else if (mode == ChatMode.PARTY) {
+            PartyManager.PartySnapshot party = PartyManager.snapshot(sender.getUUID());
+            if (party != null) {
+                NetworkEventManager.publishPartyChat(sender, party.ownerId(), plainFormat(sender, mode, message));
+            }
+        }
+    }
+
+    private static String plainFormat(ServerPlayer sender, ChatMode mode, String message) {
+        String tags = ChatTagResolver.tagsFor(sender).getString();
+        String color = switch (mode) {
+            case GLOBAL -> "§b";
+            case GUILD -> "§a";
+            case PARTY -> "§d";
+            case LOCAL -> "§7";
+        };
+        return "§8[" + color + mode.prefix + "§8] §f" + tags + sender.getGameProfile().getName() + "§7: §f" + message;
     }
 }

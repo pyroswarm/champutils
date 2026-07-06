@@ -64,6 +64,7 @@ public final class IslanderMineConfig {
         public int radius = 128;
         public int height = 144;
         public int blocksPerTick = 12000;
+        public int generationMaxMillisPerTick = 2;
 
         /**
          * Ore pocket start chance per scanned block, out of 10,000.
@@ -97,6 +98,7 @@ public final class IslanderMineConfig {
         public static Data defaults() {
             Data d = new Data();
             d.blocksPerTick = 12000;
+            d.generationMaxMillisPerTick = 2;
             d.orePocketStartChancePer10000 = 4500;
             d.ores.put("minecraft:coal_ore", new OreRule(300, 20, 48, 12, 136, false));
             d.ores.put("minecraft:deepslate_coal_ore", new OreRule(160, 12, 32, 0, 52, false));
@@ -132,6 +134,8 @@ public final class IslanderMineConfig {
             if (centerY + height > 319) height = Math.max(32, 319 - centerY);
             if (blocksPerTick < 512) blocksPerTick = 512;
             if (blocksPerTick > 25000) blocksPerTick = 25000;
+            if (generationMaxMillisPerTick < 1) generationMaxMillisPerTick = 2;
+            if (generationMaxMillisPerTick > 10) generationMaxMillisPerTick = 10;
             if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 4500;
             // Older configs were capped at 1000, which made the islander mine feel nearly empty.
             // Treat those legacy values as under-tuned and upgrade them to the new rich mine default.

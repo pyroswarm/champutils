@@ -74,6 +74,7 @@ public final class MenuNpcInteractionListener {
 
     private static void openBoundMenu(ServerPlayer player, String menu) {
         switch (MenuNpcBindingRegistry.normalize(menu)) {
+            case "adventurersguild", "adventurer", "aguild", "guildhall" -> com.champutils.adventurer.AdventurerGuildMenu.open(player);
             case "profiles", "profile", "profilemenu" -> {
                 ProfileLobbyDebug.log("menuNpc.openProfiles", player);
                 ProfileSelectionMenu.open(player);

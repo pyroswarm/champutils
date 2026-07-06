@@ -78,7 +78,7 @@ public final class ExpeditionMenu {
         typeButton(gui, player, 13, partySlot, pokemon, "tm", Items.MUSIC_DISC_CAT, "§bTM Expedition", "§7Rewards random real TMs.");
         typeButton(gui, player, 14, partySlot, pokemon, "pokemon", Items.EGG, "§aPokémon Expedition", "§7Can find a random Pokémon. Specials are super rare.");
         typeButton(gui, player, 15, partySlot, pokemon, "general", Items.MAP, "§eGeneral Expedition", "§7Classic mixed rewards.");
-        gui.setSlot(22, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eGo Back")).setCallback((slot, click, action) -> open(player)));
+        gui.setSlot(22, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eBack")).setCallback((slot, click, action) -> open(player)));
         gui.open();
     }
 
@@ -125,13 +125,15 @@ public final class ExpeditionMenu {
             summary.addLoreLine(Component.literal("§8These scale with Battling level and sent Pokémon tier."));
         }
         gui.setSlot(13, summary);
-        gui.setSlot(11, new GuiElementBuilder(Items.LIME_WOOL).hideDefaultTooltip()
-                .setName(Component.literal("§aStart Expedition"))
+        gui.setSlot(11, new GuiElementBuilder(Items.GREEN_STAINED_GLASS_PANE).hideDefaultTooltip()
+                .setName(Component.literal("§a§lConfirm"))
+                .addLoreLine(Component.literal("§7Start this expedition."))
                 .addLoreLine(Component.literal("§7This removes the Pokémon from your party"))
                 .addLoreLine(Component.literal("§7until the expedition is claimed."))
                 .setCallback((slot, click, action) -> ExpeditionCommand.confirm(player)));
-        gui.setSlot(15, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip()
-                .setName(Component.literal("§eGo Back"))
+        gui.setSlot(15, new GuiElementBuilder(Items.RED_STAINED_GLASS_PANE).hideDefaultTooltip()
+                .setName(Component.literal("§c§lCancel"))
+                .addLoreLine(Component.literal("§7Go back without starting."))
                 .setCallback((slot, click, action) -> chooseType(player, partySlot, pokemon)));
         gui.open();
     }

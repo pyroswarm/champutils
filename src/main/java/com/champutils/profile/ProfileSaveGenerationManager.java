@@ -73,18 +73,10 @@ public final class ProfileSaveGenerationManager {
     }
 
     public static void markStaleAsync(QueuedSave queuedSave) {
-        if (queuedSave == null || !DatabaseManager.isEnabled()) return;
-        DatabaseManager.executeAsync("mark stale profile save", connection -> {
-            ensureSchema(connection);
-            try (var ps = connection.prepareStatement("insert into profile_save_generations (profile_id, player_uuid, source, state, metadata) values (?, ?, ?, 'STALE_REJECTED', jsonb_build_object('reason', ?, 'local_generation', ?))")) {
-                ps.setObject(1, queuedSave.profileId());
-                ps.setObject(2, queuedSave.playerUuid());
-                ps.setString(3, queuedSave.saveType());
-                ps.setString(4, queuedSave.reason());
-                ps.setLong(5, queuedSave.localGeneration());
-                ps.executeUpdate();
-            }
-        });
+        // Stale coalesced saves are expected during busy autosave bursts. Beta 1 wrote every
+        // skipped generation into SQL, which created unnecessary database churn for data that was
+        // never committed and is not useful for recovery. The newest queued save still persists;
+        // skipped generations are intentionally memory-only now.
     }
 
     public static SqlSave begin(Connection connection, QueuedSave queuedSave) throws Exception {

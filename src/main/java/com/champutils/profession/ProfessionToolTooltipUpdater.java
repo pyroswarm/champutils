@@ -54,7 +54,8 @@ public final class ProfessionToolTooltipUpdater {
             return;
         }
         ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
-        if (toolData == null || !ProfessionToolManager.isTimedActiveAbility(toolData.activeAbility)) {
+        String activeAbility = ProfessionToolMetadata.getResolvedActiveAbility(stack, toolData);
+        if (toolData == null || !ProfessionToolManager.isTimedActiveAbility(activeAbility)) {
             return;
         }
         ProfessionToolManager.refreshToolStackForPlayer(stack, player);

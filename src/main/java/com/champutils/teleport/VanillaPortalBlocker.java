@@ -18,7 +18,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class VanillaPortalBlocker {
+    private static final int PORTAL_SCAN_INTERVAL_TICKS = 100;
     private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_PORTAL_EJECT = new ConcurrentHashMap<>();
     private static boolean registered = false;
 
     private VanillaPortalBlocker() {}
@@ -55,7 +57,7 @@ public final class VanillaPortalBlocker {
     }
 
     public static void tick(MinecraftServer server) {
-        if (server == null || server.getTickCount() % 5 != 0) return;
+        if (server == null || server.getTickCount() % PORTAL_SCAN_INTERVAL_TICKS != 0) return;
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (player == null) continue;
@@ -63,9 +65,11 @@ public final class VanillaPortalBlocker {
             ServerLevel level = player.serverLevel();
             BlockPos playerPos = player.blockPosition();
 
-            removePortalBlocksNear(level, playerPos);
-
             if (isPortal(level.getBlockState(playerPos)) || isPortal(level.getBlockState(playerPos.above()))) {
+                long now = System.currentTimeMillis();
+                long lastEject = LAST_PORTAL_EJECT.getOrDefault(player.getUUID(), 0L);
+                if (now - lastEject <= 2500L) continue;
+                LAST_PORTAL_EJECT.put(player.getUUID(), now);
                 SafeTeleportManager.teleportUncheckedNoBack(
                         player,
                         level,
@@ -78,15 +82,6 @@ public final class VanillaPortalBlocker {
                 sendBlockedMessage(player);
             }
         }
-    }
-
-    private static void removePortalBlocksNear(ServerLevel level, BlockPos center) {
-        BlockPos.betweenClosed(center.offset(-2, -1, -2), center.offset(2, 3, 2)).forEach(pos -> {
-            BlockState state = level.getBlockState(pos);
-            if (isPortal(state)) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-            }
-        });
     }
 
     private static boolean isPortalIgnitionItem(ItemStack stack) {

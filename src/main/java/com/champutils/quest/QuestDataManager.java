@@ -1,5 +1,6 @@
 package com.champutils.quest;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -14,6 +15,8 @@ import java.util.UUID;
 public class QuestDataManager {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String PLAYER_STATE_KEY = "quests";
+    private static final String GUILD_STATE_KEY = "guild_quests";
 
     public static class QuestData {
         public String uuid;
@@ -89,6 +92,7 @@ public class QuestDataManager {
                 }
             }
             if (data == null) data = new QuestData();
+            data = SharedJsonStateRepository.loadProfile(uuid, PLAYER_STATE_KEY, QuestData.class, data);
             data.uuid = uuid.toString();
             data.name = name;
             if (data.daily == null) data.daily = new QuestSet();
@@ -113,6 +117,7 @@ public class QuestDataManager {
     public static void save(UUID uuid, QuestData data) {
         try (FileWriter writer = new FileWriter(file(uuid))) {
             GSON.toJson(data, writer);
+            SharedJsonStateRepository.saveProfile(uuid, PLAYER_STATE_KEY, data);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -128,6 +133,7 @@ public class QuestDataManager {
                 }
             }
             if (data == null) data = new GuildQuestData();
+            data = SharedJsonStateRepository.loadProfile(guildId, GUILD_STATE_KEY, GuildQuestData.class, data);
             data.guildId = guildId.toString();
             data.guildName = guildName;
             if (data.weekly == null) data.weekly = new QuestSet();
@@ -152,6 +158,7 @@ public class QuestDataManager {
     public static void saveGuild(UUID guildId, GuildQuestData data) {
         try (FileWriter writer = new FileWriter(guildFile(guildId))) {
             GSON.toJson(data, writer);
+            SharedJsonStateRepository.saveProfile(guildId, GUILD_STATE_KEY, data);
         } catch (Exception e) {
             e.printStackTrace();
         }

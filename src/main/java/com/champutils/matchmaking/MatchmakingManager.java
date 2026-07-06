@@ -8,7 +8,10 @@ import com.champutils.battle.BattlePrepManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.config.Config;
 import com.champutils.config.Rank;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.profile.PlayerDataManager;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.profile.ProfileRestrictions;
 import com.champutils.validation.TeamSnapshotManager;
 import com.champutils.validation.TeamValidator;
@@ -60,6 +63,12 @@ public class MatchmakingManager {
     private static final Set<UUID> ACCEPTED_MATCH =
             new HashSet<>();
 
+    private static final Map<UUID, RemotePendingAcceptance> REMOTE_ACCEPTANCE =
+            new HashMap<>();
+
+    private static final Set<UUID> STARTED_GLOBAL_SESSIONS =
+            new HashSet<>();
+
     private static final int ACCEPT_TIMEOUT_TICKS = 30 * 20;
     private static final int MATCHMAKING_FAILURE_WINDOW_TICKS = 30 * 60 * 20;
     private static final int MATCHMAKING_BLOCK_TICKS = 30 * 60 * 20;
@@ -73,6 +82,8 @@ public class MatchmakingManager {
 
     private static final int QUEUE_ANNOUNCE_TICKS = 3 * 60 * 20;
     private static int queueAnnounceTimer = 0;
+    private static int globalMatchmakingTimer = 0;
+    private static boolean globalMatchmakingPollInFlight = false;
 
     private static class PendingAcceptance {
         final ServerPlayer p1;
@@ -105,6 +116,18 @@ public class MatchmakingManager {
         ) {
             this.ticks = ticks;
             this.action = action;
+        }
+    }
+
+    private static class RemotePendingAcceptance {
+        final GlobalMatchmakingRepository.Session session;
+        final UUID opponentId;
+        final String opponentName;
+
+        RemotePendingAcceptance(GlobalMatchmakingRepository.Session session, UUID opponentId, String opponentName) {
+            this.session = session;
+            this.opponentId = opponentId;
+            this.opponentName = opponentName == null ? "opponent" : opponentName;
         }
     }
 
@@ -181,6 +204,16 @@ public class MatchmakingManager {
                 0
         );
 
+        GlobalMatchmakingRepository.enqueue(
+                player.getUUID(),
+                PlayerProfileManager.activeProfileId(player),
+                player.getGameProfile().getName(),
+                type,
+                NetworkServerConfig.serverId(),
+                getRp(player),
+                getRankIndex(player)
+        );
+
         if (rankedType(type)) {
             TeamSnapshotManager.saveSnapshot(
                     player
@@ -227,6 +260,8 @@ public class MatchmakingManager {
         QUEUE_TIME.remove(playerId);
         PENDING_MATCH.remove(playerId);
         ACCEPTED_MATCH.remove(playerId);
+        REMOTE_ACCEPTANCE.remove(playerId);
+        GlobalMatchmakingRepository.leave(playerId);
 
         clearAcceptance(player);
     }
@@ -345,6 +380,7 @@ public class MatchmakingManager {
         tickTasks();
         tickAcceptance();
         tickQueues();
+        tickGlobalMatchmaking();
         tickQueueAnnouncements();
         tickRecentMatches();
         tickMatchmakingPenalties();
@@ -435,6 +471,112 @@ public class MatchmakingManager {
             }
         }
         return null;
+    }
+
+    private static net.minecraft.server.MinecraftServer firstKnownServer() {
+        ServerPlayer player = firstQueuedPlayer();
+        if (player != null) return player.getServer();
+        for (PendingAcceptance pending : ACCEPTANCE.values()) {
+            if (pending != null && SafeTeleportManager.isLive(pending.p1)) return pending.p1.getServer();
+            if (pending != null && SafeTeleportManager.isLive(pending.p2)) return pending.p2.getServer();
+        }
+        return null;
+    }
+
+    private static void tickGlobalMatchmaking() {
+        globalMatchmakingTimer++;
+        if (globalMatchmakingTimer < 40 || globalMatchmakingPollInFlight) return;
+        globalMatchmakingTimer = 0;
+
+        net.minecraft.server.MinecraftServer server = firstKnownServer();
+        if (server == null) return;
+        globalMatchmakingPollInFlight = true;
+        String battleServer = NetworkServerConfig.get().survivalServerId == null || NetworkServerConfig.get().survivalServerId.isBlank()
+                ? "main_survival1"
+                : NetworkServerConfig.get().survivalServerId;
+        int allowedSpread = globalAllowedRankSpread();
+
+        GlobalMatchmakingRepository.tick(battleServer, allowedSpread)
+                .thenCombine(GlobalMatchmakingRepository.acceptedForBattleServer(NetworkServerConfig.serverId()), (pending, accepted) -> {
+                    List<GlobalMatchmakingRepository.Session> combined = new ArrayList<>();
+                    if (pending != null) combined.addAll(pending);
+                    if (accepted != null) combined.addAll(accepted);
+                    return combined;
+                })
+                .whenComplete((sessions, error) -> server.execute(() -> {
+                    globalMatchmakingPollInFlight = false;
+                    if (error != null) {
+                        error.printStackTrace();
+                        return;
+                    }
+                    if (sessions == null) return;
+                    for (GlobalMatchmakingRepository.Session session : sessions) {
+                        if ("PENDING_ACCEPT".equalsIgnoreCase(session.status())) {
+                            applyRemotePendingSession(server, session);
+                        } else if ("ACCEPTED".equalsIgnoreCase(session.status())) {
+                            handleAcceptedGlobalSession(server, session);
+                        }
+                    }
+                }));
+    }
+
+    private static void applyRemotePendingSession(net.minecraft.server.MinecraftServer server, GlobalMatchmakingRepository.Session session) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!GlobalMatchmakingRepository.hasPlayer(session, player.getUUID())) continue;
+            if (ACCEPTANCE.containsKey(player.getUUID()) || REMOTE_ACCEPTANCE.containsKey(player.getUUID())) continue;
+            UUID opponent = GlobalMatchmakingRepository.opponent(session, player.getUUID());
+            String opponentName = GlobalMatchmakingRepository.opponentName(session, player.getUUID());
+            REMOTE_ACCEPTANCE.put(player.getUUID(), new RemotePendingAcceptance(session, opponent, opponentName));
+            PENDING_MATCH.add(player.getUUID());
+            removeFromLocalQueues(player);
+            QueueBossBarManager.stop(player);
+            QUEUE_TIME.remove(player.getUUID());
+            sendMatchAcceptPrompt(player, session.queueType());
+            player.sendSystemMessage(Component.literal("§7Opponent: §f" + opponentName));
+        }
+    }
+
+    private static void handleAcceptedGlobalSession(net.minecraft.server.MinecraftServer server, GlobalMatchmakingRepository.Session session) {
+        String battleServer = session.battleServerId() == null ? "" : session.battleServerId();
+        if (!battleServer.equalsIgnoreCase(NetworkServerConfig.serverId())) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (GlobalMatchmakingRepository.hasPlayer(session, player.getUUID())) {
+                    routeToGlobalBattleServer(player, session);
+                }
+            }
+            return;
+        }
+        tryStartAcceptedGlobalSession(server, session);
+    }
+
+    private static void tryStartAcceptedGlobalSession(net.minecraft.server.MinecraftServer server, GlobalMatchmakingRepository.Session session) {
+        if (session == null || !STARTED_GLOBAL_SESSIONS.add(session.id())) return;
+        ServerPlayer p1 = server.getPlayerList().getPlayer(session.playerOneUuid());
+        ServerPlayer p2 = server.getPlayerList().getPlayer(session.playerTwoUuid());
+        if (!SafeTeleportManager.isLive(p1) || !SafeTeleportManager.isLive(p2)) {
+            STARTED_GLOBAL_SESSIONS.remove(session.id());
+            return;
+        }
+        GlobalMatchmakingRepository.markStarted(session.id());
+        REMOTE_ACCEPTANCE.remove(p1.getUUID());
+        REMOTE_ACCEPTANCE.remove(p2.getUUID());
+        PENDING_MATCH.add(p1.getUUID());
+        PENDING_MATCH.add(p2.getUUID());
+        beginAcceptedMatch(p1, p2, session.queueType(), new ArrayList<>());
+    }
+
+    private static int globalAllowedRankSpread() {
+        int initial = Config.matchmaking == null ? 0 : Math.max(0, Config.matchmaking.initial_rank_spread);
+        int expand = Config.matchmaking == null ? 1 : Math.max(0, Config.matchmaking.expand_rank_spread);
+        return initial + Math.max(1, expand * 2);
+    }
+
+    private static void removeFromLocalQueues(ServerPlayer player) {
+        if (player == null) return;
+        UUID playerId = player.getUUID();
+        for (List<ServerPlayer> q : QUEUES.values()) {
+            q.removeIf(queued -> queued == null || playerId.equals(queued.getUUID()));
+        }
     }
 
     private static boolean tryMatchQueue(
@@ -718,6 +860,8 @@ public class MatchmakingManager {
 
         queue.remove(p1);
         queue.remove(p2);
+        GlobalMatchmakingRepository.leave(p1.getUUID());
+        GlobalMatchmakingRepository.leave(p2.getUUID());
 
         QueueBossBarManager.stop(p1);
         QueueBossBarManager.stop(p2);
@@ -887,6 +1031,10 @@ public class MatchmakingManager {
         if (!SafeTeleportManager.isLive(player)) return false;
         PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
         if (pending == null || pending.launched) {
+            RemotePendingAcceptance remote = REMOTE_ACCEPTANCE.get(player.getUUID());
+            if (remote != null) {
+                return acceptRemoteMatch(player, remote);
+            }
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
             return false;
         }
@@ -924,12 +1072,74 @@ public class MatchmakingManager {
         if (!SafeTeleportManager.isLive(player)) return false;
         PendingAcceptance pending = ACCEPTANCE.get(player.getUUID());
         if (pending == null || pending.launched) {
+            RemotePendingAcceptance remote = REMOTE_ACCEPTANCE.get(player.getUUID());
+            if (remote != null) {
+                return declineRemoteMatch(player, remote);
+            }
             player.sendSystemMessage(Component.literal("§cYou do not have a match waiting for acceptance."));
             return false;
         }
         recordMatchmakingFailure(player);
         handleAcceptanceFailure(pending, player, "declined");
         return true;
+    }
+
+    private static boolean acceptRemoteMatch(ServerPlayer player, RemotePendingAcceptance remote) {
+        if (remote == null || remote.session == null) return false;
+        if (rankedType(remote.session.queueType())) {
+            String error = TeamValidator.validate(player, remote.session.queueType());
+            if (error != null) {
+                recordMatchmakingFailure(player);
+                declineRemoteMatch(player, remote);
+                player.sendSystemMessage(Component.literal("§cMatch canceled because your team is illegal: " + error));
+                return true;
+            }
+        }
+        GlobalMatchmakingRepository.respond(remote.session.id(), player.getUUID(), true)
+                .whenComplete((result, error) -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player)) return;
+                    if (error != null || result == null || !result.recorded()) {
+                        player.sendSystemMessage(Component.literal("§cCould not accept that match. Please requeue."));
+                        REMOTE_ACCEPTANCE.remove(player.getUUID());
+                        PENDING_MATCH.remove(player.getUUID());
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("§aMatch accepted. Waiting for opponent..."));
+                    if (result.bothAccepted()) {
+                        routeToGlobalBattleServer(player, remote.session);
+                    }
+                }));
+        return true;
+    }
+
+    private static boolean declineRemoteMatch(ServerPlayer player, RemotePendingAcceptance remote) {
+        if (remote == null || remote.session == null) return false;
+        recordMatchmakingFailure(player);
+        GlobalMatchmakingRepository.respond(remote.session.id(), player.getUUID(), false);
+        REMOTE_ACCEPTANCE.remove(player.getUUID());
+        PENDING_MATCH.remove(player.getUUID());
+        player.sendSystemMessage(Component.literal("§cMatch declined. You were removed from queue."));
+        return true;
+    }
+
+    private static void routeToGlobalBattleServer(ServerPlayer player, GlobalMatchmakingRepository.Session session) {
+        if (player == null || session == null) return;
+        String battleServer = session.battleServerId() == null ? "" : session.battleServerId();
+        if (battleServer.isBlank() || battleServer.equalsIgnoreCase(NetworkServerConfig.serverId())) {
+            player.sendSystemMessage(Component.literal("§aBoth players accepted. Preparing battle..."));
+            return;
+        }
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
+        if (active == null) {
+            player.sendSystemMessage(Component.literal("§cCould not route you to the battle server. Please requeue."));
+            return;
+        }
+        player.sendSystemMessage(Component.literal("§aBoth players accepted. Sending you to the battle server..."));
+        ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, battleServer, message -> {
+            if (message != null && message.startsWith("Could not") && SafeTeleportManager.isLive(player)) {
+                player.sendSystemMessage(Component.literal("§c" + message));
+            }
+        });
     }
 
     private static void tickAcceptance() {

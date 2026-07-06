@@ -198,14 +198,15 @@ public final class SurvivalWorldManager {
         if (state.worlds == null) state.worlds = new ArrayList<>();
         List<Entry> rebuilt = new ArrayList<>();
         int globalIndex = 1;
-        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.overworldCount, cfg.overworldPrefix, "overworld");
-        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.netherWorldCount, cfg.netherPrefix, "nether");
-        ensureGroup(rebuilt, globalIndex, cfg.endWorldCount, cfg.endPrefix, "end");
+        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.overworldStartIndex, cfg.overworldCount, cfg.overworldPrefix, "overworld");
+        globalIndex = ensureGroup(rebuilt, globalIndex, cfg.netherStartIndex, cfg.netherWorldCount, cfg.netherPrefix, "nether");
+        ensureGroup(rebuilt, globalIndex, cfg.endStartIndex, cfg.endWorldCount, cfg.endPrefix, "end");
         state.worlds = rebuilt;
     }
 
-    private static int ensureGroup(List<Entry> rebuilt, int globalIndex, int count, String prefix, String type) {
-        for (int local = 1; local <= count; local++) {
+    private static int ensureGroup(List<Entry> rebuilt, int globalIndex, int startIndex, int count, String prefix, String type) {
+        for (int offset = 0; offset < count; offset++) {
+            int local = startIndex + offset;
             String worldName = prefix + "_" + local;
             Entry entry = findExisting(worldName);
             if (entry == null) {

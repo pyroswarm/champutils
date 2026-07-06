@@ -1,17 +1,20 @@
 package com.champutils.guild;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.champutils.economy.EconomyManager;
 import com.champutils.territory.TerritoryRegionWipeManager;
 import com.champutils.territory.TerritoryRepository;
 import com.champutils.territory.TerritoryTeleportUtil;
+import com.champutils.menu.ConfirmationMenu;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Items;
 
 import java.util.Map;
 import java.util.UUID;
@@ -204,6 +207,7 @@ public final class GuildCommand {
                     if (!success && createCost > 0L) {
                         EconomyManager.deposit(player, createCost, "Refund failed guild creation: " + cleanName);
                     }
+                    if (success) AdventureGuideManager.increment(player, "guild", 1);
                     player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + "." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
                 })
         );
@@ -254,6 +258,7 @@ public final class GuildCommand {
                 player.server.execute(() -> {
                     player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
                     if (success) {
+                        AdventureGuideManager.increment(player, "guild", 1);
                         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
                         if (guild != null) {
                             for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(player.server.getPlayerList().getPlayers(), guild.id)) {
@@ -364,9 +369,20 @@ public final class GuildCommand {
 
         PendingGuildAction pending = PendingGuildAction.transfer(guild.id, target.getUUID(), target.getGameProfile().getName());
         PENDING_ACTIONS.put(actor.getUUID(), pending);
-        actor.sendSystemMessage(Component.literal("You are about to transfer ownership of " + guild.name + " to " + pending.targetName + ".").withStyle(ChatFormatting.GOLD));
-        actor.sendSystemMessage(Component.literal("This will make you an OFFICER and make " + pending.targetName + " the guild owner.").withStyle(ChatFormatting.YELLOW));
-        actor.sendSystemMessage(Component.literal("Run /guild transfer confirm within 60 seconds to confirm, or /guild transfer cancel to cancel.").withStyle(ChatFormatting.RED));
+        ConfirmationMenu.open(
+                actor,
+                "Confirm Guild Transfer",
+                Items.GOLDEN_HELMET,
+                "§eTransfer Guild Ownership",
+                new String[]{
+                        "§7Guild: §f" + guild.name,
+                        "§7New Owner: §f" + pending.targetName,
+                        "§cYou will become an OFFICER.",
+                        "§cThis is a major guild action."
+                },
+                () -> confirmTransfer(actor),
+                () -> cancelPending(actor)
+        );
         return 1;
     }
 
@@ -410,9 +426,19 @@ public final class GuildCommand {
         }
 
         PENDING_ACTIONS.put(actor.getUUID(), PendingGuildAction.disband(guild.id, guild.name));
-        actor.sendSystemMessage(Component.literal("You are about to permanently disband " + guild.name + ".").withStyle(ChatFormatting.RED));
-        actor.sendSystemMessage(Component.literal("This removes the guild, members, invites, and guild territory.").withStyle(ChatFormatting.YELLOW));
-        actor.sendSystemMessage(Component.literal("Run /guild disband confirm within 60 seconds to confirm, or /guild disband cancel to cancel.").withStyle(ChatFormatting.RED));
+        ConfirmationMenu.open(
+                actor,
+                "Confirm Guild Disband",
+                Items.BARRIER,
+                "§cDisband Guild",
+                new String[]{
+                        "§7Guild: §f" + guild.name,
+                        "§cThis removes the guild, members, invites, and guild territory.",
+                        "§cThis cannot be undone."
+                },
+                () -> confirmDisband(actor),
+                () -> cancelPending(actor)
+        );
         return 1;
     }
 

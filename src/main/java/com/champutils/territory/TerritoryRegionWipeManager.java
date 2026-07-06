@@ -80,7 +80,7 @@ public final class TerritoryRegionWipeManager {
         if (player == null || player.server == null) return false;
 
         // Do not rely on /spawn. Some servers do not have that command, permissions can block it,
-        // and command failure used to prevent /territory delete confirm from doing anything.
+        // and command failure used to prevent territory deletion from doing anything.
         try {
             ServerLevel overworld = player.server.overworld();
             BlockPos spawn = overworld.getSharedSpawnPos();

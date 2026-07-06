@@ -366,7 +366,7 @@ public final class BossConfig {
         }
         void normalize() {
             if (minDefeats < 1) minDefeats = 1;
-            if (crateId == null || crateId.isBlank()) crateId = "rare";
+            if (crateId == null || crateId.isBlank()) crateId = "d";
             if (crateCredits < 1) crateCredits = 1;
         }
     }
@@ -625,10 +625,10 @@ public final class BossConfig {
 
     private static List<RewardTier> defaultRewardTiers() {
         return new ArrayList<>(List.of(
-                new RewardTier(1, "rare", 1),
-                new RewardTier(3, "epic", 1),
-                new RewardTier(5, "legendary", 2),
-                new RewardTier(8, "mythic", 3)
+                new RewardTier(1, "d", 1),
+                new RewardTier(3, "c", 1),
+                new RewardTier(5, "a", 2),
+                new RewardTier(8, "s", 3)
         ));
     }
 }

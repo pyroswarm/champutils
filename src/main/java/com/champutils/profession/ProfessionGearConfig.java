@@ -73,7 +73,7 @@ public final class ProfessionGearConfig {
     public static ArmorStats stats(String rarity, String slot) {
         TierData tier = CONFIG.tiers.get(ProfessionFragmentConfig.normalizeRarity(rarity));
         if (tier == null) tier = defaults().tiers.get(ProfessionFragmentConfig.normalizeRarity(rarity));
-        if (tier == null) tier = defaults().tiers.get("COMMON");
+        if (tier == null) tier = defaults().tiers.get("F");
         String normalized = slot == null ? "" : slot.trim().toLowerCase(java.util.Locale.ROOT);
         return switch (normalized) {
             case "helmet" -> tier.helmet;
@@ -99,12 +99,13 @@ public final class ProfessionGearConfig {
 
     private static Config defaults() {
         Config c = new Config();
-        add(c, "COMMON", helmet(1,0,0,0,0), chest(1,0,0.0,5.0), legs(33,0.0,0.0));
-        add(c, "UNCOMMON", helmet(1,1,0,0,0), chest(1,1,0.0,10.0), legs(50,0.6,0.0));
-        add(c, "RARE", helmet(1,1,1,0,0), chest(1,1,1.0,20.0), legs(66,0.6,0.5));
-        add(c, "EPIC", helmet(1,1,1,1,0), chest(1,1,1.0,32.5), legs(75,0.6,0.5));
-        add(c, "LEGENDARY", helmet(1,1,1,1,1), chest(1,1,1.5,50.0), legs(90,0.6,0.75));
-        add(c, "MYTHIC", helmet(1,1,1,1,1), chest(2,2,2.0,75.0), legs(100,0.8,1.0));
+        add(c, "F", helmet(1,0,0,0,0), chest(1,0,0.0,5.0), legs(33,0.0,0.0));
+        add(c, "E", helmet(1,1,0,0,0), chest(1,1,0.0,10.0), legs(50,0.6,0.0));
+        add(c, "D", helmet(1,1,1,0,0), chest(1,1,1.0,20.0), legs(66,0.6,0.5));
+        add(c, "C", helmet(1,1,1,1,0), chest(1,1,1.0,32.5), legs(75,0.6,0.5));
+        add(c, "B", helmet(1,1,1,1,1), chest(1,1,1.25,42.5), legs(82,0.6,0.65));
+        add(c, "A", helmet(1,1,1,1,1), chest(1,1,1.5,50.0), legs(90,0.6,0.75));
+        add(c, "S", helmet(1,1,1,1,1), chest(2,2,2.0,75.0), legs(100,0.8,1.0));
         return c;
     }
 

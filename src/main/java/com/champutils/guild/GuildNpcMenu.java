@@ -19,34 +19,34 @@ public final class GuildNpcMenu {
     public static void open(ServerPlayer player, TerritoryRepository.Territory territory) {
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
         gui.setLockPlayerInventory(true);
-        gui.setTitle(Component.literal("Guild Steward"));
+        gui.setTitle(Component.literal("Player Guild Steward"));
         fill(gui);
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
         boolean officer = guild != null && GuildRepository.canManageGuildTerritory(guild.role);
 
         gui.setSlot(4, new GuiElementBuilder(Items.BELL).hideDefaultTooltip()
-                .setName(Component.literal(guild == null ? "No Guild" : guild.name).withStyle(ChatFormatting.GOLD))
-                .addLoreLine(Component.literal(guild == null ? "Join or create a guild first." : "Role: " + guild.role.name()).withStyle(ChatFormatting.GRAY))
-                .addLoreLine(Component.literal(territory == null ? "No guild territory found." : "Territory: " + territory.publicName()).withStyle(ChatFormatting.GRAY)));
+                .setName(Component.literal(guild == null ? "No Player Guild" : guild.name).withStyle(ChatFormatting.GOLD))
+                .addLoreLine(Component.literal(guild == null ? "Join or create a player guild first." : "Role: " + guild.role.name()).withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal(territory == null ? "No player guild territory found." : "Territory: " + territory.publicName()).withStyle(ChatFormatting.GRAY)));
 
-        gui.setSlot(10, button(Items.PLAYER_HEAD, "Member Management", "Promote, demote, kick, or transfer leadership.", () -> openMembers(player, 0)));
-        gui.setSlot(12, button(Items.ENDER_PEARL, "Guild Territory Home", "Teleport to your guild territory.", () -> run(player, gui, "gterritory home")));
-        gui.setSlot(14, button(Items.COMPARATOR, "Territory Settings", officer ? "Manage guild territory settings." : "Only leaders and officers can manage settings.", () -> {
+        gui.setSlot(10, button(Items.PLAYER_HEAD, "Members", "Promote, demote, kick, or transfer leadership.", () -> openMembers(player, 0)));
+        gui.setSlot(12, button(Items.ENDER_PEARL, "Territory Home", "Teleport to your player guild territory.", () -> run(player, gui, "gterritory home")));
+        gui.setSlot(14, button(Items.COMPARATOR, "Territory Settings", officer ? "Manage player guild territory settings." : "Only leaders and officers can manage settings.", () -> {
             if (!officer) {
-                player.sendSystemMessage(Component.literal("Only guild leaders and officers can manage guild territory settings.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("Only player guild leaders and officers can manage territory settings.").withStyle(ChatFormatting.RED));
                 return;
             }
             run(player, gui, "gterritory settings");
         }));
-        gui.setSlot(16, button(Items.NETHER_STAR, "Daily Guild Boss", officer ? "Spawn today's guild boss." : "Only leaders and officers can spawn this.", () -> {
+        gui.setSlot(16, button(Items.NETHER_STAR, "Daily Guild Boss", officer ? "Spawn today's player guild boss." : "Only leaders and officers can spawn this.", () -> {
             gui.close();
             GuildBossManager.spawnBoss(player);
         }));
-        gui.setSlot(18, button(Items.CHEST, "Claim Boss Rewards", "Claim rewards after your guild defeats a boss.", () -> {
+        gui.setSlot(18, button(Items.CHEST, "Claim Boss Rewards", "Claim rewards after your player guild defeats a boss.", () -> {
             gui.close();
             GuildBossManager.claimRewards(player);
         }));
-        gui.setSlot(22, button(Items.BOOK, "Guild Territory Menu", "Open the full guild territory menu.", () -> TerritoryMenus.openGuildManage(player)));
+        gui.setSlot(22, button(Items.BOOK, "Territory Menu", "Open the full player guild territory menu.", () -> TerritoryMenus.openGuildManage(player)));
         gui.open();
     }
 
@@ -54,7 +54,7 @@ public final class GuildNpcMenu {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
         gui.setLockPlayerInventory(true);
-        gui.setTitle(Component.literal("Guild Members"));
+        gui.setTitle(Component.literal("Player Guild Members"));
         fill(gui);
         if (guild == null) {
             gui.setSlot(22, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED)));
@@ -70,7 +70,7 @@ public final class GuildNpcMenu {
                     .addLoreLine(Component.literal("Click to manage this member.").withStyle(ChatFormatting.YELLOW))
                     .setCallback((index, clickType, actionType) -> openMemberActions(player, m)));
         }
-        gui.setSlot(49, button(Items.ARROW, "Back", "Return to guild steward.", () -> open(player, TerritoryRepository.cachedGuildForPlayer(player))));
+        gui.setSlot(49, button(Items.ARROW, "Back", "Return to the player guild steward.", () -> open(player, TerritoryRepository.cachedGuildForPlayer(player))));
         gui.open();
     }
 

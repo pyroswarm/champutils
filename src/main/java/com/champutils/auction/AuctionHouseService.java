@@ -1,5 +1,6 @@
 package com.champutils.auction;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileRestrictions;
@@ -15,6 +16,8 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +27,7 @@ public final class AuctionHouseService {
     private static final Set<UUID> LISTING = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> CANCELING = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> BUYING = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Long> LAST_LISTING_ANNOUNCEMENT = new ConcurrentHashMap<>();
 
     private AuctionHouseService() {}
 
@@ -134,6 +138,11 @@ public final class AuctionHouseService {
             ItemStack listedStack = action.itemSnapshot.copy();
             JsonObject payload;
             String title = listedStack.getHoverName().getString();
+            if (containsBlockedListingText(title)) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Rename that item before listing it. Auction names cannot contain blocked language.").withStyle(ChatFormatting.RED));
+                return;
+            }
             try {
                 // NBT/component serialization stays on the server thread; only SQL is moved off-thread.
                 payload = AuctionItemSerializer.toPayload(player, listedStack);
@@ -163,8 +172,10 @@ public final class AuctionHouseService {
                     error.printStackTrace();
                     return;
                 }
+                AdventureGuideManager.increment(player, "auction_listing", 1);
                 player.sendSystemMessage(Component.literal("Listed " + title + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
                 player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+                announceListing(player, title, action.price, false);
             }));
         }));
     }
@@ -234,6 +245,11 @@ public final class AuctionHouseService {
 
             JsonObject payload;
             String title = latest.getDisplayName(true).getString();
+            if (containsBlockedListingText(title)) {
+                LISTING.remove(playerUuid);
+                player.sendSystemMessage(Component.literal("Rename that Pokémon before listing it. Auction names cannot contain blocked language.").withStyle(ChatFormatting.RED));
+                return;
+            }
             try {
                 payload = AuctionPokemonSerializer.toPayload(player, latest);
                 AuctionPokemonSerializer.clearPartySlot(player, action.partySlotIndex);
@@ -273,8 +289,10 @@ public final class AuctionHouseService {
                     error.printStackTrace();
                     return;
                 }
+                AdventureGuideManager.increment(player, "auction_listing", 1);
                 player.sendSystemMessage(Component.literal("Listed " + title + " for " + EconomyManager.format(action.price) + ".").withStyle(ChatFormatting.GREEN));
                 player.sendSystemMessage(Component.literal("Listing ID: " + listingId).withStyle(ChatFormatting.DARK_GRAY));
+                announceListing(player, title, action.price, true);
             }));
         }));
     }
@@ -452,14 +470,14 @@ public final class AuctionHouseService {
             player.sendSystemMessage(Component.literal("That listing has an empty item payload. Nothing was canceled.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (player.getInventory().getFreeSlot() < 0) {
-            CANCELING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Your inventory is full. Clear one empty slot, then cancel again.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
+        boolean moveToClaim = player.getInventory().getFreeSlot() < 0;
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.cancelActiveListing(PlayerProfileManager.activeProfileId(player), listing.id); }
+            try {
+                if (moveToClaim) {
+                    return AuctionHouseRepository.cancelActiveListingToPendingClaim(PlayerProfileManager.activeProfileId(player), listing);
+                }
+                return AuctionHouseRepository.cancelActiveListing(PlayerProfileManager.activeProfileId(player), listing.id);
+            }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((cancelled, error) -> player.server.execute(() -> {
             CANCELING.remove(player.getUUID());
@@ -468,8 +486,12 @@ public final class AuctionHouseService {
                 if (error != null) error.printStackTrace();
                 return;
             }
-            giveOrDrop(player, stack);
-            player.sendSystemMessage(Component.literal("Canceled auction and returned item: " + listing.title).withStyle(ChatFormatting.GREEN));
+            if (moveToClaim) {
+                player.sendSystemMessage(Component.literal("Canceled auction. Your inventory is full, so the item was moved to /ah claim.").withStyle(ChatFormatting.YELLOW));
+            } else {
+                giveOrDrop(player, stack);
+                player.sendSystemMessage(Component.literal("Canceled auction and returned item: " + listing.title).withStyle(ChatFormatting.GREEN));
+            }
         }));
     }
 
@@ -514,7 +536,10 @@ public final class AuctionHouseService {
             return;
         }
         player.sendSystemMessage(Component.literal("Checking for pending auction purchases...").withStyle(ChatFormatting.GRAY));
+        claimNextInternal(player, 0);
+    }
 
+    private static void claimNextInternal(ServerPlayer player, int claimedThisRun) {
         CompletableFuture.supplyAsync(() -> {
             try { return AuctionHouseRepository.fetchOldestPendingPurchase(PlayerProfileManager.activeProfileId(player)); }
             catch (Exception e) { throw new RuntimeException(e); }
@@ -527,18 +552,18 @@ public final class AuctionHouseService {
             }
             if (purchase == null) {
                 CLAIMING.remove(player.getUUID());
-                player.sendSystemMessage(Component.literal("You have no pending auction purchases.").withStyle(ChatFormatting.YELLOW));
+                player.sendSystemMessage(Component.literal(claimedThisRun > 0 ? "Claimed " + claimedThisRun + " auction item" + (claimedThisRun == 1 ? "" : "s") + "." : "You have no pending auction purchases.").withStyle(claimedThisRun > 0 ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
                 return;
             }
             if ("POKEMON".equalsIgnoreCase(purchase.kind)) {
-                claimPokemon(player, purchase);
+                claimPokemon(player, purchase, claimedThisRun);
             } else {
-                claimItem(player, purchase);
+                claimItem(player, purchase, claimedThisRun);
             }
         }));
     }
 
-    private static void claimItem(ServerPlayer player, AuctionHouseRepository.PendingPurchase purchase) {
+    private static void claimItem(ServerPlayer player, AuctionHouseRepository.PendingPurchase purchase, int claimedThisRun) {
         ItemStack stack;
         try { stack = AuctionItemSerializer.fromPayload(player, purchase.payload); }
         catch (Exception e) {
@@ -555,14 +580,14 @@ public final class AuctionHouseService {
         int freeSlot = player.getInventory().getFreeSlot();
         if (freeSlot < 0) {
             CLAIMING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Your inventory is full. Clear one empty slot, then run /ah claim again.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal((claimedThisRun > 0 ? "Claimed " + claimedThisRun + " item" + (claimedThisRun == 1 ? "" : "s") + ". " : "") + "Your inventory is full. Clear room, then run /ah claim again.").withStyle(ChatFormatting.RED));
             return;
         }
         player.getInventory().setItem(freeSlot, stack.copy());
-        markClaimed(player, purchase.id, "Claimed auction purchase: " + purchase.title + ".");
+        markClaimed(player, purchase.id, "Claimed auction purchase: " + purchase.title + ".", true, claimedThisRun + 1);
     }
 
-    private static void claimPokemon(ServerPlayer player, AuctionHouseRepository.PendingPurchase purchase) {
+    private static void claimPokemon(ServerPlayer player, AuctionHouseRepository.PendingPurchase purchase, int claimedThisRun) {
         Pokemon pokemon;
         try { pokemon = AuctionPokemonSerializer.fromPayload(player, purchase.payload); }
         catch (Exception e) {
@@ -577,29 +602,53 @@ public final class AuctionHouseService {
             player.sendSystemMessage(Component.literal("Could not deliver that Pokémon to your party or PC. Please contact staff.").withStyle(ChatFormatting.RED));
             return;
         }
-        markClaimed(player, purchase.id, "Claimed auction Pokémon: " + purchase.title + (delivery == AuctionPokemonSerializer.DeliveryResult.PC ? ". Your party was full, so it was sent to your PC." : "."));
+        markClaimed(player, purchase.id, (claimedThisRun > 0 ? "Claimed " + claimedThisRun + " item" + (claimedThisRun == 1 ? "" : "s") + " first. " : "") + "Claimed auction Pokémon: " + purchase.title + (delivery == AuctionPokemonSerializer.DeliveryResult.PC ? ". Your party was full, so it was sent to your PC." : "."), false, claimedThisRun);
     }
 
-    private static void markClaimed(ServerPlayer player, UUID purchaseId, String successMessage) {
+    private static void markClaimed(ServerPlayer player, UUID purchaseId, String successMessage, boolean continueItems, int claimedThisRun) {
         CompletableFuture.supplyAsync(() -> {
             try { return AuctionHouseRepository.markPurchaseClaimed(purchaseId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((marked, markError) -> player.server.execute(() -> {
-            CLAIMING.remove(player.getUUID());
             if (markError != null || !Boolean.TRUE.equals(marked)) {
+                CLAIMING.remove(player.getUUID());
                 player.sendSystemMessage(Component.literal("Reward delivered, but claim status could not update. Contact an admin before claiming again.").withStyle(ChatFormatting.RED));
                 if (markError != null) markError.printStackTrace();
                 return;
             }
-            player.sendSystemMessage(Component.literal(successMessage).withStyle(ChatFormatting.GREEN));
+            if (continueItems && player.getInventory().getFreeSlot() >= 0) {
+                claimNextInternal(player, claimedThisRun);
+            } else {
+                CLAIMING.remove(player.getUUID());
+                player.sendSystemMessage(Component.literal(successMessage).withStyle(ChatFormatting.GREEN));
+            }
         }));
     }
 
     public static void handleJoin(ServerPlayer player) {
         if (player == null || player.server == null) return;
 
+        UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
+        if (activeProfileId == null) return;
         CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.countPendingPokemonPurchases(PlayerProfileManager.activeProfileId(player)); }
+            try { return NotificationRepository.fetchUndelivered(activeProfileId, 5); }
+            catch (Exception e) { throw new RuntimeException(e); }
+        }).whenComplete((notifications, error) -> player.server.execute(() -> {
+            if (error != null) {
+                error.printStackTrace();
+                return;
+            }
+            if (notifications == null || notifications.isEmpty()) return;
+            for (NotificationRepository.PlayerNotification notification : notifications) {
+                if (notification != null && "AUCTION_SOLD".equalsIgnoreCase(notification.type)) {
+                    player.sendSystemMessage(Component.literal(notification.title + " - " + notification.message).withStyle(ChatFormatting.GREEN));
+                }
+            }
+            try { NotificationRepository.markDelivered(notifications); } catch (Exception e) { e.printStackTrace(); }
+        }));
+
+        CompletableFuture.supplyAsync(() -> {
+            try { return AuctionHouseRepository.countPendingPokemonPurchases(activeProfileId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((count, error) -> player.server.execute(() -> {
             if (error != null) {
@@ -612,6 +661,44 @@ public final class AuctionHouseService {
             String plural = pending == 1 ? "Pokémon" : "Pokémon";
             player.sendSystemMessage(Component.literal("You have " + pending + " auction " + plural + " waiting from the website. Use /ah claim to claim " + (pending == 1 ? "it" : "them") + ".").withStyle(ChatFormatting.GOLD));
         }));
+    }
+
+
+    private static boolean containsBlockedListingText(String text) {
+        AuctionHouseConfig config = AuctionHouseConfig.get();
+        if (!config.filterBadListingNames) return false;
+        if (text == null || text.isBlank() || config.blockedListingWords == null) return false;
+        String normalized = text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+        String spaced = text.toLowerCase(Locale.ROOT);
+        for (String raw : config.blockedListingWords) {
+            if (raw == null || raw.isBlank()) continue;
+            String word = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+            if (word.isBlank()) continue;
+            if (normalized.contains(word) || spaced.contains(raw.toLowerCase(Locale.ROOT))) return true;
+        }
+        return false;
+    }
+
+    private static void announceListing(ServerPlayer seller, String title, long price, boolean pokemon) {
+        if (seller == null || seller.server == null) return;
+        AuctionHouseConfig config = AuctionHouseConfig.get();
+        if (!config.announceNewListings) return;
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(0, config.listingAnnouncementCooldownSeconds) * 1000L;
+        Long last = LAST_LISTING_ANNOUNCEMENT.get(seller.getUUID());
+        if (last != null && now - last < cooldown) return;
+        LAST_LISTING_ANNOUNCEMENT.put(seller.getUUID(), now);
+        String cleanTitle = title == null ? "an auction" : title;
+        if (cleanTitle.length() > 64) cleanTitle = cleanTitle.substring(0, 64) + "...";
+        String kind = pokemon ? "Pokémon" : "item";
+        seller.server.getPlayerList().broadcastSystemMessage(
+                Component.literal("[Auction] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(seller.getName().getString()).withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(" listed a " + kind + ": ").withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal(cleanTitle).withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(" for " + EconomyManager.format(price) + ". Use /ah to view.").withStyle(ChatFormatting.GRAY)),
+                false
+        );
     }
 
     private static boolean validatePrice(ServerPlayer player, long price) {

@@ -16,14 +16,14 @@ public final class SpecialWildSpawnCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("pity")
-                    .then(literal("legendary").executes(ctx -> {
+                    .then(literal("a").executes(ctx -> {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "a");
                         return 1;
                     }))
                     .then(literal("special").executes(ctx -> {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "a");
                         return 1;
                     }))
                     .then(literal("paradox").executes(ctx -> {
@@ -43,7 +43,7 @@ public final class SpecialWildSpawnCommand {
                     }))
                     .executes(ctx -> {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "legendary");
+                        sendPity(ctx.getSource(), SpecialWildSpawnManager.pityView(player), "§6Legendary Spawn Pity", "a");
                         return 1;
                     }));
 

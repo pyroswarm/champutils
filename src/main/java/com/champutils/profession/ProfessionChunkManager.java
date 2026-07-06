@@ -73,8 +73,8 @@ public final class ProfessionChunkManager {
         if (announce && ProfessionChunkConfig.CONFIG.announceFinds && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             ProfessionChunkConfig.ChunkData chunkData = ProfessionChunkConfig.CONFIG.chunks.get(key);
             String name = chunkData == null ? formatChunk(key) : chunkData.displayName;
-            if (isEpicOrBetter(key)) {
-                ProfessionSpecialCelebration.celebrateEpicChunk(player, name + (amount > 1 ? " x" + amount : ""));
+            if (isCRankOrBetter(key)) {
+                ProfessionSpecialCelebration.celebrateHighRankChunk(player, name + (amount > 1 ? " x" + amount : ""));
             } else {
                 player.displayClientMessage(Component.literal("§6Chunk Found! §e" + name + (amount > 1 ? " x" + amount : "")), true);
             }
@@ -180,13 +180,13 @@ public final class ProfessionChunkManager {
         int needed = (int) neededLong;
         int fragments = (int) fragmentsLong;
         int removed = remove(player, key, needed);
-        if (removed < needed) return new TradeResult(false, "Could not remove chunks safely. No fragments were created.", 0, key, config.fragmentRarity);
+        if (removed < needed) return new TradeResult(false, "Could not remove chunks safely. No Essence was created.", 0, key, config.fragmentRarity);
         ProfessionManager.addFragments(player, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity), fragments);
         ProfessionManager.savePlayer(player);
         return new TradeResult(true, "", fragments, key, ProfessionFragmentConfig.normalizeRarity(config.fragmentRarity));
     }
 
-    private static boolean isEpicOrBetter(String chunk) {
+    private static boolean isCRankOrBetter(String chunk) {
         return switch (normalizeChunk(chunk)) {
             case "GOLD", "DIAMOND", "NETHERITE" -> true;
             default -> false;

@@ -48,6 +48,7 @@ public final class PlayerProfileManager {
     private static final long PROFILE_LIMIT_CACHE_TTL_MILLIS = 60_000L;
     private static final Map<UUID, String> VANILLA_STATE_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, SavedLocationSnapshot> SAVED_LOCATION_CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, UUID> FORCE_SPAWN_ON_NEXT_LOAD = new ConcurrentHashMap<>();
     private static final Map<UUID, Object> CREATE_LOCKS = new ConcurrentHashMap<>();
 
     private PlayerProfileManager() {}
@@ -174,10 +175,12 @@ public final class PlayerProfileManager {
                 statement.executeUpdate("alter table player_profiles add column if not exists last_z double precision");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_yaw real");
                 statement.executeUpdate("alter table player_profiles add column if not exists last_pitch real");
+                statement.executeUpdate("alter table player_profiles add column if not exists last_survival_server_id text");
                 statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_reason text");
                 statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_updated_at timestamptz");
                 ProfileAtomicSnapshotManager.ensureSchema(connection);
                 ProfileTransferTokenManager.ensureSchema(connection);
+                PreferredSurvivalServerManager.ensureSchema(connection);
                 ProfileTransferTokenManager.cleanupExpired(connection);
                 // Drop the old non-partial unique index if it exists. It kept soft-deleted profile names reserved forever.
                 statement.executeUpdate("drop index if exists idx_unique_profile_name_per_player_uuid");
@@ -297,7 +300,7 @@ public static void handleJoin(ServerPlayer player) {
         if (error != null) {
             error.printStackTrace();
             ACTIVE.put(playerUuid, new ProfileRecord(playerUuid, playerUuid, "Fallback", ProfileGameMode.NORMAL, null, true, false, null));
-            player.sendSystemMessage(Component.literal("Could not prepare your SQL profiles. Check console/database logs.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Could not prepare your profiles. Please try again or contact staff.").withStyle(ChatFormatting.RED));
             return;
         }
         if (createdDefault[0]) {
@@ -329,7 +332,7 @@ private static void handleProfileLobbyJoin(ServerPlayer player, UUID playerUuid,
         if (!SafeTeleportManager.isLive(player)) return;
         if (error != null) {
             ProfileLobbyDebug.log("handleProfileLobbyJoin.sqlFailed", player, error);
-            player.sendSystemMessage(Component.literal("Could not prepare your SQL profiles. Check console/database logs.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Could not prepare your profiles. Please try again or contact staff.").withStyle(ChatFormatting.RED));
             return;
         }
         try {
@@ -647,7 +650,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] createBlocking total took " + (System.currentTimeMillis() - createTotalStart) + "ms");
             return "Created profile " + clean + ". Use /profiles to select it.";
         }
-        catch (Exception e) { e.printStackTrace(); return "Could not create profile. Check console/database logs."; }
+        catch (Exception e) { e.printStackTrace(); return "Could not create profile. Please try again or contact staff."; }
     }
 
     public static String switchBlocking(ServerPlayer player, String name) {
@@ -686,7 +689,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             teleportToSavedLocation(player);
             return "Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].";
         }
-        catch (Exception e) { e.printStackTrace(); return "Could not switch profile. Check console/database logs."; }
+        catch (Exception e) { e.printStackTrace(); return "Could not switch profile. Please try again or contact staff."; }
     }
 
 
@@ -787,7 +790,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             long sqlLoadStart = System.currentTimeMillis();
             // Do not block the player's switch on the remote SQL active-profile write. The active
             // profile is applied from the already-resolved target record below, then persisted in
-            // a separate DB task. This removes the common 60-80ms WAN/commit delay from switchAsync.
+            // a separate DB task. This removes the F-rank 60-80ms WAN/commit delay from switchAsync.
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL active profile update skipped critical path; queued async persistence");
 
             long vanillaLoadStart = System.currentTimeMillis();
@@ -805,6 +808,10 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (!locationCacheHit) {
                 savedLocationSnapshot = loadSavedLocationSnapshot(connection, target.profileId());
                 if (savedLocationSnapshot != null) SAVED_LOCATION_CACHE.put(target.profileId(), savedLocationSnapshot);
+            }
+            if (shouldForceSpawnAtServerSpawn(playerUuid, target.profileId())) {
+                savedLocationSnapshot = new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true);
+                SAVED_LOCATION_CACHE.put(target.profileId(), savedLocationSnapshot);
             }
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL saved location load took " + (System.currentTimeMillis() - locationLoadStart) + "ms cacheHit=" + locationCacheHit);
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL vanilla/location/party-prep section before party took " + (System.currentTimeMillis() - sqlLoadStart) + "ms");
@@ -853,7 +860,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                             System.err.println("[ChampUtils] Cobblemon profile sync failed for " + playerName + ": " + syncError.getMessage());
                             syncError.printStackTrace();
                             try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
-                            if (callback != null) callback.accept("Could not finish loading your profile safely. You were returned to profile selection. Check console/database logs.");
+                            if (callback != null) callback.accept("Could not finish loading your profile. You were returned to profile selection. Please try again or contact staff.");
                             return;
                         }
 
@@ -891,14 +898,14 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                     ACTIVE.remove(playerUuid);
                     e.printStackTrace();
                     try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
-                    if (callback != null) callback.accept("Could not switch profile safely. You were returned to profile selection. Check console/database logs.");
+                    if (callback != null) callback.accept("Could not switch profile. You were returned to profile selection. Please try again or contact staff.");
                 }
             });
         }).exceptionally(throwable -> {
             ProfileLoadingStateManager.end(player);
             SWITCHING.remove(playerUuid);
             String message = throwable.getCause() != null ? throwable.getCause().getMessage() : throwable.getMessage();
-            if (message == null || message.isBlank()) message = "Could not switch profile. Check console/database logs.";
+            if (message == null || message.isBlank()) message = "Could not switch profile. Please try again or contact staff.";
             final String finalMessage = message;
             player.server.execute(() -> {
                 if (callback != null) callback.accept(finalMessage);
@@ -1066,7 +1073,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 clearProfileCache(player.getUUID());
             }
             return "Profile " + target.profileName() + " is queued for deletion. It frees the slot in " + formatMinutes(delayMinutes) + ".";
-        } catch (Exception e) { e.printStackTrace(); return "Could not delete profile. Check console/database logs."; }
+        } catch (Exception e) { e.printStackTrace(); return "Could not delete profile. Please try again or contact staff."; }
     }
 
     public static String cancelDeleteBlocking(ServerPlayer player, String name) {
@@ -1085,7 +1092,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             }
             clearProfileCache(player.getUUID());
             return "Cancelled deletion for profile " + target.profileName() + ".";
-        } catch (Exception e) { e.printStackTrace(); return "Could not cancel profile deletion. Check console/database logs."; }
+        } catch (Exception e) { e.printStackTrace(); return "Could not cancel profile deletion. Please try again or contact staff."; }
     }
 
     private static String formatMinutes(int minutes) {
@@ -1206,6 +1213,47 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         DatabaseManager.executeAsync("save active profile location", connection -> saveLocationSnapshot(connection, playerName, profileId, dimension, x, y, z, yaw, pitch));
     }
 
+    public static void forceSpawnAtServerSpawnOnNextLoad(UUID playerUuid, UUID profileId) {
+        if (playerUuid == null || profileId == null) return;
+        FORCE_SPAWN_ON_NEXT_LOAD.put(playerUuid, profileId);
+        SAVED_LOCATION_CACHE.remove(profileId);
+    }
+
+    private static boolean shouldForceSpawnAtServerSpawn(UUID playerUuid, UUID profileId) {
+        if (playerUuid == null || profileId == null) return false;
+        return FORCE_SPAWN_ON_NEXT_LOAD.remove(playerUuid, profileId);
+    }
+
+    public static boolean shouldSpawnAtServerSpawnForTransfer(Connection connection, UUID profileId, String targetServerId) throws Exception {
+        if (connection == null || profileId == null || targetServerId == null || targetServerId.isBlank()) return false;
+        ensureProfileServerTrackingSchema(connection);
+        try (var ps = connection.prepareStatement("select last_survival_server_id from player_profiles where id = ?")) {
+            ps.setObject(1, profileId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return false;
+                String previous = rs.getString(1);
+                return previous != null && !previous.isBlank() && !previous.equalsIgnoreCase(targetServerId);
+            }
+        }
+    }
+
+    public static void markProfileServerSeen(Connection connection, UUID profileId, String serverId) throws Exception {
+        if (connection == null || profileId == null || serverId == null || serverId.isBlank()) return;
+        ensureProfileServerTrackingSchema(connection);
+        try (var ps = connection.prepareStatement("update player_profiles set last_survival_server_id = ?, last_used_at = now() where id = ?")) {
+            ps.setString(1, serverId);
+            ps.setObject(2, profileId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void ensureProfileServerTrackingSchema(Connection connection) throws Exception {
+        if (connection == null) return;
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("alter table player_profiles add column if not exists last_survival_server_id text");
+        }
+    }
+
     private static void saveLocationSnapshotBlocking(String playerName, UUID profileId, String dimension, double x, double y, double z, float yaw, float pitch) {
         try {
             saveLocationSnapshot(DatabaseManager.getConnection(), playerName, profileId, dimension, x, y, z, yaw, pitch);
@@ -1217,14 +1265,15 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
     private static void saveLocationSnapshot(Connection connection, String playerName, UUID profileId, String dimension, double x, double y, double z, float yaw, float pitch) throws Exception {
         try (var ps = connection.prepareStatement(
-                "update player_profiles set last_dimension = ?, last_x = ?, last_y = ?, last_z = ?, last_yaw = ?, last_pitch = ?, last_used_at = now() where id = ?")) {
+                "update player_profiles set last_dimension = ?, last_x = ?, last_y = ?, last_z = ?, last_yaw = ?, last_pitch = ?, last_survival_server_id = ?, last_used_at = now() where id = ?")) {
             ps.setString(1, dimension);
             ps.setDouble(2, x);
             ps.setDouble(3, y);
             ps.setDouble(4, z);
             ps.setFloat(5, yaw);
             ps.setFloat(6, pitch);
-            ps.setObject(7, profileId);
+            ps.setString(7, com.champutils.network.NetworkServerConfig.serverId());
+            ps.setObject(8, profileId);
             ps.executeUpdate();
         }
     }
@@ -1552,7 +1601,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return "Could not convert profile. Check console/database logs.";
+            return "Could not convert profile. Please try again or contact staff.";
         }
     }
 

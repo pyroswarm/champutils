@@ -1,6 +1,7 @@
 package com.champutils.permissions;
 
 import com.champutils.network.NetworkServerConfig;
+import com.champutils.account.AccountUpgradeManager;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -42,11 +43,31 @@ public final class PermissionUtil {
         }
 
         // champutils.admin should imply all ChampUtils staff/admin commands even if
-        // LuckPerms group inheritance is not configured yet.
+        // rank inheritance is not configured yet.
         if (!permission.equals("champutils.admin") && LuckPermsHook.hasPermission(player, "champutils.admin")) {
             return true;
         }
 
+        // In-game account upgrades must grant the same command access as store/console rank assignment.
+        // Keep this explicit so /pc, /ec, /pokeheal, and /pokeivs keep working even if a permission
+        // node is missing from the external rank configuration.
+        if (isVipPermission(permission) && AccountUpgradeManager.hasVip(player)) {
+            return true;
+        }
+        if (isVipPlusPermission(permission) && AccountUpgradeManager.hasVipPlus(player)) {
+            return true;
+        }
+
         return LuckPermsHook.hasPermission(player, permission);
+    }
+
+    private static boolean isVipPermission(String permission) {
+        return permission.equals("champutils.command.pc")
+                || permission.equals("champutils.command.ec")
+                || permission.equals("champutils.command.pokeheal");
+    }
+
+    private static boolean isVipPlusPermission(String permission) {
+        return permission.equals("champutils.command.pokeivs");
     }
 }

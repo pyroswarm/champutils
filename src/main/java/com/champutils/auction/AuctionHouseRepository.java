@@ -241,6 +241,52 @@ public final class AuctionHouseRepository {
         }
     }
 
+    public static boolean cancelActiveListingToPendingClaim(UUID sellerUuid, AuctionListingSummary listing) throws Exception {
+        if (sellerUuid == null || listing == null || listing.id == null) return false;
+        Connection connection = DatabaseManager.getConnection();
+        ensureSchema(connection);
+        boolean previousAutoCommit = connection.getAutoCommit();
+        try {
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "update auction_listings set status = 'CANCELLED', updated_at = now() where id = ? and seller_uuid = ? and status = 'ACTIVE' and expires_at > now()"
+            )) {
+                statement.setObject(1, listing.id);
+                statement.setString(2, sellerUuid.toString());
+                if (statement.executeUpdate() != 1) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "insert into auction_purchases " +
+                            "(listing_id, buyer_uuid, buyer_username, seller_uuid, seller_username, listing_kind, title, quantity, total_price, payload, delivery_status, purchased_at) " +
+                            "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', now())"
+            )) {
+                statement.setObject(1, listing.id);
+                statement.setString(2, sellerUuid.toString());
+                statement.setString(3, safe(listing.sellerUsername, sellerUuid.toString()));
+                statement.setString(4, sellerUuid.toString());
+                statement.setString(5, safe(listing.sellerUsername, sellerUuid.toString()));
+                statement.setString(6, listing.kind == null || listing.kind.isBlank() ? "ITEM" : listing.kind);
+                statement.setString(7, safe(listing.title, "Canceled Auction Item"));
+                statement.setInt(8, Math.max(1, listing.quantity));
+                statement.setLong(9, Math.max(1L, listing.price));
+                statement.setObject(10, jsonb(listing.payload));
+                statement.executeUpdate();
+            }
+            connection.commit();
+            activeListingCacheMs = 0L;
+            ACTIVE_LISTING_CACHE.clear();
+            return true;
+        } catch (Exception e) {
+            try { connection.rollback(); } catch (Exception ignored) {}
+            throw e;
+        } finally {
+            try { connection.setAutoCommit(previousAutoCommit); } catch (Exception ignored) {}
+        }
+    }
+
     private static AuctionListingSummary readListingSummary(ResultSet rs) throws Exception {
         AuctionListingSummary listing = new AuctionListingSummary();
         listing.id = UUID.fromString(rs.getString("id"));

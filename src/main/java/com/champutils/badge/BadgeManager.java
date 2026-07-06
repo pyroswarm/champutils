@@ -1,5 +1,6 @@
 package com.champutils.badge;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -373,6 +374,10 @@ public class BadgeManager {
                 player,
                 badge
         );
+
+        if (badge == BadgeType.CASCADE) {
+            AdventureGuideManager.increment(player, "badge_cascade", 1);
+        }
 
         // Global badge chat announcements are intentionally disabled.
         // Title announcements now handle this moment without duplicate chat noise.

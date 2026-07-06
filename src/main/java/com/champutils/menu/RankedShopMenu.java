@@ -1,5 +1,6 @@
 package com.champutils.menu;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.dex.TrueCaughtDexManager;
 import com.champutils.matchmaking.PokemonIconUtil;
@@ -33,6 +34,7 @@ public final class RankedShopMenu {
     public static void open(ServerPlayer player) { openPokemon(player, 0); }
 
     public static void openPokemon(ServerPlayer player, int page) {
+        AdventureGuideManager.increment(player, "shop", 1);
         SimpleGui gui = base(player, "Ranked Pokémon Shop");
         header(gui, player, Items.DRAGON_EGG, "§dRanked Pokémon Shop", "§7Level 1, random IVs/nature/ability. Counts for True Dex.");
         tabs(gui, player, true);
@@ -78,7 +80,7 @@ public final class RankedShopMenu {
                     .setName(Component.literal("§e" + displayName(e)))
                     .addLoreLine(Component.literal("§7Amount: §a" + Math.max(1, e.amount)))
                     .addLoreLine(Component.literal("§7Cost: §d" + e.cost + " Ranked Tokens"))
-                    .addLoreLine(Component.literal(displayStack.getItem() == Items.BARRIER ? "§cInvalid configured item." : "§eClick to buy."))
+                    .addLoreLine(Component.literal(displayStack.getItem() == Items.BARRIER ? "§cThis item is unavailable." : "§eClick to buy."))
                     .setCallback((slot, click, type) -> buyItem(player, e)));
         }
         gui.open();
@@ -119,7 +121,7 @@ public final class RankedShopMenu {
     private static void buyItem(ServerPlayer player, RankedTokenConfig.ItemEntry e) {
         if (e == null) return;
         ItemStack stack = createConfiguredItemStack(e, true);
-        if (stack.isEmpty() || stack.getItem() == Items.AIR || stack.getItem() == Items.BARRIER) { player.sendSystemMessage(Component.literal("§cInvalid configured item: " + e.item)); return; }
+        if (stack.isEmpty() || stack.getItem() == Items.AIR || stack.getItem() == Items.BARRIER) { player.sendSystemMessage(Component.literal("§cThat shop item is unavailable right now.")); return; }
         int cost = Math.max(1, e.cost);
         if (!RankedTokenManager.spend(player, cost)) { player.sendSystemMessage(Component.literal("§cNot enough Ranked Tokens.")); return; }
         if (!player.getInventory().add(stack)) player.drop(stack, false);

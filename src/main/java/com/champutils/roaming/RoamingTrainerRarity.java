@@ -1,14 +1,16 @@
 package com.champutils.roaming;
 
+import com.champutils.rarity.RarityScale;
 import net.minecraft.ChatFormatting;
 
 public enum RoamingTrainerRarity {
-    COMMON(ChatFormatting.WHITE),
-    UNCOMMON(ChatFormatting.GREEN),
-    RARE(ChatFormatting.BLUE),
-    EPIC(ChatFormatting.DARK_PURPLE),
-    LEGENDARY(ChatFormatting.GOLD),
-    MYTHIC(ChatFormatting.LIGHT_PURPLE);
+    F(ChatFormatting.WHITE),
+    E(ChatFormatting.GREEN),
+    D(ChatFormatting.AQUA),
+    C(ChatFormatting.BLUE),
+    B(ChatFormatting.LIGHT_PURPLE),
+    A(ChatFormatting.GOLD),
+    S(ChatFormatting.DARK_PURPLE);
 
     public final ChatFormatting color;
 
@@ -17,13 +19,13 @@ public enum RoamingTrainerRarity {
     }
 
     public boolean alertsPlayers() {
-        return ordinal() >= EPIC.ordinal();
+        return ordinal() >= B.ordinal();
     }
 
     public static RoamingTrainerRarity parse(String value, RoamingTrainerRarity fallback) {
         if (value == null || value.isBlank()) return fallback;
         try {
-            return RoamingTrainerRarity.valueOf(value.trim().toUpperCase());
+            return RoamingTrainerRarity.valueOf(RarityScale.normalize(value));
         } catch (Exception ignored) {
             return fallback;
         }

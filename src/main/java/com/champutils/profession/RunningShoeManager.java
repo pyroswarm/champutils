@@ -52,12 +52,13 @@ public final class RunningShoeManager {
     private RunningShoeManager() {}
 
     public static void registerItems() {
-        register("common_running_shoes", "COMMON", Items.LEATHER_BOOTS);
-        register("uncommon_running_shoes", "UNCOMMON", Items.IRON_BOOTS);
-        register("rare_running_shoes", "RARE", Items.DIAMOND_BOOTS);
-        register("epic_running_shoes", "EPIC", Items.DIAMOND_BOOTS);
-        register("legendary_running_shoes", "LEGENDARY", Items.NETHERITE_BOOTS);
-        register("mythic_running_shoes", "MYTHIC", Items.NETHERITE_BOOTS);
+        register("f_running_shoes", "F", Items.LEATHER_BOOTS);
+        register("e_running_shoes", "E", Items.IRON_BOOTS);
+        register("d_running_shoes", "D", Items.DIAMOND_BOOTS);
+        register("c_running_shoes", "C", Items.DIAMOND_BOOTS);
+        register("b_running_shoes", "B", Items.NETHERITE_BOOTS);
+        register("a_running_shoes", "A", Items.NETHERITE_BOOTS);
+        register("s_running_shoes", "S", Items.NETHERITE_BOOTS);
         System.out.println("[ChampUtils] Registered " + REGISTERED.size() + " running shoes.");
     }
 
@@ -84,7 +85,7 @@ public final class RunningShoeManager {
             if (!source.is(net.minecraft.tags.DamageTypeTags.IS_FALL)) return true;
             ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
             String rarity = getShoeRarity(boots);
-            return !("RARE".equals(rarity) || "EPIC".equals(rarity) || "LEGENDARY".equals(rarity) || "MYTHIC".equals(rarity));
+            return !("D".equals(rarity) || "C".equals(rarity) || "A".equals(rarity) || "S".equals(rarity));
         });
     }
 
@@ -128,7 +129,7 @@ public final class RunningShoeManager {
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(ProfessionFragmentManager.formatWords(normalized) + " Profession Boots").withStyle(color(normalized)));
         makeStackUnbreakable(stack);
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal("§8" + ProfessionFragmentManager.formatWords(normalized) + " Profession Gear"));
+        lore.add(Component.literal("§8" + ProfessionFragmentManager.displayRankName(normalized) + " Profession Gear"));
         lore.add(Component.literal(" "));
         lore.add(Component.literal("§6Stats"));
         lore.add(Component.literal(" §a+" + String.format(Locale.US, "%.1f", speed) + "% Move Speed §8(range " + speedRange(normalized) + ")"));
@@ -195,9 +196,9 @@ public final class RunningShoeManager {
 
     private static int depthStriderLevel(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "EPIC" -> 1;
-            case "LEGENDARY" -> 2;
-            case "MYTHIC" -> 3;
+            case "C", "B" -> 1;
+            case "A" -> 2;
+            case "S" -> 3;
             default -> 0;
         };
     }
@@ -211,11 +212,12 @@ public final class RunningShoeManager {
     private static double rollSpeed(String rarity) {
         double min, max;
         switch (rarity) {
-            case "UNCOMMON" -> { min = 10.0D; max = 15.0D; }
-            case "RARE" -> { min = 15.0D; max = 20.0D; }
-            case "EPIC" -> { min = 20.0D; max = 25.0D; }
-            case "LEGENDARY" -> { min = 30.0D; max = 40.0D; }
-            case "MYTHIC" -> { min = 40.0D; max = 50.0D; }
+            case "E" -> { min = 10.0D; max = 15.0D; }
+            case "D" -> { min = 15.0D; max = 20.0D; }
+            case "C" -> { min = 20.0D; max = 25.0D; }
+            case "B" -> { min = 25.0D; max = 32.5D; }
+            case "A" -> { min = 32.5D; max = 42.5D; }
+            case "S" -> { min = 42.5D; max = 55.0D; }
             default -> { min = 0.0D; max = 10.0D; }
         }
         return min + ThreadLocalRandom.current().nextDouble() * (max - min);
@@ -223,66 +225,68 @@ public final class RunningShoeManager {
 
     private static int jump(String rarity) {
         return switch (rarity) {
-            case "RARE", "EPIC" -> 1;
-            case "LEGENDARY" -> 2;
-            case "MYTHIC" -> 3;
+            case "D", "C" -> 1;
+            case "B", "A" -> 2;
+            case "S" -> 3;
             default -> 0;
         };
     }
 
     private static String speedRange(String rarity) {
         return switch (rarity) {
-            case "UNCOMMON" -> "+10.0%-15.0%"; case "RARE" -> "+15.0%-20.0%"; case "EPIC" -> "+20.0%-25.0%"; case "LEGENDARY" -> "+30.0%-40.0%"; case "MYTHIC" -> "+40.0%-50.0%"; default -> "+0.0%-10.0%";
+            case "E" -> "+10.0%-15.0%"; case "D" -> "+15.0%-20.0%"; case "C" -> "+20.0%-25.0%"; case "B" -> "+25.0%-32.5%"; case "A" -> "+32.5%-42.5%"; case "S" -> "+42.5%-55.0%"; default -> "+0.0%-10.0%";
         };
     }
 
     private static boolean isDepthStrider(String rarity) {
-        return switch (rarity) { case "EPIC", "LEGENDARY", "MYTHIC" -> true; default -> false; };
+        return switch (rarity) { case "C", "B", "A", "S" -> true; default -> false; };
     }
 
     private static boolean isFallImmune(String rarity) {
         return switch (rarity) {
-            case "RARE", "EPIC", "LEGENDARY", "MYTHIC" -> true;
+            case "D", "C", "B", "A", "S" -> true;
             default -> false;
         };
     }
 
     private static Holder<ArmorMaterial> armorMaterial(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> ArmorMaterials.IRON;
-            case "RARE", "EPIC" -> ArmorMaterials.DIAMOND;
-            case "LEGENDARY", "MYTHIC" -> ArmorMaterials.NETHERITE;
+            case "E" -> ArmorMaterials.IRON;
+            case "D", "C" -> ArmorMaterials.DIAMOND;
+            case "B", "A", "S" -> ArmorMaterials.NETHERITE;
             default -> ArmorMaterials.LEATHER;
         };
     }
 
     private static int modelData(String rarity) {
         return switch (rarity) {
-            case "UNCOMMON" -> 9962;
-            case "RARE" -> 9963;
-            case "EPIC" -> 9964;
-            case "LEGENDARY" -> 9965;
-            case "MYTHIC" -> 9966;
+            case "E" -> 9962;
+            case "D" -> 9963;
+            case "C" -> 9964;
+            case "B" -> 9965;
+            case "A" -> 9966;
+            case "S" -> 9967;
             default -> 9961;
         };
     }
 
     private static ChatFormatting color(String rarity) {
         return switch (rarity) {
-            case "UNCOMMON" -> ChatFormatting.GREEN;
-            case "RARE" -> ChatFormatting.BLUE;
-            case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
-            case "LEGENDARY" -> ChatFormatting.GOLD;
-            case "MYTHIC" -> ChatFormatting.DARK_PURPLE;
+            case "E" -> ChatFormatting.GREEN;
+            case "D" -> ChatFormatting.BLUE;
+            case "C" -> ChatFormatting.LIGHT_PURPLE;
+            case "B" -> ChatFormatting.DARK_AQUA;
+            case "A" -> ChatFormatting.GOLD;
+            case "S" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }
 
     private static Rarity rarity(String rarity) {
         return switch (ProfessionFragmentConfig.normalizeRarity(rarity)) {
-            case "UNCOMMON" -> Rarity.UNCOMMON;
-            case "RARE" -> Rarity.RARE;
-            case "EPIC", "LEGENDARY", "MYTHIC" -> Rarity.EPIC;
+            case "E" -> Rarity.UNCOMMON;
+            case "D" -> Rarity.RARE;
+            case "C", "B", "A", "S" -> Rarity.EPIC;
             default -> Rarity.COMMON;
         };
     }

@@ -478,9 +478,12 @@ public class MiningProfessionListener {
 
     private static boolean isHeldAutoSmeltTool(ServerPlayer player) {
         if (player == null) return false;
-        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(player.getMainHandItem());
-        if (toolData == null || toolData.activeAbility == null) return false;
-        String ability = toolData.activeAbility.trim().toLowerCase(java.util.Locale.ROOT);
+        ItemStack stack = player.getMainHandItem();
+        ProfessionToolConfig.ToolData toolData = ProfessionToolUtil.getToolData(stack);
+        if (toolData == null) return false;
+        String ability = ProfessionToolMetadata.getResolvedActiveAbility(stack, toolData);
+        if (ability == null || ability.isBlank()) return false;
+        ability = ability.trim().toLowerCase(java.util.Locale.ROOT);
         return ability.equals("auto_smelt_burst") || ability.equals("auto_smelt_toggle");
     }
 

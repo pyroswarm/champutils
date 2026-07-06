@@ -78,7 +78,7 @@ public final class DailyLoginManager {
                 if (DailyLoginConfig.DATA.settings.autoOpenMenuOnEarn) DailyLoginMenu.open(player);
             } else {
                 state.lastQualifiedResetKey = state.activeResetKey;
-                player.sendSystemMessage(Component.literal("Daily login complete! You already finished this month's reward track.").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("Daily login complete! You already finished this month's login rewards.").withStyle(ChatFormatting.GOLD));
             }
         }
         return true;

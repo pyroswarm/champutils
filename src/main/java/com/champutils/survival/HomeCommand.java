@@ -1,5 +1,8 @@
 package com.champutils.survival;
 
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkServerConfig;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.google.gson.Gson;
@@ -29,6 +32,8 @@ import static net.minecraft.commands.Commands.literal;
 public final class HomeCommand {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/survival_homes.json");
+    private static final String STATE_KEY = "homes";
+    private static final String PENDING_HOME_KEY = "pending_home_transfer";
     private static HomeState state = new HomeState();
 
     private HomeCommand() {}
@@ -102,7 +107,6 @@ public final class HomeCommand {
             player.sendSystemMessage(Component.literal("/sethome can only be used inside survival worlds.").withStyle(ChatFormatting.RED));
             return 0;
         }
-
         String name = normalizeName(rawName);
         if (name.isBlank()) {
             player.sendSystemMessage(Component.literal("Home name cannot be blank.").withStyle(ChatFormatting.RED));
@@ -117,6 +121,7 @@ public final class HomeCommand {
         }
 
         HomeLocation home = new HomeLocation();
+        home.serverId = NetworkServerConfig.serverId();
         home.world = player.serverLevel().dimension().location().toString();
         home.x = player.getX();
         home.y = player.getY();
@@ -125,6 +130,7 @@ public final class HomeCommand {
         home.pitch = player.getXRot();
         homes.put(name, home);
         save();
+        saveHomes(player);
         player.sendSystemMessage(Component.literal("Set home '" + name + "'.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
@@ -143,6 +149,9 @@ public final class HomeCommand {
         }
         ServerLevel level = getLevel(player, home.world);
         if (level == null || !SurvivalWorldManager.isSurvivalLevel(level)) {
+            if (routeToHomeServer(player, name, home)) {
+                return 1;
+            }
             player.sendSystemMessage(Component.literal("That home's survival world is not loaded right now.").withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -164,6 +173,7 @@ public final class HomeCommand {
             return 0;
         }
         save();
+        saveHomes(player);
         player.sendSystemMessage(Component.literal("Deleted home '" + name + "'.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
@@ -186,9 +196,54 @@ public final class HomeCommand {
     private static Map<String, HomeLocation> homes(UUID uuid) {
         if (state.players == null) state.players = new HashMap<>();
         String key = PlayerProfileManager.activeProfileId(uuid).toString();
+        UUID profileId = PlayerProfileManager.activeProfileId(uuid);
         PlayerHomes playerHomes = state.players.computeIfAbsent(key, ignored -> new PlayerHomes());
+        PlayerHomes shared = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, PlayerHomes.class, playerHomes);
+        if (shared != null) {
+            playerHomes = shared;
+            state.players.put(key, playerHomes);
+        }
         if (playerHomes.homes == null) playerHomes.homes = new HashMap<>();
         return playerHomes.homes;
+    }
+
+    private static void saveHomes(ServerPlayer player) {
+        if (player == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (state.players == null) return;
+        PlayerHomes playerHomes = state.players.get(profileId.toString());
+        if (playerHomes != null) {
+            SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, playerHomes);
+        }
+    }
+
+    public static void handleProfileReady(ServerPlayer player) {
+        if (player == null) return;
+        PendingHomeTransfer pending = SharedJsonStateRepository.loadPlayer(player.getUUID(), PENDING_HOME_KEY, PendingHomeTransfer.class, new PendingHomeTransfer());
+        if (pending.homeName == null || pending.homeName.isBlank() || pending.expiresAtMillis < System.currentTimeMillis()) {
+            return;
+        }
+        pending.expiresAtMillis = 0L;
+        SharedJsonStateRepository.savePlayer(player.getUUID(), PENDING_HOME_KEY, pending);
+        goHome(player.createCommandSourceStack(), pending.homeName);
+    }
+
+    private static boolean routeToHomeServer(ServerPlayer player, String name, HomeLocation home) {
+        String targetServerId = home == null ? "" : home.serverId;
+        if (targetServerId == null || targetServerId.isBlank() || targetServerId.equalsIgnoreCase(NetworkServerConfig.serverId())) {
+            return false;
+        }
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
+        if (active == null) {
+            return false;
+        }
+        PendingHomeTransfer pending = new PendingHomeTransfer();
+        pending.homeName = name;
+        pending.expiresAtMillis = System.currentTimeMillis() + 120_000L;
+        SharedJsonStateRepository.savePlayer(player.getUUID(), PENDING_HOME_KEY, pending);
+        player.sendSystemMessage(Component.literal("Sending you to the server that has home '" + name + "'.").withStyle(ChatFormatting.YELLOW));
+        ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, targetServerId, ignored -> {});
+        return true;
     }
 
     private static int maxHomes(ServerPlayer player) {
@@ -218,11 +273,17 @@ public final class HomeCommand {
     public static final class HomeState { public Map<String, PlayerHomes> players = new HashMap<>(); }
     public static final class PlayerHomes { public Map<String, HomeLocation> homes = new HashMap<>(); }
     public static final class HomeLocation {
+        public String serverId = "";
         public String world;
         public double x;
         public double y;
         public double z;
         public float yaw;
         public float pitch;
+    }
+
+    public static final class PendingHomeTransfer {
+        public String homeName = "";
+        public long expiresAtMillis = 0L;
     }
 }

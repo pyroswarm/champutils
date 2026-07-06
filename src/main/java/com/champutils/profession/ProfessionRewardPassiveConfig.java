@@ -32,11 +32,12 @@ public class ProfessionRewardPassiveConfig {
     public static Map<String, List<RewardEntry>> TABLES = new LinkedHashMap<>();
 
     private static final List<String> SHARD_RARITY_ORDER = List.of(
-            "COMMON",
-            "UNCOMMON",
-            "RARE",
-            "EPIC",
-            "LEGENDARY"
+            "F",
+            "E",
+            "D",
+            "C",
+            "B",
+            "A"
     );
 
     public static class Root {
@@ -48,6 +49,7 @@ public class ProfessionRewardPassiveConfig {
         public String type = "item";
         public String keyId = "";
         public String fragmentRarity = "";
+        public String essenceRarity = "";
         public int min = 1;
         public int max = 1;
         public int weight = 1;
@@ -323,6 +325,11 @@ public class ProfessionRewardPassiveConfig {
             return ItemStack.EMPTY;
         }
 
+        if ((entry.fragmentRarity == null || entry.fragmentRarity.isBlank()) && entry.essenceRarity != null && !entry.essenceRarity.isBlank()) {
+            entry.fragmentRarity = entry.essenceRarity;
+        }
+        entry.essenceRarity = entry.fragmentRarity;
+
         String type = entry.type == null || entry.type.isBlank()
                 ? "item"
                 : entry.type.trim().toLowerCase();
@@ -331,17 +338,17 @@ public class ProfessionRewardPassiveConfig {
         int max = Math.max(min, entry.max);
         int amount = min + RANDOM.nextInt(max - min + 1);
 
-        if ("profession_fragment".equals(type)) {
+        if ("profession_essence".equals(type) || "profession_fragment".equals(type)) {
             String rarity = entry.fragmentRarity == null || entry.fragmentRarity.isBlank()
-                    ? "COMMON"
+                    ? "F"
                     : entry.fragmentRarity.trim().toUpperCase();
-            if ("MYTHIC".equals(rarity)) {
-                rarity = "LEGENDARY";
+            if ("S".equals(rarity)) {
+                rarity = "A";
             }
             return ProfessionFragmentManager.createFragmentStack(rarity, amount);
         }
 
-        if ("profession_fragment_gamble".equals(type) || "fragment_gamble".equals(type)) {
+        if ("profession_essence_gamble".equals(type) || "essence_gamble".equals(type) || "profession_fragment_gamble".equals(type) || "fragment_gamble".equals(type)) {
             String rarity = rollAllowedFragmentRarity(player, profession);
             if (rarity == null || rarity.isBlank()) {
                 return ItemStack.EMPTY;
@@ -371,12 +378,13 @@ public class ProfessionRewardPassiveConfig {
 
     /**
      * Profession fragment passive drops are based on profession level, not tool rarity:
-     * - Level 0-9: COMMON only
-     * - Level 10-19: UNCOMMON and below
-     * - Level 20-29: RARE and below
-     * - Level 30-49: EPIC and below
-     * - Level 50+: LEGENDARY and below
-     * Mythic fragments are never produced by profession passive drops.
+     * - Level 0-9: F only
+     * - Level 10-19: E and below
+     * - Level 20-29: D and below
+     * - Level 30-49: C and below
+     * - Level 50-74: B and below
+     * - Level 75+: A and below
+     * S Rank fragments are never produced by profession passive drops.
      */
     private static String rollAllowedFragmentRarity(ServerPlayer player, ProfessionType profession) {
         int level = player == null || profession == null
@@ -384,7 +392,9 @@ public class ProfessionRewardPassiveConfig {
                 : Math.max(0, ProfessionManager.getBenefitLevel(player, profession));
 
         int maxIndex;
-        if (level >= 50) {
+        if (level >= 75) {
+            maxIndex = 5;
+        } else if (level >= 50) {
             maxIndex = 4;
         } else if (level >= 30) {
             maxIndex = 3;
@@ -519,8 +529,8 @@ public class ProfessionRewardPassiveConfig {
 
         String firstKey = first.keyId == null ? "" : first.keyId;
         String secondKey = second.keyId == null ? "" : second.keyId;
-        String firstRarity = first.fragmentRarity == null ? "" : first.fragmentRarity;
-        String secondRarity = second.fragmentRarity == null ? "" : second.fragmentRarity;
+        String firstRarity = first.fragmentRarity == null || first.fragmentRarity.isBlank() ? (first.essenceRarity == null ? "" : first.essenceRarity) : first.fragmentRarity;
+        String secondRarity = second.fragmentRarity == null || second.fragmentRarity.isBlank() ? (second.essenceRarity == null ? "" : second.essenceRarity) : second.fragmentRarity;
         return firstKey.equalsIgnoreCase(secondKey) && firstRarity.equalsIgnoreCase(secondRarity);
     }
 
@@ -740,7 +750,7 @@ public class ProfessionRewardPassiveConfig {
 
     private static RewardEntry fragmentGambleEntry(int min, int max, int weight, double chance, double chancePerLevel) {
         RewardEntry entry = new RewardEntry();
-        entry.type = "profession_fragment_gamble";
+        entry.type = "profession_essence_gamble";
         entry.min = min;
         entry.max = max;
         entry.weight = weight;

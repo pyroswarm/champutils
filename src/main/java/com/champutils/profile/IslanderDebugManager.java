@@ -98,7 +98,6 @@ public final class IslanderDebugManager {
         UUID activeId = PlayerProfileManager.activeProfileId(player);
         PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
         ProfileGameMode activeMode = active == null ? null : active.gameMode();
-        ProfileGameMode ownerMode = territory == null ? null : PlayerProfileManager.modeOfProfileIdBlocking(territory.ownerId);
         boolean hasActive = PlayerProfileManager.hasActiveProfile(player);
         boolean loading = ProfileLoadingStateManager.isLoading(player);
         boolean isIslander = PlayerProfileManager.isIslander(player);
@@ -113,9 +112,10 @@ public final class IslanderDebugManager {
         } else {
             boolean targetIsIslander = IslanderProfileManager.isIslanderTerritory(territory);
             boolean ownerMatchesActive = activeId != null && territory.ownerId != null && territory.ownerId.equalsIgnoreCase(activeId.toString());
+            ProfileGameMode ownerMode = ownerMatchesActive ? activeMode : IslanderProfileManager.cachedProfileMode(territory.ownerId);
             TerritoryRepository.TrustLevel trust = TerritoryRepository.getTrust(territory.id, player.getUUID());
             lines.add("territory id=" + territory.id + " ownerType=" + territory.ownerType + " ownerId=" + territory.ownerId + " ownerName=" + territory.ownerName);
-            lines.add("territory world=" + territory.serverId + ":" + territory.worldName + " ready=" + territory.isReady() + " targetIsIslander=" + targetIsIslander + " ownerMode=" + ownerMode);
+            lines.add("territory world=" + territory.serverId + ":" + territory.worldName + " ready=" + territory.isReady() + " targetIsIslander=" + targetIsIslander + " ownerMode=" + (ownerMode == null ? "cached_pending" : ownerMode));
             lines.add("territory ownerMatchesActiveProfile=" + ownerMatchesActive
                     + " trust=" + trust
                     + " public=" + territory.isPublic

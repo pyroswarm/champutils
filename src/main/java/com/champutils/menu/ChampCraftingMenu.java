@@ -138,7 +138,7 @@ public final class ChampCraftingMenu {
         builder.addLoreLine(Component.literal("§6Costs:"));
         if (recipe.costs == null || recipe.costs.isEmpty()) {
             canCraft = false;
-            builder.addLoreLine(Component.literal("§cNo costs configured."));
+            builder.addLoreLine(Component.literal("§cThis recipe is unavailable."));
         } else {
             for (ChampCraftingConfig.CostData cost : recipe.costs) {
                 ChampCraftingService.CostStatus status = ChampCraftingService.status(player, cost);
@@ -192,7 +192,7 @@ public final class ChampCraftingMenu {
         if (c.contains("memory")) return Items.REDSTONE;
         if (c.contains("drive")) return Items.COPPER_INGOT;
         if (c.contains("mask")) return Items.CARVED_PUMPKIN;
-        if (c.contains("rare")) return Items.ENCHANTED_GOLDEN_APPLE;
+        if (c.contains("d")) return Items.ENCHANTED_GOLDEN_APPLE;
         if (recipes != null) {
             for (ChampCraftingConfig.RecipeData recipe : recipes) {
                 if (recipe == null) continue;

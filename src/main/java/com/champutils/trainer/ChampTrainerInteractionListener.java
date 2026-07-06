@@ -122,12 +122,12 @@ public final class ChampTrainerInteractionListener {
                         PluginTrainerBattleStarter.StartResult result = PluginTrainerBattleStarter.startOrMessage(
                                 serverPlayer,
                                 npc,
-                                BattleContextManager.BattleType.NPC,
+                                RoamingTrainerManager.battleTypeFor(npc.getUUID()),
                                 "roaming_trainer",
                                 null,
                                 true,
                                 true,
-                                Component.literal("§cThat roaming trainer could not start a battle. Try again in a few seconds.")
+                                Component.literal("§cThat Adventurer could not start a battle. Try again in a few seconds.")
                         );
                         if (!result.started()) {
                             RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());

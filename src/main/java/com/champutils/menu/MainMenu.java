@@ -19,9 +19,10 @@ public class MainMenu {
                 gui,
                 0,
                 CobblemonItems.POKE_BALL,
-                "§cPvP Queues",
+                "§cBattles",
                 () -> BattleMenu.open(player),
-                "§7Ranked, casual, and leave queue."
+                "§7Ranked, casual, spectate,",
+                "§7or leave your current queue."
         );
 
         MenuUtil.addOpenButton(
@@ -40,7 +41,8 @@ public class MainMenu {
                 Items.NETHER_STAR,
                 "§6Leaderboards",
                 () -> LeaderboardMenu.open(player),
-                "§7View RP and profession rankings."
+                "§7View top trainers, profiles,",
+                "§7and profession rankings."
         );
 
         MenuUtil.addOpenButton(
@@ -49,8 +51,8 @@ public class MainMenu {
                 Items.COMPASS,
                 "§aTerritories",
                 () -> com.champutils.territory.TerritoryMenus.openHub(player),
-                "§7Personal territories, guild territories,",
-                "§7and public territory browsing."
+                "§7Manage your land, visit public",
+                "§7territories, or browse guild lands."
         );
 
         MenuUtil.addOpenButton(
@@ -68,8 +70,8 @@ public class MainMenu {
                 Items.CLOCK,
                 "§eDaily Login",
                 () -> com.champutils.dailylogin.DailyLoginMenu.open(player),
-                "§7Monthly 20-day reward track.",
-                "§7Stay online 30 minutes after reset."
+                "§7Monthly 20-day login rewards.",
+                "§7Play 30 minutes after reset."
         );
 
         MenuUtil.addOpenButton(
@@ -88,8 +90,8 @@ public class MainMenu {
                 Items.DIAMOND_PICKAXE,
                 "§aProfessions",
                 () -> com.champutils.menu.ProfessionsMenu.open(player),
-                "§7Levels, sublevels, passives,",
-                "§7chunk odds, and detailed rates."
+                "§7Track levels, sublevels,",
+                "§7passives, and chunk rewards."
         );
 
         MenuUtil.addOpenButton(
@@ -98,8 +100,8 @@ public class MainMenu {
                 Items.EMERALD,
                 "§aBoosters",
                 () -> com.champutils.cashshop.CashShopMenu.open(player),
-                "§7Cash shop consumables that",
-                "§7benefit the full server."
+                "§7Activate server-wide boosts",
+                "§7from your booster credits."
         );
 
         MenuUtil.addOpenButton(

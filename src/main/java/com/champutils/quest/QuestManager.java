@@ -1,9 +1,12 @@
 package com.champutils.quest;
 
+import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.adventurer.AdventurerGuildManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.guild.GuildRepository;
+import com.champutils.network.NetworkEventManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profession.ProfessionChunkManager;
@@ -226,6 +229,7 @@ public class QuestManager {
             default -> "";
         };
         increment(player, objective -> matchesBlockObjective(objective, type, blockId), 1);
+        AdventureGuideManager.increment(player, "profession_action", 1);
     }
 
     public static void recordProfessionAbility(ServerPlayer player, String abilityId) {
@@ -251,6 +255,12 @@ public class QuestManager {
         if (player == null) return;
         String target = battleType == null ? "UNKNOWN" : battleType.name();
         increment(player, objective -> "WIN_BATTLE".equalsIgnoreCase(objective.objectiveType) && targetMatches(objective.target, target), 1);
+        if (battleType == BattleContextManager.BattleType.RANKED || battleType == BattleContextManager.BattleType.CASUAL) {
+            AdventureGuideManager.increment(player, "pvp_play", 1);
+        }
+        if (battleType == BattleContextManager.BattleType.ADVENTURE_ROAMING) {
+            AdventureGuideManager.increment(player, "adventurer_request", 1);
+        }
     }
 
     public static void recordDefeatedPokemonType(ServerPlayer player, String type) {
@@ -383,6 +393,7 @@ public class QuestManager {
         int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
         if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
         awardQuestChunks(player, "GUILD");
+        AdventurerGuildManager.awardGuildActivity(player, 400, 10, "guild weekly quests");
         runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         markGuildDirty(guild.id);
         saveGuild(guild.id);
@@ -396,6 +407,8 @@ public class QuestManager {
         int xp = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
         if (credits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(credits)));
         if (xp > 0) lore.add(Component.literal("§7• §a" + xp + " Profession XP per objective"));
+        lore.add(Component.literal("§7• §e" + (daily ? 75 : 300) + " Adventurer XP"));
+        lore.add(Component.literal("§7• §b" + (daily ? 2 : 8) + " Adventurer's Marks"));
         lore.add(Component.literal("§7• §6" + (daily ? "8 Cobblestone + 2 Copper chunks" : "24 Cobblestone + 8 Copper + 3 Iron chunks")));
         addCommandRewardLore(lore, daily ? QuestConfig.SETTINGS.dailyRewardCommands : QuestConfig.SETTINGS.weeklyRewardCommands);
         String crateId = daily ? QuestConfig.SETTINGS.dailyCrateCreditId : QuestConfig.SETTINGS.weeklyCrateCreditId;
@@ -406,21 +419,25 @@ public class QuestManager {
     public static List<Component> guildRewardLore() {
         List<Component> lore = new ArrayList<>();
         if (QuestConfig.SETTINGS.guildWeeklyCompletionCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(QuestConfig.SETTINGS.guildWeeklyCompletionCredits)));
-        lore.add(Component.literal("§7• §6Guild chunk bundle"));
+        lore.add(Component.literal("§7• §e400 Adventurer XP"));
+        lore.add(Component.literal("§7• §b10 Adventurer's Marks"));
+        lore.add(Component.literal("§7• §6Player Guild chunk bundle"));
         addCommandRewardLore(lore, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
         if (lore.stream().noneMatch(c -> c.getString().toLowerCase(Locale.ROOT).contains("guild crate credit"))) {
-            lore.add(Component.literal("§7• §fGuild Crate Credit ×1"));
+            lore.add(Component.literal("§7• §fPlayer Guild Crate Credit ×1"));
         }
         return lore;
     }
 
     public static List<Component> contractRewardLore(List<String> commands) {
-        return contractRewardLore(commands, 0, "common");
+        return contractRewardLore(commands, 0, "f");
     }
 
     public static List<Component> contractRewardLore(List<String> commands, int rewardCredits, String difficulty) {
         List<Component> lore = new ArrayList<>();
         if (rewardCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(rewardCredits)));
+        lore.add(Component.literal("§7• §e" + guildXpForDifficulty(difficulty) + " Adventurer XP"));
+        lore.add(Component.literal("§7• §b" + guildMarksForDifficulty(difficulty) + " Adventurer's Marks"));
         lore.add(Component.literal("§7• §6" + contractChunkSummary(difficulty)));
         addCommandRewardLore(lore, commands);
         lore.add(Component.literal("§7• §eGuaranteed 1 " + displayCrateId(crateIdForDifficulty(difficulty)) + " Crate Credit"));
@@ -464,6 +481,34 @@ public class QuestManager {
         return value;
     }
 
+    private static void announceContractCreated(ServerPlayer player, QuestConfig.ContractTemplate template) {
+        if (player == null || player.server == null || template == null) return;
+        String rewards = contractAnnouncementRewards(template);
+        String line = "§6§l[Contracts] §e" + player.getGameProfile().getName()
+                + " §fcreated a new contract: §b" + safe(template.description)
+                + " §8| §7Rank: §f" + QuestConfig.rankForDifficulty(template.difficulty)
+                + " §8| §7Cost: §6" + EconomyManager.formatWholeCredits(template.creditCost)
+                + " §8| §7Time: §f" + template.durationHours + "h"
+                + (rewards.isBlank() ? "" : " §8| §7Rewards: §f" + rewards);
+        Component message = Component.literal(line);
+        player.server.getPlayerList().broadcastSystemMessage(message, false);
+        NetworkEventManager.publishBroadcastText(line);
+    }
+
+    private static String contractAnnouncementRewards(QuestConfig.ContractTemplate template) {
+        List<String> rewards = new ArrayList<>();
+        if (template.rewardCredits > 0) rewards.add(EconomyManager.formatWholeCredits(template.rewardCredits));
+        if (template.rewardCommands != null) {
+            for (String command : template.rewardCommands) {
+                String friendly = friendlyReward(command);
+                if (!friendly.isBlank()) rewards.add(friendly);
+                if (rewards.size() >= 3) break;
+            }
+        }
+        rewards.add(displayCrateId(crateIdForDifficulty(template.difficulty)) + " Crate Credit");
+        return String.join(", ", rewards);
+    }
+
     private static String safeAmount(String value) {
         if (value == null || value.isBlank()) return "1";
         String cleaned = value.trim();
@@ -488,19 +533,19 @@ public class QuestManager {
         String normalized = crateIdForDifficulty(rarity).toUpperCase(Locale.ROOT);
         int amount = 1 + RANDOM.nextInt(3);
         ProfessionFragmentManager.giveFragments(player, normalized, amount);
-        player.sendSystemMessage(Component.literal("+" + amount + " " + normalized + " Fragment" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
+        player.sendSystemMessage(Component.literal("+" + amount + " " + normalized + " Essence" + (amount == 1 ? "" : "s")).withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
     private static String crateIdForDifficulty(String difficulty) {
         String value = safe(difficulty).toLowerCase(Locale.ROOT).replace(' ', '_');
         return switch (value) {
-            case "uncommon" -> "uncommon";
-            case "rare" -> "rare";
-            case "epic" -> "epic";
-            case "legendary" -> "legendary";
-            case "mythic" -> "mythic";
+            case "e" -> "e";
+            case "d" -> "d";
+            case "c" -> "c";
+            case "a" -> "a";
+            case "s" -> "s";
             case "guild" -> "guild";
-            default -> "common";
+            default -> "f";
         };
     }
 
@@ -529,7 +574,7 @@ public class QuestManager {
     }
 
     private static void notifyReady(ServerPlayer player, String label) {
-        player.sendSystemMessage(Component.literal(label + " quests complete! Visit the Quests NPC to claim your rewards.").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal(label + " quests complete! Open the Adventurer's Guild to claim your rewards.").withStyle(ChatFormatting.GOLD));
     }
 
     public static boolean complete(ServerPlayer player, boolean daily) {
@@ -559,6 +604,7 @@ public class QuestManager {
         maybeAwardCrateCredit(player, questRarity);
         awardQuestChunks(player, daily ? "DAILY" : "WEEKLY");
         awardRarityFragments(player, questRarity);
+        AdventurerGuildManager.awardGuildActivity(player, daily ? 75 : 300, daily ? 2 : 8, daily ? "daily guild board" : "weekly guild board");
         if (daily) com.champutils.cosmetic.TitleManager.unlock(player, "questing_soul");
         markDirty(player);
         savePlayer(player);
@@ -567,27 +613,54 @@ public class QuestManager {
     }
 
     private static void awardQuestChunks(ServerPlayer player, String tier) {
-        String key = tier == null ? "COMMON" : tier.trim().toUpperCase(Locale.ROOT);
+        String key = tier == null ? "F" : tier.trim().toUpperCase(Locale.ROOT);
         switch (key) {
             case "DAILY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
             case "WEEKLY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 8, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); }
             case "GUILD" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 12, false); ProfessionChunkManager.addChunk(player, "IRON", 5, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
-            case "UNCOMMON" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 3, false); }
-            case "RARE" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 5, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
-            case "EPIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 18, false); ProfessionChunkManager.addChunk(player, "COPPER", 7, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); }
-            case "LEGENDARY" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 10, false); ProfessionChunkManager.addChunk(player, "IRON", 5, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
-            case "MYTHIC" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 32, false); ProfessionChunkManager.addChunk(player, "COPPER", 14, false); ProfessionChunkManager.addChunk(player, "IRON", 7, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); ProfessionChunkManager.addChunk(player, "DIAMOND", 1, false); }
+            case "E" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 8, false); ProfessionChunkManager.addChunk(player, "COPPER", 3, false); }
+            case "D" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 12, false); ProfessionChunkManager.addChunk(player, "COPPER", 5, false); ProfessionChunkManager.addChunk(player, "IRON", 2, false); }
+            case "C" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 18, false); ProfessionChunkManager.addChunk(player, "COPPER", 7, false); ProfessionChunkManager.addChunk(player, "IRON", 3, false); }
+            case "B" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 24, false); ProfessionChunkManager.addChunk(player, "COPPER", 10, false); ProfessionChunkManager.addChunk(player, "IRON", 4, false); ProfessionChunkManager.addChunk(player, "GOLD", 1, false); }
+            case "A" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 30, false); ProfessionChunkManager.addChunk(player, "COPPER", 13, false); ProfessionChunkManager.addChunk(player, "IRON", 6, false); ProfessionChunkManager.addChunk(player, "GOLD", 2, false); }
+            case "S" -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 40, false); ProfessionChunkManager.addChunk(player, "COPPER", 18, false); ProfessionChunkManager.addChunk(player, "IRON", 9, false); ProfessionChunkManager.addChunk(player, "GOLD", 3, false); ProfessionChunkManager.addChunk(player, "DIAMOND", 1, false); }
             default -> { ProfessionChunkManager.addChunk(player, "COBBLESTONE", 6, false); ProfessionChunkManager.addChunk(player, "COPPER", 2, false); }
         }
     }
 
+
+    private static int guildXpForDifficulty(String difficulty) {
+        return switch ((difficulty == null ? "F" : difficulty.trim().toUpperCase(Locale.ROOT))) {
+            case "E" -> 60;
+            case "D" -> 90;
+            case "C" -> 140;
+            case "B" -> 220;
+            case "A" -> 350;
+            case "S" -> 550;
+            default -> 40;
+        };
+    }
+
+    private static int guildMarksForDifficulty(String difficulty) {
+        return switch ((difficulty == null ? "F" : difficulty.trim().toUpperCase(Locale.ROOT))) {
+            case "E" -> 2;
+            case "D" -> 3;
+            case "C" -> 4;
+            case "B" -> 6;
+            case "A" -> 9;
+            case "S" -> 14;
+            default -> 1;
+        };
+    }
+
     private static String contractChunkSummary(String difficulty) {
-        return switch ((difficulty == null ? "COMMON" : difficulty.trim().toUpperCase(Locale.ROOT))) {
-            case "UNCOMMON" -> "8 Cobblestone + 3 Copper chunks";
-            case "RARE" -> "12 Cobblestone + 5 Copper + 2 Iron chunks";
-            case "EPIC" -> "18 Cobblestone + 7 Copper + 3 Iron chunks";
-            case "LEGENDARY" -> "24 Cobblestone + 10 Copper + 5 Iron + 1 Gold chunk";
-            case "MYTHIC" -> "32 Cobblestone + 14 Copper + 7 Iron + 2 Gold + 1 Diamond chunk";
+        return switch ((difficulty == null ? "F" : difficulty.trim().toUpperCase(Locale.ROOT))) {
+            case "E" -> "8 Cobblestone + 3 Copper chunks";
+            case "D" -> "12 Cobblestone + 5 Copper + 2 Iron chunks";
+            case "C" -> "18 Cobblestone + 7 Copper + 3 Iron chunks";
+            case "B" -> "24 Cobblestone + 10 Copper + 4 Iron + 1 Gold chunk";
+            case "A" -> "30 Cobblestone + 13 Copper + 6 Iron + 2 Gold chunks";
+            case "S" -> "40 Cobblestone + 18 Copper + 9 Iron + 3 Gold + 1 Diamond chunk";
             default -> "6 Cobblestone + 2 Copper chunks";
         };
     }
@@ -619,7 +692,7 @@ public class QuestManager {
         if (data == null || data.contracts == null) return;
         for (QuestDataManager.Contract c : data.contracts) {
             if (c != null && !c.completed && c.progress >= c.required && System.currentTimeMillis() < c.expiresAtMillis) {
-                player.sendSystemMessage(Component.literal("Contract complete! Visit the Contracts NPC to claim your reward.").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("Contract complete! Open the Adventurer's Guild to claim your reward.").withStyle(ChatFormatting.GOLD));
                 return;
             }
         }
@@ -632,7 +705,9 @@ public class QuestManager {
             if (t == null || t.id == null || t.objectiveType == null) continue;
             ProfessionType profession = parseProfession(t.profession);
             int level = profession == null ? 1 : ProfessionManager.getBenefitLevel(player, profession);
-            if (level >= Math.max(1, t.minLevel) && Math.max(1, t.weight) > 0) out.add(t);
+            if (level >= Math.max(1, t.minLevel)
+                    && AdventurerGuildManager.hasRank(player, t.minAdventurerRank)
+                    && Math.max(1, t.weight) > 0) out.add(t);
         }
         return out;
     }
@@ -670,6 +745,10 @@ public class QuestManager {
             player.sendSystemMessage(Component.literal("You need " + t.profession + " level " + t.minLevel + " for that contract.").withStyle(ChatFormatting.RED));
             return false;
         }
+        if (!AdventurerGuildManager.hasRank(player, t.minAdventurerRank)) {
+            player.sendSystemMessage(Component.literal("You need Adventurer Rank " + t.minAdventurerRank + " for that contract.").withStyle(ChatFormatting.RED));
+            return false;
+        }
         long cost = EconomyManager.wholeCreditsToCents(Math.max(0, t.creditCost));
         if (cost > 0) {
             EconomyManager.TransactionResult result = EconomyManager.withdraw(player, cost, "quest_contract_buy:" + t.id);
@@ -689,7 +768,7 @@ public class QuestManager {
         c.progress = 0;
         c.creditCost = Math.max(0, t.creditCost);
         c.rewardCredits = Math.max(0, t.rewardCredits);
-        c.difficulty = t.difficulty == null ? "COMMON" : t.difficulty;
+        c.difficulty = t.difficulty == null ? "F" : t.difficulty;
         c.purchasedAtMillis = System.currentTimeMillis();
         c.expiresAtMillis = c.purchasedAtMillis + Math.max(1, t.durationHours) * 60L * 60L * 1000L;
         c.rewardCommands = new ArrayList<>();
@@ -697,7 +776,9 @@ public class QuestManager {
         data.contracts.add(c);
         markDirty(player);
         savePlayer(player);
+        AdventureGuideManager.increment(player, "contract_buy", 1);
         player.sendSystemMessage(Component.literal("Contract purchased: " + c.description + " (expires in " + t.durationHours + "h)").withStyle(ChatFormatting.GREEN));
+        announceContractCreated(player, t);
         return true;
     }
 
@@ -718,11 +799,13 @@ public class QuestManager {
             maybeAwardCrateCredit(player, crateIdForDifficulty(c.difficulty));
             awardQuestChunks(player, c.difficulty);
             awardRarityFragments(player, c.difficulty);
+            AdventurerGuildManager.awardGuildActivity(player, guildXpForDifficulty(c.difficulty), guildMarksForDifficulty(c.difficulty), "contract");
             com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);
             if (profession != null) ProfessionManager.addXp(player, profession, Math.max(100, c.required / 2));
             markDirty(player);
             savePlayer(player);
+            AdventureGuideManager.increment(player, "contract_complete", 1);
             player.sendSystemMessage(Component.literal("Contract reward claimed: " + c.description).withStyle(ChatFormatting.GREEN));
             return true;
         }

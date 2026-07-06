@@ -32,7 +32,7 @@ public final class CrateKeyCraftingService {
         if (fragmentCost > 0) {
             int available = ProfessionFragmentManager.countFragments(player, fragment);
             if (available < fragmentCost) {
-                return CraftResult.fail("You need " + fragmentCost + " " + ProfessionFragmentManager.formatWords(fragment) + " fragments. You have " + available + ".");
+                return CraftResult.fail("You need " + fragmentCost + " " + ProfessionFragmentManager.displayRankName(fragment) + " Essence. You have " + available + ".");
             }
         }
 
@@ -49,7 +49,7 @@ public final class CrateKeyCraftingService {
         }
 
         if (fragmentCost > 0 && !ProfessionFragmentManager.removeFragments(player, fragment, fragmentCost)) {
-            return CraftResult.fail("Could not remove fragments.");
+            return CraftResult.fail("Could not remove essence.");
         }
 
         if (recipe.items != null) {

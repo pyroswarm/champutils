@@ -31,7 +31,7 @@ public final class ProfileTransferTokenManager {
         }
     }
 
-    public record ConsumedToken(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt) {}
+    public record ConsumedToken(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String targetServer) {}
 
     public static void ensureSchema(Connection connection) throws Exception {
         try (var statement = connection.createStatement()) {
@@ -192,7 +192,7 @@ public final class ProfileTransferTokenManager {
 
             audit(connection, row.playerUuid(), row.profileId(), row.tokenId(), "", row.targetServer(), "ACCEPTED", "consumed", "{}");
             connection.commit();
-            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt()));
+            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer()));
         } catch (Exception e) {
             connection.rollback();
             throw e;
@@ -221,8 +221,9 @@ public final class ProfileTransferTokenManager {
             TokenRow row;
             try (var ps = connection.prepareStatement(
                     "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server " +
-                            "from profile_transfer_tokens " +
-                            "where player_uuid = ? and consumed_at is null " +
+                    "from profile_transfer_tokens " +
+                    "where player_uuid = ? and consumed_at is null " +
+                            "and expires_at > now() " +
                             "and issued_at > now() - interval '5 minutes' " +
                             "order by issued_at desc limit 1 for update")) {
                 ps.setObject(1, playerUuid);
@@ -244,6 +245,11 @@ public final class ProfileTransferTokenManager {
             }
 
             String expectedSignature = sign(row.tokenId(), row.playerUuid(), row.profileId(), row.expiresAt(), sharedSecret);
+            if (expectedTargetServer != null && !expectedTargetServer.isBlank() && row.targetServer() != null && !row.targetServer().isBlank()
+                    && !expectedTargetServer.equalsIgnoreCase(row.targetServer())) {
+                connection.rollback();
+                return Optional.empty();
+            }
             if (!constantTimeEquals(expectedSignature, row.signature())) {
                 // The join-side transfer path already selected a live, unconsumed DB token bound to this player.
                 // In production this proved safer than kicking players forever when the two servers disagree on
@@ -262,7 +268,7 @@ public final class ProfileTransferTokenManager {
 
             audit(connection, row.playerUuid(), row.profileId(), row.tokenId(), "", row.targetServer(), "ACCEPTED", "consumed-latest-on-join", "{}");
             connection.commit();
-            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt()));
+            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer()));
         } catch (Exception e) {
             connection.rollback();
             throw e;

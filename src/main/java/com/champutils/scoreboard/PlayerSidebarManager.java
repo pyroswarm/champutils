@@ -1,6 +1,7 @@
 package com.champutils.scoreboard;
 
 
+import com.champutils.adventurer.AdventurerGuildManager;
 import com.champutils.dex.DexProgressManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
@@ -37,7 +38,7 @@ import java.util.UUID;
 
 public final class PlayerSidebarManager {
 
-    private static final String TITLE = "Cobble Champs";
+    private static final String TITLE = "";
     private static final int MAX_SCORE_OWNER_LENGTH = 40;
 
     private static final Map<UUID, List<String>> LAST_LINES = new HashMap<>();
@@ -45,6 +46,8 @@ public final class PlayerSidebarManager {
     private static final Map<UUID, Long> LAST_BUILD_MILLIS = new HashMap<>();
 
     private static final long BUILD_COOLDOWN_MILLIS = 5000L;
+    private static final int PLAYERS_PER_TICK_BATCH = 3;
+    private static int tickCursor = 0;
 
     private PlayerSidebarManager() {
     }
@@ -54,13 +57,22 @@ public final class PlayerSidebarManager {
             return;
         }
 
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) return;
+
+        int count = players.size();
+        int batch = Math.min(PLAYERS_PER_TICK_BATCH, count);
+        if (tickCursor >= count) tickCursor = 0;
+
+        for (int i = 0; i < batch; i++) {
+            ServerPlayer player = players.get((tickCursor + i) % count);
             if (ScoreboardPreferenceManager.isEnabled(player.getUUID())) {
                 update(player);
             } else {
                 clear(player);
             }
         }
+        tickCursor = (tickCursor + batch) % count;
     }
 
     public static void update(ServerPlayer player) {
@@ -69,6 +81,13 @@ public final class PlayerSidebarManager {
         }
 
         try {
+            UUID uuid = player.getUUID();
+            long now = System.currentTimeMillis();
+            List<String> oldLines = LAST_LINES.getOrDefault(uuid, List.of());
+            if (!oldLines.isEmpty() && now - LAST_BUILD_MILLIS.getOrDefault(uuid, 0L) < BUILD_COOLDOWN_MILLIS) {
+                return;
+            }
+
             String objectiveName = objectiveName(player);
             Objective objective = createPacketObjective(objectiveName);
 
@@ -78,13 +97,6 @@ public final class PlayerSidebarManager {
                 player.connection.send(new ClientboundSetObjectivePacket(objective, 0));
                 player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
                 CREATED.put(player.getUUID(), true);
-            }
-
-            UUID uuid = player.getUUID();
-            long now = System.currentTimeMillis();
-            List<String> oldLines = LAST_LINES.getOrDefault(uuid, List.of());
-            if (!oldLines.isEmpty() && now - LAST_BUILD_MILLIS.getOrDefault(uuid, 0L) < BUILD_COOLDOWN_MILLIS) {
-                return;
             }
 
             List<String> newLines = buildLines(player);
@@ -177,22 +189,22 @@ public final class PlayerSidebarManager {
         int total = DexProgressManager.getTotalPokemon();
         double dexPercent = DexProgressManager.getCompletionPercent(player);
 
-        lines.add("§8§m----------------");
-        lines.add("§6Money §f" + EconomyManager.format(balance));
+        lines.add("§6Adventurer Rank: §f" + AdventurerGuildManager.currentRankId(player));
         lines.add("§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
+        lines.add("§6Credits: §f" + (balance / 100L));
+        lines.add("§bAdventurer's Marks: §f" + AdventurerGuildManager.getData(player).guildMarks);
         lines.add("§dDex §f" + caught + "§7/§f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
         lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
         if (PlayerProfileManager.isIslander(player)) {
-            lines.add("§6Island Legendary §f" + SpecialWildSpawnManager.formatLastIslanderSpawnAgo());
-            lines.add("§5Island Paradox §f" + SpecialWildSpawnManager.formatLastIslanderParadoxSpawnAgo());
-            lines.add("§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastIslanderUltraBeastSpawnAgo());
+            lines.add("§6Island Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            lines.add("§5Island Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            lines.add("§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         } else {
-            lines.add("§6Last Legendary §f" + SpecialWildSpawnManager.formatLastNormalSpawnAgo());
-            lines.add("§5Last Paradox §f" + SpecialWildSpawnManager.formatLastNormalParadoxSpawnAgo());
-            lines.add("§dLast Ultra Beast §f" + SpecialWildSpawnManager.formatLastNormalUltraBeastSpawnAgo());
+            lines.add("§6Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            lines.add("§5Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            lines.add("§dUltra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         }
         lines.add("§cLast Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
-        lines.add("§8§m----------------");
         lines.add(professionLine("§cBattling", player, ProfessionType.BATTLING));
         lines.add(professionLine("§7Mining", player, ProfessionType.MINING));
         lines.add(professionLine("§2Forestry", player, ProfessionType.FORESTRY));

@@ -76,16 +76,25 @@ public final class PokemonHuntConfig {
     }
 
     public static long creditsForDifficulty(String difficulty) {
-        String d = difficulty == null ? "" : difficulty.trim().toUpperCase();
+        String d = normalizeDifficulty(difficulty);
         long wholeCredits = switch (d) {
-            case "UNCOMMON" -> 325L;
-            case "RARE" -> 650L;
-            case "EPIC" -> 1300L;
-            case "LEGENDARY" -> 2600L;
-            case "MYTHIC" -> 5500L;
+            case "E" -> 325L;
+            case "D" -> 650L;
+            case "C" -> 1300L;
+            case "B" -> 2600L;
+            case "A" -> 5500L;
+            case "S" -> 12000L;
             default -> 150L;
         };
         return EconomyManager.wholeCreditsToCents(wholeCredits);
+    }
+
+    public static String normalizeDifficulty(String difficulty) {
+        return com.champutils.rarity.RarityScale.normalize(difficulty);
+    }
+
+    public static String displayDifficulty(String difficulty) {
+        return com.champutils.rarity.RarityScale.display(difficulty);
     }
 
     /**
@@ -98,8 +107,8 @@ public final class PokemonHuntConfig {
         if (storedCredits <= 0L) return defaultCents;
 
         // Pre-migration active hunts could contain 1/2/5/etc. or 100/250/etc. as whole credits.
-        // Anything below one configured common hunt payout is not a valid cents payout for hunts.
-        long commonDefault = creditsForDifficulty("COMMON");
+        // Anything below one configured F-rank hunt payout is not a valid cents payout for hunts.
+        long commonDefault = creditsForDifficulty("F");
         if (storedCredits < commonDefault) {
             long asWholeCredits = EconomyManager.wholeCreditsToCents(storedCredits);
             return Math.max(asWholeCredits, defaultCents);
@@ -118,68 +127,68 @@ public final class PokemonHuntConfig {
         root.settings.allowAlreadyWonHuntsToStayVisible = true;
         root.settings.crateCreditChancePercent = 100;
 
-        add(root, "pikachu", 12, "COMMON", 650, 1,
+        add(root, "pikachu", 12, "F", 650, 1,
                 list("jolly", "timid", "hasty"), list("male", "female"), list("static"),
                 reward("cobblemon:quick_ball", 2, 4, 24), reward("cobblemon:thunder_stone", 1, 1, 5));
-        add(root, "eevee", 10, "COMMON", 700, 1,
+        add(root, "eevee", 10, "F", 700, 1,
                 list("jolly", "timid", "modest", "calm"), list("male", "female"), list("runaway", "adaptability"),
                 reward("cobblemon:great_ball", 3, 5, 24), reward("cobblemon:soothe_bell", 1, 1, 3));
-        add(root, "growlithe", 8, "COMMON", 800, 1,
+        add(root, "growlithe", 8, "F", 800, 1,
                 list("adamant", "jolly", "brave"), list("male", "female"), list("intimidate", "flashfire"),
                 reward("cobblemon:fire_stone", 1, 1, 5), reward("cobblemon:great_ball", 2, 4, 22));
-        add(root, "vulpix", 8, "COMMON", 800, 1,
+        add(root, "vulpix", 8, "F", 800, 1,
                 list("timid", "modest", "calm"), list("male", "female"), list("flashfire"),
                 reward("cobblemon:fire_stone", 1, 1, 5), reward("cobblemon:dusk_ball", 2, 4, 16));
-        add(root, "magikarp", 12, "COMMON", 500, 1,
+        add(root, "magikarp", 12, "F", 500, 1,
                 list("jolly", "adamant"), list("male", "female"), list("swiftswim"),
                 reward("cobblemon:lure_ball", 2, 4, 20), reward("cobblemon:rare_candy", 1, 1, 2));
-        add(root, "gastly", 8, "COMMON", 800, 1,
+        add(root, "gastly", 8, "F", 800, 1,
                 list("timid", "modest"), list("male", "female"), list("levitate"),
                 reward("cobblemon:dusk_ball", 3, 5, 24), reward("cobblemon:spell_tag", 1, 1, 3));
-        add(root, "machop", 8, "COMMON", 750, 1,
+        add(root, "machop", 8, "F", 750, 1,
                 list("adamant", "brave"), list("male", "female"), list("guts", "noguard"),
                 reward("cobblemon:super_potion", 2, 4, 22), reward("cobblemon:black_belt", 1, 1, 3));
-        add(root, "shinx", 8, "COMMON", 800, 1,
+        add(root, "shinx", 8, "F", 800, 1,
                 list("jolly", "adamant"), list("male", "female"), list("rivalry", "intimidate"),
                 reward("cobblemon:great_ball", 2, 4, 24), reward("cobblemon:magnet", 1, 1, 3));
-        add(root, "ralts", 6, "UNCOMMON", 1100, 1,
+        add(root, "ralts", 6, "E", 1100, 1,
                 list("timid", "modest", "calm"), list("male", "female"), list("synchronize", "trace"),
                 reward("cobblemon:heal_ball", 3, 6, 20), reward("cobblemon:dawn_stone", 1, 1, 4));
-        add(root, "riolu", 5, "UNCOMMON", 1250, 1,
+        add(root, "riolu", 5, "E", 1250, 1,
                 list("jolly", "adamant"), list("male", "female"), list("steadfast", "innerfocus"),
                 reward("cobblemon:friend_ball", 2, 4, 20), reward("cobblemon:focus_band", 1, 1, 3));
-        add(root, "gible", 4, "RARE", 1750, 2,
+        add(root, "gible", 4, "D", 1750, 2,
                 list("jolly", "adamant"), list("male", "female"), list("sandveil"),
                 reward("cobblemon:ultra_ball", 3, 5, 24), reward("cobblemon:dragon_fang", 1, 1, 4));
-        add(root, "bagon", 4, "RARE", 1750, 2,
+        add(root, "bagon", 4, "D", 1750, 2,
                 list("jolly", "adamant"), list("male", "female"), list("rockhead"),
                 reward("cobblemon:ultra_ball", 3, 5, 24), reward("cobblemon:dragon_fang", 1, 1, 4));
-        add(root, "beldum", 3, "RARE", 1850, 2,
+        add(root, "beldum", 3, "D", 1850, 2,
                 list("adamant", "jolly"), list("genderless"), list("clearbody"),
                 reward("cobblemon:heavy_ball", 2, 4, 20), reward("cobblemon:metal_coat", 1, 1, 4));
-        add(root, "larvesta", 3, "EPIC", 2500, 2,
+        add(root, "larvesta", 3, "C", 2500, 2,
                 list("modest", "timid"), list("male", "female"), list("flamebody"),
                 reward("cobblemon:luxury_ball", 2, 4, 20), reward("cobblemon:rare_candy", 1, 2, 6));
-        add(root, "feebas", 3, "EPIC", 2500, 2,
+        add(root, "feebas", 3, "C", 2500, 2,
                 list("calm", "modest", "bold"), list("male", "female"), list("swiftswim", "oblivious"),
                 reward("cobblemon:dive_ball", 3, 6, 22), reward("cobblemon:prism_scale", 1, 1, 4));
-        add(root, "deino", 2, "EPIC", 3000, 2,
+        add(root, "deino", 2, "C", 3000, 2,
                 list("timid", "modest"), list("male", "female"), list("hustle"),
                 reward("cobblemon:dusk_ball", 3, 6, 22), reward("cobblemon:dragon_fang", 1, 1, 5));
 
 
-        String[] common = {"caterpie","weedle","pidgey","rattata","sentret","zigzagoon","bidoof","starly","patrat","fletchling","wooloo","lechonk","skwovet","nidoranmale","nidoranfemale","oddish","bellsprout","geodude","zubat","psyduck","tentacool"};
-        for (String sp : common) add(root, sp, 14, "COMMON", 100, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:poke_ball", 3, 6, 30));
-        String[] uncommon = {"ponyta","dratini","togepi","mareep","sneasel","skarmory","trapinch","swablu","shroomish","aron","noibat","rockruff","impidimp","tinkatink","charcadet","applin","dreepy","pawniard"};
-        for (String sp : uncommon) add(root, sp, 8, "UNCOMMON", 250, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:great_ball", 2, 5, 30));
-        String[] rare = {"axew","goomy","jangmoo","frigibax","drilbur","larvitar","dratini","dreepy","toxel","ralts","riolu","gible","bagon","beldum"};
-        for (String sp : rare) add(root, sp, 5, "RARE", 500, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:ultra_ball", 2, 4, 30));
-        String[] epic = {"larvesta","feebas","deino","duraludon","drampa","turtonator","rotom","mimikyu","zorua","spiritomb","honedge","sandile"};
-        for (String sp : epic) add(root, sp, 5, "EPIC", 1000, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female", "genderless"), list("any"), reward("cobblemon:luxury_ball", 2, 4, 30));
-        String[] legendary = {"beldum","gible","bagon","larvitar","deino","dreepy","frigibax","jangmoo"};
-        for (String sp : legendary) add(root, sp, 3, "LEGENDARY", 2000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
-        String[] mythic = {"rotom","spiritomb","larvesta","beldum","frigibax","dreepy"};
-        for (String sp : mythic) add(root, sp, 2, "MYTHIC", 5000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female", "genderless"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
+        String[] fPool = {"caterpie","weedle","pidgey","rattata","sentret","zigzagoon","bidoof","starly","patrat","fletchling","wooloo","lechonk","skwovet","nidoranmale","nidoranfemale","oddish","bellsprout","geodude","zubat","psyduck","tentacool"};
+        for (String sp : fPool) add(root, sp, 14, "F", 100, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:poke_ball", 3, 6, 30));
+        String[] ePool = {"ponyta","dratini","togepi","mareep","sneasel","skarmory","trapinch","swablu","shroomish","aron","noibat","rockruff","impidimp","tinkatink","charcadet","applin","dreepy","pawniard"};
+        for (String sp : ePool) add(root, sp, 8, "E", 250, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:great_ball", 2, 5, 30));
+        String[] dPool = {"axew","goomy","jangmoo","frigibax","drilbur","larvitar","dratini","dreepy","toxel","ralts","riolu","gible","bagon","beldum"};
+        for (String sp : dPool) add(root, sp, 5, "D", 500, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female"), list("any"), reward("cobblemon:ultra_ball", 2, 4, 30));
+        String[] cPool = {"larvesta","feebas","deino","duraludon","drampa","turtonator","rotom","mimikyu","zorua","spiritomb","honedge","sandile"};
+        for (String sp : cPool) add(root, sp, 5, "C", 1000, 1, list("adamant", "jolly", "modest", "timid", "bold", "calm"), list("male", "female"), list("any"), reward("cobblemon:luxury_ball", 2, 4, 30));
+        String[] aPool = {"beldum","gible","bagon","larvitar","deino","dreepy","frigibax","jangmoo"};
+        for (String sp : aPool) add(root, sp, 3, "A", 2000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
+        String[] sPool = {"rotom","spiritomb","larvesta","beldum","frigibax","dreepy"};
+        for (String sp : sPool) add(root, sp, 2, "S", 5000, 1, list("adamant", "jolly", "modest", "timid"), list("male", "female"), list("any"), reward("cobblemon:rare_candy", 1, 1, 10));
         return root;
     }
 
@@ -225,7 +234,7 @@ public final class PokemonHuntConfig {
     public static class HuntTarget {
         public String species = "pikachu";
         public int weight = 1;
-        public String difficulty = "COMMON";
+        public String difficulty = "F";
         public List<String> natures = new ArrayList<>();
         public List<String> genders = new ArrayList<>();
         public List<String> abilities = new ArrayList<>();

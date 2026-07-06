@@ -15,6 +15,7 @@ import com.champutils.party.PartyManager;
 import com.champutils.profession.ProfessionDataManager;
 import com.champutils.quest.QuestManager;
 import com.champutils.shop.FirstJoinKitManager;
+import com.champutils.survival.HomeCommand;
 import com.champutils.wondertrade.WonderTradeSeeder;
 import com.champutils.chat.ChatPreferenceManager;
 import com.champutils.moderation.ModerationManager;
@@ -111,6 +112,8 @@ public final class ProfileSessionLoader {
         runDelayed(player, playerUuid, profileId, 13, "ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
         runDelayed(player, playerUuid, profileId, 15, "ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
         runDelayed(player, playerUuid, profileId, 17, "ProfileSessionLoader.delayed.EconomyManager.ensurePlayer", () -> EconomyManager.ensurePlayer(player));
+        runDelayed(player, playerUuid, profileId, 19, "ProfileSessionLoader.delayed.HomeCommand.handleProfileReady", () -> HomeCommand.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 21, "ProfileSessionLoader.delayed.TpaCommand.handleJoin", () -> com.champutils.commands.TpaCommand.handleJoin(player));
     }
 
     private static void runDelayed(ServerPlayer player, UUID playerUuid, UUID profileId, long delayTicks, String label, Runnable action) {

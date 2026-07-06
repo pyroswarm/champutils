@@ -227,7 +227,7 @@ public final class ChampCraftingConfig {
             return 8L;
         }
         if (path.equals("cobblestone") || path.equals("stone")) return category.contains("orb") || category.contains("crystal") || category.contains("key") ? 450L : 250L;
-        if (path.equals("raw_iron") || path.equals("raw_copper") || path.equals("raw_gold")) return category.contains("rare") || category.contains("hyper") ? 125L : 90L;
+        if (path.equals("raw_iron") || path.equals("raw_copper") || path.equals("raw_gold")) return category.contains("d") || category.contains("hyper") ? 125L : 90L;
         if (path.equals("redstone")) return 80L;
         if (path.equals("diamond")) return category.contains("hyper") || category.contains("key") ? 48L : 8L;
         if (path.equals("emerald")) return category.contains("key") ? 48L : 12L;
@@ -640,7 +640,7 @@ public final class ChampCraftingConfig {
         if (c.contains("orb") || c.contains("crystal")) return 50;
         if (c.contains("drive")) return 55;
         if (c.contains("mask")) return 60;
-        if (c.contains("rare")) return 65;
+        if (c.contains("d")) return 65;
         return 100;
     }
 

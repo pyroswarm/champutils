@@ -1,6 +1,7 @@
 package com.champutils.database;
 
 import com.champutils.network.NetworkServerConfig;
+import com.champutils.network.NetworkPlayerDirectory;
 import net.minecraft.server.MinecraftServer;
 
 import java.sql.PreparedStatement;
@@ -20,6 +21,7 @@ public final class ServerStatusDatabaseRepository {
         String motd = server.getMotd();
         String serverId = NetworkServerConfig.serverId();
         String serverRole = NetworkServerConfig.serverRole().name();
+        NetworkPlayerDirectory.syncLocalPlayers(server);
 
         DatabaseManager.executeCoalescedAsync("server-status:" + serverId, "sync server status", connection -> {
             try (PreparedStatement statement = connection.prepareStatement(
@@ -52,6 +54,7 @@ public final class ServerStatusDatabaseRepository {
         String motd = server == null || server.getMotd() == null ? "" : server.getMotd();
         String serverId = NetworkServerConfig.serverId();
         String serverRole = NetworkServerConfig.serverRole().name();
+        NetworkPlayerDirectory.markServerOffline(serverId);
 
         DatabaseManager.executeCoalescedAsync("server-status:" + serverId, "mark server offline", connection -> {
             try (PreparedStatement statement = connection.prepareStatement(

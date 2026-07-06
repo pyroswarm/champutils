@@ -1,5 +1,7 @@
 package com.champutils.roaming;
 
+import com.champutils.adventurer.AdventurerRankUtil;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -85,7 +87,9 @@ public final class RoamingTrainerConfig {
         public double shinyChance = 0.0D;
         public int legendaryPokemonCount = 0;
         public int fragmentMin = 1;
+        public int essenceMin = 0;
         public int fragmentMax = 1;
+        public int essenceMax = 0;
         public List<String> rewardCommands = new ArrayList<>();
         public List<String> speciesPool = new ArrayList<>();
         /** Detailed competitive pool. If present, roaming trainers pull configured Pokemon sets from here first. */
@@ -229,6 +233,12 @@ public final class RoamingTrainerConfig {
             settings.aiSkill = desiredAiSkill(rarity);
             if (settings.allPokemonChance <= 0.0D) settings.allPokemonChance = desiredAllPokemonChance(rarity);
             if (settings.allPokemonChance > 1.0D) settings.allPokemonChance = 1.0D;
+            if (settings.fragmentMin <= 0 && settings.essenceMin > 0) settings.fragmentMin = settings.essenceMin;
+            if (settings.fragmentMax <= 0 && settings.essenceMax > 0) settings.fragmentMax = settings.essenceMax;
+            settings.fragmentMin = Math.max(1, settings.fragmentMin);
+            settings.fragmentMax = Math.max(settings.fragmentMin, settings.fragmentMax);
+            settings.essenceMin = settings.fragmentMin;
+            settings.essenceMax = settings.fragmentMax;
             settings.heldItemChance = 1.0D;
             settings.competitiveNatureChance = 1.0D;
             if (settings.trainerNames == null || settings.trainerNames.isEmpty()) {
@@ -241,10 +251,10 @@ public final class RoamingTrainerConfig {
 
     private static int desiredPokemonCount(RoamingTrainerRarity rarity) {
         return switch (rarity) {
-            case COMMON, UNCOMMON, RARE -> 3;
-            case EPIC -> 4;
-            case LEGENDARY -> 5;
-            case MYTHIC -> 6;
+            case F, E, D -> 3;
+            case C -> 4;
+            case B, A -> 5;
+            case S -> 6;
         };
     }
 
@@ -255,12 +265,13 @@ public final class RoamingTrainerConfig {
 
     private static double desiredAllPokemonChance(RoamingTrainerRarity rarity) {
         return switch (rarity) {
-            case COMMON -> 0.85D;
-            case UNCOMMON -> 0.60D;
-            case RARE -> 0.35D;
-            case EPIC -> 0.55D;
-            case LEGENDARY -> 0.65D;
-            case MYTHIC -> 0.70D;
+            case F -> 0.85D;
+            case E -> 0.60D;
+            case D -> 0.35D;
+            case C -> 0.55D;
+            case B -> 0.60D;
+            case A -> 0.65D;
+            case S -> 0.70D;
         };
     }
 
@@ -345,27 +356,27 @@ public final class RoamingTrainerConfig {
         RaritySettings s = new RaritySettings();
         s.trainerNames.addAll(defaultTrainerNames(rarity));
         switch (rarity) {
-            case COMMON -> {
+            case F -> {
                 s.weight = 85; s.pokemonCount = 3; s.levelOffsetMin = 5; s.levelOffsetMax = 5; s.aiSkill = 5;
                 s.allPokemonChance = 0.85D;
                 s.fragmentMin = 1; s.fragmentMax = 2;
                 s.rewardCommands.add("eco give %player% 25");
             }
-            case UNCOMMON -> {
+            case E -> {
                 s.weight = 12; s.pokemonCount = 3; s.levelOffsetMin = 10; s.levelOffsetMax = 10; s.aiSkill = 5;
                 s.allPokemonChance = 0.60D;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 1; s.fragmentMax = 3;
                 s.rewardCommands.add("eco give %player% 75");
             }
-            case RARE -> {
+            case D -> {
                 s.weight = 3; s.pokemonCount = 3; s.levelOffsetMin = 15; s.levelOffsetMax = 15; s.aiSkill = 5;
                 s.allPokemonChance = 0.35D;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
                 s.fragmentMin = 2; s.fragmentMax = 4;
                 s.rewardCommands.add("eco give %player% 175");
             }
-            case EPIC -> {
+            case C -> {
                 s.weight = 0.0; s.pokemonCount = 4; s.levelOffsetMin = 20; s.levelOffsetMax = 20; s.aiSkill = 5;
                 s.allPokemonChance = 0.55D;
                 s.legendaryPokemonCount = 1;
@@ -373,7 +384,15 @@ public final class RoamingTrainerConfig {
                 s.fragmentMin = 3; s.fragmentMax = 5;
                 s.rewardCommands.add("eco give %player% 500");
             }
-            case LEGENDARY -> {
+            case B -> {
+                s.weight = 0.0; s.pokemonCount = 5; s.levelOffsetMin = 25; s.levelOffsetMax = 25; s.aiSkill = 5;
+                s.allPokemonChance = 0.60D;
+                s.legendaryPokemonCount = 1;
+                s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0;
+                s.fragmentMin = 4; s.fragmentMax = 6;
+                s.rewardCommands.add("eco give %player% 900");
+            }
+            case A -> {
                 s.weight = 0.0; s.pokemonCount = 5; s.levelOffsetMin = 25; s.levelOffsetMax = 25; s.aiSkill = 5;
                 s.allPokemonChance = 0.65D;
                 s.legendaryPokemonCount = 1;
@@ -381,15 +400,17 @@ public final class RoamingTrainerConfig {
                 s.fragmentMin = 4; s.fragmentMax = 7;
                 s.rewardCommands.add("eco give %player% 1250");
             }
-            case MYTHIC -> {
+            case S -> {
                 s.weight = 0.0; s.pokemonCount = 6; s.levelOffsetMin = 30; s.levelOffsetMax = 30; s.aiSkill = 5;
                 s.allPokemonChance = 0.70D;
                 s.legendaryPokemonCount = 3;
                 s.evolvedSpeciesChance = 1.0; s.heldItemChance = 1.0; s.competitiveNatureChance = 1.0; s.shinyChance = 0.01;
                 s.fragmentMin = 5; s.fragmentMax = 9;
-                s.rewardCommands.add("eco give %player% 175");
+                s.rewardCommands.add("eco give %player% 2500");
             }
         }
+        s.essenceMin = s.fragmentMin;
+        s.essenceMax = s.fragmentMax;
         return s;
     }
 
@@ -584,17 +605,17 @@ public final class RoamingTrainerConfig {
 
     private static List<String> defaultTrainerNames(RoamingTrainerRarity rarity) {
         return switch (rarity) {
-            case COMMON -> new ArrayList<>(Arrays.asList("Rookie Trainer", "Youngster", "Camper", "Picnicker", "Bug Catcher"));
-            case UNCOMMON -> new ArrayList<>(Arrays.asList("Ace Recruit", "Backpacker", "Hiker", "Rancher", "Pokefan"));
-            case RARE -> new ArrayList<>(Arrays.asList("Ace Trainer", "Veteran", "Black Belt", "Hex Maniac", "Ranger"));
-            case EPIC -> new ArrayList<>(Arrays.asList("Elite Trainer", "Battle Expert", "Frontier Challenger", "Dragon Tamer"));
-            case LEGENDARY -> new ArrayList<>(Arrays.asList("Legend Seeker", "Master Trainer", "Champion's Rival", "Myth Hunter"));
-            case MYTHIC -> new ArrayList<>(Arrays.asList("Mythic Challenger", "Apex Trainer", "World Champion", "Grandmaster"));
+            case F -> new ArrayList<>(Arrays.asList("Rookie Trainer", "Youngster", "Camper", "Picnicker", "Bug Catcher"));
+            case E -> new ArrayList<>(Arrays.asList("Ace Recruit", "Backpacker", "Hiker", "Rancher", "Pokefan"));
+            case D -> new ArrayList<>(Arrays.asList("Ace Trainer", "Veteran", "Black Belt", "Hex Maniac", "Ranger"));
+            case C -> new ArrayList<>(Arrays.asList("Elite Trainer", "Battle Expert", "Frontier Challenger", "Dragon Tamer"));
+            case B -> new ArrayList<>(Arrays.asList("Guild Champion", "Apex Challenger", "Frontier Master", "High Adventurer"));
+            case A -> new ArrayList<>(Arrays.asList("Legend Seeker", "Master Trainer", "Champion's Rival", "Myth Hunter"));
+            case S -> new ArrayList<>(Arrays.asList("S Rank Challenger", "Apex Trainer", "World Champion", "Grandmaster"));
         };
     }
 
     private static String formatName(RoamingTrainerRarity rarity) {
-        String lower = rarity.name().toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+        return AdventurerRankUtil.displayRank(AdventurerRankUtil.fromRarity(rarity));
     }
 }

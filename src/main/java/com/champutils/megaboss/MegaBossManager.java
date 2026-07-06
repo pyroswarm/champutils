@@ -129,11 +129,11 @@ public final class MegaBossManager {
     }
 
     public static String rarity(Entity entity) {
-        if (entity == null) return "RARE";
+        if (entity == null) return "D";
         for (String tag : entity.getTags()) {
             if (tag != null && tag.startsWith(BOSS_RARITY_PREFIX)) return tag.substring(BOSS_RARITY_PREFIX.length());
         }
-        return "RARE";
+        return "D";
     }
 
     public static String megaStone(Entity entity) {
@@ -225,7 +225,7 @@ public final class MegaBossManager {
     }
 
     public static List<String> validRarities() {
-        return List.of("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC");
+        return List.of("F", "E", "D", "C", "B", "A", "S");
     }
 
     private static MegaBossConfig.BossEntry pickBoss() {
@@ -625,25 +625,25 @@ public final class MegaBossManager {
         } catch (Exception ignored) {}
 
         int offset = rarityLevelOffset(rarity);
-        // Mega bosses scale by spawn rarity: common +5, uncommon +10, rare +15,
-        // epic +20, legendary +25, mythic +30, capped at level 100.
+        // Mega bosses scale by spawn rarity: F +5, E +10, D +15, C +20, B +25, A +30, S +35, capped at level 100.
         if (highest <= 0) return Math.max(1, Math.min(100, 15 + offset));
         return Math.max(1, Math.min(100, highest + offset));
     }
 
     public static int playerPartyHighestLevelPlusTen(ServerPlayer player) {
-        return playerPartyHighestLevelForRarity(player, "RARE");
+        return playerPartyHighestLevelForRarity(player, "D");
     }
 
     private static int rarityLevelOffset(String rarity) {
         String normalized = normalizeRarity(rarity);
         return switch (normalized) {
-            case "COMMON" -> 5;
-            case "UNCOMMON" -> 10;
-            case "RARE" -> 15;
-            case "EPIC" -> 20;
-            case "LEGENDARY" -> 25;
-            case "MYTHIC" -> 30;
+            case "F" -> 5;
+            case "E" -> 10;
+            case "D" -> 15;
+            case "C" -> 20;
+            case "B" -> 25;
+            case "A" -> 30;
+            case "S" -> 35;
             default -> 5;
         };
     }
@@ -680,7 +680,7 @@ public final class MegaBossManager {
         return false;
     }
 
-        private static boolean isDisabledDimension(ServerLevel level) {
+    private static boolean isDisabledDimension(ServerLevel level) {
         String id = level.dimension().location().toString();
         String lower = id == null ? "" : id.toLowerCase(Locale.ROOT);
         if (lower.equals("spawn1") || lower.endsWith(":spawn1") || lower.contains("spawn1")) return true;
@@ -724,8 +724,7 @@ public final class MegaBossManager {
     }
 
     private static String normalizeRarity(String rarity) {
-        if (rarity == null || rarity.isBlank()) return "RARE";
-        return rarity.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+        return com.champutils.rarity.RarityScale.normalize(rarity);
     }
 
     private static String sanitize(String raw) {

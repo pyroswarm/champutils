@@ -13,6 +13,7 @@ import com.champutils.database.DatabaseBootstrapSync;
 import com.champutils.database.ServerStatusDatabaseRepository;
 import com.champutils.database.RankedFormatDatabaseRepository;
 import com.champutils.database.NetworkReadySchemaManager;
+import com.champutils.database.DatabaseMaintenanceManager;
 import com.champutils.gym.*;
 import com.champutils.matchmaking.*;
 import com.champutils.menu.*;
@@ -55,13 +56,15 @@ import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
 import com.champutils.crafting.ChampCraftingConfig;
+import com.champutils.commerce.*;
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.worldborder.*;
 import com.champutils.gamerule.*;
 import com.champutils.tm.*;
 import com.champutils.claims.*;
 import com.champutils.expeditions.*;
-import com.champutils.rewardtrack.*;
+import com.champutils.adventurer.*;
+import com.champutils.adventureguide.*;
 import com.champutils.tutorial.*;
 import com.champutils.afk.*;
 import java.util.HashSet;
@@ -118,7 +121,9 @@ public class ChampUtilsMod implements ModInitializer {
 
         DatabaseManager.init();
         NetworkReadySchemaManager.ensureAsync();
+        DatabaseMaintenanceManager.ensureAsync();
         PlayerProfileManager.ensureSchemaAsync();
+        PreferredSurvivalServerManager.ensureSchemaAsync();
         MenuNpcBindingRegistry.load();
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
@@ -145,6 +150,7 @@ public class ChampUtilsMod implements ModInitializer {
         });
 
         ProfileCommand.register();
+        StaffServerCommand.register();
         ChampDebugCommand.register();
         MenuNpcCommand.register();
         BlankNpcCommand.register();
@@ -152,6 +158,7 @@ public class ChampUtilsMod implements ModInitializer {
         MenuNpcInteractionListener.register();
         ProfileLobbySetupManager.register();
         ProfileLoadingStateManager.register();
+        SurvivalQueueManager.register();
         LobbyCommandTreePruner.register();
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -215,9 +222,11 @@ public class ChampUtilsMod implements ModInitializer {
          */
         DatabaseManager.init();
         NetworkReadySchemaManager.ensureAsync();
+        DatabaseMaintenanceManager.ensureAsync();
         TitleManager.load();
         WorldFirstManager.load();
         PlayerProfileManager.ensureSchemaAsync();
+        PreferredSurvivalServerManager.ensureSchemaAsync();
         TutorialManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStorageBridge.ensureSchemaAsync();
@@ -226,6 +235,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChatPreferenceManager.ensureSchemaAsync();
         ProfileLobbyLockManager.register();
         ProfileLoadingStateManager.register();
+        SurvivalQueueManager.register();
         PokemonExperienceBuffListener.register();
         MonotypeStarterManager.register();
         NuzlockeManager.register();
@@ -243,6 +253,8 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonHuntConfig.load();
         PokemonHuntManager.load();
         QuestManager.load();
+        AdventurerGuildManager.load();
+        AdventureGuideManager.load();
         TeleportConfig.load();
         PortalConfig.load();
         DefaultSpawnManager.load();
@@ -267,9 +279,11 @@ public class ChampUtilsMod implements ModInitializer {
         ExplorationWorldManager.load();
         SurvivalWorldConfig.load();
         SurvivalWorldManager.load();
+        SurvivalWhitelistConfig.load();
         HomeCommand.load();
         BoosterCreditManager.load();
         com.champutils.account.AccountUpgradeConfig.load();
+        AccountCommerceConfig.load();
         CrateConfig.load();
         CrateCreditManager.load();
         CrateKeyCraftingConfig.load();
@@ -284,9 +298,6 @@ public class ChampUtilsMod implements ModInitializer {
         GymRewardConfig.load();
         GymRewardClaimData.load();
         ExpeditionManager.load();
-        com.champutils.rewardtrack.RewardTrackConfig.load();
-        com.champutils.rewardtrack.RewardTrackData.load();
-
         /*
          =========================
          PROFESSION CONFIGS
@@ -396,6 +407,9 @@ public class ChampUtilsMod implements ModInitializer {
                     IslanderSpawningManager.handleServerStarted(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
+                    DatabaseMaintenanceManager.ensureAsync();
+                    AccountCommerceRepository.ensureSchemaAsync();
+                    AccountVoteManager.start(server);
                     PlayerProfileManager.ensureSchemaAsync();
                     TutorialManager.ensureSchemaAsync();
                     BattleProfileRecoveryManager.recoverInterruptedGuardsAsync();
@@ -448,6 +462,8 @@ public class ChampUtilsMod implements ModInitializer {
 
                     ForceSaveRestartCommand.forceSave(server);
                     FirstJoinKitManager.save();
+                    AdventurerGuildManager.saveAll();
+                    AdventureGuideManager.saveAll();
                     ChestShopRegistry.save();
                     ServerStatusDatabaseRepository.markOffline(server);
                     DatabaseManager.flushSubmittedTasks(15, java.util.concurrent.TimeUnit.SECONDS);
@@ -477,6 +493,9 @@ public class ChampUtilsMod implements ModInitializer {
                     SeasonArchiveManager.ensurePlayerFile(
                             playerName
                     );
+
+                    SurvivalWhitelistManager.handleJoin(player);
+                    if (player.hasDisconnected()) return;
 
                     PlayerProfileManager.handleJoin(player);
                     if (com.champutils.profile.ProfileNetworkTransferFlow.isProfileLobbyServer()) {
@@ -545,6 +564,14 @@ public class ChampUtilsMod implements ModInitializer {
                             player
                     );
 
+                    AdventurerGuildManager.handleJoin(
+                            player
+                    );
+
+                    AdventureGuideManager.handleJoin(
+                            player
+                    );
+
                     WonderTradeSeeder.handleJoin(
                             player
                     );
@@ -592,6 +619,8 @@ public class ChampUtilsMod implements ModInitializer {
                 (handler, server) -> {
 
                     AntiAfkManager.handleDisconnect(handler.player);
+                    AdventurerGuildManager.unloadPlayer(handler.player);
+                    AdventureGuideManager.unloadPlayer(handler.player);
                     PlayerProfileManager.saveAndUnloadForDisconnect(handler.player);
 
                     MatchmakingManager.leaveQueue(
@@ -677,6 +706,7 @@ public class ChampUtilsMod implements ModInitializer {
         ArenaCommand.register();
         PokemonHuntCommand.register();
         QuestCommand.register();
+        AdventurerGuildCommand.register();
         ChestShopCommand.register();
         // /serversell removed: economy now uses digital chunks sold through the Profession Foreman.
         DexRewardCommand.register();
@@ -712,6 +742,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldFirstCommand.register();
         CashShopCommand.register();
         BoosterCommand.register();
+        AccountCommerceCommand.register();
         com.champutils.account.AccountUpgradeCommand.register();
         PartyCommand.register();
         AutoModCommand.register();
@@ -720,6 +751,7 @@ public class ChampUtilsMod implements ModInitializer {
         GlobalGameruleCommand.register();
         ForceSaveRestartCommand.register();
         ProfileCommand.register();
+        StaffServerCommand.register();
         IslanderMineCommand.register();
         IslanderDebugCommand.register();
         GraveyardCommand.register();
@@ -731,10 +763,10 @@ public class ChampUtilsMod implements ModInitializer {
         GymRewardCommand.register();
         ExpeditionCommand.register();
         WildSpawnCapCommand.register();
-        RewardTrackCommand.register();
         TutorialCommand.register();
         MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
+        SurvivalWhitelistCommand.register();
         AntiAfkManager.register();
 
         /*
@@ -824,17 +856,25 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("ShopPokemonCrateOpeningGui", () -> ShopPokemonCrateOpeningGui.tick(server));
                     timedTick("OpenCratesMenu", () -> OpenCratesMenu.tick(server));
                     timedTick("NotificationManager", () -> NotificationManager.tick(server));
+                    timedTick("NetworkEventManager", () -> NetworkEventManager.tick(server));
+                    timedTick("NetworkTabListManager", () -> NetworkTabListManager.tick(server));
                     timedTick("PokemonHuntManager", () -> PokemonHuntManager.tick(server));
                     timedTick("QuestManager", () -> QuestManager.tick(server));
+                    timedTick("AdventurerGuildManager", () -> AdventurerGuildManager.tick(server));
+                    timedTick("AdventureGuideManager", () -> AdventureGuideManager.tick(server));
                     timedTick("TutorialManager", () -> TutorialManager.tick(server));
                     timedTick("RandomTeleportCommand", () -> RandomTeleportCommand.tick(server));
                     timedTick("PortalManager", () -> PortalManager.tick(server));
-                    timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
-                    timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
+                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
+                        timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
+                        timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
+                    }
                     timedTick("ExpeditionManager", () -> ExpeditionManager.tick(server));
                     timedTick("ServerBuffManager", () -> com.champutils.buff.ServerBuffManager.tick(server));
                     timedTick("NaturalSpecialSpawnBlocker", () -> NaturalSpecialSpawnBlocker.tick(server));
-                    timedTick("MegaBossManager", () -> MegaBossManager.tick(server));
+                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
+                        timedTick("MegaBossManager", () -> MegaBossManager.tick(server));
+                    }
                     timedTick("ChestShopDisplayManager", () -> ChestShopDisplayManager.tick(server));
                     timedTick("BattleStuckCleanupManager", () -> BattleStuckCleanupManager.tick(server));
                     timedTick("TerritoryBorderManager", () -> TerritoryBorderManager.tick(server));
@@ -844,7 +884,9 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("TerritorySkyblockIslandManager", () -> TerritorySkyblockIslandManager.tick(server));
                     timedTick("TerritoryRegionWipeManager", () -> TerritoryRegionWipeManager.tick(server));
                     timedTick("TerritoryNpcManager", () -> TerritoryNpcManager.tick(server));
-                    timedTick("GuildBossManager", () -> GuildBossManager.tick(server));
+                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
+                        timedTick("GuildBossManager", () -> GuildBossManager.tick(server));
+                    }
                     timedTick("ExplorationWorldManager", () -> ExplorationWorldManager.tick(server));
                     timedTick("SurvivalWorldManager", () -> SurvivalWorldManager.tick(server));
                     timedTick("VanillaPortalBlocker", () -> VanillaPortalBlocker.tick(server));
@@ -861,6 +903,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("IslanderProfileManager", () -> IslanderProfileManager.tick(server));
                     timedTick("IslanderMineManager", () -> IslanderMineManager.tick(server));
                     timedTick("LandClaimProtectionListener", () -> LandClaimProtectionListener.tick(server));
+                    timedTick("DatabaseMaintenanceManager", () -> DatabaseMaintenanceManager.tick(server));
 
                     /*
                      Leaderboard refresh
@@ -886,6 +929,8 @@ public class ChampUtilsMod implements ModInitializer {
                         }
                         ProfessionManager.saveAllAsync();
                         QuestManager.saveAll();
+                        AdventurerGuildManager.saveAll();
+                        AdventureGuideManager.saveAll();
                         PlaytimeManager.addOnlineMinute(server);
                         com.champutils.profile.ProfilePlaytimeManager.flushAsync();
                         ServerStatusDatabaseRepository.sync(server);
@@ -953,7 +998,9 @@ public class ChampUtilsMod implements ModInitializer {
                     /*
                      World event systems
                      */
-                    timedTick("WorldEventManager", () -> WorldEventManager.tick(server));
+                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
+                        timedTick("WorldEventManager", () -> WorldEventManager.tick(server));
+                    }
                     timedTick("ChampTrainerProtectionManager", () -> ChampTrainerProtectionManager.tick(server));
 
                     /*

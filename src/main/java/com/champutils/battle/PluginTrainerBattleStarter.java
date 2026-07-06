@@ -9,7 +9,9 @@ import net.minecraft.server.level.ServerPlayer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Single ChampUtils entry point for plugin-owned trainer battles.
@@ -20,6 +22,10 @@ import java.util.UUID;
  */
 public final class PluginTrainerBattleStarter {
     private PluginTrainerBattleStarter() {}
+
+    private static final long START_LOCK_TTL_MS = 10_000L;
+    private static final Map<UUID, Long> PLAYER_START_LOCKS = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> NPC_START_LOCKS = new ConcurrentHashMap<>();
 
     public record StartResult(boolean started, Object rawResult) {}
 
@@ -46,6 +52,10 @@ public final class PluginTrainerBattleStarter {
             return new StartResult(false, null);
         }
 
+        if (!acquireStartLocks(player, npc)) {
+            return new StartResult(false, null);
+        }
+
         BattleContextManager.TrainerBattleContext context =
                 BattleContextManager.registerTrainerBattleContext(
                         player.getUUID(),
@@ -60,6 +70,7 @@ public final class PluginTrainerBattleStarter {
         } catch (Throwable throwable) {
             BattleContextManager.clearPendingTrainerBattleContext(player.getUUID(), npc.getUUID());
             BattleContextManager.clearContext(player.getUUID());
+            releaseStartLocks(player.getUUID(), npc.getUUID());
             if (throwable instanceof Exception exception) throw exception;
             throw new RuntimeException(throwable);
         }
@@ -69,6 +80,7 @@ public final class PluginTrainerBattleStarter {
         if (result == null) {
             BattleContextManager.clearPendingTrainerBattleContext(player.getUUID(), npc.getUUID());
             BattleContextManager.clearContext(player.getUUID());
+            releaseStartLocks(player.getUUID(), npc.getUUID());
             return new StartResult(false, null);
         }
 
@@ -101,6 +113,39 @@ public final class PluginTrainerBattleStarter {
             player.sendSystemMessage(failureMessage);
         }
         return result;
+    }
+
+    public static void releaseStartLocks(UUID playerUuid, UUID npcUuid) {
+        if (playerUuid != null) PLAYER_START_LOCKS.remove(playerUuid);
+        if (npcUuid != null) NPC_START_LOCKS.remove(npcUuid);
+    }
+
+    private static boolean acquireStartLocks(ServerPlayer player, NPCEntity npc) {
+        UUID playerUuid = player.getUUID();
+        UUID npcUuid = npc.getUUID();
+        long now = System.currentTimeMillis();
+        cleanupExpiredLocks(now);
+
+        Long playerLock = PLAYER_START_LOCKS.putIfAbsent(playerUuid, now);
+        if (playerLock != null && now - playerLock < START_LOCK_TTL_MS) {
+            player.sendSystemMessage(Component.literal("§cYou are already starting a trainer battle. Try again in a few seconds."));
+            return false;
+        }
+        PLAYER_START_LOCKS.put(playerUuid, now);
+
+        Long npcLock = NPC_START_LOCKS.putIfAbsent(npcUuid, now);
+        if (npcLock != null && now - npcLock < START_LOCK_TTL_MS) {
+            PLAYER_START_LOCKS.remove(playerUuid);
+            player.sendSystemMessage(Component.literal("§cThat trainer is already starting a battle. Try again in a few seconds."));
+            return false;
+        }
+        NPC_START_LOCKS.put(npcUuid, now);
+        return true;
+    }
+
+    private static void cleanupExpiredLocks(long now) {
+        PLAYER_START_LOCKS.entrySet().removeIf(entry -> now - entry.getValue() > START_LOCK_TTL_MS);
+        NPC_START_LOCKS.entrySet().removeIf(entry -> now - entry.getValue() > START_LOCK_TTL_MS);
     }
 
     private static Object invokePvn(ServerPlayer player, NPCEntity npc, BattleFormat battleFormat, boolean cloneParties, boolean healFirst) throws Exception {

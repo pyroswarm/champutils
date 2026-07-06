@@ -531,7 +531,7 @@ public final class GuildBossManager {
     private static RewardDrop makeReward(UUID id, int clears, List<BossConfig.RewardTier> tiers) {
         BossConfig.RewardTier best = null;
         for (BossConfig.RewardTier tier : tiers) if (clears >= tier.minDefeats && (best == null || tier.minDefeats > best.minDefeats)) best = tier;
-        if (best == null) best = new BossConfig.RewardTier(1, "rare", 1);
+        if (best == null) best = new BossConfig.RewardTier(1, "d", 1);
         RewardDrop drop = new RewardDrop();
         drop.id = id;
         drop.crateId = best.crateId;

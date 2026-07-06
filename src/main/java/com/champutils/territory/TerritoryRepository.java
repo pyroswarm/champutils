@@ -269,6 +269,9 @@ public final class TerritoryRepository {
         Territory exact = findAtIndexed(serverId, worldName, pos);
         if (exact != null) return exact;
 
+        Territory loose = findAtLooseIndexed(worldName, pos);
+        if (loose != null) return loose;
+
         // Recovery path for old/backfilled rows whose server_id or world_name differs only by namespace.
         // This is critical for Islander worlds like multiworld:islander_1 where older rows may be stored
         // as islander_1 or with a previous server_id.
@@ -293,6 +296,19 @@ public final class TerritoryRepository {
 
         for (Territory territory : candidates) {
             if (territory.contains(serverId, worldName, pos)) return territory;
+        }
+        return null;
+    }
+
+    private static Territory findAtLooseIndexed(String worldName, BlockPos pos) {
+        Map<Long, List<Territory>> chunks = TERRITORIES_BY_WORLD_CHUNK.get(worldKey("", normalizeWorldName(worldName)));
+        if (chunks == null || chunks.isEmpty()) return null;
+
+        List<Territory> candidates = chunks.get(chunkKey(pos.getX() >> 4, pos.getZ() >> 4));
+        if (candidates == null || candidates.isEmpty()) return null;
+
+        for (Territory territory : candidates) {
+            if (territory != null && worldMatches(territory.worldName, worldName) && territory.containsPositionOnly(pos)) return territory;
         }
         return null;
     }
@@ -325,19 +341,13 @@ public final class TerritoryRepository {
             if (territory == null || territory.serverId == null || territory.worldName == null) continue;
             normalizeBounds(territory);
             String key = worldKey(territory.serverId, territory.worldName);
-            worldKeys.add(key);
-            worldIndex.computeIfAbsent(key, ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
+            addTerritoryToSpatialIndexes(chunkIndex, worldIndex, worldKeys, key, territory);
 
-            int minChunkX = territory.minX >> 4;
-            int maxChunkX = territory.maxX >> 4;
-            int minChunkZ = territory.minZ >> 4;
-            int maxChunkZ = territory.maxZ >> 4;
-            Map<Long, List<Territory>> chunks = chunkIndex.computeIfAbsent(key, ignored -> new ConcurrentHashMap<>());
-            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                    chunks.computeIfAbsent(chunkKey(chunkX, chunkZ), ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
-                }
-            }
+            // Loose normalized index for legacy/backfilled rows whose server_id differs
+            // from the current physical server. This prevents findAt from scanning every
+            // territory on every movement check in islander_* worlds.
+            String looseKey = worldKey("", normalizeWorldName(territory.worldName));
+            if (!looseKey.equals(key)) addTerritoryToSpatialIndexes(chunkIndex, worldIndex, worldKeys, looseKey, territory);
         }
 
         TERRITORIES_BY_WORLD_CHUNK.clear();
@@ -346,6 +356,28 @@ public final class TerritoryRepository {
         TERRITORIES_BY_WORLD.putAll(worldIndex);
         TERRITORY_WORLD_KEYS.clear();
         TERRITORY_WORLD_KEYS.addAll(worldKeys);
+    }
+
+    private static void addTerritoryToSpatialIndexes(
+            Map<String, Map<Long, List<Territory>>> chunkIndex,
+            Map<String, List<Territory>> worldIndex,
+            Set<String> worldKeys,
+            String key,
+            Territory territory
+    ) {
+        worldKeys.add(key);
+        worldIndex.computeIfAbsent(key, ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
+
+        int minChunkX = territory.minX >> 4;
+        int maxChunkX = territory.maxX >> 4;
+        int minChunkZ = territory.minZ >> 4;
+        int maxChunkZ = territory.maxZ >> 4;
+        Map<Long, List<Territory>> chunks = chunkIndex.computeIfAbsent(key, ignored -> new ConcurrentHashMap<>());
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                chunks.computeIfAbsent(chunkKey(chunkX, chunkZ), ignored -> Collections.synchronizedList(new ArrayList<>())).add(territory);
+            }
+        }
     }
 
     private static long chunkKey(int chunkX, int chunkZ) {

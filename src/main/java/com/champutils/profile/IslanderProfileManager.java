@@ -131,6 +131,16 @@ public final class IslanderProfileManager {
         });
     }
 
+    /**
+     * Non-blocking profile mode lookup for diagnostics and movement hot paths.
+     * Returns null when the mode has not been warmed yet. Callers must not fall
+     * back to SQL on the Minecraft server thread.
+     */
+    public static ProfileGameMode cachedProfileMode(String profileId) {
+        if (profileId == null || profileId.isBlank()) return null;
+        return PROFILE_MODE_CACHE.get(profileId);
+    }
+
     public static void enforceLocation(ServerPlayer player) {
         if (player == null || player.hasPermissions(4)) return;
         if (ProfileLoadingStateManager.isLoading(player)) {

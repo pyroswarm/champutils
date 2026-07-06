@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.debug.ChampDebugManager;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.FriendlyByteBuf;
@@ -44,8 +45,19 @@ public final class ProxyTransferBridge {
         try {
             byte[] payload = createConnectPayload(targetServer.trim());
             ServerPlayNetworking.send(player, new BungeeCordPayload(payload));
+            ChampDebugManager.log(
+                    ChampDebugManager.Category.PROFILES,
+                    "[ChampUtils][ProfileTransferDebug] sent proxy plugin-message Connect target=" + targetServer.trim()
+                            + " player=" + player.getGameProfile().getName()
+            );
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable error) {
+            ChampDebugManager.log(
+                    ChampDebugManager.Category.PROFILES,
+                    "[ChampUtils][ProfileTransferDebug] proxy plugin-message Connect failed target=" + targetServer.trim()
+                            + " player=" + player.getGameProfile().getName()
+                            + " error=" + error.getClass().getSimpleName() + ": " + error.getMessage()
+            );
             return false;
         }
     }

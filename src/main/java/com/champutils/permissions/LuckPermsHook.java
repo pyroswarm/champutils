@@ -12,6 +12,8 @@ import net.luckperms.api.node.types.InheritanceNode;
 
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.UUID;
+
 public class LuckPermsHook {
 
     private static final String TRACK_NAME =
@@ -175,6 +177,44 @@ public class LuckPermsHook {
     }
 
 
+    /**
+     * Server-thread hot-path safe permission check.
+     *
+     * This never calls loadUser(...).join(). If LuckPerms does not already have
+     * the online user cached, it returns false instead of blocking the Minecraft
+     * tick thread. Use this from movement/tick loops only; commands and slow
+     * admin paths can keep using hasPermission(...).
+     */
+    public static boolean hasPermissionCached(
+            ServerPlayer player,
+            String permission
+    ){
+        if(
+                player == null
+                        || permission == null
+                        || permission.isBlank()
+        ){
+            return false;
+        }
+
+        if(player.hasPermissions(4)) return true;
+
+        try{
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUUID());
+            if(user == null) return false;
+
+            return user.getCachedData()
+                    .getPermissionData()
+                    .checkPermission(permission)
+                    .asBoolean();
+        }
+        catch(Exception ignored){
+            return false;
+        }
+    }
+
+
     public static boolean hasExactPermissionNode(
             ServerPlayer player,
             String permission
@@ -195,6 +235,34 @@ public class LuckPermsHook {
         }
     }
 
+
+
+
+    /**
+     * Server-thread safe group check. Does not call loadUser(...).join().
+     */
+    public static boolean hasGroupCached(
+            ServerPlayer player,
+            String group
+    ){
+        if (player == null || group == null || group.isBlank()) return false;
+        if (player.hasPermissions(4)) return true;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUUID());
+            if (user == null) return false;
+            String wanted = group.trim().toLowerCase(java.util.Locale.ROOT);
+            if (user.getPrimaryGroup() != null && user.getPrimaryGroup().equalsIgnoreCase(wanted)) return true;
+            return user.resolveInheritedNodes(user.getQueryOptions()).stream().anyMatch(node ->
+                    node instanceof InheritanceNode
+                            && ((InheritanceNode) node).getGroupName() != null
+                            && ((InheritanceNode) node).getGroupName().equalsIgnoreCase(wanted)
+                            && node.getValue()
+            );
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
 
     public static boolean hasGroup(
             ServerPlayer player,
@@ -224,10 +292,19 @@ public class LuckPermsHook {
             ServerPlayer player,
             String group
     ){
-        if (player == null || group == null || group.isBlank()) return false;
+        if (player == null) return false;
+        return addGroup(player.getUUID(), group);
+    }
+
+
+    public static boolean addGroup(
+            UUID playerUuid,
+            String group
+    ){
+        if (playerUuid == null || group == null || group.isBlank()) return false;
         try {
             LuckPerms lp = LuckPermsProvider.get();
-            User user = lp.getUserManager().loadUser(player.getUUID()).join();
+            User user = lp.getUserManager().loadUser(playerUuid).join();
             String safeGroup = group.trim().toLowerCase(java.util.Locale.ROOT);
             Node node = InheritanceNode.builder(safeGroup).value(true).build();
             user.data().add(node);

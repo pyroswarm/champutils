@@ -46,12 +46,12 @@ public final class CrateKeyCraftingMenu {
                 .addLoreLine(Component.literal("§7Rewards are added as crate key credits."))
                 .addLoreLine(Component.literal("§8Edit costs in crate_key_crafting.json.")));
 
-        addRecipe(gui, player, 11, "common", Items.TRIPWIRE_HOOK);
-        addRecipe(gui, player, 12, "uncommon", Items.TRIPWIRE_HOOK);
-        addRecipe(gui, player, 13, "rare", Items.TRIPWIRE_HOOK);
-        addRecipe(gui, player, 14, "epic", Items.TRIPWIRE_HOOK);
-        addRecipe(gui, player, 15, "legendary", Items.TRIPWIRE_HOOK);
-        addRecipe(gui, player, 22, "mythic", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 11, "f", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 12, "e", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 13, "d", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 14, "c", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 15, "a", Items.TRIPWIRE_HOOK);
+        addRecipe(gui, player, 22, "s", Items.TRIPWIRE_HOOK);
 
         MenuUtil.addBackButton(gui, 49, () -> {
             if (backTarget != null) backTarget.accept(player); else GearWorkshopMenu.open(player);
@@ -86,7 +86,7 @@ public final class CrateKeyCraftingMenu {
                 .addLoreLine(Component.literal("§7Current keys: §e" + ownedKeys))
                 .addLoreLine(Component.literal("§6Costs:"));
 
-        builder.addLoreLine(Component.literal(status(fragmentHave, fragmentCost) + fragmentCost + "x " + ProfessionFragmentManager.formatWords(fragment) + " Fragment §8(you: " + fragmentHave + ")"));
+        builder.addLoreLine(Component.literal(status(fragmentHave, fragmentCost) + fragmentCost + " " + ProfessionFragmentManager.displayRankName(fragment) + " Essence §8(you: " + fragmentHave + ")"));
 
         if (recipe.items != null) {
             for (CrateKeyCraftingConfig.ItemCost cost : recipe.items) {
@@ -123,11 +123,11 @@ public final class CrateKeyCraftingMenu {
     private static ChatFormatting color(String rarity) {
         if (rarity == null) return ChatFormatting.WHITE;
         return switch (rarity.trim().toLowerCase(Locale.ROOT)) {
-            case "uncommon" -> ChatFormatting.GREEN;
-            case "rare" -> ChatFormatting.BLUE;
-            case "epic" -> ChatFormatting.LIGHT_PURPLE;
-            case "legendary" -> ChatFormatting.GOLD;
-            case "mythic" -> ChatFormatting.DARK_PURPLE;
+            case "e" -> ChatFormatting.GREEN;
+            case "d" -> ChatFormatting.BLUE;
+            case "c" -> ChatFormatting.LIGHT_PURPLE;
+            case "a" -> ChatFormatting.GOLD;
+            case "s" -> ChatFormatting.DARK_PURPLE;
             default -> ChatFormatting.WHITE;
         };
     }

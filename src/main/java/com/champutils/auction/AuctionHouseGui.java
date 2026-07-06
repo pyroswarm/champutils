@@ -57,14 +57,14 @@ public final class AuctionHouseGui {
         gui.setSlot(16, cleanButton(Items.EGG, "§dSell Pokémon")
                 .addLoreLine(Component.literal("§7Choose a party slot."))
                 .addLoreLine(Component.literal("§7Then type the price command shown."))
-                .addLoreLine(Component.literal("§eRequires /ah confirm before listing."))
+                .addLoreLine(Component.literal("§eOpens a UI confirmation before listing."))
                 .setCallback((index, clickType, actionType, g) -> openSellPokemon(player)));
 
         gui.setSlot(22, cleanButton(Items.EMERALD, "§bSell Held Item")
                 .addLoreLine(Component.literal("§7Hold the item stack you want to sell."))
                 .addLoreLine(Component.literal("§7Type: §f/ah sell <price>"))
                 .addLoreLine(Component.literal("§8Example: /ah sell 25000"))
-                .addLoreLine(Component.literal("§eRequires /ah confirm before listing.")));
+                .addLoreLine(Component.literal("§eOpens a UI confirmation before listing.")));
 
         gui.open();
     }

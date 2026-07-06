@@ -28,11 +28,13 @@ public final class GuildConfig {
     public static final class GuildXp {
         public int rankedWin = 50;
         public int casualWin = 15;
-        public int worldEventCommon = 100;
-        public int worldEventUncommon = 175;
-        public int worldEventRare = 300;
-        public int worldEventEpic = 750;
-        public int worldEventLegendary = 2000;
+        public int worldEventF = 100;
+        public int worldEventE = 175;
+        public int worldEventD = 300;
+        public int worldEventC = 750;
+        public int worldEventB = 1250;
+        public int worldEventA = 2000;
+        public int worldEventS = 3500;
     }
 
     public static final class GuildLevels {
@@ -133,14 +135,16 @@ public final class GuildConfig {
     }
 
     public static int worldEventXp(String tier) {
-        String normalized = tier == null ? "RARE" : tier.trim().toUpperCase(Locale.ROOT);
+        String normalized = tier == null ? "D" : tier.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
-            case "COMMON" -> GUILD_XP.worldEventCommon;
-            case "UNCOMMON" -> GUILD_XP.worldEventUncommon;
-            case "EPIC" -> GUILD_XP.worldEventEpic;
-            case "LEGENDARY", "MYTHIC" -> GUILD_XP.worldEventLegendary;
-            case "RARE" -> GUILD_XP.worldEventRare;
-            default -> GUILD_XP.worldEventRare;
+            case "F" -> GUILD_XP.worldEventF;
+            case "E" -> GUILD_XP.worldEventE;
+            case "C" -> GUILD_XP.worldEventC;
+            case "B" -> GUILD_XP.worldEventB;
+            case "A" -> GUILD_XP.worldEventA;
+            case "S" -> GUILD_XP.worldEventS;
+            case "D" -> GUILD_XP.worldEventD;
+            default -> GUILD_XP.worldEventD;
         };
     }
 
@@ -171,11 +175,13 @@ public final class GuildConfig {
     private static void sanitize(GuildXp xp, GuildLevels levels, GuildCreation creation) {
         xp.rankedWin = Math.max(0, xp.rankedWin);
         xp.casualWin = Math.max(0, xp.casualWin);
-        xp.worldEventCommon = Math.max(0, xp.worldEventCommon);
-        xp.worldEventUncommon = Math.max(0, xp.worldEventUncommon);
-        xp.worldEventRare = Math.max(0, xp.worldEventRare);
-        xp.worldEventEpic = Math.max(0, xp.worldEventEpic);
-        xp.worldEventLegendary = Math.max(0, xp.worldEventLegendary);
+        xp.worldEventF = Math.max(0, xp.worldEventF);
+        xp.worldEventE = Math.max(0, xp.worldEventE);
+        xp.worldEventD = Math.max(0, xp.worldEventD);
+        xp.worldEventC = Math.max(0, xp.worldEventC);
+        xp.worldEventB = Math.max(0, xp.worldEventB);
+        xp.worldEventA = Math.max(0, xp.worldEventA);
+        xp.worldEventS = Math.max(0, xp.worldEventS);
         levels.baseXp = Math.max(1L, levels.baseXp);
         levels.scalingMultiplier = Math.max(1.01D, levels.scalingMultiplier);
         levels.maxLevel = Math.max(1, levels.maxLevel);

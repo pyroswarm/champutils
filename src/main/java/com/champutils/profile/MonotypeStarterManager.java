@@ -35,6 +35,8 @@ public final class MonotypeStarterManager {
     private static final int[] MANY_SLOTS = {10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34};
     private static final int[] THREE_SLOTS = {11,13,15};
     private static final Set<UUID> CLAIMING = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> CLAIM_LOAD_IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Boolean> STARTER_CLAIM_CACHE = new ConcurrentHashMap<>();
     private static final int STARTER_LEVEL = 10;
 
     private static final Map<String, StarterChoice[]> STARTERS = Map.ofEntries(
@@ -81,7 +83,7 @@ public final class MonotypeStarterManager {
                         if (chosen != null && !partyContains(player, chosen.getUuid())) {
                             addStarterToProfileParty(player, chosen);
                         }
-                        markClaimed(profileId, species);
+                        markClaimedAsync(profileId, species);
                         syncCobblemonStarterState(player);
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -104,22 +106,37 @@ public final class MonotypeStarterManager {
 
     public static void handleProfileLoaded(ServerPlayer player) {
         if (player == null || player.server == null) return;
-        player.server.execute(() -> {
-            syncCobblemonStarterState(player);
-            if (!needsStarter(player)) return;
-            open(player);
-        });
+        player.server.execute(() -> syncCobblemonStarterState(player, true));
     }
 
     private static void syncCobblemonStarterState(ServerPlayer player) {
+        syncCobblemonStarterState(player, false);
+    }
+
+    private static void syncCobblemonStarterState(ServerPlayer player, boolean openIfNeeded) {
         if (player == null || !DatabaseManager.isEnabled()) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
-        try {
-            boolean claimed = hasClaimed(profileId);
-            boolean partyEmpty = isPartyEmpty(player);
-            boolean monotype = PlayerProfileManager.gameMode(player) == ProfileGameMode.MONOTYPE;
+        boolean partyEmpty = isPartyEmpty(player);
+        boolean monotype = PlayerProfileManager.gameMode(player) == ProfileGameMode.MONOTYPE;
 
+        loadClaimedAsync(profileId).whenComplete((claimed, error) -> {
+            if (player.server == null) return;
+            player.server.execute(() -> {
+                if (player.hasDisconnected()) return;
+                UUID active = PlayerProfileManager.activeProfileId(player);
+                if (active == null || !active.equals(profileId)) return;
+                boolean safeClaimed = error == null && Boolean.TRUE.equals(claimed);
+                applyCobblemonStarterState(player, safeClaimed, partyEmpty, monotype);
+                if (openIfNeeded && monotype && !safeClaimed && partyEmpty) {
+                    open(player);
+                }
+            });
+        });
+    }
+
+    private static void applyCobblemonStarterState(ServerPlayer player, boolean claimed, boolean partyEmpty, boolean monotype) {
+        try {
             var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
             // For monotype profiles, block Cobblemon's normal starter UI only until the
             // custom ChampUtils starter has been claimed. Leaving starterLocked=true after
@@ -140,7 +157,12 @@ public final class MonotypeStarterManager {
         if (PlayerProfileManager.gameMode(player) != ProfileGameMode.MONOTYPE) return false;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return false;
-        if (hasClaimed(profileId)) return false;
+        Boolean claimed = STARTER_CLAIM_CACHE.get(profileId);
+        if (claimed == null) {
+            syncCobblemonStarterState(player);
+            return false;
+        }
+        if (claimed) return false;
         return isPartyEmpty(player);
     }
 
@@ -149,7 +171,7 @@ public final class MonotypeStarterManager {
         String type = normalize(PlayerProfileManager.monotypeType(player));
         StarterChoice[] choices = STARTERS.get(type);
         if (choices == null || choices.length == 0) {
-            player.sendSystemMessage(Component.literal("No monotype starter pool is configured for " + type + ".").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("No monotype starters are available for " + type + " right now.").withStyle(ChatFormatting.RED));
             return;
         }
 
@@ -206,7 +228,8 @@ public final class MonotypeStarterManager {
                 player.sendSystemMessage(Component.literal("Could not add starter. Make sure your party has room.").withStyle(ChatFormatting.RED));
                 return;
             }
-            markClaimed(profileId, choice.species());
+            STARTER_CLAIM_CACHE.put(profileId, true);
+            markClaimedAsync(profileId, choice.species());
             syncCobblemonStarterState(player);
             try {
                 var playerData = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
@@ -339,9 +362,23 @@ public final class MonotypeStarterManager {
         }
     }
 
-    private static boolean hasClaimed(UUID profileId) {
-        if (profileId == null) return false;
-        try (var ps = DatabaseManager.getConnection().prepareStatement("select 1 from profile_starter_claims where profile_id = ? limit 1")) {
+    private static java.util.concurrent.CompletableFuture<Boolean> loadClaimedAsync(UUID profileId) {
+        if (profileId == null) return java.util.concurrent.CompletableFuture.completedFuture(false);
+        Boolean cached = STARTER_CLAIM_CACHE.get(profileId);
+        if (cached != null) return java.util.concurrent.CompletableFuture.completedFuture(cached);
+        if (!CLAIM_LOAD_IN_FLIGHT.add(profileId)) {
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
+        return DatabaseManager.supplyAsync("load monotype starter claim", connection -> hasClaimed(connection, profileId))
+                .whenComplete((claimed, error) -> {
+                    CLAIM_LOAD_IN_FLIGHT.remove(profileId);
+                    if (error == null) STARTER_CLAIM_CACHE.put(profileId, Boolean.TRUE.equals(claimed));
+                });
+    }
+
+    private static boolean hasClaimed(Connection connection, UUID profileId) {
+        if (profileId == null || connection == null) return false;
+        try (var ps = connection.prepareStatement("select 1 from profile_starter_claims where profile_id = ? limit 1")) {
             ps.setObject(1, profileId);
             try (var rs = ps.executeQuery()) { return rs.next(); }
         } catch (Exception e) {
@@ -350,10 +387,15 @@ public final class MonotypeStarterManager {
         }
     }
 
-    private static void markClaimed(UUID profileId, String species) throws Exception {
+    private static void markClaimedAsync(UUID profileId, String species) {
         if (profileId == null || profileId.equals(new UUID(0L, 0L))) return;
-        try (Connection connection = DatabaseManager.getConnection();
-             var ps = connection.prepareStatement("insert into profile_starter_claims (profile_id, starter_species, claimed_at) values (?, ?, now()) on conflict (profile_id) do update set starter_species = excluded.starter_species, claimed_at = now()")) {
+        STARTER_CLAIM_CACHE.put(profileId, true);
+        DatabaseManager.executeCoalescedAsync("monotype-starter-claim:" + profileId, "mark monotype starter claimed", connection -> markClaimed(connection, profileId, species));
+    }
+
+    private static void markClaimed(Connection connection, UUID profileId, String species) throws Exception {
+        if (profileId == null || profileId.equals(new UUID(0L, 0L)) || connection == null) return;
+        try (var ps = connection.prepareStatement("insert into profile_starter_claims (profile_id, starter_species, claimed_at) values (?, ?, now()) on conflict (profile_id) do update set starter_species = excluded.starter_species, claimed_at = now()")) {
             ps.setObject(1, profileId);
             ps.setString(2, species);
             ps.executeUpdate();

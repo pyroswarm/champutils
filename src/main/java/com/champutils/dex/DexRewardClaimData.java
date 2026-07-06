@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.profile.PlayerProfileManager;
 
 import com.google.gson.Gson;
@@ -21,6 +22,7 @@ public final class DexRewardClaimData {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type TYPE = new TypeToken<Map<String, Set<Integer>>>() {}.getType();
     private static final Map<String, Set<Integer>> CLAIMS = new LinkedHashMap<>();
+    private static final String STATE_KEY = "dex_reward_claims";
 
     private DexRewardClaimData() {
     }
@@ -31,14 +33,19 @@ public final class DexRewardClaimData {
             File file = file();
             if (!file.exists()) {
                 save();
-                return;
             }
-
-            try (FileReader reader = new FileReader(file)) {
-                Map<String, Set<Integer>> loaded = GSON.fromJson(reader, TYPE);
-                if (loaded != null) {
-                    CLAIMS.putAll(loaded);
+            else {
+                try (FileReader reader = new FileReader(file)) {
+                    Map<String, Set<Integer>> loaded = GSON.fromJson(reader, TYPE);
+                    if (loaded != null) {
+                        CLAIMS.putAll(loaded);
+                    }
                 }
+            }
+            ClaimRoot shared = SharedJsonStateRepository.loadGlobal(STATE_KEY, ClaimRoot.class, new ClaimRoot(CLAIMS));
+            if (shared != null && shared.claims != null) {
+                CLAIMS.clear();
+                CLAIMS.putAll(shared.claims);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -56,6 +63,7 @@ public final class DexRewardClaimData {
             try (FileWriter writer = new FileWriter(file)) {
                 GSON.toJson(CLAIMS, writer);
             }
+            SharedJsonStateRepository.saveGlobal(STATE_KEY, new ClaimRoot(CLAIMS));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -73,5 +81,16 @@ public final class DexRewardClaimData {
 
     private static File file() {
         return new File("config/champutils/dex_reward_claims.json");
+    }
+
+    private static final class ClaimRoot {
+        Map<String, Set<Integer>> claims = new LinkedHashMap<>();
+
+        ClaimRoot() {
+        }
+
+        ClaimRoot(Map<String, Set<Integer>> claims) {
+            if (claims != null) this.claims.putAll(claims);
+        }
     }
 }
