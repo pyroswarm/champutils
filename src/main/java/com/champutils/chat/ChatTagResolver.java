@@ -77,6 +77,90 @@ public final class ChatTagResolver {
         return result;
     }
 
+    public static String tagsForLegacy(ServerPlayer player) {
+        if (player == null) return "";
+        StringBuilder out = new StringBuilder();
+        appendProfileIconLegacy(out, player);
+
+        String rank = donationRankLegacy(player);
+        if (rank != null && !rank.isBlank()) out.append(rank).append(" ");
+
+        String title = activeTitleLegacy(player);
+        if (title != null && !title.isBlank()) out.append(title).append(" ");
+
+        List<ChatTagConfig.TagDefinition> tags = new ArrayList<>(ChatTagConfig.INSTANCE.tags);
+        for (ChatTagConfig.TagDefinition tag : tags) {
+            if (tag == null || tag.display == null || tag.display.isBlank()) continue;
+            if (tag.permission != null && !tag.permission.isBlank() && !player.hasPermissions(4) && !hasPermission(player, tag.permission)) continue;
+            out.append(toLegacy(tag.display)).append(" ");
+        }
+
+        com.champutils.guild.GuildRepository.GuildSnapshot guild = com.champutils.guild.GuildRepository.cachedGuild(player.getUUID());
+        if (guild == null) {
+            requestGuildRefresh(player);
+        } else if (guild.tag != null && !guild.tag.isBlank()) {
+            out.append("§6§l[").append(guild.tag).append("]§r ");
+        }
+
+        if (ChatTagConfig.INSTANCE.showLuckPermsSuffix) {
+            String suffix = luckPermsMeta(player, "getSuffix");
+            if (suffix != null && !suffix.isBlank()) out.append(toLegacy(suffix)).append(" ");
+        }
+        return out.toString();
+    }
+
+    public static String donationRankLegacy(ServerPlayer player) {
+        if (player == null) return "";
+
+        if (LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+")
+                || LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
+                || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")
+                || LuckPermsHook.hasPermission(player, "champutils.boosters.daily.vipplus")) {
+            return "§b§l[VIP+]§r";
+        }
+
+        if (LuckPermsHook.hasGroup(player, "vip")
+                || LuckPermsHook.hasPermission(player, "champutils.rank.vip")
+                || LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) {
+            return "§6§l[VIP]§r";
+        }
+
+        if (ChatTagConfig.INSTANCE.showLuckPermsPrefix) {
+            String prefix = luckPermsMeta(player, "getPrefix");
+            if (prefix != null && !prefix.isBlank()) {
+                prefix = removeDeprecatedRankTags(prefix);
+                if (!prefix.isBlank()) return toLegacy(prefix);
+            }
+        }
+
+        return "";
+    }
+
+    public static String activeTitleLegacy(ServerPlayer player) {
+        if (player == null) return "";
+        String selectedTitle = com.champutils.cosmetic.TitleManager.selected(player.getUUID());
+        if (selectedTitle == null || selectedTitle.isBlank()) return "";
+        String titleDisplay = com.champutils.cosmetic.TitleManager.displayFor(player.getUUID(), selectedTitle);
+        return titleDisplay == null || titleDisplay.isBlank() ? "" : toLegacy(titleDisplay);
+    }
+
+    private static void appendProfileIconLegacy(StringBuilder out, ServerPlayer player) {
+        ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
+        if (profileMode == ProfileGameMode.NORMAL) {
+            out.append("§a§l🌿§r ");
+        } else if (profileMode == ProfileGameMode.IRONMAN) {
+            out.append("§7§l⚒§r ");
+        } else if (profileMode == ProfileGameMode.MONOTYPE) {
+            String type = PlayerProfileManager.monotypeType(player);
+            if (type == null || type.isBlank()) type = "Unknown";
+            out.append("§d§l").append(typeEmoji(type)).append("§r ");
+        } else if (profileMode == ProfileGameMode.NUZLOCKE) {
+            out.append("§c§l☠§r ");
+        } else if (profileMode == ProfileGameMode.ISLANDER) {
+            out.append("§b§l🏝§r ");
+        }
+    }
+
 
     private static void appendProfileIcon(MutableComponent result, ServerPlayer player) {
         ProfileGameMode profileMode = PlayerProfileManager.gameMode(player);
@@ -98,7 +182,7 @@ public final class ChatTagResolver {
     private static MutableComponent rankTagFor(ServerPlayer player) {
         if (player == null) return null;
 
-        if (LuckPermsHook.hasGroup(player, "vipplus")
+        if (LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+")
                 || LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
                 || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")
                 || LuckPermsHook.hasPermission(player, "champutils.boosters.daily.vipplus")) {
@@ -215,27 +299,69 @@ public final class ChatTagResolver {
 
     public static MutableComponent legacy(String raw) {
         MutableComponent out = Component.empty();
-        ChatFormatting active = ChatFormatting.WHITE;
+        ChatFormatting activeColor = ChatFormatting.WHITE;
+        boolean bold = false;
+        boolean italic = false;
+        boolean underlined = false;
+        boolean strikethrough = false;
+        boolean obfuscated = false;
         StringBuilder buffer = new StringBuilder();
         for (int i = 0; i < raw.length(); i++) {
             char c = raw.charAt(i);
             if ((c == '&' || c == '§') && i + 1 < raw.length()) {
                 if (buffer.length() > 0) {
-                    ChatFormatting style = active;
-                    out.append(Component.literal(buffer.toString()).withStyle(style));
+                    out.append(styled(buffer.toString(), activeColor, bold, italic, underlined, strikethrough, obfuscated));
                     buffer.setLength(0);
                 }
-                ChatFormatting next = color(raw.charAt(++i));
-                if (next != null) active = next;
+                char code = Character.toLowerCase(raw.charAt(++i));
+                ChatFormatting next = color(code);
+                if (next != null) {
+                    activeColor = next;
+                    bold = false;
+                    italic = false;
+                    underlined = false;
+                    strikethrough = false;
+                    obfuscated = false;
+                } else if (code == 'l') {
+                    bold = true;
+                } else if (code == 'o') {
+                    italic = true;
+                } else if (code == 'n') {
+                    underlined = true;
+                } else if (code == 'm') {
+                    strikethrough = true;
+                } else if (code == 'k') {
+                    obfuscated = true;
+                } else if (code == 'r') {
+                    activeColor = ChatFormatting.WHITE;
+                    bold = false;
+                    italic = false;
+                    underlined = false;
+                    strikethrough = false;
+                    obfuscated = false;
+                }
             } else {
                 buffer.append(c);
             }
         }
         if (buffer.length() > 0) {
-            ChatFormatting style = active;
-            out.append(Component.literal(buffer.toString()).withStyle(style));
+            out.append(styled(buffer.toString(), activeColor, bold, italic, underlined, strikethrough, obfuscated));
         }
         return out;
+    }
+
+    private static MutableComponent styled(String text, ChatFormatting color, boolean bold, boolean italic, boolean underlined, boolean strikethrough, boolean obfuscated) {
+        return Component.literal(text).withStyle(style -> style
+                .withColor(color == null ? ChatFormatting.WHITE : color)
+                .withBold(bold)
+                .withItalic(italic)
+                .withUnderlined(underlined)
+                .withStrikethrough(strikethrough)
+                .withObfuscated(obfuscated));
+    }
+
+    public static String toLegacy(String raw) {
+        return raw == null ? "" : raw.replace('&', '§');
     }
 
     private static ChatFormatting color(char code) {

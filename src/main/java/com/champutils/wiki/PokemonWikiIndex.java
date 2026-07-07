@@ -1,5 +1,6 @@
 package com.champutils.wiki;
 
+import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.pokemon.Species;
 import com.google.gson.*;
@@ -18,6 +19,7 @@ import java.util.*;
 public final class PokemonWikiIndex {
     private static final Gson GSON = new Gson();
     private static final Map<String, Info> INFO = new HashMap<>();
+    private static final Map<String, SupplementalInfo> SUPPLEMENTAL = new HashMap<>();
     private static final Set<String> SPECIES = new TreeSet<>();
 
     private PokemonWikiIndex() {}
@@ -25,6 +27,8 @@ public final class PokemonWikiIndex {
     public static void reload(MinecraftServer server) {
         INFO.clear();
         SPECIES.clear();
+        SUPPLEMENTAL.clear();
+        loadSupplementalLookups();
         loadSpeciesNames();
         try {
             Map<ResourceLocation, Resource> resources = server.getResourceManager().listResources("spawn_pool_world", id -> id.getPath().endsWith(".json"));
@@ -68,17 +72,51 @@ public final class PokemonWikiIndex {
     public static Set<String> speciesSuggestions() { return Collections.unmodifiableSet(SPECIES); }
     public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather", "egg_moves", "drops"); }
 
+    public static boolean knowsSpecies(String speciesName) {
+        String key = normal(speciesName);
+        return !key.isBlank() && (SPECIES.contains(key) || SUPPLEMENTAL.containsKey(key) || findSpecies(speciesName) != null);
+    }
+
+    public static String displayName(String speciesName) {
+        String key = normal(speciesName);
+        SupplementalInfo supplemental = SUPPLEMENTAL.get(key);
+        if (supplemental != null && supplemental.name != null && !supplemental.name.isBlank()) return supplemental.name;
+        Species species = findSpecies(speciesName);
+        if (species != null) {
+            try { return prettyId(species.getName()); } catch (Throwable ignored) {}
+        }
+        return prettyId(speciesName);
+    }
+
+    public static List<String> abilityNames(String speciesName) {
+        LinkedHashSet<String> abilities = new LinkedHashSet<>();
+        Species species = findSpecies(speciesName);
+        if (species != null) {
+            collectNamedAbilities(species, abilities, "getStandardAbilities", "getNormalAbilities", "standardAbilities", "normalAbilities");
+            collectNamedAbilities(species, abilities, "getHiddenAbilities", "hiddenAbilities");
+            collectNamedAbilities(species, abilities, "getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "abilities");
+            cleanAbilitySet(abilities);
+        }
+        SupplementalInfo supplemental = SUPPLEMENTAL.get(PokemonWikiIndex.normal(speciesName));
+        if (supplemental != null) abilities.addAll(supplemental.abilities);
+        abilities.removeIf(value -> value == null || value.isBlank());
+        return abilities.stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+    }
+
     public static String abilities(String speciesName) {
         Species species = findSpecies(speciesName);
-        if (species == null) return "I do not know that Pokémon.";
+        SupplementalInfo supplemental = SUPPLEMENTAL.get(PokemonWikiIndex.normal(speciesName));
+        if (species == null && supplemental == null) return "I do not know that Pokémon.";
 
         LinkedHashSet<String> normal = new LinkedHashSet<>();
         LinkedHashSet<String> hidden = new LinkedHashSet<>();
         LinkedHashSet<String> fallback = new LinkedHashSet<>();
 
-        collectNamedAbilities(species, normal, "getStandardAbilities", "getNormalAbilities", "standardAbilities", "normalAbilities");
-        collectNamedAbilities(species, hidden, "getHiddenAbilities", "hiddenAbilities");
-        collectNamedAbilities(species, fallback, "getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "abilities");
+        if (species != null) {
+            collectNamedAbilities(species, normal, "getStandardAbilities", "getNormalAbilities", "standardAbilities", "normalAbilities");
+            collectNamedAbilities(species, hidden, "getHiddenAbilities", "hiddenAbilities");
+            collectNamedAbilities(species, fallback, "getAbilities", "getAbilitiesMapping", "getPossibleAbilities", "abilities");
+        }
 
         cleanAbilitySet(normal);
         cleanAbilitySet(hidden);
@@ -86,6 +124,7 @@ public final class PokemonWikiIndex {
 
         // If the Cobblemon API only exposes one combined pool on this version, still show it clearly.
         if (normal.isEmpty() && hidden.isEmpty()) normal.addAll(fallback);
+        if (supplemental != null) normal.addAll(supplemental.abilities);
         normal.removeAll(hidden);
 
         if (normal.isEmpty() && hidden.isEmpty()) return "No ability data found for this Pokémon yet.";
@@ -115,7 +154,7 @@ public final class PokemonWikiIndex {
     }
 
     private static void cleanAbilitySet(Set<String> values) {
-        values.removeIf(s -> s == null || s.isBlank() || s.equalsIgnoreCase("abilities") || s.equalsIgnoreCase("abilitypool") || s.equalsIgnoreCase("hidden") || s.equalsIgnoreCase("normal") || s.equalsIgnoreCase("standard"));
+        values.removeIf(s -> s == null || s.isBlank() || !isRealAbilityName(s));
     }
 
     private static Field findField(Class<?> type, String name) {
@@ -127,14 +166,18 @@ public final class PokemonWikiIndex {
 
     public static String types(String speciesName) {
         Species species = findSpecies(speciesName);
-        if (species == null) return "I do not know that Pokémon.";
         LinkedHashSet<String> names = new LinkedHashSet<>();
-        for (String methodName : List.of("getTypes", "getPrimaryType", "getSecondaryType")) {
-            try {
-                Method m = species.getClass().getMethod(methodName);
-                collectPrettyNames(m.invoke(species), names, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
-            } catch (Throwable ignored) {}
+        if (species != null) {
+            for (String methodName : List.of("getTypes", "getPrimaryType", "getSecondaryType")) {
+                try {
+                    Method m = species.getClass().getMethod(methodName);
+                    collectPrettyNames(m.invoke(species), names, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+                } catch (Throwable ignored) {}
+            }
         }
+        SupplementalInfo supplemental = SUPPLEMENTAL.get(normal(speciesName));
+        if (supplemental != null) names.addAll(supplemental.types);
+        if (species == null && names.isEmpty()) return "I do not know that Pokémon.";
         names.removeIf(s -> s.isBlank() || s.length() > 24 || s.contains("@"));
         if (names.isEmpty()) return "No type data found for this Pokémon.";
         return String.join("§7, §f", names);
@@ -200,6 +243,38 @@ public final class PokemonWikiIndex {
                 collectSpecies(result);
                 if (!SPECIES.isEmpty()) return;
             } catch (Throwable ignored) {}
+        }
+    }
+
+    private static void loadSupplementalLookups() {
+        try (InputStreamReader reader = new InputStreamReader(
+                Objects.requireNonNull(PokemonWikiIndex.class.getClassLoader().getResourceAsStream("data/champutils/wiki/pokemon_lookup.json")),
+                StandardCharsets.UTF_8
+        )) {
+            JsonObject root = GSON.fromJson(reader, JsonObject.class);
+            if (root == null || !root.has("pokemon") || !root.get("pokemon").isJsonArray()) return;
+            for (JsonElement element : root.getAsJsonArray("pokemon")) {
+                if (!element.isJsonObject()) continue;
+                JsonObject object = element.getAsJsonObject();
+                String key = string(object, "key");
+                String name = string(object, "name");
+                if (key.isBlank() || name.isBlank()) continue;
+                SupplementalInfo info = new SupplementalInfo(name);
+                addJsonStrings(info.types, object, "types");
+                addJsonStrings(info.abilities, object, "abilities");
+                SUPPLEMENTAL.put(normal(key), info);
+                SPECIES.add(normal(key));
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void addJsonStrings(Set<String> out, JsonObject object, String key) {
+        if (out == null || object == null || !object.has(key) || !object.get(key).isJsonArray()) return;
+        for (JsonElement element : object.getAsJsonArray(key)) {
+            if (element == null || element.isJsonNull()) continue;
+            String value = element.getAsString();
+            if (value != null && !value.isBlank()) out.add(prettyId(value));
         }
     }
 
@@ -335,27 +410,79 @@ public final class PokemonWikiIndex {
     }
 
     private static void collectAbilityNames(Object obj, Set<String> out, Set<Object> seen, int depth) {
-        if (obj == null || depth > 5 || seen.contains(obj)) return;
+        if (obj == null || depth > 6 || seen.contains(obj)) return;
         seen.add(obj);
-        if (obj instanceof Map<?, ?> map) { for (Object v : map.values()) collectAbilityNames(v, out, seen, depth + 1); return; }
-        if (obj instanceof Iterable<?> iterable) { for (Object v : iterable) collectAbilityNames(v, out, seen, depth + 1); return; }
-        if (obj.getClass().isArray()) { for (int i = 0; i < Array.getLength(obj); i++) collectAbilityNames(Array.get(obj, i), out, seen, depth + 1); return; }
-        for (String methodName : List.of("getName", "name", "getDisplayName")) {
+        if (obj instanceof Map<?, ?> map) {
+            for (Object v : map.values()) collectAbilityNames(v, out, seen, depth + 1);
+            return;
+        }
+        if (obj instanceof Iterable<?> iterable) {
+            for (Object v : iterable) collectAbilityNames(v, out, seen, depth + 1);
+            return;
+        }
+        if (obj.getClass().isArray()) {
+            for (int i = 0; i < Array.getLength(obj); i++) collectAbilityNames(Array.get(obj, i), out, seen, depth + 1);
+            return;
+        }
+
+        // Cobblemon ability pools contain entries/wrappers with a template. Only the template's actual
+        // registered ability id/name should become a menu option. Do not collect every string field from
+        // the object graph; that is what caused random internal words to appear in the contract menu.
+        for (String methodName : List.of("getTemplate", "template")) {
             try {
                 Method m = obj.getClass().getMethod(methodName);
-                if (m.getParameterCount() == 0) addPrettyName(m.invoke(obj), out);
+                if (m.getParameterCount() == 0) {
+                    Object template = m.invoke(obj);
+                    if (template != null && template != obj) {
+                        addAbilityName(template, out);
+                        collectAbilityNames(template, out, seen, depth + 1);
+                    }
+                }
             } catch (Throwable ignored) {}
         }
+
+        addAbilityName(obj, out);
+
         for (Field f : obj.getClass().getDeclaredFields()) {
             try {
                 if (Modifier.isStatic(f.getModifiers())) continue;
+                String fieldName = f.getName().toLowerCase(Locale.ROOT);
+                if (!fieldName.contains("abil") && !fieldName.equals("template")) continue;
                 f.setAccessible(true);
-                Object v = f.get(obj);
-                if (f.getName().toLowerCase(Locale.ROOT).contains("ability")) collectAbilityNames(v, out, seen, depth + 1);
-                else if (v instanceof String || v instanceof ResourceLocation) addPrettyName(v, out);
-                else if (depth < 3) collectAbilityNames(v, out, seen, depth + 1);
+                collectAbilityNames(f.get(obj), out, seen, depth + 1);
             } catch (Throwable ignored) {}
         }
+    }
+
+    private static void addAbilityName(Object value, Set<String> out) {
+        if (value == null || out == null) return;
+        for (String methodName : List.of("getName", "name", "getShowdownId", "showdownId", "getId", "id")) {
+            try {
+                Method m = value.getClass().getMethod(methodName);
+                if (m.getParameterCount() == 0) addAbilityCandidate(m.invoke(value), out);
+            } catch (Throwable ignored) {}
+        }
+        if (value instanceof String || value instanceof ResourceLocation) addAbilityCandidate(value, out);
+    }
+
+    private static void addAbilityCandidate(Object value, Set<String> out) {
+        if (value == null || out == null) return;
+        String raw = value.toString();
+        if (raw.isBlank() || raw.contains("@") || raw.startsWith("com.") || raw.startsWith("net.")) return;
+        String cleaned = prettyId(raw);
+        if (isRealAbilityName(cleaned)) out.add(cleaned);
+    }
+
+    private static boolean isRealAbilityName(String value) {
+        if (value == null || value.isBlank()) return false;
+        String key = value.trim().toLowerCase(Locale.ROOT)
+                .replace("cobblemon.ability.", "")
+                .replace("cobblemon:", "")
+                .replace(" ", "")
+                .replace("_", "")
+                .replace("-", "");
+        if (key.isBlank()) return false;
+        try { return Abilities.get(key) != null; } catch (Throwable ignored) { return false; }
     }
 
     private static void collectPrettyNames(Object obj, Set<String> out, Set<Object> seen, int depth) {
@@ -388,5 +515,15 @@ public final class PokemonWikiIndex {
         public final Set<String> weather = new TreeSet<>();
         public final Set<String> extra = new TreeSet<>();
         public final Set<String> sources = new TreeSet<>();
+    }
+
+    private static final class SupplementalInfo {
+        private final String name;
+        private final Set<String> types = new TreeSet<>();
+        private final Set<String> abilities = new TreeSet<>();
+
+        private SupplementalInfo(String name) {
+            this.name = name;
+        }
     }
 }

@@ -61,12 +61,24 @@ public final class IslanderDebugManager {
 
     public static void log(ServerPlayer player, String phase, TerritoryRepository.Territory territory, String decision, String reason) {
         if (!isEnabled(player)) return;
+        if (isRoutineNormalAllow(player, territory, decision, reason)) return;
         String key = (player == null ? "null" : player.getUUID().toString()) + ":" + phase + ":" + decision + ":" + reason;
         long now = System.currentTimeMillis();
         Long last = LAST_LOG.get(key);
         if (last != null && now - last < THROTTLE_MS) return;
         LAST_LOG.put(key, now);
         ChampDebugManager.log(ChampDebugManager.Category.ISLANDER, describeLine(player, phase, territory, decision, reason));
+    }
+
+    private static boolean isRoutineNormalAllow(ServerPlayer player, TerritoryRepository.Territory territory, String decision, String reason) {
+        if (player == null) return false;
+        if (!"allow".equals(safe(decision))) return false;
+        if (PlayerProfileManager.isIslander(player)) return false;
+        String normalizedReason = safe(reason);
+        return territory == null
+                || normalizedReason.equals("normal_no_territory")
+                || normalizedReason.equals("normal_to_normal")
+                || normalizedReason.equals("normal_territory_can_enter");
     }
 
     public static void sendSnapshot(ServerPlayer player) {

@@ -44,6 +44,7 @@ public final class PokemonHuntManager {
     private static PokemonHuntState STATE = new PokemonHuntState();
     private static final String STATE_KEY = "pokemon_hunts";
     private static int followerSyncCounter = 0;
+    private static boolean followerSyncInFlight = false;
 
     private PokemonHuntManager() {}
 
@@ -146,11 +147,25 @@ public final class PokemonHuntManager {
         if (server == null || server.getTickCount() % 20 != 0) return;
         if (!NetworkServerConfig.isAuthoritativeGameplayServer()) {
             followerSyncCounter++;
-            if (followerSyncCounter >= 60) {
+            if (followerSyncCounter >= 60 && !followerSyncInFlight) {
                 followerSyncCounter = 0;
-                STATE = SharedJsonStateRepository.loadGlobal(STATE_KEY, PokemonHuntState.class, STATE);
-                if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
-                if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+                followerSyncInFlight = true;
+                SharedJsonStateRepository.loadGlobalAsync(STATE_KEY, PokemonHuntState.class, STATE)
+                        .whenComplete((loaded, error) -> {
+                            synchronized (PokemonHuntManager.class) {
+                                try {
+                                    if (error == null && loaded != null) {
+                                        STATE = loaded;
+                                        if (STATE.hunts == null) STATE.hunts = new ArrayList<>();
+                                        if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
+                                    } else if (error != null) {
+                                        System.err.println("[ChampUtils] Failed to async sync follower Pokémon hunts: " + error.getMessage());
+                                    }
+                                } finally {
+                                    followerSyncInFlight = false;
+                                }
+                            }
+                        });
             }
             return;
         }

@@ -63,6 +63,7 @@ public final class AccountUpgradeManager {
     private static boolean owns(ServerPlayer player, AccountUpgradeConfig.Upgrade upgrade) {
         if (player == null || upgrade == null) return false;
         if (upgrade.ownedPermission != null && !upgrade.ownedPermission.isBlank() && LuckPermsHook.hasPermission(player, upgrade.ownedPermission)) return true;
+        if ("vipplus".equalsIgnoreCase(upgrade.luckPermsGroup) && LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+")) return true;
         return LuckPermsHook.hasGroup(player, upgrade.luckPermsGroup);
     }
 

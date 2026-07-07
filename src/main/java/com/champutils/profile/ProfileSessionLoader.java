@@ -2,6 +2,7 @@ package com.champutils.profile;
 
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionHouseService;
 import com.champutils.shop.ShopPokemonCrateOpeningGui;
 import com.champutils.economy.EconomyManager;
@@ -18,6 +19,7 @@ import com.champutils.shop.FirstJoinKitManager;
 import com.champutils.survival.HomeCommand;
 import com.champutils.wondertrade.WonderTradeSeeder;
 import com.champutils.chat.ChatPreferenceManager;
+import com.champutils.dex.TrueCaughtDexManager;
 import com.champutils.moderation.ModerationManager;
 import com.champutils.dailylogin.DailyLoginManager;
 import net.minecraft.server.level.ServerPlayer;
@@ -74,9 +76,13 @@ public final class ProfileSessionLoader {
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.ensurePlayer", () -> PlayerDataManager.ensurePlayer(playerUuid, safeName));
         time("ProfileSessionLoader.loadBackground.ProfessionDataManager.ensurePlayer", () -> ProfessionDataManager.ensurePlayer(playerUuid, safeName));
         time("ProfileSessionLoader.loadBackground.GuildRepository.loadForPlayer", () -> GuildRepository.loadForPlayer(playerUuid, safeName));
+        time("ProfileSessionLoader.loadBackground.QuestManager.preload", () -> QuestManager.preload(profileId, safeName));
+        time("ProfileSessionLoader.loadBackground.AdventureGuideManager.preload", () -> AdventureGuideManager.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.TrueCaughtDexManager.load", TrueCaughtDexManager::load);
 
         final int[] rp = new int[] { 300 };
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.getRp", () -> rp[0] = PlayerDataManager.getRp(playerUuid, safeName));
+        time("ProfileSessionLoader.loadBackground.EconomyManager.ensureProfile", () -> EconomyManager.ensureProfile(profileId, safeName));
 
         ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileSessionLoader.loadBackground.total took " + (System.currentTimeMillis() - all) + "ms for profile=" + profileId);
         return new BackgroundSnapshot(playerUuid, profileId, rp[0]);
@@ -103,17 +109,19 @@ public final class ProfileSessionLoader {
         if (!SafeTeleportManager.isLive(player)) return;
         UUID playerUuid = player.getUUID();
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        String playerName = player.getGameProfile().getName();
         runDelayed(player, playerUuid, profileId, 1, "ProfileSessionLoader.delayed.NotificationManager.handleJoin", () -> NotificationManager.handleJoin(player));
         runDelayed(player, playerUuid, profileId, 3, "ProfileSessionLoader.delayed.QuestManager.handleJoin", () -> QuestManager.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 5, "ProfileSessionLoader.delayed.WonderTradeSeeder.handleJoin", () -> WonderTradeSeeder.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 7, "ProfileSessionLoader.delayed.ShopPokemonCrateOpeningGui.handleJoin", () -> ShopPokemonCrateOpeningGui.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 9, "ProfileSessionLoader.delayed.AuctionHouseService.handleJoin", () -> AuctionHouseService.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 11, "ProfileSessionLoader.delayed.ChatPreferenceManager.applyCached", () -> ChatPreferenceManager.apply(player, ChatPreferenceManager.getCachedOrDefault(playerUuid)));
-        runDelayed(player, playerUuid, profileId, 13, "ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 15, "ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
-        runDelayed(player, playerUuid, profileId, 17, "ProfileSessionLoader.delayed.EconomyManager.ensurePlayer", () -> EconomyManager.ensurePlayer(player));
-        runDelayed(player, playerUuid, profileId, 19, "ProfileSessionLoader.delayed.HomeCommand.handleProfileReady", () -> HomeCommand.handleProfileReady(player));
-        runDelayed(player, playerUuid, profileId, 21, "ProfileSessionLoader.delayed.TpaCommand.handleJoin", () -> com.champutils.commands.TpaCommand.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 5, "ProfileSessionLoader.delayed.AdventureGuideManager.handleJoin", () -> AdventureGuideManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 7, "ProfileSessionLoader.delayed.WonderTradeSeeder.handleJoin", () -> WonderTradeSeeder.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 9, "ProfileSessionLoader.delayed.ShopPokemonCrateOpeningGui.handleJoin", () -> ShopPokemonCrateOpeningGui.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 11, "ProfileSessionLoader.delayed.AuctionHouseService.handleJoin", () -> AuctionHouseService.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 13, "ProfileSessionLoader.delayed.ChatPreferenceManager.applyCached", () -> ChatPreferenceManager.apply(player, ChatPreferenceManager.getCachedOrDefault(playerUuid)));
+        runDelayed(player, playerUuid, profileId, 15, "ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 17, "ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
+        runDelayedOffThread(player, playerUuid, profileId, 19, "ProfileSessionLoader.delayed.EconomyManager.ensureProfile", () -> EconomyManager.ensureProfile(profileId, playerName));
+        runDelayed(player, playerUuid, profileId, 21, "ProfileSessionLoader.delayed.HomeCommand.handleProfileReady", () -> HomeCommand.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 23, "ProfileSessionLoader.delayed.TpaCommand.handleJoin", () -> com.champutils.commands.TpaCommand.handleJoin(player));
     }
 
     private static void runDelayed(ServerPlayer player, UUID playerUuid, UUID profileId, long delayTicks, String label, Runnable action) {
@@ -127,6 +135,18 @@ public final class ProfileSessionLoader {
                     if (profileId != null && active != null && !profileId.equals(active)) return;
                     time(label, action);
                 }));
+    }
+
+    private static void runDelayedOffThread(ServerPlayer player, UUID playerUuid, UUID profileId, long delayTicks, String label, Runnable action) {
+        if (player == null || player.server == null || action == null) return;
+        long delayMs = Math.max(1L, delayTicks) * 50L;
+        java.util.concurrent.CompletableFuture
+                .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS))
+                .thenRunAsync(() -> {
+                    UUID active = PlayerProfileManager.activeProfileId(playerUuid);
+                    if (profileId != null && active != null && !profileId.equals(active)) return;
+                    time(label, action);
+                });
     }
 
     public static void unload(ServerPlayer player) {

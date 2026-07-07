@@ -219,13 +219,18 @@ public final class HomeCommand {
 
     public static void handleProfileReady(ServerPlayer player) {
         if (player == null) return;
-        PendingHomeTransfer pending = SharedJsonStateRepository.loadPlayer(player.getUUID(), PENDING_HOME_KEY, PendingHomeTransfer.class, new PendingHomeTransfer());
-        if (pending.homeName == null || pending.homeName.isBlank() || pending.expiresAtMillis < System.currentTimeMillis()) {
-            return;
-        }
-        pending.expiresAtMillis = 0L;
-        SharedJsonStateRepository.savePlayer(player.getUUID(), PENDING_HOME_KEY, pending);
-        goHome(player.createCommandSourceStack(), pending.homeName);
+        UUID playerUuid = player.getUUID();
+        SharedJsonStateRepository
+                .loadPlayerAsync(playerUuid, PENDING_HOME_KEY, PendingHomeTransfer.class, new PendingHomeTransfer())
+                .thenAccept(pending -> player.server.execute(() -> {
+                    if (!com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+                    if (pending.homeName == null || pending.homeName.isBlank() || pending.expiresAtMillis < System.currentTimeMillis()) {
+                        return;
+                    }
+                    pending.expiresAtMillis = 0L;
+                    SharedJsonStateRepository.savePlayer(playerUuid, PENDING_HOME_KEY, pending);
+                    goHome(player.createCommandSourceStack(), pending.homeName);
+                }));
     }
 
     private static boolean routeToHomeServer(ServerPlayer player, String name, HomeLocation home) {
@@ -240,9 +245,21 @@ public final class HomeCommand {
         PendingHomeTransfer pending = new PendingHomeTransfer();
         pending.homeName = name;
         pending.expiresAtMillis = System.currentTimeMillis() + 120_000L;
-        SharedJsonStateRepository.savePlayer(player.getUUID(), PENDING_HOME_KEY, pending);
         player.sendSystemMessage(Component.literal("Sending you to the server that has home '" + name + "'.").withStyle(ChatFormatting.YELLOW));
-        ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, targetServerId, ignored -> {});
+        UUID playerUuid = player.getUUID();
+        SharedJsonStateRepository.savePlayerAsync(playerUuid, PENDING_HOME_KEY, pending)
+                .whenComplete((ignored, error) -> player.server.execute(() -> {
+                    if (!com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+                    if (error != null) {
+                        player.sendSystemMessage(Component.literal("Could not prepare the cross-server home transfer. Try again in a moment.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, targetServerId, message -> {
+                        if (message != null && message.startsWith("Could not")) {
+                            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                        }
+                    });
+                }));
         return true;
     }
 

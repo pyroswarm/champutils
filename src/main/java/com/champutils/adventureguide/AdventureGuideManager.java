@@ -24,13 +24,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class AdventureGuideManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File DIR = new File("config/champutils/adventure_guide/players");
-    private static final Map<UUID, PlayerData> DATA = new HashMap<>();
-    private static final Set<UUID> DIRTY = new HashSet<>();
-    private static final Map<UUID, CustomBossEvent> BARS = new HashMap<>();
+    private static final Map<UUID, PlayerData> DATA = new ConcurrentHashMap<>();
+    private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, CustomBossEvent> BARS = new ConcurrentHashMap<>();
     private static final String STATE_KEY = "adventure_guide";
 
     private static int tickCounter = 0;
@@ -73,6 +74,11 @@ public final class AdventureGuideManager {
         if (data.bossBarVisible) {
             updateBossBar(player);
         }
+    }
+
+    public static void preload(UUID profileId) {
+        if (profileId == null) return;
+        DATA.computeIfAbsent(profileId, AdventureGuideManager::loadProfile);
     }
 
     public static void unloadPlayer(ServerPlayer player) {

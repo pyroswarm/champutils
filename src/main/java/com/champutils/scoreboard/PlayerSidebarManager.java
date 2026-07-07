@@ -45,8 +45,8 @@ public final class PlayerSidebarManager {
     private static final Map<UUID, Boolean> CREATED = new HashMap<>();
     private static final Map<UUID, Long> LAST_BUILD_MILLIS = new HashMap<>();
 
-    private static final long BUILD_COOLDOWN_MILLIS = 5000L;
-    private static final int PLAYERS_PER_TICK_BATCH = 3;
+    private static final long BUILD_COOLDOWN_MILLIS = 10_000L;
+    private static final int PLAYERS_PER_TICK_BATCH = 1;
     private static int tickCursor = 0;
 
     private PlayerSidebarManager() {

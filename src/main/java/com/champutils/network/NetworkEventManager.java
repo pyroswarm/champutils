@@ -307,6 +307,9 @@ public final class NetworkEventManager {
             else if ("PROFESSIONS".equals(scope)) {
                 com.champutils.profession.ProfessionManager.invalidateSharedCache(ownerId);
             }
+            else if ("PLAYER_DATA".equals(scope)) {
+                com.champutils.profile.PlayerDataManager.invalidateSharedCache(ownerId);
+            }
             else if ("TRUE_CAUGHT_DEX".equals(scope)) {
                 com.champutils.dex.TrueCaughtDexManager.invalidateSharedCache(ownerId);
             }

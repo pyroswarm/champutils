@@ -1,0 +1,11 @@
+{
+  "music.exploration_default": { "sounds": [ { "name": "champutils:music/exploration_default", "stream": true } ] },
+  "music.spawn": { "sounds": [ { "name": "champutils:music/spawn", "stream": true } ] },
+  "music.battle.wild": { "sounds": [ { "name": "champutils:music/battle/wild", "stream": true } ] },
+  "music.battle.npc": { "sounds": [ { "name": "champutils:music/battle/npc", "stream": true } ] },
+  "music.battle.gym": { "sounds": [ { "name": "champutils:music/battle/gym", "stream": true } ] },
+  "music.battle.ranked": { "sounds": [ { "name": "champutils:music/battle/ranked", "stream": true } ] },
+  "music.battle.mega_boss": { "sounds": [ { "name": "champutils:music/battle/mega_boss", "stream": true } ] },
+  "music.battle.world_boss": { "sounds": [ { "name": "champutils:music/battle/world_boss", "stream": true } ] },
+  "music.events.victory": { "sounds": [ { "name": "champutils:music/events/victory", "stream": true } ] }
+}

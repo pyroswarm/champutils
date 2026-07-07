@@ -118,15 +118,16 @@ public final class ModerationManager {
         if (!ModerationConfig.DATA.chatModEnabled) return true;
         String spamReason = spamViolation(player, message);
         if (spamReason != null) {
-            report(player, ModerationTrack.CHAT.webhookLabel, spamReason + " | original=`" + trimForLog(message) + "`", true);
-            advanceChatStage(player, r, spamReason);
+            String safeReason = safeChatAutoModReason(spamReason);
+            report(player, ModerationTrack.CHAT.webhookLabel, safeReason, true);
+            advanceChatStage(player, r, safeReason);
             return false;
         }
         ChatViolation hit = blockedWord(message);
         if (hit == null) return true;
 
-        String reason = hit.reason();
-        report(player, ModerationTrack.CHAT.webhookLabel, reason + " | original=`" + trimForLog(message) + "` | normalized=`" + hit.normalizedMessage() + "`", true);
+        String reason = safeChatAutoModReason(hit);
+        report(player, ModerationTrack.CHAT.webhookLabel, reason, true);
         advanceChatStage(player, r, reason);
         return false;
     }
@@ -261,26 +262,28 @@ public final class ModerationManager {
 
     private static void applyTempBan(ServerPlayer player, Duration duration, String system, int stage, String reason) {
         long until = System.currentTimeMillis() + duration.toMillis();
-        String durationText = format(duration.toMillis());
-        tempBans.put(player.getUUID(), new TempBan(until, reason));
-        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draftOffline(null, player.getGameProfile().getName(), player.getUUID(), ModerationActionRepository.ActionType.BAN, reason);
+            String durationText = format(duration.toMillis());
+        String safeReason = safeAutoModActionReason(reason);
+        tempBans.put(player.getUUID(), new TempBan(until, safeReason));
+        ModerationActionRepository.ActionDraft draft = ModerationActionRepository.draftOffline(null, player.getGameProfile().getName(), player.getUUID(), ModerationActionRepository.ActionType.BAN, safeReason);
         draft.moderatorName = system;
         draft.expiresAt = Instant.ofEpochMilli(until);
         draft.metadataJson = "{\"source\":\"automod_escalation\",\"stage\":" + stage + "}";
         ModerationActionRepository.insert(draft);
-        PlayerProfileManager.safeDisconnect(player, Component.literal("You are temporarily banned for " + durationText + " by " + system + ". Reason: " + reason));
-        alertAction(player, system, durationText + " temporary ban", stage, reason);
+        PlayerProfileManager.safeDisconnect(player, Component.literal("You are temporarily banned for " + durationText + " by " + system + ". Reason: " + safeReason));
+        alertAction(player, system, durationText + " temporary ban", stage, safeReason);
     }
 
     private static void alertAction(ServerPlayer player, String system, String action, int stage, String reason) {
-        alertAdmins(player.server, "§c[" + system + "] Applied §e" + action + " §7to §f" + player.getGameProfile().getName() + "§7. Stage " + stage + ". Reason: §c" + reason);
-        webhook(system + " action: " + action + " | player=" + player.getGameProfile().getName() + " | stage=" + stage + " | reason=" + reason);
+        String safeReason = safeAutoModActionReason(reason);
+        alertAdmins(player.server, "§c[" + system + "] Applied §e" + action + " §7to §f" + player.getGameProfile().getName() + "§7. Stage " + stage + ". Reason: §c" + safeReason);
+        webhook(system + " action: " + action + " | player=" + player.getGameProfile().getName() + " | stage=" + stage + " | reason=" + safeReason);
     }
 
     private static void report(ServerPlayer player, String system, String reason, boolean actionEligible) {
-        String msg = "§6[" + system + "] §7Caught §f" + player.getGameProfile().getName() + "§7. " + reason + "§7. actionEligible=" + actionEligible;
+        String msg = "§6[" + system + "] §7Caught §f" + player.getGameProfile().getName() + "§7. " + safeAutoModActionReason(reason) + "§7. actionEligible=" + actionEligible;
         alertAdmins(player.server, msg);
-        webhook(system + " caught: player=" + player.getGameProfile().getName() + " | actionEligible=" + actionEligible + " | " + reason);
+        webhook(system + " caught: player=" + player.getGameProfile().getName() + " | actionEligible=" + actionEligible + " | " + safeAutoModActionReason(reason));
     }
 
     public static void staffWarn(ServerPlayer actor, ServerPlayer target, String reason) {
@@ -618,6 +621,39 @@ public final class ModerationManager {
         if (text == null) return "";
         String clean = text.replace("`", "'").replace("\n", " ").replace("\r", " ");
         return clean.length() <= 160 ? clean : clean.substring(0, 160) + "...";
+    }
+
+    private static String safeChatAutoModReason(ChatViolation violation) {
+        if (violation == null) return "Blocked chat content";
+        return switch (violation.category()) {
+            case "slur/hate term", "shortened slur/hate term" -> violation.normalizedBypass()
+                    ? "Blocked hate speech/filter evasion"
+                    : "Blocked hate speech";
+            case "severe threat" -> "Blocked threat or self-harm encouragement";
+            case "sexual harassment" -> "Blocked sexual harassment";
+            default -> "Blocked chat content";
+        };
+    }
+
+    private static String safeChatAutoModReason(String reason) {
+        if (reason == null || reason.isBlank()) return "Blocked chat content";
+        String lower = reason.toLowerCase(Locale.ROOT);
+        if (lower.contains("spam")) return "Chat spam";
+        if (lower.contains("hate") || lower.contains("slur")) return "Blocked hate speech";
+        if (lower.contains("threat")) return "Blocked threat or self-harm encouragement";
+        if (lower.contains("sexual")) return "Blocked sexual harassment";
+        return "Blocked chat content";
+    }
+
+    private static String safeAutoModActionReason(String reason) {
+        if (reason == null || reason.isBlank()) return "AutoMod rule violation";
+        String lower = reason.toLowerCase(Locale.ROOT);
+        if (lower.contains("original=`") || lower.contains("normalized=`")) return "AutoMod rule violation";
+        if (lower.contains("hate") || lower.contains("slur")) return "Blocked hate speech";
+        if (lower.contains("threat")) return "Blocked threat or self-harm encouragement";
+        if (lower.contains("sexual")) return "Blocked sexual harassment";
+        if (lower.contains("spam")) return "Chat spam";
+        return reason.length() <= 120 ? reason : reason.substring(0, 120);
     }
 
     public static void alertAdmins(MinecraftServer server, String message) {

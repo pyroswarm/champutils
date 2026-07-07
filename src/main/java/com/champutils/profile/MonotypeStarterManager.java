@@ -128,6 +128,7 @@ public final class MonotypeStarterManager {
                 if (active == null || !active.equals(profileId)) return;
                 boolean safeClaimed = error == null && Boolean.TRUE.equals(claimed);
                 applyCobblemonStarterState(player, safeClaimed, partyEmpty, monotype);
+                CobblemonProfileStorageBridge.resyncActiveProfileParty(player, "starter-state");
                 if (openIfNeeded && monotype && !safeClaimed && partyEmpty) {
                     open(player);
                 }
@@ -254,19 +255,14 @@ public final class MonotypeStarterManager {
     private static boolean addStarterToProfileParty(ServerPlayer player, Pokemon pokemon) {
         if (player == null || pokemon == null) return false;
         try {
-            UUID profileId = PlayerProfileManager.activeProfileId(player);
-            var party = (profileId != null && !profileId.equals(player.getUUID()))
-                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
-                    : Cobblemon.INSTANCE.getStorage().getParty(player);
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return false;
             if (partyContains(player, pokemon.getUuid())) return true;
             boolean added = party.add(pokemon);
             if (!added) return false;
             try { pokemon.heal(); } catch (Throwable ignored) {}
-            try { party.sendTo(player); } catch (Throwable ignored) {}
-            try { Cobblemon.INSTANCE.getStorage().getParty(player).sendTo(player); } catch (Throwable ignored) {}
-            try { Cobblemon.INSTANCE.getStorage().onPlayerDataSync(player); } catch (Throwable ignored) {}
             try { CobblemonProfileStorageBridge.forceSaveActiveProfileStores(player); } catch (Throwable ignored) {}
+            CobblemonProfileStorageBridge.resyncActiveProfileParty(player, "starter-claim");
             return true;
         } catch (Throwable t) {
             t.printStackTrace();
@@ -277,10 +273,7 @@ public final class MonotypeStarterManager {
     private static boolean partyContains(ServerPlayer player, UUID pokemonUuid) {
         if (player == null || pokemonUuid == null) return false;
         try {
-            UUID profileId = PlayerProfileManager.activeProfileId(player);
-            var party = (profileId != null && !profileId.equals(player.getUUID()))
-                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
-                    : Cobblemon.INSTANCE.getStorage().getParty(player);
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return false;
             for (Pokemon pokemon : party) {
                 if (pokemon != null && pokemonUuid.equals(pokemon.getUuid())) return true;
@@ -291,10 +284,7 @@ public final class MonotypeStarterManager {
 
     private static boolean isPartyEmpty(ServerPlayer player) {
         try {
-            UUID profileId = PlayerProfileManager.activeProfileId(player);
-            var party = (profileId != null && !profileId.equals(player.getUUID()))
-                    ? Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess())
-                    : Cobblemon.INSTANCE.getStorage().getParty(player);
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
             if (party == null) return true;
             for (Pokemon pokemon : party) if (pokemon != null) return false;
         } catch (Throwable ignored) {}

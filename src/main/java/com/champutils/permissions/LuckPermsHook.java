@@ -13,6 +13,7 @@ import net.luckperms.api.node.types.InheritanceNode;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class LuckPermsHook {
 
@@ -287,6 +288,14 @@ public class LuckPermsHook {
         }
     }
 
+    public static boolean hasAnyGroup(ServerPlayer player, String... groups) {
+        if (player == null || groups == null || groups.length == 0) return false;
+        for (String group : groups) {
+            if (hasGroup(player, group)) return true;
+        }
+        return false;
+    }
+
 
     public static boolean addGroup(
             ServerPlayer player,
@@ -301,18 +310,41 @@ public class LuckPermsHook {
             UUID playerUuid,
             String group
     ){
-        if (playerUuid == null || group == null || group.isBlank()) return false;
         try {
-            LuckPerms lp = LuckPermsProvider.get();
-            User user = lp.getUserManager().loadUser(playerUuid).join();
-            String safeGroup = group.trim().toLowerCase(java.util.Locale.ROOT);
-            Node node = InheritanceNode.builder(safeGroup).value(true).build();
-            user.data().add(node);
-            lp.getUserManager().saveUser(user);
-            return true;
+            return addGroupAsync(playerUuid, group).get(5, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+    public static CompletableFuture<Boolean> addGroupAsync(
+            UUID playerUuid,
+            String group
+    ){
+        if (playerUuid == null || group == null || group.isBlank()) return CompletableFuture.completedFuture(false);
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            String safeGroup = group.trim().toLowerCase(java.util.Locale.ROOT);
+            return lp.getUserManager()
+                    .loadUser(playerUuid)
+                    .thenCompose(user -> {
+                        Node node = InheritanceNode.builder(safeGroup).value(true).build();
+                        user.data().add(node);
+                        return lp.getUserManager().saveUser(user).thenApply(ignored -> user);
+                    })
+                    .thenCompose(user -> lp.getUserManager().loadUser(playerUuid))
+                    .thenApply(user -> {
+                        com.champutils.chat.ChatTagResolver.invalidate(playerUuid);
+                        return true;
+                    })
+                    .exceptionally(error -> {
+                        error.printStackTrace();
+                        return false;
+                    });
+        } catch (Exception e) {
+            e.printStackTrace();
+            return CompletableFuture.completedFuture(false);
         }
     }
 

@@ -6,6 +6,7 @@ import com.champutils.database.DatabaseManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.network.NetworkEventManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.wiki.PokemonWikiIndex;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
 import net.minecraft.ChatFormatting;
@@ -15,10 +16,85 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerContractService {
+    private static final Map<UUID, PendingPokemonContract> PENDING_POKEMON_CONTRACTS = new ConcurrentHashMap<>();
+
     private PlayerContractService() {}
+
+    public static boolean consumeChatInput(ServerPlayer player, String rawMessage) {
+        if (player == null) return false;
+        PendingPokemonContract pending = PENDING_POKEMON_CONTRACTS.get(player.getUUID());
+        if (pending == null) return false;
+        String input = rawMessage == null ? "" : rawMessage.trim();
+        if (input.equalsIgnoreCase("cancel")) {
+            PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
+            player.sendSystemMessage(Component.literal("Pokémon contract creation cancelled.").withStyle(ChatFormatting.YELLOW));
+            return true;
+        }
+        if (input.isBlank()) {
+            player.sendSystemMessage(Component.literal("Type a value, or type cancel.").withStyle(ChatFormatting.RED));
+            return true;
+        }
+
+        if (pending.step == PendingStep.SPECIES) {
+            if (!PokemonWikiIndex.knowsSpecies(input)) {
+                player.sendSystemMessage(Component.literal("I could not find that Pokémon. Try the species name again, or type cancel.").withStyle(ChatFormatting.RED));
+                return true;
+            }
+            pending.species = PokemonWikiIndex.displayName(input);
+            pending.speciesKey = cleanSpecies(input);
+            pending.step = PendingStep.NATURE;
+            PlayerContractMenu.openPokemonNatureMenu(player, pending.species);
+            return true;
+        }
+
+        if (pending.step == PendingStep.REWARD) {
+            long rewardCents = parseRewardCents(input);
+            if (rewardCents <= 0L) {
+                player.sendSystemMessage(Component.literal("Type the Credits reward as a number, like 500 or 1250.50. Type cancel to stop.").withStyle(ChatFormatting.RED));
+                return true;
+            }
+            PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
+            createPokemonContractFromCriteria(player, pending, rewardCents);
+            return true;
+        }
+
+        player.sendSystemMessage(Component.literal("Use the open contract menu, or type cancel to stop.").withStyle(ChatFormatting.YELLOW));
+        return true;
+    }
+
+    public static void beginPokemonContract(ServerPlayer player) {
+        if (player == null) return;
+        PENDING_POKEMON_CONTRACTS.put(player.getUUID(), new PendingPokemonContract());
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Type the Pokémon species for the contract in chat. Example: Gible. Type cancel to stop.").withStyle(ChatFormatting.AQUA));
+    }
+
+    public static void cancelPending(ServerPlayer player) {
+        if (player == null) return;
+        PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
+    }
+
+    public static void selectPokemonNature(ServerPlayer player, String nature) {
+        PendingPokemonContract pending = pending(player);
+        if (pending == null || pending.step != PendingStep.NATURE) return;
+        pending.nature = any(nature) ? "" : pretty(nature);
+        pending.step = PendingStep.ABILITY;
+        PlayerContractMenu.openPokemonAbilityMenu(player, pending.species, PokemonWikiIndex.abilityNames(pending.speciesKey));
+    }
+
+    public static void selectPokemonAbility(ServerPlayer player, String ability) {
+        PendingPokemonContract pending = pending(player);
+        if (pending == null || pending.step != PendingStep.ABILITY) return;
+        pending.ability = any(ability) ? "" : pretty(ability);
+        pending.step = PendingStep.REWARD;
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Type the Credits reward for this contract. Example: 1000. Type cancel to stop.").withStyle(ChatFormatting.GOLD));
+    }
 
     public static void createItemContractFromHand(ServerPlayer player, int rewardCredits) {
         if (player == null) return;
@@ -69,6 +145,26 @@ public final class PlayerContractService {
         if (pokemon.getShiny()) criteria.addProperty("shiny", true);
         String title = "Deliver " + pokemon.getDisplayName(true).getString();
         createContract(player, "POKEMON", title, rewardCents, criteria);
+    }
+
+    private static void createPokemonContractFromCriteria(ServerPlayer player, PendingPokemonContract pending, long rewardCents) {
+        if (player == null || pending == null || pending.speciesKey == null || pending.speciesKey.isBlank()) return;
+        EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(player, rewardCents, "create_player_pokemon_contract");
+        if (!withdrawn.success) {
+            player.sendSystemMessage(Component.literal(withdrawn.error == null ? "Not enough Credits." : withdrawn.error).withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        JsonObject criteria = new JsonObject();
+        criteria.addProperty("species", pending.speciesKey);
+        if (pending.nature != null && !pending.nature.isBlank()) criteria.addProperty("nature", cleanToken(pending.nature));
+        if (pending.ability != null && !pending.ability.isBlank()) criteria.addProperty("ability", cleanToken(pending.ability));
+
+        StringBuilder title = new StringBuilder("Deliver ");
+        if (pending.nature != null && !pending.nature.isBlank()) title.append(pending.nature).append(" ");
+        if (pending.ability != null && !pending.ability.isBlank()) title.append(pending.ability).append(" ");
+        title.append(pending.species == null || pending.species.isBlank() ? PokemonWikiIndex.displayName(pending.speciesKey) : pending.species);
+        createContract(player, "POKEMON", title.toString(), rewardCents, criteria);
     }
 
     private static void createContract(ServerPlayer player, String type, String title, long rewardCents, JsonObject criteria) {
@@ -323,6 +419,10 @@ public final class PlayerContractService {
         if (maxLevel != null && pokemon.getLevel() > maxLevel) return false;
         String gender = string(criteria, "gender");
         if (gender != null && !gender.isBlank() && !containsClean(String.valueOf(pokemon.getGender()), gender)) return false;
+        String nature = string(criteria, "nature");
+        if (nature != null && !nature.isBlank() && !containsClean(readNature(pokemon), nature)) return false;
+        String ability = string(criteria, "ability");
+        if (ability != null && !ability.isBlank() && !containsClean(readAbility(pokemon), ability)) return false;
         return true;
     }
 
@@ -336,7 +436,30 @@ public final class PlayerContractService {
         String cleaned = value.toLowerCase(Locale.ROOT).trim();
         int colon = cleaned.lastIndexOf(':');
         if (colon >= 0 && colon + 1 < cleaned.length()) cleaned = cleaned.substring(colon + 1);
-        return cleaned.replace(" ", "_");
+        return cleaned.replace("-", "_").replace(" ", "_").replaceAll("[^a-z0-9_]", "");
+    }
+
+    private static String readNature(Pokemon pokemon) {
+        try {
+            Object nature = pokemon.getNature();
+            return nature == null ? "" : nature.toString();
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private static String readAbility(Pokemon pokemon) {
+        try {
+            Object ability = pokemon.getAbility();
+            if (ability == null) return "";
+            try {
+                Object name = ability.getClass().getMethod("getName").invoke(ability);
+                if (name != null) return name.toString();
+            } catch (Throwable ignored) {}
+            return ability.toString();
+        } catch (Throwable ignored) {
+            return "";
+        }
     }
 
     private static boolean containsClean(String actual, String expected) {
@@ -384,5 +507,68 @@ public final class PlayerContractService {
             } catch (Exception ignored) {}
         }
         return null;
+    }
+
+    private static PendingPokemonContract pending(ServerPlayer player) {
+        if (player == null) return null;
+        PendingPokemonContract pending = PENDING_POKEMON_CONTRACTS.get(player.getUUID());
+        if (pending == null) {
+            player.sendSystemMessage(Component.literal("That contract setup expired. Start again from Player Contracts.").withStyle(ChatFormatting.RED));
+        }
+        return pending;
+    }
+
+    private static boolean any(String value) {
+        return value == null || value.isBlank() || value.equalsIgnoreCase("any") || value.equalsIgnoreCase("any nature") || value.equalsIgnoreCase("any ability");
+    }
+
+    private static String pretty(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String cleaned = raw.replace('_', ' ').replace('-', ' ').trim();
+        StringBuilder out = new StringBuilder();
+        for (String part : cleaned.split("\\s+")) {
+            if (part.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            String lower = part.toLowerCase(Locale.ROOT);
+            out.append(Character.toUpperCase(lower.charAt(0)));
+            if (lower.length() > 1) out.append(lower.substring(1));
+        }
+        return out.toString();
+    }
+
+    private static String cleanToken(String raw) {
+        if (raw == null) return "";
+        return raw.toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_').replaceAll("[^a-z0-9_]", "");
+    }
+
+    private static long parseRewardCents(String input) {
+        if (input == null) return 0L;
+        String cleaned = input.toLowerCase(Locale.ROOT)
+                .replace("credits", "")
+                .replace("credit", "")
+                .replace(",", "")
+                .trim();
+        cleaned = cleaned.replaceAll("[^0-9.]", "");
+        if (cleaned.isBlank()) return 0L;
+        try {
+            return EconomyManager.creditsToCents(Double.parseDouble(cleaned));
+        } catch (Exception ignored) {
+            return 0L;
+        }
+    }
+
+    private enum PendingStep {
+        SPECIES,
+        NATURE,
+        ABILITY,
+        REWARD
+    }
+
+    private static final class PendingPokemonContract {
+        private PendingStep step = PendingStep.SPECIES;
+        private String speciesKey = "";
+        private String species = "";
+        private String nature = "";
+        private String ability = "";
     }
 }

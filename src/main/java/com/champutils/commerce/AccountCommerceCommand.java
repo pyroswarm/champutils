@@ -14,9 +14,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 public final class AccountCommerceCommand {
     private AccountCommerceCommand() {}
+    private record RankGrantResult(AccountCommerceRepository.ResolvedAccount account, boolean recorded, boolean granted) {}
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -75,19 +77,22 @@ public final class AccountCommerceCommand {
     private static int grantBoosterCredits(CommandSourceStack source, String playerName, int amount, String reference) {
         MinecraftServer server = source.getServer();
         AccountCommerceRepository.resolveAccountAsync(server, playerName)
-                .thenCompose(account -> AccountCommerceRepository.recordPurchaseAsync(account, "TEBEX", "boostercredits", amount, reference, "Purchased booster credits")
-                        .thenApply(inserted -> new Object[]{account, inserted}))
+                .thenCompose(account -> AccountCommerceRepository.grantBoosterCreditsAsync(account, amount, reference))
                 .thenAccept(result -> server.execute(() -> {
-                    AccountCommerceRepository.ResolvedAccount account = (AccountCommerceRepository.ResolvedAccount) result[0];
-                    boolean inserted = (Boolean) result[1];
-                    if (account == null || !inserted) {
-                        source.sendFailure(Component.literal("Purchase already processed or account could not be resolved."));
+                    AccountCommerceRepository.ResolvedAccount account = result == null ? null : result.account();
+                    boolean inserted = result != null && result.inserted();
+                    if (account == null) {
+                        source.sendFailure(Component.literal("Purchase account could not be resolved."));
                         return;
                     }
-                    BoosterCreditManager.addPurchasedCredits(account.accountUuid(), amount);
+                    BoosterCreditManager.setCachedPurchasedCredits(account.accountUuid(), result.balance());
                     ServerPlayer online = server.getPlayerList().getPlayer(account.accountUuid());
-                    if (online != null) online.sendSystemMessage(Component.literal("You received " + amount + " purchased booster credit(s).").withStyle(ChatFormatting.GREEN));
-                    source.sendSuccess(() -> Component.literal("Granted " + amount + " account booster credit(s) to " + account.username() + "."), true);
+                    if (inserted) {
+                        if (online != null) online.sendSystemMessage(Component.literal("You received " + amount + " purchased booster credit(s).").withStyle(ChatFormatting.GREEN));
+                        source.sendSuccess(() -> Component.literal("Granted " + amount + " account booster credit(s) to " + account.username() + "."), true);
+                    } else {
+                        source.sendSuccess(() -> Component.literal("Booster credit purchase was already delivered to " + account.username() + "."), true);
+                    }
                 }))
                 .exceptionally(error -> {
                     server.execute(() -> source.sendFailure(Component.literal("Failed to process purchase: " + error.getMessage())));
@@ -108,34 +113,45 @@ public final class AccountCommerceCommand {
             source.sendFailure(Component.literal("Unknown rank tier. Use vip or vipplus."));
             return 0;
         }
+        boolean vipPlus = tier.equals("vipplus") || tier.equals("vip_plus");
         AccountCommerceRepository.resolveAccountAsync(server, playerName)
-                .thenCompose(account -> AccountCommerceRepository.recordPurchaseAsync(account, "TEBEX", "rank_" + tier, 1, reference, "Purchased rank " + tier)
-                        .thenApply(inserted -> new Object[]{account, inserted}))
+                .thenCompose(account -> {
+                    if (account == null) return CompletableFuture.completedFuture(new RankGrantResult(null, false, false));
+                    return AccountCommerceRepository.recordPurchaseAsync(account, "TEBEX", "rank_" + tier, 1, reference, "Purchased rank " + tier)
+                            .thenCompose(recorded -> grantRankGroups(account, group, vipPlus)
+                                    .thenApply(granted -> new RankGrantResult(account, recorded, granted)));
+                })
                 .thenAccept(result -> server.execute(() -> {
-                    AccountCommerceRepository.ResolvedAccount account = (AccountCommerceRepository.ResolvedAccount) result[0];
-                    boolean inserted = (Boolean) result[1];
-                    if (account == null || !inserted) {
-                        source.sendFailure(Component.literal("Purchase already processed or account could not be resolved."));
+                    AccountCommerceRepository.ResolvedAccount account = result.account();
+                    if (account == null) {
+                        source.sendFailure(Component.literal("Purchase account could not be resolved."));
                         return;
                     }
-                    boolean ok = LuckPermsHook.addGroup(account.accountUuid(), group);
-                    if (ok && (tier.equals("vipplus") || tier.equals("vip_plus")) && AccountUpgradeConfig.CONFIG.vip != null) {
-                        LuckPermsHook.addGroup(account.accountUuid(), AccountUpgradeConfig.CONFIG.vip.luckPermsGroup);
-                    }
-                    if (!ok) {
-                        source.sendFailure(Component.literal("Purchase recorded, but the account rank grant failed."));
+                    if (!result.granted()) {
+                        source.sendFailure(Component.literal("Purchase recorded, but the account rank grant failed. Re-run this same command after LuckPerms SQL is healthy."));
                         return;
                     }
                     ServerPlayer online = server.getPlayerList().getPlayer(account.accountUuid());
-                    String display = (tier.equals("vipplus") || tier.equals("vip_plus")) ? "VIP+" : "VIP";
+                    String display = vipPlus ? "VIP+" : "VIP";
                     if (online != null) online.sendSystemMessage(Component.literal("Your " + display + " account upgrade is now active.").withStyle(ChatFormatting.GREEN));
-                    source.sendSuccess(() -> Component.literal("Granted " + display + " to " + account.username() + "."), true);
+                    String action = result.recorded() ? "Granted " : "Ensured already-recorded ";
+                    source.sendSuccess(() -> Component.literal(action + display + " for " + account.username() + "."), true);
                 }))
                 .exceptionally(error -> {
                     server.execute(() -> source.sendFailure(Component.literal("Failed to process purchase: " + error.getMessage())));
                     return null;
                 });
         return 1;
+    }
+
+    private static CompletableFuture<Boolean> grantRankGroups(AccountCommerceRepository.ResolvedAccount account, String group, boolean vipPlus) {
+        CompletableFuture<Boolean> grant = LuckPermsHook.addGroupAsync(account.accountUuid(), group);
+        if (vipPlus && AccountUpgradeConfig.CONFIG.vip != null && AccountUpgradeConfig.CONFIG.vip.luckPermsGroup != null && !AccountUpgradeConfig.CONFIG.vip.luckPermsGroup.isBlank()) {
+            grant = grant.thenCompose(ok -> ok
+                    ? LuckPermsHook.addGroupAsync(account.accountUuid(), AccountUpgradeConfig.CONFIG.vip.luckPermsGroup)
+                    : CompletableFuture.completedFuture(false));
+        }
+        return grant;
     }
 
     private static int recordOnly(CommandSourceStack source, String playerName, String packageKey, int quantity, String reference) {

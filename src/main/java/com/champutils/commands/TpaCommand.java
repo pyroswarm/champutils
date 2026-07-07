@@ -3,7 +3,9 @@ package com.champutils.commands;
 import com.champutils.network.NetworkEventManager;
 import com.champutils.network.NetworkPlayerDirectory;
 import com.champutils.network.NetworkServerConfig;
-import com.champutils.profile.ProxyTransferBridge;
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.teleport.SafeTeleportManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -22,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class TpaCommand {
     private static final long EXPIRE_MS = 60_000L;
+    private static final String PENDING_TPA_LANDING_KEY = "pending_tpa_landing";
     private static final Map<UUID, Request> REQUESTS_BY_TARGET = new ConcurrentHashMap<>();
     private static final Map<UUID, Landing> PENDING_LANDINGS = new ConcurrentHashMap<>();
 
@@ -135,9 +138,27 @@ public final class TpaCommand {
         requester.sendSystemMessage(Component.literal(landing.targetName + " accepted your TPA request. Sending you to " + displayServer(landing.serverId) + "...").withStyle(ChatFormatting.GREEN));
         if (NetworkServerConfig.serverId().equalsIgnoreCase(landing.serverId)) {
             consumePendingLanding(requester);
-        } else if (!ProxyTransferBridge.connect(requester, landing.serverId)) {
-            requester.sendSystemMessage(Component.literal("Could not connect you to " + displayServer(landing.serverId) + ". Try again in a moment.").withStyle(ChatFormatting.RED));
+            return;
         }
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(requester);
+        if (active == null) {
+            requester.sendSystemMessage(Component.literal("Select a profile before using cross-server TPA.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        SharedJsonStateRepository.savePlayerAsync(requester.getUUID(), PENDING_TPA_LANDING_KEY, landing)
+                .whenComplete((ignored, error) -> server.execute(() -> {
+                    ServerPlayer live = server.getPlayerList().getPlayer(requesterId);
+                    if (!SafeTeleportManager.isLive(live)) return;
+                    if (error != null) {
+                        live.sendSystemMessage(Component.literal("Could not prepare the cross-server TPA transfer. Try again in a moment.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    ProfileNetworkTransferFlow.issueTransferFromLobby(live, active, landing.serverId, transferMessage -> {
+                        if (transferMessage != null && transferMessage.startsWith("Could not")) {
+                            live.sendSystemMessage(Component.literal(transferMessage).withStyle(ChatFormatting.RED));
+                        }
+                    });
+                }));
     }
 
     public static void handleNetworkDeny(MinecraftServer server, String scope, String message) {
@@ -152,22 +173,44 @@ public final class TpaCommand {
 
     public static void handleJoin(ServerPlayer player) {
         if (player == null) return;
-        consumePendingLanding(player);
+        if (consumePendingLanding(player)) return;
+        UUID playerUuid = player.getUUID();
+        SharedJsonStateRepository
+                .loadPlayerAsync(playerUuid, PENDING_TPA_LANDING_KEY, Landing.class, null)
+                .thenAccept(landing -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player) || landing == null) return;
+                    if (landing.expiresAtMs < System.currentTimeMillis()) {
+                        clearSharedLanding(playerUuid);
+                        return;
+                    }
+                    PENDING_LANDINGS.put(playerUuid, landing);
+                    if (consumePendingLanding(player)) {
+                        clearSharedLanding(playerUuid);
+                    }
+                }));
     }
 
-    private static void consumePendingLanding(ServerPlayer player) {
+    private static boolean consumePendingLanding(ServerPlayer player) {
         Landing landing = PENDING_LANDINGS.get(player.getUUID());
         if (landing == null || landing.expiresAtMs < System.currentTimeMillis()) {
             PENDING_LANDINGS.remove(player.getUUID());
-            return;
+            return false;
         }
-        if (!NetworkServerConfig.serverId().equalsIgnoreCase(landing.serverId)) return;
+        if (!NetworkServerConfig.serverId().equalsIgnoreCase(landing.serverId)) return false;
         var level = player.server.getLevel(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, ResourceLocation.parse(landing.dimension)));
-        if (level == null) return;
+        if (level == null) return false;
         PENDING_LANDINGS.remove(player.getUUID());
         if (SafeTeleportManager.teleport(player, level, landing.x, landing.y, landing.z, landing.yaw, landing.pitch)) {
             player.sendSystemMessage(Component.literal("Teleported to " + landing.targetName + ".").withStyle(ChatFormatting.GREEN));
+            return true;
         }
+        return false;
+    }
+
+    private static void clearSharedLanding(UUID playerUuid) {
+        if (playerUuid == null) return;
+        Landing cleared = new Landing(playerUuid, "", "", "", 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, 0L);
+        SharedJsonStateRepository.savePlayer(playerUuid, PENDING_TPA_LANDING_KEY, cleared);
     }
 
     private static void sendRequestPrompt(ServerPlayer target, String requesterName, String requesterServer) {

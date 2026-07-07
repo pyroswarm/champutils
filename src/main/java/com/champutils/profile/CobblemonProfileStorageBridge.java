@@ -3,9 +3,11 @@ package com.champutils.profile;
 import com.champutils.debug.ChampDebugManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.Priority;
+import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -26,9 +28,9 @@ public final class CobblemonProfileStorageBridge {
     public static synchronized void registerSqlFactory(MinecraftServer server) {
         if (registered) return;
         sqlFactory = new ProfileCobblemonSqlStoreFactory();
-        sqlFactory.ensureSchema();
         Cobblemon.INSTANCE.getStorage().registerFactory(Priority.HIGHEST, sqlFactory);
         registered = true;
+        ensureSchemaAsync();
         System.out.println("[ChampUtils] Registered SQL-backed Cobblemon profile storage factory.");
     }
 
@@ -102,8 +104,20 @@ public final class CobblemonProfileStorageBridge {
         sqlFactory.prefetchParty(connection, profileId, accountUuid, registryAccess);
     }
 
+    public static void prefetchProfilePartyFromRaw(UUID profileId, UUID accountUuid, net.minecraft.core.RegistryAccess registryAccess, String partyNbt) {
+        if (profileId == null || accountUuid == null || registryAccess == null || sqlFactory == null) return;
+        sqlFactory.prefetchPartyRaw(profileId, accountUuid, registryAccess, partyNbt);
+    }
+
     public static void evictProfileStores(UUID profileId) {
         if (sqlFactory != null) sqlFactory.evict(profileId);
+    }
+
+    public static void prefetchActiveProfilePcAsync(ServerPlayer player) {
+        if (player == null || sqlFactory == null || !PlayerProfileManager.hasActiveProfile(player)) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return;
+        sqlFactory.prefetchPcAsync(profileId, player.getUUID(), player.registryAccess());
     }
 
 
@@ -148,12 +162,10 @@ public final class CobblemonProfileStorageBridge {
         // first actual PC access instead of during every profile swap.
         long getPartyStart = System.currentTimeMillis();
         boolean cacheHitBefore = hasSqlCachedParty(profileId);
-        var party = Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess());
-        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon get cached party took " + (System.currentTimeMillis() - getPartyStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " cacheHitBefore=" + cacheHitBefore);
+        PlayerPartyStore party = activeRuntimeParty(player, profileId);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon get cached party took " + (System.currentTimeMillis() - getPartyStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " cacheHitBefore=" + cacheHitBefore + " partySize=" + cachedPartySize(profileId));
 
-        long sendStart = System.currentTimeMillis();
-        party.sendTo(player);
-        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
+        sendActivePartySnapshot(player, profileId, party, true, "initial");
 
         // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
         // but do not release the profile-loading quarantine until it finishes.
@@ -167,19 +179,13 @@ public final class CobblemonProfileStorageBridge {
                     done.complete(null);
                     return;
                 }
-                // Do not call Cobblemon's full onPlayerDataSync here. In Cobblemon 1.7.3 that path can
-                // request the PC store, which lazy-loads a large SQL blob and parses SNBT on the server
-                // thread. We already send the active party above, and PC storage will lazy-load only when
-                // the player actually opens/uses a PC. This keeps login/profile activation from producing
-                // DatabaseManager.getConnection() server-thread warnings and 70ms+ tick stalls.
-                CompletableFuture.runAsync(() -> player.server.execute(() -> {
-                    try {
-                        if (!player.hasDisconnected() && profileId.equals(PlayerProfileManager.activeProfileId(player))) {
-                            party.sendTo(player);
-                        }
-                    } catch (Throwable ignored) {
-                    }
-                }), CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS));
+                // Cobblemon's normal player data sync is needed for client party/summary screens.
+                // The SQL PC factory now returns a lightweight shell on the server thread and
+                // hydrates the real PC asynchronously, so this no longer turns profile activation
+                // into a blocking PC SQL load.
+                safeCobblemonPlayerDataSync(player, profileId, "activation");
+                schedulePartyVerify(player, profileId, 250L, true);
+                schedulePartyVerify(player, profileId, 1_000L, false);
                 done.complete(null);
             } catch (Throwable t) {
                 done.completeExceptionally(t);
@@ -189,5 +195,80 @@ public final class CobblemonProfileStorageBridge {
         long elapsed = System.currentTimeMillis() - start;
         ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);
         return done;
+    }
+
+    private static int cachedPartySize(UUID profileId) {
+        return sqlFactory == null ? -1 : sqlFactory.cachedPartySize(profileId);
+    }
+
+    private static PlayerPartyStore activeRuntimeParty(ServerPlayer player, UUID profileId) {
+        if (player == null) return null;
+        try {
+            return Cobblemon.INSTANCE.getStorage().getParty(player);
+        } catch (Throwable ignored) {
+        }
+        try {
+            return Cobblemon.INSTANCE.getStorage().getParty(profileId, player.registryAccess());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    public static void resyncActiveProfileParty(ServerPlayer player, String reason) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        PlayerPartyStore party = activeRuntimeParty(player, profileId);
+        sendActivePartySnapshot(player, profileId, party, true, reason == null ? "manual" : reason);
+        schedulePartyVerify(player, profileId, 250L, true);
+        schedulePartyVerify(player, profileId, 1_000L, false);
+    }
+
+    private static void schedulePartyVerify(ServerPlayer player, UUID profileId, long delayMillis, boolean includePlayerDataSync) {
+        if (player == null || player.server == null || profileId == null) return;
+        CompletableFuture
+                .runAsync(() -> {}, CompletableFuture.delayedExecutor(Math.max(50L, delayMillis), TimeUnit.MILLISECONDS))
+                .thenRun(() -> player.server.execute(() -> {
+                    if (player.hasDisconnected()) return;
+                    if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+                    PlayerPartyStore party = activeRuntimeParty(player, profileId);
+                    sendActivePartySnapshot(player, profileId, party, includePlayerDataSync, "verify-" + delayMillis + "ms");
+                    if (delayMillis >= 1_000L) prefetchActiveProfilePcAsync(player);
+                }));
+    }
+
+    private static void sendActivePartySnapshot(ServerPlayer player, UUID profileId, PlayerPartyStore party, boolean includePlayerDataSync, String reason) {
+        if (player == null || party == null) return;
+        long sendStart = System.currentTimeMillis();
+        try {
+            party.sendTo(player);
+        } catch (Throwable throwable) {
+            System.err.println("[ChampUtils] Failed to send Cobblemon party to " + player.getGameProfile().getName() + " during " + reason + ".");
+            throwable.printStackTrace();
+            return;
+        }
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason + " partySize=" + cachedPartySize(profileId));
+        if (includePlayerDataSync) safeCobblemonPlayerDataSync(player, profileId, reason);
+    }
+
+    private static void safeCobblemonPlayerDataSync(ServerPlayer player, UUID profileId, String reason) {
+        if (player == null || player.server == null || player.hasDisconnected()) return;
+        if (profileId != null && !profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+        long start = System.currentTimeMillis();
+        try {
+            Object storage = Cobblemon.INSTANCE.getStorage();
+            Method sync = null;
+            for (Method method : storage.getClass().getMethods()) {
+                if (!method.getName().equals("onPlayerDataSync") || method.getParameterCount() != 1) continue;
+                if (!method.getParameterTypes()[0].isAssignableFrom(ServerPlayer.class)) continue;
+                sync = method;
+                break;
+            }
+            if (sync == null) return;
+            sync.invoke(storage, player);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon onPlayerDataSync took " + (System.currentTimeMillis() - start) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason);
+        } catch (Throwable throwable) {
+            System.err.println("[ChampUtils] Failed to run Cobblemon player data sync for " + player.getGameProfile().getName() + " during " + reason + ".");
+            throwable.printStackTrace();
+        }
     }
 }

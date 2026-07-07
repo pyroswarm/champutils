@@ -66,6 +66,7 @@ import com.champutils.expeditions.*;
 import com.champutils.adventurer.*;
 import com.champutils.adventureguide.*;
 import com.champutils.tutorial.*;
+import com.champutils.music.*;
 import com.champutils.afk.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -209,6 +210,7 @@ public class ChampUtilsMod implements ModInitializer {
         }
 
         GuildConfig.load();
+        MusicConfig.load();
         GuildBuffConfig.load();
         BossConfig.load();
         ChampBattleAIConfig.load();
@@ -409,6 +411,7 @@ public class ChampUtilsMod implements ModInitializer {
                     NetworkReadySchemaManager.ensureAsync();
                     DatabaseMaintenanceManager.ensureAsync();
                     AccountCommerceRepository.ensureSchemaAsync();
+                    BoosterCreditManager.ensureSchemaAsync();
                     AccountVoteManager.start(server);
                     PlayerProfileManager.ensureSchemaAsync();
                     TutorialManager.ensureSchemaAsync();
@@ -495,6 +498,7 @@ public class ChampUtilsMod implements ModInitializer {
                     );
 
                     SurvivalWhitelistManager.handleJoin(player);
+                    MusicManager.handleJoin(player);
                     if (player.hasDisconnected()) return;
 
                     PlayerProfileManager.handleJoin(player);
@@ -619,6 +623,7 @@ public class ChampUtilsMod implements ModInitializer {
                 (handler, server) -> {
 
                     AntiAfkManager.handleDisconnect(handler.player);
+                    MusicManager.handleQuit(handler.player);
                     AdventurerGuildManager.unloadPlayer(handler.player);
                     AdventureGuideManager.unloadPlayer(handler.player);
                     PlayerProfileManager.saveAndUnloadForDisconnect(handler.player);
@@ -649,6 +654,13 @@ public class ChampUtilsMod implements ModInitializer {
                                 message.signedContent()
                         );
 
+                        return false;
+                    }
+
+                    if (com.champutils.contracts.PlayerContractService.consumeChatInput(
+                            player,
+                            message.signedContent()
+                    )) {
                         return false;
                     }
 
@@ -764,6 +776,7 @@ public class ChampUtilsMod implements ModInitializer {
         ExpeditionCommand.register();
         WildSpawnCapCommand.register();
         TutorialCommand.register();
+        MusicCommand.register();
         MagnetCommand.register();
         com.champutils.survival.HostileToggleManager.register();
         SurvivalWhitelistCommand.register();
@@ -790,6 +803,7 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
         BattleDamageProtectionListener.register();
+        MusicBattleListener.register();
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();
@@ -856,6 +870,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("ShopPokemonCrateOpeningGui", () -> ShopPokemonCrateOpeningGui.tick(server));
                     timedTick("OpenCratesMenu", () -> OpenCratesMenu.tick(server));
                     timedTick("NotificationManager", () -> NotificationManager.tick(server));
+                    timedTick("MusicManager", () -> MusicManager.tick(server));
                     timedTick("NetworkEventManager", () -> NetworkEventManager.tick(server));
                     timedTick("NetworkTabListManager", () -> NetworkTabListManager.tick(server));
                     timedTick("PokemonHuntManager", () -> PokemonHuntManager.tick(server));

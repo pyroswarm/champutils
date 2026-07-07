@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.storage.party.PartyStore;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,11 +28,25 @@ public abstract class CobblemonPokemonStoreManagerMixin {
         cir.setReturnValue(((PokemonStoreManager) (Object) this).getParty(profileId, registryAccess));
     }
 
+    @Inject(method = "getParty(Lnet/minecraft/server/level/ServerPlayer;)Lcom/cobblemon/mod/common/api/storage/party/PlayerPartyStore;", at = @At("HEAD"), cancellable = true)
+    private void champutils$getProfilePartyForPlayer(ServerPlayer player, CallbackInfoReturnable<PlayerPartyStore> cir) {
+        if (player == null || !CobblemonProfileStorageBridge.shouldRedirect(player.getUUID())) return;
+        UUID profileId = CobblemonProfileStorageBridge.storageKey(player.getUUID());
+        cir.setReturnValue(((PokemonStoreManager) (Object) this).getParty(profileId, player.registryAccess()));
+    }
+
     @Inject(method = "getPC(Ljava/util/UUID;Lnet/minecraft/core/RegistryAccess;)Lcom/cobblemon/mod/common/api/storage/pc/PCStore;", at = @At("HEAD"), cancellable = true)
     private void champutils$getProfilePc(UUID playerID, RegistryAccess registryAccess, CallbackInfoReturnable<PCStore> cir) {
         if (!CobblemonProfileStorageBridge.shouldRedirect(playerID)) return;
         UUID profileId = CobblemonProfileStorageBridge.storageKey(playerID);
         cir.setReturnValue(((PokemonStoreManager) (Object) this).getPC(profileId, registryAccess));
+    }
+
+    @Inject(method = "getPC(Lnet/minecraft/server/level/ServerPlayer;)Lcom/cobblemon/mod/common/api/storage/pc/PCStore;", at = @At("HEAD"), cancellable = true)
+    private void champutils$getProfilePcForPlayer(ServerPlayer player, CallbackInfoReturnable<PCStore> cir) {
+        if (player == null || !CobblemonProfileStorageBridge.shouldRedirect(player.getUUID())) return;
+        UUID profileId = CobblemonProfileStorageBridge.storageKey(player.getUUID());
+        cir.setReturnValue(((PokemonStoreManager) (Object) this).getPC(profileId, player.registryAccess()));
     }
 
     @Inject(method = "getParties", at = @At("HEAD"), cancellable = true)

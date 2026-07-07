@@ -18,6 +18,9 @@ import com.champutils.network.NetworkServerConfig;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.territory.TerritoryRegionWipeManager;
 import com.champutils.leaderboard.ProfileLeaderboardRepository;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,6 +41,7 @@ import java.util.function.Consumer;
 
 public final class PlayerProfileManager {
     public static final int DEFAULT_MAX_PROFILES = 2;
+    private static final Gson GSON = new Gson();
 
     private static final Map<UUID, ProfileRecord> ACTIVE = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> SWITCHING = new ConcurrentHashMap<>();
@@ -88,6 +92,13 @@ public final class PlayerProfileManager {
     private record CachedProfileList(
             List<ProfileRecord> profiles,
             long cachedAtMillis
+    ) {}
+
+    private record TransferActivationData(
+            ProfileRecord profile,
+            String vanillaSnbt,
+            SavedLocationSnapshot savedLocation,
+            String partyNbt
     ) {}
 
     private static void cacheProfile(ProfileRecord record) {
@@ -351,7 +362,9 @@ public static void clearActiveForMenu(ServerPlayer player) {
     UUID playerUuid = player.getUUID();
     ACTIVE.remove(playerUuid);
     SWITCHING.remove(playerUuid);
-    ProfileNetworkTransferFlow.clearAcceptedTransferSession(playerUuid);
+    if (!ProfileNetworkTransferFlow.isSurvivalServer()) {
+        ProfileNetworkTransferFlow.clearAcceptedTransferSession(playerUuid);
+    }
     ProfileSelectionMenu.clearPlayerState(playerUuid);
 }
 
@@ -914,6 +927,171 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         });
     }
 
+    public static String buildNetworkTransferPayload(Connection connection, UUID playerUuid, UUID profileId) throws Exception {
+        if (connection == null || playerUuid == null || profileId == null) return "{}";
+        ProfileRecord profile = readById(connection, playerUuid, profileId);
+        if (profile == null) throw new IllegalArgumentException("Transferred profile no longer exists.");
+
+        String vanillaSnbt = VanillaProfileStateManager.loadSnbt(connection, profileId);
+        SavedLocationSnapshot location = loadSavedLocationSnapshot(connection, profileId);
+        String partyNbt = loadCobblemonPartyNbt(connection, profileId);
+
+        JsonObject root = new JsonObject();
+        root.addProperty("version", 1);
+        root.addProperty("profile_id", profile.profileId().toString());
+        root.addProperty("player_uuid", profile.playerUuid().toString());
+        root.addProperty("profile_name", profile.profileName());
+        root.addProperty("mode", profile.gameMode().name());
+        if (profile.monotypeType() != null) root.addProperty("monotype", profile.monotypeType());
+        if (vanillaSnbt != null) root.addProperty("vanilla_snbt", vanillaSnbt);
+        if (partyNbt != null) root.addProperty("party_nbt", partyNbt);
+
+        JsonObject loc = new JsonObject();
+        if (location == null) {
+            loc.addProperty("use_fallback", true);
+        } else {
+            loc.addProperty("use_fallback", location.useFallback());
+            if (location.dimension() != null) loc.addProperty("dimension", location.dimension());
+            loc.addProperty("x", location.x());
+            loc.addProperty("y", location.y());
+            loc.addProperty("z", location.z());
+            loc.addProperty("yaw", location.yaw());
+            loc.addProperty("pitch", location.pitch());
+        }
+        root.add("saved_location", loc);
+        root.addProperty("prepared_at", System.currentTimeMillis());
+        return GSON.toJson(root);
+    }
+
+    public static void loadFromNetworkTransferPayloadAsync(ServerPlayer player, UUID profileId, String payloadJson, Consumer<String> callback) {
+        if (player == null || profileId == null) {
+            if (callback != null) callback.accept("Could not load transferred profile.");
+            return;
+        }
+        if (!DatabaseManager.isEnabled()) {
+            if (callback != null) callback.accept("Profiles require the SQL database to be enabled.");
+            return;
+        }
+
+        UUID playerUuid = player.getUUID();
+        String playerName = player.getGameProfile().getName();
+        long start = System.currentTimeMillis();
+        ProfileLoadingStateManager.beginBlankSilent(player, "Profile");
+
+        if (SWITCHING.putIfAbsent(playerUuid, Boolean.TRUE) != null) {
+            ProfileLoadingStateManager.end(player);
+            if (callback != null) callback.accept("Profile switch already in progress. Please wait a moment.");
+            return;
+        }
+
+        net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
+        DatabaseManager.supplyAsync("activate transferred profile payload", connection -> {
+            long prepStart = System.currentTimeMillis();
+            TransferActivationData data = parseNetworkTransferPayload(playerUuid, profileId, payloadJson);
+            if (data == null) {
+                data = loadTransferActivationDataFromSql(connection, playerUuid, profileId);
+            }
+            if (data == null || data.profile() == null) {
+                throw new IllegalStateException("Transferred profile no longer exists or belongs to a different player.");
+            }
+
+            SavedLocationSnapshot location = data.savedLocation();
+            if (shouldForceSpawnAtServerSpawn(playerUuid, profileId)) {
+                location = new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true);
+            }
+            if (data.vanillaSnbt() != null) VANILLA_STATE_CACHE.put(profileId, data.vanillaSnbt());
+            if (location != null) SAVED_LOCATION_CACHE.put(profileId, location);
+            cacheProfile(data.profile());
+
+            if (data.partyNbt() != null && !data.partyNbt().isBlank()) {
+                CobblemonProfileStorageBridge.prefetchProfilePartyFromRaw(profileId, playerUuid, registryAccess, data.partyNbt());
+            } else {
+                CobblemonProfileStorageBridge.prefetchProfileStores(connection, profileId, playerUuid, registryAccess);
+            }
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] network transfer payload prep took " + (System.currentTimeMillis() - prepStart) + "ms for " + playerName + " profile=" + profileId);
+            return new TransferActivationData(data.profile(), data.vanillaSnbt(), location, data.partyNbt());
+        }).whenComplete((data, error) -> player.server.execute(() -> {
+            if (!SafeTeleportManager.isLive(player)) {
+                ProfileLoadingStateManager.end(player);
+                SWITCHING.remove(playerUuid);
+                return;
+            }
+            if (error != null || data == null || data.profile() == null) {
+                ProfileLoadingStateManager.end(player);
+                SWITCHING.remove(playerUuid);
+                ACTIVE.remove(playerUuid);
+                Throwable cause = error == null ? null : (error.getCause() == null ? error : error.getCause());
+                if (cause != null) {
+                    System.err.println("[ChampUtils] Network transfer profile activation failed for " + playerName + ": " + cause.getMessage());
+                    cause.printStackTrace();
+                }
+                try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
+                if (callback != null) callback.accept("Could not finish loading your transferred profile. You were returned to profile selection.");
+                return;
+            }
+
+            ProfileRecord active = new ProfileRecord(
+                    data.profile().profileId(),
+                    data.profile().playerUuid(),
+                    data.profile().profileName(),
+                    data.profile().gameMode(),
+                    data.profile().monotypeType(),
+                    true,
+                    false,
+                    null
+            );
+
+            try {
+                CompletableFuture<Void> cobblemonSync = activateLoadedProfile(player, active, data.vanillaSnbt(), data.savedLocation(), null);
+                cobblemonSync.whenComplete((syncIgnored, syncError) -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player)) {
+                        ProfileLoadingStateManager.end(player);
+                        SWITCHING.remove(playerUuid);
+                        return;
+                    }
+                    if (syncError != null) {
+                        ProfileLoadingStateManager.end(player);
+                        SWITCHING.remove(playerUuid);
+                        ACTIVE.remove(playerUuid);
+                        System.err.println("[ChampUtils] Cobblemon transfer profile sync failed for " + playerName + ": " + syncError.getMessage());
+                        syncError.printStackTrace();
+                        try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
+                        if (callback != null) callback.accept("Could not finish loading your profile. You were returned to profile selection.");
+                        return;
+                    }
+
+                    CompletableFuture
+                            .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
+                            .whenComplete((snapshot, backgroundError) -> player.server.execute(() -> {
+                                try {
+                                    if (SafeTeleportManager.isLive(player) && active.profileId().equals(activeProfileId(player))) {
+                                        if (backgroundError != null) {
+                                            System.err.println("[ChampUtils] Background transferred profile session load failed for " + playerName + ": " + backgroundError.getMessage());
+                                            backgroundError.printStackTrace();
+                                        } else {
+                                            ProfileSessionLoader.applyBackground(player, snapshot);
+                                        }
+                                        ProfileSessionLoader.loadDelayedNonCritical(player);
+                                    }
+                                } finally {
+                                    releaseLoadedProfile(player, data.savedLocation());
+                                    SWITCHING.remove(playerUuid);
+                                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] networkTransferAsync total took " + (System.currentTimeMillis() - start) + "ms for " + playerName);
+                                    if (callback != null) callback.accept("Loaded profile " + active.profileName() + " [" + active.gameMode().displayName() + modeSuffix(active) + "].");
+                                }
+                            }));
+                }));
+            } catch (Exception activationError) {
+                ProfileLoadingStateManager.end(player);
+                SWITCHING.remove(playerUuid);
+                ACTIVE.remove(playerUuid);
+                activationError.printStackTrace();
+                try { ProfileLobbyManager.sendToLobby(player); } catch (Exception lobbyError) { lobbyError.printStackTrace(); }
+                if (callback != null) callback.accept("Could not switch profile. You were returned to profile selection.");
+            }
+        }));
+    }
+
 
     /**
      * Final profile-load release. This is intentionally idempotent and retried over the
@@ -1302,6 +1480,71 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         CobblemonProfileStorageBridge.prefetchProfileStores(connection, profileId, playerUuid, registryAccess);
     }
 
+    private static TransferActivationData parseNetworkTransferPayload(UUID expectedPlayerUuid, UUID expectedProfileId, String payloadJson) {
+        if (expectedPlayerUuid == null || expectedProfileId == null || payloadJson == null || payloadJson.isBlank()) return null;
+        try {
+            JsonObject root = JsonParser.parseString(payloadJson).getAsJsonObject();
+            UUID profileId = UUID.fromString(root.get("profile_id").getAsString());
+            UUID playerUuid = UUID.fromString(root.get("player_uuid").getAsString());
+            if (!expectedProfileId.equals(profileId) || !expectedPlayerUuid.equals(playerUuid)) return null;
+
+            String profileName = root.has("profile_name") && !root.get("profile_name").isJsonNull()
+                    ? root.get("profile_name").getAsString()
+                    : "Profile";
+            ProfileGameMode mode = ProfileGameMode.parse(root.has("mode") ? root.get("mode").getAsString() : null);
+            String monotype = root.has("monotype") && !root.get("monotype").isJsonNull()
+                    ? root.get("monotype").getAsString()
+                    : null;
+            String vanillaSnbt = root.has("vanilla_snbt") && !root.get("vanilla_snbt").isJsonNull()
+                    ? root.get("vanilla_snbt").getAsString()
+                    : null;
+            String partyNbt = root.has("party_nbt") && !root.get("party_nbt").isJsonNull()
+                    ? root.get("party_nbt").getAsString()
+                    : null;
+
+            SavedLocationSnapshot location = new SavedLocationSnapshot(null, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, true);
+            if (root.has("saved_location") && root.get("saved_location").isJsonObject()) {
+                JsonObject loc = root.getAsJsonObject("saved_location");
+                boolean useFallback = loc.has("use_fallback") && loc.get("use_fallback").getAsBoolean();
+                String dimension = loc.has("dimension") && !loc.get("dimension").isJsonNull() ? loc.get("dimension").getAsString() : null;
+                double x = loc.has("x") ? loc.get("x").getAsDouble() : 0.0D;
+                double y = loc.has("y") ? loc.get("y").getAsDouble() : 0.0D;
+                double z = loc.has("z") ? loc.get("z").getAsDouble() : 0.0D;
+                float yaw = loc.has("yaw") ? loc.get("yaw").getAsFloat() : 0.0F;
+                float pitch = loc.has("pitch") ? loc.get("pitch").getAsFloat() : 0.0F;
+                location = new SavedLocationSnapshot(dimension, x, y, z, yaw, pitch, useFallback);
+            }
+
+            ProfileRecord profile = new ProfileRecord(profileId, playerUuid, profileName, mode, monotype, true, false, null);
+            return new TransferActivationData(profile, vanillaSnbt, location, partyNbt);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static TransferActivationData loadTransferActivationDataFromSql(Connection connection, UUID playerUuid, UUID profileId) throws Exception {
+        ProfileRecord profile = readById(connection, playerUuid, profileId);
+        if (profile == null) return null;
+        String vanillaSnbt = VanillaProfileStateManager.loadSnbt(connection, profileId);
+        SavedLocationSnapshot savedLocation = loadSavedLocationSnapshot(connection, profileId);
+        String partyNbt = loadCobblemonPartyNbt(connection, profileId);
+        return new TransferActivationData(profile, vanillaSnbt, savedLocation, partyNbt);
+    }
+
+    private static String loadCobblemonPartyNbt(Connection connection, UUID profileId) throws Exception {
+        if (connection == null || profileId == null) return null;
+        try (var ps = connection.prepareStatement("select party_nbt from profile_cobblemon_storage where profile_id = ?")) {
+            ps.setObject(1, profileId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return ProfileAtomicSnapshotManager.latestCompletedCobblemon(connection, profileId, true);
+                String raw = rs.getString("party_nbt");
+                return raw == null || raw.isBlank()
+                        ? ProfileAtomicSnapshotManager.latestCompletedCobblemon(connection, profileId, true)
+                        : raw;
+            }
+        }
+    }
+
     private static SavedLocationSnapshot loadSavedLocationSnapshot(Connection connection, UUID profileId) throws Exception {
         if (connection == null || profileId == null) return null;
         try (var ps = connection.prepareStatement("select last_dimension, last_x, last_y, last_z, last_yaw, last_pitch from player_profiles where id = ?")) {
@@ -1510,6 +1753,16 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 "where p.player_uuid = ? and lower(p.name) = lower(?) and p.deleted_at is null limit 1")) {
             ps.setObject(1, playerUuid);
             ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next() ? fromResultSet(rs) : null; }
+        }
+    }
+
+    private static ProfileRecord readById(Connection connection, UUID playerUuid, UUID profileId) throws Exception {
+        try (var ps = connection.prepareStatement("select p.id, p.player_uuid, p.name, p.mode, p.monotype, (a.profile_id is not null) as active, p.is_pending_delete, p.delete_available_at " +
+                "from player_profiles p left join player_active_profiles a on a.player_uuid = p.player_uuid and a.profile_id = p.id " +
+                "where p.player_uuid = ? and p.id = ? and p.deleted_at is null limit 1")) {
+            ps.setObject(1, playerUuid);
+            ps.setObject(2, profileId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next() ? fromResultSet(rs) : null; }
         }
     }

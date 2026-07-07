@@ -15,9 +15,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerDataManager {
     private static final String STATE_KEY = "player_profile_stats";
+    private static final Map<UUID, PlayerData> CACHE = new ConcurrentHashMap<>();
 
     private static final Gson GSON =
             new GsonBuilder()
@@ -135,6 +137,10 @@ public class PlayerDataManager {
                 PlayerProfileManager.activeProfileId(uuid);
 
         try{
+            PlayerData cached = CACHE.get(profileId);
+            if (cached != null) {
+                return cached;
+            }
 
             ensurePlayer(
                     uuid,
@@ -180,6 +186,7 @@ public class PlayerDataManager {
                     fallbackName
             );
 
+            CACHE.put(profileId, data);
             return data;
 
         }catch(Exception e){
@@ -195,6 +202,7 @@ public class PlayerDataManager {
             d.name=
                     fallbackName;
 
+            CACHE.put(profileId, d);
             return d;
         }
     }
@@ -213,6 +221,9 @@ public class PlayerDataManager {
                 profileId,
                 data == null ? null : data.name
         );
+        if (data != null) {
+            CACHE.put(profileId, data);
+        }
 
         try(
                 FileWriter w=
@@ -358,6 +369,7 @@ public class PlayerDataManager {
 
         data.uuid = profileId.toString();
         sanitize(data, profileId, data.name);
+        CACHE.put(profileId, data);
 
         try(FileWriter w = new FileWriter(new File(profilesDir(), profileId.toString()+".json"))){
             GSON.toJson(data, w);
@@ -366,6 +378,12 @@ public class PlayerDataManager {
             com.champutils.network.NetworkEventManager.publishCacheInvalidation("PLAYER_DATA", profileId);
         }catch(Exception e){
             e.printStackTrace();
+        }
+    }
+
+    public static void invalidateSharedCache(UUID profileId) {
+        if (profileId != null) {
+            CACHE.remove(profileId);
         }
     }
 

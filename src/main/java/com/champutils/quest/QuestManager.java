@@ -33,15 +33,16 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class QuestManager {
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final Random RANDOM = new Random();
-    private static final Map<UUID, QuestDataManager.QuestData> CACHE = new HashMap<>();
-    private static final Map<UUID, QuestDataManager.GuildQuestData> GUILD_CACHE = new HashMap<>();
-    private static final Set<UUID> DIRTY = new HashSet<>();
-    private static final Set<UUID> DIRTY_GUILDS = new HashSet<>();
+    private static final Map<UUID, QuestDataManager.QuestData> CACHE = new ConcurrentHashMap<>();
+    private static final Map<UUID, QuestDataManager.GuildQuestData> GUILD_CACHE = new ConcurrentHashMap<>();
+    private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> DIRTY_GUILDS = ConcurrentHashMap.newKeySet();
     private static int tickCounter = 0;
 
     public static void load() {
@@ -53,6 +54,11 @@ public class QuestManager {
         refreshIfNeeded(player, data, true);
         cleanupExpiredContracts(player, data, false);
         savePlayer(player);
+    }
+
+    public static void preload(UUID profileId, String playerName) {
+        if (profileId == null) return;
+        CACHE.computeIfAbsent(profileId, id -> QuestDataManager.load(id, playerName == null || playerName.isBlank() ? id.toString() : playerName));
     }
 
     public static void tick(MinecraftServer server) {

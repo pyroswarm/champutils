@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class SharedJsonStateRepository {
@@ -62,18 +63,7 @@ public final class SharedJsonStateRepository {
     public static <T> T loadPlayer(UUID playerId, String key, Class<T> type, T fallback) {
         if (playerId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
         try {
-            return DatabaseManager.supplyAsync("load player json state " + key + " " + playerId, connection -> {
-                ensureSchema(connection);
-                try (PreparedStatement ps = connection.prepareStatement("select payload from player_json_state where player_uuid = ? and state_key = ?")) {
-                    ps.setObject(1, playerId);
-                    ps.setString(2, key);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) return fallback;
-                        T value = GSON.fromJson(rs.getString(1), type);
-                        return value == null ? fallback : value;
-                    }
-                }
-            }).get(3, TimeUnit.SECONDS);
+            return loadPlayerAsync(playerId, key, type, fallback).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load shared player state '" + key + "' for " + playerId + ".");
             e.printStackTrace();
@@ -81,25 +71,50 @@ public final class SharedJsonStateRepository {
         }
     }
 
+    public static <T> CompletableFuture<T> loadPlayerAsync(UUID playerId, String key, Class<T> type, T fallback) {
+        if (playerId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(fallback);
+        }
+        return DatabaseManager.supplyAsync("load player json state " + key + " " + playerId, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("select payload from player_json_state where player_uuid = ? and state_key = ?")) {
+                ps.setObject(1, playerId);
+                ps.setString(2, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return fallback;
+                    T value = GSON.fromJson(rs.getString(1), type);
+                    return value == null ? fallback : value;
+                }
+            }
+        });
+    }
+
     public static <T> T loadGlobal(String key, Class<T> type, T fallback) {
         if (key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
         try {
-            return DatabaseManager.supplyAsync("load global json state " + key, connection -> {
-                ensureSchema(connection);
-                try (PreparedStatement ps = connection.prepareStatement("select payload from global_json_state where state_key = ?")) {
-                    ps.setString(1, key);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) return fallback;
-                        T value = GSON.fromJson(rs.getString(1), type);
-                        return value == null ? fallback : value;
-                    }
-                }
-            }).get(3, TimeUnit.SECONDS);
+            return loadGlobalAsync(key, type, fallback).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load shared global state '" + key + "'.");
             e.printStackTrace();
             return fallback;
         }
+    }
+
+    public static <T> CompletableFuture<T> loadGlobalAsync(String key, Class<T> type, T fallback) {
+        if (key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(fallback);
+        }
+        return DatabaseManager.supplyAsync("load global json state " + key, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("select payload from global_json_state where state_key = ?")) {
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return fallback;
+                    T value = GSON.fromJson(rs.getString(1), type);
+                    return value == null ? fallback : value;
+                }
+            }
+        });
     }
 
     public static void saveProfile(UUID profileId, String key, Object value) {
@@ -123,6 +138,25 @@ public final class SharedJsonStateRepository {
         if (playerId == null || key == null || key.isBlank() || value == null || !DatabaseManager.isEnabled()) return;
         String payload = GSON.toJson(value);
         DatabaseManager.executeCoalescedAsync("player-json-state:" + key + ":" + playerId, "save player json state " + key, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "insert into player_json_state (player_uuid, state_key, payload, updated_at, version) values (?, ?, ?, now(), 1) " +
+                            "on conflict (player_uuid, state_key) do update set payload = excluded.payload, updated_at = now(), version = player_json_state.version + 1"
+            )) {
+                ps.setObject(1, playerId);
+                ps.setString(2, key);
+                ps.setString(3, payload);
+                ps.executeUpdate();
+            }
+        });
+    }
+
+    public static CompletableFuture<Void> savePlayerAsync(UUID playerId, String key, Object value) {
+        if (playerId == null || key == null || key.isBlank() || value == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String payload = GSON.toJson(value);
+        return DatabaseManager.runAsync("save player json state " + key, connection -> {
             ensureSchema(connection);
             try (PreparedStatement ps = connection.prepareStatement(
                     "insert into player_json_state (player_uuid, state_key, payload, updated_at, version) values (?, ?, ?, now(), 1) " +

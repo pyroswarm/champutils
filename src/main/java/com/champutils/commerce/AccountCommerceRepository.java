@@ -21,6 +21,7 @@ public final class AccountCommerceRepository {
 
     public record ResolvedAccount(UUID accountUuid, String username, boolean online) {}
     public record VoteBalance(long points, long lifetimePoints) {}
+    public record BoosterCreditGrantResult(ResolvedAccount account, boolean inserted, int balance) {}
 
     public static CompletableFuture<Void> ensureSchemaAsync() {
         return DatabaseManager.runAsync("account commerce schema", AccountCommerceRepository::ensureSchema)
@@ -52,6 +53,23 @@ public final class AccountCommerceRepository {
             statement.execute("ALTER TABLE public.account_purchase_ledger ADD COLUMN IF NOT EXISTS note text NOT NULL DEFAULT ''");
             statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS account_purchase_ledger_unique_ref ON public.account_purchase_ledger (source, reference, package_key, account_uuid) WHERE reference <> ''");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_account_purchase_ledger_account ON public.account_purchase_ledger (account_uuid, created_at DESC)");
+            com.champutils.cashshop.BoosterCreditManager.ensureSchema(connection);
+            statement.execute("CREATE TABLE IF NOT EXISTS public.account_booster_credit_grants (" +
+                    "id uuid PRIMARY KEY DEFAULT gen_random_uuid()," +
+                    "account_uuid uuid NOT NULL," +
+                    "minecraft_username text NOT NULL DEFAULT ''," +
+                    "source text NOT NULL DEFAULT 'TEBEX'," +
+                    "reference text NOT NULL DEFAULT ''," +
+                    "amount integer NOT NULL," +
+                    "created_at timestamptz NOT NULL DEFAULT now()" +
+                    ")");
+            statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS account_uuid uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'");
+            statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS minecraft_username text NOT NULL DEFAULT ''");
+            statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'TEBEX'");
+            statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS reference text NOT NULL DEFAULT ''");
+            statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS amount integer NOT NULL DEFAULT 0");
+            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS account_booster_credit_grants_unique_ref ON public.account_booster_credit_grants (source, reference, account_uuid) WHERE reference <> ''");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_account_booster_credit_grants_account ON public.account_booster_credit_grants (account_uuid, created_at DESC)");
 
             statement.execute("CREATE TABLE IF NOT EXISTS public.account_vote_ledger (" +
                     "id uuid PRIMARY KEY DEFAULT gen_random_uuid()," +
@@ -157,6 +175,49 @@ public final class AccountCommerceRepository {
             statement.setInt(5, safeQuantity);
             statement.setString(6, safeReference);
             statement.setString(7, safeNote);
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    public static CompletableFuture<BoosterCreditGrantResult> grantBoosterCreditsAsync(ResolvedAccount account, int amount, String reference) {
+        if (account == null || account.accountUuid() == null || amount <= 0) {
+            return CompletableFuture.completedFuture(new BoosterCreditGrantResult(account, false, 0));
+        }
+        int safeAmount = Math.max(1, Math.min(amount, 1_000_000));
+        return DatabaseManager.supplyAsync("grant Tebex booster credits", connection -> {
+            boolean oldAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                ensureSchema(connection);
+                recordPurchase(connection, account, "TEBEX", "boostercredits", safeAmount, reference, "Purchased booster credits");
+                int balance = com.champutils.cashshop.BoosterCreditManager.currentPurchasedCredits(connection, account.accountUuid());
+                boolean inserted = recordBoosterCreditGrant(connection, account, "TEBEX", reference, safeAmount);
+                if (inserted) {
+                    balance = com.champutils.cashshop.BoosterCreditManager.addPurchasedCredits(connection, account.accountUuid(), safeAmount);
+                }
+                connection.commit();
+                return new BoosterCreditGrantResult(account, inserted, balance);
+            } catch (Exception e) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                throw e;
+            } finally {
+                try { connection.setAutoCommit(oldAutoCommit); } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    private static boolean recordBoosterCreditGrant(Connection connection, ResolvedAccount account, String source, String reference, int amount) throws SQLException {
+        String safeSource = safe(source, "TEBEX", 64).toUpperCase(Locale.ROOT);
+        String safeReference = safe(reference, "", 128);
+        int safeAmount = Math.max(1, Math.min(amount, 1_000_000));
+        String sql = "INSERT INTO public.account_booster_credit_grants (account_uuid, minecraft_username, source, reference, amount) " +
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, account.accountUuid());
+            statement.setString(2, safe(account.username(), "", 64));
+            statement.setString(3, safeSource);
+            statement.setString(4, safeReference);
+            statement.setInt(5, safeAmount);
             return statement.executeUpdate() > 0;
         }
     }

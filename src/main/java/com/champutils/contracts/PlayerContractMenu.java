@@ -82,10 +82,11 @@ public final class PlayerContractMenu {
         gui.setSlot(31, new GuiElementBuilder(CobblemonItems.GREAT_BALL)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§bCreate Pokémon Contract"))
-                .addLoreLine(Component.literal("§7Choose a party Pokémon as"))
-                .addLoreLine(Component.literal("§7the request template."))
+                .addLoreLine(Component.literal("§7Post a Pokémon job."))
+                .addLoreLine(Component.literal("§7Choose species, nature, ability,"))
+                .addLoreLine(Component.literal("§7then type the reward."))
                 .addLoreLine(Component.literal("§eClick to create"))
-                .setCallback((slot, click, action) -> openCreatePokemonSlots(player)));
+                .setCallback((slot, click, action) -> PlayerContractService.beginPokemonContract(player)));
 
         MenuUtil.addBackButton(gui, 40, () -> com.champutils.adventurer.AdventurerGuildMenu.open(player));
         gui.open();
@@ -138,6 +139,87 @@ public final class PlayerContractMenu {
             open(player);
         });
         MenuUtil.addBackButton(gui, 18, () -> openCreatePokemonSlots(player));
+        gui.open();
+    }
+
+    public static void openPokemonNatureMenu(ServerPlayer player, String pokemonName) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        gui.setTitle(Component.literal("Choose Nature"));
+        gui.setSlot(4, new GuiElementBuilder(CobblemonItems.POKE_BALL).hideDefaultTooltip()
+                .setName(Component.literal("§b" + cleanTitle(pokemonName)))
+                .addLoreLine(Component.literal("§7Pick the requested nature."))
+                .addLoreLine(Component.literal("§7Choose Any Nature if it does not matter.")));
+
+        gui.setSlot(10, new GuiElementBuilder(Items.LIME_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§aAny Nature"))
+                .addLoreLine(Component.literal("§7Accept any nature."))
+                .addLoreLine(Component.literal("§eClick to choose"))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonNature(player, "any")));
+
+        int[] slots = {12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42};
+        String[] natures = {
+                "Adamant", "Bashful", "Bold", "Brave", "Calm",
+                "Careful", "Docile", "Gentle", "Hardy", "Hasty",
+                "Impish", "Jolly", "Lax", "Lonely", "Mild",
+                "Modest", "Naive", "Naughty", "Quiet", "Quirky",
+                "Rash", "Relaxed", "Sassy", "Serious", "Timid"
+        };
+        for (int i = 0; i < natures.length && i < slots.length; i++) {
+            String nature = natures[i];
+            gui.setSlot(slots[i], new GuiElementBuilder(Items.PAPER).hideDefaultTooltip()
+                    .setName(Component.literal("§e" + nature))
+                    .addLoreLine(Component.literal("§eClick to choose"))
+                    .setCallback((slot, click, action) -> PlayerContractService.selectPokemonNature(player, nature)));
+        }
+        gui.setSlot(49, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel"))
+                .addLoreLine(Component.literal("§7Close this setup."))
+                .setCallback((slot, click, action) -> {
+                    PlayerContractService.cancelPending(player);
+                    open(player);
+                }));
+        gui.open();
+    }
+
+    public static void openPokemonAbilityMenu(ServerPlayer player, String pokemonName, List<String> abilities) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        gui.setTitle(Component.literal("Choose Ability"));
+        gui.setSlot(4, new GuiElementBuilder(CobblemonItems.POKE_BALL).hideDefaultTooltip()
+                .setName(Component.literal("§b" + cleanTitle(pokemonName)))
+                .addLoreLine(Component.literal("§7Pick the requested ability."))
+                .addLoreLine(Component.literal("§7Choose Any Ability if it does not matter.")));
+
+        gui.setSlot(10, new GuiElementBuilder(Items.LIME_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§aAny Ability"))
+                .addLoreLine(Component.literal("§7Accept any ability."))
+                .addLoreLine(Component.literal("§eClick to choose"))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonAbility(player, "any")));
+
+        List<String> safeAbilities = abilities == null ? List.of() : abilities.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .limit(35)
+                .toList();
+        int[] slots = {12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42};
+        for (int i = 0; i < safeAbilities.size() && i < slots.length; i++) {
+            String ability = safeAbilities.get(i);
+            gui.setSlot(slots[i], new GuiElementBuilder(Items.BOOK).hideDefaultTooltip()
+                    .setName(Component.literal("§e" + ability))
+                    .addLoreLine(Component.literal("§eClick to choose"))
+                    .setCallback((slot, click, action) -> PlayerContractService.selectPokemonAbility(player, ability)));
+        }
+        if (safeAbilities.isEmpty()) {
+            gui.setSlot(22, new GuiElementBuilder(Items.GRAY_DYE).hideDefaultTooltip()
+                    .setName(Component.literal("§7No ability data found"))
+                    .addLoreLine(Component.literal("§7Use Any Ability for this contract.")));
+        }
+        gui.setSlot(49, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel"))
+                .addLoreLine(Component.literal("§7Close this setup."))
+                .setCallback((slot, click, action) -> {
+                    PlayerContractService.cancelPending(player);
+                    open(player);
+                }));
         gui.open();
     }
 

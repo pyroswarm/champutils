@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ProfileLoadingStateManager {
     private static final Map<UUID, LoadingState> LOADING = new ConcurrentHashMap<>();
+    private static final java.util.Set<UUID> KEEP_CURRENT_ON_NEXT_BLANK = ConcurrentHashMap.newKeySet();
     private static final long FAILSAFE_TTL_MS = 60_000L;
     private static final String LOADING_DIMENSION = ProfileLobbyManager.PROFILE_LOBBY_DIMENSION;
     private static final double LOADING_X = ProfileLobbyManager.LOBBY_X;
@@ -63,14 +64,28 @@ public final class ProfileLoadingStateManager {
         begin(player, profileName, true, false);
     }
 
+    public static void beginBlankAtCurrentSilent(ServerPlayer player, String profileName) {
+        markNextBlankAtCurrent(player);
+        begin(player, profileName, true, false, true);
+    }
+
+    public static void markNextBlankAtCurrent(ServerPlayer player) {
+        if (player != null) KEEP_CURRENT_ON_NEXT_BLANK.add(player.getUUID());
+    }
+
     private static void begin(ServerPlayer player, String profileName, boolean blankLiveState, boolean showInitialTitle) {
+        begin(player, profileName, blankLiveState, showInitialTitle, false);
+    }
+
+    private static void begin(ServerPlayer player, String profileName, boolean blankLiveState, boolean showInitialTitle, boolean keepCurrentPosition) {
         if (player == null) return;
         String clean = profileName == null || profileName.isBlank() ? "Profile" : profileName.trim();
         // Blank first-load hydration must happen in the isolated profile_lobby dimension, not in the
         // survival world. This keeps inventory/party/profile rebuilding away from active survival
         // chunks and prevents new-profile joins from lagging the survival server while data attaches.
         boolean localSurvivalQuarantine = false;
-        LockTarget target = blankLiveState ? loadingTarget(player) : currentTarget(player);
+        boolean effectiveKeepCurrent = keepCurrentPosition || (blankLiveState && KEEP_CURRENT_ON_NEXT_BLANK.remove(player.getUUID()));
+        LockTarget target = effectiveKeepCurrent ? currentTarget(player) : (blankLiveState ? loadingTarget(player) : currentTarget(player));
         LOADING.compute(player.getUUID(), (uuid, existing) -> {
             long started = existing == null ? System.currentTimeMillis() : existing.startedAtMillis;
             LockTarget effectiveTarget = existing == null || blankLiveState ? target : new LockTarget(existing.dimension, existing.x, existing.y, existing.z, existing.yaw, existing.pitch);
@@ -78,7 +93,7 @@ public final class ProfileLoadingStateManager {
         });
         if (blankLiveState) {
             blankLiveState(player);
-            if (!localSurvivalQuarantine) {
+            if (!localSurvivalQuarantine && !effectiveKeepCurrent) {
                 teleportToLoadingTarget(player);
             }
         }

@@ -97,13 +97,13 @@ public final class ServerChatManager {
     }
 
     private static String plainFormat(ServerPlayer sender, ChatMode mode, String message) {
-        String tags = ChatTagResolver.tagsFor(sender).getString();
+        String tags = ChatTagResolver.tagsForLegacy(sender);
         String color = switch (mode) {
             case GLOBAL -> "§b";
             case GUILD -> "§a";
             case PARTY -> "§d";
             case LOCAL -> "§7";
         };
-        return "§8[" + color + mode.prefix + "§8] §f" + tags + sender.getGameProfile().getName() + "§7: §f" + message;
+        return "§8[" + color + mode.prefix + "§8] §r" + tags + "§f" + sender.getGameProfile().getName() + "§7: §f" + message;
     }
 }

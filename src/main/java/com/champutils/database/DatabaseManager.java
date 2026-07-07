@@ -21,7 +21,7 @@ public final class DatabaseManager {
         void run(Connection connection) throws Exception;
     }
 
-    private static final int ASYNC_DATABASE_THREADS = 4;
+    private static final int ASYNC_DATABASE_THREADS = 2;
     private static final int ASYNC_DATABASE_QUEUE_LIMIT = 4096;
 
     private static final long CONNECTION_VALIDATION_INTERVAL_MILLIS = 30_000L;

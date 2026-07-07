@@ -11,6 +11,11 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -32,6 +37,7 @@ public final class BoosterCreditManager {
 
     private static State state = new State();
     private static final Set<UUID> SQL_LOADED = new HashSet<>();
+    private static final Set<UUID> SQL_BALANCE_LOADED = new HashSet<>();
     private static final String STATE_KEY = "booster_credits";
     private static boolean registered = false;
     private static int tickCounter = 0;
@@ -89,9 +95,16 @@ public final class BoosterCreditManager {
 
     public static synchronized void addPurchasedCredits(UUID uuid, int amount) {
         if (uuid == null || amount <= 0) return;
-        entry(uuid).purchasedCredits += amount;
+        Entry entry = entry(uuid);
+        entry.purchasedCredits += amount;
         save();
         savePlayer(uuid);
+        if (com.champutils.database.DatabaseManager.isEnabled()) {
+            com.champutils.database.DatabaseManager.executeAsync("grant purchased booster credits", connection -> {
+                ensureSchema(connection);
+                addPurchasedCredits(connection, uuid, amount);
+            });
+        }
     }
 
     public static synchronized boolean spend(ServerPlayer player, int amount) {
@@ -101,7 +114,19 @@ public final class BoosterCreditManager {
         if (total < amount) return false;
 
         int fromPurchased = Math.min(Math.max(0, e.purchasedCredits), amount);
-        e.purchasedCredits -= fromPurchased;
+        if (fromPurchased > 0 && com.champutils.database.DatabaseManager.isEnabled()) {
+            boolean spent = spendPurchasedCreditsBlocking(player.getUUID(), fromPurchased);
+            if (!spent) {
+                SQL_BALANCE_LOADED.remove(player.getUUID());
+                Entry refreshed = entry(player.getUUID());
+                total = Math.max(0, refreshed.purchasedCredits) + Math.max(0, refreshed.vipPlusCredits);
+                if (total < amount) return false;
+                e = refreshed;
+                fromPurchased = Math.min(Math.max(0, e.purchasedCredits), amount);
+                if (fromPurchased > 0 && !spendPurchasedCreditsBlocking(player.getUUID(), fromPurchased)) return false;
+            }
+        }
+        e.purchasedCredits = Math.max(0, e.purchasedCredits - fromPurchased);
         int remaining = amount - fromPurchased;
         if (remaining > 0) e.vipPlusCredits = Math.max(0, e.vipPlusCredits - remaining);
         save();
@@ -181,7 +206,100 @@ public final class BoosterCreditManager {
             state.players.put(uuid.toString(), e);
         }
         migrateLegacy(e);
+        loadSqlBalance(uuid, e);
         return e;
+    }
+
+    public static java.util.concurrent.CompletableFuture<Void> ensureSchemaAsync() {
+        if (!com.champutils.database.DatabaseManager.isEnabled()) return java.util.concurrent.CompletableFuture.completedFuture(null);
+        return com.champutils.database.DatabaseManager.runAsync("ensure booster credit SQL schema", BoosterCreditManager::ensureSchema)
+                .exceptionally(error -> {
+                    System.err.println("[ChampUtils] Booster credit SQL schema setup failed: " + error.getMessage());
+                    return null;
+                });
+    }
+
+    public static void ensureSchema(Connection connection) throws SQLException {
+        if (connection == null) return;
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("create table if not exists account_booster_credit_balances (" +
+                    "account_uuid uuid primary key, " +
+                    "purchased_credits integer not null default 0, " +
+                    "updated_at timestamptz not null default now())");
+            statement.executeUpdate("alter table account_booster_credit_balances add column if not exists purchased_credits integer not null default 0");
+            statement.executeUpdate("alter table account_booster_credit_balances add column if not exists updated_at timestamptz not null default now()");
+        }
+    }
+
+    public static int addPurchasedCredits(Connection connection, UUID uuid, int amount) throws SQLException {
+        if (connection == null || uuid == null || amount <= 0) return currentPurchasedCredits(connection, uuid);
+        ensureSchema(connection);
+        try (PreparedStatement ps = connection.prepareStatement(
+                "insert into account_booster_credit_balances (account_uuid, purchased_credits, updated_at) values (?, ?, now()) " +
+                        "on conflict (account_uuid) do update set purchased_credits = account_booster_credit_balances.purchased_credits + excluded.purchased_credits, updated_at = now() " +
+                        "returning purchased_credits")) {
+            ps.setObject(1, uuid);
+            ps.setInt(2, amount);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Math.max(0, rs.getInt(1)) : currentPurchasedCredits(connection, uuid);
+            }
+        }
+    }
+
+    public static int currentPurchasedCredits(Connection connection, UUID uuid) throws SQLException {
+        if (connection == null || uuid == null) return 0;
+        ensureSchema(connection);
+        try (PreparedStatement ps = connection.prepareStatement("select purchased_credits from account_booster_credit_balances where account_uuid = ?")) {
+            ps.setObject(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Math.max(0, rs.getInt(1)) : 0;
+            }
+        }
+    }
+
+    public static void setCachedPurchasedCredits(UUID uuid, int balance) {
+        if (uuid == null) return;
+        synchronized (BoosterCreditManager.class) {
+            Entry entry = entry(uuid);
+            entry.purchasedCredits = Math.max(0, balance);
+            save();
+            savePlayer(uuid);
+        }
+    }
+
+    private static void loadSqlBalance(UUID uuid, Entry entry) {
+        if (uuid == null || entry == null || !com.champutils.database.DatabaseManager.isEnabled()) return;
+        if (!SQL_BALANCE_LOADED.add(uuid)) return;
+        try {
+            Integer sqlBalance = com.champutils.database.DatabaseManager
+                    .supplyAsync("load purchased booster credit balance", connection -> currentPurchasedCredits(connection, uuid))
+                    .get(3, java.util.concurrent.TimeUnit.SECONDS);
+            if (sqlBalance != null) {
+                entry.purchasedCredits = Math.max(entry.purchasedCredits, sqlBalance);
+            }
+        } catch (Exception e) {
+            SQL_BALANCE_LOADED.remove(uuid);
+        }
+    }
+
+    private static boolean spendPurchasedCreditsBlocking(UUID uuid, int amount) {
+        if (uuid == null || amount <= 0 || !com.champutils.database.DatabaseManager.isEnabled()) return true;
+        try {
+            return Boolean.TRUE.equals(com.champutils.database.DatabaseManager
+                    .supplyAsync("spend purchased booster credits", connection -> {
+                        ensureSchema(connection);
+                        try (PreparedStatement ps = connection.prepareStatement(
+                                "update account_booster_credit_balances set purchased_credits = purchased_credits - ?, updated_at = now() " +
+                                        "where account_uuid = ? and purchased_credits >= ?")) {
+                            ps.setInt(1, amount);
+                            ps.setObject(2, uuid);
+                            ps.setInt(3, amount);
+                            return ps.executeUpdate() > 0;
+                        }
+                    }).get(3, java.util.concurrent.TimeUnit.SECONDS));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static void savePlayer(UUID uuid) {
@@ -196,6 +314,7 @@ public final class BoosterCreditManager {
     public static synchronized void invalidateSharedCache(UUID uuid) {
         if (uuid == null) return;
         SQL_LOADED.remove(uuid);
+        SQL_BALANCE_LOADED.remove(uuid);
         if (state.players != null) {
             state.players.remove(uuid.toString());
         }

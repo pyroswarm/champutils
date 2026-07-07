@@ -35,7 +35,7 @@ public final class ProfileNetworkTransferFlow {
 
     private ProfileNetworkTransferFlow() {}
 
-    private record AcceptedTransferSession(String profileName, long acceptedAtMillis) {
+    private record AcceptedTransferSession(UUID profileId, String profileName, String payloadJson, long acceptedAtMillis) {
         boolean isFresh(long now) {
             return now - acceptedAtMillis <= ACCEPTED_SESSION_TTL_MS;
         }
@@ -85,7 +85,6 @@ public final class ProfileNetworkTransferFlow {
             return;
         }
         LOBBY_TRANSFER_IN_FLIGHT.put(playerUuid, now);
-        net.minecraft.core.RegistryAccess registryAccess = player.registryAccess();
         AtomicReference<String> issuedWireToken = new AtomicReference<>("");
 
         DatabaseManager.runAsync("issue profile transfer token", connection -> {
@@ -102,8 +101,9 @@ public final class ProfileNetworkTransferFlow {
             issuedWireToken.set(token.wireValue());
 
             long warmStart = System.currentTimeMillis();
-            PlayerProfileManager.prewarmProfileForNetworkTransfer(connection, profile.profileId(), playerUuid, registryAccess);
-            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] transfer profile prewarm took " + (System.currentTimeMillis() - warmStart) + "ms for " + player.getGameProfile().getName());
+            String payloadJson = PlayerProfileManager.buildNetworkTransferPayload(connection, playerUuid, profile.profileId());
+            ProfileTransferTokenManager.attachMetadata(connection, token.tokenId(), payloadJson);
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] transfer profile payload prepare took " + (System.currentTimeMillis() - warmStart) + "ms for " + player.getGameProfile().getName());
             // ProfileTransferTokenManager.issue already writes the TOKEN_ISSUED audit row.
             // Do not write a second row with the same transfer_id because older beta schemas
             // may still have a unique transfer_id audit index.
@@ -201,9 +201,9 @@ public final class ProfileNetworkTransferFlow {
         if (accepted != null) {
             if (accepted.isFresh(now)) {
                 String profileName = accepted.profileName();
-                if (profileName != null && !profileName.isBlank()) {
-                    ProfileLoadingStateManager.beginBlank(player, profileName);
-                    PlayerProfileManager.switchAsync(player, profileName, result -> {
+                if (accepted.profileId() != null && profileName != null && !profileName.isBlank()) {
+                    ProfileLoadingStateManager.beginBlankSilent(player, profileName);
+                    PlayerProfileManager.loadFromNetworkTransferPayloadAsync(player, accepted.profileId(), accepted.payloadJson(), result -> {
                         if (result == null || !result.startsWith("Loaded")) {
                             player.sendSystemMessage(Component.literal(result == null ? "Could not load your profile." : result).withStyle(ChatFormatting.RED));
                         }
@@ -220,6 +220,8 @@ public final class ProfileNetworkTransferFlow {
 
         ProfileLoadingStateManager.beginBlankSilent(player, "Profile");
         AtomicReference<String> transferredProfileName = new AtomicReference<>();
+        AtomicReference<UUID> transferredProfileId = new AtomicReference<>();
+        AtomicReference<String> transferredPayload = new AtomicReference<>();
         DatabaseManager.runAsync("consume profile transfer token on survival join", connection -> {
             ProfileTransferTokenManager.ensureSchema(connection);
             java.util.Optional<ProfileTransferTokenManager.ConsumedToken> consumed = java.util.Optional.empty();
@@ -240,7 +242,9 @@ public final class ProfileNetworkTransferFlow {
 
                 AcceptedTransferSession alreadyAccepted = ACCEPTED_SURVIVAL_SESSIONS.get(playerUuid);
                 if (alreadyAccepted != null && alreadyAccepted.isFresh(System.currentTimeMillis())) {
+                    transferredProfileId.set(alreadyAccepted.profileId());
                     transferredProfileName.set(alreadyAccepted.profileName());
+                    transferredPayload.set(alreadyAccepted.payloadJson());
                     return;
                 }
 
@@ -267,7 +271,9 @@ public final class ProfileNetworkTransferFlow {
             }
             PlayerProfileManager.markProfileServerSeen(connection, profileId, config.serverId);
             transferredProfileName.set(profileName);
-            ACCEPTED_SURVIVAL_SESSIONS.put(playerUuid, new AcceptedTransferSession(profileName, System.currentTimeMillis()));
+            transferredProfileId.set(profileId);
+            transferredPayload.set(consumed.get().metadataJson());
+            ACCEPTED_SURVIVAL_SESSIONS.put(playerUuid, new AcceptedTransferSession(profileId, profileName, consumed.get().metadataJson(), System.currentTimeMillis()));
         }).whenComplete((ignored, error) -> player.server.execute(() -> {
             SURVIVAL_CONSUME_IN_FLIGHT.remove(playerUuid);
             if (!SafeTeleportManager.isLive(player)) return;
@@ -281,15 +287,16 @@ public final class ProfileNetworkTransferFlow {
             }
 
             String profileName = transferredProfileName.get();
-            if (profileName != null && !profileName.isBlank()) {
+            UUID profileId = transferredProfileId.get();
+            if (profileId != null && profileName != null && !profileName.isBlank()) {
                 // The profile lobby already displayed the loading title before issuing the token.
                 // Survival still has to attach the cached inventory/party stores to the live player,
                 // but do not show a second loading popup here.
                 // Keep the survival quarantine active through the entire profile switch.
-                // switchAsync owns the final unlock now; ending here re-opened the dangerous
+                // loadFromNetworkTransferPayloadAsync owns the final unlock now; ending here re-opened the dangerous
                 // gap where survival systems could run before the profile was fully hydrated.
-                ProfileLoadingStateManager.beginBlank(player, profileName);
-                PlayerProfileManager.switchAsync(player, profileName, result -> {
+                ProfileLoadingStateManager.beginBlankSilent(player, profileName);
+                PlayerProfileManager.loadFromNetworkTransferPayloadAsync(player, profileId, transferredPayload.get(), result -> {
                     if (result == null || !result.startsWith("Loaded")) {
                         player.sendSystemMessage(Component.literal(result == null ? "Could not load your profile." : result).withStyle(ChatFormatting.RED));
                     }

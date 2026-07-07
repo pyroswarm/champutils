@@ -30,7 +30,7 @@ public final class AccountUpgradeCommand {
 
     private static int buy(ServerPlayer player, String rawTier) {
         String normalized = rawTier == null ? "" : rawTier.trim().toLowerCase(java.util.Locale.ROOT).replace("+", "plus");
-        AccountUpgradeManager.Tier tier = switch (normalized) {
+        AccountUpgradeManager.Tier tier = switch (normalized.replace("+", "plus")) {
             case "vip" -> AccountUpgradeManager.Tier.VIP;
             case "vipplus", "vip_plus" -> AccountUpgradeManager.Tier.VIP_PLUS;
             default -> null;

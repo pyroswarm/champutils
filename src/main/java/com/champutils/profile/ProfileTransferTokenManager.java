@@ -31,7 +31,7 @@ public final class ProfileTransferTokenManager {
         }
     }
 
-    public record ConsumedToken(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String targetServer) {}
+    public record ConsumedToken(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String targetServer, String metadataJson) {}
 
     public static void ensureSchema(Connection connection) throws Exception {
         try (var statement = connection.createStatement()) {
@@ -130,6 +130,16 @@ public final class ProfileTransferTokenManager {
         return new IssuedToken(tokenId, playerUuid, profileId, expiresAt, signature);
     }
 
+    public static void attachMetadata(Connection connection, UUID tokenId, String metadataJson) throws Exception {
+        if (connection == null || tokenId == null) return;
+        String safeJson = metadataJson == null || metadataJson.isBlank() ? "{}" : metadataJson;
+        try (var ps = connection.prepareStatement("update profile_transfer_tokens set metadata = ?::jsonb where token_id = ? and consumed_at is null")) {
+            ps.setString(1, safeJson);
+            ps.setObject(2, tokenId);
+            ps.executeUpdate();
+        }
+    }
+
     public static Optional<ConsumedToken> consume(
             Connection connection,
             UUID playerUuid,
@@ -146,7 +156,7 @@ public final class ProfileTransferTokenManager {
         try {
             TokenRow row;
             try (var ps = connection.prepareStatement(
-                    "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server " +
+                    "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server, metadata::text as metadata_json " +
                             "from profile_transfer_tokens where token_id = ? and consumed_at is null and expires_at > now() for update")) {
                 ps.setObject(1, parsed.tokenId());
                 try (var rs = ps.executeQuery()) {
@@ -161,7 +171,8 @@ public final class ProfileTransferTokenManager {
                             rs.getTimestamp("issued_at").toInstant(),
                             rs.getTimestamp("expires_at").toInstant(),
                             rs.getString("signature"),
-                            rs.getString("target_server")
+                            rs.getString("target_server"),
+                            rs.getString("metadata_json")
                     );
                 }
             }
@@ -192,7 +203,7 @@ public final class ProfileTransferTokenManager {
 
             audit(connection, row.playerUuid(), row.profileId(), row.tokenId(), "", row.targetServer(), "ACCEPTED", "consumed", "{}");
             connection.commit();
-            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer()));
+            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer(), row.metadataJson()));
         } catch (Exception e) {
             connection.rollback();
             throw e;
@@ -220,7 +231,7 @@ public final class ProfileTransferTokenManager {
         try {
             TokenRow row;
             try (var ps = connection.prepareStatement(
-                    "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server " +
+                    "select token_id, player_uuid, profile_id, issued_at, expires_at, signature, target_server, metadata::text as metadata_json " +
                     "from profile_transfer_tokens " +
                     "where player_uuid = ? and consumed_at is null " +
                             "and expires_at > now() " +
@@ -239,7 +250,8 @@ public final class ProfileTransferTokenManager {
                             rs.getTimestamp("issued_at").toInstant(),
                             rs.getTimestamp("expires_at").toInstant(),
                             rs.getString("signature"),
-                            rs.getString("target_server")
+                            rs.getString("target_server"),
+                            rs.getString("metadata_json")
                     );
                 }
             }
@@ -268,7 +280,7 @@ public final class ProfileTransferTokenManager {
 
             audit(connection, row.playerUuid(), row.profileId(), row.tokenId(), "", row.targetServer(), "ACCEPTED", "consumed-latest-on-join", "{}");
             connection.commit();
-            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer()));
+            return Optional.of(new ConsumedToken(row.tokenId(), row.playerUuid(), row.profileId(), row.issuedAt(), row.expiresAt(), row.targetServer(), row.metadataJson()));
         } catch (Exception e) {
             connection.rollback();
             throw e;
@@ -355,5 +367,5 @@ public final class ProfileTransferTokenManager {
     }
 
     private record ParsedToken(UUID tokenId, String signature) {}
-    private record TokenRow(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String signature, String targetServer) {}
+    private record TokenRow(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String signature, String targetServer, String metadataJson) {}
 }

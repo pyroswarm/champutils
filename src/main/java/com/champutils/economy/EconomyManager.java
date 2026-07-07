@@ -109,6 +109,24 @@ public final class EconomyManager {
         }
     }
 
+    public static synchronized void ensureProfile(UUID profileId, String username) {
+        if (profileId == null) {
+            return;
+        }
+
+        ensureLoadedLocked();
+        if (useSqlSourceOfTruth()) {
+            ensureSqlLoadedLocked(profileId);
+        }
+        Account account = getOrCreateLocked(profileId);
+        updateUsername(account, username);
+        account.updatedAt = Instant.now().toString();
+        saveLocked();
+        if (!useSqlSourceOfTruth()) {
+            syncAccountLocked(profileId, account);
+        }
+    }
+
     public static synchronized long getBalance(UUID playerId) {
         if (playerId == null) {
             return 0L;
