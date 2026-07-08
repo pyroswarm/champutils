@@ -28,6 +28,7 @@ import com.champutils.trainer.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.SellPriceConfig;
 import com.champutils.notifications.NotificationManager;
+import com.champutils.notifications.NotificationRepository;
 import com.champutils.auction.*;
 import com.champutils.shop.*;
 import com.champutils.genesis.*;
@@ -55,6 +56,7 @@ import com.champutils.dailylogin.*;
 import com.champutils.cosmetic.*;
 import com.champutils.worldfirst.*;
 import com.champutils.cashshop.*;
+import com.champutils.contracts.PlayerContractRepository;
 import com.champutils.crafting.ChampCraftingConfig;
 import com.champutils.commerce.*;
 import com.champutils.debug.ChampDebugManager;
@@ -125,6 +127,8 @@ public class ChampUtilsMod implements ModInitializer {
         DatabaseMaintenanceManager.ensureAsync();
         PlayerProfileManager.ensureSchemaAsync();
         PreferredSurvivalServerManager.ensureSchemaAsync();
+        ProfileAtomicSnapshotManager.ensureSchemaAsync();
+        com.champutils.database.CreditsDatabaseRepository.ensureSchemaAsync();
         MenuNpcBindingRegistry.load();
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
@@ -232,6 +236,12 @@ public class ChampUtilsMod implements ModInitializer {
         TutorialManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
         CobblemonProfileStorageBridge.ensureSchemaAsync();
+        ProfileAtomicSnapshotManager.ensureSchemaAsync();
+        com.champutils.database.CreditsDatabaseRepository.ensureSchemaAsync();
+        AuctionHouseRepository.ensureSchemaAsync();
+        WonderTradeRepository.ensureSchemaAsync();
+        NotificationRepository.ensureSchemaAsync();
+        PlayerContractRepository.ensureSchemaAsync();
         MonotypeStarterManager.ensureSchemaAsync();
         NuzlockeManager.ensureSchemaAsync();
         ChatPreferenceManager.ensureSchemaAsync();
@@ -412,12 +422,19 @@ public class ChampUtilsMod implements ModInitializer {
                     DatabaseMaintenanceManager.ensureAsync();
                     AccountCommerceRepository.ensureSchemaAsync();
                     BoosterCreditManager.ensureSchemaAsync();
+                    TrailCosmeticManager.ensureSchemaAsync();
                     AccountVoteManager.start(server);
                     PlayerProfileManager.ensureSchemaAsync();
                     TutorialManager.ensureSchemaAsync();
                     BattleProfileRecoveryManager.recoverInterruptedGuardsAsync();
                     VanillaProfileStateManager.ensureSchemaAsync();
                     CobblemonProfileStorageBridge.ensureSchemaAsync();
+                    ProfileAtomicSnapshotManager.ensureSchemaAsync();
+                    com.champutils.database.CreditsDatabaseRepository.ensureSchemaAsync();
+                    AuctionHouseRepository.ensureSchemaAsync();
+                    WonderTradeRepository.ensureSchemaAsync();
+                    NotificationRepository.ensureSchemaAsync();
+                    PlayerContractRepository.ensureSchemaAsync();
                     MonotypeStarterManager.ensureSchemaAsync();
                     NuzlockeManager.ensureSchemaAsync();
                     ChatPreferenceManager.ensureSchemaAsync();
@@ -431,13 +448,7 @@ public class ChampUtilsMod implements ModInitializer {
                     // Existing worlds can still be used once they are manually created/loaded.
 
                     if (DatabaseManager.isEnabled()) {
-                        try {
-                            WonderTradeRepository.ensureSchema();
-                        }
-                        catch (Exception e) {
-                            System.err.println("[ChampUtils] Failed to prepare Wondertrade database schema.");
-                            e.printStackTrace();
-                        }
+                        WonderTradeRepository.ensureSchemaAsync();
                     }
 
                     System.out.println(
@@ -751,6 +762,7 @@ public class ChampUtilsMod implements ModInitializer {
         RankedShopCommand.register();
         DiscordCommand.register();
         TitleCommand.register();
+        TrailCommand.register();
         WorldFirstCommand.register();
         CashShopCommand.register();
         BoosterCommand.register();
@@ -839,6 +851,7 @@ public class ChampUtilsMod implements ModInitializer {
         XrayDetectionManager.register();
         CashShopBoostItemManager.register();
         BoosterCreditManager.register();
+        TrailCosmeticManager.register();
         IslanderSpawningManager.register();
         IslanderMineProtectionListener.register();
 

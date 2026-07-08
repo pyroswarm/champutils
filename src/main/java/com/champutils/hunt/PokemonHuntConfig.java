@@ -177,7 +177,7 @@ public final class PokemonHuntConfig {
                 reward("cobblemon:dusk_ball", 3, 6, 22), reward("cobblemon:dragon_fang", 1, 1, 5));
 
 
-        String[] fPool = {"caterpie","weedle","pidgey","rattata","sentret","zigzagoon","bidoof","starly","patrat","fletchling","wooloo","lechonk","skwovet","nidoranmale","nidoranfemale","oddish","bellsprout","geodude","zubat","psyduck","tentacool"};
+        String[] fPool = {"caterpie","weedle","pidgey","rattata","sentret","zigzagoon","bidoof","starly","patrat","fletchling","wooloo","lechonk","skwovet","nidoranm","nidoranf","oddish","bellsprout","geodude","zubat","psyduck","tentacool"};
         for (String sp : fPool) add(root, sp, 14, "F", 100, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:poke_ball", 3, 6, 30));
         String[] ePool = {"ponyta","dratini","togepi","mareep","sneasel","skarmory","trapinch","swablu","shroomish","aron","noibat","rockruff","impidimp","tinkatink","charcadet","applin","dreepy","pawniard"};
         for (String sp : ePool) add(root, sp, 8, "E", 250, 1, list("any"), list("male", "female"), list("any"), reward("cobblemon:great_ball", 2, 5, 30));

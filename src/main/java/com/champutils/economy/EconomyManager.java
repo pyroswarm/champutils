@@ -53,6 +53,7 @@ public final class EconomyManager {
 
     private static EconomyRoot DATA = new EconomyRoot();
     private static final Set<UUID> SQL_LOADED = new HashSet<>();
+    private static final Set<UUID> SQL_LOAD_QUEUED = new HashSet<>();
     private static boolean loaded = false;
 
     private EconomyManager() {
@@ -97,14 +98,15 @@ public final class EconomyManager {
 
         ensureLoadedLocked();
         UUID profileId = PlayerProfileManager.activeProfileId(player);
-        if (useSqlSourceOfTruth()) {
-            ensureSqlLoadedLocked(profileId);
+        boolean sqlSource = useSqlSourceOfTruth();
+        if (sqlSource) {
+            queueSqlLoadLocked(profileId);
         }
         Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         account.updatedAt = Instant.now().toString();
-        saveLocked();
-        if (!useSqlSourceOfTruth()) {
+        if (!sqlSource) {
+            saveLocked();
             syncAccountLocked(profileId, account);
         }
     }
@@ -115,14 +117,15 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
-        if (useSqlSourceOfTruth()) {
-            ensureSqlLoadedLocked(profileId);
+        boolean sqlSource = useSqlSourceOfTruth();
+        if (sqlSource) {
+            queueSqlLoadLocked(profileId);
         }
         Account account = getOrCreateLocked(profileId);
         updateUsername(account, username);
         account.updatedAt = Instant.now().toString();
-        saveLocked();
-        if (!useSqlSourceOfTruth()) {
+        if (!sqlSource) {
+            saveLocked();
             syncAccountLocked(profileId, account);
         }
     }
@@ -133,6 +136,9 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
+        if (useSqlSourceOfTruth()) {
+            queueSqlLoadLocked(playerId);
+        }
         return getOrCreateLocked(playerId).balance;
     }
 
@@ -142,7 +148,11 @@ public final class EconomyManager {
         }
 
         ensureLoadedLocked();
-        Account account = getOrCreateLocked(PlayerProfileManager.activeProfileId(player));
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (useSqlSourceOfTruth()) {
+            queueSqlLoadLocked(profileId);
+        }
+        Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         return account.balance;
     }
@@ -403,25 +413,37 @@ public final class EconomyManager {
 
     private static Account getOrCreateLocked(UUID playerId) {
         sanitizeRoot();
-        ensureSqlLoadedLocked(playerId);
+        if (playerId == null) {
+            return new Account();
+        }
         return DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
     }
 
-    private static void ensureSqlLoadedLocked(UUID playerId) {
-        if (playerId == null || !SQL_LOADED.add(playerId)) {
+    private static void queueSqlLoadLocked(UUID playerId) {
+        if (playerId == null || SQL_LOADED.contains(playerId) || !SQL_LOAD_QUEUED.add(playerId)) {
             return;
         }
-        CreditsDatabaseRepository.AccountSnapshot snapshot = CreditsDatabaseRepository.load(playerId);
-        if (snapshot == null) {
-            return;
-        }
-        Account account = DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
-        account.username = snapshot.username;
-        account.balance = Math.max(0L, Math.min(MAX_BALANCE, snapshot.credits));
-        account.lifetimeEarned = Math.max(account.balance, snapshot.lifetimeEarned);
-        account.lifetimeSpent = Math.max(0L, snapshot.lifetimeSpent);
-        account.updatedAt = Instant.now().toString();
-        saveLocked();
+        CreditsDatabaseRepository.loadAsync(playerId).whenComplete((snapshot, error) -> {
+            synchronized (EconomyManager.class) {
+                SQL_LOAD_QUEUED.remove(playerId);
+                if (error != null) {
+                    System.err.println("[ChampUtils] Failed async economy load for " + playerId + ". Using cached/default balance until next refresh.");
+                    error.printStackTrace();
+                    return;
+                }
+                SQL_LOADED.add(playerId);
+                if (snapshot == null) {
+                    return;
+                }
+                ensureLoadedLocked();
+                Account account = DATA.players.computeIfAbsent(playerId.toString(), ignored -> new Account());
+                account.username = snapshot.username;
+                account.balance = Math.max(0L, Math.min(MAX_BALANCE, snapshot.credits));
+                account.lifetimeEarned = Math.max(account.balance, snapshot.lifetimeEarned);
+                account.lifetimeSpent = Math.max(0L, snapshot.lifetimeSpent);
+                account.updatedAt = Instant.now().toString();
+            }
+        });
     }
 
     private static boolean useSqlSourceOfTruth() {
@@ -655,6 +677,7 @@ public final class EconomyManager {
             return;
         }
         SQL_LOADED.remove(playerId);
+        SQL_LOAD_QUEUED.remove(playerId);
         if (DATA != null && DATA.players != null) {
             DATA.players.remove(playerId.toString());
         }

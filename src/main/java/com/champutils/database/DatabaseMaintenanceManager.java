@@ -94,6 +94,14 @@ public final class DatabaseMaintenanceManager {
             if (tableExists(connection, "profile_battle_recovery_events")) {
                 statement.executeUpdate("create index if not exists idx_profile_battle_recovery_events_event_at on public.profile_battle_recovery_events(event_at)");
             }
+            if (tableExists(connection, "network_events")) {
+                statement.executeUpdate("create index if not exists network_events_expires_idx on public.network_events (expires_at)");
+                statement.executeUpdate("create index if not exists network_events_type_scope_idx on public.network_events (event_type, scope, id)");
+            }
+            if (tableExists(connection, "notifications")) {
+                statement.executeUpdate("create index if not exists idx_notifications_user_undelivered_created on public.notifications (user_uuid, created_at) where delivered_in_game = false");
+                statement.executeUpdate("create index if not exists idx_notifications_user_created_desc on public.notifications (user_uuid, created_at desc)");
+            }
         }
     }
 
@@ -149,6 +157,10 @@ public final class DatabaseMaintenanceManager {
 
             if (tableExists(connection, "profile_battle_recovery_events")) {
                 statement.executeUpdate("delete from public.profile_battle_recovery_events where event_at < now() - interval '7 days' and not exists (select 1 from public.profile_battle_recovery r where r.id = profile_battle_recovery_events.recovery_id)");
+            }
+
+            if (tableExists(connection, "network_events")) {
+                statement.executeUpdate("delete from public.network_events where expires_at < now() - interval '10 minutes'");
             }
 
             if (tableExists(connection, "notifications")) {

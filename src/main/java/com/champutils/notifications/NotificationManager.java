@@ -1,5 +1,6 @@
 package com.champutils.notifications;
 
+import com.champutils.database.DatabaseManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -8,7 +9,6 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class NotificationManager {
@@ -31,10 +31,8 @@ public final class NotificationManager {
 
     public static void showLatest(ServerPlayer player) {
         if (player == null) return;
-        CompletableFuture.supplyAsync(() -> {
-            try { return NotificationRepository.fetchLatest(player.getUUID(), 10); }
-            catch (Exception e) { throw new RuntimeException(e); }
-        }).whenComplete((notifications, error) -> player.server.execute(() -> {
+        DatabaseManager.supplyAsync("load latest notifications", connection -> NotificationRepository.fetchLatest(player.getUUID(), 10))
+                .whenComplete((notifications, error) -> player.server.execute(() -> {
             if (error != null) {
                 player.sendSystemMessage(Component.literal("Could not load notifications. Check console.").withStyle(ChatFormatting.RED));
                 error.printStackTrace();
@@ -58,10 +56,8 @@ public final class NotificationManager {
         UUID uuid = player.getUUID();
         if (!CHECKING.add(uuid)) return;
 
-        CompletableFuture.supplyAsync(() -> {
-            try { return NotificationRepository.fetchUndelivered(uuid, limit); }
-            catch (Exception e) { throw new RuntimeException(e); }
-        }).whenComplete((notifications, error) -> player.server.execute(() -> {
+        DatabaseManager.supplyAsync("load undelivered notifications", connection -> NotificationRepository.fetchUndelivered(uuid, limit))
+                .whenComplete((notifications, error) -> player.server.execute(() -> {
             try {
                 if (error != null) {
                     if (!quiet) player.sendSystemMessage(Component.literal("Could not check notifications.").withStyle(ChatFormatting.RED));
@@ -76,8 +72,8 @@ public final class NotificationManager {
                             .append(Component.literal(" - ").withStyle(ChatFormatting.DARK_GRAY))
                             .append(Component.literal(notification.message).withStyle(ChatFormatting.GRAY)));
                 }
-                try { NotificationRepository.markDelivered(notifications); }
-                catch (Exception e) { e.printStackTrace(); }
+                DatabaseManager.runAsync("mark notifications delivered", connection -> NotificationRepository.markDelivered(notifications))
+                        .exceptionally(markError -> { markError.printStackTrace(); return null; });
             } finally {
                 CHECKING.remove(uuid);
             }

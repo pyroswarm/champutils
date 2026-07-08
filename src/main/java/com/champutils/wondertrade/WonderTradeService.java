@@ -64,7 +64,7 @@ public final class WonderTradeService {
 
         player.sendSystemMessage(Component.literal("Checking Wondertrade...").withStyle(ChatFormatting.GRAY));
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade async task", connection -> {
             try {
                 WonderTradeRepository.TradeGate gate = WonderTradeRepository.getTradeGate(profileId, playerUuid);
                 if (gate.hasPendingClaim()) {
@@ -77,7 +77,7 @@ public final class WonderTradeService {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((check, error) -> server.execute(() -> {
+        }).whenComplete((check, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) {
                 TRADING.remove(playerUuid);
@@ -143,14 +143,14 @@ public final class WonderTradeService {
 
         player.sendSystemMessage(Component.literal("Preparing " + offeredName + " for Wondertrade...").withStyle(ChatFormatting.GRAY));
 
-        CompletableFuture.runAsync(() -> {
+        DatabaseManager.runAsync("wondertrade async task", connection -> {
             try {
                 // Crash/disconnect safety: this is saved before the party slot is cleared.
                 WonderTradeRepository.savePendingClaim(profileId, playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((ignored, error) -> server.execute(() -> {
+        }).whenComplete((ignored, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) {
                 TRADING.remove(playerUuid);
@@ -181,13 +181,13 @@ public final class WonderTradeService {
     }
 
     private static void finishTradeAsync(MinecraftServer server, UUID profileId, UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName, boolean offeredShiny, boolean offeredLegendary) {
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade async task", connection -> {
             try {
                 return WonderTradeRepository.exchange(profileId, playerUuid, playerName, offeredPayload);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((receivedEntry, error) -> server.execute(() -> {
+        }).whenComplete((receivedEntry, error) -> server.execute(() -> {
             TRADING.remove(playerUuid);
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
 
@@ -254,13 +254,13 @@ public final class WonderTradeService {
         MinecraftServer server = player.server;
         player.sendSystemMessage(Component.literal("Checking pending Wondertrade claim...").withStyle(ChatFormatting.GRAY));
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade async task", connection -> {
             try {
                 return WonderTradeRepository.getPendingClaim(profileId);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((claim, error) -> server.execute(() -> {
+        }).whenComplete((claim, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) return;
 
@@ -305,7 +305,7 @@ public final class WonderTradeService {
             return;
         }
         MinecraftServer server = player.server;
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade async task", connection -> {
             try {
                 int minutes = WonderTradeRepository.getCooldownMinutes();
                 long remaining = WonderTradeRepository.getCooldownRemainingSeconds(profileId);
@@ -313,7 +313,7 @@ public final class WonderTradeService {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((info, error) -> server.execute(() -> {
+        }).whenComplete((info, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) return;
             if (error != null) {
@@ -329,13 +329,13 @@ public final class WonderTradeService {
         if (player == null) return;
         UUID playerUuid = player.getUUID();
         MinecraftServer server = player.server;
-        CompletableFuture.runAsync(() -> {
+        DatabaseManager.runAsync("wondertrade async task", connection -> {
             try {
                 WonderTradeRepository.setCooldownMinutes(minutes);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((ignored, error) -> server.execute(() -> {
+        }).whenComplete((ignored, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) return;
             if (error != null) {
@@ -359,7 +359,7 @@ public final class WonderTradeService {
 
         UUID playerUuid = player.getUUID();
         MinecraftServer server = player.server;
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade async task", connection -> {
             try {
                 long now = System.currentTimeMillis();
                 WonderTradeRepository.StatusSnapshot snapshot = cachedStatus;
@@ -373,7 +373,7 @@ public final class WonderTradeService {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).whenComplete((stats, error) -> server.execute(() -> {
+        }).whenComplete((stats, error) -> server.execute(() -> {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(playerUuid);
             if (onlinePlayer == null) return;
             if (error != null) {
@@ -399,13 +399,13 @@ public final class WonderTradeService {
     }
 
     private static void deletePendingAsync(UUID profileId) {
-        CompletableFuture.runAsync(() -> {
+        DatabaseManager.runAsync("wondertrade async task", connection -> {
             try {
                 WonderTradeRepository.deletePendingClaim(profileId);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).exceptionally(error -> {
+        }).exceptionally(error -> {
             error.printStackTrace();
             return null;
         });
@@ -413,13 +413,13 @@ public final class WonderTradeService {
 
     private static void saveOfferedPendingAsync(UUID profileId, UUID playerUuid, String playerName, JsonObject offeredPayload, String offeredName) {
         if (profileId == null || playerUuid == null) return;
-        CompletableFuture.runAsync(() -> {
+        DatabaseManager.runAsync("wondertrade async task", connection -> {
             try {
                 WonderTradeRepository.savePendingClaim(profileId, playerUuid, playerName, "OFFERED", offeredPayload, offeredName);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, DB_EXECUTOR).exceptionally(error -> {
+        }).exceptionally(error -> {
             error.printStackTrace();
             return null;
         });

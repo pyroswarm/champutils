@@ -133,6 +133,15 @@ public final class DatabaseManager {
 
     public static synchronized Connection getConnection() throws SQLException {
         warnIfServerThreadConnection();
+
+        // Many older repositories still call getConnection() even when they are already running
+        // inside DatabaseManager.supplyAsync/runAsync. In that case, reuse the worker-local
+        // connection instead of the shared lifecycle connection so blocking gameplay tasks never
+        // contend on one global JDBC connection.
+        if (isDatabaseWorkerThread()) {
+            return getAsyncConnection();
+        }
+
         if (config == null) {
             init();
         }
@@ -150,6 +159,11 @@ public final class DatabaseManager {
         }
 
         return connection;
+    }
+
+    private static boolean isDatabaseWorkerThread() {
+        String threadName = Thread.currentThread().getName();
+        return threadName != null && threadName.startsWith("ChampUtils-Database");
     }
 
     private static Connection getAsyncConnection() throws SQLException {

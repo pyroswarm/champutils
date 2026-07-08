@@ -80,7 +80,6 @@ public final class ProfileSaveGenerationManager {
     }
 
     public static SqlSave begin(Connection connection, QueuedSave queuedSave) throws Exception {
-        ensureSchema(connection);
         long expectedLockVersion = 0L;
         try (var ps = connection.prepareStatement("select lock_version from player_profiles where id = ? and deleted_at is null")) {
             ps.setObject(1, queuedSave.profileId());

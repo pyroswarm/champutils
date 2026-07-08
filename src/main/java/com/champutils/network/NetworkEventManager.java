@@ -139,7 +139,6 @@ public final class NetworkEventManager {
         pollInFlight = true;
 
         DatabaseManager.supplyAsync("poll network events", connection -> {
-            ensureSchema(connection);
             if (lastSeenEventId < 0L) {
                 lastSeenEventId = currentMaxId(connection);
                 return List.<EventRecord>of();
@@ -209,7 +208,6 @@ public final class NetworkEventManager {
         String safeMessage = message.length() > 500 ? message.substring(0, 500) : message;
 
         DatabaseManager.executeAsync("publish network event " + safeType, connection -> {
-            ensureSchema(connection);
             try (PreparedStatement statement = connection.prepareStatement(
                     "insert into network_events (event_type, scope, origin_server_id, origin_player_uuid, origin_player_name, message) " +
                             "values (?, ?, ?, ?::uuid, ?, ?)"

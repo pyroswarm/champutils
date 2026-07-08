@@ -1,5 +1,6 @@
 package com.champutils.auction;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
@@ -110,7 +111,7 @@ public final class AuctionHouseService {
         }
 
         player.sendSystemMessage(Component.literal("Checking auction slot limit...").withStyle(ChatFormatting.GRAY));
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.countActiveListings(sellerProfileId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((activeListings, slotError) -> player.server.execute(() -> {
@@ -158,7 +159,7 @@ public final class AuctionHouseService {
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Creating auction listing...").withStyle(ChatFormatting.GRAY));
 
-            CompletableFuture.supplyAsync(() -> {
+            DatabaseManager.supplyAsync("auction service async task", connection -> {
                 try {
                     return AuctionHouseRepository.createItemListing(sellerProfileId, sellerName, title, "Listed in-game by " + sellerName, action.price, listedStack.getCount(), payload, config.safeListingDurationDays());
                 } catch (Exception e) {
@@ -210,7 +211,7 @@ public final class AuctionHouseService {
         }
 
         player.sendSystemMessage(Component.literal("Checking auction slot limit...").withStyle(ChatFormatting.GRAY));
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.countActiveListings(sellerProfileId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((activeListings, slotError) -> player.server.execute(() -> {
@@ -263,7 +264,7 @@ public final class AuctionHouseService {
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Creating Pokémon auction listing...").withStyle(ChatFormatting.GRAY));
 
-            CompletableFuture.supplyAsync(() -> {
+            DatabaseManager.supplyAsync("auction service async task", connection -> {
                 try {
                     return AuctionHouseRepository.createPokemonListing(sellerProfileId, sellerName, title, "Pokémon listed in-game by " + sellerName, action.price, payload, config.safeListingDurationDays());
                 } catch (Exception e) {
@@ -307,7 +308,7 @@ public final class AuctionHouseService {
             return;
         }
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.fetchActiveListing(listingId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listing, loadError) -> player.server.execute(() -> {
@@ -384,45 +385,49 @@ public final class AuctionHouseService {
     }
 
     private static void finishPurchase(ServerPlayer player, AuctionHouseRepository.AuctionListingSummary listing, Runnable deliver, String successMessage) {
-        EconomyManager.TransactionResult withdraw = EconomyManager.withdraw(player, listing.price, "Auction purchase " + listing.id);
-        if (!withdraw.success) {
-            BUYING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal(withdraw.error == null ? "You cannot afford this listing." : withdraw.error).withStyle(ChatFormatting.RED));
-            return;
-        }
+        player.sendSystemMessage(Component.literal("Processing auction purchase...").withStyle(ChatFormatting.GRAY));
+        DatabaseManager.supplyAsync("auction withdraw", connection -> EconomyManager.withdraw(player, listing.price, "Auction purchase " + listing.id))
+                .whenComplete((withdraw, withdrawError) -> player.server.execute(() -> {
+                    if (withdrawError != null || withdraw == null || !withdraw.success) {
+                        BUYING.remove(player.getUUID());
+                        if (withdrawError != null) withdrawError.printStackTrace();
+                        player.sendSystemMessage(Component.literal(withdraw == null || withdraw.error == null ? "You cannot afford this listing." : withdraw.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
 
-        CompletableFuture.supplyAsync(() -> {
-            try { return AuctionHouseRepository.purchaseActiveListingClaimed(listing.id, PlayerProfileManager.activeProfileId(player), player.getName().getString()); }
-            catch (Exception e) { throw new RuntimeException(e); }
-        }).whenComplete((record, error) -> player.server.execute(() -> {
-            if (error != null || record == null || record.listing == null) {
-                BUYING.remove(player.getUUID());
-                EconomyManager.deposit(player, listing.price, "Auction purchase refund " + listing.id);
-                player.sendSystemMessage(Component.literal("Purchase failed because the listing may have sold, expired, or been canceled. Your Credits were refunded.").withStyle(ChatFormatting.RED));
-                if (error != null) error.printStackTrace();
-                return;
-            }
+                    DatabaseManager.supplyAsync("auction service async task", connection -> {
+                        try { return AuctionHouseRepository.purchaseActiveListingClaimed(listing.id, PlayerProfileManager.activeProfileId(player), player.getName().getString()); }
+                        catch (Exception e) { throw new RuntimeException(e); }
+                    }).whenComplete((record, error) -> player.server.execute(() -> {
+                        if (error != null || record == null || record.listing == null) {
+                            BUYING.remove(player.getUUID());
+                            DatabaseManager.runAsync("auction purchase refund", connection -> EconomyManager.deposit(player, listing.price, "Auction purchase refund " + listing.id));
+                            player.sendSystemMessage(Component.literal("Purchase failed because the listing may have sold, expired, or been canceled. Your Credits were refunded.").withStyle(ChatFormatting.RED));
+                            if (error != null) error.printStackTrace();
+                            return;
+                        }
 
-            EconomyManager.deposit(record.listing.sellerUuid, record.listing.sellerUsername, record.listing.price, "Auction sale " + record.listing.id);
-            String saleMessage = player.getName().getString() + " bought " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ".";
-            try {
-                NotificationRepository.create(record.listing.sellerUuid, record.listing.sellerUsername, "AUCTION_SOLD", "Auction Sold", saleMessage);
-            } catch (Exception notificationError) {
-                notificationError.printStackTrace();
-            }
-            for (ServerPlayer online : player.server.getPlayerList().getPlayers()) {
-                UUID activeProfile = PlayerProfileManager.activeProfileId(online);
-                if (activeProfile != null && activeProfile.equals(record.listing.sellerUuid)) {
-                    online.sendSystemMessage(Component.literal("Auction sold: " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ". Credits were added to your profile.").withStyle(ChatFormatting.GREEN));
-                    break;
-                }
-            }
+                        DatabaseManager.runAsync("auction seller payout", connection -> EconomyManager.deposit(record.listing.sellerUuid, record.listing.sellerUsername, record.listing.price, "Auction sale " + record.listing.id));
+                        String saleMessage = player.getName().getString() + " bought " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ".";
+                        try {
+                            NotificationRepository.create(record.listing.sellerUuid, record.listing.sellerUsername, "AUCTION_SOLD", "Auction Sold", saleMessage);
+                        } catch (Exception notificationError) {
+                            notificationError.printStackTrace();
+                        }
+                        for (ServerPlayer online : player.server.getPlayerList().getPlayers()) {
+                            UUID activeProfile = PlayerProfileManager.activeProfileId(online);
+                            if (activeProfile != null && activeProfile.equals(record.listing.sellerUuid)) {
+                                online.sendSystemMessage(Component.literal("Auction sold: " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ". Credits were added to your profile.").withStyle(ChatFormatting.GREEN));
+                                break;
+                            }
+                        }
 
-            deliver.run();
-            BUYING.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal(successMessage).withStyle(ChatFormatting.GREEN));
-            player.sendSystemMessage(Component.literal("Paid " + EconomyManager.format(record.listing.price) + " to " + record.listing.sellerUsername + ".").withStyle(ChatFormatting.GRAY));
-        }));
+                        deliver.run();
+                        BUYING.remove(player.getUUID());
+                        player.sendSystemMessage(Component.literal(successMessage).withStyle(ChatFormatting.GREEN));
+                        player.sendSystemMessage(Component.literal("Paid " + EconomyManager.format(record.listing.price) + " to " + record.listing.sellerUsername + ".").withStyle(ChatFormatting.GRAY));
+                    }));
+                }));
     }
 
     public static void cancelListing(ServerPlayer player, UUID listingId) {
@@ -432,7 +437,7 @@ public final class AuctionHouseService {
             return;
         }
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.fetchSellerActiveListing(PlayerProfileManager.activeProfileId(player), listingId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listing, error) -> player.server.execute(() -> {
@@ -471,7 +476,7 @@ public final class AuctionHouseService {
             return;
         }
         boolean moveToClaim = player.getInventory().getFreeSlot() < 0;
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try {
                 if (moveToClaim) {
                     return AuctionHouseRepository.cancelActiveListingToPendingClaim(PlayerProfileManager.activeProfileId(player), listing);
@@ -510,7 +515,7 @@ public final class AuctionHouseService {
             return;
         }
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.cancelActiveListing(PlayerProfileManager.activeProfileId(player), listing.id); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((cancelled, error) -> player.server.execute(() -> {
@@ -540,7 +545,7 @@ public final class AuctionHouseService {
     }
 
     private static void claimNextInternal(ServerPlayer player, int claimedThisRun) {
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.fetchOldestPendingPurchase(PlayerProfileManager.activeProfileId(player)); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((purchase, error) -> player.server.execute(() -> {
@@ -606,7 +611,7 @@ public final class AuctionHouseService {
     }
 
     private static void markClaimed(ServerPlayer player, UUID purchaseId, String successMessage, boolean continueItems, int claimedThisRun) {
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.markPurchaseClaimed(purchaseId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((marked, markError) -> player.server.execute(() -> {
@@ -630,7 +635,7 @@ public final class AuctionHouseService {
 
         UUID activeProfileId = PlayerProfileManager.activeProfileId(player);
         if (activeProfileId == null) return;
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return NotificationRepository.fetchUndelivered(activeProfileId, 5); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((notifications, error) -> player.server.execute(() -> {
@@ -647,7 +652,7 @@ public final class AuctionHouseService {
             try { NotificationRepository.markDelivered(notifications); } catch (Exception e) { e.printStackTrace(); }
         }));
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction service async task", connection -> {
             try { return AuctionHouseRepository.countPendingPokemonPurchases(activeProfileId); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((count, error) -> player.server.execute(() -> {

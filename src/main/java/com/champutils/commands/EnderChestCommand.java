@@ -23,7 +23,7 @@ public final class EnderChestCommand {
 
     private static int open(ServerPlayer player) {
         if (!PermissionUtil.has(player.createCommandSourceStack(), PERMISSION)) {
-            player.sendSystemMessage(Component.literal("§c/ec is a VIP feature. Unlock it with /accountupgrade."));
+            player.sendSystemMessage(Component.literal("§c/ec is a VIP feature. VIP ranks are unlocked through Tebex."));
             return 0;
         }
         player.openMenu(new SimpleMenuProvider(

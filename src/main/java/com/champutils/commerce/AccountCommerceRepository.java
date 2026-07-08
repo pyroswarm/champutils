@@ -22,6 +22,7 @@ public final class AccountCommerceRepository {
     public record ResolvedAccount(UUID accountUuid, String username, boolean online) {}
     public record VoteBalance(long points, long lifetimePoints) {}
     public record BoosterCreditGrantResult(ResolvedAccount account, boolean inserted, int balance) {}
+    public record CosmeticGrantResult(ResolvedAccount account, boolean unlocked) {}
 
     public static CompletableFuture<Void> ensureSchemaAsync() {
         return DatabaseManager.runAsync("account commerce schema", AccountCommerceRepository::ensureSchema)
@@ -70,6 +71,30 @@ public final class AccountCommerceRepository {
             statement.execute("ALTER TABLE public.account_booster_credit_grants ADD COLUMN IF NOT EXISTS amount integer NOT NULL DEFAULT 0");
             statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS account_booster_credit_grants_unique_ref ON public.account_booster_credit_grants (source, reference, account_uuid) WHERE reference <> ''");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_account_booster_credit_grants_account ON public.account_booster_credit_grants (account_uuid, created_at DESC)");
+
+            statement.execute("CREATE TABLE IF NOT EXISTS public.account_cosmetic_unlocks (" +
+                    "account_uuid uuid NOT NULL," +
+                    "cosmetic_type text NOT NULL," +
+                    "cosmetic_id text NOT NULL," +
+                    "source text NOT NULL DEFAULT 'TEBEX'," +
+                    "reference text NOT NULL DEFAULT ''," +
+                    "unlocked_at timestamptz NOT NULL DEFAULT now()," +
+                    "PRIMARY KEY (account_uuid, cosmetic_type, cosmetic_id)" +
+                    ")");
+            statement.execute("ALTER TABLE public.account_cosmetic_unlocks ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'TEBEX'");
+            statement.execute("ALTER TABLE public.account_cosmetic_unlocks ADD COLUMN IF NOT EXISTS reference text NOT NULL DEFAULT ''");
+            statement.execute("ALTER TABLE public.account_cosmetic_unlocks ADD COLUMN IF NOT EXISTS unlocked_at timestamptz NOT NULL DEFAULT now()");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_account_cosmetic_unlocks_account ON public.account_cosmetic_unlocks (account_uuid, cosmetic_type)");
+
+            statement.execute("CREATE TABLE IF NOT EXISTS public.account_cosmetic_settings (" +
+                    "account_uuid uuid NOT NULL," +
+                    "cosmetic_type text NOT NULL," +
+                    "cosmetic_id text NOT NULL DEFAULT ''," +
+                    "updated_at timestamptz NOT NULL DEFAULT now()," +
+                    "PRIMARY KEY (account_uuid, cosmetic_type)" +
+                    ")");
+            statement.execute("ALTER TABLE public.account_cosmetic_settings ADD COLUMN IF NOT EXISTS cosmetic_id text NOT NULL DEFAULT ''");
+            statement.execute("ALTER TABLE public.account_cosmetic_settings ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()");
 
             statement.execute("CREATE TABLE IF NOT EXISTS public.account_vote_ledger (" +
                     "id uuid PRIMARY KEY DEFAULT gen_random_uuid()," +
@@ -180,18 +205,25 @@ public final class AccountCommerceRepository {
     }
 
     public static CompletableFuture<BoosterCreditGrantResult> grantBoosterCreditsAsync(ResolvedAccount account, int amount, String reference) {
+        return grantBoosterCreditsAsync(account, amount, "TEBEX", reference, "Purchased booster credits");
+    }
+
+    public static CompletableFuture<BoosterCreditGrantResult> grantBoosterCreditsAsync(ResolvedAccount account, int amount, String source, String reference, String note) {
         if (account == null || account.accountUuid() == null || amount <= 0) {
             return CompletableFuture.completedFuture(new BoosterCreditGrantResult(account, false, 0));
         }
         int safeAmount = Math.max(1, Math.min(amount, 1_000_000));
+        String safeSource = safe(source, "TEBEX", 64).toUpperCase(Locale.ROOT);
+        String safeReference = safe(reference, "", 128);
+        String safeNote = safe(note, "", 256);
         return DatabaseManager.supplyAsync("grant Tebex booster credits", connection -> {
             boolean oldAutoCommit = connection.getAutoCommit();
             try {
                 connection.setAutoCommit(false);
                 ensureSchema(connection);
-                recordPurchase(connection, account, "TEBEX", "boostercredits", safeAmount, reference, "Purchased booster credits");
+                recordPurchase(connection, account, safeSource, "boostercredits", safeAmount, safeReference, safeNote);
                 int balance = com.champutils.cashshop.BoosterCreditManager.currentPurchasedCredits(connection, account.accountUuid());
-                boolean inserted = recordBoosterCreditGrant(connection, account, "TEBEX", reference, safeAmount);
+                boolean inserted = recordBoosterCreditGrant(connection, account, safeSource, safeReference, safeAmount);
                 if (inserted) {
                     balance = com.champutils.cashshop.BoosterCreditManager.addPurchasedCredits(connection, account.accountUuid(), safeAmount);
                 }
@@ -202,6 +234,88 @@ public final class AccountCommerceRepository {
                 throw e;
             } finally {
                 try { connection.setAutoCommit(oldAutoCommit); } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    public static CompletableFuture<CosmeticGrantResult> unlockCosmeticAsync(ResolvedAccount account, String cosmeticType, String cosmeticId, String source, String reference, String note) {
+        if (account == null || account.accountUuid() == null || cosmeticType == null || cosmeticType.isBlank() || cosmeticId == null || cosmeticId.isBlank()) {
+            return CompletableFuture.completedFuture(new CosmeticGrantResult(account, false));
+        }
+        String type = safe(cosmeticType, "", 64).toLowerCase(Locale.ROOT);
+        String id = safe(cosmeticId, "", 128).toLowerCase(Locale.ROOT);
+        String safeSource = safe(source, "TEBEX", 64).toUpperCase(Locale.ROOT);
+        String safeReference = safe(reference, "", 128);
+        String safeNote = safe(note, "", 256);
+        return DatabaseManager.supplyAsync("unlock account cosmetic", connection -> {
+            boolean oldAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                ensureSchema(connection);
+                recordPurchase(connection, account, safeSource, type + "_" + id, 1, safeReference, safeNote);
+                boolean unlocked;
+                try (PreparedStatement statement = connection.prepareStatement("INSERT INTO public.account_cosmetic_unlocks (account_uuid, cosmetic_type, cosmetic_id, source, reference) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")) {
+                    statement.setObject(1, account.accountUuid());
+                    statement.setString(2, type);
+                    statement.setString(3, id);
+                    statement.setString(4, safeSource);
+                    statement.setString(5, safeReference);
+                    unlocked = statement.executeUpdate() > 0;
+                }
+                connection.commit();
+                return new CosmeticGrantResult(account, unlocked);
+            } catch (Exception e) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                throw e;
+            } finally {
+                try { connection.setAutoCommit(oldAutoCommit); } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    public static CompletableFuture<java.util.Set<String>> loadCosmeticsAsync(UUID accountUuid, String cosmeticType) {
+        if (accountUuid == null || cosmeticType == null || cosmeticType.isBlank()) return CompletableFuture.completedFuture(java.util.Set.of());
+        String type = safe(cosmeticType, "", 64).toLowerCase(Locale.ROOT);
+        return DatabaseManager.supplyAsync("load account cosmetics", connection -> {
+            ensureSchema(connection);
+            java.util.Set<String> out = new java.util.LinkedHashSet<>();
+            try (PreparedStatement statement = connection.prepareStatement("SELECT cosmetic_id FROM public.account_cosmetic_unlocks WHERE account_uuid = ? AND cosmetic_type = ? ORDER BY unlocked_at ASC")) {
+                statement.setObject(1, accountUuid);
+                statement.setString(2, type);
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) out.add(rs.getString(1));
+                }
+            }
+            return out;
+        }).exceptionally(error -> java.util.Set.of());
+    }
+
+    public static CompletableFuture<String> loadSelectedCosmeticAsync(UUID accountUuid, String cosmeticType) {
+        if (accountUuid == null || cosmeticType == null || cosmeticType.isBlank()) return CompletableFuture.completedFuture("");
+        String type = safe(cosmeticType, "", 64).toLowerCase(Locale.ROOT);
+        return DatabaseManager.supplyAsync("load selected account cosmetic", connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement statement = connection.prepareStatement("SELECT cosmetic_id FROM public.account_cosmetic_settings WHERE account_uuid = ? AND cosmetic_type = ?")) {
+                statement.setObject(1, accountUuid);
+                statement.setString(2, type);
+                try (ResultSet rs = statement.executeQuery()) {
+                    return rs.next() ? safe(rs.getString(1), "", 128).toLowerCase(Locale.ROOT) : "";
+                }
+            }
+        }).exceptionally(error -> "");
+    }
+
+    public static void selectCosmeticAsync(UUID accountUuid, String cosmeticType, String cosmeticId) {
+        if (accountUuid == null || cosmeticType == null || cosmeticType.isBlank()) return;
+        String type = safe(cosmeticType, "", 64).toLowerCase(Locale.ROOT);
+        String id = safe(cosmeticId, "", 128).toLowerCase(Locale.ROOT);
+        DatabaseManager.executeCoalescedAsync("account-cosmetic-setting:" + accountUuid + ":" + type, "save account cosmetic setting", connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement statement = connection.prepareStatement("INSERT INTO public.account_cosmetic_settings (account_uuid, cosmetic_type, cosmetic_id, updated_at) VALUES (?, ?, ?, now()) ON CONFLICT (account_uuid, cosmetic_type) DO UPDATE SET cosmetic_id = EXCLUDED.cosmetic_id, updated_at = now()")) {
+                statement.setObject(1, accountUuid);
+                statement.setString(2, type);
+                statement.setString(3, id);
+                statement.executeUpdate();
             }
         });
     }

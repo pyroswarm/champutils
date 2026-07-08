@@ -20,9 +20,13 @@ public final class PlayerContractRepository {
 
     private PlayerContractRepository() {}
 
+    public static void ensureSchemaAsync() {
+        if (!DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("ensure player contracts schema", PlayerContractRepository::ensureSchema);
+    }
+
     public static List<ContractSummary> fetchActive(String type, int limit) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         List<ContractSummary> out = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(
                 "select id, owner_profile_id, owner_name, contract_type, title, reward_cents, criteria::text as criteria, " +
@@ -44,7 +48,6 @@ public final class PlayerContractRepository {
     public static List<ContractSummary> fetchOwnerContracts(UUID ownerProfileId, int limit) throws Exception {
         if (ownerProfileId == null) return List.of();
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         List<ContractSummary> out = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(
                 "select id, owner_profile_id, owner_name, contract_type, title, reward_cents, criteria::text as criteria, " +
@@ -64,7 +67,6 @@ public final class PlayerContractRepository {
     public static ContractSummary fetchActiveContract(UUID contractId) throws Exception {
         if (contractId == null) return null;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement ps = connection.prepareStatement(
                 "select id, owner_profile_id, owner_name, contract_type, title, reward_cents, criteria::text as criteria, " +
                         "completion_payload::text as completion_payload, completer_profile_id, completer_name, status, created_at, expires_at, completed_at, claimed_at " +
@@ -80,7 +82,6 @@ public final class PlayerContractRepository {
     public static UUID createContract(UUID ownerProfileId, String ownerName, String type, String title, long rewardCents, JsonObject criteria) throws Exception {
         if (ownerProfileId == null || type == null || title == null || rewardCents <= 0L) return null;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement ps = connection.prepareStatement(
                 "insert into guild_player_contracts (owner_profile_id, owner_name, contract_type, title, reward_cents, criteria, expires_at) " +
                         "values (?, ?, ?, ?, ?, ?, now() + interval '24 hours') returning id"
@@ -100,7 +101,6 @@ public final class PlayerContractRepository {
     public static boolean completeContract(UUID contractId, UUID completerProfileId, String completerName, JsonObject payload) throws Exception {
         if (contractId == null || completerProfileId == null || payload == null) return false;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
@@ -145,7 +145,6 @@ public final class PlayerContractRepository {
     public static ContractSummary fetchOldestCompletedForOwner(UUID ownerProfileId) throws Exception {
         if (ownerProfileId == null) return null;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement ps = connection.prepareStatement(
                 "select id, owner_profile_id, owner_name, contract_type, title, reward_cents, criteria::text as criteria, " +
                         "completion_payload::text as completion_payload, completer_profile_id, completer_name, status, created_at, expires_at, completed_at, claimed_at " +
@@ -161,7 +160,6 @@ public final class PlayerContractRepository {
     public static boolean markClaimed(UUID contractId, UUID ownerProfileId) throws Exception {
         if (contractId == null || ownerProfileId == null) return false;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement ps = connection.prepareStatement(
                 "update guild_player_contracts set status = 'CLAIMED', claimed_at = now() where id = ? and owner_profile_id = ? and status = 'COMPLETED'"
         )) {

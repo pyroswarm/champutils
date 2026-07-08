@@ -97,7 +97,7 @@ public final class ProfileSelectionMenu {
         Long last = LAST_FINALIZE_CHECK.get(playerId);
         if (last != null && now - last <= FINALIZE_CHECK_TTL_MILLIS) return;
         LAST_FINALIZE_CHECK.put(playerId, now);
-        CompletableFuture.supplyAsync(() -> PlayerProfileManager.finalizePendingDeletesBlocking(player))
+        DatabaseManager.supplyAsync("finalize pending profile deletes", connection -> PlayerProfileManager.finalizePendingDeletesBlocking(player))
                 .whenComplete((result, error) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) return;
                     if (error != null) {

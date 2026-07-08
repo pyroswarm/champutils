@@ -306,7 +306,7 @@ public class GymNpcPartyBuilder {
         try {
             int level = Math.max(1, Math.min(100, set.level <= 0 ? defaultLevel : set.level));
             Pokemon pokemon = PokemonProperties.Companion
-                    .parse("species=\"" + normalizeSpecies(set.species) + "\" level=" + level)
+                    .parse(pokemonProperties(set.species, level))
                     .create();
 
             boolean abilityApplied = applyAbility(pokemon, set.ability);
@@ -473,8 +473,21 @@ public class GymNpcPartyBuilder {
     private static int clampIv(int value) { return Math.max(0, Math.min(31, value)); }
     private static int clampEv(int value) { return Math.max(0, Math.min(252, value)); }
 
+    private static String pokemonProperties(String species, int level) {
+        SpeciesForm parts = speciesForm(species);
+        StringBuilder builder = new StringBuilder("species=\"").append(parts.species()).append("\" level=").append(level);
+        if (parts.form() != null && !parts.form().isBlank()) {
+            builder.append(" form=").append(parts.form());
+        }
+        return builder.toString();
+    }
+
     private static String normalizeSpecies(String species) {
-        if (species == null || species.isBlank()) return "cobblemon:mewtwo";
+        return speciesForm(species).species();
+    }
+
+    private static SpeciesForm speciesForm(String species) {
+        if (species == null || species.isBlank()) return new SpeciesForm("cobblemon:mewtwo", null);
         String s = species.trim().toLowerCase(Locale.ROOT);
         String namespace = "cobblemon";
         String path = s;
@@ -483,10 +496,44 @@ public class GymNpcPartyBuilder {
             namespace = s.substring(0, colon);
             path = s.substring(colon + 1);
         }
-        path = path.replaceAll("[^a-z0-9]", "");
-        if (path.isBlank()) path = "mewtwo";
-        return namespace + ":" + path;
+        String key = path.replaceAll("[^a-z0-9_\\-]", "");
+        String compact = key.replaceAll("[^a-z0-9]", "");
+        if (compact.isBlank()) compact = "mewtwo";
+
+        return switch (compact) {
+            case "rotomwash" -> new SpeciesForm(namespace + ":rotom", "wash");
+            case "rotomheat" -> new SpeciesForm(namespace + ":rotom", "heat");
+            case "rotomfrost" -> new SpeciesForm(namespace + ":rotom", "frost");
+            case "rotommow" -> new SpeciesForm(namespace + ":rotom", "mow");
+            case "rotomfan" -> new SpeciesForm(namespace + ":rotom", "fan");
+            case "oricoriopompom" -> new SpeciesForm(namespace + ":oricorio", "pompom");
+            case "raichualola" -> new SpeciesForm(namespace + ":raichu", "alola");
+            case "mukalola" -> new SpeciesForm(namespace + ":muk", "alola");
+            case "ninetalesalola" -> new SpeciesForm(namespace + ":ninetales", "alola");
+            case "sandslashalola" -> new SpeciesForm(namespace + ":sandslash", "alola");
+            case "vulpixalola" -> new SpeciesForm(namespace + ":vulpix", "alola");
+            case "marowakalola" -> new SpeciesForm(namespace + ":marowak", "alola");
+            case "slowbrogalar" -> new SpeciesForm(namespace + ":slowbro", "galar");
+            case "weezinggalar" -> new SpeciesForm(namespace + ":weezing", "galar");
+            case "articunogalar" -> new SpeciesForm(namespace + ":articuno", "galar");
+            case "arcaninehisui" -> new SpeciesForm(namespace + ":arcanine", "hisui");
+            case "decidueyehisui" -> new SpeciesForm(namespace + ":decidueye", "hisui");
+            case "goodrahisui" -> new SpeciesForm(namespace + ":goodra", "hisui");
+            case "landorustherian" -> new SpeciesForm(namespace + ":landorus", "therian");
+            case "tornadustherian" -> new SpeciesForm(namespace + ":tornadus", "therian");
+            case "bloodmoonursaluna" -> new SpeciesForm(namespace + ":ursaluna", "bloodmoon");
+            case "calyrexshadow" -> new SpeciesForm(namespace + ":calyrex", "shadow");
+            case "calyrexice" -> new SpeciesForm(namespace + ":calyrex", "ice");
+            case "necrozmaduskmane" -> new SpeciesForm(namespace + ":necrozma", "duskmane");
+            case "necrozmadawnwings" -> new SpeciesForm(namespace + ":necrozma", "dawnwings");
+            case "deoxysattack" -> new SpeciesForm(namespace + ":deoxys", "attack");
+            case "deoxysdefense" -> new SpeciesForm(namespace + ":deoxys", "defense");
+            case "deoxysspeed" -> new SpeciesForm(namespace + ":deoxys", "speed");
+            default -> new SpeciesForm(namespace + ":" + compact, null);
+        };
     }
+
+    private record SpeciesForm(String species, String form) {}
 
     private static String cleanKey(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9_]", "");

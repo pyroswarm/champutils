@@ -40,7 +40,7 @@ public final class AccessCommandWrappers {
         if (!PermissionUtil.has(source, permission)) {
             try {
                 ServerPlayer player = source.getPlayerOrException();
-                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. Unlock it with /accountupgrade."));
+                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. VIP ranks are unlocked through Tebex."));
             } catch (Exception ignored) {}
             return 0;
         }
@@ -53,7 +53,7 @@ public final class AccessCommandWrappers {
         if (!PermissionUtil.has(source, permission)) {
             try {
                 ServerPlayer player = source.getPlayerOrException();
-                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. Unlock it with /accountupgrade."));
+                player.sendSystemMessage(Component.literal("§cThis is a " + featureName + " feature. VIP ranks are unlocked through Tebex."));
             } catch (Exception ignored) {}
             return 0;
         }

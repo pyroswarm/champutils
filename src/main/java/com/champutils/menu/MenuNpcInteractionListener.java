@@ -95,7 +95,7 @@ public final class MenuNpcInteractionListener {
             case "gterritories" -> TerritoryMenus.openBrowser(player, TerritoryMenus.BrowserType.GUILD, "", 0);
             case "guild", "guilds" -> GuildMenu.open(player);
             case "professionforeman", "foreman", "chunks" -> ProfessionForemanMenu.open(player);
-            case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> com.champutils.account.AccountUpgradeMenu.open(player);
+            case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> com.champutils.account.AccountUpgradeMenu.open(player);
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> RankedShopMenu.open(player);
             default -> player.sendSystemMessage(Component.literal("This NPC is bound to an unknown menu: " + menu).withStyle(ChatFormatting.RED));
         }

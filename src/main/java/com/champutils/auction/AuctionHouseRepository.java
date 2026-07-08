@@ -22,6 +22,11 @@ public final class AuctionHouseRepository {
 
     private AuctionHouseRepository() {}
 
+    public static void ensureSchemaAsync() {
+        if (!DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("ensure auction house schema", AuctionHouseRepository::ensureSchema);
+    }
+
     public static UUID createItemListing(UUID sellerUuid, String sellerUsername, String title, String description, long price, int quantity, JsonObject payload, int listingDurationDays) throws Exception {
         return createListing(sellerUuid, sellerUsername, "ITEM", title, description, price, Math.max(1, quantity), payload, listingDurationDays);
     }
@@ -31,7 +36,6 @@ public final class AuctionHouseRepository {
     }
 
     private static UUID createListing(UUID sellerUuid, String sellerUsername, String kind, String title, String description, long price, int quantity, JsonObject payload, int listingDurationDays) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
 
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "insert into auction_listings " +
@@ -69,7 +73,6 @@ public final class AuctionHouseRepository {
     }
 
     public static int countActiveListings(UUID sellerUuid) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select count(*) as total from auction_listings where seller_uuid = ? and status = 'ACTIVE' and expires_at > now()"
         )) {
@@ -93,7 +96,6 @@ public final class AuctionHouseRepository {
     }
 
     public static List<AuctionListingSummary> fetchActiveListings(int limit) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         List<AuctionListingSummary> listings = new ArrayList<>();
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, seller_uuid, seller_username, listing_kind, title, unit_price, quantity, created_at, expires_at, payload::text as payload " +
@@ -111,7 +113,6 @@ public final class AuctionHouseRepository {
     }
 
     public static List<AuctionListingSummary> fetchSellerActiveListings(UUID sellerUuid, int limit) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         List<AuctionListingSummary> listings = new ArrayList<>();
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, seller_uuid, seller_username, listing_kind, title, unit_price, quantity, created_at, expires_at, payload::text as payload " +
@@ -127,7 +128,6 @@ public final class AuctionHouseRepository {
     }
 
     public static AuctionListingSummary fetchSellerActiveListing(UUID sellerUuid, UUID listingId) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, seller_uuid, seller_username, listing_kind, title, unit_price, quantity, created_at, expires_at, payload::text as payload " +
                         "from auction_listings where id = ? and seller_uuid = ? and status = 'ACTIVE' and expires_at > now() limit 1"
@@ -144,7 +144,6 @@ public final class AuctionHouseRepository {
 
 
     public static AuctionListingSummary fetchActiveListing(UUID listingId) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, seller_uuid, seller_username, listing_kind, title, unit_price, quantity, created_at, expires_at, payload::text as payload " +
                         "from auction_listings where id = ? and status = 'ACTIVE' and expires_at > now() limit 1"
@@ -159,7 +158,6 @@ public final class AuctionHouseRepository {
 
     public static PurchaseRecord purchaseActiveListingClaimed(UUID listingId, UUID buyerUuid, String buyerUsername) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
@@ -231,7 +229,6 @@ public final class AuctionHouseRepository {
     }
 
     public static boolean cancelActiveListing(UUID sellerUuid, UUID listingId) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "update auction_listings set status = 'CANCELLED', updated_at = now() where id = ? and seller_uuid = ? and status = 'ACTIVE' and expires_at > now()"
         )) {
@@ -244,7 +241,6 @@ public final class AuctionHouseRepository {
     public static boolean cancelActiveListingToPendingClaim(UUID sellerUuid, AuctionListingSummary listing) throws Exception {
         if (sellerUuid == null || listing == null || listing.id == null) return false;
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
@@ -304,7 +300,6 @@ public final class AuctionHouseRepository {
     }
 
     public static PendingPurchase fetchOldestPendingPurchase(UUID buyerUuid) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, listing_kind, title, quantity, total_price, payload::text as payload from auction_purchases " +
                         "where buyer_uuid = ? and delivery_status = 'PENDING' order by purchased_at asc limit 1"
@@ -325,7 +320,6 @@ public final class AuctionHouseRepository {
     }
 
     public static int countPendingPurchases(UUID buyerUuid) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select count(*) as total from auction_purchases where buyer_uuid = ? and delivery_status = 'PENDING'"
         )) {
@@ -338,7 +332,6 @@ public final class AuctionHouseRepository {
     }
 
     public static int countPendingPokemonPurchases(UUID buyerUuid) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select count(*) as total from auction_purchases where buyer_uuid = ? and delivery_status = 'PENDING' and upper(listing_kind) = 'POKEMON'"
         )) {
@@ -351,7 +344,6 @@ public final class AuctionHouseRepository {
     }
 
     public static boolean markPurchaseClaimed(UUID purchaseId) throws Exception {
-        ensureSchema(DatabaseManager.getConnection());
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "update auction_purchases set delivery_status = 'CLAIMED', claimed_at = now() where id = ? and delivery_status = 'PENDING'"
         )) {

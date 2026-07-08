@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class CreditsDatabaseRepository {
@@ -14,6 +15,11 @@ public final class CreditsDatabaseRepository {
     private static final long ATOMIC_OPERATION_TIMEOUT_MILLIS = 1500L;
 
     private CreditsDatabaseRepository() {
+    }
+
+    public static void ensureSchemaAsync() {
+        if (!DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("ensure credits schema", CreditsDatabaseRepository::ensureSchema);
     }
 
     private static void ensureSchema(java.sql.Connection connection) throws Exception {
@@ -112,30 +118,40 @@ public final class CreditsDatabaseRepository {
         });
     }
 
+    public static CompletableFuture<AccountSnapshot> loadAsync(UUID playerId) {
+        if (playerId == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return DatabaseManager.supplyAsync("load credits " + playerId, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "select username, credits, lifetime_earned, lifetime_spent from player_economy where uuid = ?"
+            )) {
+                statement.setString(1, playerId.toString());
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (!rs.next()) {
+                        return null;
+                    }
+                    return new AccountSnapshot(
+                            rs.getString(1),
+                            Math.max(0L, rs.getLong(2)),
+                            Math.max(0L, rs.getLong(3)),
+                            Math.max(0L, rs.getLong(4))
+                    );
+                }
+            }
+        });
+    }
+
     public static AccountSnapshot load(UUID playerId) {
         if (playerId == null || !DatabaseManager.isEnabled()) {
             return null;
         }
+        if (Thread.currentThread().getName() != null && Thread.currentThread().getName().equalsIgnoreCase("Server thread")) {
+            System.err.println("[ChampUtils][PERF] Synchronous credits load requested on the server thread for " + playerId + "; returning cached/default economy data instead.");
+            return null;
+        }
         try {
-            return DatabaseManager.supplyAsync("load credits " + playerId, connection -> {
-                ensureSchema(connection);
-                try (PreparedStatement statement = connection.prepareStatement(
-                        "select username, credits, lifetime_earned, lifetime_spent from player_economy where uuid = ?"
-                )) {
-                    statement.setString(1, playerId.toString());
-                    try (ResultSet rs = statement.executeQuery()) {
-                        if (!rs.next()) {
-                            return null;
-                        }
-                        return new AccountSnapshot(
-                                rs.getString(1),
-                                Math.max(0L, rs.getLong(2)),
-                                Math.max(0L, rs.getLong(3)),
-                                Math.max(0L, rs.getLong(4))
-                        );
-                    }
-                }
-            }).get(3, TimeUnit.SECONDS);
+            return loadAsync(playerId).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load credits from SQL for " + playerId + ".");
             e.printStackTrace();
@@ -279,6 +295,10 @@ public final class CreditsDatabaseRepository {
     private static MutationResult atomic(String description, SqlMutation mutation) {
         if (!DatabaseManager.isEnabled()) return MutationResult.fail("Database is not available.");
         try {
+            String threadName = Thread.currentThread().getName();
+            if (threadName != null && threadName.startsWith("ChampUtils-Database")) {
+                return mutation.run(DatabaseManager.getConnection());
+            }
             return DatabaseManager.supplyAsync(description, mutation::run).get(ATOMIC_OPERATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             System.err.println("[ChampUtils] Atomic economy operation failed: " + description);

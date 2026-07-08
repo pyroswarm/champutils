@@ -36,7 +36,7 @@ public final class CobblemonProfileStorageBridge {
 
     public static synchronized void ensureSchemaAsync() {
         if (sqlFactory != null) {
-            com.champutils.database.DatabaseManager.executeAsync("ensure Cobblemon SQL storage schema", connection -> sqlFactory.ensureSchema());
+            com.champutils.database.DatabaseManager.executeAsync("ensure Cobblemon SQL storage schema", connection -> sqlFactory.ensureSchema(connection));
         }
     }
 

@@ -82,7 +82,6 @@ public final class ProfileAtomicSnapshotManager {
 
     public static void saveVanillaBlocking(Connection connection, UUID profileId, UUID playerUuid, String snbt, String reason, ProfileSaveGenerationManager.QueuedSave queuedSave) throws Exception {
         if (connection == null || profileId == null || playerUuid == null || snbt == null || snbt.isBlank()) return;
-        ensureSchema(connection);
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
@@ -144,7 +143,6 @@ public final class ProfileAtomicSnapshotManager {
 
     public static void saveCobblemonBlocking(Connection connection, UUID profileId, String partyNbt, String pcNbt, String reason, ProfileSaveGenerationManager.QueuedSave queuedSave) throws Exception {
         if (connection == null || profileId == null || (partyNbt == null && pcNbt == null)) return;
-        ensureSchema(connection);
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
@@ -193,7 +191,6 @@ public final class ProfileAtomicSnapshotManager {
 
     public static String latestCompletedVanilla(Connection connection, UUID profileId) throws Exception {
         if (connection == null || profileId == null) return null;
-        ensureSchema(connection);
         try (var ps = connection.prepareStatement("select vanilla_snbt from profile_atomic_snapshots where profile_id = ? and snapshot_type = 'VANILLA' and status = 'COMPLETE' and vanilla_snbt is not null order by completed_at desc limit 1")) {
             ps.setObject(1, profileId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -204,7 +201,6 @@ public final class ProfileAtomicSnapshotManager {
 
     public static String latestCompletedCobblemon(Connection connection, UUID profileId, boolean party) throws Exception {
         if (connection == null || profileId == null) return null;
-        ensureSchema(connection);
         String column = party ? "party_nbt" : "pc_nbt";
         try (var ps = connection.prepareStatement("select " + column + " from profile_atomic_snapshots where profile_id = ? and snapshot_type = 'COBBLEMON' and status = 'COMPLETE' and " + column + " is not null order by completed_at desc limit 1")) {
             ps.setObject(1, profileId);

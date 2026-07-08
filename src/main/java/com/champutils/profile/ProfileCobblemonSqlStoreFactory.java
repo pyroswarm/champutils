@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.battle.ServerLifecycleBridge;
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.database.DatabaseManager;
 import com.champutils.hunt.PokemonHuntReflection;
@@ -12,6 +13,7 @@ import com.cobblemon.mod.common.block.entity.PCBlockEntity;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.sql.Connection;
@@ -49,7 +51,17 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         }
     }
 
-    private static void ensureSchema(Connection connection) throws Exception {
+    public void ensureSchema(Connection connection) {
+        if (!DatabaseManager.isEnabled() || connection == null) return;
+        try {
+            ensureStorageSchema(connection);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to prepare SQL Cobblemon profile storage schema.");
+            e.printStackTrace();
+        }
+    }
+
+    private static void ensureStorageSchema(Connection connection) throws Exception {
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("create table if not exists profile_cobblemon_storage (" +
                     "profile_id uuid primary key references player_profiles(id) on delete cascade, " +
@@ -422,25 +434,30 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             String raw = readStoreRaw(connection, profileId, false);
             return raw == null || raw.isBlank() ? null : TagParser.parseTag(raw);
         }).whenComplete((tag, error) -> {
-            try {
-                if (error != null) {
-                    System.err.println("[ChampUtils] Failed to hydrate SQL Cobblemon PC for profile " + profileId + ": " + error.getMessage());
-                    return;
+            MinecraftServer server = viewer != null && viewer.server != null ? viewer.server : ServerLifecycleBridge.getServer();
+            Runnable applyHydration = () -> {
+                try {
+                    if (error != null) {
+                        System.err.println("[ChampUtils] Failed to hydrate SQL Cobblemon PC for profile " + profileId + ": " + error.getMessage());
+                        return;
+                    }
+                    if (tag != null) {
+                        store.loadFromNBT(tag, registryAccess);
+                    }
+                    UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(profileId);
+                    if (accountUuid != null) rebindRuntimeOwner(store, accountUuid);
+                    hydratedPcCache.add(profileId);
+                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Async SQL Cobblemon PC hydration finished on server thread for profile=" + profileId + " pcSize=" + countStore(store));
+                    sendPcToViewer(profileId, store);
+                } catch (Throwable throwable) {
+                    System.err.println("[ChampUtils] Failed to apply SQL Cobblemon PC hydration for profile " + profileId + ".");
+                    throwable.printStackTrace();
+                } finally {
+                    pcLoadsInFlight.remove(profileId);
                 }
-                if (tag != null) {
-                    store.loadFromNBT(tag, registryAccess);
-                }
-                UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(profileId);
-                if (accountUuid != null) rebindRuntimeOwner(store, accountUuid);
-                hydratedPcCache.add(profileId);
-                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Async SQL Cobblemon PC hydration finished for profile=" + profileId + " pcSize=" + countStore(store));
-                sendPcToViewer(profileId, store);
-            } catch (Throwable throwable) {
-                System.err.println("[ChampUtils] Failed to apply SQL Cobblemon PC hydration for profile " + profileId + ".");
-                throwable.printStackTrace();
-            } finally {
-                pcLoadsInFlight.remove(profileId);
-            }
+            };
+            if (server != null) server.execute(applyHydration);
+            else applyHydration.run();
         });
     }
 

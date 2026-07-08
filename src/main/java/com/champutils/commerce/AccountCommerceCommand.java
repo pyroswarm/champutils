@@ -2,6 +2,7 @@ package com.champutils.commerce;
 
 import com.champutils.account.AccountUpgradeConfig;
 import com.champutils.cashshop.BoosterCreditManager;
+import com.champutils.cosmetic.TrailCosmeticManager;
 import com.champutils.permissions.LuckPermsHook;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -49,6 +50,36 @@ public final class AccountCommerceCommand {
                                                                     ctx.getSource(),
                                                                     StringArgumentType.getString(ctx, "player"),
                                                                     StringArgumentType.getString(ctx, "tier"),
+                                                                    StringArgumentType.getString(ctx, "reference")
+                                                            ))))))
+                            .then(Commands.literal("trail")
+                                    .then(Commands.argument("player", StringArgumentType.word())
+                                            .then(Commands.argument("trail", StringArgumentType.word())
+                                                    .suggests((ctx, builder) -> {
+                                                        for (TrailCosmeticManager.TrailDef trail : TrailCosmeticManager.trails()) builder.suggest(trail.id());
+                                                        return builder.buildFuture();
+                                                    })
+                                                    .then(Commands.argument("reference", StringArgumentType.word())
+                                                            .executes(ctx -> grantTrail(
+                                                                    ctx.getSource(),
+                                                                    StringArgumentType.getString(ctx, "player"),
+                                                                    StringArgumentType.getString(ctx, "trail"),
+                                                                    StringArgumentType.getString(ctx, "reference")
+                                                            ))))))
+                            .then(Commands.literal("cosmetic")
+                                    .then(Commands.argument("player", StringArgumentType.word())
+                                            .then(Commands.argument("cosmetic", StringArgumentType.word())
+                                                    .suggests((ctx, builder) -> {
+                                                        for (TrailCosmeticManager.TrailDef trail : TrailCosmeticManager.trails()) {
+                                                            builder.suggest("trail_" + trail.id());
+                                                        }
+                                                        return builder.buildFuture();
+                                                    })
+                                                    .then(Commands.argument("reference", StringArgumentType.word())
+                                                            .executes(ctx -> grantCosmetic(
+                                                                    ctx.getSource(),
+                                                                    StringArgumentType.getString(ctx, "player"),
+                                                                    StringArgumentType.getString(ctx, "cosmetic"),
                                                                     StringArgumentType.getString(ctx, "reference")
                                                             ))))))
                             .then(Commands.literal("record")
@@ -152,6 +183,44 @@ public final class AccountCommerceCommand {
                     : CompletableFuture.completedFuture(false));
         }
         return grant;
+    }
+
+    private static int grantCosmetic(CommandSourceStack source, String playerName, String rawCosmetic, String reference) {
+        String cosmetic = rawCosmetic == null ? "" : rawCosmetic.trim().toLowerCase(Locale.ROOT);
+        if (cosmetic.startsWith("trail_")) {
+            return grantTrail(source, playerName, cosmetic.substring("trail_".length()), reference);
+        }
+        source.sendFailure(Component.literal("Unknown cosmetic. Use trail_<id>, for example trail_ember."));
+        return 0;
+    }
+
+    private static int grantTrail(CommandSourceStack source, String playerName, String rawTrail, String reference) {
+        MinecraftServer server = source.getServer();
+        String trailId = rawTrail == null ? "" : rawTrail.trim().toLowerCase(Locale.ROOT).replace("trail_", "");
+        TrailCosmeticManager.TrailDef trail = TrailCosmeticManager.get(trailId);
+        if (trail == null) {
+            source.sendFailure(Component.literal("Unknown trail. Use ember, aqua, volt, starlight, shadow, blossom, or frost."));
+            return 0;
+        }
+        AccountCommerceRepository.resolveAccountAsync(server, playerName)
+                .thenCompose(account -> AccountCommerceRepository.unlockCosmeticAsync(account, TrailCosmeticManager.COSMETIC_TYPE, trail.id(), "TEBEX", reference, "Purchased trail " + trail.id()))
+                .thenAccept(result -> server.execute(() -> {
+                    AccountCommerceRepository.ResolvedAccount account = result == null ? null : result.account();
+                    if (account == null) {
+                        source.sendFailure(Component.literal("Purchase account could not be resolved."));
+                        return;
+                    }
+                    TrailCosmeticManager.addUnlocked(account.accountUuid(), trail.id());
+                    ServerPlayer online = server.getPlayerList().getPlayer(account.accountUuid());
+                    if (online != null) online.sendSystemMessage(Component.literal("Unlocked " + trail.displayName() + ". Use /trails to equip it.").withStyle(ChatFormatting.GREEN));
+                    String action = result.unlocked() ? "Granted " : "Ensured already-owned ";
+                    source.sendSuccess(() -> Component.literal(action + trail.displayName() + " for " + account.username() + "."), true);
+                }))
+                .exceptionally(error -> {
+                    server.execute(() -> source.sendFailure(Component.literal("Failed to process trail purchase: " + error.getMessage())));
+                    return null;
+                });
+        return 1;
     }
 
     private static int recordOnly(CommandSourceStack source, String playerName, String packageKey, int quantity, String reference) {

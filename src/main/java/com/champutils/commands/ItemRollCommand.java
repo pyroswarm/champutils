@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyCraftHook;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionToolConfig;
@@ -298,6 +299,7 @@ public class ItemRollCommand {
         }
 
         ProfessionManager.savePlayer(player);
+        AdventureGuideManager.increment(player, "tool_reroll", 1);
 
         ProfessionToolManager.refreshToolStack(
                 stack

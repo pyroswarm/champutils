@@ -39,6 +39,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
                                             builder.suggest("chunks");
+                                            builder.suggest("champsshop");
                                             builder.suggest("accountupgrade");
                                             builder.suggest("vip");
                                             builder.suggest("rankedshop");
@@ -71,6 +72,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("professionforeman");
                                             builder.suggest("foreman");
                                             builder.suggest("chunks");
+                                            builder.suggest("champsshop");
                                             builder.suggest("accountupgrade");
                                             builder.suggest("vip");
                                             builder.suggest("rankedshop");
@@ -98,7 +100,7 @@ public final class MenuNpcCommand {
             case "pvp", "battle", "battles" -> "battles";
             case "guild" -> "guilds";
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
-            case "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "accountupgrade";
+            case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "champsshop";
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
             default -> menu.toLowerCase();
         };

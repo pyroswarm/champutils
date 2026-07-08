@@ -76,7 +76,7 @@ public final class RoamingTrainerPartyBuilder {
             RoamingTrainerConfig.PokemonPoolEntry configured = useLargePool ? null : pickConfiguredSet(settings, slot, usedSpecies);
             String species = configured != null ? configured.species : pickSpecies(rarity, settings, slot, usedSpecies, useLargePool);
             int level = Math.max(1, Math.min(100, baseLevel));
-            Pokemon pokemon = PokemonProperties.Companion.parse("species=\"cobblemon:" + sanitize(species) + "\" level=" + level).create();
+            Pokemon pokemon = PokemonProperties.Companion.parse(pokemonProperties(species, level)).create();
 
             if (configured != null) {
                 applyConfiguredIVsOrPerfect(pokemon, configured);
@@ -678,8 +678,58 @@ public final class RoamingTrainerPartyBuilder {
         return min + RANDOM.nextInt((max - min) + 1);
     }
 
+    private static String pokemonProperties(String species, int level) {
+        SpeciesForm parts = speciesForm(species);
+        StringBuilder builder = new StringBuilder("species=\"").append(parts.species()).append("\" level=").append(level);
+        if (parts.form() != null && !parts.form().isBlank()) {
+            builder.append(" form=").append(parts.form());
+        }
+        return builder.toString();
+    }
+
+    private static SpeciesForm speciesForm(String species) {
+        if (species == null || species.isBlank()) return new SpeciesForm("cobblemon:eevee", null);
+        String s = species.trim().toLowerCase(Locale.ROOT).replace("cobblemon:", "");
+        String key = s.replaceAll("[^a-z0-9_\\-]", "");
+        String compact = key.replaceAll("[^a-z0-9]", "");
+        if (compact.isBlank()) compact = "eevee";
+        return switch (compact) {
+            case "rotomwash" -> new SpeciesForm("cobblemon:rotom", "wash");
+            case "rotomheat" -> new SpeciesForm("cobblemon:rotom", "heat");
+            case "rotomfrost" -> new SpeciesForm("cobblemon:rotom", "frost");
+            case "rotommow" -> new SpeciesForm("cobblemon:rotom", "mow");
+            case "oricoriopompom" -> new SpeciesForm("cobblemon:oricorio", "pompom");
+            case "rotomfan" -> new SpeciesForm("cobblemon:rotom", "fan");
+            case "raichualola" -> new SpeciesForm("cobblemon:raichu", "alola");
+            case "mukalola" -> new SpeciesForm("cobblemon:muk", "alola");
+            case "ninetalesalola" -> new SpeciesForm("cobblemon:ninetales", "alola");
+            case "sandslashalola" -> new SpeciesForm("cobblemon:sandslash", "alola");
+            case "vulpixalola" -> new SpeciesForm("cobblemon:vulpix", "alola");
+            case "marowakalola" -> new SpeciesForm("cobblemon:marowak", "alola");
+            case "slowbrogalar" -> new SpeciesForm("cobblemon:slowbro", "galar");
+            case "weezinggalar" -> new SpeciesForm("cobblemon:weezing", "galar");
+            case "articunogalar" -> new SpeciesForm("cobblemon:articuno", "galar");
+            case "arcaninehisui" -> new SpeciesForm("cobblemon:arcanine", "hisui");
+            case "decidueyehisui" -> new SpeciesForm("cobblemon:decidueye", "hisui");
+            case "goodrahisui" -> new SpeciesForm("cobblemon:goodra", "hisui");
+            case "landorustherian" -> new SpeciesForm("cobblemon:landorus", "therian");
+            case "tornadustherian" -> new SpeciesForm("cobblemon:tornadus", "therian");
+            case "bloodmoonursaluna" -> new SpeciesForm("cobblemon:ursaluna", "bloodmoon");
+            case "calyrexshadow" -> new SpeciesForm("cobblemon:calyrex", "shadow");
+            case "calyrexice" -> new SpeciesForm("cobblemon:calyrex", "ice");
+            case "necrozmaduskmane" -> new SpeciesForm("cobblemon:necrozma", "duskmane");
+            case "necrozmadawnwings" -> new SpeciesForm("cobblemon:necrozma", "dawnwings");
+            case "deoxysattack" -> new SpeciesForm("cobblemon:deoxys", "attack");
+            case "deoxysdefense" -> new SpeciesForm("cobblemon:deoxys", "defense");
+            case "deoxysspeed" -> new SpeciesForm("cobblemon:deoxys", "speed");
+            default -> new SpeciesForm("cobblemon:" + compact, null);
+        };
+    }
+
     private static String sanitize(String value) {
         if (value == null || value.isBlank()) return "eevee";
         return value.trim().toLowerCase(Locale.ROOT).replace("cobblemon:", "").replaceAll("[^a-z0-9_\\-]", "");
     }
+
+    private record SpeciesForm(String species, String form) {}
 }

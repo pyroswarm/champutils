@@ -1,5 +1,6 @@
 package com.champutils.auction;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.profile.PlayerProfileManager;
 
 import com.champutils.economy.EconomyManager;
@@ -122,7 +123,7 @@ public final class AuctionHouseGui {
 
         renderBrowseListings(player, gui, AuctionHouseRepository.cachedActiveListings(45), true);
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction gui async task", connection -> {
             try { return AuctionHouseRepository.fetchActiveListings(45); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listings, error) -> player.server.execute(() -> {
@@ -176,7 +177,7 @@ public final class AuctionHouseGui {
                 .setCallback((index, clickType, actionType, g) -> openMain(player)));
         gui.open();
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("auction gui async task", connection -> {
             try { return AuctionHouseRepository.fetchSellerActiveListings(PlayerProfileManager.activeProfileId(player), 45); }
             catch (Exception e) { throw new RuntimeException(e); }
         }).whenComplete((listings, error) -> player.server.execute(() -> {

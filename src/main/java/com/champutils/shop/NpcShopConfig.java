@@ -126,7 +126,11 @@ public final class NpcShopConfig {
             if (entry.commands == null) entry.commands = new ArrayList<>();
             if (entry.lore == null) entry.lore = new ArrayList<>();
             entry.lore.removeIf(line -> line != null && line.toLowerCase().contains("money sink"));
+            if ("crate_credit".equalsIgnoreCase(entry.type)) {
+                entry.id = canonicalCrateCreditId(entry.id);
+            }
         }
+        dedupeEntries();
 
         upsertDefaultEntry("genesisforms:mega_bracelet", item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
@@ -175,14 +179,57 @@ public final class NpcShopConfig {
     }
 
     private static void upsertDefaultEntry(String id, ShopEntry replacement) {
+        String targetId = canonicalEntryId(replacement.type, id);
+        replacement.id = canonicalEntryId(replacement.type, replacement.id);
         for (int i = 0; i < CONFIG.entries.size(); i++) {
             ShopEntry existing = CONFIG.entries.get(i);
-            if (existing != null && existing.id != null && existing.id.equalsIgnoreCase(id)) {
+            if (existing != null && targetId.equalsIgnoreCase(canonicalEntryId(existing.type, existing.id))) {
                 CONFIG.entries.set(i, replacement);
+                dedupeEntries();
                 return;
             }
         }
         CONFIG.entries.add(replacement);
+        dedupeEntries();
+    }
+
+    private static void dedupeEntries() {
+        List<ShopEntry> unique = new ArrayList<>();
+        for (ShopEntry entry : CONFIG.entries) {
+            if (entry == null) continue;
+            String key = (entry.type == null ? "item" : entry.type.trim().toLowerCase()) + ":" + canonicalEntryId(entry.type, entry.id);
+            boolean exists = false;
+            for (ShopEntry kept : unique) {
+                String keptKey = (kept.type == null ? "item" : kept.type.trim().toLowerCase()) + ":" + canonicalEntryId(kept.type, kept.id);
+                if (key.equalsIgnoreCase(keptKey)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) unique.add(entry);
+        }
+        CONFIG.entries = unique;
+    }
+
+    private static String canonicalEntryId(String type, String id) {
+        if ("crate_credit".equalsIgnoreCase(type)) {
+            return canonicalCrateCreditId(id);
+        }
+        return id == null ? "" : id.trim();
+    }
+
+    private static String canonicalCrateCreditId(String id) {
+        String crateId = id == null ? "" : id.trim().toLowerCase();
+        if (crateId.endsWith("_crate_key")) {
+            crateId = crateId.substring(0, crateId.length() - "_crate_key".length());
+        }
+        if (crateId.endsWith("_crate_credit")) {
+            crateId = crateId.substring(0, crateId.length() - "_crate_credit".length());
+        }
+        if (crateId.isBlank()) {
+            crateId = "f";
+        }
+        return crateId + "_crate_credit";
     }
 
     private static void upsertTypedEntry(String type, String id, ShopEntry replacement) {
@@ -281,7 +328,7 @@ public final class NpcShopConfig {
     private static ShopEntry crateCredit(int slot, String name, String icon, String crateId, int amount, long price, String... lore) {
         ShopEntry entry = new ShopEntry();
         entry.type = "crate_credit";
-        entry.id = crateId;
+        entry.id = canonicalCrateCreditId(crateId);
         entry.slot = slot;
         entry.displayName = name;
         entry.icon = icon;

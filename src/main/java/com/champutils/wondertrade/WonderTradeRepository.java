@@ -23,6 +23,11 @@ public final class WonderTradeRepository {
 
     private WonderTradeRepository() {}
 
+    public static void ensureSchemaAsync() {
+        if (!DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("ensure wondertrade schema", WonderTradeRepository::ensureSchema);
+    }
+
     public static void ensureSchema() throws Exception {
         ensureSchema(DatabaseManager.getConnection());
     }
@@ -349,7 +354,6 @@ public final class WonderTradeRepository {
 
     public static int poolSize() throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement statement = connection.prepareStatement("select count(*) from wondertrade_pool")) {
             try (ResultSet rs = statement.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -359,7 +363,6 @@ public final class WonderTradeRepository {
 
     public static int shinyCount() throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement statement = connection.prepareStatement("select count(*) from wondertrade_pool where shiny = true")) {
             try (ResultSet rs = statement.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -369,7 +372,6 @@ public final class WonderTradeRepository {
 
     public static int legendaryCount() throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement statement = connection.prepareStatement("select count(*) from wondertrade_pool where legendary = true")) {
             try (ResultSet rs = statement.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -383,7 +385,6 @@ public final class WonderTradeRepository {
 
     public static WonderTradeEntry exchange(UUID profileId, UUID playerUuid, String playerUsername, JsonObject offeredPayload) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
 
         boolean previousAutoCommit = connection.getAutoCommit();
         try {
@@ -484,7 +485,6 @@ public final class WonderTradeRepository {
 
     private static void insert(UUID ownerUuid, String ownerUsername, String source, JsonObject payload, String species, String displayName, int level, boolean shiny, boolean legendary) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         insertIntoPool(connection, ownerUuid, ownerUsername, source, payload, species, displayName, level, shiny, legendary);
     }
 
@@ -588,7 +588,6 @@ public final class WonderTradeRepository {
 
     public static TradeGate getTradeGate(UUID profileId, UUID playerUuid) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
 
         if (profileId == null) {
             throw new IllegalArgumentException("WonderTrade requires an active profile_id.");
@@ -627,7 +626,6 @@ public final class WonderTradeRepository {
 
     public static StatusSnapshot getStatusSnapshot() throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         int pool = 0;
         int shinies = 0;
         int legendaries = 0;
@@ -650,7 +648,6 @@ public final class WonderTradeRepository {
 
     public static int getCooldownMinutes() throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         return getCooldownMinutes(connection);
     }
 
@@ -672,7 +669,6 @@ public final class WonderTradeRepository {
 
     public static void setCooldownMinutes(int minutes) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         try (PreparedStatement statement = connection.prepareStatement(
                 "insert into wondertrade_settings(setting_key, setting_value, updated_at) values ('cooldown_minutes', ?, now()) " +
                         "on conflict (setting_key) do update set setting_value = excluded.setting_value, updated_at = now()"
@@ -684,7 +680,6 @@ public final class WonderTradeRepository {
 
     public static long getCooldownRemainingSeconds(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         if (profileId == null) {
             throw new IllegalArgumentException("WonderTrade cooldown lookup requires a non-null profile_id.");
         }
@@ -707,7 +702,6 @@ public final class WonderTradeRepository {
 
     public static void markCooldown(UUID profileId, UUID playerUuid) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         markCooldown(connection, profileId, playerUuid);
     }
 
@@ -730,7 +724,6 @@ public final class WonderTradeRepository {
 
     public static void savePendingClaim(UUID profileId, UUID playerUuid, String playerUsername, String claimType, JsonObject payload, String displayName) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         savePendingClaim(connection, profileId, playerUuid, playerUsername, claimType, payload, displayName);
     }
 
@@ -758,7 +751,6 @@ public final class WonderTradeRepository {
 
     public static PendingClaim getPendingClaim(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         if (profileId == null) {
             throw new IllegalArgumentException("WonderTrade requires an active profile_id.");
         }
@@ -780,7 +772,6 @@ public final class WonderTradeRepository {
 
     public static void deletePendingClaim(UUID profileId) throws Exception {
         Connection connection = DatabaseManager.getConnection();
-        ensureSchema(connection);
         if (profileId == null) return;
         try (PreparedStatement statement = connection.prepareStatement(
                 "delete from wondertrade_pending_claims where profile_id = ?"

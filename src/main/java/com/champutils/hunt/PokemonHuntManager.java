@@ -278,6 +278,8 @@ public final class PokemonHuntManager {
     private static final java.util.Map<String, String> SINGLE_GENDER_SPECIES = java.util.Map.ofEntries(
             java.util.Map.entry("nidoranfemale", "female"),
             java.util.Map.entry("nidoranmale", "male"),
+            java.util.Map.entry("nidoranf", "female"),
+            java.util.Map.entry("nidoranm", "male"),
             java.util.Map.entry("latias", "female"),
             java.util.Map.entry("latios", "male"),
             java.util.Map.entry("cresselia", "female"),

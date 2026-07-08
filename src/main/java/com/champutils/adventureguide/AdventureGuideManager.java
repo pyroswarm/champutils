@@ -2,6 +2,7 @@ package com.champutils.adventureguide;
 
 import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.economy.EconomyManager;
+import com.champutils.profession.ProfessionManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -59,6 +60,10 @@ public final class AdventureGuideManager {
             objective("boss_event", "Participate in a boss event", "Mega bosses and world bosses create shared server moments and high-end rewards.", "world_boss", 1, 1000L, "Join a boss fight when one announces."),
             objective("settings", "Open Settings and choose your preferences", "Settings let players control popups, scoreboard, sounds, and the Adventure Guide boss bar.", "settings", 1, 250L, "Open /menu settings."),
             objective("defeat_misty", "Defeat Misty and earn the Cascade Badge", "Gym badges unlock progression and teach the main Cobblemon battle path.", "badge_cascade", 1, 500L, "Use the Gym menu/NPC to challenge Misty."),
+            objective("collect_copper_chunks", "Collect 16 Copper Chunks", "Copper Chunks are the first real step into the E Rank profession gear loop.", "chunk_copper", 16, 500L, "Mine, chop, harvest, or battle with profession progress enabled until you find 16 Copper Chunks."),
+            objective("craft_e_tool_armor_trinket", "Craft E Rank profession gear", "Craft one E Rank tool, one E Rank armor piece, and one E Rank trinket to learn the profession gear triangle.", "craft_e_gear_training", 3, 750L, "Use /essence craft e pickaxe, /essence craft e helmet, and /essence craft e magnet or another E Rank trinket."),
+            objective("reroll_tool", "Reroll a profession tool", "Rerolling teaches how to improve a profession tool's stats before investing in higher ranks.", "tool_reroll", 1, 500L, "Hold a profession tool and use /itemroll reroll."),
+            objective("salvage_common_tool", "Salvage a common profession tool", "Salvaging teaches how unwanted F Rank tools turn back into essence for future crafting.", "salvage_common_tool", 1, 500L, "Hold an F Rank/common profession tool and use /salvage."),
             objective("complete", "Adventure Guide complete", "You know the main Cobble Champs systems. Keep ranking up with the Adventurer's Guild.", "complete", 1, 2500L, "Keep playing your way.")
     );
 
@@ -162,6 +167,33 @@ public final class AdventureGuideManager {
         }
     }
 
+    public static void markIntroECraft(ServerPlayer player, String rarity, String toolType) {
+        if (player == null || rarity == null || toolType == null) return;
+        PlayerData data = data(player);
+        Objective current = objectiveAt(data.index);
+        if (current == null || !"craft_e_tool_armor_trinket".equals(current.id())) return;
+        if (!"E".equalsIgnoreCase(rarity.trim())) return;
+
+        String normalized = toolType.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
+        String flag = switch (normalized) {
+            case "pickaxe", "axe", "hoe", "shovel", "sword" -> "e_tool";
+            case "helmet", "chestplate", "leggings", "boots" -> "e_armor";
+            case "magnet", "shiny_charm", "profession_xp_gem", "pokemon_xp_egg", "friendship_charm", "level_charm", "rare_pokemon_charm", "chunky_brick", "trinket_pouch" -> "e_trinket";
+            default -> null;
+        };
+        if (flag == null) return;
+        if (data.guideFlags == null) data.guideFlags = new HashSet<>();
+        if (!data.guideFlags.add(flag)) return;
+        data.progress = Math.min(current.target(), data.guideFlags.size());
+        markDirty(player);
+        if (data.progress >= current.target()) {
+            completeCurrent(player, data, current);
+        } else {
+            updateBossBar(player);
+            player.sendSystemMessage(Component.literal("§aAdventure Guide progress: §f" + current.title() + " §7(" + data.progress + "/" + current.target() + ")"));
+        }
+    }
+
     public static Objective currentObjective(ServerPlayer player) {
         return player == null ? null : objectiveAt(data(player).index);
     }
@@ -209,6 +241,12 @@ public final class AdventureGuideManager {
         if (objective.rewardCredits() > 0) {
             player.sendSystemMessage(Component.literal("§7Reward: §6" + objective.rewardCredits() + " credits"));
         }
+        if ("collect_copper_chunks".equals(objective.id())) {
+            ProfessionManager.addFragments(player, "E", 48);
+            ProfessionManager.savePlayer(player);
+            player.sendSystemMessage(Component.literal("§aTraining reward: §648 E Rank Essence §7(enough to craft the guide tool, armor piece, and trinket)."));
+        }
+        data.guideFlags.clear();
         if (data.index < OBJECTIVES.size() - 1) {
             data.index++;
             data.progress = 0;
@@ -319,9 +357,11 @@ public final class AdventureGuideManager {
         int progress = 0;
         boolean bossBarVisible = true;
         Set<String> completed = new HashSet<>();
+        Set<String> guideFlags = new HashSet<>();
 
         void sanitize() {
             if (completed == null) completed = new HashSet<>();
+            if (guideFlags == null) guideFlags = new HashSet<>();
             if (index < 0) index = 0;
             if (index >= OBJECTIVES.size()) index = OBJECTIVES.size() - 1;
             Objective current = objectiveAt(index);

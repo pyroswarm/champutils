@@ -146,7 +146,7 @@ public final class CommandBlocker {
             case "pokeivs", "ivs" -> "VIP+";
             default -> "locked";
         };
-        return Component.literal("§cThis is a " + feature + " feature. Unlock it with /accountupgrade.");
+        return Component.literal("§cThis is a " + feature + " feature. VIP ranks are unlocked through Tebex.");
     }
 
     private static void deny(CommandSourceStack source, Component message) {

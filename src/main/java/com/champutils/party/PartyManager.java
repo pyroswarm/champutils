@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class PartyManager {
 
@@ -31,7 +32,8 @@ public final class PartyManager {
     private static final Map<UUID, PendingInvite> INVITES_BY_TARGET = new ConcurrentHashMap<>();
     private static final String STATE_KEY = "parties";
     private static final long SHARED_LOAD_COOLDOWN_MS = 30_000L;
-    private static long lastSharedLoadMillis = 0L;
+    private static final AtomicBoolean SHARED_LOAD_IN_FLIGHT = new AtomicBoolean(false);
+    private static volatile long lastSharedLoadMillis = 0L;
 
     private PartyManager() {
     }
@@ -282,22 +284,32 @@ public final class PartyManager {
     private static void loadSharedIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastSharedLoadMillis < SHARED_LOAD_COOLDOWN_MS) return;
+        if (!SHARED_LOAD_IN_FLIGHT.compareAndSet(false, true)) return;
         lastSharedLoadMillis = now;
         State state = new State();
         state.partiesByOwner.putAll(PARTIES_BY_OWNER);
         state.playerToOwner.putAll(PLAYER_TO_OWNER);
         state.invitesByTarget.putAll(INVITES_BY_TARGET);
-        State shared = SharedJsonStateRepository.loadGlobal(STATE_KEY, State.class, state);
-        if (shared == null) return;
-        if (shared.partiesByOwner == null) shared.partiesByOwner = new HashMap<>();
-        if (shared.playerToOwner == null) shared.playerToOwner = new HashMap<>();
-        if (shared.invitesByTarget == null) shared.invitesByTarget = new HashMap<>();
-        PARTIES_BY_OWNER.clear();
-        PARTIES_BY_OWNER.putAll(shared.partiesByOwner);
-        PLAYER_TO_OWNER.clear();
-        PLAYER_TO_OWNER.putAll(shared.playerToOwner);
-        INVITES_BY_TARGET.clear();
-        INVITES_BY_TARGET.putAll(shared.invitesByTarget);
+        SharedJsonStateRepository.loadGlobalAsync(STATE_KEY, State.class, state).whenComplete((shared, error) -> {
+            try {
+                if (error != null) {
+                    error.printStackTrace();
+                    return;
+                }
+                if (shared == null) return;
+                if (shared.partiesByOwner == null) shared.partiesByOwner = new HashMap<>();
+                if (shared.playerToOwner == null) shared.playerToOwner = new HashMap<>();
+                if (shared.invitesByTarget == null) shared.invitesByTarget = new HashMap<>();
+                PARTIES_BY_OWNER.clear();
+                PARTIES_BY_OWNER.putAll(shared.partiesByOwner);
+                PLAYER_TO_OWNER.clear();
+                PLAYER_TO_OWNER.putAll(shared.playerToOwner);
+                INVITES_BY_TARGET.clear();
+                INVITES_BY_TARGET.putAll(shared.invitesByTarget);
+            } finally {
+                SHARED_LOAD_IN_FLIGHT.set(false);
+            }
+        });
     }
 
     private static void forceLoadShared() {

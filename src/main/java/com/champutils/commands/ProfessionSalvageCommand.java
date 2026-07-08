@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ItemSafetyService;
 import com.champutils.profession.ProfessionFragmentConfig;
@@ -378,6 +379,9 @@ public class ProfessionSalvageCommand {
                                 " Essence§a."
                 )
         );
+        if ("F".equalsIgnoreCase(result.rarity())) {
+            AdventureGuideManager.increment(player, "salvage_common_tool", 1);
+        }
 
         return 1;
     }
@@ -455,6 +459,7 @@ public class ProfessionSalvageCommand {
                                 "§a."
                 )
         );
+        AdventureGuideManager.markIntroECraft(player, result.rarity(), result.toolType());
 
         return 1;
     }

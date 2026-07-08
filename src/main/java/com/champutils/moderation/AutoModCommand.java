@@ -1,6 +1,7 @@
 package com.champutils.moderation;
 
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.database.DatabaseManager;
 import com.champutils.permissions.PermissionUtil;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -191,7 +192,7 @@ public final class AutoModCommand {
                                     MinecraftServer server = source.getServer();
                                     String display = displayName(target, targetName);
                                     source.sendSuccess(() -> Component.literal("Loading moderation history for " + display + "...").withStyle(ChatFormatting.GRAY), false);
-                                    java.util.concurrent.CompletableFuture.supplyAsync(() -> ModerationManager.staffHistory(uuid, targetName)).thenAccept(rows -> server.execute(() -> {
+                                    DatabaseManager.supplyAsync("moderation staff history", connection -> ModerationManager.staffHistory(uuid, targetName)).thenAccept(rows -> server.execute(() -> {
                                         source.sendSuccess(() -> Component.literal("Moderation history for " + display + " (" + rows.size() + " records):").withStyle(ChatFormatting.GOLD), false);
                                         for (ModerationActionRepository.ActionRecord row : rows) {
                                             source.sendSuccess(() -> Component.literal(formatRow(row)), false);

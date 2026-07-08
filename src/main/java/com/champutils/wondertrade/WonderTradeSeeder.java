@@ -47,7 +47,7 @@ public final class WonderTradeSeeder {
             return;
         }
 
-        CompletableFuture.supplyAsync(() -> {
+        DatabaseManager.supplyAsync("wondertrade seed task", connection -> {
             try {
                 WonderTradeRepository.ensureSchema();
                 int size = WonderTradeRepository.poolSize();
@@ -86,7 +86,7 @@ public final class WonderTradeSeeder {
                 return;
             }
 
-            CompletableFuture.supplyAsync(() -> insertSeedRecords(records)).whenComplete((created, insertError) -> server.execute(() -> {
+            DatabaseManager.supplyAsync("insert wondertrade seed records", connection -> insertSeedRecords(records)).whenComplete((created, insertError) -> server.execute(() -> {
                 SEEDING.set(false);
                 if (insertError != null) {
                     if (notify) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cWondertrade seed failed. Check console."));
@@ -130,7 +130,7 @@ public final class WonderTradeSeeder {
                 return;
             }
 
-            CompletableFuture.supplyAsync(() -> insertSeedRecords(records)).whenComplete((created, error) -> server.execute(() -> {
+            DatabaseManager.supplyAsync("insert wondertrade seed records", connection -> insertSeedRecords(records)).whenComplete((created, error) -> server.execute(() -> {
                 SEEDING.set(false);
                 if (error != null) {
                     if (notify) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cWondertrade injection failed. Check console."));

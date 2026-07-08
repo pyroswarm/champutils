@@ -1,5 +1,6 @@
 package com.champutils.profession;
 
+import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -69,6 +70,9 @@ public final class ProfessionChunkManager {
         String key = normalizeChunk(chunk);
         ProfessionManager.addChunks(player, key, amount);
         ProfessionManager.savePlayer(player);
+        if ("COPPER".equals(key)) {
+            AdventureGuideManager.increment(player, "chunk_copper", amount);
+        }
 
         if (announce && ProfessionChunkConfig.CONFIG.announceFinds && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             ProfessionChunkConfig.ChunkData chunkData = ProfessionChunkConfig.CONFIG.chunks.get(key);

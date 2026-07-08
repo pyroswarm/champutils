@@ -2,7 +2,9 @@ package com.champutils.notifications;
 
 import com.champutils.database.DatabaseManager;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +15,6 @@ public final class NotificationRepository {
     private NotificationRepository() {}
 
     public static List<PlayerNotification> fetchUndelivered(UUID playerUuid, int limit) throws Exception {
-        ensureSchema();
         List<PlayerNotification> notifications = new ArrayList<>();
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, type, title, message, created_at from notifications " +
@@ -38,7 +39,6 @@ public final class NotificationRepository {
     }
 
     public static List<PlayerNotification> fetchLatest(UUID playerUuid, int limit) throws Exception {
-        ensureSchema();
         List<PlayerNotification> notifications = new ArrayList<>();
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "select id, type, title, message, created_at from notifications " +
@@ -63,7 +63,6 @@ public final class NotificationRepository {
 
     public static void markDelivered(List<PlayerNotification> notifications) throws Exception {
         if (notifications == null || notifications.isEmpty()) return;
-        ensureSchema();
         try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
                 "update notifications set delivered_in_game = true, delivered_in_game_at = now() where id = ?"
         )) {
@@ -75,22 +74,30 @@ public final class NotificationRepository {
         }
     }
 
-    public static void create(UUID userUuid, String username, String type, String title, String message) throws Exception {
-        ensureSchema();
-        try (PreparedStatement statement = DatabaseManager.getConnection().prepareStatement(
-                "insert into notifications (user_uuid, username, type, title, message, created_at) values (?, ?, ?, ?, ?, now())"
-        )) {
-            statement.setString(1, userUuid.toString());
-            statement.setString(2, username == null ? "" : username);
-            statement.setString(3, type == null ? "GENERAL" : type);
-            statement.setString(4, title == null ? "Notification" : title);
-            statement.setString(5, message == null ? "" : message);
-            statement.executeUpdate();
-        }
+    public static void create(UUID userUuid, String username, String type, String title, String message) {
+        if (userUuid == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("create notification", connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "insert into notifications (user_uuid, username, type, title, message, created_at) values (?, ?, ?, ?, ?, now())"
+            )) {
+                statement.setString(1, userUuid.toString());
+                statement.setString(2, username == null ? "" : username);
+                statement.setString(3, type == null ? "GENERAL" : type);
+                statement.setString(4, title == null ? "Notification" : title);
+                statement.setString(5, message == null ? "" : message);
+                statement.executeUpdate();
+            }
+        });
     }
 
-    private static void ensureSchema() throws Exception {
-        try (var statement = DatabaseManager.getConnection().createStatement()) {
+    public static void ensureSchemaAsync() {
+        if (!DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("ensure notifications schema", NotificationRepository::ensureSchema);
+    }
+
+    public static void ensureSchema(Connection connection) throws Exception {
+        if (connection == null) return;
+        try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("create table if not exists notifications (" +
                     "id uuid primary key default gen_random_uuid(), " +
                     "user_uuid text, " +
@@ -114,6 +121,8 @@ public final class NotificationRepository {
             statement.executeUpdate("alter table notifications add column if not exists delivered_in_game boolean not null default false");
             statement.executeUpdate("alter table notifications add column if not exists delivered_in_game_at timestamp with time zone");
             statement.executeUpdate("alter table notifications add column if not exists created_at timestamp with time zone default now()");
+            statement.executeUpdate("create index if not exists idx_notifications_user_undelivered_created on notifications (user_uuid, created_at) where delivered_in_game = false");
+            statement.executeUpdate("create index if not exists idx_notifications_user_created_desc on notifications (user_uuid, created_at desc)");
         }
     }
 
