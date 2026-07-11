@@ -1,0 +1,76 @@
+{
+  "implemented": false,
+  "nationalPokedexNumber": 0,
+  "name": "Egg",
+  "primaryType": "normal",
+  "maleRatio": -1,
+  "height": 4,
+  "weight": 25,
+  "pokedex": [
+    "champutils.species.egg.desc"
+  ],
+  "labels": [
+    "custom",
+    "egg"
+  ],
+  "aspects": [],
+  "abilities": [
+    "runaway"
+  ],
+  "eggGroups": [
+    "undiscovered"
+  ],
+  "baseStats": {
+    "hp": 1,
+    "attack": 1,
+    "defence": 1,
+    "special_attack": 1,
+    "special_defence": 1,
+    "speed": 1
+  },
+  "evYield": {
+    "hp": 0,
+    "attack": 0,
+    "defence": 0,
+    "special_attack": 0,
+    "special_defence": 0,
+    "speed": 0
+  },
+  "baseExperienceYield": 0,
+  "experienceGroup": "medium_fast",
+  "catchRate": 0,
+  "eggCycles": 1,
+  "baseFriendship": 0,
+  "baseScale": 0.8,
+  "hitbox": {
+    "width": 0.55,
+    "height": 0.75,
+    "fixed": false
+  },
+  "behaviour": {
+    "moving": {
+      "walk": {
+        "canWalk": false
+      },
+      "swim": {
+        "canSwimInWater": false,
+        "canBreatheUnderwater": false
+      },
+      "fly": {
+        "canFly": false
+      }
+    },
+    "combat": {
+      "willDefendOwner": false,
+      "willDefendSelf": false
+    }
+  },
+  "drops": {
+    "amount": 0,
+    "entries": []
+  },
+  "moves": [
+    "1:splash"
+  ],
+  "evolutions": []
+}

@@ -47,8 +47,15 @@ public final class PlayerContractService {
             }
             pending.species = PokemonWikiIndex.displayName(input);
             pending.speciesKey = cleanSpecies(input);
-            pending.step = PendingStep.NATURE;
-            PlayerContractMenu.openPokemonNatureMenu(player, pending.species);
+            java.util.List<String> genders = PokemonWikiIndex.genderOptions(pending.speciesKey);
+            if (genders.isEmpty()) {
+                pending.gender = "";
+                pending.step = PendingStep.ABILITY;
+                PlayerContractMenu.openPokemonAbilityMenu(player, pending.species, PokemonWikiIndex.abilityNames(pending.speciesKey));
+            } else {
+                pending.step = PendingStep.GENDER;
+                PlayerContractMenu.openPokemonGenderMenu(player, pending.species, genders);
+            }
             return true;
         }
 
@@ -79,10 +86,18 @@ public final class PlayerContractService {
         PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
     }
 
-    public static void selectPokemonNature(ServerPlayer player, String nature) {
+    public static void selectPokemonGender(ServerPlayer player, String gender) {
         PendingPokemonContract pending = pending(player);
-        if (pending == null || pending.step != PendingStep.NATURE) return;
-        pending.nature = any(nature) ? "" : pretty(nature);
+        if (pending == null || pending.step != PendingStep.GENDER) return;
+
+        String selected = normalizeGender(gender);
+        java.util.List<String> legal = PokemonWikiIndex.genderOptions(pending.speciesKey);
+        if (!selected.isBlank() && !selected.equals("any") && legal.stream().noneMatch(value -> normalizeGender(value).equals(selected))) {
+            player.sendSystemMessage(Component.literal("That gender is not available for this Pokémon.").withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        pending.gender = selected.equals("any") ? "" : selected;
         pending.step = PendingStep.ABILITY;
         PlayerContractMenu.openPokemonAbilityMenu(player, pending.species, PokemonWikiIndex.abilityNames(pending.speciesKey));
     }
@@ -90,7 +105,27 @@ public final class PlayerContractService {
     public static void selectPokemonAbility(ServerPlayer player, String ability) {
         PendingPokemonContract pending = pending(player);
         if (pending == null || pending.step != PendingStep.ABILITY) return;
+
+        if (!any(ability)) {
+            String selected = cleanToken(ability);
+            boolean legal = PokemonWikiIndex.abilityNames(pending.speciesKey).stream()
+                    .map(PlayerContractService::cleanToken)
+                    .anyMatch(selected::equals);
+            if (!legal) {
+                player.sendSystemMessage(Component.literal("That ability is not available for this Pokémon.").withStyle(ChatFormatting.RED));
+                return;
+            }
+        }
+
         pending.ability = any(ability) ? "" : pretty(ability);
+        pending.step = PendingStep.NATURE;
+        PlayerContractMenu.openPokemonNatureMenu(player, pending.species);
+    }
+
+    public static void selectPokemonNature(ServerPlayer player, String nature) {
+        PendingPokemonContract pending = pending(player);
+        if (pending == null || pending.step != PendingStep.NATURE) return;
+        pending.nature = any(nature) ? "" : pretty(nature);
         pending.step = PendingStep.REWARD;
         player.closeContainer();
         player.sendSystemMessage(Component.literal("Type the Credits reward for this contract. Example: 1000. Type cancel to stop.").withStyle(ChatFormatting.GOLD));
@@ -104,11 +139,6 @@ public final class PlayerContractService {
             return;
         }
         long rewardCents = EconomyManager.wholeCreditsToCents(Math.max(1, rewardCredits));
-        EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(player, rewardCents, "create_player_item_contract");
-        if (!withdrawn.success) {
-            player.sendSystemMessage(Component.literal(withdrawn.error == null ? "Not enough Credits." : withdrawn.error).withStyle(ChatFormatting.RED));
-            return;
-        }
 
         JsonObject criteria = new JsonObject();
         String itemId = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
@@ -132,11 +162,6 @@ public final class PlayerContractService {
             return;
         }
         long rewardCents = EconomyManager.wholeCreditsToCents(Math.max(1, rewardCredits));
-        EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(player, rewardCents, "create_player_pokemon_contract");
-        if (!withdrawn.success) {
-            player.sendSystemMessage(Component.literal(withdrawn.error == null ? "Not enough Credits." : withdrawn.error).withStyle(ChatFormatting.RED));
-            return;
-        }
 
         JsonObject criteria = new JsonObject();
         criteria.addProperty("species", speciesId(pokemon));
@@ -149,18 +174,14 @@ public final class PlayerContractService {
 
     private static void createPokemonContractFromCriteria(ServerPlayer player, PendingPokemonContract pending, long rewardCents) {
         if (player == null || pending == null || pending.speciesKey == null || pending.speciesKey.isBlank()) return;
-        EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(player, rewardCents, "create_player_pokemon_contract");
-        if (!withdrawn.success) {
-            player.sendSystemMessage(Component.literal(withdrawn.error == null ? "Not enough Credits." : withdrawn.error).withStyle(ChatFormatting.RED));
-            return;
-        }
-
         JsonObject criteria = new JsonObject();
         criteria.addProperty("species", pending.speciesKey);
+        if (pending.gender != null && !pending.gender.isBlank()) criteria.addProperty("gender", normalizeGender(pending.gender));
         if (pending.nature != null && !pending.nature.isBlank()) criteria.addProperty("nature", cleanToken(pending.nature));
         if (pending.ability != null && !pending.ability.isBlank()) criteria.addProperty("ability", cleanToken(pending.ability));
 
         StringBuilder title = new StringBuilder("Deliver ");
+        if (pending.gender != null && !pending.gender.isBlank()) title.append(pretty(pending.gender)).append(" ");
         if (pending.nature != null && !pending.nature.isBlank()) title.append(pending.nature).append(" ");
         if (pending.ability != null && !pending.ability.isBlank()) title.append(pending.ability).append(" ");
         title.append(pending.species == null || pending.species.isBlank() ? PokemonWikiIndex.displayName(pending.speciesKey) : pending.species);
@@ -168,24 +189,84 @@ public final class PlayerContractService {
     }
 
     private static void createContract(ServerPlayer player, String type, String title, long rewardCents, JsonObject criteria) {
+        if (player == null || rewardCents <= 0L) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         String ownerName = player.getGameProfile().getName();
-        DatabaseManager.supplyAsync("create player contract", connection -> PlayerContractRepository.createContract(profileId, ownerName, type, title, rewardCents, criteria))
-                .whenComplete((contractId, error) -> player.server.execute(() -> {
-                    if (error != null || contractId == null) {
-                        EconomyManager.deposit(player, rewardCents, "refund_failed_player_contract");
-                        player.sendSystemMessage(Component.literal("Could not create that contract. Your Credits were refunded.").withStyle(ChatFormatting.RED));
-                        if (error != null) error.printStackTrace();
-                        return;
+        String safeType = type == null ? "ITEM" : type.toUpperCase(Locale.ROOT);
+        String safeTitle = title == null || title.isBlank() ? "Player Contract" : title;
+
+        player.sendSystemMessage(Component.literal("Creating contract...").withStyle(ChatFormatting.YELLOW));
+        DatabaseManager.supplyAsync("create paid player contract", connection -> {
+            boolean withdrew = false;
+            try {
+                EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(profileId, ownerName, rewardCents, "create_player_contract:" + safeType.toLowerCase(Locale.ROOT));
+                if (!withdrawn.success) {
+                    return ContractCreateResult.fail(withdrawn.error == null ? "You do not have enough Credits." : withdrawn.error);
+                }
+                withdrew = true;
+
+                UUID contractId = PlayerContractRepository.createContract(profileId, ownerName, safeType, safeTitle, rewardCents, criteria);
+                if (contractId == null) {
+                    throw new IllegalStateException("Contract insert returned no id.");
+                }
+                return ContractCreateResult.success(contractId);
+            } catch (Exception e) {
+                if (withdrew) {
+                    try {
+                        EconomyManager.deposit(profileId, ownerName, rewardCents, "refund_failed_player_contract");
+                    } catch (Exception refundError) {
+                        refundError.printStackTrace();
                     }
-                    String line = "§6§l[Player Contracts] §e" + ownerName
-                            + " §fcreated a " + ("POKEMON".equalsIgnoreCase(type) ? "Pokémon" : "item")
-                            + " contract: §b" + title
-                            + " §8| §7Reward: §6" + EconomyManager.format(rewardCents);
-                    player.server.getPlayerList().broadcastSystemMessage(Component.literal(line), false);
-                    NetworkEventManager.publishBroadcastText(line);
-                    player.sendSystemMessage(Component.literal("Contract created. The reward is held until another player completes it.").withStyle(ChatFormatting.GREEN));
-                }));
+                }
+                throw e;
+            }
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null || result == null || result.contractId() == null) {
+                String message = result != null && result.error() != null && !result.error().isBlank()
+                        ? result.error()
+                        : "Could not create that contract. Your Credits were not taken, or were refunded.";
+                player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            String line = "§6§l[Player Contracts] §e" + ownerName
+                    + " §fcreated a " + ("POKEMON".equalsIgnoreCase(safeType) ? "Pokémon" : "item")
+                    + " contract: §b" + safeTitle
+                    + " §8| §7Reward: §6" + EconomyManager.format(rewardCents);
+            player.server.getPlayerList().broadcastSystemMessage(Component.literal(line), false);
+            NetworkEventManager.publishBroadcastText(line);
+            player.sendSystemMessage(Component.literal("Contract created. The reward is held until another player completes it.").withStyle(ChatFormatting.GREEN));
+        }));
+    }
+
+    public static void cancelContract(ServerPlayer player, UUID contractId) {
+        if (player == null || contractId == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        String ownerName = player.getGameProfile().getName();
+        player.sendSystemMessage(Component.literal("Cancelling contract...").withStyle(ChatFormatting.YELLOW));
+
+        DatabaseManager.supplyAsync("cancel player contract", connection -> {
+            PlayerContractRepository.ContractSummary cancelled = PlayerContractRepository.cancelActiveContract(contractId, profileId);
+            if (cancelled == null) {
+                return ContractCancelResult.fail("That contract is no longer active, or it is not yours.");
+            }
+            EconomyManager.TransactionResult refund = EconomyManager.deposit(profileId, ownerName, cancelled.rewardCents, "cancel_player_contract:" + contractId);
+            if (!refund.success) {
+                return ContractCancelResult.fail("Contract was cancelled, but the refund failed. Ask staff to review contract " + contractId + ".");
+            }
+            return ContractCancelResult.success(cancelled.title, cancelled.rewardCents);
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null || result == null || !result.success()) {
+                String message = result != null && result.error() != null && !result.error().isBlank()
+                        ? result.error()
+                        : "Could not cancel that contract.";
+                player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            player.sendSystemMessage(Component.literal("Cancelled contract and refunded " + EconomyManager.format(result.rewardCents()) + ".").withStyle(ChatFormatting.GREEN));
+            PlayerContractMenu.open(player);
+        }));
     }
 
     public static void completeItemContract(ServerPlayer player, UUID contractId) {
@@ -462,6 +543,16 @@ public final class PlayerContractService {
         }
     }
 
+    private static String normalizeGender(String value) {
+        if (value == null) return "";
+        String normalized = cleanToken(value);
+        if (normalized.contains("female")) return "female";
+        if (normalized.contains("male")) return "male";
+        if (normalized.contains("genderless") || normalized.contains("none") || normalized.contains("unknown")) return "genderless";
+        if (normalized.equals("any") || normalized.isBlank()) return "any";
+        return normalized;
+    }
+
     private static boolean containsClean(String actual, String expected) {
         String a = actual == null ? "" : actual.toLowerCase(Locale.ROOT).replace("_", "").replace(" ", "");
         String e = expected == null ? "" : expected.toLowerCase(Locale.ROOT).replace("_", "").replace(" ", "");
@@ -557,8 +648,19 @@ public final class PlayerContractService {
         }
     }
 
+    private record ContractCreateResult(UUID contractId, String error) {
+        static ContractCreateResult success(UUID contractId) { return new ContractCreateResult(contractId, null); }
+        static ContractCreateResult fail(String error) { return new ContractCreateResult(null, error); }
+    }
+
+    private record ContractCancelResult(boolean success, String title, long rewardCents, String error) {
+        static ContractCancelResult success(String title, long rewardCents) { return new ContractCancelResult(true, title, rewardCents, null); }
+        static ContractCancelResult fail(String error) { return new ContractCancelResult(false, null, 0L, error); }
+    }
+
     private enum PendingStep {
         SPECIES,
+        GENDER,
         NATURE,
         ABILITY,
         REWARD
@@ -568,6 +670,7 @@ public final class PlayerContractService {
         private PendingStep step = PendingStep.SPECIES;
         private String speciesKey = "";
         private String species = "";
+        private String gender = "";
         private String nature = "";
         private String ability = "";
     }

@@ -31,7 +31,7 @@ public final class CobblemonProfileStateManager {
         try {
             PlayerPartyStore empty = new PlayerPartyStore(player.getUUID());
             empty.initialize();
-            empty.sendTo(player);
+            CobblemonProfileStorageBridge.sendPartyToPlayerAndSelect(player, empty, null, "clear-live");
         } catch (Throwable ignored) {}
     }
 }

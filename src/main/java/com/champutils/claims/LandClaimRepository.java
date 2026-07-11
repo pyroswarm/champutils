@@ -42,6 +42,9 @@ public final class LandClaimRepository {
         public boolean visitorsCanOpenContainers = false;
         public boolean visitorsCanInteractEntities = false;
         public boolean visitorsCanUseRedstone = false;
+        public boolean visitorsCanUseDoors = false;
+        public boolean visitorsCanCatchPokemon = false;
+        public boolean pokemonSpawningEnabled = true;
         public Set<UUID> memberProfileIds = ConcurrentHashMap.newKeySet();
 
         public boolean contains(String serverId, String worldName, BlockPos pos) {
@@ -170,6 +173,8 @@ public final class LandClaimRepository {
     public static boolean canOpenContainers(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanOpenContainers; }
     public static boolean canInteractEntities(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanInteractEntities; }
     public static boolean canUseRedstone(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanUseRedstone; }
+    public static boolean canUseDoors(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanUseDoors; }
+    public static boolean canCatchPokemon(ServerPlayer player, Claim claim) { return isOwner(player, claim) || isMember(player, claim) || claim.visitorsCanCatchPokemon; }
 
     public static boolean overlapsCached(ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
         if (level == null) return false;
@@ -406,6 +411,9 @@ public final class LandClaimRepository {
             case "visitorsCanOpenContainers" -> claim.visitorsCanOpenContainers = value;
             case "visitorsCanInteractEntities" -> claim.visitorsCanInteractEntities = value;
             case "visitorsCanUseRedstone" -> claim.visitorsCanUseRedstone = value;
+            case "visitorsCanUseDoors" -> claim.visitorsCanUseDoors = value;
+            case "visitorsCanCatchPokemon" -> claim.visitorsCanCatchPokemon = value;
+            case "pokemonSpawningEnabled" -> claim.pokemonSpawningEnabled = value;
             default -> { return; }
         }
         saveSettingsAsync(claim);
@@ -417,13 +425,16 @@ public final class LandClaimRepository {
             try (PreparedStatement statement = connection.prepareStatement(
                     "update profile_land_claims set settings = jsonb_build_object(" +
                             "'allowVisitors', ?, 'visitorsCanBuild', ?, 'visitorsCanOpenContainers', ?, " +
-                            "'visitorsCanInteractEntities', ?, 'visitorsCanUseRedstone', ?), updated_at = now() where id = ?")) {
+                            "'visitorsCanInteractEntities', ?, 'visitorsCanUseRedstone', ?, 'visitorsCanUseDoors', ?, 'visitorsCanCatchPokemon', ?, 'pokemonSpawningEnabled', ?), updated_at = now() where id = ?")) {
                 statement.setBoolean(1, claim.allowVisitors);
                 statement.setBoolean(2, claim.visitorsCanBuild);
                 statement.setBoolean(3, claim.visitorsCanOpenContainers);
                 statement.setBoolean(4, claim.visitorsCanInteractEntities);
                 statement.setBoolean(5, claim.visitorsCanUseRedstone);
-                statement.setObject(6, claim.id, Types.OTHER);
+                statement.setBoolean(6, claim.visitorsCanUseDoors);
+                statement.setBoolean(7, claim.visitorsCanCatchPokemon);
+                statement.setBoolean(8, claim.pokemonSpawningEnabled);
+                statement.setObject(9, claim.id, Types.OTHER);
                 statement.executeUpdate();
             }
         });
@@ -464,6 +475,9 @@ public final class LandClaimRepository {
             claim.visitorsCanOpenContainers = settings.contains("\"visitorsCanOpenContainers\": true") || settings.contains("\"visitorsCanOpenContainers\":true");
             claim.visitorsCanInteractEntities = settings.contains("\"visitorsCanInteractEntities\": true") || settings.contains("\"visitorsCanInteractEntities\":true");
             claim.visitorsCanUseRedstone = settings.contains("\"visitorsCanUseRedstone\": true") || settings.contains("\"visitorsCanUseRedstone\":true");
+            claim.visitorsCanUseDoors = settings.contains("\"visitorsCanUseDoors\": true") || settings.contains("\"visitorsCanUseDoors\":true");
+            claim.visitorsCanCatchPokemon = settings.contains("\"visitorsCanCatchPokemon\": true") || settings.contains("\"visitorsCanCatchPokemon\":true");
+            claim.pokemonSpawningEnabled = !settings.contains("\"pokemonSpawningEnabled\": false") && !settings.contains("\"pokemonSpawningEnabled\":false");
         }
         return claim;
     }

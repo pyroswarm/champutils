@@ -1,5 +1,6 @@
 package com.champutils.expeditions;
 
+import com.champutils.breeding.BreedingEggData;
 import com.champutils.profile.PlayerProfileManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.storage.party.PartyStore;
@@ -107,6 +108,10 @@ public final class ExpeditionCommand {
         Pokemon pokemon = party == null ? null : party.get(pending.slot - 1);
         if (pokemon == null) {
             player.sendSystemMessage(Component.literal("That Pokémon is no longer in that slot.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (BreedingEggData.isEgg(pokemon)) {
+            player.sendSystemMessage(Component.literal("Pokémon Eggs cannot be sent on expeditions.").withStyle(ChatFormatting.RED));
             return;
         }
 

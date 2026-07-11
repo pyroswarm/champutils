@@ -83,7 +83,7 @@ public final class PlayerContractMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal("§bCreate Pokémon Contract"))
                 .addLoreLine(Component.literal("§7Post a Pokémon job."))
-                .addLoreLine(Component.literal("§7Choose species, nature, ability,"))
+                .addLoreLine(Component.literal("§7Choose species, gender, ability,"))
                 .addLoreLine(Component.literal("§7then type the reward."))
                 .addLoreLine(Component.literal("§eClick to create"))
                 .setCallback((slot, click, action) -> PlayerContractService.beginPokemonContract(player)));
@@ -139,6 +139,45 @@ public final class PlayerContractMenu {
             open(player);
         });
         MenuUtil.addBackButton(gui, 18, () -> openCreatePokemonSlots(player));
+        gui.open();
+    }
+
+
+    public static void openPokemonGenderMenu(ServerPlayer player, String pokemonName, List<String> genders) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Choose Gender"));
+        gui.setSlot(4, new GuiElementBuilder(CobblemonItems.POKE_BALL).hideDefaultTooltip()
+                .setName(Component.literal("§b" + cleanTitle(pokemonName)))
+                .addLoreLine(Component.literal("§7Pick the requested gender."))
+                .addLoreLine(Component.literal("§7Choose Any Gender if it does not matter.")));
+
+        gui.setSlot(10, new GuiElementBuilder(Items.LIME_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§aAny Gender"))
+                .addLoreLine(Component.literal("§7Accept any valid gender."))
+                .addLoreLine(Component.literal("§eClick to choose"))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonGender(player, "any")));
+
+        List<String> safeGenders = genders == null ? List.of() : genders.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+        int[] slots = {12, 14, 16};
+        for (int i = 0; i < safeGenders.size() && i < slots.length; i++) {
+            String gender = safeGenders.get(i);
+            ItemStack icon = gender.equalsIgnoreCase("female") ? new ItemStack(Items.PINK_DYE) : new ItemStack(Items.LIGHT_BLUE_DYE);
+            gui.setSlot(slots[i], new GuiElementBuilder(icon).hideDefaultTooltip()
+                    .setName(Component.literal("§e" + cleanTitle(gender)))
+                    .addLoreLine(Component.literal("§eClick to choose"))
+                    .setCallback((slot, click, action) -> PlayerContractService.selectPokemonGender(player, gender)));
+        }
+
+        gui.setSlot(22, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel"))
+                .addLoreLine(Component.literal("§7Close this setup."))
+                .setCallback((slot, click, action) -> {
+                    PlayerContractService.cancelPending(player);
+                    open(player);
+                }));
         gui.open();
     }
 
@@ -315,9 +354,23 @@ public final class PlayerContractMenu {
         builder.addLoreLine(Component.literal("§7Type: §f" + ("POKEMON".equalsIgnoreCase(contract.type) ? "Pokémon" : "Item")));
         builder.addLoreLine(Component.literal("§7Posted by: §f" + blank(contract.ownerName)));
         builder.addLoreLine(Component.literal("§7Reward: §6" + EconomyManager.format(contract.rewardCents)));
+
+        UUID activeProfile = PlayerProfileManager.activeProfileId(player);
+        boolean owner = activeProfile != null && activeProfile.equals(contract.ownerProfileId);
+        boolean active = "ACTIVE".equalsIgnoreCase(contract.status);
+
         if ("COMPLETED".equalsIgnoreCase(contract.status)) {
             builder.addLoreLine(Component.literal("§aReady to claim."));
-        } else if (canComplete) {
+            builder.addLoreLine(Component.literal("§eClick to claim your next completed contract"));
+            builder.setCallback((slot, click, action) -> PlayerContractService.claimNext(player));
+        } else if (active && owner && !canComplete) {
+            builder.addLoreLine(Component.literal("§eClick to cancel and refund"));
+            builder.addLoreLine(Component.literal("§7Only active, unfinished contracts can be cancelled."));
+            builder.setCallback((slot, click, action) -> openCancelConfirm(player, contract));
+        } else if (active && owner) {
+            builder.addLoreLine(Component.literal("§7This is your contract."));
+            builder.addLoreLine(Component.literal("§7Open Your Contracts to cancel it."));
+        } else if (active && canComplete) {
             builder.addLoreLine(Component.literal("§eClick to complete"));
             builder.setCallback((slot, click, action) -> {
                 if ("POKEMON".equalsIgnoreCase(contract.type)) openPokemonSlots(player, contract.id);
@@ -327,6 +380,34 @@ public final class PlayerContractMenu {
             builder.addLoreLine(Component.literal("§7Waiting for another player."));
         }
         return builder;
+    }
+
+    private static void openCancelConfirm(ServerPlayer player, PlayerContractRepository.ContractSummary contract) {
+        if (player == null || contract == null) return;
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Cancel Contract"));
+
+        gui.setSlot(4, iconFor(player, contract).hideDefaultTooltip()
+                .setName(Component.literal("§e" + cleanTitle(contract.title)))
+                .addLoreLine(Component.literal("§7Reward held: §6" + EconomyManager.format(contract.rewardCents)))
+                .addLoreLine(Component.literal("§7Cancelling refunds this reward.")));
+
+        gui.setSlot(11, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel Contract"))
+                .addLoreLine(Component.literal("§7This removes the job board listing."))
+                .addLoreLine(Component.literal("§7Your reward Credits will be refunded."))
+                .addLoreLine(Component.literal("§eClick to confirm"))
+                .setCallback((slot, click, action) -> {
+                    gui.close();
+                    PlayerContractService.cancelContract(player, contract.id);
+                }));
+
+        gui.setSlot(15, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip()
+                .setName(Component.literal("§aKeep Contract"))
+                .addLoreLine(Component.literal("§7Return without cancelling."))
+                .setCallback((slot, click, action) -> openMine(player)));
+
+        gui.open();
     }
 
     private static void openPokemonSlots(ServerPlayer player, UUID contractId) {

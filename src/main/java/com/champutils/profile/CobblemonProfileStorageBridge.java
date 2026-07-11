@@ -2,8 +2,10 @@ package com.champutils.profile;
 
 import com.champutils.debug.ChampDebugManager;
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.CobblemonNetwork;
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
+import com.cobblemon.mod.common.net.messages.client.storage.party.SetPartyReferencePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -87,6 +89,20 @@ public final class CobblemonProfileStorageBridge {
         // Profile switching and profile-menu flows call this path; never do SQL here.
         if (profileId == null || player == null || sqlFactory == null) return;
         sqlFactory.saveAsync(profileId, player.registryAccess());
+    }
+
+    public static ProfileCobblemonSqlStoreFactory.StoreSnapshot snapshotActiveProfileStores(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player) || sqlFactory == null) {
+            return null;
+        }
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return null;
+        return sqlFactory.snapshot(profileId, player.registryAccess());
+    }
+
+    public static void saveSnapshotBlocking(java.sql.Connection connection, UUID profileId, ProfileCobblemonSqlStoreFactory.StoreSnapshot snapshot, String reason) throws Exception {
+        if (connection == null || profileId == null || snapshot == null || sqlFactory == null) return;
+        sqlFactory.saveSnapshotBlocking(connection, profileId, snapshot, reason == null ? "profile-transfer" : reason);
     }
 
 
@@ -198,7 +214,7 @@ public final class CobblemonProfileStorageBridge {
     }
 
     private static int cachedPartySize(UUID profileId) {
-        return sqlFactory == null ? -1 : sqlFactory.cachedPartySize(profileId);
+        return profileId == null || sqlFactory == null ? -1 : sqlFactory.cachedPartySize(profileId);
     }
 
     private static PlayerPartyStore activeRuntimeParty(ServerPlayer player, UUID profileId) {
@@ -236,23 +252,65 @@ public final class CobblemonProfileStorageBridge {
                 }));
     }
 
-    private static void sendActivePartySnapshot(ServerPlayer player, UUID profileId, PlayerPartyStore party, boolean includePlayerDataSync, String reason) {
+    /**
+     * Sends a full party snapshot and then re-selects that store as the player's active
+     * client party. Cobblemon's PartyStore#sendTo intentionally sends
+     * InitializePartyPacket(false, ...). If we do not immediately follow it with
+     * SetPartyReferencePacket, the client can keep rendering an older ClientParty
+     * instance even though the server-side party and the partyStores map were updated.
+     */
+    public static void sendPartyToPlayerAndSelect(ServerPlayer player, PlayerPartyStore party, UUID profileId, String reason) {
         if (player == null || party == null) return;
         long sendStart = System.currentTimeMillis();
+        boolean pcLinked = isPlayerPcLinked(player);
         try {
-            party.sendTo(player);
+            // Cobblemon's PC screen keeps references to the ClientParty/ClientPC objects that
+            // existed when the screen opened. Re-sending InitializePartyPacket while the PC is
+            // open replaces the client party object in CobblemonClient.storage, leaving the open
+            // PC GUI rendering a stale party. While linked to a PC, the native PC move packets
+            // already mutate the current objects correctly, so only re-select the active party.
+            if (!pcLinked) {
+                party.sendTo(player);
+            }
+            CobblemonNetwork.INSTANCE.sendPacketToPlayer(player, new SetPartyReferencePacket(party.getUuid()));
         } catch (Throwable throwable) {
-            System.err.println("[ChampUtils] Failed to send Cobblemon party to " + player.getGameProfile().getName() + " during " + reason + ".");
+            System.err.println("[ChampUtils] Failed to send/select Cobblemon party for " + player.getGameProfile().getName() + " during " + reason + ".");
             throwable.printStackTrace();
             return;
         }
-        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party sendTo took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason + " partySize=" + cachedPartySize(profileId));
-        if (includePlayerDataSync) safeCobblemonPlayerDataSync(player, profileId, reason);
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party send/select took " + (System.currentTimeMillis() - sendStart) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason + " partySize=" + cachedPartySize(profileId) + " pcLinked=" + pcLinked);
+    }
+
+    private static void sendActivePartySnapshot(ServerPlayer player, UUID profileId, PlayerPartyStore party, boolean includePlayerDataSync, String reason) {
+        if (player == null || party == null) return;
+        boolean pcLinked = isPlayerPcLinked(player);
+        sendPartyToPlayerAndSelect(player, party, profileId, reason);
+        if (includePlayerDataSync && !pcLinked) {
+            safeCobblemonPlayerDataSync(player, profileId, reason);
+        } else if (includePlayerDataSync) {
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Skipped Cobblemon player-data full resync while PC is open for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason);
+        }
+    }
+
+    public static boolean isPlayerPcLinked(ServerPlayer player) {
+        if (player == null) return false;
+        try {
+            Class<?> managerClass = Class.forName("com.cobblemon.mod.common.api.storage.pc.link.PCLinkManager");
+            Object manager = managerClass.getField("INSTANCE").get(null);
+            Method getLink = managerClass.getMethod("getLink", UUID.class);
+            return getLink.invoke(manager, player.getUUID()) != null;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static void safeCobblemonPlayerDataSync(ServerPlayer player, UUID profileId, String reason) {
         if (player == null || player.server == null || player.hasDisconnected()) return;
         if (profileId != null && !profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+        if (isPlayerPcLinked(player)) {
+            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Skipped Cobblemon onPlayerDataSync while PC is open for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason);
+            return;
+        }
         long start = System.currentTimeMillis();
         try {
             Object storage = Cobblemon.INSTANCE.getStorage();

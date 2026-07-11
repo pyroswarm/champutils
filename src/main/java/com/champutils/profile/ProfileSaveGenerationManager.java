@@ -105,15 +105,23 @@ public final class ProfileSaveGenerationManager {
 
     public static long commit(Connection connection, UUID profileId, SqlSave sqlSave, String metadataJson) throws Exception {
         if (connection == null || profileId == null || sqlSave == null) throw new IllegalArgumentException("Missing save commit data.");
-        long nextVersion = sqlSave.expectedLockVersion() + 1L;
-        try (var ps = connection.prepareStatement("update player_profiles set lock_version = lock_version + 1, profile_version = greatest(coalesce(profile_version,0), lock_version + 1), save_generation = ?, last_save_generation = ?, last_saved_at = now(), updated_at = now() where id = ? and lock_version = ? and deleted_at is null")) {
+
+        // Do not reject a Cobblemon save just because a vanilla/profile save committed first
+        // (or vice versa). Vanilla state and Cobblemon state are written to separate tables,
+        // so the old shared player_profiles.lock_version compare-and-set caused false stale
+        // rejects during normal autosave bursts. That is exactly how party/PC changes could
+        // succeed in memory but fail to persist to SQL.
+        long nextVersion;
+        try (var ps = connection.prepareStatement("update player_profiles set lock_version = lock_version + 1, profile_version = greatest(coalesce(profile_version,0), lock_version + 1), save_generation = ?, last_save_generation = ?, last_saved_at = now(), updated_at = now() where id = ? and deleted_at is null returning lock_version")) {
             ps.setObject(1, sqlSave.generationId());
             ps.setObject(2, sqlSave.generationId());
             ps.setObject(3, profileId);
-            ps.setLong(4, sqlSave.expectedLockVersion());
-            if (ps.executeUpdate() != 1) {
-                abort(connection, sqlSave.generationId(), "lock_version_conflict");
-                throw new StaleProfileWriteException("Rejected stale profile save for " + profileId + " expected lock_version=" + sqlSave.expectedLockVersion());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    abort(connection, sqlSave.generationId(), "profile_missing_or_deleted");
+                    throw new StaleProfileWriteException("Rejected profile save for " + profileId + " because the profile no longer exists.");
+                }
+                nextVersion = rs.getLong("lock_version");
             }
         }
         try (var ps = connection.prepareStatement("update profile_save_generations set state = 'COMMITTED', committed_at = now(), committed_profile_version = ?, metadata = coalesce(metadata, '{}'::jsonb) || coalesce(?::jsonb, '{}'::jsonb) where id = ?")) {

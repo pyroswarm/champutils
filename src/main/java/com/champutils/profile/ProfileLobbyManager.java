@@ -56,15 +56,18 @@ public final class ProfileLobbyManager {
 
         applyLobbyProtections(player);
         teleportToLobby(player);
+        Runnable openMenu = () -> player.server.execute(() -> {
+            if (!SafeTeleportManager.isLive(player)) return;
+            if (PlayerProfileManager.hasActiveProfile(player)) return;
+            ProfileLobbyDebug.log(ProfileNetworkTransferFlow.isProfileLobbyServer() ? "sendToLobby.openMenu.profileLobby" : "sendToLobby.openMenu.allInOne", player);
+            ProfileSelectionMenu.open(player);
+        });
         if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
-            ProfileLobbyDebug.log("sendToLobby.menuAutoOpen.skippedProfileLobby", player);
-            player.sendSystemMessage(Component.literal("Right-click the Select a Profile NPC or use /profiles to choose a profile.").withStyle(ChatFormatting.YELLOW));
+            java.util.concurrent.CompletableFuture
+                    .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(750L, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .thenRun(openMenu);
         } else {
-            player.server.execute(() -> {
-                if (!SafeTeleportManager.isLive(player)) return;
-                ProfileLobbyDebug.log("sendToLobby.openMenu.delayed.allInOne", player);
-                ProfileSelectionMenu.open(player);
-            });
+            openMenu.run();
         }
         ProfileLobbyDebug.log("sendToLobby.end", player);
     }

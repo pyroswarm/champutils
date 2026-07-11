@@ -4,5 +4,7 @@
   "item.champutils.woodcleaver": "Axe",
   "item.champutils.worldtree_axe": "Axe",
   "item.champutils.poseidons_line": "Fishing Rod",
-  "item.champutils.gaias_blessing": "Hoe"
+  "item.champutils.gaias_blessing": "Hoe",
+  "champutils.species.egg.name": "Egg",
+  "champutils.species.egg.desc": "A mysterious Pokémon Egg. It must stay in the party while its Trainer walks."
 }

@@ -135,41 +135,33 @@ public final class NpcShopConfig {
         upsertDefaultEntry("genesisforms:mega_bracelet", item(12, "§dMega Bracelet", "genesisforms:mega_bracelet", "genesisforms:mega_bracelet", 1, 100000L,
                 "§7Unlock Mega Evolution access.", "§8A premium progression purchase."));
 
-        upsertDefaultEntry("daycareplus:copper_incubator", item(28, "§6Copper Incubator", "daycareplus:copper_incubator", "daycareplus:copper_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(100L),
-                "§7DaycarePlus incubator tier: Copper."));
-        upsertDefaultEntry("daycareplus:iron_incubator", item(29, "§fIron Incubator", "daycareplus:iron_incubator", "daycareplus:iron_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(250L),
-                "§7DaycarePlus incubator tier: Iron."));
-        upsertDefaultEntry("daycareplus:gold_incubator", item(30, "§eGold Incubator", "daycareplus:gold_incubator", "daycareplus:gold_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(500L),
-                "§7DaycarePlus incubator tier: Gold."));
-        upsertDefaultEntry("daycareplus:diamond_incubator", item(31, "§bDiamond Incubator", "daycareplus:diamond_incubator", "daycareplus:diamond_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
-                "§7DaycarePlus incubator tier: Diamond."));
-        upsertDefaultEntry("daycareplus:netherite_incubator", item(32, "§8Netherite Incubator", "daycareplus:netherite_incubator", "daycareplus:netherite_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(5000L),
-                "§7DaycarePlus incubator tier: Netherite."));
         upsertDefaultEntry("minecraft:netherite_upgrade_smithing_template", item(34, "§dSmithing Template", "minecraft:netherite_upgrade_smithing_template", "minecraft:netherite_upgrade_smithing_template", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
                 "§7Configurable shop smithing template."));
 
         CONFIG.entries.removeIf(entry -> entry != null && "pokemon_crate".equalsIgnoreCase(entry.type == null ? "" : entry.type.trim()));
 
-        upsertDefaultEntry("f_crate_credit", crateCredit(20, "§fF Rank Crate Credit", "minecraft:chest", "f", 1, 5000L,
-                "§7Adds 1 F Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("e_crate_credit", crateCredit(21, "§aE Rank Crate Credit", "minecraft:barrel", "e", 1, 15000L,
-                "§7Adds 1 E Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("d_crate_credit", crateCredit(22, "§bD Rank Crate Credit", "minecraft:ender_chest", "d", 1, 40000L,
-                "§7Adds 1 D Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("c_crate_credit", crateCredit(23, "§5C Rank Crate Credit", "minecraft:purple_shulker_box", "c", 1, 90000L,
-                "§7Adds 1 C Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("b_crate_credit", crateCredit(24, "§eB Rank Crate Credit", "minecraft:gold_block", "b", 1, 175000L,
-                "§7Adds 1 B Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("a_crate_credit", crateCredit(25, "§6A Rank Crate Credit", "minecraft:netherite_block", "a", 1, 350000L,
-                "§7Adds 1 A Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-        upsertDefaultEntry("s_crate_credit", crateCredit(26, "§dS Rank Crate Credit", "minecraft:dragon_egg", "s", 1, 750000L,
-                "§7Adds 1 S Rank Crate credit.", "§7Open it from §f/opencrates§7."));
+        CONFIG.entries.removeIf(NpcShopConfig::isRemovedBreedingOrCrateEntry);
+    }
+
+
+    private static boolean isRemovedBreedingOrCrateEntry(ShopEntry entry) {
+        if (entry == null) return true;
+        String type = entry.type == null ? "" : entry.type.trim().toLowerCase();
+        String id = entry.id == null ? "" : entry.id.trim().toLowerCase();
+        String icon = entry.icon == null ? "" : entry.icon.trim().toLowerCase();
+        String name = entry.displayName == null ? "" : entry.displayName.trim().toLowerCase();
+        boolean incubator = (id.startsWith("daycareplus:") || icon.startsWith("daycareplus:"))
+                && (id.contains("incubator") || icon.contains("incubator"));
+        boolean crateCredit = type.equals("crate_credit") || type.equals("crate_key")
+                || id.contains("crate_credit") || name.contains("crate credit");
+        return incubator || crateCredit;
     }
 
     private static boolean isRemovedLegacyEntry(ShopEntry entry) {
         if (entry == null) return true;
         String id = entry.id == null ? "" : entry.id.toLowerCase();
         String name = entry.displayName == null ? "" : entry.displayName.toLowerCase();
+        if (id.startsWith("daycareplus:") && id.contains("incubator")) return true;
         String type = entry.type == null ? "" : entry.type.toLowerCase();
         if (id.equals("cobblemon:great_ball") || id.equals("cobblemon:ultra_ball")) return true;
         if (name.contains("great ball") || name.contains("ultra ball")) return true;
@@ -271,17 +263,6 @@ public final class NpcShopConfig {
                 "§7Adds 1 A Rank Crate credit.", "§7Open it from §f/opencrates§7."));
         root.entries.add(crateCredit(26, "§dS Rank Crate Credit", "minecraft:dragon_egg", "s", 1, 750000L,
                 "§7Adds 1 S Rank Crate credit.", "§7Open it from §f/opencrates§7."));
-
-        root.entries.add(item(28, "§6Copper Incubator", "daycareplus:copper_incubator", "daycareplus:copper_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(100L),
-                "§7DaycarePlus incubator tier: Copper."));
-        root.entries.add(item(29, "§fIron Incubator", "daycareplus:iron_incubator", "daycareplus:iron_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(250L),
-                "§7DaycarePlus incubator tier: Iron."));
-        root.entries.add(item(30, "§eGold Incubator", "daycareplus:gold_incubator", "daycareplus:gold_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(500L),
-                "§7DaycarePlus incubator tier: Gold."));
-        root.entries.add(item(31, "§bDiamond Incubator", "daycareplus:diamond_incubator", "daycareplus:diamond_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
-                "§7DaycarePlus incubator tier: Diamond."));
-        root.entries.add(item(32, "§8Netherite Incubator", "daycareplus:netherite_incubator", "daycareplus:netherite_incubator", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(5000L),
-                "§7DaycarePlus incubator tier: Netherite."));
         root.entries.add(item(34, "§dSmithing Template", "minecraft:netherite_upgrade_smithing_template", "minecraft:netherite_upgrade_smithing_template", 1, com.champutils.economy.EconomyManager.wholeCreditsToCents(1000L),
                 "§7Netherite upgrade smithing template."));
 

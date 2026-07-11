@@ -289,7 +289,6 @@ public final class ProfileSelectionMenu {
         gui.setSlot(slot, new GuiElementBuilder(icon)
                 .hideDefaultTooltip()
                 .setName(Component.literal((selected ? "★ " : "") + displayName).withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA))
-                .addLoreLine(Component.literal("Backend: " + serverId).withStyle(ChatFormatting.DARK_GRAY))
                 .addLoreLine(Component.literal(selected ? "Currently selected." : "Click to make this your default join server.").withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> {
                     if (selected) {
@@ -604,7 +603,9 @@ public final class ProfileSelectionMenu {
 
     public static void clearForcedReopener(ServerPlayer player) {
         if (player != null) {
-            clearPlayerState(player.getUUID());
+            UUID playerId = player.getUUID();
+            clearPlayerState(playerId);
+            SUPPRESS_NEXT_CLOSE_REOPEN.add(playerId);
         }
     }
 
@@ -638,7 +639,12 @@ public final class ProfileSelectionMenu {
             if (SUPPRESS_NEXT_CLOSE_REOPEN.remove(owner.getUUID())) return;
             owner.server.execute(() -> {
                 if (owner.isRemoved() || owner.hasDisconnected()) return;
-                if (!ProfileLobbyLockManager.isLocked(owner) || ProfileLobbyLockManager.hasBypass(owner)) {
+                boolean shouldForceOpen =
+                        (ProfileLobbyLockManager.isLocked(owner) && !ProfileLobbyLockManager.hasBypass(owner))
+                                || (ProfileNetworkTransferFlow.isProfileLobbyServer()
+                                && !PlayerProfileManager.hasActiveProfile(owner)
+                                && !ProfileLobbyLockManager.hasBypass(owner));
+                if (!shouldForceOpen) {
                     clearForcedReopener(owner);
                     return;
                 }

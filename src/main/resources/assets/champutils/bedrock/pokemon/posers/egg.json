@@ -1,0 +1,14 @@
+{
+  "portraitScale": 2.1,
+  "portraitTranslation": [0.0, -0.15, 0.0],
+  "profileScale": 1.2,
+  "profileTranslation": [0.0, 0.25, 0.0],
+  "rootBone": "egg",
+  "poses": {
+    "standing": {
+      "poseTypes": ["STAND", "NONE", "PORTRAIT", "PROFILE", "SLEEP", "WALK"],
+      "isBattle": false,
+      "animations": []
+    }
+  }
+}

@@ -1,5 +1,6 @@
 package com.champutils.expeditions;
 
+import com.champutils.breeding.BreedingEggData;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.economy.EconomyManager;
@@ -83,6 +84,9 @@ public final class ExpeditionManager {
             if (pokemon == null) {
                 throw new IllegalStateException("That Pokémon is no longer in that slot.");
             }
+            if (BreedingEggData.isEgg(pokemon)) {
+                throw new IllegalStateException("Pokémon Eggs cannot be sent on expeditions.");
+            }
 
             UUID pokemonUuid = pokemon.getUuid();
             String displayName = pokemon.getDisplayName(true).getString();
@@ -143,6 +147,9 @@ public final class ExpeditionManager {
     }
 
     static void start(ServerPlayer player, int slot, Pokemon pokemon, long endsAt, String expeditionType) {
+        if (BreedingEggData.isEgg(pokemon)) {
+            throw new IllegalArgumentException("Pokémon Eggs cannot be sent on expeditions.");
+        }
         Save save = loadSave(player);
         long now = System.currentTimeMillis();
         save.active = true;

@@ -6,6 +6,7 @@ package com.champutils;
  =========================
 */
 import com.champutils.battle.*;
+import com.champutils.breeding.*;
 import com.champutils.commands.*;
 import com.champutils.config.*;
 import com.champutils.database.DatabaseManager;
@@ -70,6 +71,7 @@ import com.champutils.adventureguide.*;
 import com.champutils.tutorial.*;
 import com.champutils.music.*;
 import com.champutils.afk.*;
+import com.champutils.riding.InfiniteRideStaminaListener;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -175,6 +177,8 @@ public class ChampUtilsMod implements ModInitializer {
     @Override
     public void onInitialize() {
 
+        BreedingResourcePackBridge.registerAssets();
+
         /*
          =========================
          CONFIG DIRECTORY
@@ -207,6 +211,7 @@ public class ChampUtilsMod implements ModInitializer {
         Config.load(configFile);
         NetworkServerConfig.load();
         ProxyTransferBridge.register();
+        InfiniteRideStaminaListener.register();
 
         if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
             initializeProfileLobbyOnly();
@@ -232,6 +237,7 @@ public class ChampUtilsMod implements ModInitializer {
         TitleManager.load();
         WorldFirstManager.load();
         PlayerProfileManager.ensureSchemaAsync();
+        BreedingManager.initialize();
         PreferredSurvivalServerManager.ensureSchemaAsync();
         TutorialManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
@@ -621,6 +627,7 @@ public class ChampUtilsMod implements ModInitializer {
 
                     TutorialManager.handleJoin(player);
                     AntiAfkManager.handleJoin(player);
+                    BreedingManager.handleJoin(player);
 
                 }
         );
@@ -634,6 +641,7 @@ public class ChampUtilsMod implements ModInitializer {
                 (handler, server) -> {
 
                     AntiAfkManager.handleDisconnect(handler.player);
+                    BreedingManager.handleDisconnect(handler.player);
                     MusicManager.handleQuit(handler.player);
                     AdventurerGuildManager.unloadPlayer(handler.player);
                     AdventureGuideManager.unloadPlayer(handler.player);
@@ -734,6 +742,7 @@ public class ChampUtilsMod implements ModInitializer {
         // /serversell removed: economy now uses digital chunks sold through the Profession Foreman.
         DexRewardCommand.register();
         ShinyOddsCommand.register();
+        BreedingCommand.register();
         TextCommand.register();
         WonderTradeCommand.register();
         TradeSimCommand.register();
@@ -841,6 +850,7 @@ public class ChampUtilsMod implements ModInitializer {
         ChestShopInteractionListener.register();
         TerritoryProtectionListener.register();
         LandClaimProtectionListener.register();
+        LandClaimPokemonRulesListener.register();
         DeathBackListener.register();
         com.champutils.badge.BadgeUnlockManager.init();
         com.champutils.protection.SpawnRealmProtectionListener.register();
@@ -917,6 +927,7 @@ public class ChampUtilsMod implements ModInitializer {
                     }
                     timedTick("ExplorationWorldManager", () -> ExplorationWorldManager.tick(server));
                     timedTick("SurvivalWorldManager", () -> SurvivalWorldManager.tick(server));
+                    timedTick("VanillaOverworldGuard", () -> VanillaOverworldGuard.tick(server));
                     timedTick("VanillaPortalBlocker", () -> VanillaPortalBlocker.tick(server));
                     timedTick("PartyManager", () -> PartyManager.tick(server));
                     timedTick("AntiLagManager", () -> AntiLagManager.tick(server));
@@ -924,6 +935,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("ModerationManager", () -> ModerationManager.tick(server));
                     timedTick("RedstoneAutoModManager", () -> RedstoneAutoModManager.tick(server));
                     timedTick("AntiAfkManager", () -> AntiAfkManager.tick(server));
+                    timedTick("BreedingManager", () -> BreedingManager.tick(server));
                     timedTick("PvPBattleStallManager", () -> PvPBattleStallManager.tick(server));
                     timedTick("DailyLoginManager", () -> DailyLoginManager.tick(server));
                     timedTick("AutoChampSaveManager", () -> com.champutils.commands.AutoChampSaveManager.tick(server));

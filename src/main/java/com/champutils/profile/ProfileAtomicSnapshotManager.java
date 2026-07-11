@@ -99,6 +99,12 @@ public final class ProfileAtomicSnapshotManager {
                     snapshotId = (UUID) rs.getObject("id");
                 }
             }
+            if (!ProfileSaveGenerationManager.isLatest(queuedSave)) {
+                ProfileSaveGenerationManager.abort(connection, sqlSave.generationId(), "local_generation_superseded_before_commit");
+                connection.rollback();
+                ProfileSaveGenerationManager.markStaleAsync(queuedSave);
+                return;
+            }
             long committedVersion = ProfileSaveGenerationManager.commit(connection, profileId, sqlSave, "{\"snapshot_type\":\"VANILLA\"}");
             try (var ps = connection.prepareStatement("insert into profile_vanilla_state (profile_id, player_uuid, vanilla_snbt, updated_at, save_generation, lock_version) values (?, ?, ?, now(), ?, ?) " +
                     "on conflict (profile_id) do update set vanilla_snbt = excluded.vanilla_snbt, player_uuid = excluded.player_uuid, save_generation = excluded.save_generation, lock_version = excluded.lock_version, updated_at = now()")) {
@@ -160,6 +166,12 @@ public final class ProfileAtomicSnapshotManager {
                     if (!rs.next()) throw new IllegalStateException("Could not create Cobblemon profile snapshot row.");
                     snapshotId = (UUID) rs.getObject("id");
                 }
+            }
+            if (!ProfileSaveGenerationManager.isLatest(queuedSave)) {
+                ProfileSaveGenerationManager.abort(connection, sqlSave.generationId(), "local_generation_superseded_before_commit");
+                connection.rollback();
+                ProfileSaveGenerationManager.markStaleAsync(queuedSave);
+                return;
             }
             long committedVersion = ProfileSaveGenerationManager.commit(connection, profileId, sqlSave, "{\"snapshot_type\":\"COBBLEMON\"}");
             try (var ps = connection.prepareStatement("insert into profile_cobblemon_storage (profile_id, party_nbt, pc_nbt, updated_at, save_generation, lock_version) values (?, ?, ?, now(), ?, ?) " +

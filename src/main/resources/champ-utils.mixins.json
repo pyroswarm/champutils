@@ -30,7 +30,9 @@
     "AntiAfkServerGamePacketListenerMixin",
     "AntiAfkContainerClickMixin",
     "InvalidContainerClickGuardMixin",
-    "BattleSelectActionsHandlerMixin"
+    "BattleSelectActionsHandlerMixin",
+    "BreedingEggSendOutMixin",
+    "BreedingEggBattleTeamMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -2,8 +2,6 @@ package com.champutils.menu;
 
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profession.ProfessionNotificationSettings;
-import com.champutils.scoreboard.PlayerSidebarManager;
-import com.champutils.scoreboard.ScoreboardPreferenceManager;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
@@ -91,14 +89,14 @@ public class SettingsMenu {
                 player
         );
 
-        setToggle(
-                gui,
+        gui.setSlot(
                 7,
-                "Scoreboard Display",
-                "Shows credits, ranks, dex progress, and skills in the sidebar.",
-                ScoreboardPreferenceManager.isEnabled(player.getUUID()),
-                () -> toggleScoreboard(player),
-                player
+                new GuiElementBuilder(Items.MAP)
+                        .hideDefaultTooltip()
+                        .setName(Component.literal("§bScoreboard Settings"))
+                        .addLoreLine(Component.literal("§7Choose which scoreboard lines are visible."))
+                        .addLoreLine(Component.literal("§eClick to open"))
+                        .setCallback((i, c, t) -> ScoreboardSettingsMenu.open(player))
         );
 
 
@@ -114,18 +112,6 @@ public class SettingsMenu {
 
         MenuUtil.addBackButton(gui, 17, () -> MainMenu.open(player));
         gui.open();
-    }
-
-    private static void toggleScoreboard(ServerPlayer player) {
-        boolean enabled = ScoreboardPreferenceManager.toggle(player.getUUID());
-
-        if (enabled) {
-            PlayerSidebarManager.update(player);
-            player.sendSystemMessage(Component.literal("§aScoreboard display enabled."));
-        } else {
-            PlayerSidebarManager.clear(player);
-            player.sendSystemMessage(Component.literal("§eScoreboard display disabled."));
-        }
     }
 
     private static void setToggle(

@@ -48,6 +48,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
                                             builder.suggest("guilds");
+                                            builder.suggest("breeding");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> bind(
@@ -81,6 +82,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("pterritories");
                                             builder.suggest("gterritories");
                                             builder.suggest("guilds");
+                                            builder.suggest("breeding");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> unbind(
@@ -102,6 +104,7 @@ public final class MenuNpcCommand {
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "champsshop";
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
+            case "breed", "nursery" -> "breeding";
             default -> menu.toLowerCase();
         };
     }

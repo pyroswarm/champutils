@@ -97,10 +97,48 @@ public final class ProfileCommand {
 
     private static int openOrEnterMenu(ServerPlayer player) {
         if (ProfileNetworkTransferFlow.isSurvivalServer()) {
-            if (!ProfileStateFlushService.flushBeforeTransfer(player, "return_to_profile_lobby", 3, java.util.concurrent.TimeUnit.SECONDS)) {
-                player.sendSystemMessage(Component.literal("Could not safely save your profile yet. Please wait a moment and try again.").withStyle(ChatFormatting.RED));
-                return 0;
+            transferToProfileLobbyAfterHardSave(player);
+            return 1;
+        }
+
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
+            ProfileLobbyDebug.log("profilesCommand.openMenu.profileLobby", player);
+            ProfileSelectionMenu.open(player);
+            return 1;
+        }
+
+        if (PlayerProfileManager.hasActiveProfile(player)) {
+            ProfileMainMenuManager.enter(player, true);
+        }
+        ProfileLobbyDebug.log("profilesCommand.openMenu.allInOne", player);
+        ProfileSelectionMenu.open(player);
+        return 1;
+    }
+
+
+    private static void transferToProfileLobbyAfterHardSave(ServerPlayer player) {
+        if (player == null) return;
+        ProfileStateFlushService.TransferFlushSnapshot transferSnapshot =
+                ProfileStateFlushService.captureBeforeTransfer(player, "return_to_profile_lobby");
+        if (!ProfileStateFlushService.flushBeforeTransfer(player, "return_to_profile_lobby", 3, java.util.concurrent.TimeUnit.SECONDS)) {
+            player.sendSystemMessage(Component.literal("Could not safely save your profile yet. Please wait a moment and try again.").withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        player.sendSystemMessage(Component.literal("Saving your profile before changing servers...").withStyle(ChatFormatting.YELLOW));
+
+        com.champutils.database.DatabaseManager.runAsync("hard save before profile lobby transfer", connection ->
+                ProfileStateFlushService.commitTransferSnapshot(connection, transferSnapshot, "return_to_profile_lobby")
+        ).whenComplete((ignored, error) -> player.server.execute(() -> {
+            if (!com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+            if (error != null) {
+                Throwable cause = error.getCause() == null ? error : error.getCause();
+                System.err.println("[ChampUtils] Failed hard profile save before profile lobby transfer for " + player.getGameProfile().getName() + ": " + cause.getMessage());
+                cause.printStackTrace();
+                player.sendSystemMessage(Component.literal("Could not safely save your profile before changing servers. Please try again.").withStyle(ChatFormatting.RED));
+                return;
             }
+
             NetworkServerConfig config = NetworkServerConfig.get();
             String targetServer = config.profileLobbyServerId == null || config.profileLobbyServerId.isBlank() ? "profile_lobby" : config.profileLobbyServerId;
             String command = config.returnToProfileLobbyCommand == null || config.returnToProfileLobbyCommand.isBlank()
@@ -120,21 +158,7 @@ public final class ProfileCommand {
             }
 
             player.sendSystemMessage(Component.literal("Sending you to the profile lobby...").withStyle(ChatFormatting.YELLOW));
-            return 1;
-        }
-
-        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
-            ProfileLobbyDebug.log("profilesCommand.openMenu.profileLobby", player);
-            ProfileSelectionMenu.open(player);
-            return 1;
-        }
-
-        if (PlayerProfileManager.hasActiveProfile(player)) {
-            ProfileMainMenuManager.enter(player, true);
-        }
-        ProfileLobbyDebug.log("profilesCommand.openMenu.allInOne", player);
-        ProfileSelectionMenu.open(player);
-        return 1;
+        }));
     }
 
     private static int load(ServerPlayer player, String name) {

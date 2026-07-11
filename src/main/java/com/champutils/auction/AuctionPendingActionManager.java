@@ -40,12 +40,13 @@ public final class AuctionPendingActionManager {
         );
     }
 
-    public static void setPokemonListing(ServerPlayer player, int slotIndex, String pokemonName, long price) {
+    public static void setPokemonListing(ServerPlayer player, int slotIndex, String pokemonName, UUID pokemonUuid, long price) {
         PendingAction action = new PendingAction();
         action.type = Type.POKEMON_LISTING;
         action.price = price;
         action.partySlotIndex = slotIndex;
         action.pokemonName = pokemonName;
+        action.pokemonUuid = pokemonUuid;
         PENDING.put(player.getUUID(), action);
 
         ConfirmationMenu.open(
@@ -87,5 +88,6 @@ public final class AuctionPendingActionManager {
         public ItemStack itemSnapshot = ItemStack.EMPTY;
         public int partySlotIndex = -1;
         public String pokemonName = "Pokémon";
+        public UUID pokemonUuid;
     }
 }

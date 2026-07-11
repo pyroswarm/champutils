@@ -347,12 +347,17 @@ private static void handleProfileLobbyJoin(ServerPlayer player, UUID playerUuid,
             return;
         }
         try {
-            // PROFILE_LOBBY join must be packet-quiet. Do not teleport, clear inventory,
-            // force lobby protections, or open SGUI here. The player is already on the
-            // profile_lobby backend/world; /profiles or the bound NPC opens the selector.
-            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyNoAutoPackets createdDefault=" + createdDefault[0], player);
+            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyAutoMenu createdDefault=" + createdDefault[0], player);
+            CompletableFuture
+                    .runAsync(() -> {}, CompletableFuture.delayedExecutor(750L, TimeUnit.MILLISECONDS))
+                    .thenRun(() -> player.server.execute(() -> {
+                        if (!SafeTeleportManager.isLive(player)) return;
+                        if (!ProfileNetworkTransferFlow.isProfileLobbyServer()) return;
+                        if (hasActiveProfile(player)) return;
+                        ProfileSelectionMenu.open(player);
+                    }));
         } catch (Throwable t) {
-            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyLogFailed", player, t);
+            ProfileLobbyDebug.log("handleProfileLobbyJoin.readyAutoMenuFailed", player, t);
         }
     }));
 }
@@ -915,12 +920,15 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 }
             });
         }).exceptionally(throwable -> {
-            ProfileLoadingStateManager.end(player);
-            SWITCHING.remove(playerUuid);
             String message = throwable.getCause() != null ? throwable.getCause().getMessage() : throwable.getMessage();
             if (message == null || message.isBlank()) message = "Could not switch profile. Please try again or contact staff.";
             final String finalMessage = message;
+            // All live-player quarantine cleanup must run on the server thread. Doing this from the
+            // database completion thread could leave SWITCHING/loading state partially active, making
+            // every retry look successful to the command while doing nothing until the player relogged.
             player.server.execute(() -> {
+                ProfileLoadingStateManager.end(player);
+                SWITCHING.remove(playerUuid);
                 if (callback != null) callback.accept(finalMessage);
             });
             return null;

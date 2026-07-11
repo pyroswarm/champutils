@@ -23,14 +23,17 @@ public final class LandClaimSettingsMenu {
             return;
         }
 
-        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x4, player, false);
         gui.setTitle(Component.literal("Land Claim Settings"));
         fill(gui);
         setToggle(gui, 10, Items.OAK_DOOR, "Allow Visitors", "Lets other players enter/use non-protected space.", claim.allowVisitors, claim, "allowVisitors", player);
         setToggle(gui, 12, Items.GRASS_BLOCK, "Visitors Can Build", "Allows block breaking and placing.", claim.visitorsCanBuild, claim, "visitorsCanBuild", player);
         setToggle(gui, 14, Items.CHEST, "Visitors Can Open Containers", "Allows chests, barrels, shulkers, hoppers, dispensers and droppers.", claim.visitorsCanOpenContainers, claim, "visitorsCanOpenContainers", player);
         setToggle(gui, 16, Items.LEAD, "Visitors Can Interact Entities", "Allows entity interaction and attacks.", claim.visitorsCanInteractEntities, claim, "visitorsCanInteractEntities", player);
-        setToggle(gui, 22, Items.REDSTONE, "Visitors Can Use Redstone", "Allows buttons, levers, doors, gates, trapdoors, hoppers and other redstone-like blocks.", claim.visitorsCanUseRedstone, claim, "visitorsCanUseRedstone", player);
+        setToggle(gui, 21, Items.REDSTONE, "Visitors Can Use Redstone", "Allows buttons, levers, hoppers, dispensers and droppers.", claim.visitorsCanUseRedstone, claim, "visitorsCanUseRedstone", player);
+        setToggle(gui, 23, Items.OAK_TRAPDOOR, "Visitors Can Use Doors", "Allows doors, trapdoors, and fence gates without granting other redstone access.", claim.visitorsCanUseDoors, claim, "visitorsCanUseDoors", player);
+        setToggle(gui, 29, Items.SNOWBALL, "Visitors Can Catch Pokémon", "Allows other players to catch wild Pokémon while inside this claim.", claim.visitorsCanCatchPokemon, claim, "visitorsCanCatchPokemon", player);
+        setToggle(gui, 31, Items.GRASS_BLOCK, "Pokémon Spawning", "Controls whether new wild Pokémon may spawn inside this claim.", claim.pokemonSpawningEnabled, claim, "pokemonSpawningEnabled", player);
         gui.open();
     }
 

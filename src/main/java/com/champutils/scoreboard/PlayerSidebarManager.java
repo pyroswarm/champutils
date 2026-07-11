@@ -2,6 +2,7 @@ package com.champutils.scoreboard;
 
 
 import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.adventurer.AdventurerGuildConfig;
 import com.champutils.dex.DexProgressManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
@@ -136,6 +137,12 @@ public final class PlayerSidebarManager {
         }
     }
 
+    public static void refresh(ServerPlayer player) {
+        if (player == null) return;
+        LAST_BUILD_MILLIS.remove(player.getUUID());
+        update(player);
+    }
+
     public static void clear(ServerPlayer player) {
         if (player == null || player.connection == null || ProfileNetworkTransferFlow.isProfileLobbyServer()) {
             return;
@@ -189,28 +196,52 @@ public final class PlayerSidebarManager {
         int total = DexProgressManager.getTotalPokemon();
         double dexPercent = DexProgressManager.getCompletionPercent(player);
 
-        lines.add("§6Adventurer Rank: §f" + AdventurerGuildManager.currentRankId(player));
-        lines.add("§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
-        lines.add("§6Credits: §f" + (balance / 100L));
-        lines.add("§bAdventurer's Marks: §f" + AdventurerGuildManager.getData(player).guildMarks);
-        lines.add("§dDex §f" + caught + "§7/§f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
-        lines.add("§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.ADVENTURER_RANK, "§6Adventurer Rank: §f" + AdventurerGuildManager.currentRankId(player) + " §7(" + adventurerProgressPercent(player) + "%§7)");
+        addLine(lines, player, ScoreboardPreferenceManager.Line.PVP_RANK, "§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
+        addLine(lines, player, ScoreboardPreferenceManager.Line.CREDITS, "§6Credits: §f" + (balance / 100L));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.ADVENTURER_MARKS, "§bAdventurer's Marks: §f" + AdventurerGuildManager.getData(player).guildMarks);
+        addLine(lines, player, ScoreboardPreferenceManager.Line.DEX_PROGRESS, "§dDex §f" + caught + "§7/§f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
+        addLine(lines, player, ScoreboardPreferenceManager.Line.PROFILE_TIME, "§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
         if (PlayerProfileManager.isIslander(player)) {
-            lines.add("§6Island Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
-            lines.add("§5Island Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
-            lines.add("§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Island Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Island Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         } else {
-            lines.add("§6Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
-            lines.add("§5Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
-            lines.add("§dUltra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dUltra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         }
-        lines.add("§cLast Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
-        lines.add(professionLine("§cBattling", player, ProfessionType.BATTLING));
-        lines.add(professionLine("§7Mining", player, ProfessionType.MINING));
-        lines.add(professionLine("§2Forestry", player, ProfessionType.FORESTRY));
-        lines.add(professionLine("§aFarming", player, ProfessionType.FARMING));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.LAST_BOSS, "§cLast Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
+        addLine(lines, player, ScoreboardPreferenceManager.Line.BATTLING, professionLine("§cBattling", player, ProfessionType.BATTLING));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.MINING, professionLine("§7Mining", player, ProfessionType.MINING));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.FORESTRY, professionLine("§2Forestry", player, ProfessionType.FORESTRY));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.FARMING, professionLine("§aFarming", player, ProfessionType.FARMING));
 
         return makeUniqueAndSafe(lines);
+    }
+
+
+
+    private static void addLine(List<String> lines, ServerPlayer player, ScoreboardPreferenceManager.Line line, String value) {
+        if (ScoreboardPreferenceManager.isLineEnabled(player.getUUID(), line)) {
+            lines.add(value);
+        }
+    }
+
+    private static int adventurerProgressPercent(ServerPlayer player) {
+        try {
+            long renown = Math.max(0L, AdventurerGuildManager.getData(player).renown);
+            AdventurerGuildConfig.RankDefinition current = AdventurerGuildConfig.currentRank(renown);
+            AdventurerGuildConfig.RankDefinition next = AdventurerGuildConfig.nextRank(renown);
+            if (next == null) return 100;
+            long currentRequired = current == null ? 0L : Math.max(0L, current.renownRequired);
+            long nextRequired = Math.max(currentRequired + 1L, next.renownRequired);
+            long earned = Math.max(0L, renown - currentRequired);
+            long needed = Math.max(1L, nextRequired - currentRequired);
+            return (int) Math.max(0L, Math.min(99L, (earned * 100L) / needed));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     private static String rankName(int rp) {

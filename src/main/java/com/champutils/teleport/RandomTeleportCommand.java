@@ -316,16 +316,10 @@ public final class RandomTeleportCommand {
             return 0;
         }
 
-        SurvivalWorldManager.RtpTarget survivalTarget = SurvivalWorldManager.pickRtpTarget(player.server, normalizedType);
-        ServerLevel targetLevel = survivalTarget == null ? null : survivalTarget.level;
-        if (targetLevel == null && dimensionMatchesType(startLevel, normalizedType) && !TeleportConfig.isRtpBlocked(currentDimension)) {
-            boolean startWorldIsSoftCapped = SurvivalWorldManager.isSurvivalLevel(startLevel) && SurvivalWorldManager.isAtOrOverRtpCap(startLevel);
-            if (!startWorldIsSoftCapped) {
-                targetLevel = startLevel;
-            }
-        }
+        ServerLevel targetLevel = resolvePrimaryRtpWorld(player.server, normalizedType);
         if (targetLevel == null) {
-            player.sendSystemMessage(Component.literal("No loaded " + normalizedType + " world under the RTP soft cap is available. Existing players can still use homes, claims, TPA, and other direct teleports.").withStyle(ChatFormatting.RED));
+            String expectedWorld = primaryRtpWorldName(normalizedType);
+            player.sendSystemMessage(Component.literal("RTP world " + expectedWorld + " is not loaded on this server. Please contact staff.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -344,6 +338,27 @@ public final class RandomTeleportCommand {
         SearchTask task = new SearchTask(playerId, targetLevel, bounds, normalizedType, desiredBiome, MAX_RTP_SEARCH_ATTEMPTS);
         ACTIVE_SEARCHES.put(playerId, task);
         return 1;
+    }
+
+
+    private static ServerLevel resolvePrimaryRtpWorld(MinecraftServer server, String normalizedType) {
+        return TeleportConfig.resolveLevel(server, primaryRtpWorldName(normalizedType));
+    }
+
+    private static String primaryRtpWorldName(String normalizedType) {
+        SurvivalWorldConfig.Data config = SurvivalWorldConfig.get();
+        String type = SurvivalWorldManager.normalizeType(normalizedType);
+        String prefix = switch (type) {
+            case "nether" -> config.netherPrefix;
+            case "end" -> config.endPrefix;
+            default -> config.overworldPrefix;
+        };
+        int index = switch (type) {
+            case "nether" -> Math.max(1, config.netherStartIndex);
+            case "end" -> Math.max(1, config.endStartIndex);
+            default -> Math.max(1, config.overworldStartIndex);
+        };
+        return prefix + "_" + index;
     }
 
     private static BlockPos findSimpleRtpPosition(ServerPlayer player, ServerLevel level, SearchBounds bounds, String worldType) {

@@ -1,6 +1,10 @@
 package com.champutils.protection;
 
 import com.champutils.adventureguide.AdventureGuideManager;
+import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.teleport.TeleportConfig;
+import com.champutils.teleport.TeleportLocation;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -32,10 +36,20 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class SpawnRealmProtectionListener {
     private static final Map<UUID, Long> LAST_WARNING = new ConcurrentHashMap<>();
     private static final long WARNING_COOLDOWN_MS = 5000L;
+    private static final double FIRST_GUIDE_RADIUS_SQ = 9.0D * 9.0D;
+    private static int firstGuideLockTick = 0;
 
     private SpawnRealmProtectionListener() {}
 
     public static void register() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            firstGuideLockTick++;
+            if (firstGuideLockTick % 5 != 0) return;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                enforceFirstGuideRadius(player);
+            }
+        });
+
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer sp)) return true;
             if (!isSpawn1(level) || SpawnEditCommand.canEdit(sp)) return true;
@@ -134,6 +148,45 @@ public final class SpawnRealmProtectionListener {
     }
 
 
+    private static void enforceFirstGuideRadius(ServerPlayer player) {
+        if (!SafeTeleportManager.isLive(player)) return;
+        if (player.hasPermissions(4) || SpawnEditCommand.canEdit(player)) return;
+        if (!AdventureGuideManager.isLockedUntilTalk(player)) return;
+        ServerLevel level = player.serverLevel();
+        if (!isSpawn1(level)) return;
+
+        SpawnAnchor anchor = spawnAnchor(level);
+        double dx = player.getX() - anchor.x();
+        double dz = player.getZ() - anchor.z();
+        if ((dx * dx) + (dz * dz) <= FIRST_GUIDE_RADIUS_SQ) return;
+
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, anchor.x(), anchor.y(), anchor.z(), anchor.yaw(), anchor.pitch());
+        deny(player, "Talk to the Adventurer's Guild Representative first. You can't leave the starting area yet.");
+    }
+
+    private static SpawnAnchor spawnAnchor(ServerLevel level) {
+        TeleportLocation configured = TeleportConfig.getSpawn();
+        if (configured != null && sameDimension(level.dimension().location().toString(), configured.dimension)) {
+            return new SpawnAnchor(configured.x, configured.y, configured.z, configured.yaw, configured.pitch);
+        }
+
+        BlockPos pos = level.getSharedSpawnPos();
+        return new SpawnAnchor(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 0.0F, 0.0F);
+    }
+
+    private static boolean sameDimension(String loaded, String configured) {
+        if (loaded == null || configured == null || configured.isBlank()) return false;
+        String a = loaded.toLowerCase(Locale.ROOT).trim();
+        String b = configured.toLowerCase(Locale.ROOT).trim();
+        return a.equals(b) || pathOnly(a).equals(pathOnly(b));
+    }
+
+    private static String pathOnly(String dimension) {
+        String value = dimension == null ? "" : dimension.toLowerCase(Locale.ROOT).trim();
+        int colon = value.indexOf(':');
+        return colon >= 0 && colon + 1 < value.length() ? value.substring(colon + 1) : value;
+    }
+
     public static boolean canPlaceBlock(ServerPlayer player, ServerLevel level, BlockPos pos) {
         if (player == null || level == null || pos == null) return true;
         if (!isSpawn1(level) || SpawnEditCommand.canEdit(player)) return true;
@@ -193,4 +246,6 @@ public final class SpawnRealmProtectionListener {
         LAST_WARNING.put(player.getUUID(), now);
         player.sendSystemMessage(Component.literal(msg).withStyle(ChatFormatting.RED));
     }
+
+    private record SpawnAnchor(double x, double y, double z, float yaw, float pitch) {}
 }

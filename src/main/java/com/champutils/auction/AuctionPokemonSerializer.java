@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.storage.party.PartyPosition;
 import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.champutils.profile.CobblemonProfileStorageBridge;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -74,6 +75,8 @@ public final class AuctionPokemonSerializer {
         if (!removed || partyContainsUuid(party, expectedUuid)) {
             throw new IllegalStateException("Cobblemon refused to safely remove Pokémon from party slot " + (slotIndex + 1) + ".");
         }
+
+        afterPartyMutation(player, "auction-remove");
     }
 
     public static Pokemon getAndValidatePartyPokemon(ServerPlayer player, int slotIndex) {
@@ -170,6 +173,44 @@ public final class AuctionPokemonSerializer {
         }
     }
 
+
+    private static void afterPartyMutation(ServerPlayer player, String reason) {
+        if (player == null) return;
+        try {
+            CobblemonProfileStorageBridge.resyncActiveProfileParty(player, reason == null ? "party-mutation" : reason);
+        } catch (Throwable ignored) {
+        }
+        try {
+            CobblemonProfileStorageBridge.forceSaveActiveProfileStoresAsync(player);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static boolean replacePartySlot(ServerPlayer player, int slotIndex, Pokemon replacement) {
+        if (player == null || replacement == null) return false;
+        PartyStore party = getParty(player);
+        if (party == null || slotIndex < 0 || slotIndex >= party.size()) return false;
+        try {
+            party.set(new PartyPosition(slotIndex), replacement);
+            Pokemon current = party.get(slotIndex);
+            if (current == null || !replacement.getUuid().equals(current.getUuid())) return false;
+            afterPartyMutation(player, "breeding-hatch-replace");
+            return true;
+        } catch (Throwable directFailure) {
+            try {
+                Method method = PartyStore.class.getMethod("set", PartyPosition.class, Pokemon.class);
+                method.invoke(party, new PartyPosition(slotIndex), replacement);
+                Pokemon current = party.get(slotIndex);
+                if (current == null || !replacement.getUuid().equals(current.getUuid())) return false;
+                afterPartyMutation(player, "breeding-hatch-replace-reflection");
+                return true;
+            } catch (Throwable ignored) {
+                directFailure.printStackTrace();
+                return false;
+            }
+        }
+    }
+
     public static boolean hasOpenPartySlot(ServerPlayer player) {
         PartyStore party = getParty(player);
         if (party == null) return false;
@@ -190,7 +231,9 @@ public final class AuctionPokemonSerializer {
     public static boolean addToFirstOpenPartySlot(ServerPlayer player, Pokemon pokemon) {
         PartyStore party = getParty(player);
         if (party == null || pokemon == null) return false;
-        return party.add(pokemon);
+        boolean added = party.add(pokemon);
+        if (added) afterPartyMutation(player, "auction-add-party");
+        return added;
     }
 
     public static boolean addToPc(ServerPlayer player, Pokemon pokemon) {

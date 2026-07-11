@@ -169,6 +169,48 @@ public final class PlayerContractRepository {
         }
     }
 
+    public static ContractSummary cancelActiveContract(UUID contractId, UUID ownerProfileId) throws Exception {
+        if (contractId == null || ownerProfileId == null) return null;
+        Connection connection = DatabaseManager.getConnection();
+        boolean previousAutoCommit = connection.getAutoCommit();
+        try {
+            connection.setAutoCommit(false);
+            ContractSummary locked = null;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "select id, owner_profile_id, owner_name, contract_type, title, reward_cents, criteria::text as criteria, " +
+                            "completion_payload::text as completion_payload, completer_profile_id, completer_name, status, created_at, expires_at, completed_at, claimed_at " +
+                            "from guild_player_contracts where id = ? and owner_profile_id = ? and status = 'ACTIVE' for update"
+            )) {
+                ps.setObject(1, contractId);
+                ps.setObject(2, ownerProfileId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) locked = read(rs);
+                }
+            }
+            if (locked == null) {
+                connection.rollback();
+                return null;
+            }
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "update guild_player_contracts set status = 'CANCELLED', refunded_at = now() where id = ? and owner_profile_id = ? and status = 'ACTIVE'"
+            )) {
+                ps.setObject(1, contractId);
+                ps.setObject(2, ownerProfileId);
+                if (ps.executeUpdate() != 1) {
+                    connection.rollback();
+                    return null;
+                }
+            }
+            connection.commit();
+            return locked;
+        } catch (Exception e) {
+            try { connection.rollback(); } catch (Exception ignored) {}
+            throw e;
+        } finally {
+            try { connection.setAutoCommit(previousAutoCommit); } catch (Exception ignored) {}
+        }
+    }
+
     private static synchronized void ensureSchema(Connection connection) throws Exception {
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("create extension if not exists pgcrypto");

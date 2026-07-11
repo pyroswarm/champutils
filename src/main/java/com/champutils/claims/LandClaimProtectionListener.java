@@ -160,8 +160,13 @@ public final class LandClaimProtectionListener {
                 return InteractionResult.FAIL;
             }
 
-            if (isRedstoneOrDoor(state) && !LandClaimRepository.canUseRedstone(serverPlayer, claim)) {
-                deny(serverPlayer, "You cannot use switches, doors, gates, hoppers, or redstone in " + claim.ownerName + "'s claim.");
+            if (isDoorLike(state) && !LandClaimRepository.canUseDoors(serverPlayer, claim)) {
+                deny(serverPlayer, "You cannot use doors, trapdoors, or gates in " + claim.ownerName + "'s claim.");
+                return InteractionResult.FAIL;
+            }
+
+            if (isRedstoneControl(state) && !LandClaimRepository.canUseRedstone(serverPlayer, claim)) {
+                deny(serverPlayer, "You cannot use switches, hoppers, dispensers, or redstone controls in " + claim.ownerName + "'s claim.");
                 return InteractionResult.FAIL;
             }
 
@@ -346,12 +351,15 @@ public final class LandClaimProtectionListener {
                 || state.getBlock() instanceof DropperBlock;
     }
 
-    private static boolean isRedstoneOrDoor(BlockState state) {
+    private static boolean isDoorLike(BlockState state) {
+        return state.getBlock() instanceof DoorBlock
+                || state.getBlock() instanceof TrapDoorBlock
+                || state.getBlock() instanceof FenceGateBlock;
+    }
+
+    private static boolean isRedstoneControl(BlockState state) {
         return state.getBlock() instanceof ButtonBlock
                 || state.getBlock() instanceof LeverBlock
-                || state.getBlock() instanceof DoorBlock
-                || state.getBlock() instanceof TrapDoorBlock
-                || state.getBlock() instanceof FenceGateBlock
                 || state.getBlock() instanceof HopperBlock
                 || state.getBlock() instanceof DispenserBlock
                 || state.getBlock() instanceof DropperBlock;

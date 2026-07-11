@@ -80,6 +80,13 @@ public final class ProfileNetworkTransferFlow {
             if (callback != null) callback.accept("Profile transfer is already in progress.");
             return;
         }
+
+        // Capture live state before any proxy/backend handoff. The snapshot is committed inside
+        // the same DB task that issues the token, so the token payload can never be built from
+        // stale party/PC SQL after an instant Alpha -> Omega transfer.
+        ProfileStateFlushService.TransferFlushSnapshot transferSnapshot =
+                ProfileStateFlushService.captureBeforeTransfer(player, "network_profile_transfer");
+
         if (!ProfileStateFlushService.flushBeforeTransfer(player, "network_profile_transfer", 3, java.util.concurrent.TimeUnit.SECONDS)) {
             if (callback != null) callback.accept("Could not safely save your profile before transfer. Please try again.");
             return;
@@ -88,6 +95,7 @@ public final class ProfileNetworkTransferFlow {
         AtomicReference<String> issuedWireToken = new AtomicReference<>("");
 
         DatabaseManager.runAsync("issue profile transfer token", connection -> {
+            ProfileStateFlushService.commitTransferSnapshot(connection, transferSnapshot, "network_profile_transfer");
             ProfileTransferTokenManager.ensureSchema(connection);
             ProfileTransferTokenManager.IssuedToken token = ProfileTransferTokenManager.issue(
                     connection,

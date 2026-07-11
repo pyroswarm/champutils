@@ -1,0 +1,13 @@
+{
+  "species": "champutils:egg",
+  "order": 0,
+  "variations": [
+    {
+      "aspects": [],
+      "poser": "champutils:egg",
+      "model": "champutils:egg.geo",
+      "texture": "champutils:textures/pokemon/egg.png",
+      "layers": []
+    }
+  ]
+}

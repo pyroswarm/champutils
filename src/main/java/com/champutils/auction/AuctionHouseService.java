@@ -1,6 +1,7 @@
 package com.champutils.auction;
 
 import com.champutils.database.DatabaseManager;
+import com.champutils.breeding.BreedingEggData;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
@@ -65,7 +66,11 @@ public final class AuctionHouseService {
             player.sendSystemMessage(Component.literal("There is no Pokémon in party slot " + playerSlotNumber + ".").withStyle(ChatFormatting.RED));
             return;
         }
-        AuctionPendingActionManager.setPokemonListing(player, slotIndex, pokemon.getDisplayName(true).getString(), price);
+        if (BreedingEggData.isEgg(pokemon)) {
+            player.sendSystemMessage(Component.literal("Pokémon Eggs cannot be listed on the Auction House.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        AuctionPendingActionManager.setPokemonListing(player, slotIndex, pokemon.getDisplayName(true).getString(), pokemon.getUuid(), price);
     }
 
     public static void confirmPending(ServerPlayer player) {
@@ -203,7 +208,7 @@ public final class AuctionHouseService {
             return;
         }
 
-        if (pokemon == null || !pokemon.getDisplayName(true).getString().equals(action.pokemonName)) {
+        if (pokemon == null || !samePendingPokemon(pokemon, action) || BreedingEggData.isEgg(pokemon)) {
             LISTING.remove(playerUuid);
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
@@ -237,7 +242,7 @@ public final class AuctionHouseService {
                 e.printStackTrace();
                 return;
             }
-            if (latest == null || !latest.getDisplayName(true).getString().equals(action.pokemonName)) {
+            if (latest == null || !samePendingPokemon(latest, action) || BreedingEggData.isEgg(latest)) {
                 LISTING.remove(playerUuid);
                 AuctionPendingActionManager.remove(player);
                 player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
@@ -299,6 +304,16 @@ public final class AuctionHouseService {
     }
 
 
+
+
+    private static boolean samePendingPokemon(Pokemon pokemon, AuctionPendingActionManager.PendingAction action) {
+        if (pokemon == null || action == null) return false;
+        if (action.pokemonUuid != null) {
+            try { return action.pokemonUuid.equals(pokemon.getUuid()); }
+            catch (Throwable ignored) { return false; }
+        }
+        return pokemon.getDisplayName(true).getString().equals(action.pokemonName);
+    }
 
     public static void buyListing(ServerPlayer player, UUID listingId) {
         if (player == null || listingId == null) return;

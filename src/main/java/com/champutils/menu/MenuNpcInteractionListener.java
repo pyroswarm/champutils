@@ -97,6 +97,7 @@ public final class MenuNpcInteractionListener {
             case "professionforeman", "foreman", "chunks" -> ProfessionForemanMenu.open(player);
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> com.champutils.account.AccountUpgradeMenu.open(player);
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> RankedShopMenu.open(player);
+            case "breeding", "breed", "nursery" -> com.champutils.breeding.BreedingMenu.open(player);
             default -> player.sendSystemMessage(Component.literal("This NPC is bound to an unknown menu: " + menu).withStyle(ChatFormatting.RED));
         }
     }

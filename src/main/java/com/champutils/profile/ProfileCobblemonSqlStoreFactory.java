@@ -4,6 +4,7 @@ import com.champutils.battle.ServerLifecycleBridge;
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.database.DatabaseManager;
 import com.champutils.hunt.PokemonHuntReflection;
+import com.champutils.util.CobblemonEventReflection;
 import com.cobblemon.mod.common.api.storage.PokemonStore;
 import com.cobblemon.mod.common.api.storage.StorePosition;
 import com.cobblemon.mod.common.api.storage.factory.PokemonStoreFactory;
@@ -22,8 +23,13 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 
@@ -40,6 +46,69 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private final Map<UUID, ServerPlayer> pcHydrationViewers = new ConcurrentHashMap<>();
     private final Set<UUID> hydratedPcCache = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pcLoadsInFlight = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> trackedPartyStores = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> trackedPcStores = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pendingPartyFlushes = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pendingPcFlushes = ConcurrentHashMap.newKeySet();
+
+    public record StoreSnapshot(
+            String partyNbt,
+            String pcNbt,
+            boolean partyCached,
+            boolean pcCached,
+            boolean pcHydrated,
+            int partySize,
+            int pcSize
+    ) {
+        public boolean hasAnyPayload() {
+            return partyNbt != null || pcNbt != null;
+        }
+    }
+
+    public StoreSnapshot snapshot(UUID profileId, RegistryAccess registryAccess) {
+        if (!canOwn(profileId) || registryAccess == null) {
+            return new StoreSnapshot(null, null, false, false, false, 0, 0);
+        }
+
+        long start = System.currentTimeMillis();
+        PlayerPartyStore party = partyCache.get(profileId);
+        PCStore pc = hydratedPcCache.contains(profileId) ? pcCache.get(profileId) : null;
+        if (party != null) dedupeStore(party);
+        if (pc != null) dedupeStore(pc);
+
+        String partyNbt = party == null ? null : safeStoreNbt(party, registryAccess);
+        String pcNbt = pc == null ? null : safeStoreNbt(pc, registryAccess);
+        int partySize = countStore(party);
+        int pcSize = countStore(pc);
+
+        ChampDebugManager.log(ChampDebugManager.Category.PROFILES,
+                "[PROFILE-TIMING] ProfileCobblemonSqlStoreFactory.transfer snapshot took "
+                        + (System.currentTimeMillis() - start)
+                        + "ms for profile=" + profileId
+                        + " partyCached=" + (party != null)
+                        + " pcCached=" + pcCache.containsKey(profileId)
+                        + " pcHydrated=" + hydratedPcCache.contains(profileId)
+                        + " partySize=" + partySize
+                        + " pcSize=" + pcSize
+                        + " partyPayload=" + (partyNbt != null)
+                        + " pcPayload=" + (pcNbt != null));
+
+        return new StoreSnapshot(
+                partyNbt,
+                pcNbt,
+                party != null,
+                pcCache.containsKey(profileId),
+                hydratedPcCache.contains(profileId),
+                partySize,
+                pcSize
+        );
+    }
+
+    public void saveSnapshotBlocking(Connection connection, UUID profileId, StoreSnapshot snapshot, String reason) throws Exception {
+        if (connection == null || profileId == null || snapshot == null || !snapshot.hasAnyPayload()) return;
+        ProfileAtomicSnapshotManager.ensureSchema(connection);
+        ProfileAtomicSnapshotManager.saveCobblemonBlocking(connection, profileId, snapshot.partyNbt(), snapshot.pcNbt(), reason);
+    }
 
     public void ensureSchema() {
         if (!DatabaseManager.isEnabled()) return;
@@ -95,6 +164,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             loadStore(uuid, true, store, registryAccess);
             rebindRuntimeOwner(store, accountUuid);
             store.initialize();
+            trackParty(uuid, store, registryAccess);
             return store;
         });
     }
@@ -126,6 +196,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             }
             long elapsed = System.currentTimeMillis() - start;
             System.out.println("[PROFILE] Lazy SQL Cobblemon PC load took " + elapsed + "ms for profile=" + uuid);
+            trackPc(uuid, store, registryAccess);
             return store;
         });
     }
@@ -150,8 +221,13 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         saveAllBlocking(registryAccess);
         partyCache.clear();
         pcCache.clear();
+        pcHydrationViewers.clear();
         hydratedPcCache.clear();
         pcLoadsInFlight.clear();
+        trackedPartyStores.clear();
+        trackedPcStores.clear();
+        pendingPartyFlushes.clear();
+        pendingPcFlushes.clear();
     }
 
     @Override
@@ -164,6 +240,10 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcHydrationViewers.remove(profileId);
         hydratedPcCache.remove(profileId);
         pcLoadsInFlight.remove(profileId);
+        trackedPartyStores.remove(profileId);
+        trackedPcStores.remove(profileId);
+        pendingPartyFlushes.remove(profileId);
+        pendingPcFlushes.remove(profileId);
     }
 
     /**
@@ -240,6 +320,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             loadStore(connection, uuid, true, store, registryAccess);
             rebindRuntimeOwner(store, accountUuid);
             store.initialize();
+            trackParty(uuid, store, registryAccess);
             long elapsed = System.currentTimeMillis() - start;
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] SQL Cobblemon party prefetch took " + elapsed + "ms for profile=" + profileId + " cacheHit=false");
             return store;
@@ -266,6 +347,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             }
             rebindRuntimeOwner(store, accountUuid);
             store.initialize();
+            trackParty(uuid, store, registryAccess);
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] transfer Cobblemon party payload hydrate took " + (System.currentTimeMillis() - start) + "ms for profile=" + profileId + " partySize=" + countStore(store));
             return store;
         });
@@ -289,6 +371,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             } catch (Throwable ignored) {}
             store.initialize();
             rebindRuntimeOwner(store, accountUuid);
+            trackPc(uuid, store, registryAccess);
             queuePcHydration(uuid, store, registryAccess, null);
             return store;
         });
@@ -301,6 +384,10 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcHydrationViewers.remove(profileId);
         hydratedPcCache.remove(profileId);
         pcLoadsInFlight.remove(profileId);
+        trackedPartyStores.remove(profileId);
+        trackedPcStores.remove(profileId);
+        pendingPartyFlushes.remove(profileId);
+        pendingPcFlushes.remove(profileId);
     }
 
 
@@ -348,11 +435,11 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     }
 
     public int cachedPartySize(UUID profileId) {
-        return countStore(partyCache.get(profileId));
+        return profileId == null ? 0 : countStore(partyCache.get(profileId));
     }
 
     public int cachedPcSize(UUID profileId) {
-        return countStore(pcCache.get(profileId));
+        return profileId == null ? 0 : countStore(pcCache.get(profileId));
     }
 
     public boolean hasSpeciesInCachedStores(UUID profileId, String species, UUID excludePokemonUuid) {
@@ -377,6 +464,77 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         return false;
     }
 
+
+    private void trackParty(UUID profileId, PlayerPartyStore store, RegistryAccess registryAccess) {
+        if (profileId == null || store == null || registryAccess == null) return;
+        if (!trackedPartyStores.add(profileId)) return;
+        CobblemonEventReflection.subscribe(store.getAnyChangeObservable(), ignored -> schedulePartyFlush(profileId, registryAccess));
+    }
+
+    private void trackPc(UUID profileId, PCStore store, RegistryAccess registryAccess) {
+        if (profileId == null || store == null || registryAccess == null) return;
+        if (!trackedPcStores.add(profileId)) return;
+        CobblemonEventReflection.subscribe(store.getAnyChangeObservable(), ignored -> schedulePcFlush(profileId, registryAccess));
+    }
+
+    private void schedulePartyFlush(UUID profileId, RegistryAccess registryAccess) {
+        if (profileId == null || registryAccess == null || !pendingPartyFlushes.add(profileId)) return;
+        CompletableFuture
+                .runAsync(() -> {}, CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS))
+                .thenRun(() -> {
+                    MinecraftServer server = ServerLifecycleBridge.getServer();
+                    Runnable task = () -> {
+                        try {
+                            PlayerPartyStore party = partyCache.get(profileId);
+                            if (party == null) return;
+                            saveAsync(profileId, registryAccess);
+                            ServerPlayer player = onlinePlayerForProfile(profileId);
+                            if (player != null && profileId.equals(PlayerProfileManager.activeProfileId(player))) {
+                                CobblemonProfileStorageBridge.sendPartyToPlayerAndSelect(player, party, profileId, "change-flush");
+                            }
+                        } catch (Throwable throwable) {
+                            System.err.println("[ChampUtils] Failed to flush/resync Cobblemon party change for profile " + profileId + ".");
+                            throwable.printStackTrace();
+                        } finally {
+                            pendingPartyFlushes.remove(profileId);
+                        }
+                    };
+                    if (server != null) server.execute(task);
+                    else task.run();
+                });
+    }
+
+    private void schedulePcFlush(UUID profileId, RegistryAccess registryAccess) {
+        if (profileId == null || registryAccess == null || !pendingPcFlushes.add(profileId)) return;
+        CompletableFuture
+                .runAsync(() -> {}, CompletableFuture.delayedExecutor(750, TimeUnit.MILLISECONDS))
+                .thenRun(() -> {
+                    MinecraftServer server = ServerLifecycleBridge.getServer();
+                    Runnable task = () -> {
+                        try {
+                            if (!hydratedPcCache.contains(profileId)) return;
+                            if (!pcCache.containsKey(profileId)) return;
+                            saveAsync(profileId, registryAccess);
+                            sendPcToViewer(profileId, pcCache.get(profileId));
+                        } catch (Throwable throwable) {
+                            System.err.println("[ChampUtils] Failed to flush/resync Cobblemon PC change for profile " + profileId + ".");
+                            throwable.printStackTrace();
+                        } finally {
+                            pendingPcFlushes.remove(profileId);
+                        }
+                    };
+                    if (server != null) server.execute(task);
+                    else task.run();
+                });
+    }
+
+    private static ServerPlayer onlinePlayerForProfile(UUID profileId) {
+        MinecraftServer server = ServerLifecycleBridge.getServer();
+        UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(profileId);
+        if (server == null || accountUuid == null) return null;
+        return server.getPlayerList().getPlayer(accountUuid);
+    }
+
     private boolean canOwn(UUID uuid) {
         return uuid != null && DatabaseManager.isEnabled() && CobblemonProfileStorageBridge.isKnownProfileStorageKey(uuid);
     }
@@ -397,7 +555,9 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             String raw = readStoreRaw(connection, profileId, party);
             if (raw == null || raw.isBlank()) return;
             CompoundTag tag = TagParser.parseTag(raw);
+            if (!party && store instanceof PCStore pcStore) clearPcBoxes(pcStore);
             store.loadFromNBT(tag, registryAccess);
+            store.initialize();
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load SQL Cobblemon " + (party ? "party" : "PC") + " store for profile " + profileId + ". Empty live store will be used.");
             e.printStackTrace();
@@ -441,12 +601,17 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
                         System.err.println("[ChampUtils] Failed to hydrate SQL Cobblemon PC for profile " + profileId + ": " + error.getMessage());
                         return;
                     }
+                    List<Pokemon> transientPokemon = snapshotPokemon(store);
                     if (tag != null) {
+                        clearPcBoxes(store);
                         store.loadFromNBT(tag, registryAccess);
                     }
+                    mergeMissingPokemon(store, transientPokemon);
+                    store.initialize();
                     UUID accountUuid = CobblemonProfileStorageBridge.accountUuidForProfile(profileId);
                     if (accountUuid != null) rebindRuntimeOwner(store, accountUuid);
                     hydratedPcCache.add(profileId);
+                    trackPc(profileId, store, registryAccess);
                     ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Async SQL Cobblemon PC hydration finished on server thread for profile=" + profileId + " pcSize=" + countStore(store));
                     sendPcToViewer(profileId, store);
                 } catch (Throwable throwable) {
@@ -468,9 +633,19 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             try {
                 if (viewer.hasDisconnected()) return;
                 if (!profileId.equals(PlayerProfileManager.activeProfileId(viewer))) return;
-                Method sendTo = store.getClass().getMethod("sendTo", ServerPlayer.class);
-                sendTo.invoke(store, viewer);
-                ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Sent hydrated Cobblemon PC to " + viewer.getGameProfile().getName() + " profile=" + profileId + " pcSize=" + countStore(store));
+                boolean pcLinked = CobblemonProfileStorageBridge.isPlayerPcLinked(viewer);
+                if (pcLinked) {
+                    // Do not call PCStore#sendTo while the PC screen is already open. That sends
+                    // InitializePCPacket, which replaces the ClientPC object that the open GUI is
+                    // rendering. Sending each box keeps the same ClientPC instance and updates the
+                    // visible slots in-place.
+                    sendPcBoxesToViewer(store, viewer);
+                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Sent hydrated Cobblemon PC boxes to open PC GUI for " + viewer.getGameProfile().getName() + " profile=" + profileId + " pcSize=" + countStore(store));
+                } else {
+                    Method sendTo = store.getClass().getMethod("sendTo", ServerPlayer.class);
+                    sendTo.invoke(store, viewer);
+                    ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Sent hydrated Cobblemon PC to " + viewer.getGameProfile().getName() + " profile=" + profileId + " pcSize=" + countStore(store));
+                }
             } catch (NoSuchMethodException ignored) {
                 ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon PCStore has no sendTo(ServerPlayer) method; hydration still applied server-side for profile=" + profileId);
             } catch (Throwable throwable) {
@@ -478,6 +653,17 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
                 throwable.printStackTrace();
             }
         });
+    }
+
+    private void sendPcBoxesToViewer(PCStore store, ServerPlayer viewer) throws Exception {
+        Method getBoxes = store.getClass().getMethod("getBoxes");
+        Object boxes = getBoxes.invoke(store);
+        if (!(boxes instanceof Iterable<?> iterable)) return;
+        for (Object box : iterable) {
+            if (box == null) continue;
+            Method sendTo = box.getClass().getMethod("sendTo", ServerPlayer.class);
+            sendTo.invoke(box, viewer);
+        }
     }
 
     private void upsert(UUID profileId, PlayerPartyStore party, PCStore pc, RegistryAccess registryAccess) {
@@ -494,6 +680,50 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         }
     }
 
+
+
+    private static List<Pokemon> snapshotPokemon(Iterable<Pokemon> store) {
+        List<Pokemon> pokemon = new ArrayList<>();
+        if (store == null) return pokemon;
+        try {
+            for (Pokemon p : store) {
+                if (p != null) pokemon.add(p);
+            }
+        } catch (Throwable ignored) {}
+        return pokemon;
+    }
+
+    private static void mergeMissingPokemon(PCStore store, List<Pokemon> pokemon) {
+        if (store == null || pokemon == null || pokemon.isEmpty()) return;
+        HashSet<UUID> existing = new HashSet<>();
+        try {
+            for (Pokemon current : store) {
+                if (current != null) existing.add(current.getUuid());
+            }
+        } catch (Throwable ignored) {}
+        for (Pokemon p : pokemon) {
+            if (p == null) continue;
+            UUID uuid;
+            try { uuid = p.getUuid(); } catch (Throwable ignored) { continue; }
+            if (uuid == null || existing.contains(uuid)) continue;
+            try {
+                if (store.add(p)) existing.add(uuid);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearPcBoxes(PCStore store) {
+        if (store == null) return;
+        try {
+            Method getBoxes = store.getClass().getMethod("getBoxes");
+            Object boxes = getBoxes.invoke(store);
+            if (boxes instanceof List<?> list) {
+                ((List<Object>) list).clear();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
 
     private static void dedupeStore(Iterable<Pokemon> store) {
         if (store == null) return;
@@ -527,9 +757,10 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         try {
             CompoundTag tag = store.saveToNBT(new CompoundTag(), registryAccess);
             String raw = tag.toString();
-            // Never let an accidentally empty live store wipe a previously saved SQL PC/party.
-            // Empty NBT can happen during profile swaps or before Cobblemon finishes hydrating a store.
-            if (raw == null || raw.isBlank() || raw.equals("{}")) return null;
+            // An empty serialized store ("{}") is a valid state for a player who moved every
+            // Pokémon out of their party, or fully cleared a PC. Do not coalesce it away; the
+            // caller already avoids snapshotting non-hydrated PC shells.
+            if (raw == null || raw.isBlank()) return null;
             return raw;
         } catch (Throwable throwable) {
             return null;

@@ -1,5 +1,6 @@
 package com.champutils.dex;
 
+import com.champutils.breeding.BreedingEggData;
 import com.champutils.matchmaking.PokemonIconUtil;
 import com.champutils.menu.MenuUtil;
 import com.cobblemon.mod.common.CobblemonItems;
@@ -158,6 +159,10 @@ public final class TrueDexMenu {
             return;
         }
         if (result instanceof Species species) {
+            try {
+                if (BreedingEggData.EGG_SPECIES.equals(String.valueOf(species.getResourceIdentifier()))) return;
+            } catch (Throwable ignored) {
+            }
             String key = speciesKey(species);
             if (key.isBlank()) return;
             int number = dexNumber(species);

@@ -99,10 +99,11 @@ public final class ExplorationLootManager {
 
         long seed = 31L * pos.asLong() + 17L * level.getSeed() + playerSalt;
         Random random = new Random(seed);
-        int rolls = table.minRolls + random.nextInt(Math.max(1, table.maxRolls - table.minRolls + 1));
+        int chestMaxRank = chestMaxRarityRank(level, pos);
+        int rolls = table.minRolls + random.nextInt(Math.max(1, table.maxRolls - table.minRolls + 1)) + rollBonusForRank(chestMaxRank);
         List<ItemStack> rewards = new ArrayList<>();
 
-        List<ExplorationLootConfig.LootEntry> valid = validEntries(table);
+        List<ExplorationLootConfig.LootEntry> valid = validEntries(table, level, pos);
         if (valid.isEmpty()) return rewards;
 
         Set<String> alreadyRolled = new HashSet<>();
@@ -122,13 +123,17 @@ public final class ExplorationLootManager {
         return rewards;
     }
 
-    private static List<ExplorationLootConfig.LootEntry> validEntries(ExplorationLootConfig.LootTable table) {
-        int maxRarity = Math.min(ExplorationLootConfig.rarityRank(ExplorationLootConfig.get().maxRarity), ExplorationLootConfig.rarityRank("C"));
+    private static List<ExplorationLootConfig.LootEntry> validEntries(ExplorationLootConfig.LootTable table, ServerLevel level, BlockPos pos) {
+        int globalMaxRarity = ExplorationLootConfig.rarityRank(ExplorationLootConfig.get().maxRarity);
+        int chestMaxRarity = chestMaxRarityRank(level, pos);
+        int maxRarity = Math.min(globalMaxRarity, chestMaxRarity);
+        int minRarity = Math.max(0, maxRarity - 2);
         List<ExplorationLootConfig.LootEntry> valid = new ArrayList<>();
         for (ExplorationLootConfig.LootEntry entry : table.items) {
             if (entry == null || entry.itemId == null || entry.itemId.isBlank()) continue;
             if (entry.weight <= 0) continue;
-            if (entry.rarityRank() > maxRarity) continue;
+            int entryRank = entry.rarityRank();
+            if (entryRank > maxRarity || entryRank < minRarity) continue;
             if (isBanned(entry.itemId)) continue;
             if (ExplorationLootConfig.get().skipUnknownItems && !isSpecialReward(entry.itemId) && !isKnownItem(entry.itemId)) continue;
             valid.add(entry);
@@ -258,6 +263,31 @@ public final class ExplorationLootManager {
             if (contains != null && !contains.isBlank() && lowerBlockId.contains(contains.trim().toLowerCase(Locale.ROOT))) return true;
         }
         return false;
+    }
+
+    private static int chestMaxRarityRank(ServerLevel level, BlockPos pos) {
+        String id = blockId(level, pos).toLowerCase(Locale.ROOT);
+        if (id.contains("black_gilded_chest")) return ExplorationLootConfig.rarityRank("S");
+        if (id.contains("white_gilded_chest")) return ExplorationLootConfig.rarityRank("A");
+        if (id.contains("pink_gilded_chest")) return ExplorationLootConfig.rarityRank("B");
+        if (id.contains("blue_gilded_chest")) return ExplorationLootConfig.rarityRank("C");
+        if (id.contains("green_gilded_chest")) return ExplorationLootConfig.rarityRank("D");
+        if (id.contains("yellow_gilded_chest")) return ExplorationLootConfig.rarityRank("E");
+        if (id.contains("gilded_chest")) return ExplorationLootConfig.rarityRank("F");
+
+        String table = tableId(level, pos);
+        if ("end".equals(table)) return ExplorationLootConfig.rarityRank("B");
+        if ("nether".equals(table)) return ExplorationLootConfig.rarityRank("C");
+        return ExplorationLootConfig.rarityRank("F");
+    }
+
+    private static int rollBonusForRank(int rarityRank) {
+        if (rarityRank >= ExplorationLootConfig.rarityRank("S")) return 3;
+        if (rarityRank >= ExplorationLootConfig.rarityRank("A")) return 2;
+        if (rarityRank >= ExplorationLootConfig.rarityRank("B")) return 2;
+        if (rarityRank >= ExplorationLootConfig.rarityRank("C")) return 1;
+        if (rarityRank >= ExplorationLootConfig.rarityRank("D")) return 1;
+        return 0;
     }
 
     private static String chestRarity(ServerLevel level, BlockPos pos) {

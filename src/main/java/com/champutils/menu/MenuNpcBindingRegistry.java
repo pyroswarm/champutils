@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "adventurersguild", "adventurer", "aguild", "guildhall", "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop" -> true;
+            case "adventurersguild", "adventurer", "aguild", "guildhall", "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop", "breeding", "breed", "nursery" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "adventurersguild, profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, champsshop, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds";
+        return "adventurersguild, profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, champsshop, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds, breeding";
     }
 
     public static String normalize(String menu) {
@@ -153,6 +153,7 @@ public final class MenuNpcBindingRegistry {
             case "tms", "tm", "tmcraft", "tmcrafter" -> "tmcrafter";
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "champsshop";
             case "rankedtokens", "ranked_token_shop" -> "rankedshop";
+            case "breed", "nursery" -> "breeding";
             default -> value;
         };
     }

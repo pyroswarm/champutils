@@ -2,6 +2,7 @@ package com.champutils.wondertrade;
 
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
+import com.champutils.breeding.BreedingEggData;
 import com.champutils.dex.PokemonOriginManager;
 import com.champutils.profile.ProfileRestrictions;
 import com.champutils.profile.PlayerProfileManager;
@@ -122,6 +123,11 @@ public final class WonderTradeService {
         if (offered == null) {
             TRADING.remove(playerUuid);
             player.sendSystemMessage(Component.literal("There is no Pokémon in party slot " + slotNumber + ".").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (BreedingEggData.isEgg(offered)) {
+            TRADING.remove(playerUuid);
+            player.sendSystemMessage(Component.literal("Pokémon Eggs cannot be Wonder Traded.").withStyle(ChatFormatting.RED));
             return;
         }
 
