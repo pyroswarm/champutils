@@ -6,6 +6,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.quest.QuestConfig;
 import com.champutils.quest.QuestDataManager;
 import com.champutils.quest.QuestManager;
+import com.champutils.quest.QuestTrackerManager;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
@@ -60,8 +61,8 @@ public final class ContractMenu {
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
-            item.addLoreLine(Component.literal(done ? "§eClick to claim" : "§7Complete before it expires."));
-            item.setCallback((index, click, action) -> { QuestManager.completeContract(player); open(player); });
+            item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eClick to claim" : "§eClick to track")));
+            item.setCallback((index, click, action) -> { if (done) QuestManager.completeContract(player); else QuestTrackerManager.track(player, "contract", c); open(player); });
             gui.setSlot(slots[offset++], item);
         }
     }

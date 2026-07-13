@@ -145,6 +145,7 @@ public final class ProfileSelectionMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal("Loading Profiles...").withStyle(ChatFormatting.YELLOW))
                     .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+            addExitServerButton(loadingGui, player, 18);
             loadingGui.open();
             loadSnapshotAsync(player).whenComplete((fresh, error) -> player.server.execute(() -> {
                 if (player.hasDisconnected()) return;
@@ -257,7 +258,7 @@ public final class ProfileSelectionMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal("Join Server: " + preferredServer.displayName()).withStyle(ChatFormatting.AQUA))
                 .addLoreLine(Component.literal("Your profiles will load into " + preferredServer.displayName() + ".").withStyle(ChatFormatting.GRAY))
-                .addLoreLine(Component.literal("Click to change Alpha/Omega.").withStyle(ChatFormatting.YELLOW))
+                .addLoreLine(Component.literal("Click to change Nova/Eclipse.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openServerPreferenceMenu(player, preferredServer.serverId()))));
 
         gui.setSlot(26, new GuiElementBuilder(Items.BARRIER)
@@ -267,7 +268,8 @@ public final class ProfileSelectionMenu {
                 .addLoreLine(Component.literal("Click to choose a profile.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> navigate(player, () -> openDeleteMenu(player))));
 
-        MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 8, 22, 26);
+        addExitServerButton(gui, player, 18);
+        MenuUtil.fillBordersForced(gui, slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], 8, 18, 22, 26);
         gui.open();
     }
 
@@ -276,8 +278,8 @@ public final class ProfileSelectionMenu {
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openServerPreferenceMenu(player, currentServerId));
         gui.setTitle(Component.literal("Choose Server"));
 
-        setServerPreferenceButton(gui, player, 11, PreferredSurvivalServerManager.ALPHA_SERVER_ID, "Alpha", Items.GRASS_BLOCK, currentServerId);
-        setServerPreferenceButton(gui, player, 15, PreferredSurvivalServerManager.OMEGA_SERVER_ID, "Omega", Items.ENDER_EYE, currentServerId);
+        setServerPreferenceButton(gui, player, 11, PreferredSurvivalServerManager.ALPHA_SERVER_ID, "Nova", Items.GRASS_BLOCK, currentServerId);
+        setServerPreferenceButton(gui, player, 15, PreferredSurvivalServerManager.OMEGA_SERVER_ID, "Eclipse", Items.ENDER_EYE, currentServerId);
 
         MenuUtil.addBackButton(gui, 18, () -> navigate(player, () -> open(player)));
         MenuUtil.fillBordersForced(gui, 11, 15, 18);
@@ -441,6 +443,7 @@ public final class ProfileSelectionMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal("Loading Profiles...").withStyle(ChatFormatting.YELLOW))
                     .addLoreLine(Component.literal("Please wait.").withStyle(ChatFormatting.GRAY)));
+            addExitServerButton(loadingGui, player, 18);
             loadingGui.open();
             loadSnapshotAsync(player).whenComplete((fresh, error) -> player.server.execute(() -> {
                 if (player.hasDisconnected()) return;
@@ -566,6 +569,22 @@ public final class ProfileSelectionMenu {
         long hours = minutes / 60L;
         long mins = minutes % 60L;
         return mins == 0 ? hours + "h" : hours + "h " + mins + "m";
+    }
+
+    private static void addExitServerButton(SimpleGui gui, ServerPlayer player, int slot) {
+        if (gui == null || player == null) return;
+        gui.setSlot(slot, new GuiElementBuilder(Items.OAK_DOOR)
+                .hideDefaultTooltip()
+                .setName(Component.literal("Exit Server").withStyle(ChatFormatting.RED))
+                .addLoreLine(Component.literal("Disconnect safely without selecting a profile.").withStyle(ChatFormatting.GRAY))
+                .addLoreLine(Component.literal("Click to leave the server.").withStyle(ChatFormatting.YELLOW))
+                .setCallback((index, clickType, action, gui1) -> {
+                    clearForcedReopener(player);
+                    gui1.close();
+                    if (player.connection != null) {
+                        player.connection.disconnect(Component.literal("You left the profile lobby."));
+                    }
+                }));
     }
 
     /**

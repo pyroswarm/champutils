@@ -1,6 +1,7 @@
 package com.champutils.worldfirst;
 
 import com.champutils.cosmetic.TitleManager;
+import com.champutils.cosmetic.TitleConfig;
 import com.champutils.profession.ProfessionType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -24,6 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class WorldFirstManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/world_firsts.json");
+    private static final File TITLE_CATALOG_FILE = new File("config/champutils/world-first.json");
+    private static final File TITLE_CATALOG_FILE_PLURAL = new File("config/champutils/world-firsts.json");
     private static State state = new State();
     private static List<WorldFirstDef> DEFS = new ArrayList<>();
 
@@ -54,6 +57,7 @@ public final class WorldFirstManager {
             FILE.getParentFile().mkdirs();
             if (!FILE.exists()) {
                 DEFS = defaults();
+                mergeConfiguredWorldFirstTitles();
                 saveDefinitions();
                 return;
             }
@@ -62,12 +66,50 @@ public final class WorldFirstManager {
                 DEFS = config == null || config.worldFirsts == null || config.worldFirsts.isEmpty() ? defaults() : config.worldFirsts;
             }
             mergeMissingDefaults();
+            mergeConfiguredWorldFirstTitles();
             saveDefinitions();
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to load world first definitions. Using defaults.");
             e.printStackTrace();
             DEFS = defaults();
         }
+    }
+
+    private static void mergeConfiguredWorldFirstTitles() {
+        File catalog = TITLE_CATALOG_FILE.exists() ? TITLE_CATALOG_FILE : TITLE_CATALOG_FILE_PLURAL;
+        if (!catalog.exists()) return;
+        try (FileReader reader = new FileReader(catalog)) {
+            TitleConfig.Config config = GSON.fromJson(reader, TitleConfig.Config.class);
+            if (config == null || config.titles == null) return;
+            Map<String, WorldFirstDef> byId = new java.util.LinkedHashMap<>();
+            for (WorldFirstDef def : DEFS) if (def != null && def.id != null) byId.put(def.id, def);
+            for (TitleConfig.TitleDef title : config.titles) {
+                if (title == null || title.unlock == null || !"world_first".equalsIgnoreCase(title.unlock.type)) continue;
+                String id = title.unlock.worldFirstId;
+                if (id == null || id.isBlank()) continue;
+                WorldFirstDef def = new WorldFirstDef();
+                def.id = id;
+                def.name = title.unlock.worldFirstName == null || title.unlock.worldFirstName.isBlank() ? title.name : title.unlock.worldFirstName;
+                def.titleId = title.id;
+                def.titleDisplay = title.display;
+                def.rewardText = title.unlock.rewardText == null ? "exclusive world-first title" : title.unlock.rewardText;
+                def.xpReward = Math.max(0, title.unlock.xpReward);
+                def.trigger = title.unlock.trigger;
+                byId.put(id, def);
+            }
+            DEFS = new ArrayList<>(byId.values());
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to merge configured world-first title definitions.");
+            e.printStackTrace();
+        }
+    }
+
+    public static boolean awardByTrigger(ServerPlayer player, String trigger) {
+        if (trigger == null || trigger.isBlank()) return false;
+        for (WorldFirstDef def : DEFS) {
+            if (def != null && trigger.equalsIgnoreCase(def.trigger)) return award(player, def.id);
+        }
+        return false;
     }
 
     private static void mergeMissingDefaults() {
@@ -229,6 +271,8 @@ public final class WorldFirstManager {
         add(list,"first_casual_win","First Casual PvP Win","&b[Casual Victor]","exclusive title and 250 XP",250);
         add(list,"first_ranked_win","First Ranked PvP Win","&6[Ranked Pioneer]","exclusive title and 500 XP",500);
         add(list,"first_battle_tower_win","First Battle Tower Win","&d[Tower Spark]","exclusive Battle Tower title and 500 XP",500);
+        add(list,"first_breeding_hatch","First Bred Pokémon Hatched","&d[Egg Pioneer]","exclusive breeding title and 500 XP",500);
+        for (int floor=10; floor<=100; floor+=10) add(list,"first_battle_tower_"+floor,"First Battle Tower Floor "+floor,"&6[Tower First "+floor+"]","exclusive scaling Battle Tower title and "+(floor*20)+" XP",floor*20);
         add(list,"first_adventurer_request_win","First Adventurer Request Win","&a[Guild Errand Runner]","exclusive Adventurer title and 500 XP",500);
 
         for (String species : LEGENDARIES) add(list, "first_legendary_" + species, "First " + prettySpecies(species) + " Catch", "&6[First " + prettySpecies(species) + "]", "species world-first title and 1000 XP", 1000);
@@ -257,5 +301,5 @@ public final class WorldFirstManager {
     public static final class State { Map<String, Claim> claims = new ConcurrentHashMap<>(); }
     public static final class WorldFirstConfig { public List<WorldFirstDef> worldFirsts = new ArrayList<>(); }
     public static final class Claim { public String playerUuid; public String playerName; public String claimedAt; }
-    public static final class WorldFirstDef { public String id; public String name; public String titleId; public String titleDisplay; public String rewardText; public int xpReward; }
+    public static final class WorldFirstDef { public String id; public String name; public String titleId; public String titleDisplay; public String rewardText; public int xpReward; public String trigger; }
 }

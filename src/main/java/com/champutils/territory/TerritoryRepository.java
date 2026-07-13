@@ -122,7 +122,6 @@ public final class TerritoryRepository {
     private static final Set<String> TERRITORY_WORLD_KEYS = ConcurrentHashMap.newKeySet();
 
     private static final String ISLANDER_WORLD_PREFIX = "multiworld:islander";
-    private static final int ISLANDER_TERRITORIES_PER_WORLD = 100;
 
     private TerritoryRepository() {}
 
@@ -760,20 +759,16 @@ public final class TerritoryRepository {
 
     private static Territory allocate(OwnerType ownerType, String ownerId, String ownerName, String forcedWorldName, String biomePreference) {
         TerritoryConfig.Data cfg = TerritoryConfig.get();
-        int slot = findFirstFreeSlot(ownerType);
-        int territoriesPerWorld = Math.max(1, cfg.territoriesPerWorld);
-        int worldNumber = (slot / territoriesPerWorld) + 1;
-        int slotInWorld = slot % territoriesPerWorld;
-        String worldPrefix = ownerType == OwnerType.GUILD ? cfg.guildWorldPrefix : cfg.personalWorldPrefix;
-        String worldName = forcedWorldName == null || forcedWorldName.isBlank() ? worldPrefix + "_" + worldNumber : forcedWorldName;
+        String configuredWorld = ownerType == OwnerType.GUILD ? cfg.defaultGuildWorld : cfg.defaultPersonalWorld;
+        String worldName = forcedWorldName == null || forcedWorldName.isBlank() ? configuredWorld : forcedWorldName;
+        int slotInWorld = findFirstFreeSlotInWorld(ownerType, worldName, false);
         return allocateAt(ownerType, ownerId, ownerName, worldName, slotInWorld, biomePreference);
     }
 
     private static Territory allocateIslanderTerritory(String ownerId, String ownerName, String biomePreference) {
-        int absoluteSlot = findFirstFreeIslanderSlot();
-        int worldNumber = (absoluteSlot / ISLANDER_TERRITORIES_PER_WORLD) + 1;
-        int slotInWorld = absoluteSlot % ISLANDER_TERRITORIES_PER_WORLD;
-        return allocateAt(OwnerType.PLAYER, ownerId, ownerName, ISLANDER_WORLD_PREFIX + "_" + worldNumber, slotInWorld, biomePreference);
+        String worldName = ISLANDER_WORLD_PREFIX + "_1";
+        int slotInWorld = findFirstFreeSlotInWorld(OwnerType.PLAYER, worldName, true);
+        return allocateAt(OwnerType.PLAYER, ownerId, ownerName, worldName, slotInWorld, biomePreference);
     }
 
     private static Territory allocateAt(OwnerType ownerType, String ownerId, String ownerName, String worldName, int slotInWorld, String biomePreference) {
@@ -821,46 +816,21 @@ public final class TerritoryRepository {
         return territory;
     }
 
-    private static int findFirstFreeSlot(OwnerType ownerType) {
-        TerritoryConfig.Data cfg = TerritoryConfig.get();
-        int territoriesPerWorld = Math.max(1, cfg.territoriesPerWorld);
-        for (int absolute = 0; absolute < 1000000; absolute++) {
-            int worldNumber = (absolute / territoriesPerWorld) + 1;
-            int slotInWorld = absolute % territoriesPerWorld;
-            String expectedWorld = (ownerType == OwnerType.GUILD ? cfg.guildWorldPrefix : cfg.personalWorldPrefix) + "_" + worldNumber;
+    private static int findFirstFreeSlotInWorld(OwnerType ownerType, String worldName, boolean islanderOnly) {
+        for (int slot = 0; slot < Integer.MAX_VALUE; slot++) {
             boolean used = false;
-            for (Territory t : TERRITORIES.values()) {
-                if (t.ownerType == ownerType
-                        && t.worldName.equalsIgnoreCase(expectedWorld)
-                        && t.slotIndex == slotInWorld) {
+            for (Territory territory : TERRITORIES.values()) {
+                if (territory.ownerType != ownerType) continue;
+                if (!territory.worldName.equalsIgnoreCase(worldName)) continue;
+                if (islanderOnly && !isIslanderWorldName(territory.worldName)) continue;
+                if (territory.slotIndex == slot) {
                     used = true;
                     break;
                 }
             }
-            if (!used) return absolute;
+            if (!used) return slot;
         }
-        return TERRITORIES.size();
-    }
-
-    private static int findFirstFreeIslanderSlot() {
-        for (int absolute = 0; absolute < 1000000; absolute++) {
-            int worldNumber = (absolute / ISLANDER_TERRITORIES_PER_WORLD) + 1;
-            int slotInWorld = absolute % ISLANDER_TERRITORIES_PER_WORLD;
-            String expectedWorld = ISLANDER_WORLD_PREFIX + "_" + worldNumber;
-            boolean used = false;
-            for (Territory t : TERRITORIES.values()) {
-                if (t.ownerType == OwnerType.PLAYER
-                        && isIslanderWorldName(t.worldName)
-                        && t.worldName.equalsIgnoreCase(expectedWorld)
-                        && t.slotIndex == slotInWorld
-                        && !isDeleting(t)) {
-                    used = true;
-                    break;
-                }
-            }
-            if (!used) return absolute;
-        }
-        return TERRITORIES.size();
+        throw new IllegalStateException("No free territory slot could be allocated in " + worldName);
     }
 
     private static boolean isIslanderWorldName(String worldName) {

@@ -1,6 +1,7 @@
 package com.champutils.teleport;
 
 import com.champutils.matchmaking.ArenaManager;
+import com.champutils.adventurer.AdventurerGuildManager;
 import com.champutils.territory.TerritoryRepository;
 import com.champutils.worldborder.ChampWorldBorderConfig;
 import net.minecraft.ChatFormatting;
@@ -74,6 +75,7 @@ public final class SafeTeleportManager {
     public static boolean canTeleportTo(ServerPlayer player, ServerLevel level, double x, double y, double z) {
         if (player == null || level == null) return false;
         if (ArenaManager.isArenaLocation(level, x, z)) return false;
+        if (AdventurerGuildManager.isBattleTowerDestination(level, x, y, z) && !AdventurerGuildManager.isAttemptingBattleTower(player)) return false;
 
         ChampWorldBorderConfig.BorderEntry border = ChampWorldBorderConfig.get(level.dimension().location().toString());
         if (border != null) {

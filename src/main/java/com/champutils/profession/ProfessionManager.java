@@ -88,6 +88,11 @@ public class ProfessionManager {
         return ProfessionToolUtil.isUsableProfessionTool(player, off, profession);
     }
 
+    public static boolean canEarnProfessionXp(ServerPlayer player, ProfessionType profession) {
+        if (player == null || profession == null || !PlayerProfileManager.hasActiveProfile(player)) return false;
+        return !requiresProfessionTool(profession) || hasUsableProfessionTool(player, profession);
+    }
+
     public static void addXp(
             ServerPlayer player,
             ProfessionType profession,
@@ -97,11 +102,7 @@ public class ProfessionManager {
             return;
         }
 
-        if (!PlayerProfileManager.hasActiveProfile(player)) {
-            return;
-        }
-
-        if (requiresProfessionTool(profession) && !hasUsableProfessionTool(player, profession)) {
+        if (!canEarnProfessionXp(player, profession)) {
             return;
         }
 

@@ -24,6 +24,7 @@ public final class TextCommand {
 
     private static final String TEXT_TAG = "champutils_floating_text";
     private static final String ID_PREFIX = "champutils_text_id_";
+    private static final String LINE_PREFIX = "champutils_text_line_";
     private static final double LINE_SPACING = 0.25D;
 
     private TextCommand() {
@@ -209,6 +210,7 @@ public final class TextCommand {
             stand.setCustomNameVisible(true);
             stand.addTag(TEXT_TAG);
             stand.addTag(ID_PREFIX + id);
+            stand.addTag(LINE_PREFIX + i);
             stand.addTag("champutils_no_despawn");
             level.addFreshEntity(stand);
         }

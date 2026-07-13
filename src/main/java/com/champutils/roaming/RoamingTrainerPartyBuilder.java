@@ -1,6 +1,8 @@
 package com.champutils.roaming;
 
 import com.champutils.util.CobblemonHeldItemUtil;
+import com.champutils.adventurer.BattleTowerPoolConfig;
+import com.champutils.adventurer.AdventurerGuildManager;
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
@@ -40,6 +42,7 @@ public final class RoamingTrainerPartyBuilder {
         if (npc == null || data == null) return false;
 
         try {
+            if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)) return applyBattleTower(npc, data);
             RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(data.rarity);
             int count = Math.max(1, Math.min(6, settings.pokemonCount));
             int baseLevel = Math.max(1, Math.min(100, data.targetLevel));
@@ -67,6 +70,55 @@ public final class RoamingTrainerPartyBuilder {
         } catch (Exception e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+    private static boolean applyBattleTower(NPCEntity npc, RoamingTrainerManager.RoamingTrainerData data) {
+        BattleTowerPoolConfig.Tier tier = AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)
+                ? BattleTowerPoolConfig.tier(10)
+                : BattleTowerPoolConfig.tierForFloor(data.towerFloor);
+        int level = Math.max(1, Math.min(100, data.targetLevel));
+        npc.initialize(level);
+        NPCPartyStore party = new NPCPartyStore(npc);
+        List<BattleTowerPoolConfig.SetEntry> available = new ArrayList<>(tier.pool);
+        Collections.shuffle(available, RANDOM);
+        int count = Math.min(3, available.size());
+        for (int slot=0; slot<count; slot++) {
+            Pokemon pokemon = createTowerPokemon(available.get(slot), level);
+            if (pokemon != null) party.set(slot, pokemon);
+        }
+        party.initialize(); npc.setParty(party);
+        try { npc.setSkill(tier.aiSkill); } catch (Exception ignored) {}
+        try { npc.setCustomName(Component.literal("Battle Tower Floor " + data.towerFloor)); npc.setCustomNameVisible(true); } catch (Exception ignored) {}
+        return count > 0;
+    }
+
+    public static Pokemon createTowerPokemon(BattleTowerPoolConfig.SetEntry entry, int level) {
+        try {
+            Pokemon pokemon=PokemonProperties.Companion.parse(pokemonProperties(entry.species,level)).create();
+            applyBestIVs(pokemon);
+            applyTowerEvs(pokemon, entry.evs);
+            int learned=applyConfiguredMoves(pokemon,entry.moves);
+            if(learned<1) return null;
+            applyAbility(pokemon,entry.ability); applyNature(pokemon,entry.nature); applyHeldItem(pokemon,entry.heldItem);
+            pokemon.setTradeable(false); pokemon.heal(); return pokemon;
+        } catch(Exception e){ return null; }
+    }
+
+    private static void applyTowerEvs(Pokemon pokemon, Map<String,Integer> configured) {
+        var evs = pokemon.getEvs();
+        for (Stat stat : List.of(Stats.HP, Stats.ATTACK, Stats.DEFENCE, Stats.SPECIAL_ATTACK, Stats.SPECIAL_DEFENCE, Stats.SPEED)) evs.set(stat, 0);
+        if (configured == null) return;
+        Map<String,Stat> stats = Map.of(
+                "hp", Stats.HP, "attack", Stats.ATTACK, "defence", Stats.DEFENCE,
+                "special_attack", Stats.SPECIAL_ATTACK, "special_defence", Stats.SPECIAL_DEFENCE, "speed", Stats.SPEED);
+        int total = 0;
+        for (Map.Entry<String,Stat> entry : stats.entrySet()) {
+            int value = Math.max(0, Math.min(252, configured.getOrDefault(entry.getKey(), 0)));
+            value = Math.min(value, 510 - total);
+            evs.set(entry.getValue(), value);
+            total += value;
+            if (total >= 510) break;
         }
     }
 

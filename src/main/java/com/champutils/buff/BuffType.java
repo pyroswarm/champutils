@@ -22,7 +22,7 @@ public enum BuffType {
     PERFECT_IV_CHANCE("Perfect IV Chance", "Tiny chance for one random IV on a legitimate wild catch to become 31.", ChatFormatting.AQUA, null),
 
     WORLD_EVENT_REWARDS("World Event Rewards", "Future hook for extra legitimate world event rewards.", ChatFormatting.GOLD, null),
-    NPC_MONEY("NPC Money", "Future hook for extra money from legitimate NPC battle rewards.", ChatFormatting.GREEN, null);
+    ADVENTURER_MARKS("Adventurer's Marks", "Increases Adventurer's Marks earned from legitimate guild activities such as hunts, quests, and contracts.", ChatFormatting.AQUA, null);
 
     public final String displayName;
     public final String description;

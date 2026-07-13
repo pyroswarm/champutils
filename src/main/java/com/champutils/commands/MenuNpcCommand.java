@@ -105,6 +105,7 @@ public final class MenuNpcCommand {
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "champsshop";
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
             case "breed", "nursery" -> "breeding";
+            case "nurse", "healer" -> "nursejoy";
             default -> menu.toLowerCase();
         };
     }

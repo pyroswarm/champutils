@@ -30,7 +30,7 @@ public final class BuffRegistry {
         HARD_CAPS.put(BuffType.CATCH_CHANCE, 1.00D);
         HARD_CAPS.put(BuffType.PERFECT_IV_CHANCE, 1.00D);
         HARD_CAPS.put(BuffType.WORLD_EVENT_REWARDS, 1.00D);
-        HARD_CAPS.put(BuffType.NPC_MONEY, 1.00D);
+        HARD_CAPS.put(BuffType.ADVENTURER_MARKS, 1.00D);
     }
 
     public static synchronized void setHardCap(BuffType type, double hardCap) {

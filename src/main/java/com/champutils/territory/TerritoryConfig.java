@@ -59,10 +59,8 @@ public final class TerritoryConfig {
         public String serverIdOverride = "";
 
         /**
-         * Worlds are packed instead of making one Minecraft dimension per territory.
-         * Example with defaults:
-         *   multiworld:territories_1 has slots 0-99
-         *   multiworld:territories_2 has slots 0-99
+         * Territories are packed into one configured world per territory category.
+         * Slot coordinates continue expanding across the grid with no per-world territory cap.
          */
         public String personalWorldPrefix = "multiworld:territories";
         public String guildWorldPrefix = "multiworld:guild_territories";
@@ -71,6 +69,7 @@ public final class TerritoryConfig {
         public String defaultPersonalWorld = "multiworld:territories_1";
         public String defaultGuildWorld = "multiworld:guild_territories_1";
 
+        /** Legacy setting retained only so older territories.json files still deserialize. It no longer caps a world. */
         public int territoriesPerWorld = 100;
         public int slotGridWidth = 10;
 

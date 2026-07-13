@@ -1,7 +1,6 @@
 package com.champutils.auction;
 
 import com.champutils.database.DatabaseManager;
-import com.champutils.breeding.BreedingEggData;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profile.PlayerProfileManager;
@@ -66,11 +65,7 @@ public final class AuctionHouseService {
             player.sendSystemMessage(Component.literal("There is no Pokémon in party slot " + playerSlotNumber + ".").withStyle(ChatFormatting.RED));
             return;
         }
-        if (BreedingEggData.isEgg(pokemon)) {
-            player.sendSystemMessage(Component.literal("Pokémon Eggs cannot be listed on the Auction House.").withStyle(ChatFormatting.RED));
-            return;
-        }
-        AuctionPendingActionManager.setPokemonListing(player, slotIndex, pokemon.getDisplayName(true).getString(), pokemon.getUuid(), price);
+        AuctionPendingActionManager.setPokemonListing(player, slotIndex, AuctionPokemonSerializer.listingTitle(pokemon), pokemon.getUuid(), price);
     }
 
     public static void confirmPending(ServerPlayer player) {
@@ -208,7 +203,7 @@ public final class AuctionHouseService {
             return;
         }
 
-        if (pokemon == null || !samePendingPokemon(pokemon, action) || BreedingEggData.isEgg(pokemon)) {
+        if (pokemon == null || !samePendingPokemon(pokemon, action)) {
             LISTING.remove(playerUuid);
             AuctionPendingActionManager.remove(player);
             player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
@@ -242,7 +237,7 @@ public final class AuctionHouseService {
                 e.printStackTrace();
                 return;
             }
-            if (latest == null || !samePendingPokemon(latest, action) || BreedingEggData.isEgg(latest)) {
+            if (latest == null || !samePendingPokemon(latest, action)) {
                 LISTING.remove(playerUuid);
                 AuctionPendingActionManager.remove(player);
                 player.sendSystemMessage(Component.literal("Listing canceled because the Pokémon slot changed before confirmation.").withStyle(ChatFormatting.RED));
@@ -250,7 +245,7 @@ public final class AuctionHouseService {
             }
 
             JsonObject payload;
-            String title = latest.getDisplayName(true).getString();
+            String title = AuctionPokemonSerializer.listingTitle(latest);
             if (containsBlockedListingText(title)) {
                 LISTING.remove(playerUuid);
                 player.sendSystemMessage(Component.literal("Rename that Pokémon before listing it. Auction names cannot contain blocked language.").withStyle(ChatFormatting.RED));

@@ -26,6 +26,7 @@ public final class OversizedChunkEntityGuard {
     private static final String CHEST_SHOP_DISPLAY_TAG = "champutils_chestshop_display";
     private static final String FLOATING_TEXT_TAG = "champutils_floating_text";
     private static final String TEXT_ID_PREFIX = "champutils_text_id_";
+    private static final String TEXT_LINE_PREFIX = "champutils_text_line_";
 
     private OversizedChunkEntityGuard() {}
 
@@ -89,8 +90,12 @@ public final class OversizedChunkEntityGuard {
         }
         if (entity instanceof ArmorStand && entity.getTags().contains(FLOATING_TEXT_TAG)) {
             String textId = textId(entity);
-            if (textId == null) return null;
-            return entity.level().dimension().location() + ":text@" + textId + "@" + entity.blockPosition().asLong();
+            String lineId = textLineId(entity);
+            if (textId == null || lineId == null) return null;
+            return entity.level().dimension().location()
+                    + ":text@" + textId
+                    + "@line@" + lineId
+                    + "@" + entity.blockPosition().asLong();
         }
         return null;
     }
@@ -98,6 +103,13 @@ public final class OversizedChunkEntityGuard {
     private static String textId(Entity entity) {
         for (String tag : entity.getTags()) {
             if (tag != null && tag.startsWith(TEXT_ID_PREFIX)) return tag.substring(TEXT_ID_PREFIX.length());
+        }
+        return null;
+    }
+
+    private static String textLineId(Entity entity) {
+        for (String tag : entity.getTags()) {
+            if (tag != null && tag.startsWith(TEXT_LINE_PREFIX)) return tag.substring(TEXT_LINE_PREFIX.length());
         }
         return null;
     }

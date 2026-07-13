@@ -18,7 +18,7 @@ public final class AdventurerGuildCommand {
                             .then(Commands.literal("open")
                                     .executes(ctx -> { AdventurerGuildMenu.open(ctx.getSource().getPlayerOrException()); return 1; }))
                             .then(Commands.literal("settowerfloor")
-                                    .then(Commands.argument("floor", IntegerArgumentType.integer(1, 25))
+                                    .then(Commands.argument("floor", IntegerArgumentType.integer(1, 100))
                                             .executes(ctx -> AdventurerGuildManager.setBattleTowerFloorLocation(
                                                     ctx.getSource().getPlayerOrException(),
                                                     IntegerArgumentType.getInteger(ctx, "floor")

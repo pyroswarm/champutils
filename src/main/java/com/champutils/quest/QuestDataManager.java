@@ -24,6 +24,9 @@ public class QuestDataManager {
         public QuestSet daily;
         public QuestSet weekly;
         public ArrayList<Contract> contracts = new ArrayList<>();
+        public String trackedKind;
+        public String trackedObjectiveId;
+        public long trackedContractPurchasedAt;
     }
 
     public static class QuestSet {

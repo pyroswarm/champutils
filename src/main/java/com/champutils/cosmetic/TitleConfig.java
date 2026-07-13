@@ -12,6 +12,8 @@ import net.minecraft.network.chat.Component;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TitleConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/titles.json");
+    private static final File WORLD_FIRST_TITLES_FILE = new File("config/champutils/world-first.json");
     public static Config CONFIG = new Config();
     private static final Map<String, TitleDef> BY_ID = new ConcurrentHashMap<>();
 
@@ -30,7 +33,7 @@ public final class TitleConfig {
         try {
             FILE.getParentFile().mkdirs();
             if (!FILE.exists()) {
-                CONFIG = defaults();
+                CONFIG = bundledDefaults();
                 save();
             } else {
                 try (FileReader reader = new FileReader(FILE)) {
@@ -44,6 +47,7 @@ public final class TitleConfig {
             CONFIG = defaults();
         }
         ensureChallengeProfileTitles();
+        mergeWorldFirstTitleCatalog();
         rebuildIndex();
         save();
     }
@@ -58,6 +62,47 @@ public final class TitleConfig {
             System.err.println("[ChampUtils] Failed to save titles config.");
             e.printStackTrace();
         }
+    }
+
+    private static Config bundledDefaults() {
+        try (var stream = TitleConfig.class.getResourceAsStream("/defaults/champutils/titles.json")) {
+            if (stream != null) {
+                try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                    Config loaded = GSON.fromJson(reader, Config.class);
+                    if (loaded != null && loaded.titles != null && !loaded.titles.isEmpty()) return loaded;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to load bundled expanded title defaults; using generated fallback defaults.");
+            e.printStackTrace();
+        }
+        return defaults();
+    }
+
+    private static synchronized void mergeWorldFirstTitleCatalog() {
+        if (!WORLD_FIRST_TITLES_FILE.exists()) return;
+        try (FileReader reader = new FileReader(WORLD_FIRST_TITLES_FILE)) {
+            Config extra = GSON.fromJson(reader, Config.class);
+            if (extra == null || extra.titles == null) return;
+            Set<String> ids = new HashSet<>();
+            for (TitleDef def : CONFIG.titles) if (def != null && def.id != null) ids.add(normalizeId(def.id));
+            for (TitleDef def : extra.titles) {
+                if (def == null || def.id == null || def.id.isBlank()) continue;
+                String id = normalizeId(def.id);
+                if (ids.add(id)) CONFIG.titles.add(def);
+            }
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to merge world-first title catalog.");
+            e.printStackTrace();
+        }
+    }
+
+    public static String findTitleIdByUnlockType(String type) {
+        if (type == null || type.isBlank()) return null;
+        for (TitleDef def : BY_ID.values()) {
+            if (def != null && def.unlock != null && type.equalsIgnoreCase(def.unlock.type)) return def.id;
+        }
+        return null;
     }
 
     private static void rebuildIndex() {
@@ -107,10 +152,18 @@ public final class TitleConfig {
         addChallengeTitleIfMissing("adventurer_rank_a", "A-Rank Adventurer", "&6", "✦", "Reach Adventurer Rank A.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
         addChallengeTitleIfMissing("adventurer_rank_s", "S-Rank Adventurer", "&d", "✦", "Reach Adventurer Rank S.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.001D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.040D}, {BuffType.CATCH_CHANCE.name(), 0.020D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.005D}});
 
-        addChallengeTitleIfMissing("tower_climber", "Tower Climber", "&b", "▲", "Clear several Battle Tower floors.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.020D}, {BuffType.NPC_MONEY.name(), 0.020D}});
+        for (int floor = 10; floor <= 100; floor += 10) {
+            double scale = floor / 100.0D;
+            addChallengeTitleIfMissing("tower_floor_" + floor, "Tower Floor " + floor, floor >= 100 ? "&6" : floor >= 70 ? "&d" : "&b", "▲",
+                    "Reach Battle Tower floor " + floor + ".",
+                    new Object[][] {{BuffType.BATTLING_XP.name(), 0.005D + 0.035D * scale}, {BuffType.ADVENTURER_MARKS.name(), 0.005D + 0.025D * scale}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.0025D + 0.020D * scale}});
+        }
+        addChallengeTitleIfMissing("breeding_initiate", "Breeding Initiate", "&a", "❖", "Hatch your first bred Pokémon.", new Object[][] {{BuffType.POKEMON_XP.name(), 0.005D}});
+        addChallengeTitleIfMissing("breeding_master", "Breeding Master", "&6", "❖", "Reach Breeding level 100.", new Object[][] {{BuffType.PERFECT_IV_CHANCE.name(), 0.005D}, {BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.POKEMON_XP.name(), 0.030D}});
+        addChallengeTitleIfMissing("tower_climber", "Tower Climber", "&b", "▲", "Clear several Battle Tower floors.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.020D}, {BuffType.ADVENTURER_MARKS.name(), 0.020D}});
         addChallengeTitleIfMissing("tower_conqueror", "Tower Conqueror", "&6", "▲", "Clear the full Battle Tower.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.035D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}});
         addChallengeTitleIfMissing("dex_cartographer", "Dex Cartographer", "&a", "◇", "Complete a major True Dex milestone.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
-        addChallengeTitleIfMissing("mark_mogul", "Mark Mogul", "&e", "$", "Earn a large pile of Guild Marks.", new Object[][] {{BuffType.NPC_MONEY.name(), 0.030D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.015D}});
+        addChallengeTitleIfMissing("mark_mogul", "Mark Mogul", "&e", "$", "Earn a large pile of Guild Marks.", new Object[][] {{BuffType.ADVENTURER_MARKS.name(), 0.030D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.015D}});
         addChallengeTitleIfMissing("contract_titan", "Contract Titan", "&6", "✍", "Complete high-rank contracts.", new Object[][] {{BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}, {BuffType.BATTLING_XP.name(), 0.015D}});
         addChallengeTitleIfMissing("karp_royalty", "Karp Royalty", "&6", "♕", "Prove suspicious dedication to Magikarp.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.010D}});
         addChallengeTitleIfMissing("bidoof_believer", "Bidoof Believer", "&e", "☻", "The Bidoof chose you.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.010D}, {BuffType.POKEMON_XP.name(), 0.015D}});
@@ -272,9 +325,8 @@ public final class TitleConfig {
     private static double titleBuffAmount(String titleId, BuffType type, double multiplier) {
         if (titleId == null || titleId.isBlank() || type == null || multiplier <= 0.0D) return 0.0D;
         TitleDef def = get(titleId);
-        if (def == null && titleId.startsWith("wf_")) {
-            return worldFirstBuffAmount(titleId, type) * multiplier;
-        }
+        // World-first titles are normal config-backed titles. Their exclusivity is controlled by
+        // WorldFirstManager; their buffs are resolved here exactly like every other equipped title.
         if (def == null) return 0.0D;
         double total = 0.0D;
         boolean matchedExplicitBuff = false;
@@ -295,26 +347,13 @@ public final class TitleConfig {
         return total * multiplier;
     }
 
-    private static double worldFirstBuffAmount(String titleId, BuffType type) {
-        if (titleId == null || type == null) return 0.0D;
-        String id = titleId.toLowerCase(Locale.ROOT);
-        if (type == BuffType.SHINY_CHANCE && id.contains("shiny")) return 0.0015D;
-        if (type == BuffType.SHINY_CHANCE && (id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.0005D;
-        if (type == BuffType.CATCH_CHANCE && (id.contains("catch") || id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.015D;
-        if (type == BuffType.BATTLING_XP && (id.contains("battle") || id.contains("boss") || id.contains("tower"))) return 0.035D;
-        if (type == BuffType.WORLD_EVENT_REWARDS && (id.contains("legendary") || id.contains("mythical") || id.contains("ultra_beast") || id.contains("paradox"))) return 0.025D;
-        if (type == BuffType.POKEMON_XP && (id.contains("starter") || id.contains("karp") || id.contains("bidoof") || id.contains("ditto"))) return 0.025D;
-        if (type.isProfessionXp() && id.contains(type.professionType.name().toLowerCase(Locale.ROOT))) return 0.04D;
-        return type == BuffType.CATCH_CHANCE ? 0.005D : 0.0D;
-    }
-
 
     public static Component hoverText(String id) {
         TitleDef def = get(id);
         if (def == null) {
             String wf = com.champutils.worldfirst.WorldFirstManager.titleDisplay(id);
             if (wf != null) {
-                return com.champutils.chat.ChatTagResolver.legacy("&6World First Title\n&7Obtained by completing a server world first.");
+                return com.champutils.chat.ChatTagResolver.legacy("&6World First Title\n&7Obtained by completing a server world first.\n&cMissing titles.json definition; no passive buff will apply.");
             }
             return Component.literal("Title: " + (id == null ? "Unknown" : id));
         }
@@ -362,7 +401,7 @@ public final class TitleConfig {
         if (normalized.equals("SHINY") || normalized.equals("SHINY_RATE")) normalized = "SHINY_CHANCE";
         if (normalized.equals("CATCH") || normalized.equals("CATCHING") || normalized.equals("CAPTURE_CHANCE")) normalized = "CATCH_CHANCE";
         if (normalized.equals("PERFECT_IV") || normalized.equals("IV_CHANCE") || normalized.equals("PERFECTIV")) normalized = "PERFECT_IV_CHANCE";
-        if (normalized.equals("MONEY") || normalized.equals("NPC_CREDITS") || normalized.equals("TRAINER_MONEY")) normalized = "NPC_MONEY";
+        if (normalized.equals("MONEY") || normalized.equals("NPC_CREDITS") || normalized.equals("TRAINER_MONEY") || normalized.equals("NPC_MONEY") || normalized.equals("GUILD_MARKS") || normalized.equals("MARKS")) normalized = "ADVENTURER_MARKS";
         if (normalized.equals("WORLD_REWARDS") || normalized.equals("EVENT_REWARDS")) normalized = "WORLD_EVENT_REWARDS";
         try { return BuffType.valueOf(normalized); } catch (Exception ignored) { return null; }
     }
@@ -384,31 +423,38 @@ public final class TitleConfig {
 
     public static void handleBattleWin(ServerPlayer player, BattleContextManager.BattleType type) {
         if (player == null || type == null) return;
-        for (TitleDef def : BY_ID.values()) {
-            UnlockCondition c = def.unlock;
-            if (c == null || !"battle_win".equalsIgnoreCase(c.type)) continue;
-            if (looksLikeBossTitle(def)) continue;
-            if (c.battleType != null && !c.battleType.isBlank() && !c.battleType.equalsIgnoreCase(type.name())) continue;
-            TitleManager.unlock(player, def.id);
+
+        // A single victory must not unlock every title whose broad trigger is
+        // battle_win. Unlock the explicit first-win title and at most one
+        // queue-type title. Additional PvP milestones should use their own
+        // counters/triggers instead of sharing this generic event.
+        // One automatic title per victory. Queue-specific wins take priority;
+        // all other battle types use the generic first-win title.
+        if (type == BattleContextManager.BattleType.CASUAL) {
+            unlockFirstExisting(player, "casual_scrapper");
+        } else if (type == BattleContextManager.BattleType.RANKED) {
+            unlockFirstExisting(player, "ranked_contender");
+        } else {
+            unlockFirstExisting(player, "first_win");
         }
+    }
+
+    private static void unlockFirstExisting(ServerPlayer player, String id) {
+        if (id == null || !BY_ID.containsKey(id)) return;
+        TitleManager.unlock(player, id);
     }
 
     public static void handleCatch(ServerPlayer player) {
         if (player == null) return;
-        for (TitleDef def : BY_ID.values()) {
-            UnlockCondition c = def.unlock;
-            if (c == null || !"catch".equalsIgnoreCase(c.type)) continue;
-            TitleManager.unlock(player, def.id);
-        }
+        // A successful catch is one action and may unlock only one generic title.
+        unlockFirstExisting(player, "collector");
     }
 
     public static void handleBoss(ServerPlayer player) {
         if (player == null) return;
-        for (TitleDef def : BY_ID.values()) {
-            UnlockCondition c = def.unlock;
-            if (c == null || !"boss_win".equalsIgnoreCase(c.type)) continue;
-            TitleManager.unlock(player, def.id);
-        }
+        // Specific boss milestones should be manual/specialized triggers. The broad
+        // boss event grants only the canonical first boss title.
+        unlockFirstExisting(player, "boss_slayer");
     }
 
 
@@ -568,5 +614,11 @@ public final class TitleConfig {
         public String battleType;
         public String profession;
         public int level;
+        public String key;
+        public String worldFirstId;
+        public String trigger;
+        public String worldFirstName;
+        public String rewardText;
+        public int xpReward;
     }
 }

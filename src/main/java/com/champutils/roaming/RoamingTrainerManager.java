@@ -203,7 +203,7 @@ public final class RoamingTrainerManager {
         NPCEntity npc = findNpc(player.getServer(), data.npcUuid);
         if (npc != null) {
             String label;
-            if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+            if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)) {
                 label = "Battle Tower Floor " + Math.max(1, data.towerFloor);
             } else if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
                 label = AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(data.rarity));
@@ -247,7 +247,7 @@ public final class RoamingTrainerManager {
         data.adventureSource = source == null ? "" : source;
         data.towerFloor = Math.max(0, towerFloor);
 
-        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)) {
             data.displayName = "Battle Tower Floor " + Math.max(1, data.towerFloor);
         } else if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
             data.displayName = AdventurerRankUtil.trainerLabel(AdventurerRankUtil.fromRarity(data.rarity));
@@ -266,7 +266,7 @@ public final class RoamingTrainerManager {
     public static BattleContextManager.BattleType battleTypeFor(UUID npcUuid) {
         RoamingTrainerData data = get(npcUuid);
         if (data == null) return BattleContextManager.BattleType.NPC;
-        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) return BattleContextManager.BattleType.ADVENTURE_TOWER;
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)) return BattleContextManager.BattleType.ADVENTURE_TOWER;
         if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) return BattleContextManager.BattleType.ADVENTURE_ROAMING;
         return BattleContextManager.BattleType.NPC;
     }
@@ -277,7 +277,7 @@ public final class RoamingTrainerManager {
         if (data == null || data.rewardsClaimed) return;
         data.rewardsClaimed = true;
 
-        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource)) {
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(data.adventureSource) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)) {
             AdventurerGuildManager.completeBattleTowerFloor(winner, data);
             NPCEntity npc = findNpc(winner.getServer(), losingNpcUuid);
             if (npc != null) removeNpc(npc);
@@ -673,7 +673,7 @@ public final class RoamingTrainerManager {
         try { npc.remove(Entity.RemovalReason.DISCARDED); } catch (Exception ignored) {}
     }
 
-    private static int playerPartyHighestLevelForRarity(ServerPlayer player, RoamingTrainerRarity rarity) {
+    public static int playerPartyHighestLevelForRarity(ServerPlayer player, RoamingTrainerRarity rarity) {
         int highest = 0;
         try {
             for (Pokemon pokemon : PlayerExtensionsKt.party(player)) {

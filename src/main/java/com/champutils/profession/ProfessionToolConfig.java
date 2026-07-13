@@ -1157,6 +1157,14 @@ public class ProfessionToolConfig {
         tool.activeAbility =
                 activeAbility;
 
+        String baseFamily = baseItem == null ? "" : baseItem.toLowerCase(java.util.Locale.ROOT);
+        if ((baseFamily.contains("pickaxe") || baseFamily.contains("shovel") || baseFamily.contains("axe"))
+                && !baseFamily.contains("hoe")) {
+            tool.activeAbilityPool = new ArrayList<>();
+            if (activeAbility != null && !activeAbility.isBlank()) tool.activeAbilityPool.add(activeAbility);
+            tool.activeAbilityPool.add("silk_touch_toggle");
+        }
+
         tool.activeCooldownSeconds =
                 activeCooldownSeconds;
 

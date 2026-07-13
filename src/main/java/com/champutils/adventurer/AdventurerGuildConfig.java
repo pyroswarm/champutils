@@ -48,12 +48,19 @@ public final class AdventurerGuildConfig {
         public int rankedWinMarks = 0;
         public int casualWinMarks = 0;
 
-        public int battleTowerMaxFloor = 12;
-        public int battleTowerCooldownSeconds = 45;
+        public int battleTowerMaxFloor = 100;
+        public int battleTowerCooldownSeconds = 3600;
         public int battleTowerActiveMinutes = 20;
         public int battleTowerClearBonusCredits = 6000;
         public int battleTowerClearBonusRenown = 1250;
         public int battleTowerClearBonusMarks = 12;
+        public int battleTowerRewardCooldownHours = 24;
+        public int ultimateClimbAttemptCooldownHours = 24;
+        public String ultimateClimbCrateCreditId = "s";
+        public int ultimateClimbCrateCredits = 1;
+        public int ultimateClimbBonusCredits = 50000;
+        public int ultimateClimbBonusRenown = 10000;
+        public int ultimateClimbBonusMarks = 100;
         public List<BattleTowerFloor> battleTowerFloors = new ArrayList<>();
 
         public int roamingLeagueCooldownMinutes = 30;
@@ -71,6 +78,9 @@ public final class AdventurerGuildConfig {
         public int rewardRenown = 60;
         public int rewardMarks = 1;
         public List<String> rewardCommands = new ArrayList<>();
+        /** Crate credit awarded for this checkpoint; blank means none. */
+        public String crateCreditId = "";
+        public int crateCreditAmount = 0;
         /** Optional configured arena location. Set with /adventurer admin settowerfloor <floor>. */
         public boolean locationSet = false;
         public String world = "";
@@ -242,7 +252,7 @@ public final class AdventurerGuildConfig {
         SETTINGS.pvpDailyRequiredWins = Math.max(1, SETTINGS.pvpDailyRequiredWins);
         SETTINGS.pvpWeeklyRequiredMatches = Math.max(1, SETTINGS.pvpWeeklyRequiredMatches);
         SETTINGS.pvpWeeklyRequiredWins = Math.max(0, SETTINGS.pvpWeeklyRequiredWins);
-        SETTINGS.battleTowerMaxFloor = Math.max(12, Math.min(25, SETTINGS.battleTowerMaxFloor));
+        SETTINGS.battleTowerMaxFloor = 100;
         SETTINGS.battleTowerCooldownSeconds = Math.max(0, SETTINGS.battleTowerCooldownSeconds);
         SETTINGS.battleTowerActiveMinutes = Math.max(5, SETTINGS.battleTowerActiveMinutes);
         SETTINGS.roamingLeagueCooldownMinutes = Math.max(0, SETTINGS.roamingLeagueCooldownMinutes);

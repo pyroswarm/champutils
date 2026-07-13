@@ -48,9 +48,10 @@ public final class PermissionUtil {
             return true;
         }
 
-        // In-game account upgrades must grant the same command access as store/console rank assignment.
-        // Keep this explicit so /pc, /ec, /pokeheal, and /pokeivs keep working even if a permission
-        // node is missing from the external rank configuration.
+        // Account flags may provide non-command benefits while a Tebex action is pending,
+        // but /pc and /pokeheal must be backed by real LuckPerms nodes. Cobblemon
+        // rechecks its native permissions after the GUI opens, so allowing those two
+        // commands from the account database alone creates a read-only-looking PC.
         if (isVipPermission(permission) && AccountUpgradeManager.hasVip(player)) {
             return true;
         }
@@ -62,9 +63,7 @@ public final class PermissionUtil {
     }
 
     private static boolean isVipPermission(String permission) {
-        return permission.equals("champutils.command.pc")
-                || permission.equals("champutils.command.ec")
-                || permission.equals("champutils.command.pokeheal");
+        return permission.equals("champutils.command.ec");
     }
 
     private static boolean isVipPlusPermission(String permission) {

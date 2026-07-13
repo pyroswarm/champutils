@@ -62,6 +62,13 @@ public final class AccountUpgradeConfig {
         if (CONFIG.vipPlus == null) CONFIG.vipPlus = defaults().vipPlus;
         sanitizeUpgrade(CONFIG.vip, "VIP", "vip", 1_000_000L, "champutils.rank.vip");
         sanitizeUpgrade(CONFIG.vipPlus, "VIP+", "vipplus", 20_000_000L, "champutils.rank.vipplus");
+        if (CONFIG.tebex == null) CONFIG.tebex = defaults().tebex;
+        if (CONFIG.vip.tebexPackageId <= 0L) CONFIG.vip.tebexPackageId = 7_538_358L;
+        if (CONFIG.vipPlus.tebexPackageId <= 0L) CONFIG.vipPlus.tebexPackageId = 7_538_360L;
+        if (CONFIG.vipPlus.upgradeFromVipPriceCredits <= 0L) CONFIG.vipPlus.upgradeFromVipPriceCredits = 19_000_000L;
+        if (CONFIG.tebex.secretEnvironmentVariable == null || CONFIG.tebex.secretEnvironmentVariable.isBlank()) CONFIG.tebex.secretEnvironmentVariable = "CHAMPUTILS_TEBEX_SECRET";
+        if (CONFIG.tebex.secretFile == null || CONFIG.tebex.secretFile.isBlank()) CONFIG.tebex.secretFile = "config/champutils/tebex_secret.txt";
+        CONFIG.tebex.requestTimeoutSeconds = Math.max(5, CONFIG.tebex.requestTimeoutSeconds);
     }
 
     private static void sanitizeUpgrade(Upgrade upgrade, String display, String group, long credits, String permission) {
@@ -80,6 +87,7 @@ public final class AccountUpgradeConfig {
         config.vip.priceCredits = 1_000_000L;
         config.vip.priceCents = 0L;
         config.vip.ownedPermission = "champutils.rank.vip";
+        config.vip.tebexPackageId = 7_538_358L;
 
         config.vipPlus = new Upgrade();
         config.vipPlus.enabled = true;
@@ -88,12 +96,21 @@ public final class AccountUpgradeConfig {
         config.vipPlus.priceCredits = 20_000_000L;
         config.vipPlus.priceCents = 0L;
         config.vipPlus.ownedPermission = "champutils.rank.vipplus";
+        config.vipPlus.tebexPackageId = 7_538_360L;
+        config.vipPlus.upgradeFromVipPriceCredits = 19_000_000L;
+
+        config.tebex = new Tebex();
+        config.tebex.enabled = true;
+        config.tebex.secretEnvironmentVariable = "CHAMPUTILS_TEBEX_SECRET";
+        config.tebex.secretFile = "config/champutils/tebex_secret.txt";
+        config.tebex.requestTimeoutSeconds = 10;
         return config;
     }
 
     public static final class Config {
         public Upgrade vip;
         public Upgrade vipPlus;
+        public Tebex tebex;
     }
 
     public static final class Upgrade {
@@ -106,5 +123,15 @@ public final class AccountUpgradeConfig {
         public long priceCents = 0L;
         /** Permission used as an ownership check if your LP group grants it. */
         public String ownedPermission = "";
+        public long tebexPackageId = 0L;
+        /** Whole-credit VIP-to-VIP+ upgrade price. Only used by VIP+. */
+        public long upgradeFromVipPriceCredits = 0L;
+    }
+
+    public static final class Tebex {
+        public boolean enabled = true;
+        public String secretEnvironmentVariable = "CHAMPUTILS_TEBEX_SECRET";
+        public String secretFile = "config/champutils/tebex_secret.txt";
+        public int requestTimeoutSeconds = 10;
     }
 }

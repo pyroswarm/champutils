@@ -45,7 +45,7 @@ public final class StaffServerCommand {
     private static int switchServer(ServerPlayer player, String rawTarget) {
         String target = normalize(rawTarget);
         if (target.isBlank()) {
-            player.sendSystemMessage(Component.literal("Unknown server. Use Alpha, Omega, profile_lobby, main_survival1, or survival2.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Unknown server. Use Nova, Eclipse, or profile_lobby.").withStyle(ChatFormatting.RED));
             return 0;
         }
         boolean sent = ProxyTransferBridge.connect(player, target);
@@ -61,8 +61,8 @@ public final class StaffServerCommand {
         if (raw == null) return "";
         String value = raw.trim();
         String lower = value.toLowerCase(Locale.ROOT);
-        if (lower.equals("alpha")) return PreferredSurvivalServerManager.ALPHA_SERVER_ID;
-        if (lower.equals("omega")) return PreferredSurvivalServerManager.OMEGA_SERVER_ID;
+        if (lower.equals("nova") || lower.equals("alpha")) return PreferredSurvivalServerManager.ALPHA_SERVER_ID;
+        if (lower.equals("eclipse") || lower.equals("omega")) return PreferredSurvivalServerManager.OMEGA_SERVER_ID;
         if (lower.equals("lobby")) return NetworkServerConfig.get().profileLobbyServerId;
         if (lower.equals("profile_lobby")) return NetworkServerConfig.get().profileLobbyServerId;
         if (lower.equals("main_survival1") || lower.equals("survival2")) return lower;
@@ -74,8 +74,8 @@ public final class StaffServerCommand {
 
     private static List<String> suggestions() {
         List<String> values = new ArrayList<>();
-        values.add("Alpha");
-        values.add("Omega");
+        values.add("Nova");
+        values.add("Eclipse");
         values.add("profile_lobby");
         values.addAll(NetworkServerConfig.get().normalizedSurvivalBackends());
         return values;

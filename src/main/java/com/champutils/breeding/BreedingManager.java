@@ -75,7 +75,7 @@ public final class BreedingManager {
             return;
         }
         if (!com.champutils.database.DatabaseManager.isEnabled()) {
-            player.sendSystemMessage(Component.literal("Breeding is temporarily unavailable because the database is offline.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Breeding is temporarily unavailable. Please try again shortly.").withStyle(ChatFormatting.RED));
             return;
         }
         if (!PlayerProfileManager.hasActiveProfile(player)) {
@@ -115,10 +115,10 @@ public final class BreedingManager {
         final Pokemon egg;
         try {
             result = PokemonBreedingRules.createEgg(player, parentA, parentB);
-            egg = BreedingEggData.createPlaceholder(player, result.hatchling(), parentA, parentB, result.requiredSteps());
+            egg = BreedingEggData.createPlaceholder(player, result.hatchling(), parentA, parentB, result.requiredSteps(), result.mysteryEgg(), result.rarity());
         } catch (Throwable error) {
             CREATING_EGG.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("The Egg could not be generated safely. Nothing was changed.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("The Egg could not be created. Your Pokémon and cooldown were not changed.").withStyle(ChatFormatting.RED));
             error.printStackTrace();
             return;
         }
@@ -129,7 +129,7 @@ public final class BreedingManager {
         String parentASpecies = speciesId(parentA);
         String parentBSpecies = speciesId(parentB);
         String offspringSpecies = speciesId(result.hatchling());
-        player.sendSystemMessage(Component.literal("Checking breeding cooldown and reserving your Egg...").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Preparing your Egg...").withStyle(ChatFormatting.GRAY));
 
         BreedingRepository.reserveAndRegister(
                 profileId,
@@ -153,7 +153,7 @@ public final class BreedingManager {
             callbackServer.execute(() -> {
             CREATING_EGG.remove(player.getUUID());
             if (error != null) {
-                player.sendSystemMessage(Component.literal("Breeding database reservation failed. No Egg was created.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("Breeding is temporarily unavailable. No Egg was created.").withStyle(ChatFormatting.RED));
                 error.printStackTrace();
                 return;
             }
@@ -239,7 +239,6 @@ public final class BreedingManager {
         double distance = Math.sqrt(dx * dx + dz * dz);
         double remainder = previous.remainder;
         boolean validMovement = !player.isSpectator()
-                && !player.isPassenger()
                 && !player.getAbilities().flying
                 && !player.isFallFlying()
                 && distance > 0.0D
@@ -270,7 +269,10 @@ public final class BreedingManager {
                 egg.onChange(null);
             }
             if (BreedingEggData.remainingSteps(egg) <= 0) {
-                hatch(player, party, slot, egg, profileId);
+                UUID auditProfileId = BreedingEggData.auditProfileId(egg);
+                hatch(player, party, slot, egg, auditProfileId == null ? profileId : auditProfileId);
+                // Modern games process Eggs in party order and stop after the first hatch.
+                break;
             }
         }
     }
@@ -301,7 +303,7 @@ public final class BreedingManager {
 
             if (!AuctionPokemonSerializer.replacePartySlot(player, slot, hatchling)) {
                 egg.onChange(null);
-                player.sendSystemMessage(Component.literal("Your Egg is ready, but the party slot could not be replaced safely. Move it to another slot or reconnect.").withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("Your Egg is ready, but it could not hatch in that party slot. Move it to another slot or reconnect.").withStyle(ChatFormatting.RED));
                 return;
             }
 
@@ -311,9 +313,15 @@ public final class BreedingManager {
             player.sendSystemMessage(Component.literal("Oh?").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
             player.sendSystemMessage(Component.literal(hatchling.getDisplayName(true).getString() + " hatched from the Egg!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+            BreedingProfessionService.rewardHatch(player, hatchling);
+            com.champutils.worldfirst.WorldFirstManager.award(player, "first_breeding_hatch");
+            com.champutils.cosmetic.TitleManager.unlock(player, "breeding_initiate");
+            if (profileId != null && profileId.equals(com.champutils.profile.PlayerProfileManager.activeProfileId(player))) {
+                com.champutils.dex.TrueCaughtDexManager.markTrueCaught(player, hatchling);
+            }
             BreedingEventBridge.postHatch(player, hatchling);
         } catch (Throwable error) {
-            player.sendSystemMessage(Component.literal("This Egg reached 100%, but hatching failed safely. It was not deleted.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("The Egg could not hatch, so it has stayed in your party.").withStyle(ChatFormatting.RED));
             error.printStackTrace();
         }
     }

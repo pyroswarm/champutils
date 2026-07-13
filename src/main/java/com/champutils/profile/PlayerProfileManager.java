@@ -1685,7 +1685,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         int max = DEFAULT_MAX_PROFILES;
         boolean instant = false;
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.vip")) max = Math.max(max, 3);
-        if (LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")) max = Math.max(max, 4);
+        if (LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")) max = Math.max(max, 5);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.3")) max = Math.max(max, 3);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.4")) max = Math.max(max, 4);
         if (LuckPermsHook.hasPermission(player, "champutils.profiles.5")) max = Math.max(max, 5);

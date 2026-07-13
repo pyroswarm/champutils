@@ -30,13 +30,14 @@ public final class AccountUpgradeMenu {
     private static final int[] TRAIL_SLOTS = {10, 11, 12, 13, 14, 15, 16};
     private static final Set<UUID> TRAIL_PURCHASES_IN_FLIGHT = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> BOOSTER_PURCHASES_IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> RANK_PURCHASES_IN_FLIGHT = ConcurrentHashMap.newKeySet();
 
     private AccountUpgradeMenu() {}
 
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Champs Shop"));
-        MenuUtil.fillBordersForced(gui, 11, 15, 22);
+        MenuUtil.fillBordersForced(gui, 11, 13, 15, 22);
 
         gui.setSlot(11, new GuiElementBuilder(Items.EMERALD)
                 .hideDefaultTooltip()
@@ -47,6 +48,15 @@ public final class AccountUpgradeMenu {
                 .addLoreLine(Component.literal("§eClick to browse"))
                 .setCallback((i, c, t) -> openBoosters(player)));
 
+        gui.setSlot(13, new GuiElementBuilder(Items.NETHER_STAR)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§dRanks"))
+                .addLoreLine(Component.literal("§7Purchase permanent VIP ranks"))
+                .addLoreLine(Component.literal("§7with your in-game Credits."))
+                .addLoreLine(Component.literal("§7Purchases are recorded by Tebex."))
+                .addLoreLine(Component.literal("§eClick to browse"))
+                .setCallback((i, c, t) -> openRanks(player)));
+
         gui.setSlot(15, new GuiElementBuilder(Items.BLAZE_POWDER)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§dParticle Trails"))
@@ -56,6 +66,111 @@ public final class AccountUpgradeMenu {
                 .setCallback((i, c, t) -> openTrails(player, 0)));
 
         MenuUtil.addBackButton(gui, 22, () -> com.champutils.menu.MainMenu.open(player));
+        gui.open();
+    }
+
+    public static void openRanks(ServerPlayer player) {
+        if (player == null || player.server == null) return;
+        RankPurchaseRepository.hasActive(player.getUUID()).whenComplete((pending, error) -> player.server.execute(() -> {
+            if (player.hasDisconnected()) return;
+            if (error != null) {
+                player.sendSystemMessage(Component.literal("Rank purchases are temporarily unavailable. Please try again shortly.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            if (Boolean.TRUE.equals(pending)) {
+                player.closeContainer();
+                player.sendSystemMessage(Component.literal("You already have a Tebex rank purchase pending. The rank shop will unlock after it finishes processing.").withStyle(ChatFormatting.YELLOW));
+                return;
+            }
+            renderRanks(player);
+        }));
+    }
+
+    private static void renderRanks(ServerPlayer player) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Champs Shop - Ranks"));
+        MenuUtil.fillBordersForced(gui, 11, 13, 15, 22);
+
+        boolean vipPlus = AccountUpgradeManager.hasVipPlus(player);
+        boolean vip = AccountUpgradeManager.hasVip(player);
+        long balance = EconomyManager.getBalance(player);
+
+        gui.setSlot(11, rankButton(player, AccountUpgradeManager.Tier.VIP, Items.GOLD_INGOT, vip, vipPlus, balance));
+        gui.setSlot(15, rankButton(player, AccountUpgradeManager.Tier.VIP_PLUS, Items.DIAMOND, vipPlus, vipPlus, balance));
+        gui.setSlot(13, new GuiElementBuilder(Items.PAPER)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§fAccount Status"))
+                .addLoreLine(Component.literal("§7Current rank: " + (vipPlus ? "§bVIP+" : vip ? "§6VIP" : "§fNone")))
+                .addLoreLine(Component.literal("§7Credit balance: §6" + EconomyManager.format(balance)))
+                .addLoreLine(Component.literal("§8Tebex records successful rank purchases.")));
+        MenuUtil.addBackButton(gui, 22, () -> open(player));
+        gui.open();
+    }
+
+    private static GuiElementBuilder rankButton(ServerPlayer player, AccountUpgradeManager.Tier tier, Item icon, boolean owned, boolean highestOwned, long balance) {
+        AccountUpgradeConfig.Upgrade upgrade = tier == AccountUpgradeManager.Tier.VIP ? AccountUpgradeConfig.CONFIG.vip : AccountUpgradeConfig.CONFIG.vipPlus;
+        long price = AccountUpgradeManager.priceFor(player, tier);
+        boolean isUpgrade = tier == AccountUpgradeManager.Tier.VIP_PLUS && AccountUpgradeManager.hasVip(player) && !AccountUpgradeManager.hasVipPlus(player);
+        GuiElementBuilder builder = new GuiElementBuilder(icon).hideDefaultTooltip()
+                .setName(Component.literal((owned ? "§a" : tier == AccountUpgradeManager.Tier.VIP_PLUS ? "§b" : "§6") + upgrade.displayName))
+                .addLoreLine(Component.literal("§7Permanent account rank."));
+        if (owned) {
+            builder.addLoreLine(Component.literal(tier == AccountUpgradeManager.Tier.VIP && highestOwned ? "§aIncluded with VIP+." : "§aOwned."));
+        } else {
+            builder.addLoreLine(Component.literal(isUpgrade ? "§7VIP upgrade price:" : "§7Cost:"));
+            builder.addLoreLine(Component.literal("§6" + EconomyManager.format(price)));
+            builder.addLoreLine(Component.literal("§8Tebex package: " + upgrade.tebexPackageId));
+            builder.addLoreLine(Component.literal(balance >= price ? "§eClick to continue" : "§cYou cannot afford this yet."));
+            if (balance >= price) builder.setCallback((i, c, t) -> openRankConfirmation(player, tier));
+        }
+        return builder;
+    }
+
+    private static void openRankConfirmation(ServerPlayer player, AccountUpgradeManager.Tier tier) {
+        AccountUpgradeConfig.Upgrade upgrade = tier == AccountUpgradeManager.Tier.VIP ? AccountUpgradeConfig.CONFIG.vip : AccountUpgradeConfig.CONFIG.vipPlus;
+        long price = AccountUpgradeManager.priceFor(player, tier);
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Confirm Rank Purchase"));
+        MenuUtil.fillBordersForced(gui, 11, 15, 22);
+        gui.setSlot(11, new GuiElementBuilder(Items.LIME_CONCRETE).hideDefaultTooltip()
+                .setName(Component.literal("§aConfirm " + upgrade.displayName))
+                .addLoreLine(Component.literal("§7Cost: §6" + EconomyManager.format(price)))
+                .addLoreLine(Component.literal("§7This creates a Tebex ownership record."))
+                .addLoreLine(Component.literal("§eClick to purchase"))
+                .setCallback((i,c,t) -> purchaseRank(player, tier)));
+        gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel"))
+                .setCallback((i,c,t) -> openRanks(player)));
+        MenuUtil.addBackButton(gui, 22, () -> openRanks(player));
+        gui.open();
+    }
+
+    private static void purchaseRank(ServerPlayer player, AccountUpgradeManager.Tier tier) {
+        UUID uuid = player.getUUID();
+        if (!RANK_PURCHASES_IN_FLIGHT.add(uuid)) { openRankLoading(player); return; }
+        openRankLoading(player);
+        AccountUpgradeManager.purchaseAsync(player, tier).whenComplete((result, error) -> player.server.execute(() -> {
+            RANK_PURCHASES_IN_FLIGHT.remove(uuid);
+            if (error != null) {
+                error.printStackTrace();
+                player.sendSystemMessage(Component.literal("Rank purchase failed before it could be submitted.").withStyle(ChatFormatting.RED));
+            } else if (result != null) {
+                player.sendSystemMessage(Component.literal(result.message()).withStyle(result.success() ? ChatFormatting.GREEN : ChatFormatting.RED));
+                if (result.pending()) player.sendSystemMessage(Component.literal("Tebex is processing the rank. It should activate shortly.").withStyle(ChatFormatting.YELLOW));
+            }
+            openRanks(player);
+        }));
+    }
+
+    private static void openRankLoading(ServerPlayer player) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Champs Shop - Rank Processing"));
+        MenuUtil.fillBordersForced(gui, 13);
+        gui.setSlot(13, new GuiElementBuilder(Items.CLOCK).hideDefaultTooltip()
+                .setName(Component.literal("§eContacting Tebex..."))
+                .addLoreLine(Component.literal("§7Do not submit another purchase."))
+                .addLoreLine(Component.literal("§7A rejected request is refunded automatically."))
+                .addLoreLine(Component.literal("§8An uncertain request is held for reconciliation.")));
         gui.open();
     }
 

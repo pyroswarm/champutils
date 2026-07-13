@@ -2,7 +2,6 @@ package com.champutils.profile;
 
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.database.DatabaseManager;
-import com.champutils.cosmetic.TitleManager;
 import com.champutils.hunt.PokemonHuntReflection;
 import com.champutils.util.CobblemonEventReflection;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -74,8 +73,10 @@ public final class NuzlockeManager {
             e.printStackTrace();
             return "Could not save Nuzlocke completion rewards.";
         }
-        TitleManager.unlock(player, "nuzlocke_champion");
-        return "Nuzlocke complete! Account-bound title unlocked: nuzlocke_champion. This profile remains Nuzlocke unless you manually convert it to Normal after it is at least 24 hours old.";
+        // Use the same Champion Umbra completion gate as every other profile mode.
+        // This prevents the maintenance command from granting the account title early.
+        ChallengeProfileTitleManager.handleChampionVictory(player);
+        return "Nuzlocke completion record saved. The account title is awarded only after Champion Umbra and the full League are defeated on this profile.";
     }
 
     public static boolean hasCompletedReward(ServerPlayer player) {

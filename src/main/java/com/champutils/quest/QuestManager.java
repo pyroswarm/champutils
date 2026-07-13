@@ -54,6 +54,7 @@ public class QuestManager {
         refreshIfNeeded(player, data, true);
         cleanupExpiredContracts(player, data, false);
         savePlayer(player);
+        QuestTrackerManager.refresh(player);
     }
 
     public static void preload(UUID profileId, String playerName) {
@@ -319,6 +320,7 @@ public class QuestManager {
         boolean changedContracts = incrementContracts(data, matcher, amount);
         boolean changedGuildWeekly = incrementGuildWeekly(player, matcher, amount);
         if (changedDaily || changedWeekly || changedContracts || changedGuildWeekly) {
+            QuestTrackerManager.refresh(player);
             markDirty(player);
             if (changedDaily && isReady(data.daily)) notifyReady(player, "Daily");
             if (changedWeekly && isReady(data.weekly)) notifyReady(player, "Weekly");
@@ -912,6 +914,8 @@ public class QuestManager {
 
     private static String safe(String s) { return s == null ? "" : s.trim(); }
 
+    public static void markTrackerDirty(ServerPlayer player) { markDirty(player); savePlayer(player); }
+
     private static void markDirty(ServerPlayer player) { DIRTY.add(PlayerProfileManager.activeProfileId(player)); }
 
     private static void markGuildDirty(UUID guildId) { if (guildId != null) DIRTY_GUILDS.add(guildId); }
@@ -932,6 +936,7 @@ public class QuestManager {
     }
 
     public static void unloadPlayer(ServerPlayer player) {
+        QuestTrackerManager.remove(player);
         savePlayer(player);
         CACHE.remove(PlayerProfileManager.activeProfileId(player));
     }

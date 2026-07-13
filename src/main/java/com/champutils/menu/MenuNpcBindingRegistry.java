@@ -132,13 +132,13 @@ public final class MenuNpcBindingRegistry {
 
     public static boolean isValidMenu(String menu) {
         return switch (normalize(menu)) {
-            case "adventurersguild", "adventurer", "aguild", "guildhall", "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop", "breeding", "breed", "nursery" -> true;
+            case "adventurersguild", "adventurer", "aguild", "guildhall", "profiles", "profile", "profilemenu", "gearworkshop", "tmcrafter", "tms", "auction", "shop", "essentials", "battles", "opencrates", "crates", "quests", "quest", "contracts", "contract", "wondertrade", "wonder", "territorycreation", "territorycreate", "territories", "territory", "pterritories", "gterritories", "guild", "guilds", "foreman", "professionforeman", "profession_foreman", "chunks", "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip", "rankedshop", "rankedtokens", "ranked_token_shop", "breeding", "breed", "nursery", "nursejoy", "nurse", "healer" -> true;
             default -> false;
         };
     }
 
     public static String validMenusText() {
-        return "adventurersguild, profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, champsshop, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds, breeding";
+        return "adventurersguild, profiles, gearworkshop, tmcrafter, battles, auction, shop, essentials, professionforeman, champsshop, rankedshop, opencrates, quests, contracts, wondertrade, territorycreation, territories, pterritories, gterritories, guilds, breeding, nursejoy";
     }
 
     public static String normalize(String menu) {
@@ -154,6 +154,7 @@ public final class MenuNpcBindingRegistry {
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> "champsshop";
             case "rankedtokens", "ranked_token_shop" -> "rankedshop";
             case "breed", "nursery" -> "breeding";
+            case "nurse", "healer" -> "nursejoy";
             default -> value;
         };
     }

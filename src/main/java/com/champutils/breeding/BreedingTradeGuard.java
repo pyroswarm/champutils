@@ -39,7 +39,7 @@ public final class BreedingTradeGuard {
         Pokemon second = pokemon(event, "tradeParticipant2Pokemon", "getTradeParticipant2Pokemon");
         if (!BreedingEggData.isEgg(first) && !BreedingEggData.isEgg(second)) return;
         cancel(event);
-        Component message = Component.literal("Pokémon Eggs cannot be traded before they hatch.").withStyle(ChatFormatting.RED);
+        Component message = Component.literal("Pokémon Eggs cannot be directly traded before they hatch. Use the Auction House to sell an Egg safely.").withStyle(ChatFormatting.RED);
         notifyParticipant(value(event, "tradeParticipant1", "getTradeParticipant1"), message);
         notifyParticipant(value(event, "tradeParticipant2", "getTradeParticipant2"), message);
     }

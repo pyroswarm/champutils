@@ -28,6 +28,7 @@ public final class AuctionHouseConfig {
     public boolean filterBadListingNames = true;
     public boolean announceNewListings = true;
     public int listingAnnouncementCooldownSeconds = 30;
+    public String eggPayloadSecret = "";
     public List<String> blockedListingWords = new ArrayList<>(List.of("fuck", "shit", "bitch", "cunt", "nigger", "nigga", "fag", "faggot", "retard", "kike", "spic", "chink"));
 
     private AuctionHouseConfig() {
@@ -86,6 +87,8 @@ public final class AuctionHouseConfig {
         listingDurationDays = safeListingDurationDays();
         if (blockedListingWords == null) blockedListingWords = new ArrayList<>();
         if (listingAnnouncementCooldownSeconds < 0) listingAnnouncementCooldownSeconds = 0;
+        if (eggPayloadSecret == null) eggPayloadSecret = "";
+        eggPayloadSecret = eggPayloadSecret.trim();
         save();
     }
 

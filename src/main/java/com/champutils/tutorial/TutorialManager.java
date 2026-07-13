@@ -187,7 +187,10 @@ public final class TutorialManager {
         state.loaded = true;
         state.skipped = true;
         saveStateAsync(player.getUUID(), state);
-        player.sendSystemMessage(Component.literal("§7Tutorial reminders hidden. You can still talk to spawn guide NPCs to finish the quest, or use §f/tutorial resetself §7to turn reminders back on."));
+        // /skiptutorial is intended to hide the entire guided onboarding display,
+        // including the separate Adventure Guide boss bar.
+        com.champutils.adventureguide.AdventureGuideManager.disableBossBar(player, false);
+        player.sendSystemMessage(Component.literal("§7Tutorial reminders and the Adventure Guide boss bar were hidden. You can still complete both systems from their menus."));
     }
 
     public static void resetSelf(ServerPlayer player) {

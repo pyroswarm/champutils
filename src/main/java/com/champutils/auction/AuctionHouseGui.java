@@ -296,6 +296,26 @@ public final class AuctionHouseGui {
     }
 
     private static void paintPokemonInspect(SimpleGui gui, JsonObject p) {
+        if (booleanValue(firstPresent(p, "egg"))) {
+            String hatchSpecies = firstPresent(p, "hatchSpecies");
+            boolean mystery = booleanValue(firstPresent(p, "mysteryEgg"));
+            String progress = firstPresent(p, "eggProgressPercent");
+            String remaining = firstPresent(p, "eggRemainingSteps");
+            String stage = firstPresent(p, "eggStage");
+            String rarity = firstPresent(p, "eggRarity");
+            gui.setSlot(12, cleanButton(Items.EGG, mystery ? "§dMystery Pokémon Egg" : "§dPokémon Egg")
+                    .addLoreLine(Component.literal("§7Hatches into: §f" + (hatchSpecies.isBlank() ? "???" : prettify(hatchSpecies))))
+                    .addLoreLine(Component.literal("§7Progress: §f" + blankDash(progress) + "%"))
+                    .addLoreLine(Component.literal("§7Steps remaining: §f" + blankDash(remaining)))
+                    .addLoreLine(Component.literal("§7Rarity: §f" + (mystery ? "???" : prettify(rarity)))));
+            gui.setSlot(14, cleanButton(Items.FEATHER, "§eHatch Status")
+                    .addLoreLine(Component.literal("§7" + blankDash(stage)))
+                    .addLoreLine(Component.literal("§8Egg progress is preserved when sold.")));
+            gui.setSlot(16, cleanButton(Items.CHEST, "§6Auction-safe Egg")
+                    .addLoreLine(Component.literal(mystery ? "§7Ditto + Ditto hatchlings stay secret." : "§7The hatch species is visible to buyers."))
+                    .addLoreLine(Component.literal("§7The exact Egg returns on purchase or cancel.")));
+            return;
+        }
         gui.setSlot(12, cleanButton(Items.EXPERIENCE_BOTTLE, "§eCore Info")
                 .addLoreLine(Component.literal("§7Level: §f" + get(p, "level")))
                 .addLoreLine(Component.literal("§7Shiny: §f" + yesNo(get(p, "shiny"))))
@@ -368,10 +388,17 @@ public final class AuctionHouseGui {
         if ("POKEMON".equalsIgnoreCase(listing.kind) && listing.payload != null) {
             JsonObject p = listing.payload;
             lore.add(Component.literal(""));
-            lore.add(Component.literal("§7Level: §f" + get(p, "level")));
-            lore.add(Component.literal("§7Shiny: §f" + yesNo(get(p, "shiny"))));
-            lore.add(Component.literal("§7Nature: §f" + prettify(get(p, "nature"))));
-            lore.add(Component.literal("§7Ability: §f" + prettify(get(p, "ability"))));
+            if (booleanValue(firstPresent(p, "egg"))) {
+                boolean mystery = booleanValue(firstPresent(p, "mysteryEgg"));
+                lore.add(Component.literal("§7Hatches into: §f" + (mystery ? "???" : prettify(firstPresent(p, "hatchSpecies")))));
+                lore.add(Component.literal("§7Progress: §f" + firstPresent(p, "eggProgressPercent") + "%"));
+                lore.add(Component.literal("§7Steps remaining: §f" + firstPresent(p, "eggRemainingSteps")));
+            } else {
+                lore.add(Component.literal("§7Level: §f" + get(p, "level")));
+                lore.add(Component.literal("§7Shiny: §f" + yesNo(get(p, "shiny"))));
+                lore.add(Component.literal("§7Nature: §f" + prettify(get(p, "nature"))));
+                lore.add(Component.literal("§7Ability: §f" + prettify(get(p, "ability"))));
+            }
         } else if (listing.payload != null) {
             JsonObject p = listing.payload;
             lore.add(Component.literal(""));
@@ -395,6 +422,9 @@ public final class AuctionHouseGui {
 
     private static GuiElementBuilder iconFor(ServerPlayer player, AuctionHouseRepository.AuctionListingSummary listing) {
         if ("POKEMON".equalsIgnoreCase(listing.kind)) {
+            if (listing.payload != null && booleanValue(firstPresent(listing.payload, "egg"))) {
+                return cleanButton(Items.EGG, "§d" + blankDash(listing.title));
+            }
             String species = firstPresent(listing.payload, "species", "speciesId", "name", "displayName");
             boolean shiny = booleanValue(firstPresent(listing.payload, "shiny"));
             return pokemonButton(listing.title, species, shiny);

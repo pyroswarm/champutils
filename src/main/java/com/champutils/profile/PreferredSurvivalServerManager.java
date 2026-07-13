@@ -71,13 +71,13 @@ public final class PreferredSurvivalServerManager {
     public static Preference defaultPreference() {
         NetworkServerConfig config = NetworkServerConfig.get();
         String configured = config.survivalServerId == null || config.survivalServerId.isBlank() ? ALPHA_SERVER_ID : config.survivalServerId;
-        return toPreference(configured).orElse(new Preference(ALPHA_SERVER_ID, "Alpha"));
+        return toPreference(configured).orElse(new Preference(ALPHA_SERVER_ID, "Nova"));
     }
 
     public static Optional<Preference> toPreference(String serverId) {
         String normalized = normalize(serverId);
-        if (ALPHA_SERVER_ID.equalsIgnoreCase(normalized)) return Optional.of(new Preference(ALPHA_SERVER_ID, "Alpha"));
-        if (OMEGA_SERVER_ID.equalsIgnoreCase(normalized)) return Optional.of(new Preference(OMEGA_SERVER_ID, "Omega"));
+        if (ALPHA_SERVER_ID.equalsIgnoreCase(normalized)) return Optional.of(new Preference(ALPHA_SERVER_ID, "Nova"));
+        if (OMEGA_SERVER_ID.equalsIgnoreCase(normalized)) return Optional.of(new Preference(OMEGA_SERVER_ID, "Eclipse"));
         return Optional.empty();
     }
 

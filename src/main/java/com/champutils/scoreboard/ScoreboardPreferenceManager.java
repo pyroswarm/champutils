@@ -29,7 +29,8 @@ public final class ScoreboardPreferenceManager {
         BATTLING("Battling", "Battling profession level and progress."),
         MINING("Mining", "Mining profession level and progress."),
         FORESTRY("Forestry", "Forestry profession level and progress."),
-        FARMING("Farming", "Farming profession level and progress.");
+        FARMING("Farming", "Farming profession level and progress."),
+        BREEDING("Breeding", "Breeding profession level and progress.");
 
         private final String displayName;
         private final String description;

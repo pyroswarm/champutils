@@ -138,6 +138,10 @@ public final class ModerationManager {
         alertAdmins(target.server, "§c[AutoMod] §f" + actor.getGameProfile().getName() + " §7manually escalated chat AutoMod for §f" + target.getGameProfile().getName() + "§7. Reason: §e" + reason);
     }
 
+    public static boolean isSafeDisplayName(String value) {
+        return value != null && !value.isBlank() && blockedWord(value) == null;
+    }
+
     public static boolean canModerate(ServerPlayer p) {
         return p.hasPermissions(4) || LuckPermsHook.hasPermission(p, ModerationConfig.DATA.moderatorPermission);
     }

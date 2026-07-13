@@ -33,8 +33,8 @@ public final class BreedingMenu {
                 .setName(Component.literal("§d§lPokémon Breeding"))
                 .addLoreLine(Component.literal("§7Choose two compatible party Pokémon."))
                 .addLoreLine(Component.literal("§7The Egg occupies a real party slot."))
-                .addLoreLine(Component.literal("§7Only walking while it is in your party counts."))
-                .addLoreLine(Component.literal("§8SQL is used only to atomically reserve/create and hatch.")));
+                .addLoreLine(Component.literal("§7Travel while it is in your party to hatch it."))
+                .addLoreLine(Component.literal("§7Walking and mounted travel both count.")));
 
         PartyStore party = party(player);
         for (int i = 0; i < PARTY_GUI_SLOTS.length; i++) {
@@ -99,10 +99,12 @@ public final class BreedingMenu {
                 .setName(Component.literal("§bBreeding Rules"))
                 .addLoreLine(Component.literal("§7• Opposite genders sharing an Egg Group"))
                 .addLoreLine(Component.literal("§7• Ditto can pair with most non-Ditto Pokémon"))
-                .addLoreLine(Component.literal("§7• Destiny Knot passes 5 IVs instead of 3"))
-                .addLoreLine(Component.literal("§7• Everstone passes nature and regional form"))
-                .addLoreLine(Component.literal("§7• Power items force their matching IV"))
-                .addLoreLine(Component.literal("§7• Egg moves pass from either parent's current moves"))
+                .addLoreLine(Component.literal("§7• Destiny Knot: 5 inherited IVs total instead of 3"))
+                .addLoreLine(Component.literal("§7• Power item: forces its stat and uses one inherited slot"))
+                .addLoreLine(Component.literal("§7• Everstone: passes the holder's original Nature"))
+                .addLoreLine(Component.literal("§7• Mints and Hyper Training do not pass to Eggs"))
+                .addLoreLine(Component.literal("§7• Ability Capsule/Patch changes the inheritable slot"))
+                .addLoreLine(Component.literal("§7• Egg Moves can pass from either parent's current moves"))
                 .addLoreLine(Component.literal("§7• Flame Body/Magma Armor/Steam Engine halve steps")));
         gui.open();
     }
@@ -132,7 +134,7 @@ public final class BreedingMenu {
         gui.setSlot(11, new GuiElementBuilder(Items.GREEN_STAINED_GLASS_PANE)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§a§lCreate Egg"))
-                .addLoreLine(Component.literal("§7Reserve the pairing in SQL and create the Egg."))
+                .addLoreLine(Component.literal("§7Create the Egg in your first open party slot."))
                 .setCallback((slot, click, action) -> {
                     player.closeContainer();
                     BreedingManager.startBreeding(player, firstSlot, secondSlot);

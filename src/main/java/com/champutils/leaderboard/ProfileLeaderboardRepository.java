@@ -28,6 +28,7 @@ public final class ProfileLeaderboardRepository {
         PROFESSIONS_FORESTRY("leaderboard_professions_forestry", "level", "Forestry Level"),
         PROFESSIONS_FARMING("leaderboard_professions_farming", "level", "Farming Level"),
         PROFESSIONS_BATTLING("leaderboard_professions_battling", "level", "Battle Level"),
+        PROFESSIONS_BREEDING("leaderboard_professions_breeding", "level", "Breeding Level"),
         ECONOMY("leaderboard_economy_profiles", "credits", "Credits"),
         PLAYTIME("leaderboard_playtime_profiles", "playtime_hours", "Hours"),
         POKEDEX("leaderboard_pokedex_profiles", "caught_species", "Caught Species"),
@@ -145,6 +146,7 @@ public final class ProfileLeaderboardRepository {
             case PROFESSIONS_FORESTRY -> profession(connection, "FORESTRY", board.label, limit);
             case PROFESSIONS_FARMING -> profession(connection, "FARMING", board.label, limit);
             case PROFESSIONS_BATTLING -> profession(connection, "BATTLING", board.label, limit);
+            case PROFESSIONS_BREEDING -> profession(connection, "BREEDING", board.label, limit);
             case PLAYTIME -> playtime(connection, limit);
             case GYMS -> gyms(connection, limit);
             default -> generic(connection, board, limit);

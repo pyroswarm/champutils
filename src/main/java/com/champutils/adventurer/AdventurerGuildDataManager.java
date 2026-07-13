@@ -15,7 +15,9 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class AdventurerGuildDataManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Type STRING_LONG_MAP_TYPE = new TypeToken<HashMap<String, Long>>() {}.getType();
     private static final Type STRING_SET_TYPE = new TypeToken<HashSet<String>>() {}.getType();
     private static volatile boolean schemaEnsured = false;
 
@@ -42,6 +45,12 @@ public final class AdventurerGuildDataManager {
         public String activeTowerNpcUuid = "";
         public long activeTowerStartedMillis = 0L;
         public long lastTowerStartMillis = 0L;
+        public long lastTowerEndMillis = 0L;
+        public HashMap<String, Long> towerRewardClaims = new HashMap<>();
+        public boolean ultimateClimbActive = false;
+        public long ultimateClimbStartedMillis = 0L;
+        public long lastUltimateClimbAttemptMillis = 0L;
+        public int ultimateClimbClears = 0;
 
         public long lastRoamingLeagueStartMillis = 0L;
         public int roamingLeagueDailySpawns = 0;
@@ -186,6 +195,12 @@ public final class AdventurerGuildDataManager {
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists active_tower_npc_uuid text not null default ''");
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists active_tower_started_millis bigint not null default 0");
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists last_tower_start_millis bigint not null default 0");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists last_tower_end_millis bigint not null default 0");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists tower_reward_claims jsonb not null default '{}'::jsonb");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists ultimate_climb_active boolean not null default false");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists ultimate_climb_started_millis bigint not null default 0");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists last_ultimate_climb_attempt_millis bigint not null default 0");
+            statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists ultimate_climb_clears integer not null default 0");
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists last_roaming_league_start_millis bigint not null default 0");
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists roaming_league_daily_spawns integer not null default 0");
             statement.executeUpdate("alter table public.profile_adventurer_guild add column if not exists roaming_league_daily_key text not null default ''");
@@ -232,6 +247,12 @@ public final class AdventurerGuildDataManager {
                 data.activeTowerNpcUuid = rs.getString("active_tower_npc_uuid");
                 data.activeTowerStartedMillis = rs.getLong("active_tower_started_millis");
                 data.lastTowerStartMillis = rs.getLong("last_tower_start_millis");
+                data.lastTowerEndMillis = rs.getLong("last_tower_end_millis");
+                data.towerRewardClaims = parseStringLongMap(rs.getString("tower_reward_claims"));
+                data.ultimateClimbActive = rs.getBoolean("ultimate_climb_active");
+                data.ultimateClimbStartedMillis = rs.getLong("ultimate_climb_started_millis");
+                data.lastUltimateClimbAttemptMillis = rs.getLong("last_ultimate_climb_attempt_millis");
+                data.ultimateClimbClears = rs.getInt("ultimate_climb_clears");
                 data.lastRoamingLeagueStartMillis = rs.getLong("last_roaming_league_start_millis");
                 data.roamingLeagueDailySpawns = rs.getInt("roaming_league_daily_spawns");
                 data.roamingLeagueDailyKey = rs.getString("roaming_league_daily_key");
@@ -252,49 +273,41 @@ public final class AdventurerGuildDataManager {
     private static void upsertSql(Connection connection, UUID profileId, PlayerData data) throws Exception {
         try (PreparedStatement ps = connection.prepareStatement(
                 "insert into public.profile_adventurer_guild (" +
-                        "profile_id, player_name, renown, guild_marks, claimed_rank_rewards, " +
-                        "tower_floor, best_tower_floor, tower_clears, active_tower_floor, active_tower_npc_uuid, active_tower_started_millis, last_tower_start_millis, " +
-                        "last_roaming_league_start_millis, roaming_league_daily_spawns, roaming_league_daily_key, " +
-                        "daily_key, daily_pvp_matches, daily_pvp_wins, daily_pvp_claimed, " +
+                        "profile_id, player_name, renown, guild_marks, claimed_rank_rewards, tower_floor, best_tower_floor, tower_clears, " +
+                        "active_tower_floor, active_tower_npc_uuid, active_tower_started_millis, last_tower_start_millis, last_tower_end_millis, " +
+                        "tower_reward_claims, ultimate_climb_active, ultimate_climb_started_millis, last_ultimate_climb_attempt_millis, ultimate_climb_clears, " +
+                        "last_roaming_league_start_millis, roaming_league_daily_spawns, roaming_league_daily_key, daily_key, daily_pvp_matches, daily_pvp_wins, daily_pvp_claimed, " +
                         "weekly_key, weekly_pvp_matches, weekly_pvp_wins, weekly_ranked_wins, weekly_pvp_claimed, updated_at" +
-                        ") select ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now() " +
+                        ") select ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now() " +
                         "where exists (select 1 from public.player_profiles where id = ? and deleted_at is null) " +
-                        "on conflict (profile_id) do update set " +
-                        "player_name = excluded.player_name, " +
-                        "renown = excluded.renown, guild_marks = excluded.guild_marks, claimed_rank_rewards = excluded.claimed_rank_rewards, " +
-                        "tower_floor = excluded.tower_floor, best_tower_floor = excluded.best_tower_floor, tower_clears = excluded.tower_clears, " +
-                        "active_tower_floor = excluded.active_tower_floor, active_tower_npc_uuid = excluded.active_tower_npc_uuid, active_tower_started_millis = excluded.active_tower_started_millis, last_tower_start_millis = excluded.last_tower_start_millis, " +
-                        "last_roaming_league_start_millis = excluded.last_roaming_league_start_millis, roaming_league_daily_spawns = excluded.roaming_league_daily_spawns, roaming_league_daily_key = excluded.roaming_league_daily_key, " +
-                        "daily_key = excluded.daily_key, daily_pvp_matches = excluded.daily_pvp_matches, daily_pvp_wins = excluded.daily_pvp_wins, daily_pvp_claimed = excluded.daily_pvp_claimed, " +
-                        "weekly_key = excluded.weekly_key, weekly_pvp_matches = excluded.weekly_pvp_matches, weekly_pvp_wins = excluded.weekly_pvp_wins, weekly_ranked_wins = excluded.weekly_ranked_wins, weekly_pvp_claimed = excluded.weekly_pvp_claimed, updated_at = now()")) {
-            int i = 1;
-            ps.setObject(i++, profileId);
-            ps.setString(i++, safe(data.name));
-            ps.setLong(i++, Math.max(0L, data.renown));
-            ps.setLong(i++, Math.max(0L, data.guildMarks));
+                        "on conflict (profile_id) do update set player_name=excluded.player_name, renown=excluded.renown, guild_marks=excluded.guild_marks, " +
+                        "claimed_rank_rewards=excluded.claimed_rank_rewards, tower_floor=excluded.tower_floor, best_tower_floor=excluded.best_tower_floor, tower_clears=excluded.tower_clears, " +
+                        "active_tower_floor=excluded.active_tower_floor, active_tower_npc_uuid=excluded.active_tower_npc_uuid, active_tower_started_millis=excluded.active_tower_started_millis, " +
+                        "last_tower_start_millis=excluded.last_tower_start_millis, last_tower_end_millis=excluded.last_tower_end_millis, tower_reward_claims=excluded.tower_reward_claims, " +
+                        "ultimate_climb_active=excluded.ultimate_climb_active, ultimate_climb_started_millis=excluded.ultimate_climb_started_millis, " +
+                        "last_ultimate_climb_attempt_millis=excluded.last_ultimate_climb_attempt_millis, ultimate_climb_clears=excluded.ultimate_climb_clears, " +
+                        "last_roaming_league_start_millis=excluded.last_roaming_league_start_millis, roaming_league_daily_spawns=excluded.roaming_league_daily_spawns, roaming_league_daily_key=excluded.roaming_league_daily_key, " +
+                        "daily_key=excluded.daily_key, daily_pvp_matches=excluded.daily_pvp_matches, daily_pvp_wins=excluded.daily_pvp_wins, daily_pvp_claimed=excluded.daily_pvp_claimed, " +
+                        "weekly_key=excluded.weekly_key, weekly_pvp_matches=excluded.weekly_pvp_matches, weekly_pvp_wins=excluded.weekly_pvp_wins, weekly_ranked_wins=excluded.weekly_ranked_wins, weekly_pvp_claimed=excluded.weekly_pvp_claimed, updated_at=now()")) {
+            int i=1;
+            ps.setObject(i++, profileId); ps.setString(i++, safe(data.name)); ps.setLong(i++, Math.max(0L,data.renown)); ps.setLong(i++, Math.max(0L,data.guildMarks));
             ps.setString(i++, GSON.toJson(data.claimedRankRewards == null ? Set.of() : data.claimedRankRewards));
-            ps.setInt(i++, Math.max(1, data.towerFloor));
-            ps.setInt(i++, Math.max(0, data.bestTowerFloor));
-            ps.setInt(i++, Math.max(0, data.towerClears));
-            ps.setInt(i++, Math.max(0, data.activeTowerFloor));
-            ps.setString(i++, safe(data.activeTowerNpcUuid));
-            ps.setLong(i++, Math.max(0L, data.activeTowerStartedMillis));
-            ps.setLong(i++, Math.max(0L, data.lastTowerStartMillis));
-            ps.setLong(i++, Math.max(0L, data.lastRoamingLeagueStartMillis));
-            ps.setInt(i++, Math.max(0, data.roamingLeagueDailySpawns));
-            ps.setString(i++, safe(data.roamingLeagueDailyKey));
-            ps.setString(i++, safe(data.dailyKey));
-            ps.setInt(i++, Math.max(0, data.dailyPvpMatches));
-            ps.setInt(i++, Math.max(0, data.dailyPvpWins));
-            ps.setBoolean(i++, data.dailyPvpClaimed);
-            ps.setString(i++, safe(data.weeklyKey));
-            ps.setInt(i++, Math.max(0, data.weeklyPvpMatches));
-            ps.setInt(i++, Math.max(0, data.weeklyPvpWins));
-            ps.setInt(i++, Math.max(0, data.weeklyRankedWins));
-            ps.setBoolean(i++, data.weeklyPvpClaimed);
-            ps.setObject(i, profileId);
-            ps.executeUpdate();
+            ps.setInt(i++, Math.max(1,data.towerFloor)); ps.setInt(i++, Math.max(0,data.bestTowerFloor)); ps.setInt(i++, Math.max(0,data.towerClears));
+            ps.setInt(i++, Math.max(0,data.activeTowerFloor)); ps.setString(i++, safe(data.activeTowerNpcUuid)); ps.setLong(i++, Math.max(0L,data.activeTowerStartedMillis));
+            ps.setLong(i++, Math.max(0L,data.lastTowerStartMillis)); ps.setLong(i++, Math.max(0L,data.lastTowerEndMillis));
+            ps.setString(i++, GSON.toJson(data.towerRewardClaims == null ? Map.of() : data.towerRewardClaims)); ps.setBoolean(i++, data.ultimateClimbActive);
+            ps.setLong(i++, Math.max(0L,data.ultimateClimbStartedMillis)); ps.setLong(i++, Math.max(0L,data.lastUltimateClimbAttemptMillis)); ps.setInt(i++, Math.max(0,data.ultimateClimbClears));
+            ps.setLong(i++, Math.max(0L,data.lastRoamingLeagueStartMillis)); ps.setInt(i++, Math.max(0,data.roamingLeagueDailySpawns)); ps.setString(i++, safe(data.roamingLeagueDailyKey));
+            ps.setString(i++, safe(data.dailyKey)); ps.setInt(i++, Math.max(0,data.dailyPvpMatches)); ps.setInt(i++, Math.max(0,data.dailyPvpWins)); ps.setBoolean(i++, data.dailyPvpClaimed);
+            ps.setString(i++, safe(data.weeklyKey)); ps.setInt(i++, Math.max(0,data.weeklyPvpMatches)); ps.setInt(i++, Math.max(0,data.weeklyPvpWins)); ps.setInt(i++, Math.max(0,data.weeklyRankedWins)); ps.setBoolean(i++, data.weeklyPvpClaimed);
+            ps.setObject(i, profileId); ps.executeUpdate();
         }
+    }
+
+    private static HashMap<String, Long> parseStringLongMap(String json) {
+        if (json == null || json.isBlank()) return new HashMap<>();
+        try { HashMap<String, Long> parsed = GSON.fromJson(json, STRING_LONG_MAP_TYPE); return parsed == null ? new HashMap<>() : parsed; }
+        catch (Exception ignored) { return new HashMap<>(); }
     }
 
     private static HashSet<String> parseStringSet(String json) {
@@ -322,6 +335,12 @@ public final class AdventurerGuildDataManager {
         data.activeTowerNpcUuid = source.activeTowerNpcUuid;
         data.activeTowerStartedMillis = source.activeTowerStartedMillis;
         data.lastTowerStartMillis = source.lastTowerStartMillis;
+        data.lastTowerEndMillis = source.lastTowerEndMillis;
+        data.towerRewardClaims = source.towerRewardClaims == null ? new HashMap<>() : new HashMap<>(source.towerRewardClaims);
+        data.ultimateClimbActive = source.ultimateClimbActive;
+        data.ultimateClimbStartedMillis = source.ultimateClimbStartedMillis;
+        data.lastUltimateClimbAttemptMillis = source.lastUltimateClimbAttemptMillis;
+        data.ultimateClimbClears = source.ultimateClimbClears;
         data.lastRoamingLeagueStartMillis = source.lastRoamingLeagueStartMillis;
         data.roamingLeagueDailySpawns = source.roamingLeagueDailySpawns;
         data.roamingLeagueDailyKey = source.roamingLeagueDailyKey;
@@ -346,6 +365,7 @@ public final class AdventurerGuildDataManager {
         if (data.weeklyKey == null) data.weeklyKey = "";
         if (data.roamingLeagueDailyKey == null) data.roamingLeagueDailyKey = "";
         if (data.activeTowerNpcUuid == null) data.activeTowerNpcUuid = "";
+        if (data.towerRewardClaims == null) data.towerRewardClaims = new HashMap<>();
         data.renown = Math.max(0L, data.renown);
         data.guildMarks = Math.max(0L, data.guildMarks);
         data.bestTowerFloor = Math.max(0, data.bestTowerFloor);

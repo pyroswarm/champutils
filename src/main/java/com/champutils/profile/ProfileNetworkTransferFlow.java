@@ -83,7 +83,7 @@ public final class ProfileNetworkTransferFlow {
 
         // Capture live state before any proxy/backend handoff. The snapshot is committed inside
         // the same DB task that issues the token, so the token payload can never be built from
-        // stale party/PC SQL after an instant Alpha -> Omega transfer.
+        // stale party/PC SQL after an instant Nova -> Eclipse transfer.
         ProfileStateFlushService.TransferFlushSnapshot transferSnapshot =
                 ProfileStateFlushService.captureBeforeTransfer(player, "network_profile_transfer");
 

@@ -88,52 +88,28 @@ public final class AdventurerGuildMenu {
 
     public static void openBattleTower(ServerPlayer player) {
         AdventurerGuildDataManager.PlayerData data = AdventurerGuildManager.getData(player);
-        AdventurerGuildConfig.BattleTowerFloor floor = AdventurerGuildConfig.floor(data.towerFloor);
-        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x5, player);
-        gui.setTitle(Component.literal("Battle Tower"));
-        MenuUtil.fillBorders(gui, 4, 10, 12, 14, 16, 19, 21, 23, 25, 31, 36, 44);
-
-        gui.setSlot(4, new GuiElementBuilder(Items.DIAMOND_SWORD)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§d" + floor.displayName))
-                .addLoreLine(Component.literal("§7Current Floor: §f" + data.towerFloor + "§7/§f" + AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor))
-                .addLoreLine(Component.literal("§7Trainer Rarity: §f" + AdventurerRankUtil.displayRank(AdventurerRankUtil.fromRarity(RoamingTrainerRarity.parse(floor.rarity, AdventurerGuildConfig.rarityForFloor(data.towerFloor))))))
-                .addLoreLine(Component.literal("§7Best Floor: §f" + data.bestTowerFloor))
-                .addLoreLine(Component.literal("§7Full Clears: §f" + data.towerClears))
-                .addLoreLine(Component.literal("§7Cooldown: §f" + AdventurerGuildManager.timeUntilTowerReady(data)))
-                .addLoreLine(Component.literal("§7Checkpoints: §f1, 3, 6, 9"))
-                .addLoreLine(Component.literal("§8Rewards are paid only when you reach a new checkpoint.")));
-
-        gui.setSlot(20, new GuiElementBuilder(Items.LIME_STAINED_GLASS_PANE)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§aStart Floor " + data.towerFloor))
-                .addLoreLine(Component.literal("§7Enter the Battle Tower arena."))
-                .addLoreLine(Component.literal("§7A trainer appears nearby and the battle starts."))
-                .addLoreLine(Component.literal("§cNo healing or Pokémon storage during an attempt."))
-                .addLoreLine(Component.literal("§eClick to start"))
-                .setCallback((slot, click, action) -> AdventurerGuildManager.startBattleTowerFloor(player)));
-
-        int[] checkpointSlots = {10, 12, 14, 16};
-        int[] checkpoints = {1, 3, 6, 9};
-        for (int i = 0; i < checkpoints.length; i++) {
-            int checkpoint = checkpoints[i];
-            boolean unlocked = AdventurerGuildManager.isCheckpointUnlocked(data, checkpoint);
-            gui.setSlot(checkpointSlots[i], new GuiElementBuilder(unlocked ? Items.ENDER_EYE : Items.GRAY_DYE)
-                    .hideDefaultTooltip()
-                    .setName(Component.literal((unlocked ? "§a" : "§7") + "Checkpoint Floor " + checkpoint))
-                    .addLoreLine(Component.literal(unlocked ? "§7Start future attempts here." : "§cReach this checkpoint to unlock it."))
-                    .addLoreLine(Component.literal("§eClick to select"))
-                    .setCallback((slot, click, action) -> { AdventurerGuildManager.selectTowerCheckpoint(player, checkpoint); openBattleTower(player); }));
-        }
-
-        gui.setSlot(24, new GuiElementBuilder(Items.RED_STAINED_GLASS_PANE)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§cBack to Adventurer's Guild"))
-                .addLoreLine(Component.literal("§7Return to the Adventurer's Guild."))
-                .setCallback((slot, click, action) -> open(player)));
-
-        MenuUtil.addBackButton(gui, 36, () -> open(player));
-        gui.open();
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        gui.setTitle(Component.literal("Battle Tower")); MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,49);
+        gui.setSlot(4,new GuiElementBuilder(Items.DIAMOND_SWORD).hideDefaultTooltip().setName(Component.literal("§dBattle Tower — 100 Floors"))
+                .addLoreLine(Component.literal("§7Best Floor: §f"+data.bestTowerFloor+" §8| §7Clears: §f"+data.towerClears))
+                .addLoreLine(Component.literal("§7Every 10th floor grants a separate 24-hour reward."))
+                .addLoreLine(Component.literal("§7Crate credits scale from F through A rank.")));
+        gui.setSlot(20,new GuiElementBuilder(Items.LIME_STAINED_GLASS_PANE).hideDefaultTooltip().setName(Component.literal("§aStart Standard Climb"))
+                .addLoreLine(Component.literal("§7Begin at your selected checkpoint."))
+                .addLoreLine(Component.literal("§7You may stop at checkpoints and return later."))
+                .setCallback((slot,click,action)->AdventurerGuildManager.startBattleTowerFloor(player)));
+        gui.setSlot(24,new GuiElementBuilder(Items.NETHER_STAR).hideDefaultTooltip().setName(Component.literal("§dUltimate Climb"))
+                .addLoreLine(Component.literal("§7Clear floors 1-100 without stopping."))
+                .addLoreLine(Component.literal("§cLogging out, losing, or leaving ends the attempt."))
+                .addLoreLine(Component.literal("§7Attempt cooldown: §f24 hours"))
+                .addLoreLine(Component.literal("§6Reward: §fS Rank Crate Credit + exclusive title"))
+                .setCallback((slot,click,action)->AdventurerGuildManager.startUltimateClimb(player)));
+        int[] slots={10,11,12,13,14,15,16,17,18,19};
+        for(int i=0;i<10;i++){int cp=i*10+1; boolean unlocked=AdventurerGuildManager.isCheckpointUnlocked(data,cp);
+            gui.setSlot(slots[i],new GuiElementBuilder(unlocked?Items.ENDER_EYE:Items.GRAY_DYE).hideDefaultTooltip().setName(Component.literal((unlocked?"§a":"§7")+"Floors "+cp+"-"+(cp+9)))
+                    .addLoreLine(Component.literal(unlocked?"§7Click to start from floor "+cp:"§cClear the prior checkpoint first."))
+                    .setCallback((slot,click,action)->{AdventurerGuildManager.selectTowerCheckpoint(player,cp);openBattleTower(player);}));}
+        gui.setSlot(49,new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip().setName(Component.literal("§cBack")).setCallback((slot,click,action)->open(player))); gui.open();
     }
 
     public static void openPvpMissions(ServerPlayer player) {

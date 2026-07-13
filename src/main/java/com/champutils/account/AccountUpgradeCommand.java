@@ -16,13 +16,15 @@ public final class AccountUpgradeCommand {
                     .then(Commands.literal("boosters")
                             .executes(ctx -> openBoosters(ctx.getSource().getPlayerOrException())))
                     .then(Commands.literal("trails")
-                            .executes(ctx -> openTrails(ctx.getSource().getPlayerOrException()))));
+                            .executes(ctx -> openTrails(ctx.getSource().getPlayerOrException())))
+                    .then(Commands.literal("ranks")
+                            .executes(ctx -> openRanks(ctx.getSource().getPlayerOrException()))));
 
             dispatcher.register(Commands.literal("accountupgrade")
                     .executes(ctx -> open(ctx.getSource().getPlayerOrException()))
                     .then(Commands.literal("buy")
                             .then(Commands.argument("tier", StringArgumentType.word())
-                                    .executes(ctx -> rankDisabled(ctx.getSource().getPlayerOrException())))));
+                                    .executes(ctx -> buyRank(ctx.getSource().getPlayerOrException(), StringArgumentType.getString(ctx, "tier"))))));
         });
     }
 
@@ -41,8 +43,14 @@ public final class AccountUpgradeCommand {
         return 1;
     }
 
-    private static int rankDisabled(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("VIP and VIP+ are Tebex-only so upgrade pricing and duplicate prevention stay correct. Use /champsshop for booster credits and cosmetics."));
-        return 0;
+    private static int openRanks(ServerPlayer player) { AccountUpgradeMenu.openRanks(player); return 1; }
+
+    private static int buyRank(ServerPlayer player, String raw) {
+        String tier = raw == null ? "" : raw.toLowerCase().replace("+", "plus");
+        AccountUpgradeManager.Tier selected = tier.equals("vip") ? AccountUpgradeManager.Tier.VIP : (tier.equals("vipplus") || tier.equals("vip_plus") ? AccountUpgradeManager.Tier.VIP_PLUS : null);
+        if (selected == null) { player.sendSystemMessage(Component.literal("Use vip or vipplus.")); return 0; }
+        AccountUpgradeMenu.openRanks(player);
+        player.sendSystemMessage(Component.literal("Select the rank in the Champs Shop menu to review and confirm the purchase."));
+        return 1;
     }
 }

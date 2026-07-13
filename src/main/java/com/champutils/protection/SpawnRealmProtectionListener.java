@@ -20,6 +20,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -47,6 +48,10 @@ public final class SpawnRealmProtectionListener {
             if (firstGuideLockTick % 5 != 0) return;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 enforceFirstGuideRadius(player);
+                if (isSpawn1(player.serverLevel()) && player.getVehicle() != null && isPokemonEntity(player.getVehicle())) {
+                    player.stopRiding();
+                    deny(player, "Pokemon riding and flying are disabled in spawn.");
+                }
             }
         });
 
@@ -132,6 +137,10 @@ public final class SpawnRealmProtectionListener {
             ItemStack stack = sp.getItemInHand(hand);
             if (AdventureGuideManager.isLockedUntilTalk(sp)) {
                 AdventureGuideManager.denyUntilTalk(sp);
+                return net.minecraft.world.InteractionResultHolder.fail(stack);
+            }
+            if (stack.is(Items.ENDER_PEARL)) {
+                deny(sp, "Ender pearls are disabled in spawn.");
                 return net.minecraft.world.InteractionResultHolder.fail(stack);
             }
             if (isPlacementItem(stack)) {
@@ -227,10 +236,16 @@ public final class SpawnRealmProtectionListener {
         String type = EntityType.getKey(entity.getType()).toString().toLowerCase(Locale.ROOT);
         // Cobblemon held-item add/remove is a right-click interaction with the Pokémon entity.
         // Spawn protection should block grief interactions, not Pokémon maintenance.
-        return type.contains("npc")
+        return entity instanceof AbstractMinecart
+                || type.contains("npc")
                 || type.contains("cobblemon:npc")
                 || type.equals("cobblemon:pokemon")
                 || type.contains("pokemon");
+    }
+
+    private static boolean isPokemonEntity(Entity entity) {
+        String type = EntityType.getKey(entity.getType()).toString().toLowerCase(Locale.ROOT);
+        return type.equals("cobblemon:pokemon") || type.contains("pokemon");
     }
 
     private static boolean isAllowedInteraction(BlockState state) {

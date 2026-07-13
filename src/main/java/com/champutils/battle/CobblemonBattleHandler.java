@@ -219,6 +219,7 @@ public class CobblemonBattleHandler {
              */
             if (winner != null) {
 
+                BattleContextManager.BattleType completedType = BattleContextManager.getContext(winner.getUUID());
                 com.champutils.guild.GuildBossManager.recordBossVictory(winner, losingNpcUuid);
 
                 BattleListener.onBattleEnd(
@@ -226,6 +227,10 @@ public class CobblemonBattleHandler {
                         loser,
                         losingNpcUuid
                 );
+
+                if (completedType == BattleContextManager.BattleType.ADVENTURE_TOWER && losingNpcUuid == null) {
+                    AdventurerGuildManager.completeBattleTowerFloor(winner);
+                }
 
                 if (losingNpcUuid != null) {
                     com.champutils.roaming.RoamingTrainerManager.handleVictory(

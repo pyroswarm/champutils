@@ -103,6 +103,11 @@ public final class HomeCommand {
             source.sendFailure(Component.literal("Only players can use /sethome."));
             return 0;
         }
+        String currentDimension = player.serverLevel().dimension().location().toString().toLowerCase(Locale.ROOT);
+        if (currentDimension.equals("multiworld:spawn1") || currentDimension.endsWith(":spawn1") || currentDimension.contains("spawn1")) {
+            player.sendSystemMessage(Component.literal("Homes cannot be set anywhere in multiworld:spawn1.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         if (!SurvivalWorldManager.isSurvivalLevel(player.serverLevel())) {
             player.sendSystemMessage(Component.literal("/sethome can only be used inside survival worlds.").withStyle(ChatFormatting.RED));
             return 0;

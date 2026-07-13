@@ -18,6 +18,7 @@ public final class BuffContext {
         PROFESSION_XP,
         WORLD_EVENT,
         NPC_BATTLE,
+        GUILD_ACTIVITY,
         CRATE,
         PURCHASE,
         ADMIN,
@@ -67,7 +68,7 @@ public final class BuffContext {
         if (type.isProfessionXp()) return allowsProfessionXpBuffs();
         if (type == BuffType.POKEMON_XP) return source == Source.PROFESSION_XP || source == Source.NPC_BATTLE || source == Source.UNKNOWN;
         if (type == BuffType.WORLD_EVENT_REWARDS) return source == Source.WORLD_EVENT;
-        if (type == BuffType.NPC_MONEY) return source == Source.NPC_BATTLE;
+        if (type == BuffType.ADVENTURER_MARKS) return source == Source.GUILD_ACTIVITY;
         return false;
     }
 

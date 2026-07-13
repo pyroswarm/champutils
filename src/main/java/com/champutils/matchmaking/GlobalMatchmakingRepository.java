@@ -13,10 +13,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class GlobalMatchmakingRepository {
+    private static volatile boolean schemaReady = false;
     private GlobalMatchmakingRepository() {
     }
 
-    public static void ensureSchema(Connection connection) throws Exception {
+    public static synchronized void ensureSchema(Connection connection) throws Exception {
+        if (schemaReady) return;
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(
                     "create table if not exists global_matchmaking_queue (" +
@@ -61,6 +63,18 @@ public final class GlobalMatchmakingRepository {
             statement.executeUpdate("create index if not exists global_matchmaking_sessions_player_idx on global_matchmaking_sessions (player_one_uuid, player_two_uuid, status)");
 
             statement.executeUpdate(
+                    "create table if not exists global_pvp_return_locations (" +
+                            "player_uuid uuid primary key, " +
+                            "original_server_id text not null, " +
+                            "world_id text not null, " +
+                            "x double precision not null, y double precision not null, z double precision not null, " +
+                            "yaw real not null default 0, pitch real not null default 0, " +
+                            "status text not null default 'QUEUED', updated_at timestamptz not null default now()" +
+                            ")"
+            );
+            statement.executeUpdate("create index if not exists global_pvp_return_server_idx on global_pvp_return_locations (original_server_id, status)");
+
+            statement.executeUpdate(
                     "create table if not exists global_matchmaking_acceptances (" +
                             "session_id uuid not null references global_matchmaking_sessions(id) on delete cascade, " +
                             "player_uuid uuid not null, " +
@@ -70,6 +84,64 @@ public final class GlobalMatchmakingRepository {
                             ")"
             );
         }
+        schemaReady = true;
+    }
+
+    public static void saveReturnLocation(UUID playerUuid, String serverId, String worldId, double x, double y, double z, float yaw, float pitch) {
+        if (playerUuid == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("save global pvp return " + playerUuid, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "insert into global_pvp_return_locations (player_uuid, original_server_id, world_id, x, y, z, yaw, pitch, status, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, 'QUEUED', now()) " +
+                            "on conflict (player_uuid) do update set original_server_id = excluded.original_server_id, world_id = excluded.world_id, x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, pitch = excluded.pitch, status = 'QUEUED', updated_at = now()")) {
+                ps.setObject(1, playerUuid); ps.setString(2, serverId == null ? "" : serverId); ps.setString(3, worldId == null ? "minecraft:overworld" : worldId);
+                ps.setDouble(4, x); ps.setDouble(5, y); ps.setDouble(6, z); ps.setFloat(7, yaw); ps.setFloat(8, pitch); ps.executeUpdate();
+            }
+        });
+    }
+
+    public static CompletableFuture<ReturnLocation> getReturnLocation(UUID playerUuid) {
+        if (playerUuid == null || !DatabaseManager.isEnabled()) return CompletableFuture.completedFuture(null);
+        return DatabaseManager.supplyAsync("load global pvp return " + playerUuid, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("select player_uuid, original_server_id, world_id, x, y, z, yaw, pitch, status from global_pvp_return_locations where player_uuid = ?")) {
+                ps.setObject(1, playerUuid);
+                try (ResultSet rs = ps.executeQuery()) { return rs.next() ? readReturnLocation(rs) : null; }
+            }
+        });
+    }
+
+    public static void markReturning(UUID playerUuid) {
+        if (playerUuid == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("mark global pvp returning " + playerUuid, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("update global_pvp_return_locations set status = 'RETURNING', updated_at = now() where player_uuid = ?")) { ps.setObject(1, playerUuid); ps.executeUpdate(); }
+        });
+    }
+
+    public static CompletableFuture<List<ReturnLocation>> returningForServer(String serverId) {
+        if (!DatabaseManager.isEnabled()) return CompletableFuture.completedFuture(List.of());
+        return DatabaseManager.supplyAsync("load returning pvp players", connection -> {
+            ensureSchema(connection);
+            List<ReturnLocation> out = new ArrayList<>();
+            try (PreparedStatement ps = connection.prepareStatement("select player_uuid, original_server_id, world_id, x, y, z, yaw, pitch, status from global_pvp_return_locations where status = 'RETURNING' and lower(original_server_id) = lower(?) limit 50")) {
+                ps.setString(1, serverId == null ? "" : serverId);
+                try (ResultSet rs = ps.executeQuery()) { while (rs.next()) out.add(readReturnLocation(rs)); }
+            }
+            return out;
+        });
+    }
+
+    public static void clearReturnLocation(UUID playerUuid) {
+        if (playerUuid == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("clear global pvp return " + playerUuid, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("delete from global_pvp_return_locations where player_uuid = ?")) { ps.setObject(1, playerUuid); ps.executeUpdate(); }
+        });
+    }
+
+    private static ReturnLocation readReturnLocation(ResultSet rs) throws Exception {
+        return new ReturnLocation((UUID) rs.getObject(1), rs.getString(2), rs.getString(3), rs.getDouble(4), rs.getDouble(5), rs.getDouble(6), rs.getFloat(7), rs.getFloat(8), rs.getString(9));
     }
 
     public static void enqueue(UUID playerUuid, UUID profileId, String playerName, String type, String sourceServerId, int rp, int rankIndex) {
@@ -104,13 +176,15 @@ public final class GlobalMatchmakingRepository {
         });
     }
 
-    public static CompletableFuture<List<Session>> tick(String preferredBattleServerId, int allowedRankSpread) {
+    public static CompletableFuture<List<Session>> tick(String preferredBattleServerId, int allowedRankSpread, boolean canHostBattle) {
         if (!DatabaseManager.isEnabled()) return CompletableFuture.completedFuture(List.of());
         String battleServer = preferredBattleServerId == null || preferredBattleServerId.isBlank() ? "main_survival1" : preferredBattleServerId;
         return DatabaseManager.supplyAsync("global matchmaking tick", connection -> {
             ensureSchema(connection);
             expireOld(connection);
-            createOneSession(connection, battleServer, Math.max(0, allowedRankSpread));
+            if (canHostBattle) {
+                createOneSession(connection, battleServer, Math.max(0, allowedRankSpread));
+            }
             return openSessions(connection);
         });
     }
@@ -143,7 +217,17 @@ public final class GlobalMatchmakingRepository {
             connection.setAutoCommit(false);
             try {
                 Session session = lockSession(connection, sessionId);
-                if (session == null || !"PENDING_ACCEPT".equalsIgnoreCase(session.status())) {
+                if (session == null) {
+                    connection.rollback();
+                    return new ResponseResult(false, false, "That match is unavailable.");
+                }
+                // Accept is idempotent. Cross-server polls and menu clicks may race with
+                // the opponent's response, so an already-accepted session is success.
+                if ("ACCEPTED".equalsIgnoreCase(session.status()) || "STARTED".equalsIgnoreCase(session.status())) {
+                    connection.commit();
+                    return new ResponseResult(true, true, "Both players accepted.");
+                }
+                if (!"PENDING_ACCEPT".equalsIgnoreCase(session.status())) {
                     connection.rollback();
                     return new ResponseResult(false, false, "That match is no longer waiting for acceptance.");
                 }
@@ -177,6 +261,17 @@ public final class GlobalMatchmakingRepository {
                 throw e;
             } finally {
                 connection.setAutoCommit(restoreAutoCommit);
+            }
+        });
+    }
+
+    public static void markExpired(UUID sessionId) {
+        if (sessionId == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.executeAsync("expire global match " + sessionId, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("update global_matchmaking_sessions set status = 'EXPIRED', updated_at = now() where id = ? and status in ('PENDING_ACCEPT', 'ACCEPTED')")) {
+                ps.setObject(1, sessionId);
+                ps.executeUpdate();
             }
         });
     }
@@ -231,7 +326,7 @@ public final class GlobalMatchmakingRepository {
                     UUID sessionId = UUID.randomUUID();
                     try (PreparedStatement insert = connection.prepareStatement(
                             "insert into global_matchmaking_sessions (id, queue_type, player_one_uuid, player_one_name, player_two_uuid, player_two_name, battle_server_id, status, expires_at) " +
-                                    "values (?, ?, ?, ?, ?, ?, ?, 'PENDING_ACCEPT', now() + interval '90 seconds')"
+                                    "values (?, ?, ?, ?, ?, ?, ?, 'PENDING_ACCEPT', now() + interval '5 minutes')"
                     )) {
                         insert.setObject(1, sessionId);
                         insert.setString(2, normalizeType(a.queueType()));
@@ -359,5 +454,8 @@ public final class GlobalMatchmakingRepository {
     }
 
     public record ResponseResult(boolean recorded, boolean bothAccepted, String message) {
+    }
+
+    public record ReturnLocation(UUID playerUuid, String originalServerId, String worldId, double x, double y, double z, float yaw, float pitch, String status) {
     }
 }

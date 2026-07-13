@@ -160,6 +160,7 @@ public class ChampUtilsMod implements ModInitializer {
         StaffServerCommand.register();
         ChampDebugCommand.register();
         MenuNpcCommand.register();
+        SignBindCommand.register();
         BlankNpcCommand.register();
         NpcAdminCommand.register();
         MenuNpcInteractionListener.register();
@@ -301,6 +302,8 @@ public class ChampUtilsMod implements ModInitializer {
         HomeCommand.load();
         BoosterCreditManager.load();
         com.champutils.account.AccountUpgradeConfig.load();
+        com.champutils.account.AccountUpgradeManager.initialize();
+        com.champutils.chat.NicknameManager.initialize();
         AccountCommerceConfig.load();
         CrateConfig.load();
         CrateCreditManager.load();
@@ -506,6 +509,8 @@ public class ChampUtilsMod implements ModInitializer {
                     ServerPlayer player =
                             handler.player;
 
+                    com.champutils.chat.NicknameManager.load(player);
+
                     String playerName =
                             player.getName()
                                     .getString();
@@ -643,7 +648,7 @@ public class ChampUtilsMod implements ModInitializer {
                     AntiAfkManager.handleDisconnect(handler.player);
                     BreedingManager.handleDisconnect(handler.player);
                     MusicManager.handleQuit(handler.player);
-                    AdventurerGuildManager.unloadPlayer(handler.player);
+                    AdventurerGuildManager.handleDisconnect(handler.player);
                     AdventureGuideManager.unloadPlayer(handler.player);
                     PlayerProfileManager.saveAndUnloadForDisconnect(handler.player);
 
@@ -662,6 +667,8 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
                 (message, player, params) -> {
+
+                    if (com.champutils.secret.SpawnSecretManager.consumeChat(player, message.signedContent())) return false;
 
                     if (
                             ProfileLookupManager.isWaiting(
@@ -728,6 +735,7 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         AutoStepCommand.register();
         MenuNpcCommand.register();
+        SignBindCommand.register();
         NpcShopCommand.register();
         IslanderShopCommand.register();
         WorldEventCommand.register();
@@ -767,6 +775,7 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.guild.BossDamageProtectionListener.register();
         TerritoryCommand.register();
         ChatCommand.register();
+        com.champutils.chat.NicknameCommand.register();
         PrivateMessageCommand.register();
         RankedShopCommand.register();
         DiscordCommand.register();
@@ -853,6 +862,7 @@ public class ChampUtilsMod implements ModInitializer {
         LandClaimPokemonRulesListener.register();
         DeathBackListener.register();
         com.champutils.badge.BadgeUnlockManager.init();
+        com.champutils.secret.SpawnSecretManager.register();
         com.champutils.protection.SpawnRealmProtectionListener.register();
         com.champutils.protection.CampfirePotSafetyListener.register();
         com.champutils.protection.SpawnEditCommand.register();
@@ -1027,7 +1037,7 @@ public class ChampUtilsMod implements ModInitializer {
                     /*
                      Matchmaking systems
                      */
-                    timedTick("MatchmakingManager", MatchmakingManager::tick);
+                    timedTick("MatchmakingManager", () -> MatchmakingManager.tick(server));
                     timedTick("QueueBossBarManager", QueueBossBarManager::tick);
 
                     timedTick("TeamPreviewManager", () -> TeamPreviewManager.tick(

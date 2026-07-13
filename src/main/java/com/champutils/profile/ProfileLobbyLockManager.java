@@ -111,11 +111,10 @@ public final class ProfileLobbyLockManager {
         // Once a real profile is active, the player must never remain trapped by the lobby lock.
         // This prevents stale menu/no-profile state from blocking commands after a successful load.
         if (PlayerProfileManager.hasActiveProfile(player)) return false;
-        // On a real PROFILE_LOBBY backend, do not enforce the old all-in-one lobby lock.
-        // The lock applies protection/state packets every tick, and the current Velocity/FabricProxy
-        // failure happens before the async profile prep finishes. Keep PROFILE_LOBBY join packet-quiet;
-        // /profiles and bound profile NPCs still open the selector manually.
-        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) return false;
+        // The dedicated PROFILE_LOBBY backend is also a no-profile state. Keep it locked so
+        // commands, item drops, interactions, and inventory escape paths stay unavailable until
+        // a profile is selected. The tick loop below remains packet-quiet on this backend.
+        if (ProfileNetworkTransferFlow.isProfileLobbyServer()) return true;
         return ProfileLobbyManager.isInLobby(player);
     }
 
@@ -154,6 +153,13 @@ public final class ProfileLobbyLockManager {
             if (!isLocked(player) || hasBypass(player)) continue;
 
             if (ProfileLoadingStateManager.isLoading(player)) {
+                continue;
+            }
+
+            // Avoid repeatedly sending state/inventory packets during the proxy backend join.
+            // sendToLobby applies the initial protection once; this lock still gates commands,
+            // drops, and interactions while the forced profile selector is open.
+            if (ProfileNetworkTransferFlow.isProfileLobbyServer()) {
                 continue;
             }
 

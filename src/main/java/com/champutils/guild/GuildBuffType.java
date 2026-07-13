@@ -12,5 +12,5 @@ public enum GuildBuffType {
     SHINY_CHANCE,
     PERFECT_IV_CHANCE,
     WORLD_EVENT_REWARDS,
-    NPC_MONEY
+    ADVENTURER_MARKS
 }

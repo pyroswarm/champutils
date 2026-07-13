@@ -105,8 +105,8 @@ public final class NetworkTabListManager {
     }
 
     private static String displayServer(String serverId) {
-        if ("main_survival1".equalsIgnoreCase(serverId)) return "Alpha";
-        if ("survival2".equalsIgnoreCase(serverId)) return "Omega";
+        if ("main_survival1".equalsIgnoreCase(serverId)) return "Nova";
+        if ("survival2".equalsIgnoreCase(serverId)) return "Eclipse";
         if ("profile_lobby".equalsIgnoreCase(serverId)) return "Lobby";
         return serverId == null || serverId.isBlank() ? "Unknown" : serverId;
     }

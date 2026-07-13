@@ -43,6 +43,7 @@ public final class ProfessionSubLevelManager {
 
     public static void addXp(ServerPlayer player, ProfessionType profession, String category, String rawId, int amount) {
         if (player == null || profession == null || rawId == null || rawId.isBlank() || amount <= 0) return;
+        if (!ProfessionManager.canEarnProfessionXp(player, profession)) return;
         amount = ProfessionXpBoostManager.applyBoosts(player, profession, amount);
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
         ProfessionDataManager.ensureProfessionDefaults(data);
@@ -79,13 +80,16 @@ public final class ProfessionSubLevelManager {
         if (safeLevel >= 100) return Integer.MAX_VALUE / 4;
 
         ProfessionConfig.ProfessionSettings settings = ProfessionConfig.SETTINGS;
-        int base = Math.max(1, settings == null ? 90 : settings.sublevelXpBase);
-        int perLevel = Math.max(1, settings == null ? 25 : settings.sublevelXpPerLevel);
-        double growthAfter50 = Math.max(1.0D, settings == null ? 1.09D : settings.sublevelXpGrowthAfter50);
+        int base = Math.max(1, settings.sublevelXpBase);
+        int perLevel = Math.max(1, settings.sublevelXpPerLevel);
+        double growth = Math.max(1.0D, settings.sublevelXpGrowthAfter50);
 
-        if (safeLevel < 50) return base + (safeLevel * perLevel);
+        if (safeLevel < 50) {
+            return Math.max(1, base + (safeLevel * perLevel));
+        }
+
         double baseAtFifty = base + (50.0D * perLevel);
-        double scaled = baseAtFifty * Math.pow(growthAfter50, safeLevel - 49);
+        double scaled = baseAtFifty * Math.pow(growth, safeLevel - 49);
         return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4, Math.round(scaled)));
     }
 

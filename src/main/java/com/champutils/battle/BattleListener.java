@@ -121,8 +121,13 @@ public class BattleListener {
                 Config.arenas != null &&
                         !Config.arenas.isEmpty()
         ) {
-            ArenaManager.returnPlayer(winner);
-            ArenaManager.returnPlayer(loser);
+            if (queuedPvpBattle) {
+                MatchmakingManager.returnPlayerAfterQueuedPvp(winner);
+                MatchmakingManager.returnPlayerAfterQueuedPvp(loser);
+            } else {
+                ArenaManager.returnPlayer(winner);
+                ArenaManager.returnPlayer(loser);
+            }
 
             ArenaManager.releaseArena(winner);
             ArenaManager.releaseArena(loser);
@@ -245,7 +250,15 @@ public class BattleListener {
             System.out.println("[ChampUtils] Direct party heal failed after queued battle for " + player.getGameProfile().getName() + ": " + t.getMessage());
         }
         try {
-            player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack().withSuppressedOutput().withPermission(4), "pokeheal " + player.getGameProfile().getName());
+            if (player.getServer() != null) {
+                // This is a server-owned post-battle recovery action, not a player use of
+                // the VIP /pokeheal command. Run the native command from console so the
+                // donor permission guard cannot block required battle cleanup.
+                player.getServer().getCommands().performPrefixedCommand(
+                        player.getServer().createCommandSourceStack().withSuppressedOutput().withPermission(4),
+                        "cobblemon:healpokemon " + player.getGameProfile().getName()
+                );
+            }
         } catch (Throwable t) {
             System.out.println("[ChampUtils] /pokeheal fallback failed after queued battle for " + player.getGameProfile().getName() + ": " + t.getMessage());
         }

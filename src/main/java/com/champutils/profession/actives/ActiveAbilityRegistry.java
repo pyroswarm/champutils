@@ -30,6 +30,7 @@ public class ActiveAbilityRegistry {
         register(new TreasureSenseAbility());
         register(new BlastMineAbility());
         register(new StonebreakerAbility());
+        register(new SilkTouchToggleAbility());
 
         // Forestry
         register(new TimberBurstAbility());

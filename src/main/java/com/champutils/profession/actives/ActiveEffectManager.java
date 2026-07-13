@@ -5,6 +5,12 @@ import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profession.ProfessionToolMetadata;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
@@ -117,6 +123,7 @@ public class ActiveEffectManager {
             case "ore_magnet_toggle" -> "ore_magnet";
             case "tree_replant_toggle" -> "tree_replant";
             case "auto_replant_toggle", "replant_toggle" -> "auto_replant";
+            case "silk_touch_toggle" -> "silk_touch";
             default -> null;
         };
     }
@@ -726,6 +733,7 @@ public class ActiveEffectManager {
         }
 
         ProfessionToolMetadata.clearActiveToggles(stack);
+        removeSilkTouchEnchant(player, stack);
     }
 
     public static void clearAllActiveEffects(
@@ -734,6 +742,26 @@ public class ActiveEffectManager {
         if (player == null) return;
         TIMED_EFFECTS.remove(player.getUUID());
         TOGGLED_EFFECTS.remove(player.getUUID());
+        for (ItemStack stack : player.getInventory().items) {
+            if (stack == null || stack.isEmpty()) continue;
+            ProfessionToolMetadata.setActiveToggle(stack, "silk_touch", false);
+            removeSilkTouchEnchant(player, stack);
+        }
+    }
+
+    private static void removeSilkTouchEnchant(ServerPlayer player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) return;
+        try {
+            Holder<Enchantment> silk = player.registryAccess().registryOrThrow(Registries.ENCHANTMENT)
+                    .getHolderOrThrow(Enchantments.SILK_TOUCH);
+            ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(stack.getEnchantments());
+            if (mutable.getLevel(silk) > 0) {
+                mutable.set(silk, 0);
+                stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+                player.getInventory().setChanged();
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void cleanupInvalidHeldToggles(

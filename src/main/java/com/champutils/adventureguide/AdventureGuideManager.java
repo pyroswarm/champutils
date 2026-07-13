@@ -38,7 +38,7 @@ public final class AdventureGuideManager {
     private static int tickCounter = 0;
 
     public static final List<Objective> OBJECTIVES = List.of(
-            objective("talk_to_adventurer", "Talk to the Adventurer's Guild Representative", "Start here. The Adventurer's Guild is the hub for PvE, jobs, contracts, expeditions, tower runs, and server progression.", "talk_to_adventurer", 1, 250L, "The representative is at spawn."),
+            objective("talk_to_adventurer", "Talk to the Adventurer's Guild Representative", "Start here. The Adventurer's Guild is the hub for PvE, jobs, contracts, expeditions, tower runs, and server progression.", "talk_to_adventurer", 1, 250L, "The representative is inside the big utility building to the south."),
             objective("rtp_survival", "Use RTP to reach the survival world", "RTP takes you out of spawn and into the world where most gathering, battling, and exploration happens.", "rtp", 1, 250L, "Use /rtp or the Adventurer's Guild menu."),
             objective("catch_species", "Catch 5 new species of Pokemon", "The true dex tracks species progress per profile and rewards long-term collecting.", "catch_species", 5, 500L, "Catch Pokemon you have not caught on this profile before."),
             objective("profession_intro", "Earn profession progress 25 times", "Mining, farming, forestry, and other professions reward XP when using profession gear.", "profession_action", 25, 500L, "Gather with profession tools or complete profession actions."),
@@ -142,7 +142,7 @@ public final class AdventureGuideManager {
 
     public static void denyUntilTalk(ServerPlayer player) {
         if (player == null) return;
-        player.sendSystemMessage(Component.literal("§eTalk to the Adventurer's Guild Representative first. §7They are beside you at spawn."));
+        player.sendSystemMessage(Component.literal("§eTalk to the Adventurer's Guild Representative first. §7They are inside the big utility building to the south."));
     }
 
     public static void increment(ServerPlayer player, String systemKey, int amount) {
@@ -216,6 +216,19 @@ public final class AdventureGuideManager {
             player.sendSystemMessage(Component.literal("§aAdventure Guide boss bar enabled."));
         } else {
             removeBossBar(player);
+            player.sendSystemMessage(Component.literal("§eAdventure Guide boss bar disabled."));
+        }
+    }
+
+    /** Disables the guide boss bar and persists the preference. */
+    public static void disableBossBar(ServerPlayer player, boolean notify) {
+        if (player == null) return;
+        PlayerData data = data(player);
+        data.bossBarVisible = false;
+        markDirty(player);
+        save(player);
+        removeBossBar(player);
+        if (notify) {
             player.sendSystemMessage(Component.literal("§eAdventure Guide boss bar disabled."));
         }
     }

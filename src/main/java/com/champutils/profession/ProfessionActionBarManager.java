@@ -138,6 +138,7 @@ public class ProfessionActionBarManager {
             case FORESTRY -> "§a";
             case FARMING -> "§e";
             case BATTLING -> "§6";
+            case BREEDING -> "§d";
             default -> "§f";
         };
     }

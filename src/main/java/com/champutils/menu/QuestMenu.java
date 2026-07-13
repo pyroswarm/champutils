@@ -10,6 +10,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.quest.QuestConfig;
 import com.champutils.quest.QuestDataManager;
 import com.champutils.quest.QuestManager;
+import com.champutils.quest.QuestTrackerManager;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
@@ -39,8 +40,8 @@ public class QuestMenu {
                 .addLoreLine(Component.literal("§7Daily, weekly, contract,"))
                 .addLoreLine(Component.literal("§7guild, and PvP quests.")));
 
-        setSet(gui, 10, data.daily, "§bDaily Tasks", "", true);
-        setSet(gui, 14, data.weekly, "§dWeekly Tasks", "", false);
+        setSet(gui, 10, player, data, data.daily, "daily", "§bDaily Tasks", "", true);
+        setSet(gui, 14, player, data, data.weekly, "weekly", "§dWeekly Tasks", "", false);
         setPvpGuildMissions(gui, 19, player);
         setGuildWeekly(gui, 28, player, guildData);
 
@@ -107,7 +108,7 @@ public class QuestMenu {
         gui.open();
     }
 
-    private static void setSet(SimpleGui gui, int start, QuestDataManager.QuestSet set, String title, String claimCommand, boolean daily) {
+    private static void setSet(SimpleGui gui, int start, ServerPlayer player, QuestDataManager.QuestData data, QuestDataManager.QuestSet set, String kind, String title, String claimCommand, boolean daily) {
         GuiElementBuilder main = new GuiElementBuilder(Items.WRITABLE_BOOK)
                 .hideDefaultTooltip()
                 .setName(Component.literal(title))
@@ -126,7 +127,8 @@ public class QuestMenu {
                     .setName(Component.literal((done ? "§a" : "§e") + o.description))
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(o.progress, o.required) + "§7/§f" + o.required))
                     .addLoreLine(Component.literal("§7Profession: §f" + o.profession))
-                    .addLoreLine(Component.literal(done ? "§aComplete" : "§7Keep progressing.")));
+                    .addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, kind, o) ? "§aTracked" : (done ? "§aComplete" : "§eClick to track")))
+                    .setCallback((index, click, action) -> { QuestTrackerManager.track(player, kind, o); open(player); }));
         }
     }
 
@@ -231,9 +233,9 @@ public class QuestMenu {
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
-            item.addLoreLine(Component.literal(done ? "§eClick to claim" : "§7Complete before it expires."));
+            item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eClick to claim" : "§eClick to track")));
             item.setCallback((index, click, action) -> {
-                QuestManager.completeContract(player);
+                if (done) QuestManager.completeContract(player); else QuestTrackerManager.track(player, "contract", c);
                 open(player);
             });
             gui.setSlot(start + offset, item);

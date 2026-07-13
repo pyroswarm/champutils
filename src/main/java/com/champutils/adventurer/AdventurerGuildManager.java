@@ -1,10 +1,14 @@
 package com.champutils.adventurer;
 
+import com.champutils.buff.BuffContext;
+import com.champutils.buff.BuffManager;
+import com.champutils.buff.BuffType;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattlePrepManager;
 import com.champutils.battle.PluginTrainerBattleStarter;
 import com.champutils.economy.EconomyManager;
+import com.champutils.crate.CrateCreditManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.roaming.RoamingTrainerRarity;
 import com.champutils.roaming.RoamingTrainerManager;
@@ -19,6 +23,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.Entity;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -36,6 +41,7 @@ import java.util.UUID;
 
 public final class AdventurerGuildManager {
     public static final String SOURCE_BATTLE_TOWER = "battle_tower";
+    public static final String SOURCE_BATTLE_TOWER_ULTIMATE = "battle_tower_ultimate";
     public static final String SOURCE_ROAMING_LEAGUE = "adventurer_request";
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
@@ -47,12 +53,24 @@ public final class AdventurerGuildManager {
 
     public static void load() {
         AdventurerGuildConfig.load();
+        BattleTowerPoolConfig.load();
         AdventurerGuildDataManager.ensureSchemaAsync();
     }
 
     public static void handleJoin(ServerPlayer player) {
         AdventurerGuildDataManager.PlayerData data = getData(player);
         refreshPeriods(data);
+        if (data.activeTowerFloor > 0) {
+            int interruptedFloor = data.activeTowerFloor;
+            data.lastTowerEndMillis = System.currentTimeMillis();
+            clearActiveTower(data);
+            data.ultimateClimbActive = false;
+            data.ultimateClimbStartedMillis = 0L;
+            data.towerFloor = checkpointForBest(data.bestTowerFloor);
+            markDirty(player);
+            sendToSpawn(player);
+            player.sendSystemMessage(Component.literal("Your Battle Tower run ended because you disconnected during floor " + interruptedFloor + ". Try again in " + secondsLeft(Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L) + ".").withStyle(ChatFormatting.RED));
+        }
         notifyRankProgress(player, data);
         savePlayer(player);
     }
@@ -69,8 +87,12 @@ public final class AdventurerGuildManager {
             AdventurerGuildDataManager.PlayerData data = getData(player);
             refreshPeriods(data);
             if (data.activeTowerFloor > 0 && data.activeTowerStartedMillis > 0L && now - data.activeTowerStartedMillis > activeLimit) {
+                data.lastTowerEndMillis = now;
+                data.lastTowerEndMillis = System.currentTimeMillis();
                 clearActiveTower(data);
+                data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L; data.lastTowerEndMillis = System.currentTimeMillis();
                 data.towerFloor = checkpointForBest(data.bestTowerFloor);
+                sendToSpawn(player);
                 markDirty(player);
                 player.sendSystemMessage(Component.literal("Your Battle Tower challenge expired. You can restart from floor " + data.towerFloor + ".").withStyle(ChatFormatting.YELLOW));
             }
@@ -110,11 +132,16 @@ public final class AdventurerGuildManager {
             AdventurerGuildDataManager.PlayerData data = getData(player);
             if (data.activeTowerFloor > 0) {
                 int failed = data.activeTowerFloor;
+                data.lastTowerEndMillis = System.currentTimeMillis();
+                removeActiveTowerPokemon(player, data);
                 clearActiveTower(data);
+                data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L;
                 data.towerFloor = checkpointForBest(data.bestTowerFloor);
                 markDirty(player);
                 savePlayer(player);
-                player.sendSystemMessage(Component.literal("Battle Tower floor " + failed + " failed. You can retry from floor " + data.towerFloor + " at the Guild Clerk.").withStyle(ChatFormatting.RED));
+                sendToSpawn(player);
+                long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L;
+                player.sendSystemMessage(Component.literal("You have failed your climb. Try again in " + secondsLeft(cooldown) + ".").withStyle(ChatFormatting.RED));
             }
         }
     }
@@ -132,8 +159,8 @@ public final class AdventurerGuildManager {
             player.sendSystemMessage(Component.literal("You already have an active Battle Tower trainer. Defeat it or wait for it to expire.").withStyle(ChatFormatting.RED));
             return false;
         }
-        if (!ignoreCooldown && cooldown > 0 && now - data.lastTowerStartMillis < cooldown) {
-            player.sendSystemMessage(Component.literal("Battle Tower is preparing your next floor. Try again in " + secondsLeft(cooldown - (now - data.lastTowerStartMillis)) + ".").withStyle(ChatFormatting.YELLOW));
+        if (!ignoreCooldown && cooldown > 0 && now - data.lastTowerEndMillis < cooldown) {
+            player.sendSystemMessage(Component.literal("Battle Tower is preparing your next floor. Try again in " + secondsLeft(cooldown - (now - data.lastTowerEndMillis)) + ".").withStyle(ChatFormatting.YELLOW));
             return false;
         }
 
@@ -161,34 +188,43 @@ public final class AdventurerGuildManager {
             return false;
         }
 
-        RoamingTrainerRarity rarity = RoamingTrainerRarity.parse(floorData.rarity, AdventurerGuildConfig.rarityForFloor(floor));
-        UUID npcUuid = RoamingTrainerManager.spawnForAdventureGuildAt(player, targetLevel, placement.npcPos, placement.npcYaw, rarity, SOURCE_BATTLE_TOWER, floor);
-        if (npcUuid == null) {
-            player.sendSystemMessage(Component.literal("Could not create your Battle Tower adventurer at this floor. Make sure the center has open space 7 blocks out.").withStyle(ChatFormatting.RED));
+        String towerSource = data.ultimateClimbActive ? SOURCE_BATTLE_TOWER_ULTIMATE : SOURCE_BATTLE_TOWER;
+        UUID pokemonUuid = BattleTowerTrainerBattle.spawnAndStart(player, targetLevel, placement.npcPos, placement.npcYaw, floor, data.ultimateClimbActive);
+        if (pokemonUuid == null) {
+            player.sendSystemMessage(Component.literal("Could not create the Battle Tower trainer for floor " + floor + ". Check the configured center and pool.").withStyle(ChatFormatting.RED));
+            sendToSpawn(player);
             return false;
         }
 
         data.activeTowerFloor = floor;
-        data.activeTowerNpcUuid = npcUuid.toString();
+        data.activeTowerNpcUuid = pokemonUuid.toString();
         data.activeTowerStartedMillis = now;
         data.lastTowerStartMillis = now;
         markDirty(player);
         savePlayer(player);
         player.closeContainer();
-        player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " has begun. Healing and Pokémon storage are locked until the next checkpoint.").withStyle(ChatFormatting.GOLD));
-
-        NPCEntity npc = RoamingTrainerManager.findTrainerNpc(player.getServer(), npcUuid);
-        if (npc != null) {
-            try {
-                RoamingTrainerManager.tryStartChallenge(player, npc);
-                PluginTrainerBattleStarter.startOrMessage(player, npc, BattleContextManager.BattleType.ADVENTURE_TOWER, SOURCE_BATTLE_TOWER, null, true, false, Component.literal("§cCould not start the Battle Tower battle."));
-            } catch (Exception e) {
-                e.printStackTrace();
-                player.sendSystemMessage(Component.literal("Could not auto-start this Battle Tower battle. Right-click the trainer to begin.").withStyle(ChatFormatting.YELLOW));
-            }
-        }
-
+        showFloorAnnouncement(player, floor);
+        player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " has begun. Party switching, Pokémon storage, and healing are locked.").withStyle(ChatFormatting.GOLD));
         return true;
+    }
+
+
+    public static boolean startUltimateClimb(ServerPlayer player) {
+        if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(1, AdventurerGuildConfig.SETTINGS.ultimateClimbAttemptCooldownHours) * 3_600_000L;
+        if (data.activeTowerFloor > 0) { player.sendSystemMessage(Component.literal("Finish your current Battle Tower run first.").withStyle(ChatFormatting.RED)); return false; }
+        if (now - data.lastUltimateClimbAttemptMillis < cooldown) {
+            player.sendSystemMessage(Component.literal("Ultimate Climb is available again in " + secondsLeft(cooldown - (now - data.lastUltimateClimbAttemptMillis)) + ".").withStyle(ChatFormatting.YELLOW)); return false;
+        }
+        data.ultimateClimbActive = true;
+        data.ultimateClimbStartedMillis = now;
+        data.lastUltimateClimbAttemptMillis = now;
+        data.towerFloor = 1;
+        markDirty(player); savePlayer(player);
+        player.sendSystemMessage(Component.literal("Ultimate Climb started. You must clear floors 1-100 in one uninterrupted session.").withStyle(ChatFormatting.LIGHT_PURPLE));
+        return startBattleTowerFloor(player, true);
     }
 
     public static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity) {
@@ -254,49 +290,73 @@ public final class AdventurerGuildManager {
         return true;
     }
 
+    public static void completeBattleTowerFloor(ServerPlayer player) { completeBattleTowerFloor(player, null); }
+
     public static void completeBattleTowerFloor(ServerPlayer player, RoamingTrainerManager.RoamingTrainerData trainerData) {
-        if (player == null || trainerData == null) return;
+        if (player == null) return;
         AdventurerGuildDataManager.PlayerData data = getData(player);
-        int floor = trainerData.towerFloor > 0 ? trainerData.towerFloor : data.activeTowerFloor;
+        int floor = trainerData != null && trainerData.towerFloor > 0 ? trainerData.towerFloor : data.activeTowerFloor;
         if (floor <= 0) floor = 1;
         int maxFloor = Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
-        int previousBest = Math.max(0, data.bestTowerFloor);
         boolean checkpointReached = isCheckpointFloor(floor) || floor >= maxFloor;
-        boolean newProgressCheckpoint = checkpointReached && floor > previousBest;
-
-        if (newProgressCheckpoint) {
-            int startFloor = Math.max(previousCheckpointFloor(floor) + 1, previousBest + 1);
-            awardTowerCheckpoint(player, data, startFloor, floor);
-            healParty(player);
-            AdventureGuideManager.increment(player, "battle_tower_checkpoint", 1);
-            player.sendSystemMessage(Component.literal("Battle Tower checkpoint reached at floor " + floor + "! Your party has been healed.").withStyle(ChatFormatting.GOLD));
-        }
 
         data.bestTowerFloor = Math.max(data.bestTowerFloor, floor);
+        if (checkpointReached) {
+            claimTowerTierReward(player, data, floor);
+            healParty(player);
+            AdventureGuideManager.increment(player, "battle_tower_checkpoint", 1);
+            com.champutils.worldfirst.WorldFirstManager.award(player, "first_battle_tower_" + floor);
+            com.champutils.cosmetic.TitleManager.unlock(player, "tower_floor_" + floor);
+            player.sendSystemMessage(Component.literal("Checkpoint " + floor + " cleared. Your party has been healed.").withStyle(ChatFormatting.GOLD));
+        }
         clearActiveTower(data);
 
         if (floor >= maxFloor) {
             data.towerClears++;
-            data.towerFloor = 9;
             addRenown(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusRenown));
             addMarks(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusMarks));
-            if (AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits > 0) {
+            if (AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits > 0)
                 EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits), "adventurer_battle_tower_clear");
-            }
-            markDirty(player);
-            savePlayer(player);
-            notifyRankProgress(player, data);
-            player.sendSystemMessage(Component.literal("Battle Tower cleared! You can start future attempts from floor 9.").withStyle(ChatFormatting.GOLD));
+            if (data.ultimateClimbActive) awardUltimateClimb(player, data);
+            data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L;
+            data.towerFloor = 91; data.lastTowerEndMillis = System.currentTimeMillis();
+            com.champutils.worldfirst.WorldFirstManager.award(player, "first_battle_tower_100");
+            sendToSpawn(player); markDirty(player); savePlayer(player); notifyRankProgress(player, data);
+            player.sendSystemMessage(Component.literal("Battle Tower cleared!").withStyle(ChatFormatting.GOLD));
             return;
         }
-
         data.towerFloor = floor + 1;
-        markDirty(player);
-        savePlayer(player);
-        notifyRankProgress(player, data);
+        markDirty(player); savePlayer(player); notifyRankProgress(player, data);
+        BattleTowerContinueMenu.open(player, floor, checkpointReached);
+    }
 
-        player.sendSystemMessage(Component.literal("Battle Tower floor " + floor + " cleared! Advancing to floor " + data.towerFloor + ".").withStyle(ChatFormatting.GREEN));
-        startBattleTowerFloor(player, true);
+    private static void claimTowerTierReward(ServerPlayer player, AdventurerGuildDataManager.PlayerData data, int floor) {
+        AdventurerGuildConfig.BattleTowerFloor reward = AdventurerGuildConfig.floor(floor);
+        String key = "floor_" + floor;
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerRewardCooldownHours) * 3_600_000L;
+        long last = data.towerRewardClaims.getOrDefault(key, 0L);
+        if (now - last < cooldown) {
+            player.sendSystemMessage(Component.literal("Floor " + floor + " tier reward was already claimed. Available again in " + secondsLeft(cooldown - (now-last)) + ".").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        data.towerRewardClaims.put(key, now);
+        addRenown(data, Math.max(0,reward.rewardRenown)); addMarks(data, Math.max(0,reward.rewardMarks));
+        if (reward.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_tier:"+floor);
+        if (reward.crateCreditId != null && !reward.crateCreditId.isBlank() && reward.crateCreditAmount > 0)
+            CrateCreditManager.addCredits(player, reward.crateCreditId, reward.crateCreditAmount);
+        runRewardCommands(player, reward.rewardCommands);
+        player.sendSystemMessage(Component.literal("Daily floor " + floor + " reward claimed: " + reward.crateCreditAmount + " " + reward.crateCreditId.toUpperCase(Locale.ROOT) + " Rank Crate Credit(s).").withStyle(ChatFormatting.GREEN));
+    }
+
+    private static void awardUltimateClimb(ServerPlayer player, AdventurerGuildDataManager.PlayerData data) {
+        data.ultimateClimbClears++;
+        CrateCreditManager.addCredits(player, AdventurerGuildConfig.SETTINGS.ultimateClimbCrateCreditId, Math.max(1, AdventurerGuildConfig.SETTINGS.ultimateClimbCrateCredits));
+        if (AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits), "battle_tower_ultimate_clear");
+        addRenown(data, AdventurerGuildConfig.SETTINGS.ultimateClimbBonusRenown); addMarks(data, AdventurerGuildConfig.SETTINGS.ultimateClimbBonusMarks);
+        com.champutils.cosmetic.TitleManager.unlock(player, "ultimate_tower_conqueror");
+        com.champutils.worldfirst.WorldFirstManager.award(player, "first_ultimate_battle_tower_clear");
+        player.sendSystemMessage(Component.literal("ULTIMATE CLIMB COMPLETE! You earned an S Rank Crate Credit and the Ultimate Tower Conqueror title.").withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
     public static void completeRoamingLeagueTrainer(ServerPlayer player, RoamingTrainerManager.RoamingTrainerData trainerData) {
@@ -315,7 +375,7 @@ public final class AdventurerGuildManager {
 
     public static boolean setBattleTowerFloorLocation(ServerPlayer player, int floorNumber) {
         if (player == null) return false;
-        int floor = Math.max(1, Math.min(25, floorNumber));
+        int floor = Math.max(1, Math.min(100, floorNumber));
         AdventurerGuildConfig.BattleTowerFloor entry = AdventurerGuildConfig.ensureFloor(floor);
         entry.locationSet = true;
         entry.world = player.serverLevel().dimension().location().toString();
@@ -427,7 +487,15 @@ public final class AdventurerGuildManager {
         if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return;
         AdventurerGuildDataManager.PlayerData data = getData(player);
         int safeRenown = Math.max(0, renown);
-        int safeMarks = Math.max(0, marks);
+        int baseMarks = Math.max(0, marks);
+        double marksBonus = BuffManager.getTotalBuff(
+                BuffContext.builder(player, BuffContext.Source.GUILD_ACTIVITY).build(),
+                BuffType.ADVENTURER_MARKS
+        );
+        int bonusMarks = baseMarks <= 0 ? 0 : (int) Math.floor(baseMarks * marksBonus);
+        double fractionalMark = baseMarks * marksBonus - bonusMarks;
+        if (fractionalMark > 0.0D && java.util.concurrent.ThreadLocalRandom.current().nextDouble() < fractionalMark) bonusMarks++;
+        int safeMarks = baseMarks + bonusMarks;
         addRenown(data, safeRenown);
         addMarks(data, safeMarks);
         markDirty(player);
@@ -505,7 +573,7 @@ public final class AdventurerGuildManager {
     public static String timeUntilTowerReady(AdventurerGuildDataManager.PlayerData data) {
         if (data == null) return "Ready";
         long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L;
-        long left = cooldown - (System.currentTimeMillis() - data.lastTowerStartMillis);
+        long left = cooldown - (System.currentTimeMillis() - data.lastTowerEndMillis);
         return left <= 0L ? "Ready" : secondsLeft(left);
     }
 
@@ -517,6 +585,17 @@ public final class AdventurerGuildManager {
         AdventurerGuildDataManager.PlayerData data = CACHE.get(profileId);
         if (data != null) AdventurerGuildDataManager.save(profileId, data);
         DIRTY.remove(profileId);
+    }
+
+    public static void handleDisconnect(ServerPlayer player) {
+        if (player == null) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (data.activeTowerFloor > 0 || data.ultimateClimbActive) {
+            data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L; data.lastTowerEndMillis = System.currentTimeMillis();
+            removeActiveTowerPokemon(player, data);
+            clearActiveTower(data); data.towerFloor = checkpointForBest(data.bestTowerFloor); markDirty(player);
+        }
+        unloadPlayer(player);
     }
 
     public static void unloadPlayer(ServerPlayer player) {
@@ -662,26 +741,14 @@ public final class AdventurerGuildManager {
     }
 
     private static int normalizeCheckpoint(int floor) {
-        if (floor >= 9) return 9;
-        if (floor >= 6) return 6;
-        if (floor >= 3) return 3;
-        return 1;
+        int max=Math.max(10,AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
+        int safe=Math.max(1,Math.min(max,floor));
+        return safe <= 1 ? 1 : ((safe-1)/10)*10+1;
     }
+    private static int checkpointForBest(int bestFloor) { return bestFloor < 10 ? 1 : Math.min(91,(bestFloor/10)*10+1); }
+    private static int previousCheckpointFloor(int floor) { return Math.max(0,((Math.max(1,floor)-1)/10)*10); }
+    private static boolean isCheckpointFloor(int floor) { return floor % 10 == 0 || floor >= Math.max(1,AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor); }
 
-    private static int checkpointForBest(int bestFloor) {
-        return normalizeCheckpoint(bestFloor);
-    }
-
-    private static int previousCheckpointFloor(int floor) {
-        if (floor >= 12) return 9;
-        if (floor >= 9) return 6;
-        if (floor >= 6) return 3;
-        return 0;
-    }
-
-    private static boolean isCheckpointFloor(int floor) {
-        return floor == 3 || floor == 6 || floor == 9 || floor >= Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
-    }
 
     private record TowerPlacement(Vec3 playerPos, float playerYaw, Vec3 npcPos, float npcYaw) {}
 
@@ -690,8 +757,8 @@ public final class AdventurerGuildManager {
         double dx = -Math.sin(radians);
         double dz = Math.cos(radians);
         Vec3 center = new Vec3(floor.x, floor.y, floor.z);
-        Vec3 playerPos = center.add(dx * -3.5D, 0.0D, dz * -3.5D);
-        Vec3 npcPos = center.add(dx * 3.5D, 0.0D, dz * 3.5D);
+        Vec3 playerPos = center.add(dx * -7.0D, 0.0D, dz * -7.0D);
+        Vec3 npcPos = center.add(dx * 7.0D, 0.0D, dz * 7.0D);
         float playerYaw = floor.yaw;
         float npcYaw = wrapYaw(floor.yaw + 180.0F);
         return new TowerPlacement(playerPos, playerYaw, npcPos, npcYaw);
@@ -758,10 +825,90 @@ public final class AdventurerGuildManager {
         return false;
     }
 
+    public static boolean isInsideBattleTower(ServerPlayer player) {
+        if (player == null) return false;
+        String world = player.serverLevel().dimension().location().toString();
+        for (AdventurerGuildConfig.BattleTowerFloor floor : AdventurerGuildConfig.SETTINGS.battleTowerFloors) {
+            if (floor == null || !floor.locationSet || floor.world == null || !floor.world.equalsIgnoreCase(world)) continue;
+            double dx = player.getX() - floor.x;
+            double dy = player.getY() - floor.y;
+            double dz = player.getZ() - floor.z;
+            if (dx * dx + dz * dz <= 144.0D && Math.abs(dy) <= 8.0D) return true;
+        }
+        return false;
+    }
+
+    public static boolean isBattleTowerDestination(ServerLevel level, double x, double y, double z) {
+        if (level == null) return false;
+        String world = level.dimension().location().toString();
+        for (AdventurerGuildConfig.BattleTowerFloor floor : AdventurerGuildConfig.SETTINGS.battleTowerFloors) {
+            if (floor == null || !floor.locationSet || floor.world == null || !floor.world.equalsIgnoreCase(world)) continue;
+            double dx = x - floor.x, dy = y - floor.y, dz = z - floor.z;
+            if (dx * dx + dz * dz <= 144.0D && Math.abs(dy) <= 8.0D) return true;
+        }
+        return false;
+    }
+
+    public static void continueBattleTower(ServerPlayer player) {
+        if (player == null) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        if (data.activeTowerFloor > 0) return;
+        startBattleTowerFloor(player, true);
+    }
+
+    public static void giveUpBattleTower(ServerPlayer player) {
+        if (player == null) return;
+        AdventurerGuildDataManager.PlayerData data = getData(player);
+        data.lastTowerEndMillis = System.currentTimeMillis();
+        data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L;
+        data.towerFloor = checkpointForBest(data.bestTowerFloor);
+        markDirty(player); savePlayer(player); sendToSpawn(player);
+        player.sendSystemMessage(Component.literal("Your Battle Tower run has ended.").withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void showFloorAnnouncement(ServerPlayer player, int floor) {
+        if (player == null || player.getServer() == null) return;
+        String name = player.getName().getString();
+        try {
+            var source = player.getServer().createCommandSourceStack().withSuppressedOutput().withPermission(4);
+            player.getServer().getCommands().performPrefixedCommand(source, "title " + name + " times 5 30 10");
+            player.getServer().getCommands().performPrefixedCommand(source, "title " + name + " title {\"text\":\"FLOOR " + floor + "\",\"color\":\"gold\",\"bold\":true}");
+            player.getServer().getCommands().performPrefixedCommand(source, "playsound minecraft:block.note_block.pling master " + name + " ~ ~ ~ 1 1");
+        } catch (Exception ignored) {}
+    }
+
+    private static void removeActiveTowerPokemon(ServerPlayer player, AdventurerGuildDataManager.PlayerData data) {
+        if (player == null || data == null || data.activeTowerNpcUuid == null || data.activeTowerNpcUuid.isBlank() || player.getServer() == null) return;
+        try {
+            UUID id = UUID.fromString(data.activeTowerNpcUuid);
+            for (ServerLevel level : player.getServer().getAllLevels()) {
+                Entity entity = level.getEntity(id);
+                if (entity != null) entity.discard();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public static void forfeitBattleTower(ServerPlayer player, String reason) {
+        if (player == null) return;
+        AdventurerGuildDataManager.PlayerData data=getData(player);
+        if (data.activeTowerFloor <= 0) return;
+        data.lastTowerEndMillis=System.currentTimeMillis();
+        removeActiveTowerPokemon(player, data);
+        clearActiveTower(data); data.ultimateClimbActive=false; data.ultimateClimbStartedMillis=0L; data.towerFloor=checkpointForBest(data.bestTowerFloor);
+        sendToSpawn(player); markDirty(player); savePlayer(player);
+        if(reason!=null&&!reason.isBlank()) player.sendSystemMessage(Component.literal(reason).withStyle(ChatFormatting.RED));
+    }
+
+    private static void sendToSpawn(ServerPlayer player) {
+        if(player==null||player.getServer()==null)return;
+        try { player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), "spawn"); } catch(Exception ignored) {}
+    }
+
     private static void markDirty(ServerPlayer player) {
         if (player == null) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId != null) DIRTY.add(profileId);
+        com.champutils.chat.ChatTagResolver.invalidate(player);
     }
 
     private static String secondsLeft(long millis) {

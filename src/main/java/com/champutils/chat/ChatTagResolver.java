@@ -8,6 +8,8 @@ import net.minecraft.server.level.ServerPlayer;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.permissions.LuckPermsHook;
+import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.adventurer.AdventurerRankUtil;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -39,6 +41,11 @@ public final class ChatTagResolver {
         MutableComponent rankTag = rankTagFor(player);
         if (rankTag != null) {
             result.append(rankTag).append(Component.literal(" "));
+        }
+
+        MutableComponent adventurerRankTag = adventurerRankTagFor(player);
+        if (adventurerRankTag != null) {
+            result.append(adventurerRankTag).append(Component.literal(" "));
         }
 
         String selectedTitle = com.champutils.cosmetic.TitleManager.selected(player.getUUID());
@@ -85,6 +92,9 @@ public final class ChatTagResolver {
         String rank = donationRankLegacy(player);
         if (rank != null && !rank.isBlank()) out.append(rank).append(" ");
 
+        String adventurerRank = adventurerRankLegacy(player);
+        if (adventurerRank != null && !adventurerRank.isBlank()) out.append(adventurerRank).append(" ");
+
         String title = activeTitleLegacy(player);
         if (title != null && !title.isBlank()) out.append(title).append(" ");
 
@@ -112,6 +122,11 @@ public final class ChatTagResolver {
     public static String donationRankLegacy(ServerPlayer player) {
         if (player == null) return "";
 
+        // Staff groups inherit VIP+ command access, but their staff identity must
+        // remain visually dominant instead of being replaced by a donor tag.
+        String staffRank = staffRankLegacy(player);
+        if (!staffRank.isBlank()) return staffRank;
+
         if (LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+")
                 || LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
                 || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")
@@ -134,6 +149,22 @@ public final class ChatTagResolver {
         }
 
         return "";
+    }
+
+    public static String adventurerRankLegacy(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return "";
+        String rank = AdventurerGuildManager.currentRankId(player);
+        if (rank == null || rank.isBlank()) rank = "F";
+        rank = AdventurerRankUtil.normalizeRank(rank);
+        return AdventurerRankUtil.color(rank).toString() + "[" + rank + "]§r";
+    }
+
+    private static MutableComponent adventurerRankTagFor(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return null;
+        String rank = AdventurerGuildManager.currentRankId(player);
+        if (rank == null || rank.isBlank()) rank = "F";
+        rank = AdventurerRankUtil.normalizeRank(rank);
+        return Component.literal("[" + rank + "]").withStyle(AdventurerRankUtil.color(rank));
     }
 
     public static String activeTitleLegacy(ServerPlayer player) {
@@ -182,6 +213,9 @@ public final class ChatTagResolver {
     private static MutableComponent rankTagFor(ServerPlayer player) {
         if (player == null) return null;
 
+        MutableComponent staffRank = staffRankFor(player);
+        if (staffRank != null) return staffRank;
+
         if (LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+")
                 || LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
                 || LuckPermsHook.hasPermission(player, "champutils.profiles.vipplus")
@@ -203,6 +237,32 @@ public final class ChatTagResolver {
             }
         }
 
+        return null;
+    }
+
+    private static String staffRankLegacy(ServerPlayer player) {
+        if (player == null) return "";
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.owner")) return "§6§l[OWNER]§r";
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.admin")) return "§c§l[ADMIN]§r";
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.moderator")) return "§2§l[MOD]§r";
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.staff")) return "§3§l[STAFF]§r";
+        return "";
+    }
+
+    private static MutableComponent staffRankFor(ServerPlayer player) {
+        if (player == null) return null;
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.owner")) {
+            return Component.literal("[OWNER]").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+        }
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.admin")) {
+            return Component.literal("[ADMIN]").withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
+        }
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.moderator")) {
+            return Component.literal("[MOD]").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD);
+        }
+        if (LuckPermsHook.hasExactPermissionNode(player, "group.staff")) {
+            return Component.literal("[STAFF]").withStyle(ChatFormatting.DARK_AQUA, ChatFormatting.BOLD);
+        }
         return null;
     }
 

@@ -78,7 +78,16 @@ public class ArenaManager {
 
 
     public static boolean hasOpenArena(){
-        return getOpenArena()!=null;
+        return openArenaCount() > 0;
+    }
+
+    public static int openArenaCount() {
+        if (Config.arenas == null || Config.arenas.isEmpty()) return 0;
+        int count = 0;
+        for (Arena arena : Config.arenas) {
+            if (arena != null && arena.id != null && !IN_USE.contains(arena.id)) count++;
+        }
+        return count;
     }
 
 
@@ -171,6 +180,61 @@ public class ArenaManager {
         return arena;
     }
 
+
+
+
+    public static Arena reserveArenaForSession(
+            UUID playerOne,
+            UUID playerTwo,
+            ServerPlayer p1,
+            ServerPlayer p2
+    ) {
+        Arena arena = getOpenArena();
+        if (arena == null) return null;
+
+        if (p1 != null) saveReturnLocation(p1);
+        if (p2 != null) saveReturnLocation(p2);
+
+        IN_USE.add(arena.id);
+        if (playerOne != null) PLAYER_ARENAS.put(playerOne, arena.id);
+        if (playerTwo != null) PLAYER_ARENAS.put(playerTwo, arena.id);
+        rememberArena(arena.id);
+        return arena;
+    }
+
+    public static void teleportPlayerToArenaSide(
+            ServerPlayer player,
+            Arena arena,
+            boolean firstSide
+    ) {
+        if (player == null || arena == null) return;
+        if (!RETURNS.containsKey(player.getUUID())) saveReturnLocation(player);
+
+        double spacing = 7.5D;
+        String world = arena.world == null || arena.world.isBlank()
+                ? "multiworld:spawn1"
+                : arena.world;
+        ServerLevel level = getLevel(player, world);
+        if (level == null) {
+            player.sendSystemMessage(Component.literal("§cArena world is not loaded: " + world));
+            return;
+        }
+
+        double x = firstSide ? arena.centerX - spacing : arena.centerX + spacing;
+        float yaw = firstSide ? -90.0F : 90.0F;
+        SafeTeleportManager.teleportUncheckedNoBack(
+                player,
+                level,
+                x,
+                arena.y,
+                arena.centerZ,
+                yaw,
+                0.0F
+        );
+        player.setYRot(yaw);
+        player.setYHeadRot(yaw);
+        player.setXRot(0.0F);
+    }
 
     private static void rememberArena(
             String id
@@ -348,6 +412,19 @@ public class ArenaManager {
         );
     }
 
+
+
+    public static boolean returnPlayerToStoredLocation(ServerPlayer player, GlobalMatchmakingRepository.ReturnLocation loc) {
+        if (player == null || loc == null) return false;
+        ServerLevel level = getLevel(player, loc.worldId());
+        if (level == null) return false;
+        SafeTeleportManager.teleportUncheckedNoBack(player, level, loc.x(), loc.y(), loc.z(), loc.yaw(), loc.pitch());
+        player.setYRot(loc.yaw());
+        player.setYHeadRot(loc.yaw());
+        player.setXRot(loc.pitch());
+        RETURNS.remove(player.getUUID());
+        return true;
+    }
 
     public static void releaseArena(
             ServerPlayer player

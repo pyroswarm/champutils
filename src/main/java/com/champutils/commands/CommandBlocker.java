@@ -5,6 +5,7 @@ import com.champutils.permissions.LuckPermsHook;
 import com.champutils.adventurer.AdventurerGuildManager;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.matchmaking.MatchmakingManager;
 import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -61,25 +62,39 @@ public final class CommandBlocker {
         }
 
 
+        if (sourcePlayer != null && !sourcePlayer.hasPermissions(4)
+                && MatchmakingManager.isWaitingForCrossServerMatch(sourcePlayer)) {
+            deny(source, Component.literal("§eYou cannot use commands while waiting for your cross-server opponent to finish loading."));
+            return true;
+        }
+
         if (sourcePlayer != null && !sourcePlayer.hasPermissions(4) && AdventureGuideManager.isLockedUntilTalk(sourcePlayer) && !isFirstGuideAllowedRoot(parsed.root)) {
-            deny(source, Component.literal("§eTalk to the Adventurer's Guild Representative first. §7They are beside you at spawn."));
+            deny(source, Component.literal("§eTalk to the Adventurer's Guild Representative first. §7They are inside the big utility building to the south."));
             return true;
         }
 
         String permission = requiredPermission(parsed.root);
         if (permission == null) return false;
 
-        // Do not let vanilla OP bypass VIP progression commands. Staff still bypass through explicit LuckPerms nodes.
-        if (sourcePlayer != null && (LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.admin") || LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.staff"))) return false;
+        // Rank commands are intentionally not bypassed by vanilla OP status or by a
+        // database-only account flag. Cobblemon rechecks its native permissions after
+        // /pc opens, so both the ChampUtils gate and the native node must be effective.
+        boolean rankProtected = isStrictRankRoot(parsed.root);
+        boolean staffBypass = sourcePlayer != null && (
+                LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.admin")
+                        || LuckPermsHook.hasExactPermissionNode(sourcePlayer, "champutils.staff")
+        );
+        if (!rankProtected && staffBypass) return false;
 
         if (sourcePlayer != null && !sourcePlayer.hasPermissions(4) && !PlayerProfileManager.hasActiveProfile(sourcePlayer)) {
             deny(source, Component.literal("§cSelect and load a profile before using this command."));
             return true;
         }
 
-        // /pokeheal <player> and /healpokemon <player> should remain staff/admin only.
-        // VIP should only get self-heal.
-        if ((parsed.root.equals("pokeheal") || parsed.root.equals("healpokemon") || parsed.root.equals("healparty") || parsed.root.equals("pokehealother") || parsed.root.equals("pokemonheal")) && !parsed.arguments.isBlank()) {
+        // /pokeheal <player> and /healpokemon <player> require Cobblemon's native
+        // other-player permission. VIP and VIP+ receive self-heal only.
+        if (isHealRoot(parsed.root) && !parsed.arguments.isBlank()
+                && (sourcePlayer == null || !LuckPermsHook.hasPermissionStrict(sourcePlayer, "cobblemon.command.healpokemon.other"))) {
             deny(source, Component.literal("§cYou can only use /pokeheal on yourself."));
             return true;
         }
@@ -90,12 +105,23 @@ public final class CommandBlocker {
             return true;
         }
 
-        if (sourcePlayer != null && AdventurerGuildManager.isAttemptingBattleTower(sourcePlayer) && isBattleTowerHealRoot(parsed.root)) {
+        if (!staffBypass && sourcePlayer != null && AdventurerGuildManager.isAttemptingBattleTower(sourcePlayer) && isBattleTowerEscapeRoot(parsed.root)) {
+            AdventurerGuildManager.forfeitBattleTower(sourcePlayer, "You left the Battle Tower using /" + parsed.root + ".");
+            deny(source, Component.literal("§cYour Battle Tower run was forfeited and the 1-hour cooldown has begun."));
+            return true;
+        }
+
+        if (!staffBypass && sourcePlayer != null && AdventurerGuildManager.isAttemptingBattleTower(sourcePlayer) && isBattleTowerHealRoot(parsed.root)) {
             deny(source, Component.literal("§cYou cannot heal or access Pokémon storage during a Battle Tower attempt. You will be healed at checkpoints."));
             return true;
         }
 
-        if (sourcePlayer == null || !PermissionUtil.has(source, permission)) {
+        boolean permitted = sourcePlayer != null && (
+                rankProtected
+                        ? hasCompleteRankPermission(sourcePlayer, parsed.root, parsed.arguments)
+                        : PermissionUtil.has(source, permission)
+        );
+        if (!permitted) {
             deny(source, denyMessageFor(parsed.root));
             return true;
         }
@@ -131,6 +157,38 @@ public final class CommandBlocker {
         };
     }
 
+    private static boolean isStrictRankRoot(String root) {
+        return root != null && (root.equals("pc") || isHealRoot(root));
+    }
+
+    private static boolean isHealRoot(String root) {
+        return root != null && (root.equals("pokeheal")
+                || root.equals("healpokemon")
+                || root.equals("healparty")
+                || root.equals("pokehealother")
+                || root.equals("pokemonheal"));
+    }
+
+    private static boolean hasCompleteRankPermission(ServerPlayer player, String root, String arguments) {
+        if (player == null) return false;
+        if (root.equals("pc")) {
+            return LuckPermsHook.hasPermissionStrict(player, "champutils.command.pc")
+                    && LuckPermsHook.hasPermissionStrict(player, "cobblemon.command.pc");
+        }
+        if (isHealRoot(root)) {
+            boolean self = LuckPermsHook.hasPermissionStrict(player, "champutils.command.pokeheal")
+                    && LuckPermsHook.hasPermissionStrict(player, "cobblemon.command.healpokemon.self");
+            if (!self) return false;
+            return arguments == null || arguments.isBlank()
+                    || LuckPermsHook.hasPermissionStrict(player, "cobblemon.command.healpokemon.other");
+        }
+        return false;
+    }
+
+    private static boolean isBattleTowerEscapeRoot(String root) {
+        return root != null && (root.equals("back") || root.equals("home") || root.equals("spawn") || root.equals("tpa") || root.equals("tpaccept") || root.equals("rtp") || root.equals("warp") || root.equals("warps") || root.equals("hub") || root.equals("lobby") || root.equals("server"));
+    }
+
     private static boolean isBattleTowerHealRoot(String root) {
         return root != null && (root.equals("pc")
                 || root.equals("pokeheal")
@@ -141,8 +199,12 @@ public final class CommandBlocker {
     }
 
     private static Component denyMessageFor(String root) {
+        if (root != null && (root.equals("pc") || isHealRoot(root))) {
+            return Component.literal("§cThis command is unlocked in game through the account upgrader or online at the cobblechamps.com store.");
+        }
+
         String feature = switch (root) {
-            case "ec", "enderchest", "pc", "pokeheal", "healpokemon", "healparty", "pokehealother", "pokemonheal" -> "VIP";
+            case "ec", "enderchest" -> "VIP";
             case "pokeivs", "ivs" -> "VIP+";
             default -> "locked";
         };

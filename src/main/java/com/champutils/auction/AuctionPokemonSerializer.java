@@ -7,6 +7,7 @@ import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.champutils.profile.CobblemonProfileStorageBridge;
+import com.champutils.breeding.BreedingEggData;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -21,8 +22,15 @@ import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayOutputStream;
 
 public final class AuctionPokemonSerializer {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private AuctionPokemonSerializer() {}
 
@@ -310,15 +318,42 @@ public final class AuctionPokemonSerializer {
         FAILED
     }
 
+    public static String listingTitle(Pokemon pokemon) {
+        if (pokemon == null) return "Pokémon";
+        if (BreedingEggData.isEgg(pokemon)) {
+            if (BreedingEggData.isMysteryEgg(pokemon)) return "Mystery Pokémon Egg";
+            String species = BreedingEggData.offspringSpecies(pokemon);
+            return prettySpecies(species) + " Egg";
+        }
+        return safe(pokemon.getDisplayName(true).getString());
+    }
+
     public static JsonObject toPayload(ServerPlayer player, Pokemon pokemon) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
         if (pokemon == null) throw new IllegalArgumentException("Pokémon cannot be null.");
 
         JsonObject payload = new JsonObject();
         payload.addProperty("kind", "POKEMON");
+        payload.addProperty("uuid", pokemon.getUuid().toString());
+
+        if (BreedingEggData.isEgg(pokemon)) {
+            boolean mystery = BreedingEggData.isMysteryEgg(pokemon);
+            payload.addProperty("format", "champutils_breeding_egg_encrypted_v1");
+            payload.addProperty("species", BreedingEggData.EGG_SPECIES);
+            payload.addProperty("displayName", listingTitle(pokemon));
+            payload.addProperty("egg", true);
+            payload.addProperty("mysteryEgg", mystery);
+            payload.addProperty("hatchSpecies", BreedingEggData.publicOffspringSpecies(pokemon));
+            payload.addProperty("eggProgressPercent", BreedingEggData.progressPercent(pokemon));
+            payload.addProperty("eggRemainingSteps", BreedingEggData.remainingSteps(pokemon));
+            payload.addProperty("eggStage", BreedingEggData.hatchStage(pokemon));
+            payload.addProperty("eggRarity", mystery ? "UNKNOWN" : BreedingEggData.rarityTier(pokemon).name());
+            payload.addProperty("pokemonNbtEncrypted", encryptEggPayload(savePokemonBase64(player, pokemon)));
+            return payload;
+        }
+
         payload.addProperty("format", "cobblemon_pokemon_nbt_v2");
         payload.addProperty("species", safe(speciesId(pokemon)));
-        payload.addProperty("uuid", pokemon.getUuid().toString());
         payload.addProperty("displayName", safe(pokemon.getDisplayName(true).getString()));
         payload.addProperty("level", pokemon.getLevel());
         payload.addProperty("shiny", pokemon.getShiny());
@@ -342,7 +377,12 @@ public final class AuctionPokemonSerializer {
         String species = payload.has("species") ? payload.get("species").getAsString() : "cobblemon:pikachu";
         Pokemon pokemon = PokemonProperties.Companion.parse("species=\"" + species + "\"").create();
 
-        String encoded = payload.has("pokemonNbtBase64") ? payload.get("pokemonNbtBase64").getAsString() : "";
+        String encoded = "";
+        if (payload.has("pokemonNbtEncrypted")) {
+            encoded = decryptEggPayload(payload.get("pokemonNbtEncrypted").getAsString());
+        } else if (payload.has("pokemonNbtBase64")) {
+            encoded = payload.get("pokemonNbtBase64").getAsString();
+        }
         if (encoded == null || encoded.isBlank()) {
             throw new IllegalStateException("Auction Pokémon payload is missing saved Cobblemon NBT.");
         }
@@ -351,10 +391,69 @@ public final class AuctionPokemonSerializer {
             byte[] bytes = Base64.getDecoder().decode(encoded);
             CompoundTag tag = TagParser.parseTag(new String(bytes, StandardCharsets.UTF_8));
             loadPokemonNbt(player, pokemon, tag);
+            if (BreedingEggData.isEgg(pokemon)) {
+                BreedingEggData.transferOwnership(player, pokemon);
+            }
             return pokemon;
         } catch (Exception e) {
             throw new RuntimeException("Could not restore Pokémon payload.", e);
         }
+    }
+
+    private static String encryptEggPayload(String plainBase64) {
+        try {
+            byte[] iv = new byte[12];
+            SECURE_RANDOM.nextBytes(iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, eggSecretKey(), new GCMParameterSpec(128, iv));
+            byte[] encrypted = cipher.doFinal(plainBase64.getBytes(StandardCharsets.UTF_8));
+            ByteArrayOutputStream output = new ByteArrayOutputStream(iv.length + encrypted.length);
+            output.write(iv);
+            output.write(encrypted);
+            return Base64.getEncoder().encodeToString(output.toByteArray());
+        } catch (Exception e) {
+            throw new RuntimeException("Could not encrypt breeding Egg auction payload.", e);
+        }
+    }
+
+    private static String decryptEggPayload(String encryptedBase64) {
+        try {
+            byte[] packed = Base64.getDecoder().decode(encryptedBase64);
+            if (packed.length <= 12) throw new IllegalArgumentException("Encrypted Egg payload is too short.");
+            byte[] iv = java.util.Arrays.copyOfRange(packed, 0, 12);
+            byte[] encrypted = java.util.Arrays.copyOfRange(packed, 12, packed.length);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, eggSecretKey(), new GCMParameterSpec(128, iv));
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not decrypt breeding Egg auction payload. Confirm both servers use the same auction_house.json eggPayloadSecret.", e);
+        }
+    }
+
+    private static SecretKeySpec eggSecretKey() throws Exception {
+        String secret = AuctionHouseConfig.get().eggPayloadSecret == null
+                ? ""
+                : AuctionHouseConfig.get().eggPayloadSecret.trim();
+        if (secret.length() < 32) {
+            throw new IllegalStateException("auction_house.json eggPayloadSecret must be at least 32 characters and identical on Nova and Eclipse.");
+        }
+        byte[] hash = MessageDigest.getInstance("SHA-256")
+                .digest(secret.getBytes(StandardCharsets.UTF_8));
+        return new SecretKeySpec(hash, "AES");
+    }
+
+    private static String prettySpecies(String id) {
+        String value = id == null ? "Pokémon" : id;
+        int colon = value.indexOf(':');
+        if (colon >= 0 && colon + 1 < value.length()) value = value.substring(colon + 1);
+        String[] words = value.replace('-', ' ').replace('_', ' ').split("\\s+");
+        StringBuilder out = new StringBuilder();
+        for (String word : words) {
+            if (word.isBlank()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.length() == 0 ? "Pokémon" : out.toString();
     }
 
     private static void loadPokemonNbt(ServerPlayer player, Pokemon pokemon, CompoundTag tag) throws Exception {

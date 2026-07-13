@@ -16,6 +16,7 @@ import net.minecraft.world.item.Items;
 import com.champutils.profession.ProfessionChunkConfig;
 import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.profession.ProfessionToolConfig;
+import com.champutils.breeding.BreedingConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public final class ProfessionsMenu {
     public static void open(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("Professions"));
-        MenuUtil.fillBorders(gui, 10, 12, 14, 16, 22, 4);
+        MenuUtil.fillBorders(gui, 10, 12, 14, 16, 22, 26, 4);
 
         gui.setSlot(4, new GuiElementBuilder(Items.BOOK)
                 .hideDefaultTooltip()
@@ -41,8 +42,9 @@ public final class ProfessionsMenu {
         setProfessionButton(gui, player, 12, ProfessionType.FORESTRY, Items.DIAMOND_AXE, "§aForestry");
         setProfessionButton(gui, player, 14, ProfessionType.FARMING, Items.DIAMOND_HOE, "§eFarming");
         setProfessionButton(gui, player, 16, ProfessionType.BATTLING, Items.DIAMOND_SWORD, "§cBattling");
+        setProfessionButton(gui, player, 22, ProfessionType.BREEDING, Items.EGG, "§dBreeding");
 
-        MenuUtil.addBackButton(gui, 22, () -> MainMenu.open(player));
+        MenuUtil.addBackButton(gui, 26, () -> MainMenu.open(player));
         gui.open();
     }
 
@@ -50,6 +52,22 @@ public final class ProfessionsMenu {
         int level = ProfessionManager.getLevel(player, profession);
         int xp = ProfessionManager.getXp(player, profession);
         int next = ProfessionManager.xpRequired(level);
+        if (profession == ProfessionType.BREEDING) {
+            BreedingConfig.Values cfg = BreedingConfig.get();
+            GuiElementBuilder breeding = new GuiElementBuilder(icon)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal(name + " §7Lv. " + level))
+                    .addLoreLine(Component.literal("§7XP: §f" + xp + "§7/§f" + next))
+                    .addLoreLine(Component.literal("§7Earn XP by hatching Eggs."))
+                    .addLoreLine(Component.literal("§7Lv. 100 extra perfect IV: §a" + pct(cfg.breedingLevel100ExtraPerfectIvChancePercent)))
+                    .addLoreLine(Component.literal("§7Lv. 100 Hidden Ability bonus: §d+" + pct(cfg.breedingLevel100HiddenAbilityBonusPercent)))
+                    .addLoreLine(Component.literal("§7Lv. 100 shiny bonus: §e+" + pct(cfg.breedingLevel100ShinyRelativeBonusPercent) + " relative"))
+                    .addLoreLine(Component.literal("§7Every hatch awards a chunk."))
+                    .addLoreLine(Component.literal("§eClick for details"))
+                    .setCallback((i, c, t) -> openDetails(player, profession));
+            gui.setSlot(slot, breeding);
+            return;
+        }
         double chunkFind = ProfessionSubLevelManager.chunkFindChanceBonus(player, profession) * 100.0D;
         double rarity = ProfessionSubLevelManager.chunkRarityChanceBonus(player, profession) * 100.0D;
         int mastered = ProfessionSubLevelManager.countMasteredSublevels(ProfessionManager.getData(player), profession);
@@ -176,11 +194,36 @@ public final class ProfessionsMenu {
             setDetailButton(gui, player, 12, ProfessionType.FORESTRY, Items.DIAMOND_AXE, "§aForestry Details");
             setDetailButton(gui, player, 14, ProfessionType.FARMING, Items.DIAMOND_HOE, "§eFarming Details");
             setDetailButton(gui, player, 16, ProfessionType.BATTLING, Items.DIAMOND_SWORD, "§cBattling Details");
-            MenuUtil.addInfoCard(gui, 31, Items.BOOK, "§6What matters",
+            setDetailButton(gui, player, 30, ProfessionType.BREEDING, Items.EGG, "§dBreeding Details");
+            MenuUtil.addInfoCard(gui, 32, Items.BOOK, "§6What matters",
                     "§7Overall profession level controls",
                     "§7base chunk odds and major unlocks.",
                     "§7Sublevels level faster and add",
                     "§7extra chunk find/rarity bonuses.");
+        } else if (profession == ProfessionType.BREEDING) {
+            int level = ProfessionManager.getLevel(player, profession);
+            int xp = ProfessionManager.getXp(player, profession);
+            BreedingConfig.Values cfg = BreedingConfig.get();
+            MenuUtil.addInfoCard(gui, 10, Items.EGG, "§dBreeding Progress",
+                    "§7Level: §f" + level,
+                    "§7XP: §f" + xp + "§7/§f" + ProfessionManager.xpRequired(level),
+                    "§7XP comes from hatching Eggs.",
+                    "§7Rarer hatchlings give more XP.");
+            MenuUtil.addInfoCard(gui, 12, Items.DIAMOND, "§bEgg Quality",
+                    "§7Ditto + Ditto can hatch a",
+                    "§7random eligible base-stage Pokémon.",
+                    "§7Higher levels improve rare-pool odds.",
+                    "§7Lv. 100 extra perfect IV: §a" + pct(cfg.breedingLevel100ExtraPerfectIvChancePercent));
+            MenuUtil.addInfoCard(gui, 14, Items.ENCHANTED_BOOK, "§5Rare Traits",
+                    "§7Lv. 100 Hidden Ability bonus: §d+" + pct(cfg.breedingLevel100HiddenAbilityBonusPercent),
+                    "§7Lv. 100 shiny bonus: §e+" + pct(cfg.breedingLevel100ShinyRelativeBonusPercent) + " relative",
+                    "§8Bonuses scale gradually and",
+                    "§8soft-cap at level 100.");
+            MenuUtil.addInfoCard(gui, 16, Items.NETHERITE_SCRAP, "§6Hatch Rewards",
+                    "§7Every Egg gives one digital chunk.",
+                    "§7Chunk rarity improves with level.",
+                    "§7At level 100, Netherite is 2%.",
+                    "§7Use §f/chunks §7to view rewards.");
         } else {
             int level = ProfessionManager.getLevel(player, profession);
             int xp = ProfessionManager.getXp(player, profession);
@@ -236,17 +279,20 @@ public final class ProfessionsMenu {
             case FORESTRY -> Items.DIAMOND_AXE;
             case FARMING -> Items.DIAMOND_HOE;
             case BATTLING -> Items.DIAMOND_SWORD;
+            case BREEDING -> Items.EGG;
             default -> Items.BOOK;
         };
     }
 
     private static String chunkRollSummary(ProfessionType profession) {
+        if (profession == ProfessionType.BREEDING) return "1 guaranteed chunk per hatch";
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
         if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return "No chunk rewards yet.";
         return "Base x" + String.format(java.util.Locale.US, "%.2f", activity.activityMultiplier) + " · " + activity.rolls.size() + " rarities";
     }
 
     private static String[] chunkRollLines(ProfessionType profession) {
+        if (profession == ProfessionType.BREEDING) return new String[]{"§7One guaranteed chunk per hatch.", "§7Rarity scales with Breeding level.", "§7Level 100 Netherite chance: §d2.00%"};
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
         if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return new String[]{"§7No chunk rewards yet."};
         java.util.List<String> lines = new java.util.ArrayList<>();

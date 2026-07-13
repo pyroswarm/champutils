@@ -119,6 +119,7 @@ public final class ProfessionBackpackConfig {
     public static boolean allowItem(String itemId, ProfessionType profession, String displayName) {
         if (itemId == null || itemId.isBlank() || !isBackpackProfession(profession)) return false;
         String id = normalizeItem(itemId);
+        if (!isAllowedProfessionItem(id, profession)) return false;
         ItemData data = CONFIG.items.get(id);
         if (data == null) data = new ItemData(profession, id, displayName == null || displayName.isBlank() ? formatName(id) : displayName, CONFIG.items.size() + 1);
         data.item = id;
@@ -181,6 +182,7 @@ public final class ProfessionBackpackConfig {
         if (profession == null || itemId == null || itemId.isBlank()) return null;
         if (!isBackpackProfession(profession)) return null;
         String id = normalizeItem(itemId);
+        if (!isAllowedProfessionItem(id, profession)) return null;
         ItemData existing = CONFIG.items.get(id);
         if (existing != null) return existing;
         if (!CONFIG.autoDiscoverProfessionDrops) return null;
@@ -236,6 +238,70 @@ public final class ProfessionBackpackConfig {
         };
     }
 
+    public static ProfessionType allowedProfessionFor(String itemId) {
+        String id = normalizeItem(itemId);
+        if (id.isBlank()) return null;
+        String path = id.substring(id.indexOf(':') + 1);
+
+        if (id.equals("minecraft:stick") || id.equals("minecraft:apple") ||
+                path.endsWith("_log") || path.endsWith("_wood") || path.endsWith("_stem") || path.endsWith("_hyphae") ||
+                path.startsWith("stripped_") && (path.endsWith("_log") || path.endsWith("_wood") || path.endsWith("_stem") || path.endsWith("_hyphae")) ||
+                path.endsWith("_sapling") || path.endsWith("_fungus") || path.contains("apricorn") ||
+                id.equals("cobblemon:sweet_apple") || id.equals("cobblemon:tart_apple")) {
+            return ProfessionType.FORESTRY;
+        }
+
+        if (path.endsWith("_berry") || path.endsWith("_seeds") || path.endsWith("_seed") ||
+                path.endsWith("_mint_leaf") || id.equals("minecraft:wheat") || id.equals("minecraft:carrot") ||
+                id.equals("minecraft:potato") || id.equals("minecraft:poisonous_potato") || id.equals("minecraft:beetroot") ||
+                id.equals("minecraft:pumpkin") || id.equals("minecraft:melon_slice") || id.equals("minecraft:sugar_cane") ||
+                id.equals("minecraft:cocoa_beans") || id.equals("minecraft:cactus") || id.equals("minecraft:bamboo") ||
+                id.equals("minecraft:nether_wart") || id.equals("cobblemon:vivichoke") ||
+                id.equals("cobblemon:medicinal_leek") || id.equals("cobblemon:pep_up_flower") ||
+                id.equals("cobblemon:revival_herb") || id.equals("cobblemon:energy_root") || id.equals("cobblemon:big_root")) {
+            return ProfessionType.FARMING;
+        }
+
+        if (path.endsWith("_fossil") || path.startsWith("fossilized_") || path.contains("tumblestone") ||
+                isCobblemonEvolutionStonePath(path) || path.endsWith("_ore") || path.contains("stone_ore") ||
+                path.startsWith("raw_") || id.equals("minecraft:coal") || id.equals("minecraft:charcoal") ||
+                id.equals("minecraft:diamond") || id.equals("minecraft:emerald") || id.equals("minecraft:redstone") ||
+                id.equals("minecraft:lapis_lazuli") || id.equals("minecraft:quartz") || id.equals("minecraft:ancient_debris") ||
+                id.equals("minecraft:flint") || isBulkMiningMaterial(id)) {
+            return ProfessionType.MINING;
+        }
+        return null;
+    }
+
+    public static boolean isAllowedProfessionItem(String itemId, ProfessionType profession) {
+        ProfessionType allowed = allowedProfessionFor(itemId);
+        return allowed != null && allowed == profession;
+    }
+
+    private static boolean isBulkMiningMaterial(String id) {
+        return switch (id) {
+            case "minecraft:stone", "minecraft:cobblestone", "minecraft:deepslate", "minecraft:cobbled_deepslate",
+                    "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:tuff", "minecraft:calcite",
+                    "minecraft:dripstone_block", "minecraft:pointed_dripstone", "minecraft:dirt", "minecraft:coarse_dirt",
+                    "minecraft:rooted_dirt", "minecraft:grass_block", "minecraft:podzol", "minecraft:mycelium",
+                    "minecraft:sand", "minecraft:red_sand", "minecraft:gravel", "minecraft:clay", "minecraft:clay_ball",
+                    "minecraft:netherrack", "minecraft:blackstone", "minecraft:basalt", "minecraft:smooth_basalt",
+                    "minecraft:end_stone", "minecraft:obsidian", "minecraft:crying_obsidian", "minecraft:magma_block",
+                    "minecraft:moss_block", "minecraft:mud", "minecraft:packed_mud", "minecraft:smooth_stone",
+                    "minecraft:stone_bricks", "minecraft:cracked_stone_bricks", "minecraft:mossy_stone_bricks",
+                    "minecraft:chiseled_stone_bricks", "minecraft:infested_stone", "minecraft:infested_cobblestone",
+                    "minecraft:infested_stone_bricks", "minecraft:prismarine", "minecraft:dark_prismarine",
+                    "minecraft:prismarine_bricks", "minecraft:sandstone", "minecraft:red_sandstone" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isBulkEasyTradeItem(String id) {
+        ProfessionType profession = allowedProfessionFor(id);
+        if (profession == ProfessionType.FARMING || profession == ProfessionType.FORESTRY) return true;
+        return isBulkMiningMaterial(id) || id.equals("minecraft:flint");
+    }
+
     private static File file() {
         return new File("config/champutils/profession_backpack.json");
     }
@@ -259,11 +325,9 @@ public final class ProfessionBackpackConfig {
             if (data == null) continue;
             String id = normalizeItem(data.item == null || data.item.isBlank() ? entry.getKey() : data.item);
             data.item = id;
-            if (data.profession == null || data.profession.isBlank()) data.profession = ProfessionType.FARMING.name();
-            data.profession = data.profession.trim().toUpperCase(Locale.ROOT);
-            if (id.equals("minecraft:dirt") || id.equals("minecraft:coarse_dirt") || id.equals("minecraft:rooted_dirt") || id.equals("minecraft:grass_block") || id.equals("minecraft:podzol") || id.equals("minecraft:mycelium")) {
-                data.profession = ProfessionType.MINING.name();
-            }
+            ProfessionType allowedProfession = allowedProfessionFor(id);
+            if (allowedProfession == null) continue;
+            data.profession = allowedProfession.name();
             if (data.displayName == null || data.displayName.isBlank()) data.displayName = formatName(id);
             if (!isBackpackProfession(data.profession)) data.enabled = false;
             if (data.rewardItem == null || data.rewardItem.isBlank()) data.rewardItem = CONFIG.defaultRewardItem;
@@ -307,10 +371,26 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.MINING, "minecraft:grass_block", ++s);
         add(c, ProfessionType.MINING, "minecraft:podzol", ++s);
         add(c, ProfessionType.MINING, "minecraft:mycelium", ++s);
+        String[] bulkMining = {"sand","red_sand","gravel","clay","clay_ball","netherrack","blackstone","basalt","smooth_basalt","end_stone","obsidian","crying_obsidian","magma_block","moss_block","mud","packed_mud","pointed_dripstone"};
+        for (String block : bulkMining) add(c, ProfessionType.MINING, "minecraft:" + block, ++s);
+        String[] stoneVariants = {"smooth_stone","stone_bricks","cracked_stone_bricks","mossy_stone_bricks","chiseled_stone_bricks","infested_stone","infested_cobblestone","infested_stone_bricks","prismarine","dark_prismarine","prismarine_bricks","sandstone","red_sandstone"};
+        for (String block : stoneVariants) add(c, ProfessionType.MINING, "minecraft:" + block, ++s);
+        String[] vanillaOres = {"coal_ore","deepslate_coal_ore","copper_ore","deepslate_copper_ore","iron_ore","deepslate_iron_ore","gold_ore","deepslate_gold_ore","nether_gold_ore","redstone_ore","deepslate_redstone_ore","lapis_ore","deepslate_lapis_ore","diamond_ore","deepslate_diamond_ore","emerald_ore","deepslate_emerald_ore","nether_quartz_ore"};
+        for (String ore : vanillaOres) add(c, ProfessionType.MINING, "minecraft:" + ore, ++s);
         String[] woods = {"oak","spruce","birch","jungle","acacia","dark_oak","mangrove","cherry"};
-        for (String w : woods) add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_log", ++s);
-        add(c, ProfessionType.FORESTRY, "minecraft:crimson_stem", ++s);
-        add(c, ProfessionType.FORESTRY, "minecraft:warped_stem", ++s);
+        for (String w : woods) {
+            add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_log", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_wood", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:stripped_" + w + "_log", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:stripped_" + w + "_wood", ++s);
+        }
+        String[] netherWoods = {"crimson","warped"};
+        for (String w : netherWoods) {
+            add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_stem", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_hyphae", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:stripped_" + w + "_stem", ++s);
+            add(c, ProfessionType.FORESTRY, "minecraft:stripped_" + w + "_hyphae", ++s);
+        }
         for (String w : woods) add(c, ProfessionType.FORESTRY, "minecraft:" + w + "_sapling", ++s);
         add(c, ProfessionType.FORESTRY, "minecraft:crimson_fungus", ++s);
         add(c, ProfessionType.FORESTRY, "minecraft:warped_fungus", ++s);
@@ -318,6 +398,7 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.FORESTRY, "minecraft:stick", ++s);
         String[] crops = {"wheat","wheat_seeds","carrot","potato","beetroot","beetroot_seeds","pumpkin","pumpkin_seeds","melon_slice","melon_seeds","sugar_cane","cocoa_beans","cactus","bamboo","sweet_berries","glow_berries","nether_wart"};
         for (String crop : crops) add(c, ProfessionType.FARMING, "minecraft:" + crop, ++s);
+        add(c, ProfessionType.FARMING, "minecraft:poisonous_potato", ++s);
         String[] berries = {"oran","sitrus","cheri","chesto","pecha","rawst","aspear","leppa","lum","figy","wiki","mago","aguav","iapapa","razz","bluk","nanab","wepear","pinap","pomeg","kelpsy","qualot","hondew","grepa","tamato"};
         for (String b : berries) add(c, ProfessionType.FARMING, "cobblemon:" + b + "_berry", ++s);
 
@@ -350,6 +431,9 @@ public final class ProfessionBackpackConfig {
         add(c, ProfessionType.FARMING, "cobblemon:vivichoke_seeds", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:medicinal_leek", ++s);
         add(c, ProfessionType.FARMING, "cobblemon:pep_up_flower", ++s);
+        add(c, ProfessionType.FARMING, "cobblemon:revival_herb", ++s);
+        add(c, ProfessionType.FARMING, "cobblemon:energy_root", ++s);
+        add(c, ProfessionType.FARMING, "cobblemon:big_root", ++s);
 
         String[] evolutionStones = {"dawn","dusk","fire","ice","leaf","moon","shiny","sun","thunder","water"};
         for (String stone : evolutionStones) add(c, ProfessionType.MINING, "cobblemon:" + stone + "_stone", ++s);
@@ -398,11 +482,20 @@ public final class ProfessionBackpackConfig {
 
     private static boolean shouldEnforceMinimumTradeCost(String itemId) {
         String id = normalizeItem(itemId);
-        return id.startsWith("cobblemon:") && id.endsWith("_berry");
+        return isBulkEasyTradeItem(id);
     }
 
     private static int defaultTradeCostFor(String itemId) {
         String id = normalizeItem(itemId);
+        if (isBulkEasyTradeItem(id)) {
+            if (id.endsWith("_seeds") || id.endsWith("_seed")) return 6500;
+            if (id.endsWith("_berry") || id.equals("minecraft:wheat") || id.equals("minecraft:carrot") || id.equals("minecraft:potato") || id.equals("minecraft:beetroot")) return 5000;
+            if (isBulkMiningMaterial(id)) return 5000;
+            if (id.equals("minecraft:stick")) return 5000;
+            if (id.endsWith("_sapling") || id.endsWith("_fungus")) return 3500;
+            if (id.endsWith("_log") || id.endsWith("_stem")) return 2500;
+            return 3000;
+        }
         return switch (id) {
             case "cobblemon:absorb_bulb" -> 350;
             case "cobblemon:aguav_berry" -> 5000;

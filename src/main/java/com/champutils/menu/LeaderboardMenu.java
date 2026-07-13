@@ -46,6 +46,7 @@ public class LeaderboardMenu {
             case FORESTRY -> Board.PROFESSIONS_FORESTRY;
             case FARMING -> Board.PROFESSIONS_FARMING;
             case BATTLING -> Board.PROFESSIONS_BATTLING;
+            case BREEDING -> Board.PROFESSIONS_BREEDING;
             default -> Board.PROFESSIONS_OVERALL;
         });
     }
@@ -66,8 +67,9 @@ public class LeaderboardMenu {
         tab(gui, player, 3, Items.DIAMOND_AXE, "§bForestry", board, Board.PROFESSIONS_FORESTRY);
         tab(gui, player, 4, Items.DIAMOND_HOE, "§bFarming", board, Board.PROFESSIONS_FARMING);
         tab(gui, player, 5, Items.DIAMOND_SWORD, "§6Battle", board, Board.PROFESSIONS_BATTLING);
-        tab(gui, player, 6, Items.EMERALD, "§aEconomy", board, Board.ECONOMY);
-        tab(gui, player, 7, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
+        tab(gui, player, 6, Items.EGG, "§dBreeding", board, Board.PROFESSIONS_BREEDING);
+        tab(gui, player, 7, Items.EMERALD, "§aEconomy", board, Board.ECONOMY);
+        tab(gui, player, 8, Items.WHITE_BANNER, "§fGuilds", board, Board.GUILDS);
 
         // Profile-specific leaderboards live together in the lower-right corner.
         tab(gui, player, 48, Items.CLOCK, "§ePlaytime", board, Board.PLAYTIME);
@@ -186,6 +188,7 @@ public class LeaderboardMenu {
             case NUZLOCKE -> "Nuzlocke";
             case ISLANDER -> "Islander";
             case PROFESSIONS_BATTLING -> "Battle";
+            case PROFESSIONS_BREEDING -> "Breeding";
             case ECONOMY -> "Economy";
             case GUILDS -> "Guilds";
         };

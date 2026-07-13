@@ -179,6 +179,34 @@ public class LuckPermsHook {
 
 
     /**
+     * Checks the effective LuckPerms result without vanilla OP fallback.
+     *
+     * This is used for paid-rank commands whose native implementation performs
+     * a second permission check after opening a GUI. Returning true only from an
+     * OP level or from a separate account flag would let the GUI open and then
+     * fail its later action packets. Online players should already be cached, so
+     * this method deliberately does not block on loadUser(...).join().
+     */
+    public static boolean hasPermissionStrict(
+            ServerPlayer player,
+            String permission
+    ) {
+        if (player == null || permission == null || permission.isBlank()) return false;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUUID());
+            if (user == null) return false;
+            return user.getCachedData()
+                    .getPermissionData()
+                    .checkPermission(permission)
+                    .asBoolean();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+
+    /**
      * Server-thread hot-path safe permission check.
      *
      * This never calls loadUser(...).join(). If LuckPerms does not already have
@@ -347,5 +375,37 @@ public class LuckPermsHook {
             return CompletableFuture.completedFuture(false);
         }
     }
+
+    public static boolean groupExists(String group) {
+        if (group == null || group.isBlank()) return false;
+        try {
+            return LuckPermsProvider.get().getGroupManager().getGroup(group.trim().toLowerCase(java.util.Locale.ROOT)) != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public static CompletableFuture<Boolean> addPermissionAsync(UUID playerUuid, String permission) {
+        if (playerUuid == null || permission == null || permission.isBlank()) return CompletableFuture.completedFuture(false);
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            String safePermission = permission.trim().toLowerCase(java.util.Locale.ROOT);
+            return lp.getUserManager().loadUser(playerUuid)
+                    .thenCompose(user -> {
+                        user.data().add(Node.builder(safePermission).value(true).build());
+                        return lp.getUserManager().saveUser(user).thenApply(ignored -> user);
+                    })
+                    .thenCompose(user -> lp.getUserManager().loadUser(playerUuid))
+                    .thenApply(user -> {
+                        com.champutils.chat.ChatTagResolver.invalidate(playerUuid);
+                        return true;
+                    })
+                    .exceptionally(error -> { error.printStackTrace(); return false; });
+        } catch (Exception e) {
+            e.printStackTrace();
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+
 
 }

@@ -7,6 +7,7 @@ import com.champutils.party.PartyManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -69,7 +70,8 @@ public final class ServerChatManager {
                 .append(Component.literal(mode.prefix).withStyle(mode.color))
                 .append(Component.literal("] ").withStyle(ChatFormatting.DARK_GRAY));
         component.append(ChatTagResolver.tagsFor(sender));
-        component.append(Component.literal(sender.getGameProfile().getName()).withStyle(ChatFormatting.WHITE));
+        NicknameManager.refreshIfStale(sender);
+        component.append(NicknameManager.displayComponent(sender));
         component.append(Component.literal(": ").withStyle(ChatFormatting.GRAY));
         component.append(Component.literal(message).withStyle(ChatFormatting.WHITE));
         return component;
@@ -104,6 +106,6 @@ public final class ServerChatManager {
             case PARTY -> "§d";
             case LOCAL -> "§7";
         };
-        return "§8[" + color + mode.prefix + "§8] §r" + tags + "§f" + sender.getGameProfile().getName() + "§7: §f" + message;
+        return "§8[" + color + mode.prefix + "§8] §r" + tags + "§f" + NicknameManager.displayName(sender) + "§7: §f" + message;
     }
 }

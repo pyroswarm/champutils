@@ -197,25 +197,26 @@ public final class PlayerSidebarManager {
         double dexPercent = DexProgressManager.getCompletionPercent(player);
 
         addLine(lines, player, ScoreboardPreferenceManager.Line.ADVENTURER_RANK, "§6Adventurer Rank: §f" + AdventurerGuildManager.currentRankId(player) + " §7(" + adventurerProgressPercent(player) + "%§7)");
-        addLine(lines, player, ScoreboardPreferenceManager.Line.PVP_RANK, "§bRank §f" + rankName(rp) + " §7(" + rp + " RP)");
-        addLine(lines, player, ScoreboardPreferenceManager.Line.CREDITS, "§6Credits: §f" + (balance / 100L));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.PVP_RANK, "§bRank: §f" + rankName(rp) + " §7(" + rp + " RP)");
+        addLine(lines, player, ScoreboardPreferenceManager.Line.CREDITS, "§6Credits: §f" + String.format("%,d", balance / 100L));
         addLine(lines, player, ScoreboardPreferenceManager.Line.ADVENTURER_MARKS, "§bAdventurer's Marks: §f" + AdventurerGuildManager.getData(player).guildMarks);
-        addLine(lines, player, ScoreboardPreferenceManager.Line.DEX_PROGRESS, "§dDex §f" + caught + "§7/§f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
-        addLine(lines, player, ScoreboardPreferenceManager.Line.PROFILE_TIME, "§eProfile Time §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.DEX_PROGRESS, "§dDex: §f" + caught + " §7/ §f" + total + " §8(" + formatPercent(dexPercent) + "%§8)");
+        addLine(lines, player, ScoreboardPreferenceManager.Line.PROFILE_TIME, "§eProfile Time: §f" + formatPlaytime(ProfilePlaytimeManager.getDisplayPlaytimeSeconds(player)));
         if (PlayerProfileManager.isIslander(player)) {
-            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Island Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
-            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Island Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
-            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dIsland Ultra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Island Legendary: §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Island Paradox: §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dIsland Ultra Beast: §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         } else {
-            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Legendary §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
-            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Paradox §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
-            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dUltra Beast §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.LEGENDARY_TIMER, "§6Legendary: §f" + SpecialWildSpawnManager.formatLastLegendarySpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.PARADOX_TIMER, "§5Paradox: §f" + SpecialWildSpawnManager.formatLastParadoxSpawnAgo(player));
+            addLine(lines, player, ScoreboardPreferenceManager.Line.ULTRA_BEAST_TIMER, "§dUltra Beast: §f" + SpecialWildSpawnManager.formatLastUltraBeastSpawnAgo(player));
         }
-        addLine(lines, player, ScoreboardPreferenceManager.Line.LAST_BOSS, "§cLast Boss §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
+        addLine(lines, player, ScoreboardPreferenceManager.Line.LAST_BOSS, "§cLast Boss: §f" + GuildBossManager.formatLastWorldBossSpawnAgo());
         addLine(lines, player, ScoreboardPreferenceManager.Line.BATTLING, professionLine("§cBattling", player, ProfessionType.BATTLING));
         addLine(lines, player, ScoreboardPreferenceManager.Line.MINING, professionLine("§7Mining", player, ProfessionType.MINING));
         addLine(lines, player, ScoreboardPreferenceManager.Line.FORESTRY, professionLine("§2Forestry", player, ProfessionType.FORESTRY));
         addLine(lines, player, ScoreboardPreferenceManager.Line.FARMING, professionLine("§aFarming", player, ProfessionType.FARMING));
+        addLine(lines, player, ScoreboardPreferenceManager.Line.BREEDING, professionLine("§dBreeding", player, ProfessionType.BREEDING));
 
         return makeUniqueAndSafe(lines);
     }
@@ -262,7 +263,7 @@ public final class PlayerSidebarManager {
         int required = Math.max(1, ProfessionManager.xpRequired(level));
         int percent = Math.max(0, Math.min(100, (int) Math.floor((xp * 100.0D) / required)));
 
-        return label + " §f" + level + " §7(" + percent + "%)";
+        return label + ": §f" + level + " §7(" + percent + "%)";
     }
 
     private static int safeLevel(ServerPlayer player, ProfessionType type) {

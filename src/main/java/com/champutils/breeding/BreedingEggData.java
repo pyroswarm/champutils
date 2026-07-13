@@ -11,7 +11,7 @@ import java.util.UUID;
 public final class BreedingEggData {
     public static final String ROOT_KEY = "champutils_breeding_egg";
     public static final String EGG_SPECIES = "champutils:egg";
-    private static final int DATA_VERSION = 1;
+    private static final int DATA_VERSION = 2;
 
     private BreedingEggData() {}
 
@@ -39,11 +39,13 @@ public final class BreedingEggData {
                                             Pokemon hatchling,
                                             Pokemon parentA,
                                             Pokemon parentB,
-                                            int requiredSteps) {
+                                            int requiredSteps,
+                                            boolean mysteryEgg,
+                                            BreedingProfessionService.RarityTier rarity) {
         Pokemon egg = PokemonProperties.Companion
                 .parse("species=\"" + EGG_SPECIES + "\" level=1")
                 .create();
-        egg.setTradeable(false);
+        egg.setTradeable(true);
         egg.setNickname(Component.literal("Egg"));
         egg.setOriginalTrainer(player.getUUID());
         egg.setOriginalTrainerName(player.getGameProfile().getName());
@@ -55,12 +57,15 @@ public final class BreedingEggData {
         UUID activeProfileId = com.champutils.profile.PlayerProfileManager.activeProfileIdOrNull(player.getUUID());
         if (activeProfileId == null) throw new IllegalStateException("Cannot create an Egg without an active profile.");
         root.putUUID("profile_id", activeProfileId);
+        root.putUUID("audit_profile_id", activeProfileId);
         root.putUUID("parent_a_uuid", parentA.getUuid());
         root.putUUID("parent_b_uuid", parentB.getUuid());
         root.putString("parent_a_species", speciesId(parentA));
         root.putString("parent_b_species", speciesId(parentB));
         root.putString("offspring_species", speciesId(hatchling));
         root.putString("offspring_types", typeSummary(hatchling));
+        root.putBoolean("mystery_egg", mysteryEgg);
+        root.putString("rarity_tier", (rarity == null ? BreedingProfessionService.rarityFor(hatchling) : rarity).name());
         root.putInt("steps", 0);
         root.putInt("required_steps", Math.max(1, requiredSteps));
         root.putInt("last_persisted_steps", 0);
@@ -119,8 +124,55 @@ public final class BreedingEggData {
         return data(egg).getString("offspring_types");
     }
 
+    public static boolean isMysteryEgg(Pokemon egg) {
+        return isEgg(egg) && data(egg).getBoolean("mystery_egg");
+    }
+
+    public static String publicOffspringSpecies(Pokemon egg) {
+        return isMysteryEgg(egg) ? "???" : offspringSpecies(egg);
+    }
+
+    public static BreedingProfessionService.RarityTier rarityTier(Pokemon egg) {
+        if (!isEgg(egg)) return BreedingProfessionService.RarityTier.COMMON;
+        try {
+            String value = data(egg).getString("rarity_tier");
+            if (!value.isBlank()) return BreedingProfessionService.RarityTier.valueOf(value);
+        } catch (Throwable ignored) {
+        }
+        return BreedingProfessionService.RarityTier.COMMON;
+    }
+
+    /** Current profile allowed to carry and hatch this Egg. Auction delivery updates this value. */
     public static UUID profileId(Pokemon egg) {
         try { return data(egg).getUUID("profile_id"); } catch (Throwable ignored) { return null; }
+    }
+
+    /** Original breeding audit profile. This remains stable when an Egg is sold. */
+    public static UUID auditProfileId(Pokemon egg) {
+        if (!isEgg(egg)) return null;
+        try {
+            CompoundTag root = data(egg);
+            if (root.hasUUID("audit_profile_id")) return root.getUUID("audit_profile_id");
+            return root.hasUUID("profile_id") ? root.getUUID("profile_id") : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Moves hatch ownership to the recipient's active profile while preserving the original
+     * server-side breeding audit row. This is what makes Auction House Egg sales hatchable.
+     */
+    public static void transferOwnership(ServerPlayer recipient, Pokemon egg) {
+        if (recipient == null || !isEgg(egg)) return;
+        UUID recipientProfile = com.champutils.profile.PlayerProfileManager.activeProfileIdOrNull(recipient.getUUID());
+        if (recipientProfile == null) throw new IllegalStateException("Cannot deliver an Egg without an active profile.");
+        CompoundTag root = data(egg);
+        if (!root.hasUUID("audit_profile_id") && root.hasUUID("profile_id")) {
+            root.putUUID("audit_profile_id", root.getUUID("profile_id"));
+        }
+        root.putUUID("profile_id", recipientProfile);
+        egg.getPersistentData().put(ROOT_KEY, root);
     }
 
     public static void markHatchOrigin(Pokemon hatchling, UUID eggUuid, UUID profileId) {
