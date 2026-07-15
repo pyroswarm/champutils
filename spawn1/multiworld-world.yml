@@ -1,0 +1,18 @@
+namespace: multiworld
+path: spawn1
+environment: NORMAL
+seed: 740498643
+custom_generator: VOID
+worldFolderSaveMode: VANILLA
+isMultiworldWorld: true
+spawnpos: -34634616119201
+gamerules: 
+gamerule_doDaylightCycle: false
+gamerule_doWeatherCycle: false
+gamerule_mobGriefing: false
+gamerule_doMobSpawning: false
+gamerule_doPokemonSpawning: true
+gamerule_keepInventory: true
+gamerule_doFireTick: false
+gamerule_announceAdvancements: false
+gamerule_doVinesSpread: false
