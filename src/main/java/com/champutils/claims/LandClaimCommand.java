@@ -6,6 +6,9 @@ import com.champutils.economy.EconomyManager.TransactionResult;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.menu.ConfirmationMenu;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkPlayerDirectory;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -13,9 +16,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -31,6 +34,8 @@ import static net.minecraft.commands.Commands.argument;
 public final class LandClaimCommand {
     private static final Map<UUID, Selection> SELECTIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingClaim> PENDING = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> CLAIM_ITEM_COOLDOWNS = new ConcurrentHashMap<>();
+    private static final long CLAIM_ITEM_COOLDOWN_MILLIS = 30L * 60L * 1000L;
 
     private LandClaimCommand() {}
 
@@ -38,6 +43,7 @@ public final class LandClaimCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("claims")
                     .executes(context -> info(context.getSource().getPlayerOrException()))
+                    .then(literal("item").executes(context -> giveClaimItem(context.getSource().getPlayerOrException())))
                     .then(literal("pos1").executes(context -> setPos(context.getSource().getPlayerOrException(), true)))
                     .then(literal("pos2").executes(context -> setPos(context.getSource().getPlayerOrException(), false)))
                     .then(literal("claim").executes(context -> preview(context.getSource().getPlayerOrException())))
@@ -49,8 +55,12 @@ public final class LandClaimCommand {
                     .then(literal("settings").executes(context -> { LandClaimSettingsMenu.open(context.getSource().getPlayerOrException()); return 1; }))
                     .then(literal("border").executes(context -> toggleBorder(context.getSource().getPlayerOrException())))
                     .then(literal("friend")
-                            .then(literal("add").then(argument("player", EntityArgument.player()).executes(context -> addFriend(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
-                            .then(literal("remove").then(argument("player", EntityArgument.player()).executes(context -> removeFriend(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"))))))
+                            .then(literal("add").then(argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> addFriend(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
+                            .then(literal("remove").then(argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> removeFriend(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player"))))))
                     .then(literal("extend")
                             .then(literal("north").then(argument("blocks", IntegerArgumentType.integer(1)).executes(context -> extend(context.getSource().getPlayerOrException(), "north", IntegerArgumentType.getInteger(context, "blocks")))))
                             .then(literal("south").then(argument("blocks", IntegerArgumentType.integer(1)).executes(context -> extend(context.getSource().getPlayerOrException(), "south", IntegerArgumentType.getInteger(context, "blocks")))))
@@ -68,6 +78,41 @@ public final class LandClaimCommand {
                             .then(argument("number", IntegerArgumentType.integer(1))
                                     .executes(context -> home(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "number"))))));
         });
+    }
+
+
+    public static void giveInitialClaimingStick(ServerPlayer player) {
+        if (player == null) return;
+        ItemStack stack = LandClaimSelectionItemListener.createClaimingStick();
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+            player.sendSystemMessage(Component.literal("Your inventory was full, so your Claiming Stick was dropped at your feet.").withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    private static int giveClaimItem(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        long availableAt = CLAIM_ITEM_COOLDOWNS.getOrDefault(player.getUUID(), 0L);
+        if (availableAt > now) {
+            long remainingSeconds = Math.max(1L, (availableAt - now + 999L) / 1000L);
+            long minutes = remainingSeconds / 60L;
+            long seconds = remainingSeconds % 60L;
+            String remaining = minutes > 0L
+                    ? minutes + "m " + seconds + "s"
+                    : seconds + "s";
+            player.sendSystemMessage(Component.literal("You can receive another Claiming Stick in " + remaining + ".").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        ItemStack stack = LandClaimSelectionItemListener.createClaimingStick();
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+            player.sendSystemMessage(Component.literal("Your inventory was full, so the Claiming Stick was dropped at your feet.").withStyle(ChatFormatting.YELLOW));
+        } else {
+            player.sendSystemMessage(Component.literal("You received a Claiming Stick.").withStyle(ChatFormatting.GREEN));
+        }
+        CLAIM_ITEM_COOLDOWNS.put(player.getUUID(), now + CLAIM_ITEM_COOLDOWN_MILLIS);
+        return 1;
     }
 
     static int setPos(ServerPlayer player, boolean first) {
@@ -210,32 +255,41 @@ public final class LandClaimCommand {
         return 1;
     }
 
-    private static int addFriend(ServerPlayer player, ServerPlayer friend) {
-        LandClaimRepository.Claim claim = LandClaimRepository.findAt(player.serverLevel(), player.blockPosition());
-        if (claim == null || !LandClaimRepository.isOwner(player, claim)) {
-            player.sendSystemMessage(Component.literal("Stand inside one of your claims to add a friend.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (!LandClaimRepository.addMember(player, claim, friend)) {
-            player.sendSystemMessage(Component.literal("Could not add that player's current profile to this claim.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        player.sendSystemMessage(Component.literal("Added " + friend.getName().getString() + "'s current profile to this claim.").withStyle(ChatFormatting.GREEN));
-        friend.sendSystemMessage(Component.literal(player.getName().getString() + " added your current profile to a claim.").withStyle(ChatFormatting.AQUA));
-        return 1;
+    private static int addFriend(ServerPlayer player, String friendName) {
+        return changeFriend(player, friendName, true);
     }
 
-    private static int removeFriend(ServerPlayer player, ServerPlayer friend) {
+    private static int removeFriend(ServerPlayer player, String friendName) {
+        return changeFriend(player, friendName, false);
+    }
+
+    private static int changeFriend(ServerPlayer player, String friendName, boolean add) {
         LandClaimRepository.Claim claim = LandClaimRepository.findAt(player.serverLevel(), player.blockPosition());
         if (claim == null || !LandClaimRepository.isOwner(player, claim)) {
-            player.sendSystemMessage(Component.literal("Stand inside one of your claims to remove a friend.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Stand inside one of your claims to " + (add ? "add" : "remove") + " a friend.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        if (!LandClaimRepository.removeMember(player, claim, friend)) {
-            player.sendSystemMessage(Component.literal("Could not remove that player's current profile from this claim.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        player.sendSystemMessage(Component.literal("Removed " + friend.getName().getString() + "'s current profile from this claim.").withStyle(ChatFormatting.GREEN));
+        NetworkPlayerDirectory.resolveIdentityAsync(friendName).whenComplete((friend, error) -> player.server.execute(() -> {
+            if (error != null || friend == null) {
+                player.sendSystemMessage(Component.literal("Player not found on the network.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            if (friend.activeProfileId() == null) {
+                player.sendSystemMessage(Component.literal(friend.playerName() + " does not currently have an active profile to share.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            boolean changed = add
+                    ? LandClaimRepository.addMember(player, claim, friend.activeProfileId())
+                    : LandClaimRepository.removeMember(player, claim, friend.activeProfileId());
+            if (!changed) {
+                player.sendSystemMessage(Component.literal("Could not " + (add ? "add" : "remove") + " that profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            player.sendSystemMessage(Component.literal((add ? "Added " : "Removed ") + friend.playerName() + "'s active profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.GREEN));
+            NetworkEventManager.sendPlayerNotice(player.server, friend.playerUuid(), add
+                    ? "§b" + player.getGameProfile().getName() + " added your active profile to a land claim."
+                    : "§e" + player.getGameProfile().getName() + " removed your active profile from a land claim.");
+        }));
         return 1;
     }
 
@@ -290,28 +344,10 @@ public final class LandClaimCommand {
             player.sendSystemMessage(Component.literal("You do not have claim #" + number + ". You currently have " + claims.size() + " claim(s).").withStyle(ChatFormatting.RED));
             return 0;
         }
-        LandClaimRepository.Claim claim = claims.get(number - 1);
-        ServerLevel targetLevel = null;
-        for (ServerLevel level : player.server.getAllLevels()) {
-            if (level.dimension().location().toString().equalsIgnoreCase(claim.worldName)) {
-                targetLevel = level;
-                break;
-            }
-        }
-        if (targetLevel == null) {
-            player.sendSystemMessage(Component.literal("Could not find that claim's world: " + claim.worldName).withStyle(ChatFormatting.RED));
+        if (!LandClaimTeleportUtil.teleport(player, claims.get(number - 1), number)) {
+            player.sendSystemMessage(Component.literal("Could not reach claim #" + number + ". Try again shortly.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        BlockPos safe = findSafeClaimTeleport(targetLevel, claim);
-        if (safe == null) {
-            player.sendSystemMessage(Component.literal("Could not find a safe open spot inside claim #" + number + ". Clear a 2-block-tall space near the claim center and try again.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        double tx = safe.getX() + 0.5D;
-        double ty = safe.getY();
-        double tz = safe.getZ() + 0.5D;
-        if (!SafeTeleportManager.teleport(player, targetLevel, tx, ty, tz, player.getYRot(), player.getXRot())) return 0;
-        player.sendSystemMessage(Component.literal("Teleported to claim #" + number + ".").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 

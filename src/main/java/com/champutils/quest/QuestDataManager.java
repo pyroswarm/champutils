@@ -166,4 +166,40 @@ public class QuestDataManager {
             e.printStackTrace();
         }
     }
+
+    public static <R> java.util.concurrent.CompletableFuture<R> mutateGuildAsync(
+            UUID guildId,
+            String guildName,
+            java.util.function.Function<GuildQuestData, R> mutator
+    ) {
+        GuildQuestData fallback = new GuildQuestData();
+        fallback.guildId = guildId == null ? "" : guildId.toString();
+        fallback.guildName = guildName == null ? "" : guildName;
+        fallback.weekly = new QuestSet();
+        fallback.claimedWeekly = new HashSet<>();
+        return SharedJsonStateRepository.mutateProfileAsync(guildId, GUILD_STATE_KEY, GuildQuestData.class, fallback, data -> {
+            normalizeGuild(data, guildId, guildName);
+            R result = mutator.apply(data);
+            try (FileWriter writer = new FileWriter(guildFile(guildId))) {
+                GSON.toJson(data, writer);
+            } catch (Exception ignored) {
+                // SQL is authoritative; the local JSON file is only a recovery/debug mirror.
+            }
+            return result;
+        });
+    }
+
+    private static void normalizeGuild(GuildQuestData data, UUID guildId, String guildName) {
+        if (data == null) return;
+        data.guildId = guildId == null ? "" : guildId.toString();
+        data.guildName = guildName == null ? "" : guildName;
+        if (data.weekly == null) data.weekly = new QuestSet();
+        if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+        if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
+        for (Objective o : data.weekly.objectives) {
+            if (o == null) continue;
+            if (o.playerProgress == null) o.playerProgress = new HashMap<>();
+            if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
+        }
+    }
 }

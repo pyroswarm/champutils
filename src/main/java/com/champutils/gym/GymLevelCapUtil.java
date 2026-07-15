@@ -21,19 +21,14 @@ public final class GymLevelCapUtil {
     private GymLevelCapUtil() {}
 
     public static int currentWildCap(ServerPlayer player) {
-        if (player == null) return 0;
+        if (player == null) return 30;
         try {
             Set<BadgeType> earned = BadgeManager.getBadges(player);
-            List<GymStep> gyms = configuredGymSteps();
-            if (gyms.isEmpty()) return 100;
-
-            for (GymStep step : gyms) {
-                if (!earned.contains(step.badge)) {
-                    return clampLevel(step.levelCap);
-                }
+            int completedGyms = 0;
+            for (BadgeType badge : BadgeType.values()) {
+                if (isMainGymBadge(badge) && earned.contains(badge)) completedGyms++;
             }
-
-            return 100;
+            return clampLevel(30 + (completedGyms * 10));
         } catch (Throwable ignored) {
             return 30;
         }

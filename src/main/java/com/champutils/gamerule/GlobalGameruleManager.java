@@ -11,9 +11,12 @@ public final class GlobalGameruleManager {
     public static void applyAll(MinecraftServer server) {
         if (server == null || !GlobalGameruleConfig.DATA.enabled) return;
 
+        int applied = 0;
         for (ServerLevel level : server.getAllLevels()) {
             applyToLevel(server, level);
+            applied++;
         }
+        System.out.println("[ChampUtils] Applied global gamerules to " + applied + " loaded world(s).");
     }
 
     public static void applyToLevel(MinecraftServer server, ServerLevel level) {

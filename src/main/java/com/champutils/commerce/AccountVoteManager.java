@@ -1,5 +1,6 @@
 package com.champutils.commerce;
 
+import com.champutils.network.NetworkEventManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -11,6 +12,7 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.UUID;
 
 public final class AccountVoteManager {
     private static boolean registered = false;
@@ -64,24 +66,25 @@ public final class AccountVoteManager {
                 .thenCompose(account -> {
                     if (account == null) {
                         AccountCommerceRepository.recordUnresolvedVoteAsync(username, service, addressHash);
-                        return java.util.concurrent.CompletableFuture.completedFuture(0);
+                        return java.util.concurrent.CompletableFuture.completedFuture(new VoteResult(null, 0));
                     }
-                    return AccountCommerceRepository.recordVoteAsync(account, service, addressHash, points);
+                    return AccountCommerceRepository.recordVoteAsync(account, service, addressHash, points)
+                            .thenApply(granted -> new VoteResult(account.accountUuid(), granted));
                 })
-                .thenAccept(granted -> currentServer.execute(() -> {
-                    ServerPlayer player = currentServer.getPlayerList().getPlayerByName(username);
-                    if (player == null || player.hasDisconnected()) return;
-                    if (granted > 0) {
-                        player.sendSystemMessage(Component.literal("Thanks for voting! +" + granted + " account vote point(s).").withStyle(ChatFormatting.GREEN));
-                    } else {
-                        player.sendSystemMessage(Component.literal("Vote received. You have already been credited for this vote site today.").withStyle(ChatFormatting.YELLOW));
-                    }
-                }))
+                .thenAccept(result -> {
+                    if (result == null || result.accountUuid == null) return;
+                    String message = result.granted > 0
+                            ? "Thanks for voting! +" + result.granted + " account vote point(s)."
+                            : "Vote received. You have already been credited for this vote site today.";
+                    NetworkEventManager.sendPlayerNotice(currentServer, result.accountUuid, message);
+                })
                 .exceptionally(error -> {
                     System.err.println("[ChampUtils] Vote processing failed for " + username + ": " + error.getMessage());
                     return null;
                 });
     }
+
+    private record VoteResult(UUID accountUuid, int granted) {}
 
     private static String readString(Object target, String methodName) {
         try {

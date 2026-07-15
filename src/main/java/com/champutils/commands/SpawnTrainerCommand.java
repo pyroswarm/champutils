@@ -4,9 +4,6 @@ import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymRegistry;
 import com.champutils.trainer.ChampTrainerProtectionManager;
 import com.champutils.trainer.ChampTrainerSpawner;
-import com.champutils.worldevent.WorldEventBindingRegistry;
-import com.champutils.worldevent.WorldEventConfig;
-
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -95,7 +92,6 @@ public final class SpawnTrainerCommand {
         builder.suggest("champion");
         builder.suggest("ai-test-gym");
         for (BadgeType badge : BadgeType.values()) builder.suggest(badge.name().toLowerCase());
-        for (String id : WorldEventConfig.EVENTS.keySet()) builder.suggest(id);
     }
 
     private static int spawnAtPlayer(CommandSourceStack source, String trainerId) {
@@ -195,8 +191,7 @@ public final class SpawnTrainerCommand {
     private static boolean isNativeTrainer(UUID uuid) {
         if (uuid == null) return false;
         return ChampTrainerProtectionManager.isTracked(uuid)
-                || GymRegistry.isGymNpc(uuid)
-                || WorldEventBindingRegistry.isBoundNpc(uuid);
+                || GymRegistry.isGymNpc(uuid);
     }
 
     private static String describeTrainer(UUID uuid) {
@@ -205,8 +200,6 @@ public final class SpawnTrainerCommand {
         BadgeType badge = GymRegistry.getBadgeForNpc(uuid);
         if (badge != null) return badge.name();
 
-        String eventId = WorldEventBindingRegistry.getEventIdForNpc(uuid);
-        if (eventId != null && !eventId.isBlank()) return eventId;
 
         return "";
     }
@@ -223,10 +216,6 @@ public final class SpawnTrainerCommand {
             GymRegistry.unbindBadge(badge);
         }
 
-        String eventId = WorldEventBindingRegistry.getEventIdForNpc(uuid);
-        if (eventId != null && !eventId.isBlank()) {
-            WorldEventBindingRegistry.unbind(eventId);
-        }
 
         try { npc.setInvulnerable(false); } catch (Exception ignored) {}
         try { npc.setNoAi(false); } catch (Exception ignored) {}

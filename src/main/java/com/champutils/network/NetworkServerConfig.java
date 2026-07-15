@@ -34,6 +34,15 @@ public final class NetworkServerConfig {
     /** All Velocity backend names that are part of the shared Survival cluster. */
     public String[] survivalBackendIds = new String[]{"main_survival1", "survival2"};
 
+    /** Backend that physically owns the per-profile Islander mine worlds. */
+    public String islanderMineServerId = "main_survival1";
+
+    /** Backend responsible for the global world-boss lifecycle and rewards. */
+    public String worldBossServerId = "main_survival1";
+
+    /** Backend that physically owns the configured Battle Tower floors. */
+    public String battleTowerServerId = "main_survival1";
+
     /** Maximum players allowed onto each survival backend through profile selection. */
     public int survivalPlayerCap = 50;
 
@@ -139,6 +148,15 @@ public final class NetworkServerConfig {
         }
         if (survivalBackendIds == null || survivalBackendIds.length == 0) {
             survivalBackendIds = new String[]{"main_survival1", "survival2"};
+        }
+        if (islanderMineServerId == null || islanderMineServerId.isBlank()) {
+            islanderMineServerId = survivalServerId;
+        }
+        if (worldBossServerId == null || worldBossServerId.isBlank()) {
+            worldBossServerId = survivalServerId;
+        }
+        if (battleTowerServerId == null || battleTowerServerId.isBlank()) {
+            battleTowerServerId = survivalServerId;
         }
         survivalBackendIds = normalizedSurvivalBackends().toArray(String[]::new);
         if (survivalPlayerCap <= 0) {
@@ -258,6 +276,8 @@ public final class NetworkServerConfig {
                 + ", serverRole=" + serverRole
                 + ", survivalServerId=" + survivalServerId
                 + ", survivalBackendIds=" + survivalBackendCsv()
+                + ", islanderMineServerId=" + islanderMineServerId
+                + ", worldBossServerId=" + worldBossServerId
                 + ", survivalPlayerCap=" + survivalPlayerCap
                 + ", enableSurvivalQueue=" + enableSurvivalQueue
                 + ", enableNetworkEventBus=" + enableNetworkEventBus

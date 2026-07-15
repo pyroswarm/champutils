@@ -19,6 +19,10 @@ public class DatabaseConfig {
     public String username = "postgres.rzztdnkggkkpghkstdfr";
     public String password = "CHANGE_ME";
     public int saveIntervalSeconds = 60;
+    public int asyncDatabaseThreads = 4;
+    public int asyncDatabaseQueueLimit = 4096;
+    public int connectTimeoutSeconds = 10;
+    public int socketTimeoutSeconds = 30;
 
     public static Path getConfigPath() {
         return FabricLoader.getInstance()
@@ -102,6 +106,22 @@ public class DatabaseConfig {
         if (saveIntervalSeconds <= 0) {
             saveIntervalSeconds = 60;
         }
+
+        if (asyncDatabaseThreads < 2 || asyncDatabaseThreads > 8) {
+            asyncDatabaseThreads = 4;
+        }
+
+        if (asyncDatabaseQueueLimit < 512 || asyncDatabaseQueueLimit > 32768) {
+            asyncDatabaseQueueLimit = 4096;
+        }
+
+        if (connectTimeoutSeconds <= 0) {
+            connectTimeoutSeconds = 10;
+        }
+
+        if (socketTimeoutSeconds <= 0) {
+            socketTimeoutSeconds = 30;
+        }
     }
 
     public boolean isConfigured() {
@@ -118,7 +138,13 @@ public class DatabaseConfig {
     }
 
     public String jdbcUrl() {
-        return "jdbc:postgresql://" + host + ":" + port + "/" + database + "?sslmode=require";
+        return "jdbc:postgresql://" + host + ":" + port + "/" + database
+                + "?sslmode=require"
+                + "&connectTimeout=" + connectTimeoutSeconds
+                + "&socketTimeout=" + socketTimeoutSeconds
+                + "&tcpKeepAlive=true"
+                + "&reWriteBatchedInserts=true"
+                + "&ApplicationName=ChampUtils";
     }
 
     public String safeSummary() {
@@ -127,6 +153,8 @@ public class DatabaseConfig {
                 + ", port=" + port
                 + ", database=" + database
                 + ", username=" + username
+                + ", asyncDatabaseThreads=" + asyncDatabaseThreads
+                + ", asyncDatabaseQueueLimit=" + asyncDatabaseQueueLimit
                 + ", passwordSet=" + (
                         password != null &&
                                 !password.isBlank() &&

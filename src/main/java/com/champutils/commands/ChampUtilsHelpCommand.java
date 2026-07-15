@@ -89,7 +89,6 @@ public final class ChampUtilsHelpCommand {
         section(source, "Battles + Training");
         line(source, "/evtrain <stat>", "Open EV training for the selected stat.");
         line(source, "/gym list", "View gym progression and available gyms.");
-        line(source, "/worldevent list", "View configured world events.");
         line(source, "/hunt", "Open Pokémon hunts.");
         line(source, "Guild Clerk NPC", "Talk to the Adventurer's Guild NPC to open the guild hub.");
         line(source, "/wondertrade", "Use Wonder Trade.");
@@ -110,8 +109,6 @@ public final class ChampUtilsHelpCommand {
         line(source, "/season start <name>", "Admin: end current season and start the next season.");
         section(source, "Admin NPCs + Events");
         line(source, "/gym bind <gymId>", "Admin: bind nearest NPC to a gym.");
-        line(source, "/worldevent start <eventId>", "Admin: start a world event.");
-        line(source, "/worldevent skin <eventId> <playerName>", "Admin: set a world event NPC skin from a Minecraft username.");
         line(source, "/spawntrainer <id>", "Admin: spawn a configured trainer NPC.");
         line(source, "/spawnblanknpc <name>", "Admin: spawn a blank NPC for menu binding.");
         line(source, "/ah bind", "Admin: bind an NPC as the Auction NPC.");

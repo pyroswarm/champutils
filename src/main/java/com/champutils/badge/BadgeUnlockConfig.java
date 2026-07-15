@@ -111,11 +111,6 @@ public final class BadgeUnlockConfig {
         c.badges.get("MARSH").titles.add("marsh_badge");
         c.badges.get("VOLCANO").titles.add("volcano_badge");
         c.badges.get("EARTH").titles.add("earth_badge");
-        c.badges.get("LORELEI").titles.add("lorelei_badge");
-        c.badges.get("BRUNO").titles.add("bruno_badge");
-        c.badges.get("AGATHA").titles.add("agatha_badge");
-        c.badges.get("LANCE").titles.add("lance_badge");
-        c.badges.get("CHAMPION").titles.add("champion");
         return c;
     }
 

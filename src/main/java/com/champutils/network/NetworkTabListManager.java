@@ -92,11 +92,13 @@ public final class NetworkTabListManager {
 
     private static MutableComponent tabLine(NetworkPlayerDirectory.OnlinePlayer player) {
         MutableComponent line = Component.empty();
-        if (player.rankTag() != null && !player.rankTag().isBlank()) {
-            line.append(com.champutils.chat.ChatTagResolver.legacy(player.rankTag())).append(Component.literal(" "));
+        String rankTag = player.rankTag();
+        String titleTag = player.titleTag();
+        if (rankTag != null && !rankTag.isBlank()) {
+            line.append(com.champutils.chat.ChatTagResolver.legacy(rankTag)).append(Component.literal(" "));
         }
-        if (player.titleTag() != null && !player.titleTag().isBlank()) {
-            line.append(com.champutils.chat.ChatTagResolver.legacy(player.titleTag())).append(Component.literal(" "));
+        if (titleTag != null && !titleTag.isBlank()) {
+            line.append(com.champutils.chat.ChatTagResolver.legacy(titleTag)).append(Component.literal(" "));
         }
         line.append(Component.literal(player.playerName()).withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(" - ").withStyle(ChatFormatting.DARK_GRAY))

@@ -1,5 +1,7 @@
 package com.champutils.profile;
 
+import com.champutils.claims.LandClaimCommand;
+
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.badge.BadgeManager;
@@ -159,6 +161,7 @@ public final class PlayerProfileManager {
 
     public static void ensureSchemaAsync() {
         if (!DatabaseManager.isEnabled()) return;
+        ProfileFirstSpawnManager.ensureSchemaAsync();
         DatabaseManager.executeAsync("ensure SQL profile schema compatibility", connection -> {
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("create extension if not exists pgcrypto");
@@ -198,7 +201,6 @@ public final class PlayerProfileManager {
                 statement.executeUpdate("drop index if exists player_profiles_unique_name_per_player_uuid");
                 statement.executeUpdate("create unique index if not exists player_profiles_unique_live_name on player_profiles(player_uuid, lower(name)) where deleted_at is null");
                 statement.executeUpdate("create index if not exists idx_player_profiles_player_live on player_profiles(player_uuid) where deleted_at is null");
-                statement.executeUpdate("create index if not exists idx_player_profiles_player_name_live on player_profiles(player_uuid, lower(name)) where deleted_at is null");
                 statement.executeUpdate("create index if not exists idx_player_profiles_pending_delete on player_profiles(player_uuid, is_pending_delete, delete_available_at) where deleted_at is null");
                 statement.executeUpdate("create table if not exists player_active_profiles (" +
                         "player_uuid uuid primary key references players(uuid) on delete cascade, " +
@@ -392,10 +394,6 @@ public static void markProfileGuardAsync(UUID profileId, String reason) {
     if (profileId == null || !DatabaseManager.isEnabled()) return;
     String cleanReason = reason == null || reason.isBlank() ? "active" : reason;
     DatabaseManager.executeAsync("mark profile recovery guard", connection -> {
-        try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_reason text");
-            statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_updated_at timestamptz");
-        }
         try (var ps = connection.prepareStatement("update player_profiles set is_locked = false, profile_guard_reason = ?, profile_guard_updated_at = now() where id = ? and deleted_at is null")) {
             ps.setString(1, cleanReason);
             ps.setObject(2, profileId);
@@ -407,10 +405,6 @@ public static void markProfileGuardAsync(UUID profileId, String reason) {
 public static void clearProfileGuardAsync(UUID profileId) {
     if (profileId == null || !DatabaseManager.isEnabled()) return;
     DatabaseManager.executeAsync("clear profile recovery guard", connection -> {
-        try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_reason text");
-            statement.executeUpdate("alter table player_profiles add column if not exists profile_guard_updated_at timestamptz");
-        }
         try (var ps = connection.prepareStatement("update player_profiles set is_locked = false, profile_guard_reason = null, profile_guard_updated_at = null where id = ?")) {
             ps.setObject(1, profileId);
             ps.executeUpdate();
@@ -456,13 +450,13 @@ public static void saveAndUnloadForDisconnect(ServerPlayer player) {
     ProfileNetworkTransferFlow.clearAcceptedTransferSession(playerUuid);
     ProfileSelectionMenu.clearPlayerState(playerUuid);
 
-    try { ProfilePlaytimeManager.flushPlayerBlockingBestEffort(player); }
-    catch (Exception e) { System.err.println("[ChampUtils] Failed to flush playtime before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
+    try { ProfilePlaytimeManager.flushPlayerAsyncBestEffort(player); }
+    catch (Exception e) { System.err.println("[ChampUtils] Failed to queue playtime before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
     try { ProfilePlaytimeManager.clearSession(player); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to clear playtime session before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
-    try { saveActiveLocation(player); }
+    try { saveActiveLocationAsync(player); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to save active profile location before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
     try { VanillaProfileStateManager.saveAsync(player); }
@@ -473,9 +467,6 @@ public static void saveAndUnloadForDisconnect(ServerPlayer player) {
 
     try { ChatPreferenceManager.saveAsync(playerUuid, ChatPreferenceManager.get(playerUuid)); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to queue chat preference save before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
-
-    try { DatabaseManager.flushSubmittedTasks(8, java.util.concurrent.TimeUnit.SECONDS); }
-    catch (Exception e) { System.err.println("[ChampUtils] Database flush failed before disconnect unload for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
     try { ProfileSessionLoader.unload(player); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to unload profile session before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
@@ -581,6 +572,32 @@ public static void unload(UUID playerUuid) {
 
     public record ProfileLimit(int maxProfiles, boolean instantDelete, boolean fastDelete, int deletionDelayMinutes) {}
 
+
+public static java.util.List<String> profileNamesCached(ServerPlayer player) {
+    java.util.List<String> names = new java.util.ArrayList<>();
+    if (player == null) return names;
+
+    List<ProfileRecord> cached = cachedProfileList(player.getUUID());
+    if (cached != null) {
+        for (ProfileRecord profile : cached) {
+            if (profile != null && !profile.pendingDelete()) names.add(profile.profileName());
+        }
+        return names;
+    }
+
+    Map<String, ProfileRecord> byName = PROFILE_CACHE.get(player.getUUID());
+    if (byName != null) {
+        for (ProfileRecord profile : byName.values()) {
+            if (profile != null && !profile.pendingDelete()) names.add(profile.profileName());
+        }
+    }
+    ProfileRecord active = active(player);
+    if (active != null && names.stream().noneMatch(name -> name.equalsIgnoreCase(active.profileName()))) {
+        names.add(active.profileName());
+    }
+    names.sort(String.CASE_INSENSITIVE_ORDER);
+    return names;
+}
 
 public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     java.util.List<String> names = new java.util.ArrayList<>();
@@ -882,8 +899,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                             return;
                         }
 
-                        CompletableFuture
-                                .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
+                        DatabaseManager.supplyAsync("load background profile session " + active.profileId(), backgroundConnection ->
+                                        ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
                                 .whenComplete((snapshot, error) -> player.server.execute(() -> {
                                     if (!SafeTeleportManager.isLive(player)) {
                                         ProfileLoadingStateManager.end(player);
@@ -1068,8 +1085,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         return;
                     }
 
-                    CompletableFuture
-                            .supplyAsync(() -> ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
+                    DatabaseManager.supplyAsync("load background profile session " + active.profileId(), backgroundConnection ->
+                                        ProfileSessionLoader.loadBackground(playerUuid, active.profileId(), playerName))
                             .whenComplete((snapshot, backgroundError) -> player.server.execute(() -> {
                                 try {
                                     if (SafeTeleportManager.isLive(player) && active.profileId().equals(activeProfileId(player))) {
@@ -1121,14 +1138,25 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                 System.err.println("[ChampUtils] Saved-location chunk prewarm failed for " + player.getGameProfile().getName() + ": " + error.getMessage());
             }
 
-            ProfileLoadingStateManager.end(player);
-            ProfileLobbyManager.leaveLobby(player);
-            teleportToSavedLocationSnapshot(player, snapshot);
-            ProfileLobbyManager.leaveLobby(player);
+            ProfileFirstSpawnManager.resolve(player, firstSpawn -> {
+                ProfileLoadingStateManager.end(player);
+                ProfileLobbyManager.leaveLobby(player);
+                if (firstSpawn != null) {
+                    if (!TeleportConfig.teleport(player, firstSpawn)) {
+                        teleportToSavedLocationSnapshot(player, snapshot);
+                    } else {
+                        player.resetFallDistance();
+                    }
+                    LandClaimCommand.giveInitialClaimingStick(player);
+                } else {
+                    teleportToSavedLocationSnapshot(player, snapshot);
+                }
+                ProfileLobbyManager.leaveLobby(player);
 
-            scheduleReleaseVerify(player, snapshot, 1);
-            scheduleReleaseVerify(player, snapshot, 5);
-            scheduleReleaseVerify(player, snapshot, 20);
+                scheduleReleaseVerify(player, snapshot, 1);
+                scheduleReleaseVerify(player, snapshot, 5);
+                scheduleReleaseVerify(player, snapshot, 20);
+            });
         }));
     }
 
@@ -1333,7 +1361,9 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
     private static void deletePersonalTerritoryForProfile(ServerPlayer player, UUID profileId) {
         if (player == null || player.server == null || profileId == null) return;
         try {
-            TerritoryRegionWipeManager.enqueueDeleteForDeletedProfile(player.server, profileId, player.getUUID());
+            var server = player.server;
+            UUID requesterId = player.getUUID();
+            server.execute(() -> TerritoryRegionWipeManager.enqueueDeleteForDeletedProfile(server, profileId, requesterId));
         } catch (Exception e) {
             System.err.println("[ChampUtils] Failed to enqueue territory deletion for deleted profile " + profileId + ".");
             e.printStackTrace();
@@ -1831,7 +1861,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         int requiredHours = Config.profileConversion == null ? 24 : Config.profileConversion.minAgeHoursBeforeNormal;
         if (requiredHours < 0) requiredHours = 0;
 
-        try (Connection connection = DatabaseManager.getConnection()) {
+        try {
+            Connection connection = DatabaseManager.getConnection();
             if (requiredHours > 0) {
                 try (var agePs = connection.prepareStatement("select created_at from player_profiles where id = ? and deleted_at is null limit 1")) {
                     agePs.setObject(1, record.profileId());

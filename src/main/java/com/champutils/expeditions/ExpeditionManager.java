@@ -4,6 +4,7 @@ import com.champutils.breeding.BreedingEggData;
 import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.economy.EconomyManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.profession.ProfessionManager;
@@ -26,6 +27,8 @@ import net.minecraft.world.item.ItemStack;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,12 +42,46 @@ public final class ExpeditionManager {
     private static final File DIR = new File("config/champutils/expeditions/profiles");
     private static final long CLAIM_LOCK_TIMEOUT_MILLIS = 120_000L;
     private static final ConcurrentHashMap<UUID, Object> PROFILE_LOCKS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Save> CACHE = new ConcurrentHashMap<>();
+    private static final String STATE_KEY = "expedition_state";
 
     private ExpeditionManager() {}
 
     public static void load() {
         if (!DIR.exists()) DIR.mkdirs();
         ExpeditionConfig.load();
+    }
+
+    public static void preload(UUID profileId) {
+        if (profileId == null) return;
+        Save local = loadLocal(profileId);
+        Save shared = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, Save.class, local);
+        CACHE.put(profileId, shared == null ? local : shared);
+        saveLocal(profileId, CACHE.get(profileId));
+    }
+
+    public static Save captureForTransfer(UUID profileId) {
+        if (profileId == null) return null;
+        Save current = CACHE.get(profileId);
+        if (current == null) current = loadLocal(profileId);
+        return GSON.fromJson(GSON.toJson(current), Save.class);
+    }
+
+    public static void saveBlocking(Connection connection, UUID profileId, Save save) throws Exception {
+        if (connection == null || profileId == null || save == null) return;
+        SharedJsonStateRepository.ensureSchema(connection);
+        try (PreparedStatement ps = connection.prepareStatement(
+                "insert into profile_json_state (profile_id, state_key, payload, updated_at, version) values (?, ?, ?, now(), 1) " +
+                        "on conflict (profile_id, state_key) do update set payload = excluded.payload, updated_at = now(), version = profile_json_state.version + 1")) {
+            ps.setObject(1, profileId);
+            ps.setString(2, STATE_KEY);
+            ps.setString(3, GSON.toJson(save));
+            ps.executeUpdate();
+        }
+    }
+
+    public static void unload(UUID profileId) {
+        if (profileId != null) CACHE.remove(profileId);
     }
 
     public static boolean hasActive(ServerPlayer player) {
@@ -439,7 +476,16 @@ public final class ExpeditionManager {
     }
 
     private static Save loadSave(ServerPlayer player) {
-        File file = file(player);
+        UUID profileId = player == null ? null : PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return new Save();
+        return CACHE.computeIfAbsent(profileId, id -> {
+            Save local = loadLocal(id);
+            return SharedJsonStateRepository.loadProfile(id, STATE_KEY, Save.class, local);
+        });
+    }
+
+    private static Save loadLocal(UUID profileId) {
+        File file = file(profileId);
         if (file.exists()) {
             try (FileReader reader = new FileReader(file)) {
                 Save save = GSON.fromJson(reader, Save.class);
@@ -452,20 +498,29 @@ public final class ExpeditionManager {
     }
 
     private static void save(ServerPlayer player, Save save) {
-        try {
-            saveOrThrow(player, save);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        try { saveOrThrow(player, save); }
+        catch (Exception e) { e.printStackTrace(); }
     }
 
     private static void saveOrThrow(ServerPlayer player, Save save) throws Exception {
+        UUID profileId = player == null ? null : PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) throw new IllegalStateException("No active profile for expedition save.");
+        CACHE.put(profileId, save);
+        saveLocalOrThrow(profileId, save);
+        SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, save);
+    }
+
+    private static void saveLocal(UUID profileId, Save save) {
+        try { saveLocalOrThrow(profileId, save); }
+        catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private static void saveLocalOrThrow(UUID profileId, Save save) throws Exception {
+        if (profileId == null || save == null) return;
         if (!DIR.exists() && !DIR.mkdirs()) throw new IllegalStateException("Could not create expedition profile directory.");
-        File target = file(player);
+        File target = file(profileId);
         File tmp = new File(target.getParentFile(), target.getName() + ".tmp");
-        try (FileWriter writer = new FileWriter(tmp)) {
-            GSON.toJson(save, writer);
-        }
+        try (FileWriter writer = new FileWriter(tmp)) { GSON.toJson(save, writer); }
         try {
             Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (Exception atomicFailure) {
@@ -473,12 +528,12 @@ public final class ExpeditionManager {
         }
     }
 
-    private static File file(ServerPlayer player) {
+    private static File file(UUID profileId) {
         if (!DIR.exists()) DIR.mkdirs();
-        return new File(DIR, PlayerProfileManager.activeProfileId(player) + ".json");
+        return new File(DIR, profileId + ".json");
     }
 
-    static final class Save {
+    public static final class Save {
         boolean active;
         long endsAt;
         long startedAt;

@@ -87,7 +87,7 @@ public final class ProfileNetworkTransferFlow {
         ProfileStateFlushService.TransferFlushSnapshot transferSnapshot =
                 ProfileStateFlushService.captureBeforeTransfer(player, "network_profile_transfer");
 
-        if (!ProfileStateFlushService.flushBeforeTransfer(player, "network_profile_transfer", 3, java.util.concurrent.TimeUnit.SECONDS)) {
+        if (!ProfileStateFlushService.queueAncillaryStateBeforeTransfer(player, "network_profile_transfer")) {
             if (callback != null) callback.accept("Could not safely save your profile before transfer. Please try again.");
             return;
         }

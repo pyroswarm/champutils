@@ -2,6 +2,8 @@ package com.champutils.territory;
 
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.menu.ConfirmationMenu;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkPlayerDirectory;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -10,7 +12,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -60,22 +61,26 @@ public final class TerritoryCommand {
                                     .then(Commands.argument("value", BoolArgumentType.bool())
                                             .executes(context -> setPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "setting"), BoolArgumentType.getBool(context, "value"))))))
                     .then(Commands.literal("trust")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> trustPersonal(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), TerritoryRepository.TrustLevel.TRUSTED))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> trustPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player"), TerritoryRepository.TrustLevel.TRUSTED))
                                     .then(Commands.argument("level", StringArgumentType.word())
-                                            .executes(context -> trustPersonal(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), parseTrust(StringArgumentType.getString(context, "level")))))))
+                                            .executes(context -> trustPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player"), parseTrust(StringArgumentType.getString(context, "level")))))))
                     .then(Commands.literal("untrust")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> untrustPersonal(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> untrustPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
                     .then(Commands.literal("ban")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> banPersonal(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> banPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
                     .then(Commands.literal("unban")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> untrustPersonal(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> untrustPersonal(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
                     .then(Commands.literal("kick")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownPersonal(context.getSource().getPlayerOrException())))))
+                            .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "player"), ownPersonal(context.getSource().getPlayerOrException())))))
                     .then(Commands.literal("delete")
                             .executes(context -> deletePersonalPrompt(context.getSource().getPlayerOrException()))
                             .then(Commands.literal("confirm")
@@ -167,14 +172,16 @@ public final class TerritoryCommand {
                                     .then(Commands.argument("value", BoolArgumentType.bool())
                                             .executes(context -> setGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "setting"), BoolArgumentType.getBool(context, "value"))))))
                     .then(Commands.literal("ban")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> banGuild(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> banGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
                     .then(Commands.literal("unban")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> unbanGuild(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player")))))
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
+                                    .executes(context -> unbanGuild(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
                     .then(Commands.literal("kick")
-                            .then(Commands.argument("player", EntityArgument.player())
-                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), EntityArgument.getPlayer(context, "player"), ownGuild(context.getSource().getPlayerOrException())))))
+                            .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                    .executes(context -> kickFromTerritory(context.getSource().getPlayerOrException(), net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "player"), ownGuild(context.getSource().getPlayerOrException())))))
                     .then(Commands.literal("delete")
                             .executes(context -> deleteGuildPrompt(context.getSource().getPlayerOrException()))
                             .then(Commands.literal("confirm")
@@ -536,84 +543,119 @@ public final class TerritoryCommand {
     }
 
 
-    private static int trustPersonal(ServerPlayer owner, ServerPlayer target, TerritoryRepository.TrustLevel level) {
+    private static int trustPersonal(ServerPlayer owner, String targetName, TerritoryRepository.TrustLevel level) {
         TerritoryRepository.Territory territory = ownPersonal(owner);
-        if (territory == null) {
-            owner.sendSystemMessage(Component.literal("You do not have a personal territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (!TerritoryRepository.canManage(owner, territory)) {
-            owner.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (owner.getUUID().equals(target.getUUID()) || territory.ownerId.equalsIgnoreCase(owner.getUUID().toString()) || territory.ownerId.equalsIgnoreCase(target.getUUID().toString())) {
-            owner.sendSystemMessage(Component.literal("You cannot change trust for the owner of their own territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        TerritoryRepository.setTrust(territory, target.getUUID(), target.getGameProfile().getName(), level, (success, message) -> owner.server.execute(() -> owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
-        return 1;
-    }
-
-    private static int untrustPersonal(ServerPlayer owner, ServerPlayer target) {
-        TerritoryRepository.Territory territory = ownPersonal(owner);
-        if (territory == null) {
-            owner.sendSystemMessage(Component.literal("You do not have a personal territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (!TerritoryRepository.canManage(owner, territory)) {
-            owner.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (owner.getUUID().equals(target.getUUID()) || territory.ownerId.equalsIgnoreCase(owner.getUUID().toString()) || territory.ownerId.equalsIgnoreCase(target.getUUID().toString())) {
-            owner.sendSystemMessage(Component.literal("You cannot untrust the owner from their own territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        TerritoryRepository.removeTrust(territory, target.getUUID(), target.getGameProfile().getName(), (success, message) -> owner.server.execute(() -> owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
-        return 1;
-    }
-
-
-    private static int banPersonal(ServerPlayer owner, ServerPlayer target) {
-        return ban(owner, target, ownPersonal(owner));
-    }
-
-    private static int banGuild(ServerPlayer actor, ServerPlayer target) {
-        return ban(actor, target, ownGuild(actor));
-    }
-
-    private static int unbanGuild(ServerPlayer actor, ServerPlayer target) {
-        TerritoryRepository.Territory territory = ownGuild(actor);
-        if (territory == null) {
-            actor.sendSystemMessage(Component.literal("Your guild does not have a territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (!TerritoryRepository.canManage(actor, territory)) {
-            actor.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        TerritoryRepository.removeTrust(territory, target.getUUID(), target.getGameProfile().getName(), (success, message) -> actor.server.execute(() -> actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED))));
-        return 1;
-    }
-
-    private static int ban(ServerPlayer actor, ServerPlayer target, TerritoryRepository.Territory territory) {
-        if (territory == null) {
-            actor.sendSystemMessage(Component.literal("No territory found.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (!TerritoryRepository.canManage(actor, territory)) {
-            actor.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (TerritoryRepository.isOwnerOrGuildMember(target, territory)) {
-            actor.sendSystemMessage(Component.literal("You cannot ban the owner or a guild member from their own territory.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        TerritoryRepository.setTrust(territory, target.getUUID(), target.getGameProfile().getName(), TerritoryRepository.TrustLevel.BANNED, (success, message) -> actor.server.execute(() -> {
-            actor.sendSystemMessage(Component.literal(success ? target.getGameProfile().getName() + " is banned from this territory." : message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-            if (success && TerritoryRepository.findAt(target.serverLevel(), target.blockPosition()) != null && territory.id.equals(TerritoryRepository.findAt(target.serverLevel(), target.blockPosition()).id)) {
-                teleportOut(target);
-                target.sendSystemMessage(Component.literal("You were banned from " + territory.ownerName + "'s territory.").withStyle(ChatFormatting.RED));
+        if (!canModerate(owner, territory, "You do not have a personal territory.")) return 0;
+        return resolveTerritoryTarget(owner, targetName, target -> {
+            if (owner.getUUID().equals(target.playerUuid())) {
+                owner.sendSystemMessage(Component.literal("You cannot change trust for yourself.").withStyle(ChatFormatting.RED));
+                return;
             }
+            TerritoryRepository.setTrust(territory, target.playerUuid(), target.playerName(), level, (success, message) -> owner.server.execute(() -> {
+                owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                if (success) {
+                    NetworkEventManager.publishCacheInvalidation("TERRITORY", territory.id);
+                    NetworkEventManager.sendPlayerNotice(owner.server, target.playerUuid(), "§eYour access to " + territory.publicName() + " changed to " + level.name().toLowerCase(Locale.ROOT) + ".");
+                }
+            }));
+        });
+    }
+
+    private static int untrustPersonal(ServerPlayer owner, String targetName) {
+        TerritoryRepository.Territory territory = ownPersonal(owner);
+        if (!canModerate(owner, territory, "You do not have a personal territory.")) return 0;
+        return resolveTerritoryTarget(owner, targetName, target -> TerritoryRepository.removeTrust(territory, target.playerUuid(), target.playerName(), (success, message) -> owner.server.execute(() -> {
+            owner.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+            if (success) NetworkEventManager.publishCacheInvalidation("TERRITORY", territory.id);
+        })));
+    }
+
+    private static int banPersonal(ServerPlayer owner, String targetName) {
+        return ban(owner, targetName, ownPersonal(owner));
+    }
+
+    private static int banGuild(ServerPlayer actor, String targetName) {
+        return ban(actor, targetName, ownGuild(actor));
+    }
+
+    private static int unbanGuild(ServerPlayer actor, String targetName) {
+        TerritoryRepository.Territory territory = ownGuild(actor);
+        if (!canModerate(actor, territory, "Your guild does not have a territory.")) return 0;
+        return resolveTerritoryTarget(actor, targetName, target -> TerritoryRepository.removeTrust(territory, target.playerUuid(), target.playerName(), (success, message) -> actor.server.execute(() -> {
+            actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+            if (success) NetworkEventManager.publishCacheInvalidation("TERRITORY", territory.id);
+        })));
+    }
+
+    private static int ban(ServerPlayer actor, String targetName, TerritoryRepository.Territory territory) {
+        if (!canModerate(actor, territory, "No territory found.")) return 0;
+        return resolveTerritoryTarget(actor, targetName, target -> {
+            if (actor.getUUID().equals(target.playerUuid())
+                    || (territory.ownerType == TerritoryRepository.OwnerType.PLAYER
+                    && target.activeProfileId() != null
+                    && territory.ownerId.equalsIgnoreCase(target.activeProfileId().toString()))) {
+                actor.sendSystemMessage(Component.literal("You cannot ban the owner from their own territory.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            if (territory.ownerType == TerritoryRepository.OwnerType.GUILD) {
+                UUID guildId;
+                try { guildId = UUID.fromString(territory.ownerId); }
+                catch (Exception ignored) {
+                    actor.sendSystemMessage(Component.literal("That guild territory has an invalid owner id.").withStyle(ChatFormatting.RED));
+                    return;
+                }
+                com.champutils.guild.GuildRepository.isGuildMemberAsync(guildId, target.playerUuid())
+                        .whenComplete((member, error) -> actor.server.execute(() -> {
+                            if (error != null) {
+                                actor.sendSystemMessage(Component.literal("Could not verify that player's guild membership.").withStyle(ChatFormatting.RED));
+                                return;
+                            }
+                            if (Boolean.TRUE.equals(member)) {
+                                actor.sendSystemMessage(Component.literal("You cannot ban a guild member from their own guild territory.").withStyle(ChatFormatting.RED));
+                                return;
+                            }
+                            applyTerritoryBan(actor, target, territory);
+                        }));
+                return;
+            }
+            applyTerritoryBan(actor, target, territory);
+        });
+    }
+
+    private static void applyTerritoryBan(ServerPlayer actor, NetworkPlayerDirectory.PlayerIdentity target, TerritoryRepository.Territory territory) {
+        TerritoryRepository.setTrust(territory, target.playerUuid(), target.playerName(), TerritoryRepository.TrustLevel.BANNED, (success, message) -> actor.server.execute(() -> {
+            actor.sendSystemMessage(Component.literal(success ? target.playerName() + " is banned from this territory." : message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+            if (!success) return;
+            NetworkEventManager.publishCacheInvalidation("TERRITORY", territory.id);
+            NetworkEventManager.sendPlayerNotice(actor.server, target.playerUuid(), "§cYou were banned from " + territory.publicName() + ".");
+            ServerPlayer localTarget = actor.server.getPlayerList().getPlayer(target.playerUuid());
+            if (localTarget != null) {
+                TerritoryRepository.Territory current = TerritoryRepository.findAt(localTarget.serverLevel(), localTarget.blockPosition());
+                if (current != null && territory.id.equals(current.id)) teleportOut(localTarget);
+            }
+        }));
+    }
+
+    private static boolean canModerate(ServerPlayer actor, TerritoryRepository.Territory territory, String missingMessage) {
+        if (territory == null) {
+            actor.sendSystemMessage(Component.literal(missingMessage).withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (!TerritoryRepository.canManage(actor, territory)) {
+            actor.sendSystemMessage(Component.literal("You cannot manage this territory.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        return true;
+    }
+
+    private static int resolveTerritoryTarget(ServerPlayer actor, String targetName, java.util.function.Consumer<NetworkPlayerDirectory.PlayerIdentity> action) {
+        if (targetName == null || targetName.isBlank()) return 0;
+        NetworkPlayerDirectory.resolveIdentityAsync(targetName).whenComplete((target, error) -> actor.server.execute(() -> {
+            if (error != null || target == null) {
+                actor.sendSystemMessage(Component.literal("Player not found on the network.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            action.accept(target);
         }));
         return 1;
     }

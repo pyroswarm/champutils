@@ -39,7 +39,6 @@ public final class BetaDoctorCommand {
         checkJsonConfigs(results);
         checkProgressionConfigs(results);
         checkBattleAndArenaConfigs(results);
-        checkWorldEventConfigs(results);
         checkNpcBindings(results);
         checkExternalHooks(results);
         checkDataFolders(results);
@@ -182,7 +181,6 @@ public final class BetaDoctorCommand {
                 "gymleaders.json",
                 "gym_settings.json",
                 "arena_locations.json",
-                "world_events.json",
                 "profession_tools.json",
                 "profession_essence.json",
                 "profession_reward_passives.json",
@@ -266,28 +264,6 @@ public final class BetaDoctorCommand {
             results.add(CheckResult.warn("Arenas", count + " arena(s) configured. You wanted 10 default arenas for beta."));
         } else {
             results.add(CheckResult.ok("Arenas", count + " arena(s) configured."));
-        }
-    }
-
-    private static void checkWorldEventConfigs(List<CheckResult> results) {
-        requireConfig(results, "world_events.json", "World events");
-
-        File bindings = new File(CONFIG_DIR, "world_event_bindings.json");
-        if (!bindings.exists()) {
-            results.add(CheckResult.warn("World event NPCs", "No world event NPC bindings found."));
-            return;
-        }
-
-        JsonObject root = readObject(bindings);
-        if (root == null) {
-            results.add(CheckResult.fail("World event NPCs", "world_event_bindings.json is invalid."));
-            return;
-        }
-
-        if (root.entrySet().isEmpty()) {
-            results.add(CheckResult.warn("World event NPCs", "world_event_bindings.json is empty."));
-        } else {
-            results.add(CheckResult.ok("World event NPCs", root.entrySet().size() + " binding entry/entries found."));
         }
     }
 

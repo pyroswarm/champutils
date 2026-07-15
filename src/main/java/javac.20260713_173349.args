@@ -1,0 +1,4 @@
+-proc:none
+com/champutils/cosmetic/QuirkyCatchTitleListener.java
+com/champutils/profile/ProfilePlaytimeManager.java
+com/champutils/worldfirst/WorldFirstManager.java

@@ -38,6 +38,7 @@ public final class ProfileSelectionMenu {
     private static final ConcurrentMap<UUID, Runnable> FORCED_REOPENERS = new ConcurrentHashMap<>();
     private static final Set<UUID> SUPPRESS_NEXT_CLOSE_REOPEN = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> PROFILE_CREATION_IN_PROGRESS = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> PROFILE_MUTATION_IN_PROGRESS = ConcurrentHashMap.newKeySet();
 
     private record MenuSnapshot(
             List<PlayerProfileManager.ProfileRecord> profiles,
@@ -383,14 +384,14 @@ public final class ProfileSelectionMenu {
                             .addLoreLine(Component.literal("Please wait. Extra clicks are ignored.").withStyle(ChatFormatting.GRAY)));
                     player.sendSystemMessage(Component.literal("Creating profile " + color.name() + "...").withStyle(ChatFormatting.YELLOW));
 
-                    CompletableFuture
-                            .supplyAsync(() -> PlayerProfileManager.createBlocking(player, color.name(), mode, monotype))
+                    DatabaseManager.supplyAsync("create profile " + color.name(), connection ->
+                            PlayerProfileManager.createBlocking(player, color.name(), mode, monotype))
                             .whenComplete((result, error) -> player.server.execute(() -> {
                                 PROFILE_CREATION_IN_PROGRESS.remove(playerId);
 
                                 String finalResult = result;
-                                if (error != null) {
-                                    error.printStackTrace();
+                                if (error != null || finalResult == null) {
+                                    if (error != null) error.printStackTrace();
                                     finalResult = "Could not create profile. Please try again or contact staff.";
                                 }
                                 invalidateSnapshot(player);
@@ -507,10 +508,25 @@ public final class ProfileSelectionMenu {
                 .setName(Component.literal("Yes, delete this profile").withStyle(ChatFormatting.GREEN))
                 .addLoreLine(Component.literal("Confirm deletion for " + profile.profileName() + ".").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> {
-                    String result = PlayerProfileManager.deleteBlocking(player, profile.profileName());
-                    invalidateSnapshot(player);
-                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Deleted") || result.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    navigate(player, () -> open(player));
+                    UUID playerId = player.getUUID();
+                    if (!PROFILE_MUTATION_IN_PROGRESS.add(playerId)) {
+                        player.sendSystemMessage(Component.literal("A profile change is already in progress.").withStyle(ChatFormatting.YELLOW));
+                        return;
+                    }
+                    gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
+                            .hideDefaultTooltip()
+                            .setName(Component.literal("Deleting profile...").withStyle(ChatFormatting.YELLOW)));
+                    DatabaseManager.supplyAsync("delete profile " + profile.profileName(), connection ->
+                                    PlayerProfileManager.deleteBlocking(player, profile.profileName()))
+                            .whenComplete((result, error) -> player.server.execute(() -> {
+                                PROFILE_MUTATION_IN_PROGRESS.remove(playerId);
+                                if (player.hasDisconnected()) return;
+                                String finalResult = error == null && result != null ? result : "Could not delete profile. Please try again or contact staff.";
+                                if (error != null) error.printStackTrace();
+                                invalidateSnapshot(player);
+                                player.sendSystemMessage(Component.literal(finalResult).withStyle(finalResult.startsWith("Deleted") || finalResult.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                                navigate(player, () -> open(player));
+                            }));
                 }));
 
         gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
@@ -538,10 +554,25 @@ public final class ProfileSelectionMenu {
                 .setName(Component.literal("Yes, cancel deletion").withStyle(ChatFormatting.GREEN))
                 .addLoreLine(Component.literal("Restore this profile.").withStyle(ChatFormatting.YELLOW))
                 .setCallback((index, clickType, action, gui1) -> {
-                    String result = PlayerProfileManager.cancelDeleteBlocking(player, profile.profileName());
-                    invalidateSnapshot(player);
-                    player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Cancelled") ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    navigate(player, () -> open(player));
+                    UUID playerId = player.getUUID();
+                    if (!PROFILE_MUTATION_IN_PROGRESS.add(playerId)) {
+                        player.sendSystemMessage(Component.literal("A profile change is already in progress.").withStyle(ChatFormatting.YELLOW));
+                        return;
+                    }
+                    gui.setSlot(index, new GuiElementBuilder(Items.CLOCK)
+                            .hideDefaultTooltip()
+                            .setName(Component.literal("Restoring profile...").withStyle(ChatFormatting.YELLOW)));
+                    DatabaseManager.supplyAsync("cancel profile deletion " + profile.profileName(), connection ->
+                                    PlayerProfileManager.cancelDeleteBlocking(player, profile.profileName()))
+                            .whenComplete((result, error) -> player.server.execute(() -> {
+                                PROFILE_MUTATION_IN_PROGRESS.remove(playerId);
+                                if (player.hasDisconnected()) return;
+                                String finalResult = error == null && result != null ? result : "Could not cancel profile deletion. Please try again or contact staff.";
+                                if (error != null) error.printStackTrace();
+                                invalidateSnapshot(player);
+                                player.sendSystemMessage(Component.literal(finalResult).withStyle(finalResult.startsWith("Cancelled") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                                navigate(player, () -> open(player));
+                            }));
                 }));
 
         gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
@@ -638,6 +669,7 @@ public final class ProfileSelectionMenu {
         FORCED_REOPENERS.remove(playerUuid);
         SUPPRESS_NEXT_CLOSE_REOPEN.remove(playerUuid);
         PROFILE_CREATION_IN_PROGRESS.remove(playerUuid);
+        PROFILE_MUTATION_IN_PROGRESS.remove(playerUuid);
         SNAPSHOTS.remove(playerUuid);
         LAST_FINALIZE_CHECK.remove(playerUuid);
     }
@@ -675,15 +707,13 @@ public final class ProfileSelectionMenu {
     private static Set<String> usedProfileNames(ServerPlayer player) {
         Set<String> used = new HashSet<>();
         MenuSnapshot snapshot = cachedSnapshot(player);
-        List<PlayerProfileManager.ProfileRecord> profiles;
         if (snapshot == null) {
-            // Keep the color chooser stable. Reopening the root menu here made players get only
-            // a split second to pick a color whenever the snapshot expired or was invalidated.
-            profiles = PlayerProfileManager.listBlocking(player);
-        } else {
-            profiles = snapshot.profiles();
+            for (String name : PlayerProfileManager.profileNamesCached(player)) {
+                if (name != null && !name.isBlank()) used.add(name.toLowerCase(Locale.ROOT));
+            }
+            return used;
         }
-        for (PlayerProfileManager.ProfileRecord profile : profiles) {
+        for (PlayerProfileManager.ProfileRecord profile : snapshot.profiles()) {
             if (profile != null && !profile.pendingDelete()) used.add(profile.profileName().toLowerCase(Locale.ROOT));
         }
         return used;

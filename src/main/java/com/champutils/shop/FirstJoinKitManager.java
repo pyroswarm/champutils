@@ -171,13 +171,13 @@ public final class FirstJoinKitManager {
         switch (normalize(entry.type)) {
             case "tool" -> giveTool(player, entry);
             case "command" -> runCommands(player, entry.commands);
-            case "item" -> giveItem(player, entry.id, entry.amount);
+            case "item" -> giveItem(player, entry.id, entry.amount, entry.name);
             default -> {
             }
         }
     }
 
-    private static void giveItem(ServerPlayer player, String id, int amount) {
+    private static void giveItem(ServerPlayer player, String id, int amount, String customName) {
         Item item;
         try {
             item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
@@ -193,7 +193,11 @@ public final class FirstJoinKitManager {
         int max = Math.max(1, item.getDefaultMaxStackSize());
         while (remaining > 0) {
             int give = Math.min(max, remaining);
-            NpcShopService.giveOrDrop(player, new ItemStack(item, give));
+            ItemStack stack = new ItemStack(item, give);
+            if (customName != null && !customName.isBlank()) {
+                stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(customName).withStyle(ChatFormatting.GOLD));
+            }
+            NpcShopService.giveOrDrop(player, stack);
             remaining -= give;
         }
     }

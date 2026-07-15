@@ -229,7 +229,7 @@ public class Config {
             arenas = new ArrayList<>();
         }
 
-        for(int i=1;i<=10;i++){
+        for(int i=1;i<=16;i++){
             String id = "arena" + i;
 
             if(getArena(id) != null){
@@ -332,32 +332,35 @@ public class Config {
 
     private static String defaultTheme(int index){
         return switch(index){
-            case 1 -> "Grass";
-            case 2 -> "Fire";
-            case 3 -> "Water";
-            case 4 -> "Electric";
-            case 5 -> "Ice";
-            case 6 -> "Dragon";
-            case 7 -> "Ghost";
-            case 8 -> "Steel";
-            case 9 -> "Fairy";
-            case 10 -> "Monarch Coliseum";
+            case 1 -> "Normal";
+            case 2 -> "Fighting";
+            case 3 -> "Ground";
+            case 4 -> "Ghost";
+            case 5 -> "Fairy";
+            case 6 -> "Electric";
+            case 7 -> "Psychic";
+            case 8 -> "Dragon";
+            case 9 -> "Grass";
+            case 10 -> "Rock";
+            case 11 -> "Dark";
+            case 12 -> "Bug";
+            case 13 -> "Steel";
+            case 14 -> "Fire";
+            case 15 -> "Water";
+            case 16 -> "Ice";
             default -> "Custom";
         };
     }
 
     private static String defaultMusic(int index){
         return switch(index){
-            case 1 -> "gym";
-            case 2 -> "volcano";
-            case 3 -> "ocean";
-            case 4 -> "power";
-            case 5 -> "glacier";
-            case 6 -> "legend";
-            case 7 -> "haunted";
-            case 8 -> "factory";
-            case 9 -> "mystic";
-            case 10 -> "final";
+            case 4 -> "haunted";
+            case 6 -> "power";
+            case 8 -> "legend";
+            case 13 -> "factory";
+            case 14 -> "volcano";
+            case 15 -> "ocean";
+            case 16 -> "glacier";
             default -> "gym";
         };
     }

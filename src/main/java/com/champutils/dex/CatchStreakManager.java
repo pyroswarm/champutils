@@ -85,9 +85,6 @@ public final class CatchStreakManager {
             Map<String, CatchStreak> out = new LinkedHashMap<>();
             for (Map.Entry<UUID, CatchStreak> entry : STREAKS.entrySet()) out.put(entry.getKey().toString(), entry.getValue());
             try (FileWriter writer = new FileWriter(DATA_FILE)) { GSON.toJson(out, writer); }
-            State state = new State();
-            state.streaks.putAll(out);
-            SharedJsonStateRepository.saveGlobal(STATE_KEY, state);
         } catch (Exception exception) {
             System.err.println("[ChampUtils] Failed to save catch streak data.");
             exception.printStackTrace();
@@ -171,6 +168,7 @@ public final class CatchStreakManager {
         next.updatedAt = System.currentTimeMillis();
         next.count = species.equals(previousSpecies) ? previousCount + 1 : 1;
         STREAKS.put(profileId, next);
+        SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, next);
         save();
         com.champutils.network.NetworkEventManager.publishCacheInvalidation("CATCH_STREAKS", profileId);
 
@@ -229,8 +227,21 @@ public final class CatchStreakManager {
     }
 
     public static synchronized void invalidateSharedCache(UUID profileId) {
-        loaded = false;
-        STREAKS.clear();
+        if (profileId != null) STREAKS.remove(profileId);
+    }
+
+    /** Loads the active profile's streak from its own SQL JSON row. */
+    public static void preload(UUID profileId) {
+        if (profileId == null) return;
+        load();
+        CatchStreak legacy = STREAKS.get(profileId);
+        CatchStreak loadedStreak = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, CatchStreak.class, legacy);
+        if (loadedStreak != null && loadedStreak.species != null && !loadedStreak.species.isBlank() && loadedStreak.count > 0) {
+            STREAKS.put(profileId, loadedStreak);
+            // Persist the selected value even when it came from the legacy network-wide document.
+            // This makes later reads profile-row authoritative and removes cross-server overwrite risk.
+            SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, loadedStreak);
+        }
     }
 
     public static boolean setShiny(Object pokemon, boolean shiny) {

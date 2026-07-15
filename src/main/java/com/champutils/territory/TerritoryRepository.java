@@ -220,6 +220,7 @@ public final class TerritoryRepository {
                 try (ResultSet rs = st.executeQuery()) { if (rs.next()) territory.upvotes = rs.getInt("total"); }
             }
             if (currently) UPVOTES.remove(upvoteKey(territory.id, playerId)); else UPVOTES.add(upvoteKey(territory.id, playerId));
+            publishTerritoryInvalidation(territory);
             callback.done(true, currently ? "Removed your territory upvote." : "Upvoted territory.");
         });
     }
@@ -233,6 +234,7 @@ public final class TerritoryRepository {
                 st.setString(1, clean); st.setObject(2, territory.id); st.executeUpdate();
             }
             territory.iconItemId = clean;
+            publishTerritoryInvalidation(territory);
             callback.done(true, "Territory icon set to " + clean + ".");
         });
     }
@@ -604,6 +606,7 @@ public final class TerritoryRepository {
                 statement.executeUpdate();
             }
             TRUST.put(trustKey(territory.id, playerId), level);
+            publishTerritoryInvalidation(territory);
             callback.done(true, playerName + " is now " + level.name().toLowerCase(Locale.ROOT) + " in this territory.");
         });
     }
@@ -620,6 +623,7 @@ public final class TerritoryRepository {
                 statement.executeUpdate();
             }
             TRUST.remove(trustKey(territory.id, playerId));
+            publishTerritoryInvalidation(territory);
             callback.done(true, "Removed " + playerName + " from this territory's visitor list.");
         });
     }
@@ -879,6 +883,7 @@ public final class TerritoryRepository {
             territory.isPublic = false;
             territory.allowVisitors = false;
             rebuildSpatialIndexes();
+            publishTerritoryInvalidation(territory);
             callback.done(true, "Territory deletion started. You can create another territory now while the old slot wipes in the background.");
         });
     }
@@ -921,6 +926,7 @@ public final class TerritoryRepository {
             OWNER_INDEX.remove(ownerKey(territory.ownerType, territory.ownerId));
             TRUST.keySet().removeIf(key -> key.startsWith(territory.id.toString() + ":"));
             rebuildSpatialIndexes();
+            publishTerritoryInvalidation(territory);
             callback.done(true, "Territory deleted. You can create another territory now.");
         });
     }
@@ -991,8 +997,14 @@ public final class TerritoryRepository {
             TERRITORIES.put(territory.id, territory);
             OWNER_INDEX.put(ownerKey(territory.ownerType, territory.ownerId), territory.id);
             rebuildSpatialIndexes();
+            publishTerritoryInvalidation(territory);
             callback.done(true, "Territory saved.");
         });
+    }
+
+    private static void publishTerritoryInvalidation(Territory territory) {
+        if (territory == null || territory.id == null) return;
+        com.champutils.network.NetworkEventManager.publishCacheInvalidation("TERRITORY", territory.id);
     }
 
     private static Territory read(ResultSet rs) throws Exception {

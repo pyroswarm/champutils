@@ -57,10 +57,14 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
         if (pokemon == null || entity == null || !(entity.level() instanceof ServerLevel level)) return;
 
         String species = TrueCaughtDexManager.normalizeSpecies(TrueCaughtDexManager.speciesId(pokemon));
-        if (isForbiddenSpecialSpecies(species) && !hasAllowedSpecialTag(entity)) {
+        boolean specialSpecies = isForbiddenSpecialSpecies(species);
+        boolean allowedSpecial = hasAllowedSpecialTag(entity);
+        if (specialSpecies && !allowedSpecial) {
             entity.discard();
             return;
         }
+        // Scripted/configured special encounters keep their authored level.
+        if (specialSpecies && allowedSpecial) return;
 
         ServerPlayer nearest = nearestPlayer(level, entity);
         if (nearest != null && !entity.getTags().contains("champutils_spawn_boost_checked")) {

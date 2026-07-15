@@ -17,7 +17,7 @@ public final class ChallengeProfileTitleManager {
         if (!hasCompletedEliteFourAndChampion(player)) return;
 
         String titleId = switch (mode) {
-            case NORMAL -> "normal_champion";
+            case NORMAL -> "champion";
             case ISLANDER -> "islander_champion";
             case IRONMAN -> "ironman_champion";
             case NUZLOCKE -> "nuzlocke_champion";

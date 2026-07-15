@@ -34,9 +34,16 @@ public final class CashShopMenu {
                             player.sendSystemMessage(Component.literal("You need 1 booster credit to activate this.").withStyle(net.minecraft.ChatFormatting.RED));
                             return;
                         }
-                        if (!CashShopBoostItemManager.activateFromCredit(player, def.id)) return;
-                        BoosterCreditManager.spend(player, 1);
-                        open(player);
+                        CashShopBoostItemManager.activateFromCredit(player, def.id)
+                                .whenComplete((activated, error) -> player.server.execute(() -> {
+                                    if (error != null || !Boolean.TRUE.equals(activated)) return;
+                                    if (!BoosterCreditManager.spend(player, 1)) {
+                                        CashShopBoostItemManager.deactivateAdmin(def.id);
+                                        player.sendSystemMessage(Component.literal("Your booster credit balance changed before activation. The boost was cancelled.").withStyle(net.minecraft.ChatFormatting.RED));
+                                        return;
+                                    }
+                                    open(player);
+                                }));
                     }));
         }
         MenuUtil.addBackButton(gui, 18, () -> com.champutils.menu.MainMenu.open(player));

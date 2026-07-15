@@ -1,6 +1,12 @@
 package com.champutils.territory;
 
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkServerConfig;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.teleport.SafeTeleportManager;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -14,9 +20,24 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 public final class TerritoryTeleportUtil {
+    private static final String PENDING_TERRITORY_KEY = "pending_territory_transfer";
+    private static final long PENDING_TRANSFER_TTL_MS = 120_000L;
+
     private TerritoryTeleportUtil() {}
 
     public static boolean teleportHome(ServerPlayer player, TerritoryRepository.Territory territory) {
+        if (player == null || territory == null || !territory.isReady()) return false;
+
+        String targetServerId = territory.serverId == null ? "" : territory.serverId.trim();
+        String currentServerId = NetworkServerConfig.serverId();
+        if (!targetServerId.isBlank() && !targetServerId.equalsIgnoreCase(currentServerId)) {
+            return routeToTerritoryServer(player, territory, targetServerId);
+        }
+
+        return teleportHomeLocal(player, territory);
+    }
+
+    private static boolean teleportHomeLocal(ServerPlayer player, TerritoryRepository.Territory territory) {
         if (player == null || territory == null || !territory.isReady()) return false;
         ServerLevel level = resolveLevel(player.server, territory.worldName);
         if (level == null) return false;
@@ -24,6 +45,92 @@ public final class TerritoryTeleportUtil {
         ensureDefaultSpawnAnchor(level, territory);
         SafeSpot spot = findSafeSpot(level, territory.spawnX, territory.spawnY, territory.spawnZ);
         return SafeTeleportManager.teleport(player, level, spot.x, spot.y, spot.z, territory.spawnYaw, territory.spawnPitch);
+    }
+
+    private static boolean routeToTerritoryServer(ServerPlayer player, TerritoryRepository.Territory territory, String targetServerId) {
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
+        if (active == null || territory.id == null) return false;
+
+        PendingTerritoryTransfer pending = new PendingTerritoryTransfer();
+        pending.territoryId = territory.id.toString();
+        pending.targetServerId = targetServerId;
+        pending.expiresAtMillis = System.currentTimeMillis() + PENDING_TRANSFER_TTL_MS;
+
+        player.sendSystemMessage(Component.literal("Sending you to " + displayServer(targetServerId) + " for " + territory.publicName() + ".").withStyle(ChatFormatting.YELLOW));
+        SharedJsonStateRepository.savePlayerAsync(player.getUUID(), PENDING_TERRITORY_KEY, pending)
+                .whenComplete((ignored, error) -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player)) return;
+                    if (error != null) {
+                        player.sendSystemMessage(Component.literal("Could not prepare the cross-server territory transfer. Try again shortly.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, targetServerId, message -> {
+                        if (message != null && message.startsWith("Could not")) {
+                            clearPending(player.getUUID());
+                            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                        }
+                    });
+                }));
+        return true;
+    }
+
+    public static void handleProfileReady(ServerPlayer player) {
+        if (player == null) return;
+        SharedJsonStateRepository
+                .loadPlayerAsync(player.getUUID(), PENDING_TERRITORY_KEY, PendingTerritoryTransfer.class, null)
+                .thenAccept(pending -> player.server.execute(() -> consumePendingTransfer(player, pending)));
+    }
+
+    private static void consumePendingTransfer(ServerPlayer player, PendingTerritoryTransfer pending) {
+        if (!SafeTeleportManager.isLive(player) || pending == null) return;
+        if (pending.expiresAtMillis < System.currentTimeMillis()) {
+            clearPending(player.getUUID());
+            return;
+        }
+        if (pending.targetServerId == null || !pending.targetServerId.equalsIgnoreCase(NetworkServerConfig.serverId())) return;
+
+        TerritoryRepository.Territory territory = findCachedTerritory(pending.territoryId);
+        if (territory == null || !territory.isReady()) {
+            player.sendSystemMessage(Component.literal("That territory is not ready on this server yet. Try again shortly.").withStyle(ChatFormatting.RED));
+            clearPending(player.getUUID());
+            return;
+        }
+        if (!TerritoryRepository.canEnter(player, territory)) {
+            player.sendSystemMessage(Component.literal("You can no longer enter that territory.").withStyle(ChatFormatting.RED));
+            clearPending(player.getUUID());
+            return;
+        }
+
+        clearPending(player.getUUID());
+        if (!teleportHomeLocal(player, territory)) {
+            player.sendSystemMessage(Component.literal("Could not reach that territory home. Try again shortly.").withStyle(ChatFormatting.RED));
+        }
+    }
+
+    private static TerritoryRepository.Territory findCachedTerritory(String id) {
+        if (id == null || id.isBlank()) return null;
+        for (TerritoryRepository.Territory territory : TerritoryRepository.allCached()) {
+            if (territory != null && territory.id != null && territory.id.toString().equalsIgnoreCase(id)) return territory;
+        }
+        return null;
+    }
+
+    private static void clearPending(java.util.UUID playerUuid) {
+        PendingTerritoryTransfer cleared = new PendingTerritoryTransfer();
+        cleared.expiresAtMillis = 0L;
+        SharedJsonStateRepository.savePlayerAsync(playerUuid, PENDING_TERRITORY_KEY, cleared);
+    }
+
+    private static String displayServer(String serverId) {
+        if (serverId == null || serverId.isBlank()) return "the territory server";
+        String clean = serverId.trim();
+        return Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
+    }
+
+    public static final class PendingTerritoryTransfer {
+        public String territoryId = "";
+        public String targetServerId = "";
+        public long expiresAtMillis = 0L;
     }
 
     public static boolean teleportInside(ServerPlayer player, TerritoryRepository.Territory territory) {

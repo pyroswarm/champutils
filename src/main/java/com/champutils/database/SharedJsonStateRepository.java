@@ -134,6 +134,25 @@ public final class SharedJsonStateRepository {
         });
     }
 
+    public static CompletableFuture<Void> saveProfileAsync(UUID profileId, String key, Object value) {
+        if (profileId == null || key == null || key.isBlank() || value == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String payload = GSON.toJson(value);
+        return DatabaseManager.runAsync("save profile json state " + key + " " + profileId, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "insert into profile_json_state (profile_id, state_key, payload, updated_at, version) values (?, ?, ?, now(), 1) " +
+                            "on conflict (profile_id, state_key) do update set payload = excluded.payload, updated_at = now(), version = profile_json_state.version + 1"
+            )) {
+                ps.setObject(1, profileId);
+                ps.setString(2, key);
+                ps.setString(3, payload);
+                ps.executeUpdate();
+            }
+        });
+    }
+
     public static void savePlayer(UUID playerId, String key, Object value) {
         if (playerId == null || key == null || key.isBlank() || value == null || !DatabaseManager.isEnabled()) return;
         String payload = GSON.toJson(value);
@@ -185,4 +204,138 @@ public final class SharedJsonStateRepository {
             }
         });
     }
+
+    public static CompletableFuture<Void> saveGlobalAsync(String key, Object value) {
+        if (key == null || key.isBlank() || value == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String payload = GSON.toJson(value);
+        return DatabaseManager.runAsync("save global json state " + key, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "insert into global_json_state (state_key, payload, updated_at, version) values (?, ?, now(), 1) " +
+                            "on conflict (state_key) do update set payload = excluded.payload, updated_at = now(), version = global_json_state.version + 1"
+            )) {
+                ps.setString(1, key);
+                ps.setString(2, payload);
+                ps.executeUpdate();
+            }
+        });
+    }
+    /**
+     * Atomically loads, locks, mutates, and saves one profile-scoped JSON row. Use this for
+     * state that may be changed by players on different backends at the same time, such as
+     * guild-wide quest progress (where the guild id is used as the owner id).
+     */
+    public static <T, R> CompletableFuture<R> mutateProfileAsync(
+            UUID profileId,
+            String key,
+            Class<T> type,
+            T fallback,
+            java.util.function.Function<T, R> mutator
+    ) {
+        if (profileId == null || key == null || key.isBlank() || type == null || fallback == null || mutator == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(mutator == null ? null : mutator.apply(fallback));
+        }
+        String fallbackPayload = GSON.toJson(fallback);
+        return DatabaseManager.supplyAsync("mutate profile json state " + key + " " + profileId, connection -> {
+            ensureSchema(connection);
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement insert = connection.prepareStatement(
+                        "insert into profile_json_state (profile_id, state_key, payload, updated_at, version) values (?, ?, ?, now(), 0) on conflict (profile_id, state_key) do nothing"
+                )) {
+                    insert.setObject(1, profileId);
+                    insert.setString(2, key);
+                    insert.setString(3, fallbackPayload);
+                    insert.executeUpdate();
+                }
+                T value = fallback;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "select payload from profile_json_state where profile_id = ? and state_key = ? for update"
+                )) {
+                    select.setObject(1, profileId);
+                    select.setString(2, key);
+                    try (ResultSet rs = select.executeQuery()) {
+                        if (rs.next()) {
+                            T parsed = GSON.fromJson(rs.getString(1), type);
+                            if (parsed != null) value = parsed;
+                        }
+                    }
+                }
+                R result = mutator.apply(value);
+                try (PreparedStatement update = connection.prepareStatement(
+                        "update profile_json_state set payload = ?, updated_at = now(), version = version + 1 where profile_id = ? and state_key = ?"
+                )) {
+                    update.setString(1, GSON.toJson(value));
+                    update.setObject(2, profileId);
+                    update.setString(3, key);
+                    update.executeUpdate();
+                }
+                connection.commit();
+                return result;
+            } catch (Throwable error) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                if (error instanceof Exception exception) throw exception;
+                throw new RuntimeException(error);
+            } finally {
+                try { connection.setAutoCommit(true); } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    /** Atomic equivalent for network-global JSON rows. */
+    public static <T, R> CompletableFuture<R> mutateGlobalAsync(
+            String key,
+            Class<T> type,
+            T fallback,
+            java.util.function.Function<T, R> mutator
+    ) {
+        if (key == null || key.isBlank() || type == null || fallback == null || mutator == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(mutator == null ? null : mutator.apply(fallback));
+        }
+        String fallbackPayload = GSON.toJson(fallback);
+        return DatabaseManager.supplyAsync("mutate global json state " + key, connection -> {
+            ensureSchema(connection);
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement insert = connection.prepareStatement(
+                        "insert into global_json_state (state_key, payload, updated_at, version) values (?, ?, now(), 0) on conflict (state_key) do nothing"
+                )) {
+                    insert.setString(1, key);
+                    insert.setString(2, fallbackPayload);
+                    insert.executeUpdate();
+                }
+                T value = fallback;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "select payload from global_json_state where state_key = ? for update"
+                )) {
+                    select.setString(1, key);
+                    try (ResultSet rs = select.executeQuery()) {
+                        if (rs.next()) {
+                            T parsed = GSON.fromJson(rs.getString(1), type);
+                            if (parsed != null) value = parsed;
+                        }
+                    }
+                }
+                R result = mutator.apply(value);
+                try (PreparedStatement update = connection.prepareStatement(
+                        "update global_json_state set payload = ?, updated_at = now(), version = version + 1 where state_key = ?"
+                )) {
+                    update.setString(1, GSON.toJson(value));
+                    update.setString(2, key);
+                    update.executeUpdate();
+                }
+                connection.commit();
+                return result;
+            } catch (Throwable error) {
+                try { connection.rollback(); } catch (Exception ignored) {}
+                if (error instanceof Exception exception) throw exception;
+                throw new RuntimeException(error);
+            } finally {
+                try { connection.setAutoCommit(true); } catch (Exception ignored) {}
+            }
+        });
+    }
+
 }

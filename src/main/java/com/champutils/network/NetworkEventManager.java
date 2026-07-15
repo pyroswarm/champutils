@@ -28,6 +28,8 @@ public final class NetworkEventManager {
     public static final String TYPE_TPA_REQUEST = "TPA_REQUEST";
     public static final String TYPE_TPA_ACCEPT = "TPA_ACCEPT";
     public static final String TYPE_TPA_DENY = "TPA_DENY";
+    public static final String TYPE_PLAYER_NOTICE = "PLAYER_NOTICE";
+    public static final String TYPE_GUILD_NOTICE = "GUILD_NOTICE";
 
     private static volatile long lastSeenEventId = -1L;
     private static volatile boolean pollInFlight = false;
@@ -52,7 +54,6 @@ public final class NetworkEventManager {
                             "expires_at timestamptz not null default (now() + interval '10 minutes')" +
                             ")"
             );
-            statement.executeUpdate("create index if not exists network_events_id_idx on network_events (id)");
             statement.executeUpdate("create index if not exists network_events_expires_idx on network_events (expires_at)");
             statement.executeUpdate("create index if not exists network_events_type_scope_idx on network_events (event_type, scope, id)");
         }
@@ -82,6 +83,11 @@ public final class NetworkEventManager {
 
     public static void publishBroadcastText(String message) {
         publishSystem(TYPE_BROADCAST, "GLOBAL", message);
+    }
+
+    public static void publishServerBroadcast(String targetServerId, String message) {
+        if (targetServerId == null || targetServerId.isBlank()) return;
+        publishSystem(TYPE_BROADCAST, "SERVER:" + targetServerId.trim(), message);
     }
 
     public static void publishQueueBroadcast(Component message) {
@@ -124,6 +130,26 @@ public final class NetworkEventManager {
             return;
         }
         publish(TYPE_CACHE_INVALIDATE, stateKey.trim().toUpperCase(Locale.ROOT), null, "", ownerId.toString());
+    }
+
+    public static void publishPlayerNotice(UUID playerId, String message) {
+        if (playerId == null || message == null || message.isBlank()) return;
+        publish(TYPE_PLAYER_NOTICE, "PLAYER:" + playerId, null, "", message);
+    }
+
+    public static void sendPlayerNotice(MinecraftServer server, UUID playerId, String message) {
+        if (playerId == null || message == null || message.isBlank()) return;
+        ServerPlayer local = server == null ? null : server.getPlayerList().getPlayer(playerId);
+        if (local != null) {
+            local.sendSystemMessage(com.champutils.chat.ChatTagResolver.legacy(message));
+        } else {
+            publishPlayerNotice(playerId, message);
+        }
+    }
+
+    public static void publishGuildNotice(UUID guildId, String message) {
+        if (guildId == null || message == null || message.isBlank()) return;
+        publish(TYPE_GUILD_NOTICE, "GUILD:" + guildId, null, "", message);
     }
 
     public static void tick(MinecraftServer server) {
@@ -233,7 +259,7 @@ public final class NetworkEventManager {
     private static void deliver(MinecraftServer server, EventRecord event) {
         String type = normalize(event.type);
         if (TYPE_CACHE_INVALIDATE.equals(type)) {
-            handleCacheInvalidation(event);
+            handleCacheInvalidation(server, event);
             return;
         }
         if (TYPE_PRIVATE_MESSAGE.equals(type)) {
@@ -289,7 +315,7 @@ public final class NetworkEventManager {
         }
     }
 
-    private static void handleCacheInvalidation(EventRecord event) {
+    private static void handleCacheInvalidation(MinecraftServer server, EventRecord event) {
         try {
             UUID ownerId = UUID.fromString(nullToEmpty(event.message));
             String scope = normalize(event.scope);
@@ -306,13 +332,50 @@ public final class NetworkEventManager {
                 com.champutils.profession.ProfessionManager.invalidateSharedCache(ownerId);
             }
             else if ("PLAYER_DATA".equals(scope)) {
-                com.champutils.profile.PlayerDataManager.invalidateSharedCache(ownerId);
+                com.champutils.profile.PlayerDataManager.refreshOnlineProfileAsync(server, ownerId);
             }
             else if ("TRUE_CAUGHT_DEX".equals(scope)) {
                 com.champutils.dex.TrueCaughtDexManager.invalidateSharedCache(ownerId);
             }
             else if ("CATCH_STREAKS".equals(scope)) {
                 com.champutils.dex.CatchStreakManager.invalidateSharedCache(ownerId);
+            }
+            else if ("DEX_REWARD_CLAIMS".equals(scope)) {
+                com.champutils.dex.DexRewardClaimData.invalidateSharedCache(ownerId);
+            }
+            else if ("POKEMON_ORIGIN".equals(scope)) {
+                com.champutils.dex.PokemonOriginManager.refreshAsync(ownerId);
+            }
+            else if ("GUILD".equals(scope)) {
+                if (server != null) {
+                    for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                        GuildRepository.loadForPlayer(player.getUUID(), player.getGameProfile().getName());
+                    }
+                }
+            }
+            else if ("TERRITORY".equals(scope)) {
+                com.champutils.territory.TerritoryRepository.refreshAll();
+            }
+            else if ("LAND_CLAIMS".equals(scope)) {
+                com.champutils.claims.LandClaimRepository.refreshAll();
+            }
+            else if ("PARTY".equals(scope)) {
+                com.champutils.party.PartyManager.invalidateSharedCache();
+            }
+            else if ("GUILD_QUESTS".equals(scope)) {
+                com.champutils.quest.QuestManager.invalidateGuildCache(ownerId);
+            }
+            else if ("SEASON_ARCHIVE".equals(scope)) {
+                com.champutils.rank.SeasonArchiveManager.refreshAsync();
+            }
+            else if ("SEASON_STATE".equals(scope)) {
+                com.champutils.rank.SeasonManager.refreshSharedStateAsync(server);
+            }
+            else if ("SERVER_BUFFS".equals(scope)) {
+                com.champutils.buff.ServerBuffManager.refreshAsync();
+            }
+            else if ("WORLD_FIRSTS".equals(scope)) {
+                com.champutils.worldfirst.WorldFirstManager.refreshClaimsAsync();
             }
         } catch (Exception ignored) {
         }
@@ -323,6 +386,25 @@ public final class NetworkEventManager {
             return false;
         }
         String type = normalize(event.type);
+        String scope = nullToEmpty(event.scope);
+        if (scope.toUpperCase(Locale.ROOT).startsWith("SERVER:")) {
+            String target = scope.substring("SERVER:".length()).trim();
+            if (!target.equalsIgnoreCase(NetworkServerConfig.serverId())) return false;
+        }
+        if (TYPE_PLAYER_NOTICE.equals(type)) {
+            String prefix = "PLAYER:";
+            if (!scope.toUpperCase(Locale.ROOT).startsWith(prefix)) return false;
+            try {
+                return player.getUUID().equals(UUID.fromString(scope.substring(prefix.length())));
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+        if (TYPE_GUILD_NOTICE.equals(type)) {
+            UUID guildId = guildIdFromScope(scope);
+            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+            return guildId != null && guild != null && guildId.equals(guild.id);
+        }
         if (TYPE_BROADCAST.equals(type) && !ProfessionNotificationSettings.areBroadcastMessagesEnabled(player)) {
             return false;
         }

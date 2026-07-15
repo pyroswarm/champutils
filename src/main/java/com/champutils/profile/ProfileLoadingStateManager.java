@@ -176,8 +176,9 @@ public final class ProfileLoadingStateManager {
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         player.resetFallDistance();
         player.setHealth(player.getMaxHealth());
-        player.getFoodData().setFoodLevel(20);
-        player.getFoodData().setSaturation(20.0F);
+        // Do not overwrite food/saturation here. The per-profile vanilla NBT has already
+        // restored the saved hunger values, and this method runs every server tick while the
+        // profile is hydrating. blankLiveState() establishes safe lobby defaults before load.
         player.clearFire();
         if (showTitle && player.connection != null) {
             player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 60, 10));

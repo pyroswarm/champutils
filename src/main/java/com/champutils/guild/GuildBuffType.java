@@ -11,6 +11,5 @@ public enum GuildBuffType {
     BATTLING_XP,
     SHINY_CHANCE,
     PERFECT_IV_CHANCE,
-    WORLD_EVENT_REWARDS,
     ADVENTURER_MARKS
 }

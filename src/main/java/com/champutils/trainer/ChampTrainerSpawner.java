@@ -5,8 +5,6 @@ import com.champutils.gym.GymConfig;
 import com.champutils.gym.GymNpcPartyBuilder;
 import com.champutils.gym.GymNpcNameUtil;
 import com.champutils.gym.GymRegistry;
-import com.champutils.worldevent.WorldEventBindingRegistry;
-import com.champutils.worldevent.WorldEventConfig;
 import com.champutils.battle.AITestGymLeaderBuilder;
 
 import com.cobblemon.mod.common.api.npc.NPCClass;
@@ -28,8 +26,7 @@ public final class ChampTrainerSpawner {
     private ChampTrainerSpawner() {}
 
     public enum TrainerKind {
-        GYM,
-        WORLD_EVENT
+        GYM
     }
 
     public static class SpawnResult {
@@ -70,12 +67,7 @@ public final class ChampTrainerSpawner {
             return spawnGym(level, pos, yaw, id, badge);
         }
 
-        WorldEventConfig.EventDefinition event = WorldEventConfig.EVENTS.get(id);
-        if (event != null) {
-            return spawnWorldEvent(level, pos, yaw, id, event);
-        }
-
-        return SpawnResult.fail("Unknown trainer id: " + trainerId + " (not found in gyms.json or world_events.json)");
+        return SpawnResult.fail("Unknown trainer id: " + trainerId + " (not found in gyms.json)");
     }
 
 
@@ -87,7 +79,7 @@ public final class ChampTrainerSpawner {
         String name = displayName == null || displayName.isBlank() ? "Trainer" : displayName;
         NPCEntity npc = createProtectedNpc(level, pos, yaw, name, skin == null ? "" : skin);
         if (npc == null) return SpawnResult.fail("Could not create roaming trainer NPC.");
-        return SpawnResult.ok("Spawned trainer " + name, npc, TrainerKind.WORLD_EVENT);
+        return SpawnResult.ok("Spawned trainer " + name, npc, TrainerKind.GYM);
     }
 
     private static SpawnResult spawnGym(ServerLevel level, Vec3 pos, float yaw, String trainerId, BadgeType badge) {
@@ -106,28 +98,6 @@ public final class ChampTrainerSpawner {
         ChampTrainerProtectionManager.track(npc, trainerId, TrainerKind.GYM, pos, yaw);
 
         return SpawnResult.ok("Spawned and auto-bound gym trainer " + trainerId + " -> " + badge.name(), npc, TrainerKind.GYM);
-    }
-
-    private static SpawnResult spawnWorldEvent(ServerLevel level, Vec3 pos, float yaw, String eventId, WorldEventConfig.EventDefinition event) {
-        String name = firstNonBlank(event.spawnName, event.bossName, event.displayName, eventId);
-        // Skin is optional and must be explicit. Do NOT fall back to bossName/displayName,
-        // because that can create an unwanted player texture layered over the base NPC model.
-        String skin = firstNonBlank(
-                WorldEventBindingRegistry.getSkinPlayer(eventId),
-                event.spawnSkin,
-                event.skin,
-                event.playerSkin,
-                event.skinPlayer,
-                event.texture
-        );
-
-        NPCEntity npc = createProtectedNpc(level, pos, yaw, name, skin);
-        if (npc == null) return SpawnResult.fail("Could not create NPC for " + eventId + ".");
-
-        WorldEventBindingRegistry.bind(eventId, npc);
-        ChampTrainerProtectionManager.track(npc, eventId, TrainerKind.WORLD_EVENT, pos, yaw);
-
-        return SpawnResult.ok("Spawned and auto-bound world event trainer " + eventId, npc, TrainerKind.WORLD_EVENT);
     }
 
     public static NPCEntity createProtectedNpc(ServerLevel level, Vec3 pos, float yaw, String displayName, String skin) {

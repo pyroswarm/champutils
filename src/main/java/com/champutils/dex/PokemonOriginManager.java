@@ -1,5 +1,7 @@
 package com.champutils.dex;
 
+import com.champutils.database.DatabaseManager;
+import com.champutils.network.NetworkEventManager;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -10,6 +12,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -27,51 +32,74 @@ public final class PokemonOriginManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/pokemon_origins.json");
     private static final Map<UUID, String> ORIGINS = new ConcurrentHashMap<>();
-    private static boolean loaded = false;
+    private static boolean loaded;
 
-    private PokemonOriginManager() {
-    }
+    private PokemonOriginManager() {}
 
     public static synchronized void load() {
         if (loaded) return;
         loaded = true;
         ORIGINS.clear();
-        if (!FILE.exists()) return;
-
-        try (FileReader reader = new FileReader(FILE)) {
-            Type type = new TypeToken<Map<String, String>>() {}.getType();
-            Map<String, String> loadedData = GSON.fromJson(reader, type);
-            if (loadedData == null) return;
-            for (Map.Entry<String, String> entry : loadedData.entrySet()) {
-                try {
-                    UUID uuid = UUID.fromString(entry.getKey());
-                    String origin = normalizeOrigin(entry.getValue());
-                    if (!origin.isBlank()) ORIGINS.put(uuid, origin);
-                } catch (Throwable ignored) {
+        if (FILE.exists()) {
+            try (FileReader reader = new FileReader(FILE)) {
+                Type type = new TypeToken<Map<String, String>>() {}.getType();
+                Map<String, String> loadedData = GSON.fromJson(reader, type);
+                if (loadedData != null) {
+                    for (Map.Entry<String, String> entry : loadedData.entrySet()) {
+                        try {
+                            UUID uuid = UUID.fromString(entry.getKey());
+                            String origin = normalizeOrigin(entry.getValue());
+                            if (!origin.isBlank()) ORIGINS.put(uuid, origin);
+                        } catch (Throwable ignored) {}
+                    }
                 }
+            } catch (Exception exception) {
+                System.err.println("[ChampUtils] Failed to load local Pokémon origin data.");
+                exception.printStackTrace();
             }
-        } catch (Exception exception) {
-            System.err.println("[ChampUtils] Failed to load Pokémon origin data.");
-            exception.printStackTrace();
+        }
+        if (DatabaseManager.isEnabled()) {
+            Map<UUID, String> legacy = new LinkedHashMap<>(ORIGINS);
+            DatabaseManager.supplyAsync("load network Pokémon origins", connection -> {
+                ensureSchema(connection);
+                try (PreparedStatement upsert = connection.prepareStatement(
+                        "insert into pokemon_origins (pokemon_uuid, origin, updated_at) values (?, ?, now()) on conflict (pokemon_uuid) do nothing")) {
+                    for (Map.Entry<UUID, String> entry : legacy.entrySet()) {
+                        upsert.setObject(1, entry.getKey());
+                        upsert.setString(2, entry.getValue());
+                        upsert.addBatch();
+                    }
+                    upsert.executeBatch();
+                }
+                Map<UUID, String> network = new LinkedHashMap<>();
+                try (PreparedStatement ps = connection.prepareStatement("select pokemon_uuid, origin from pokemon_origins");
+                     ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) network.put((UUID) rs.getObject(1), normalizeOrigin(rs.getString(2)));
+                }
+                return network;
+            }).whenComplete((network, error) -> {
+                if (error != null) {
+                    System.err.println("[ChampUtils] Failed to load network Pokémon origins.");
+                    error.printStackTrace();
+                    return;
+                }
+                if (network != null) ORIGINS.putAll(network);
+                saveLocal();
+            });
         }
     }
 
-    public static synchronized void save() {
-        load();
+    public static synchronized void save() { saveLocal(); }
+
+    private static synchronized void saveLocal() {
         try {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
-
             Map<String, String> out = new LinkedHashMap<>();
-            for (Map.Entry<UUID, String> entry : ORIGINS.entrySet()) {
-                out.put(entry.getKey().toString(), entry.getValue());
-            }
-
-            try (FileWriter writer = new FileWriter(FILE)) {
-                GSON.toJson(out, writer);
-            }
+            for (Map.Entry<UUID, String> entry : ORIGINS.entrySet()) out.put(entry.getKey().toString(), entry.getValue());
+            try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(out, writer); }
         } catch (Exception exception) {
-            System.err.println("[ChampUtils] Failed to save Pokémon origin data.");
+            System.err.println("[ChampUtils] Failed to save Pokémon origin mirror.");
             exception.printStackTrace();
         }
     }
@@ -84,7 +112,20 @@ public final class PokemonOriginManager {
         String normalized = normalizeOrigin(origin);
         if (normalized.isBlank()) return;
         ORIGINS.put(uuid, normalized);
-        save();
+        saveLocal();
+        if (DatabaseManager.isEnabled()) {
+            DatabaseManager.executeCoalescedAsync("pokemon-origin:" + uuid, "save Pokémon origin", connection -> {
+                ensureSchema(connection);
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "insert into pokemon_origins (pokemon_uuid, origin, updated_at) values (?, ?, now()) " +
+                                "on conflict (pokemon_uuid) do update set origin = excluded.origin, updated_at = now()")) {
+                    ps.setObject(1, uuid);
+                    ps.setString(2, normalized);
+                    ps.executeUpdate();
+                }
+            });
+            NetworkEventManager.publishCacheInvalidation("POKEMON_ORIGIN", uuid);
+        }
     }
 
     public static String getOrigin(Pokemon pokemon) {
@@ -94,13 +135,35 @@ public final class PokemonOriginManager {
         return uuid == null ? "" : ORIGINS.getOrDefault(uuid, "");
     }
 
+    public static void refreshAsync(UUID pokemonUuid) {
+        if (pokemonUuid == null || !DatabaseManager.isEnabled()) return;
+        DatabaseManager.supplyAsync("refresh Pokémon origin " + pokemonUuid, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("select origin from pokemon_origins where pokemon_uuid = ?")) {
+                ps.setObject(1, pokemonUuid);
+                try (ResultSet rs = ps.executeQuery()) { return rs.next() ? normalizeOrigin(rs.getString(1)) : ""; }
+            }
+        }).whenComplete((origin, error) -> {
+            if (error != null) return;
+            if (origin == null || origin.isBlank()) ORIGINS.remove(pokemonUuid);
+            else ORIGINS.put(pokemonUuid, origin);
+        });
+    }
+
+    private static void ensureSchema(java.sql.Connection connection) throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("create table if not exists pokemon_origins (pokemon_uuid uuid primary key, origin text not null, updated_at timestamptz not null default now())");
+            statement.executeUpdate("create index if not exists pokemon_origins_updated_idx on pokemon_origins (updated_at desc)");
+        }
+    }
+
     private static String normalizeOrigin(String raw) {
         if (raw == null) return "";
         return raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_').replaceAll("[^a-z0-9_]", "");
     }
 
     private static UUID pokemonUuid(Pokemon pokemon) {
-        for (String methodName : new String[] { "getUuid", "getUUID", "getUuid", "uuid" }) {
+        for (String methodName : new String[] { "getUuid", "getUUID", "uuid" }) {
             try {
                 Method method = pokemon.getClass().getMethod(methodName);
                 method.setAccessible(true);
@@ -108,8 +171,7 @@ public final class PokemonOriginManager {
                 Object value = method.invoke(pokemon);
                 if (value instanceof UUID uuid) return uuid;
                 if (value != null) return UUID.fromString(String.valueOf(value));
-            } catch (Throwable ignored) {
-            }
+            } catch (Throwable ignored) {}
         }
         try {
             java.lang.reflect.Field field = pokemon.getClass().getDeclaredField("uuid");
@@ -117,8 +179,7 @@ public final class PokemonOriginManager {
             Object value = field.get(pokemon);
             if (value instanceof UUID uuid) return uuid;
             if (value != null) return UUID.fromString(String.valueOf(value));
-        } catch (Throwable ignored) {
-        }
+        } catch (Throwable ignored) {}
         return null;
     }
 }

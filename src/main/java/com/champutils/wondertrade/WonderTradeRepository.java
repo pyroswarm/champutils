@@ -183,8 +183,6 @@ public final class WonderTradeRepository {
         addColumnIfMissing(connection, "wondertrade_pending_claims", "updated_at", "timestamptz not null default now()");
         repairLegacyPendingClaimColumns(connection);
         validateRequiredColumns(connection, "wondertrade_pending_claims", "profile_id", "player_uuid", "player_username", "claim_type", "payload", "display_name", "created_at", "updated_at");
-        executeQuietly(connection, "create unique index if not exists idx_wondertrade_pending_claims_profile_id_unique on wondertrade_pending_claims(profile_id)");
-        executeQuietly(connection, "create index if not exists idx_wondertrade_pending_claims_player_uuid on wondertrade_pending_claims(player_uuid)");
 
             legacyPokemonDataColumn = columnExists(connection, "wondertrade_pool", "pokemon_data");
             legacyLevelColumn = columnExists(connection, "wondertrade_pool", "level");

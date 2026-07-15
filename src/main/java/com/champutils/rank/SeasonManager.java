@@ -8,6 +8,8 @@ import com.champutils.profile.PlayerDataManager.PlayerData;
 import com.champutils.database.SeasonDatabaseRepository;
 import com.champutils.database.RankedFormatDatabaseRepository;
 import com.champutils.database.SeasonProfileDatabaseRepository;
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkEventManager;
 import com.champutils.leaderboard.ProfileLeaderboardRepository;
 
 import com.google.gson.Gson;
@@ -30,6 +32,10 @@ import java.util.Map;
 import java.util.UUID;
 
 public class SeasonManager {
+
+    private static final String SHARED_STATE_KEY = "season_state_v2";
+    private static final String SHARED_ROLLBACK_KEY = "season_rollback_state_v2";
+    private static final UUID INVALIDATION_OWNER = new UUID(0L, 0L);
 
     public static int CURRENT_SEASON = 0;
     public static String CURRENT_NAME = "Offseason";
@@ -105,55 +111,87 @@ public class SeasonManager {
     }
 
     public static void loadState() {
+        SeasonState local = loadLocalState();
+        SeasonState shared = SharedJsonStateRepository.loadGlobal(
+                SHARED_STATE_KEY,
+                SeasonState.class,
+                local
+        );
+        if (shared == null) shared = local;
+        CURRENT_SEASON = Math.max(0, shared.currentSeason);
+        CURRENT_NAME = shared.currentName == null || shared.currentName.isBlank()
+                ? (CURRENT_SEASON == 0 ? "Offseason" : "Season " + CURRENT_SEASON)
+                : shared.currentName;
+        saveState(false);
+    }
+
+    private static SeasonState loadLocalState() {
+        SeasonState fallback = new SeasonState();
         try {
-            File f = getStateFile();
-
-            if (!f.exists()) {
-                saveState();
-                return;
+            File file = getStateFile();
+            if (!file.exists()) return fallback;
+            try (FileReader reader = new FileReader(file)) {
+                SeasonState state = GSON.fromJson(reader, SeasonState.class);
+                return state == null ? fallback : state;
             }
-
-            try (FileReader r = new FileReader(f)) {
-                SeasonState s =
-                        GSON.fromJson(
-                                r,
-                                SeasonState.class
-                        );
-
-                if (s != null) {
-                    CURRENT_SEASON = s.currentSeason;
-                    CURRENT_NAME = s.currentName;
-                }
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception error) {
+            error.printStackTrace();
+            return fallback;
         }
     }
 
     public static void saveState() {
+        saveState(true);
+    }
+
+    private static void saveState(boolean publish) {
         try {
-            SeasonState s =
-                    new SeasonState();
-
-            s.currentSeason = CURRENT_SEASON;
-            s.currentName = CURRENT_NAME;
-
-            try (
-                    FileWriter w =
-                            new FileWriter(
-                                    getStateFile()
-                            )
-            ) {
-                GSON.toJson(
-                        s,
-                        w
-                );
+            SeasonState state = new SeasonState();
+            state.currentSeason = Math.max(0, CURRENT_SEASON);
+            state.currentName = CURRENT_NAME;
+            try (FileWriter writer = new FileWriter(getStateFile())) {
+                GSON.toJson(state, writer);
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            SharedJsonStateRepository.saveGlobalAsync(SHARED_STATE_KEY, state)
+                    .whenComplete((ignored, error) -> {
+                        if (error != null) {
+                            error.printStackTrace();
+                            return;
+                        }
+                        if (publish) {
+                            NetworkEventManager.publishCacheInvalidation("SEASON_STATE", INVALIDATION_OWNER);
+                        }
+                    });
+        } catch (Exception error) {
+            error.printStackTrace();
         }
+    }
+
+    public static void refreshSharedStateAsync(MinecraftServer server) {
+        SharedJsonStateRepository.loadGlobalAsync(
+                SHARED_STATE_KEY,
+                SeasonState.class,
+                null
+        ).whenComplete((state, error) -> {
+            if (error != null || state == null) {
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            Runnable apply = () -> {
+                CURRENT_SEASON = Math.max(0, state.currentSeason);
+                CURRENT_NAME = state.currentName == null || state.currentName.isBlank()
+                        ? (CURRENT_SEASON == 0 ? "Offseason" : "Season " + CURRENT_SEASON)
+                        : state.currentName;
+                try (FileWriter writer = new FileWriter(getStateFile())) {
+                    GSON.toJson(state, writer);
+                } catch (Exception ignored) {
+                }
+                RankedFormatDatabaseRepository.syncCurrentFormats();
+                if (server != null) LeaderboardManager.refreshNow(server);
+            };
+            if (server != null) server.execute(apply);
+            else apply.run();
+        });
     }
 
     public static int softReset(int rp) {
@@ -281,8 +319,11 @@ public class SeasonManager {
 
         SeasonRewardManager.prepareClaimableRewards(server, oldSeason);
 
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            archivePlayer(p);
+        var networkProfiles = PlayerDataManager.getAllProfilePlayers();
+        for (var entry : networkProfiles) {
+            if (entry == null || entry.data == null) continue;
+            if (entry.data.name == null || entry.data.name.isBlank()) entry.data.name = entry.name;
+            archiveOfflinePlayer(entry.data);
         }
 
         CURRENT_SEASON = newSeason;
@@ -302,7 +343,7 @@ public class SeasonManager {
         );
         RankedFormatDatabaseRepository.syncCurrentFormats();
 
-        for (var entry : PlayerDataManager.getAllProfilePlayers()) {
+        for (var entry : networkProfiles) {
             if (entry == null || entry.data == null || entry.uuid == null || entry.uuid.isBlank()) {
                 continue;
             }
@@ -562,6 +603,7 @@ public class SeasonManager {
                         w
                 );
             }
+            SharedJsonStateRepository.saveGlobal(SHARED_ROLLBACK_KEY, state);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -607,33 +649,24 @@ public class SeasonManager {
             MinecraftServer server
     ) {
         try {
-            File f = getRollbackFile();
+            RollbackState localState = null;
+            File file = getRollbackFile();
+            if (file.exists()) {
+                try (FileReader reader = new FileReader(file)) {
+                    localState = GSON.fromJson(reader, RollbackState.class);
+                }
+            }
+            RollbackState state = SharedJsonStateRepository.loadGlobal(
+                    SHARED_ROLLBACK_KEY,
+                    RollbackState.class,
+                    localState
+            );
 
-            if (!f.exists()) {
+            if (state == null || state.players == null || state.players.isEmpty()) {
                 server.getPlayerList()
                         .broadcastSystemMessage(
                                 Component.literal(
-                                        "§cNo rollback_state.json found. Start a season once before rolling back."
-                                ),
-                                false
-                        );
-                return;
-            }
-
-            RollbackState state;
-
-            try (FileReader r = new FileReader(f)) {
-                state = GSON.fromJson(
-                        r,
-                        RollbackState.class
-                );
-            }
-
-            if (state == null || state.players == null) {
-                server.getPlayerList()
-                        .broadcastSystemMessage(
-                                Component.literal(
-                                        "§cRollback failed: rollback_state.json was empty or invalid."
+                                        "§cNo shared rollback snapshot was found. Start a season once before rolling back."
                                 ),
                                 false
                         );
@@ -679,34 +712,8 @@ public class SeasonManager {
                             ? archivedSeason
                             : CURRENT_SEASON;
 
-            File dir =
-                    new File(
-                            "config/champutils/seasons"
-                    );
-
-            File[] files =
-                    dir.listFiles(
-                            (d, n) -> n.endsWith(".json")
-                    );
-
-            if (files != null) {
-                for (File file : files) {
-                    if (file.getName().startsWith("season_")) {
-                        continue;
-                    }
-
-                    String player =
-                            file.getName()
-                                    .replace(
-                                            ".json",
-                                            ""
-                                    );
-
-                    SeasonArchiveManager.removeSeason(
-                            player,
-                            seasonToRemove
-                    );
-                }
+            for (String player : SeasonArchiveManager.archivedPlayerNames()) {
+                SeasonArchiveManager.removeSeason(player, seasonToRemove);
             }
 
             SeasonArchiveManager.removeSeasonSnapshot(

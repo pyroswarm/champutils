@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * This is intentionally provider-specific. The gameplay hooks use BuffManager,
  * so server-wide boosters and future systems can stack beside guild buffs
- * without rewriting catch/profession/world-event reward logic.
+ * without rewriting catch and profession reward logic.
  */
 public final class GuildBuffProvider implements BuffProvider {
     public static final String ID = "guild";

@@ -1,5 +1,7 @@
 package com.champutils.commands;
 
+import com.champutils.database.SharedJsonStateRepository;
+
 import com.champutils.xplock.XpLockManager;
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.storage.party.PartyStore;
@@ -27,6 +29,7 @@ public final class LevelCapCommand {
     private static final Map<UUID, Integer> PLAYER_CAPS = new ConcurrentHashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/levelcaps.json");
+    private static final String STATE_KEY = "party_level_cap";
     private static int tickCounter = 0;
     private LevelCapCommand() {}
 
@@ -45,6 +48,21 @@ public final class LevelCapCommand {
                         .then(literal("on").executes(ctx -> enableCap(ctx.getSource())))
                         .then(literal("off").executes(ctx -> disableCap(ctx.getSource())))
         ));
+    }
+
+    public static synchronized void preload(UUID playerId) {
+        if (playerId == null) return;
+        Integer fallback = PLAYER_CAPS.getOrDefault(playerId, 0);
+        CapState shared = SharedJsonStateRepository.loadPlayer(playerId, STATE_KEY, CapState.class, new CapState(fallback));
+        int cap = shared == null ? fallback : Math.max(0, Math.min(100, shared.level));
+        if (cap <= 0) PLAYER_CAPS.remove(playerId); else PLAYER_CAPS.put(playerId, cap);
+        save();
+    }
+
+    private static void persist(UUID playerId) {
+        if (playerId == null) return;
+        SharedJsonStateRepository.savePlayer(playerId, STATE_KEY, new CapState(PLAYER_CAPS.getOrDefault(playerId, 0)));
+        save();
     }
 
     private static synchronized void load() {
@@ -95,7 +113,7 @@ public final class LevelCapCommand {
         PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         if (party == null) { source.sendFailure(Component.literal("Could not access your Cobblemon party.")); return 0; }
         PLAYER_CAPS.put(player.getUUID(), level);
-        save();
+        persist(player.getUUID());
         int applied = applyCap(party, level);
         int finalApplied = applied;
         source.sendSuccess(() -> Component.literal("Your party levelcap is now ON at level " + level + ". Future EXP is blocked once each Pokémon reaches the cap. Applied to " + finalApplied + " Pokémon.").withStyle(ChatFormatting.GREEN), false);
@@ -111,7 +129,7 @@ public final class LevelCapCommand {
         if (existing <= 0) existing = firstPartyCap(party);
         int level = existing > 0 ? existing : 100;
         PLAYER_CAPS.put(player.getUUID(), level);
-        save();
+        persist(player.getUUID());
         int applied = applyCap(party, level);
         int finalApplied = applied;
         int finalLevel = level;
@@ -125,7 +143,7 @@ public final class LevelCapCommand {
         PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         if (party == null) { source.sendFailure(Component.literal("Could not access your Cobblemon party.")); return 0; }
         PLAYER_CAPS.remove(player.getUUID());
-        save();
+        persist(player.getUUID());
         int cleared = 0;
         for (int i = 0; i < 6; i++) {
             Pokemon pokemon = party.get(i);
@@ -171,4 +189,6 @@ public final class LevelCapCommand {
         }
         return 0;
     }
+    private static final class CapState { int level; CapState() {} CapState(int level) { this.level = level; } }
+
 }

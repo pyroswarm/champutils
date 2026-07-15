@@ -65,7 +65,7 @@ public final class AccountUpgradeMenu {
                 .addLoreLine(Component.literal("§eClick to browse"))
                 .setCallback((i, c, t) -> openTrails(player, 0)));
 
-        MenuUtil.addBackButton(gui, 22, () -> com.champutils.menu.MainMenu.open(player));
+        // Opened from the Account Upgrader NPC: close the menu to exit instead of returning to /menu.
         gui.open();
     }
 

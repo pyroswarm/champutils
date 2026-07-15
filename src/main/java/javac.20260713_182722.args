@@ -1,0 +1,5 @@
+-proc:none
+com/champutils/cosmetic/BattleTitleProgress.java
+com/champutils/cosmetic/TitleMenu.java
+com/champutils/profile/PlayerDataManager.java
+com/champutils/battle/CobblemonBattleHandler.java

@@ -29,9 +29,7 @@ public final class DexRewardManager {
     }
 
     public static boolean claim(ServerPlayer player, int percent) {
-        if (player == null) {
-            return false;
-        }
+        if (player == null) return false;
 
         int unlocked = DexProgressManager.getUnlockedPercent(player);
         if (unlocked < percent) {
@@ -45,15 +43,29 @@ public final class DexRewardManager {
             return false;
         }
 
-        DexRewardConfig.DexRewardTier tier = DexRewardConfig.getTier(percent);
-        for (String rawCommand : tier.commands) {
-            runRewardCommand(player, rawCommand, percent);
-        }
+        java.util.UUID profileId = com.champutils.profile.PlayerProfileManager.activeProfileId(player);
+        DexRewardClaimData.markClaimedAsync(profileId, percent).whenComplete((reserved, error) -> player.server.execute(() -> {
+            if (!com.champutils.teleport.SafeTeleportManager.isLive(player)
+                    || !profileId.equals(com.champutils.profile.PlayerProfileManager.activeProfileId(player))) return;
+            if (error != null) {
+                player.sendSystemMessage(Component.literal("Could not claim that Pokédex reward right now.").withStyle(ChatFormatting.RED));
+                error.printStackTrace();
+                return;
+            }
+            if (!Boolean.TRUE.equals(reserved)) {
+                player.sendSystemMessage(Component.literal("You already claimed the " + percent + "% Pokédex reward.").withStyle(ChatFormatting.YELLOW));
+                DexRewardsMenu.open(player);
+                return;
+            }
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation("DEX_REWARD_CLAIMS", profileId);
 
-        DexRewardClaimData.markClaimed(player.getUUID(), percent);
-        AdventureGuideManager.increment(player, "dex_reward", 1);
-        ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
-        player.sendSystemMessage(Component.literal("Claimed " + percent + "% Pokédex reward!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            DexRewardConfig.DexRewardTier tier = DexRewardConfig.getTier(percent);
+            for (String rawCommand : tier.commands) runRewardCommand(player, rawCommand, percent);
+            AdventureGuideManager.increment(player, "dex_reward", 1);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
+            player.sendSystemMessage(Component.literal("Claimed " + percent + "% Pokédex reward!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            DexRewardsMenu.open(player);
+        }));
         return true;
     }
 

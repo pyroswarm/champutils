@@ -1,5 +1,6 @@
 package com.champutils.commands;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.profile.ProfileGameMode;
 import com.champutils.profile.ProfileMainMenuManager;
@@ -17,14 +18,30 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 public final class ProfileCommand {
     private static final String[] MODES = {"normal", "ironman", "monotype", "islander", "nuzlocke"};
     private static final String[] TYPES = {"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"};
+    private static final Set<UUID> PROFILE_MUTATIONS_IN_PROGRESS = ConcurrentHashMap.newKeySet();
 
     private ProfileCommand() {}
+
+    private static boolean beginProfileMutation(ServerPlayer player) {
+        if (player == null) return false;
+        if (PROFILE_MUTATIONS_IN_PROGRESS.add(player.getUUID())) return true;
+        player.sendSystemMessage(Component.literal("A profile change is already in progress.").withStyle(ChatFormatting.YELLOW));
+        return false;
+    }
+
+    private static void endProfileMutation(ServerPlayer player) {
+        if (player != null) PROFILE_MUTATIONS_IN_PROGRESS.remove(player.getUUID());
+    }
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -41,7 +58,7 @@ public final class ProfileCommand {
                                     .executes(context -> nuzlockeComplete(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "champion")))))
                     .then(literal("switch")
                             .then(argument("name", StringArgumentType.word())
-                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(PlayerProfileManager.profileNamesBlocking(context.getSource().getPlayerOrException()), builder))
+                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(PlayerProfileManager.profileNamesCached(context.getSource().getPlayerOrException()), builder))
                                     .executes(context -> load(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name")))))
                     .then(literal("create")
                             .then(argument("name", StringArgumentType.word())
@@ -53,20 +70,31 @@ public final class ProfileCommand {
                                                     .executes(context -> create(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name"), StringArgumentType.getString(context, "mode"), StringArgumentType.getString(context, "type")))))))
                     .then(literal("delete")
                             .then(argument("name", StringArgumentType.word())
-                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(PlayerProfileManager.profileNamesBlocking(context.getSource().getPlayerOrException()), builder))
+                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(PlayerProfileManager.profileNamesCached(context.getSource().getPlayerOrException()), builder))
                                     .executes(context -> delete(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "name"))))));
             dispatcher.register(literal("profilemode").redirect(dispatcher.getRoot().getChild("profiles")));
         });
     }
 
     private static int list(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("Your profiles:").withStyle(ChatFormatting.AQUA));
-        for (var profile : PlayerProfileManager.listBlocking(player)) {
-            String active = profile.active() ? "* " : "  ";
-            String suffix = profile.gameMode() == ProfileGameMode.MONOTYPE && profile.monotypeType() != null ? ": " + profile.monotypeType() : "";
-            String pending = profile.pendingDelete() ? " §c(Pending delete)" : "";
-            player.sendSystemMessage(Component.literal(active + profile.profileName() + " [" + profile.gameMode().displayName() + suffix + "]" + pending).withStyle(profile.active() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
-        }
+        player.sendSystemMessage(Component.literal("Loading your profiles...").withStyle(ChatFormatting.GRAY));
+        DatabaseManager.supplyAsync("list profiles command", connection ->
+                        PlayerProfileManager.readProfiles(connection, player.getUUID()))
+                .whenComplete((profiles, error) -> player.server.execute(() -> {
+                    if (player.hasDisconnected()) return;
+                    if (error != null || profiles == null) {
+                        if (error != null) error.printStackTrace();
+                        player.sendSystemMessage(Component.literal("Could not load profiles. Please try again.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("Your profiles:").withStyle(ChatFormatting.AQUA));
+                    for (var profile : profiles) {
+                        String active = profile.active() ? "* " : "  ";
+                        String suffix = profile.gameMode() == ProfileGameMode.MONOTYPE && profile.monotypeType() != null ? ": " + profile.monotypeType() : "";
+                        String pending = profile.pendingDelete() ? " §c(Pending delete)" : "";
+                        player.sendSystemMessage(Component.literal(active + profile.profileName() + " [" + profile.gameMode().displayName() + suffix + "]" + pending).withStyle(profile.active() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+                    }
+                }));
         return 1;
     }
 
@@ -89,10 +117,21 @@ public final class ProfileCommand {
     }
 
     private static int convertToNormal(ServerPlayer player) {
-        String result = PlayerProfileManager.convertActiveToNormalBlocking(player);
-        boolean ok = result.startsWith("Converted") || result.contains("already Normal");
-        player.sendSystemMessage(Component.literal(result).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
-        return ok ? 1 : 0;
+        if (!beginProfileMutation(player)) return 0;
+        player.sendSystemMessage(Component.literal("Checking profile conversion...").withStyle(ChatFormatting.GRAY));
+        DatabaseManager.supplyAsync("convert active profile to normal", connection ->
+                        PlayerProfileManager.convertActiveToNormalBlocking(player))
+                .whenComplete((result, error) -> {
+                    endProfileMutation(player);
+                    player.server.execute(() -> {
+                        if (player.hasDisconnected()) return;
+                        String finalResult = error == null && result != null ? result : "Could not convert profile. Please try again or contact staff.";
+                        if (error != null) error.printStackTrace();
+                        boolean ok = finalResult.startsWith("Converted") || finalResult.contains("already Normal");
+                        player.sendSystemMessage(Component.literal(finalResult).withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    });
+                });
+        return 1;
     }
 
     private static int openOrEnterMenu(ServerPlayer player) {
@@ -120,7 +159,7 @@ public final class ProfileCommand {
         if (player == null) return;
         ProfileStateFlushService.TransferFlushSnapshot transferSnapshot =
                 ProfileStateFlushService.captureBeforeTransfer(player, "return_to_profile_lobby");
-        if (!ProfileStateFlushService.flushBeforeTransfer(player, "return_to_profile_lobby", 3, java.util.concurrent.TimeUnit.SECONDS)) {
+        if (!ProfileStateFlushService.queueAncillaryStateBeforeTransfer(player, "return_to_profile_lobby")) {
             player.sendSystemMessage(Component.literal("Could not safely save your profile yet. Please wait a moment and try again.").withStyle(ChatFormatting.RED));
             return;
         }
@@ -190,9 +229,20 @@ public final class ProfileCommand {
             return 0;
         }
         ProfileGameMode mode = ProfileGameMode.parse(rawMode);
-        String result = PlayerProfileManager.createBlocking(player, name, mode, type);
-        player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Created") ? ChatFormatting.GREEN : ChatFormatting.RED));
-        return result.startsWith("Created") ? 1 : 0;
+        if (!beginProfileMutation(player)) return 0;
+        player.sendSystemMessage(Component.literal("Creating profile " + name + "...").withStyle(ChatFormatting.YELLOW));
+        DatabaseManager.supplyAsync("create profile command " + name, connection ->
+                        PlayerProfileManager.createBlocking(player, name, mode, type))
+                .whenComplete((result, error) -> {
+                    endProfileMutation(player);
+                    player.server.execute(() -> {
+                        if (player.hasDisconnected()) return;
+                        String finalResult = error == null && result != null ? result : "Could not create profile. Please try again or contact staff.";
+                        if (error != null) error.printStackTrace();
+                        player.sendSystemMessage(Component.literal(finalResult).withStyle(finalResult.startsWith("Created") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    });
+                });
+        return 1;
     }
 
     private static int delete(ServerPlayer player, String name) {
@@ -201,8 +251,19 @@ public final class ProfileCommand {
             ProfileSelectionMenu.open(player);
             return 0;
         }
-        String result = PlayerProfileManager.deleteBlocking(player, name);
-        player.sendSystemMessage(Component.literal(result).withStyle(result.startsWith("Deleted") || result.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
-        return result.startsWith("Deleted") || result.startsWith("Profile") ? 1 : 0;
+        if (!beginProfileMutation(player)) return 0;
+        player.sendSystemMessage(Component.literal("Updating profile deletion...").withStyle(ChatFormatting.YELLOW));
+        DatabaseManager.supplyAsync("delete profile command " + name, connection ->
+                        PlayerProfileManager.deleteBlocking(player, name))
+                .whenComplete((result, error) -> {
+                    endProfileMutation(player);
+                    player.server.execute(() -> {
+                        if (player.hasDisconnected()) return;
+                        String finalResult = error == null && result != null ? result : "Could not delete profile. Please try again or contact staff.";
+                        if (error != null) error.printStackTrace();
+                        player.sendSystemMessage(Component.literal(finalResult).withStyle(finalResult.startsWith("Deleted") || finalResult.startsWith("Profile") ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    });
+                });
+        return 1;
     }
 }

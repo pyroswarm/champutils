@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.io.File;
@@ -105,7 +106,11 @@ public final class TitleManager {
 
         if (!changed) return false;
         com.champutils.chat.ChatTagResolver.invalidate(player);
-        Component title = com.champutils.chat.ChatTagResolver.legacy(display);
+        Component title = com.champutils.chat.ChatTagResolver.legacy(display)
+                .withStyle(style -> style.withHoverEvent(new HoverEvent(
+                        HoverEvent.Action.SHOW_TEXT,
+                        TitleConfig.hoverText(normalizedId)
+                )));
         com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                 player.server,
                 Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)

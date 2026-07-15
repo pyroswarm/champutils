@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 public final class TrueCaughtDexManager {
 
@@ -73,9 +74,6 @@ public final class TrueCaughtDexManager {
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(out, writer);
             }
-            State state = new State();
-            state.caught.putAll(out);
-            SharedJsonStateRepository.saveGlobal(STATE_KEY, state);
         } catch (Exception exception) {
             System.err.println("[ChampUtils] Failed to save true caught dex data.");
             exception.printStackTrace();
@@ -108,9 +106,51 @@ public final class TrueCaughtDexManager {
     }
 
     public static synchronized void invalidateSharedCache(UUID profileId) {
-        loaded = false;
-        TRUE_CAUGHT.clear();
+        if (profileId != null) TRUE_CAUGHT.remove(profileId);
         ProfileLeaderboardRepository.invalidateCache();
+    }
+
+    /** Loads one profile from the normalized SQL table and migrates any legacy JSON entries. */
+    public static void preload(UUID profileId) {
+        if (profileId == null) return;
+        load();
+        if (!DatabaseManager.isEnabled()) return;
+        Set<String> legacy = new LinkedHashSet<>(TRUE_CAUGHT.getOrDefault(profileId, Collections.emptySet()));
+        try {
+            Set<String> loadedSet = DatabaseManager.supplyAsync("load true caught dex " + profileId, connection -> {
+                ensureSqlSchema(connection);
+                Set<String> result = new LinkedHashSet<>();
+                try (java.sql.PreparedStatement ps = connection.prepareStatement(
+                        "select species_id from true_caught_dex where player_uuid = ?")) {
+                    ps.setObject(1, profileId);
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            String species = normalizeSpecies(rs.getString(1));
+                            if (!species.isBlank()) result.add(species);
+                        }
+                    }
+                }
+                if (!legacy.isEmpty()) {
+                    try (java.sql.PreparedStatement ps = connection.prepareStatement(
+                            "insert into true_caught_dex (player_uuid, species_id, caught_at) values (?, ?, now()) on conflict (player_uuid, species_id) do nothing")) {
+                        for (String species : legacy) {
+                            ps.setObject(1, profileId);
+                            ps.setString(2, species);
+                            ps.addBatch();
+                        }
+                        ps.executeBatch();
+                    }
+                    result.addAll(legacy);
+                }
+                return result;
+            }).get(5, TimeUnit.SECONDS);
+            Set<String> concurrent = ConcurrentHashMap.newKeySet();
+            concurrent.addAll(loadedSet);
+            TRUE_CAUGHT.put(profileId, concurrent);
+        } catch (Exception exception) {
+            System.err.println("[ChampUtils] Failed to preload true caught dex for profile " + profileId + ".");
+            exception.printStackTrace();
+        }
     }
 
     private static void applyState(State state) {
@@ -159,6 +199,7 @@ public final class TrueCaughtDexManager {
     private static void syncTrueCaughtSql(UUID profileId, String species) {
         if (profileId == null || species == null || species.isBlank() || !DatabaseManager.isEnabled()) return;
         DatabaseManager.executeAsync("sync true caught dex " + profileId, connection -> {
+            ensureSqlSchema(connection);
             try (java.sql.PreparedStatement ps = connection.prepareStatement(
                     "insert into true_caught_dex (player_uuid, species_id, caught_at) values (?, ?, now()) on conflict (player_uuid, species_id) do nothing")) {
                 ps.setObject(1, profileId);
@@ -166,6 +207,15 @@ public final class TrueCaughtDexManager {
                 ps.executeUpdate();
             }
         });
+    }
+
+    private static void ensureSqlSchema(java.sql.Connection connection) throws Exception {
+        try (java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate("create table if not exists true_caught_dex (player_uuid uuid not null, species_id text not null, caught_at timestamptz not null default now(), primary key (player_uuid, species_id))");
+            // The dex is profile-scoped. Older backups attached this column to players(uuid),
+            // which rejects profile UUIDs on new inserts even when the constraint was NOT VALID.
+            statement.executeUpdate("alter table true_caught_dex drop constraint if exists true_caught_dex_player_uuid_fkey");
+        }
     }
 
     public static String speciesId(Object pokemon) {

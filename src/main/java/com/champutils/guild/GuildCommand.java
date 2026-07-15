@@ -8,10 +8,11 @@ import com.champutils.territory.TerritoryRegionWipeManager;
 import com.champutils.territory.TerritoryRepository;
 import com.champutils.territory.TerritoryTeleportUtil;
 import com.champutils.menu.ConfirmationMenu;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkPlayerDirectory;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
@@ -62,10 +63,11 @@ public final class GuildCommand {
                                                     StringArgumentType.getString(context, "tag")
                                             )))))
                     .then(Commands.literal("invite")
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> invite(
                                             context.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(context, "player")
+                                            StringArgumentType.getString(context, "player")
                                     ))))
                     .then(Commands.literal("accept")
                             .executes(context -> accept(context.getSource().getPlayerOrException())))
@@ -74,32 +76,36 @@ public final class GuildCommand {
                     .then(Commands.literal("leave")
                             .executes(context -> leave(context.getSource().getPlayerOrException())))
                     .then(Commands.literal("kick")
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> kick(
                                             context.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(context, "player")
+                                            StringArgumentType.getString(context, "player")
                                     ))))
                     .then(Commands.literal("promote")
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> promote(
                                             context.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(context, "player")
+                                            StringArgumentType.getString(context, "player")
                                     ))))
                     .then(Commands.literal("demote")
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> demote(
                                             context.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(context, "player")
+                                            StringArgumentType.getString(context, "player")
                                     ))))
                     .then(Commands.literal("transfer")
                             .then(Commands.literal("confirm")
                                     .executes(context -> confirmTransfer(context.getSource().getPlayerOrException())))
                             .then(Commands.literal("cancel")
                                     .executes(context -> cancelPending(context.getSource().getPlayerOrException())))
-                            .then(Commands.argument("player", EntityArgument.player())
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> requestTransfer(
                                             context.getSource().getPlayerOrException(),
-                                            EntityArgument.getPlayer(context, "player")
+                                            StringArgumentType.getString(context, "player")
                                     ))))
                     .then(Commands.literal("disband")
                             .executes(context -> requestDisband(context.getSource().getPlayerOrException()))
@@ -234,26 +240,23 @@ public final class GuildCommand {
         return 1;
     }
 
-    private static int invite(ServerPlayer inviter, ServerPlayer target) {
-        if (!databaseReady(inviter)) {
-            return 0;
-        }
-        GuildRepository.invite(inviter.getUUID(), inviter.getGameProfile().getName(), target.getUUID(), target.getGameProfile().getName(), (success, message) ->
-                inviter.server.execute(() -> {
-                    inviter.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (success) {
-                        GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(inviter.getUUID());
-                        target.sendSystemMessage(Component.literal(inviter.getGameProfile().getName() + " invited you to join " + (guild == null ? "their guild" : guild.name) + ". Use /guild accept or /guild deny.").withStyle(ChatFormatting.GOLD));
-                    }
-                })
-        );
-        return 1;
+    private static int invite(ServerPlayer inviter, String targetName) {
+        return resolveTarget(inviter, targetName, target -> {
+            GuildRepository.invite(inviter.getUUID(), inviter.getGameProfile().getName(), target.playerUuid(), target.playerName(), (success, message) ->
+                    inviter.server.execute(() -> {
+                        inviter.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                        if (success) {
+                            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(inviter.getUUID());
+                            NetworkEventManager.sendPlayerNotice(inviter.server, target.playerUuid(), "§6" + inviter.getGameProfile().getName() + " invited you to join " + (guild == null ? "their guild" : guild.name) + ". Use /guild accept or /guild deny.");
+                            if (guild != null) NetworkEventManager.publishCacheInvalidation("GUILD", guild.id);
+                        }
+                    })
+            );
+        });
     }
 
     private static int accept(ServerPlayer player) {
-        if (!databaseReady(player)) {
-            return 0;
-        }
+        if (!databaseReady(player)) return 0;
         GuildRepository.acceptInvite(player.getUUID(), player.getGameProfile().getName(), (success, message) ->
                 player.server.execute(() -> {
                     player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
@@ -261,12 +264,8 @@ public final class GuildCommand {
                         AdventureGuideManager.increment(player, "guild", 1);
                         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
                         if (guild != null) {
-                            for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(player.server.getPlayerList().getPlayers(), guild.id)) {
-                                ServerPlayer online = player.server.getPlayerList().getPlayer(member.playerUuid);
-                                if (online != null && !online.getUUID().equals(player.getUUID())) {
-                                    online.sendSystemMessage(Component.literal(player.getGameProfile().getName() + " joined the guild!").withStyle(ChatFormatting.GREEN));
-                                }
-                            }
+                            NetworkEventManager.publishGuildNotice(guild.id, "§a" + player.getGameProfile().getName() + " joined the guild!");
+                            NetworkEventManager.publishCacheInvalidation("GUILD", guild.id);
                         }
                     }
                 })
@@ -275,9 +274,7 @@ public final class GuildCommand {
     }
 
     private static int deny(ServerPlayer player) {
-        if (!databaseReady(player)) {
-            return 0;
-        }
+        if (!databaseReady(player)) return 0;
         GuildRepository.denyInvites(player.getUUID(), (success, message) ->
                 player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.YELLOW)))
         );
@@ -285,65 +282,60 @@ public final class GuildCommand {
     }
 
     private static int leave(ServerPlayer player) {
-        if (!databaseReady(player)) {
-            return 0;
-        }
+        if (!databaseReady(player)) return 0;
+        GuildRepository.GuildSnapshot before = GuildRepository.cachedGuild(player.getUUID());
         GuildRepository.leave(player.getUUID(), player.getGameProfile().getName(), (success, message) ->
-                player.server.execute(() -> player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED)))
-        );
-        return 1;
-    }
-
-    private static int kick(ServerPlayer actor, ServerPlayer target) {
-        if (!databaseReady(actor)) {
-            return 0;
-        }
-        GuildRepository.kick(actor.getUUID(), target.getUUID(), target.getGameProfile().getName(), (success, message) ->
-                actor.server.execute(() -> {
-                    actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (success) {
-                        target.sendSystemMessage(Component.literal("You were kicked from your guild.").withStyle(ChatFormatting.RED));
+                player.server.execute(() -> {
+                    player.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                    if (success && before != null) {
+                        NetworkEventManager.publishGuildNotice(before.id, "§e" + player.getGameProfile().getName() + " left the guild.");
+                        NetworkEventManager.publishCacheInvalidation("GUILD", before.id);
                     }
-                })
-        );
+                }))
+        ;
         return 1;
     }
 
-    private static int promote(ServerPlayer actor, ServerPlayer target) {
-        if (!databaseReady(actor)) {
-            return 0;
-        }
-        GuildRepository.promote(actor.getUUID(), target.getUUID(), target.getGameProfile().getName(), (success, message) ->
-                actor.server.execute(() -> {
-                    actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (success) {
-                        target.sendSystemMessage(Component.literal("Your guild role changed. Use /guild info to check it.").withStyle(ChatFormatting.GOLD));
-                    }
-                })
-        );
-        return 1;
+    private static int kick(ServerPlayer actor, String targetName) {
+        return resolveTarget(actor, targetName, target -> {
+            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(actor.getUUID());
+            GuildRepository.kick(actor.getUUID(), target.playerUuid(), target.playerName(), (success, message) ->
+                    actor.server.execute(() -> {
+                        actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                        if (success) {
+                            NetworkEventManager.sendPlayerNotice(actor.server, target.playerUuid(), "§cYou were kicked from your guild.");
+                            if (guild != null) NetworkEventManager.publishCacheInvalidation("GUILD", guild.id);
+                        }
+                    })
+            );
+        });
     }
 
-    private static int demote(ServerPlayer actor, ServerPlayer target) {
-        if (!databaseReady(actor)) {
-            return 0;
-        }
-        GuildRepository.demote(actor.getUUID(), target.getUUID(), target.getGameProfile().getName(), (success, message) ->
-                actor.server.execute(() -> {
-                    actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                    if (success) {
-                        target.sendSystemMessage(Component.literal("Your guild role changed. Use /guild info to check it.").withStyle(ChatFormatting.GOLD));
-                    }
-                })
-        );
-        return 1;
+    private static int promote(ServerPlayer actor, String targetName) {
+        return changeRole(actor, targetName, true);
     }
 
-    private static int requestTransfer(ServerPlayer actor, ServerPlayer target) {
-        if (!databaseReady(actor)) {
-            return 0;
-        }
+    private static int demote(ServerPlayer actor, String targetName) {
+        return changeRole(actor, targetName, false);
+    }
 
+    private static int changeRole(ServerPlayer actor, String targetName, boolean promote) {
+        return resolveTarget(actor, targetName, target -> {
+            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(actor.getUUID());
+            GuildRepository.Callback callback = (success, message) -> actor.server.execute(() -> {
+                actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                if (success) {
+                    NetworkEventManager.sendPlayerNotice(actor.server, target.playerUuid(), "§6Your guild role changed. Use /guild info to check it.");
+                    if (guild != null) NetworkEventManager.publishCacheInvalidation("GUILD", guild.id);
+                }
+            });
+            if (promote) GuildRepository.promote(actor.getUUID(), target.playerUuid(), target.playerName(), callback);
+            else GuildRepository.demote(actor.getUUID(), target.playerUuid(), target.playerName(), callback);
+        });
+    }
+
+    private static int requestTransfer(ServerPlayer actor, String targetName) {
+        if (!databaseReady(actor)) return 0;
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(actor.getUUID());
         if (guild == null) {
             actor.sendSystemMessage(Component.literal("You are not in a guild.").withStyle(ChatFormatting.RED));
@@ -353,36 +345,43 @@ public final class GuildCommand {
             actor.sendSystemMessage(Component.literal("Only guild owners can transfer guild ownership.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        if (actor.getUUID().equals(target.getUUID())) {
-            actor.sendSystemMessage(Component.literal("You already own this guild.").withStyle(ChatFormatting.YELLOW));
-            return 0;
-        }
-        GuildRepository.GuildSnapshot targetGuild = GuildRepository.cachedGuild(target.getUUID());
-        if (targetGuild == null || !guild.id.equals(targetGuild.id)) {
-            actor.sendSystemMessage(Component.literal(target.getGameProfile().getName() + " is not in your guild.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        if (targetGuild.role == GuildRepository.Role.LEADER) {
-            actor.sendSystemMessage(Component.literal(target.getGameProfile().getName() + " is already the guild owner.").withStyle(ChatFormatting.YELLOW));
-            return 0;
-        }
+        return resolveTarget(actor, targetName, target -> {
+            if (actor.getUUID().equals(target.playerUuid())) {
+                actor.sendSystemMessage(Component.literal("You already own this guild.").withStyle(ChatFormatting.YELLOW));
+                return;
+            }
+            PendingGuildAction pending = PendingGuildAction.transfer(guild.id, target.playerUuid(), target.playerName());
+            PENDING_ACTIONS.put(actor.getUUID(), pending);
+            ConfirmationMenu.open(
+                    actor,
+                    "Confirm Guild Transfer",
+                    Items.GOLDEN_HELMET,
+                    "§eTransfer Guild Ownership",
+                    new String[]{
+                            "§7Guild: §f" + guild.name,
+                            "§7New Owner: §f" + pending.targetName,
+                            "§cYou will become an OFFICER.",
+                            "§cThis is a major guild action."
+                    },
+                    () -> confirmTransfer(actor),
+                    () -> cancelPending(actor)
+            );
+        });
+    }
 
-        PendingGuildAction pending = PendingGuildAction.transfer(guild.id, target.getUUID(), target.getGameProfile().getName());
-        PENDING_ACTIONS.put(actor.getUUID(), pending);
-        ConfirmationMenu.open(
-                actor,
-                "Confirm Guild Transfer",
-                Items.GOLDEN_HELMET,
-                "§eTransfer Guild Ownership",
-                new String[]{
-                        "§7Guild: §f" + guild.name,
-                        "§7New Owner: §f" + pending.targetName,
-                        "§cYou will become an OFFICER.",
-                        "§cThis is a major guild action."
-                },
-                () -> confirmTransfer(actor),
-                () -> cancelPending(actor)
-        );
+    private static int resolveTarget(ServerPlayer actor, String targetName, java.util.function.Consumer<NetworkPlayerDirectory.PlayerIdentity> action) {
+        if (!databaseReady(actor)) return 0;
+        if (targetName == null || targetName.isBlank()) {
+            actor.sendSystemMessage(Component.literal("Player name is required.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        NetworkPlayerDirectory.resolveIdentityAsync(targetName).whenComplete((target, error) -> actor.server.execute(() -> {
+            if (error != null || target == null) {
+                actor.sendSystemMessage(Component.literal("Player not found on the network.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            action.accept(target);
+        }));
         return 1;
     }
 
@@ -400,10 +399,8 @@ public final class GuildCommand {
                 actor.server.execute(() -> {
                     actor.sendSystemMessage(Component.literal(message).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
                     if (success) {
-                        ServerPlayer target = actor.server.getPlayerList().getPlayer(pending.targetUuid);
-                        if (target != null) {
-                            target.sendSystemMessage(Component.literal("You are now the owner of your guild.").withStyle(ChatFormatting.GOLD));
-                        }
+                        NetworkEventManager.sendPlayerNotice(actor.server, pending.targetUuid, "§6You are now the owner of your guild.");
+                        NetworkEventManager.publishCacheInvalidation("GUILD", pending.guildId);
                     }
                 })
         );

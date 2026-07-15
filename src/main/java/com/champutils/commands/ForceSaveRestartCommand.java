@@ -32,7 +32,6 @@ import com.champutils.survival.SurvivalWorldManager;
 import com.champutils.survival.HomeCommand;
 import com.champutils.teleport.PortalConfig;
 import com.champutils.teleport.TeleportConfig;
-import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.cosmetic.TitleManager;
 import com.champutils.worldfirst.WorldFirstManager;
 import com.champutils.dailylogin.DailyLoginManager;
@@ -283,7 +282,6 @@ public final class ForceSaveRestartCommand {
         tasks.add(new NamedSaveTask("professions", ProfessionManager::saveAll));
         tasks.add(new NamedSaveTask("economy", EconomyManager::save));
         tasks.add(new NamedSaveTask("profession block tracker", ProfessionBlockTracker::save));
-        tasks.add(new NamedSaveTask("world event bindings", WorldEventBindingRegistry::save));
         tasks.add(new NamedSaveTask("auction NPC bindings", AuctionHouseNpcBindingRegistry::save));
         tasks.add(new NamedSaveTask("menu NPC bindings", MenuNpcBindingRegistry::save));
         tasks.add(new NamedSaveTask("boss config", BossConfig::save));

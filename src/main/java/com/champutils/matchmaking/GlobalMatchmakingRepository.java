@@ -322,6 +322,12 @@ public final class GlobalMatchmakingRepository {
                 for (int j = i + 1; j < entries.size(); j++) {
                     QueueEntry b = entries.get(j);
                     if (!normalizeType(a.queueType()).equals(normalizeType(b.queueType()))) continue;
+                    // A cross-server match must be hosted by one of the matched players' source servers.
+                    // This prevents an unrelated third backend from claiming the session and guarantees
+                    // that the arena world/coordinates come from either player one's or player two's server.
+                    boolean claimantIsPlayerServer = battleServer.equalsIgnoreCase(a.sourceServerId())
+                            || battleServer.equalsIgnoreCase(b.sourceServerId());
+                    if (!claimantIsPlayerServer) continue;
                     if ("ranked".equals(normalizeType(a.queueType())) && Math.abs(a.rankIndex() - b.rankIndex()) > allowedRankSpread) continue;
                     UUID sessionId = UUID.randomUUID();
                     try (PreparedStatement insert = connection.prepareStatement(

@@ -85,8 +85,8 @@ public final class BuffManager {
 
 
     /**
-     * Framework hook for future capture-rate integrations.
-     * Returns decimal bonus from active providers, e.g. 0.10D = +10% catch chance.
+     * Returns the independent guaranteed-catch proc chance from active providers.
+     * For example, 0.03D means a 3% chance per legitimate wild Poké Ball attempt.
      */
     public static double getCatchChanceBonus(ServerPlayer player, Pokemon pokemon) {
         return getTotalBuff(BuffContext.trueWildCatch(player, pokemon), BuffType.CATCH_CHANCE);

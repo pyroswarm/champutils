@@ -1,5 +1,6 @@
 package com.champutils.exploration;
 
+import com.champutils.database.SharedJsonStateRepository;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -21,9 +22,11 @@ public final class ItemBindRegistry {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/item_npc_bindings.json");
+    private static final String CLAIM_STATE_KEY = "item_npc_reward_claims";
 
     private static final Map<String, Binding> BINDINGS_BY_ENTITY = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> CLAIMED_BY_PLAYER = new ConcurrentHashMap<>();
+    private static final Set<UUID> SHARED_CLAIMS_LOADED = ConcurrentHashMap.newKeySet();
 
     private ItemBindRegistry() {}
 
@@ -55,12 +58,17 @@ public final class ItemBindRegistry {
         Map<String, Set<String>> claimed = new LinkedHashMap<>();
     }
 
+    private static final class ClaimState {
+        Set<String> claimed = new LinkedHashSet<>();
+    }
+
     public static void load() {
         try {
             File dir = FILE.getParentFile();
             if (dir != null && !dir.exists()) dir.mkdirs();
             BINDINGS_BY_ENTITY.clear();
             CLAIMED_BY_PLAYER.clear();
+            SHARED_CLAIMS_LOADED.clear();
 
             if (!FILE.exists()) {
                 save();
@@ -139,22 +147,50 @@ public final class ItemBindRegistry {
 
     public static boolean hasClaimed(ServerPlayer player, Binding binding) {
         if (player == null || binding == null) return false;
-        return CLAIMED_BY_PLAYER.getOrDefault(player.getUUID().toString(), Collections.emptySet()).contains(normalize(binding.bindName));
+        Set<String> claims = ensureSharedClaims(player.getUUID());
+        return claims.contains(normalize(binding.bindName));
     }
 
     public static void markClaimed(ServerPlayer player, Binding binding) {
         if (player == null || binding == null) return;
-        CLAIMED_BY_PLAYER.computeIfAbsent(player.getUUID().toString(), ignored -> ConcurrentHashMap.newKeySet()).add(normalize(binding.bindName));
-        save();
+        Set<String> claims = ensureSharedClaims(player.getUUID());
+        if (claims.add(normalize(binding.bindName))) {
+            save();
+            saveSharedClaims(player.getUUID(), claims);
+        }
     }
 
     public static boolean resetClaim(UUID playerUuid, String bindName) {
         if (playerUuid == null) return false;
-        Set<String> claimed = CLAIMED_BY_PLAYER.get(playerUuid.toString());
-        if (claimed == null) return false;
+        Set<String> claimed = ensureSharedClaims(playerUuid);
         boolean removed = claimed.remove(normalize(bindName));
-        if (removed) save();
+        if (removed) {
+            save();
+            saveSharedClaims(playerUuid, claimed);
+        }
         return removed;
+    }
+
+    private static Set<String> ensureSharedClaims(UUID playerUuid) {
+        Set<String> fallback = CLAIMED_BY_PLAYER.computeIfAbsent(playerUuid.toString(), ignored -> ConcurrentHashMap.newKeySet());
+        if (!SHARED_CLAIMS_LOADED.add(playerUuid)) return fallback;
+        ClaimState local = new ClaimState();
+        local.claimed.addAll(fallback);
+        ClaimState shared = SharedJsonStateRepository.loadPlayer(playerUuid, CLAIM_STATE_KEY, ClaimState.class, local);
+        Set<String> merged = ConcurrentHashMap.newKeySet();
+        merged.addAll(fallback);
+        if (shared != null && shared.claimed != null) {
+            for (String claim : shared.claimed) merged.add(normalize(claim));
+        }
+        CLAIMED_BY_PLAYER.put(playerUuid.toString(), merged);
+        if (!merged.equals(fallback)) saveSharedClaims(playerUuid, merged);
+        return merged;
+    }
+
+    private static void saveSharedClaims(UUID playerUuid, Set<String> claims) {
+        ClaimState state = new ClaimState();
+        state.claimed.addAll(claims == null ? Collections.emptySet() : claims);
+        SharedJsonStateRepository.savePlayer(playerUuid, CLAIM_STATE_KEY, state);
     }
 
     public static Collection<Binding> allBindings() {

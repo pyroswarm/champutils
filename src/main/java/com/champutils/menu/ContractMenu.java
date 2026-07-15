@@ -62,7 +62,7 @@ public final class ContractMenu {
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
             item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eClick to claim" : "§eClick to track")));
-            item.setCallback((index, click, action) -> { if (done) QuestManager.completeContract(player); else QuestTrackerManager.track(player, "contract", c); open(player); });
+            item.setCallback((index, click, action) -> { if (done) QuestManager.completeContract(player); else QuestTrackerManager.toggle(player, "contract", c); open(player); });
             gui.setSlot(slots[offset++], item);
         }
     }

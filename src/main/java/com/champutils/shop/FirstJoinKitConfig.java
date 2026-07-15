@@ -34,6 +34,7 @@ public final class FirstJoinKitConfig {
         /** item, tool, or command */
         public String type = "item";
         public String id = "minecraft:stone";
+        public String name = "";
         public int amount = 1;
         public String toolType = "pickaxe";
         public String rarity = "F";
@@ -84,6 +85,7 @@ public final class FirstJoinKitConfig {
         for (KitEntry entry : CONFIG.entries) {
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
             if (entry.id == null) entry.id = "";
+            if (entry.name == null) entry.name = "";
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "F";
@@ -92,6 +94,7 @@ public final class FirstJoinKitConfig {
         for (KitEntry entry : CONFIG.islanderEntries) {
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
             if (entry.id == null) entry.id = "";
+            if (entry.name == null) entry.name = "";
             if (entry.amount <= 0) entry.amount = 1;
             if (entry.toolType == null || entry.toolType.isBlank()) entry.toolType = "pickaxe";
             if (entry.rarity == null || entry.rarity.isBlank()) entry.rarity = "F";

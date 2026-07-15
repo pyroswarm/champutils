@@ -128,7 +128,7 @@ public class QuestMenu {
                     .addLoreLine(Component.literal("§7Progress: §f" + Math.min(o.progress, o.required) + "§7/§f" + o.required))
                     .addLoreLine(Component.literal("§7Profession: §f" + o.profession))
                     .addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, kind, o) ? "§aTracked" : (done ? "§aComplete" : "§eClick to track")))
-                    .setCallback((index, click, action) -> { QuestTrackerManager.track(player, kind, o); open(player); }));
+                    .setCallback((index, click, action) -> { if (done) { QuestManager.complete(player, "daily".equalsIgnoreCase(kind)); } else { QuestTrackerManager.toggle(player, kind, o); } open(player); }));
         }
     }
 
@@ -235,7 +235,7 @@ public class QuestMenu {
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
             item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eClick to claim" : "§eClick to track")));
             item.setCallback((index, click, action) -> {
-                if (done) QuestManager.completeContract(player); else QuestTrackerManager.track(player, "contract", c);
+                if (done) QuestManager.completeContract(player); else QuestTrackerManager.toggle(player, "contract", c);
                 open(player);
             });
             gui.setSlot(start + offset, item);

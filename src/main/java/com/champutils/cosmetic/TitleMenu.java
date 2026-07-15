@@ -6,120 +6,137 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 public final class TitleMenu {
-    private static final int[] TITLE_SLOTS = {
-            9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-            27, 28, 29, 30, 31, 32, 33, 34, 35,
-            36, 37, 38, 39, 40, 41, 42, 43, 44
+    private static final int[] CONTENT_SLOTS = {
+            9,10,11,12,13,14,15,16,17,
+            18,19,20,21,22,23,24,25,26,
+            27,28,29,30,31,32,33,34,35,
+            36,37,38,39,40,41,42,43,44
     };
+
+    private static final List<Category> CATEGORIES = List.of(
+            new Category("CATCHING", "Catching & Dex", Items.ENDER_PEARL),
+            new Category("BATTLE", "Battling", Items.IRON_SWORD),
+            new Category("GYMS", "Gyms & Champion", Items.GOLDEN_HELMET),
+            new Category("BATTLE_TOWER", "Battle Tower", Items.OBSERVER),
+            new Category("PROFESSIONS", "Professions", Items.DIAMOND_PICKAXE),
+            new Category("BREEDING", "Breeding", Items.EGG),
+            new Category("PROFILE", "Profiles & Playtime", Items.CLOCK),
+            new Category("WORLD_FIRSTS", "World Firsts", Items.NETHER_STAR),
+            new Category("GENERAL", "General", Items.BOOK),
+            new Category("SPECIAL", "Special", Items.NAME_TAG)
+    );
 
     private TitleMenu() {}
 
-    public static void open(ServerPlayer player) {
-        open(player, 0);
-    }
+    public static void open(ServerPlayer player) { openCategories(player); }
 
-    public static void open(ServerPlayer player, int requestedPage) {
+    private static void openCategories(ServerPlayer player) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        gui.setTitle(Component.literal("Title Categories"));
         Set<String> owned = TitleManager.unlocked(player.getUUID());
-        Set<String> subTitles = TitleManager.subtitles(player.getUUID());
-        List<TitleConfig.TitleDef> titles = new ArrayList<>(TitleConfig.titles());
-        titles.sort(java.util.Comparator.comparing(t -> t.name == null ? t.id : t.name));
-        String selected = TitleManager.selected(player.getUUID());
+        List<TitleConfig.TitleDef> all = visibleTitles(owned);
 
-        List<GuiElementBuilder> entries = new ArrayList<>();
-        for (TitleConfig.TitleDef def : titles) {
-            if (def == null || def.id == null) continue;
-            if (TitleConfig.isManualAdminTitle(def) && !owned.contains(def.id)) continue;
-            entries.add(entry(player, requestedPage, def.id, def.description, TitleConfig.isAccountBound(def.id), owned.contains(def.id), def.id.equals(selected), subTitles.contains(def.id)));
+        int slot = 10;
+        for (Category category : CATEGORIES) {
+            List<TitleConfig.TitleDef> entries = byCategory(all, category.id());
+            if (entries.isEmpty()) continue;
+            long unlocked = entries.stream().filter(t -> owned.contains(t.id)).count();
+            int target = slot;
+            gui.setSlot(target, new GuiElementBuilder(category.icon())
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§e" + category.label()))
+                    .addLoreLine(Component.literal("§7Unlocked: §f" + unlocked + "§7/§f" + entries.size()))
+                    .addLoreLine(Component.literal("§eClick to browse."))
+                    .setCallback((i,c,t) -> openCategory(player, category.id(), 0)));
+            slot++;
+            if (slot == 17) slot = 19;
+            if (slot == 26) slot = 28;
         }
-
-        for (String ownedId : owned) {
-            boolean known = false;
-            for (TitleConfig.TitleDef def : titles) {
-                if (def != null && def.id != null && def.id.equals(ownedId)) { known = true; break; }
-            }
-            if (known || ownedId == null || ownedId.isBlank()) continue;
-            entries.add(entry(player, requestedPage, ownedId, "World First trophy title.", false, true, ownedId.equals(selected), subTitles.contains(ownedId)));
-        }
-
-        int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) TITLE_SLOTS.length));
-        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
-        gui.setTitle(Component.literal("Titles §7(" + (page + 1) + "/" + totalPages + ")"));
-
-        gui.setSlot(0, new GuiElementBuilder(Items.BARRIER)
-                .hideDefaultTooltip()
+        gui.setSlot(4, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
                 .setName(Component.literal("§7Hide Shown Title"))
-                .addLoreLine(Component.literal("§7This only hides your displayed chat title."))
-                .addLoreLine(Component.literal("§7Hidden sub titles stay equipped."))
-                .setCallback((i,c,t) -> { TitleManager.select(player, "none"); open(player, page); }));
-
-        gui.setSlot(8, new GuiElementBuilder(Items.NETHER_STAR)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§dHidden Sub Titles §7(" + subTitles.size() + "/3)"))
-                .addLoreLine(Component.literal("§7Right-click an unlocked title to equip it here."))
-                .addLoreLine(Component.literal("§7Sub titles do not show in chat."))
-                .addLoreLine(Component.literal("§7Each sub title gives §f50%§7 of its buffs."))
-                .addLoreLine(Component.literal("§7Right-click a current sub title to unequip it.")));
-
-        int start = page * TITLE_SLOTS.length;
-        for (int i = 0; i < TITLE_SLOTS.length; i++) {
-            int entryIndex = start + i;
-            if (entryIndex >= entries.size()) break;
-            gui.setSlot(TITLE_SLOTS[i], entries.get(entryIndex));
-        }
-
-        if (page > 0) {
-            gui.setSlot(48, new GuiElementBuilder(Items.ARROW)
-                    .hideDefaultTooltip()
-                    .setName(Component.literal("§ePrevious Page"))
-                    .addLoreLine(Component.literal("§7Page " + page + " of " + totalPages))
-                    .setCallback((i,c,t) -> open(player, page - 1)));
-        }
-
-        gui.setSlot(49, new GuiElementBuilder(Items.BOOK)
-                .hideDefaultTooltip()
-                .setName(Component.literal("§fPage " + (page + 1) + "§7/§f" + totalPages))
-                .addLoreLine(Component.literal("§7Showing " + Math.min(entries.size(), start + 1) + "-" + Math.min(entries.size(), start + TITLE_SLOTS.length) + " of " + entries.size() + " titles."))
-                .addLoreLine(Component.literal("§eLeft Click: §7shown title"))
-                .addLoreLine(Component.literal("§dRight Click: §7hidden sub title")));
-
-        if (page + 1 < totalPages) {
-            gui.setSlot(50, new GuiElementBuilder(Items.ARROW)
-                    .hideDefaultTooltip()
-                    .setName(Component.literal("§eNext Page"))
-                    .addLoreLine(Component.literal("§7Page " + (page + 2) + " of " + totalPages))
-                    .setCallback((i,c,t) -> open(player, page + 1)));
-        }
-
+                .setCallback((i,c,t) -> { TitleManager.select(player, "none"); openCategories(player); }));
         MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }
 
-    private static GuiElementBuilder entry(ServerPlayer player, int page, String titleId, String description, boolean accountBound, boolean unlocked, boolean active, boolean subTitle) {
+    public static void open(ServerPlayer player, int requestedPage) { openCategories(player); }
+
+    private static void openCategory(ServerPlayer player, String categoryId, int requestedPage) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
+        Set<String> owned = TitleManager.unlocked(player.getUUID());
+        Set<String> subTitles = TitleManager.subtitles(player.getUUID());
+        List<TitleConfig.TitleDef> titles = byCategory(visibleTitles(owned), categoryId);
+        titles.sort(Comparator.comparing(t -> t.name == null ? t.id : t.name));
+        String selected = TitleManager.selected(player.getUUID());
+
+        int totalPages = Math.max(1, (int)Math.ceil(titles.size() / (double)CONTENT_SLOTS.length));
+        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
+        String label = CATEGORIES.stream().filter(c -> c.id().equals(categoryId)).map(Category::label).findFirst().orElse("Titles");
+        gui.setTitle(Component.literal(label + " §7(" + (page + 1) + "/" + totalPages + ")"));
+
+        int start = page * CONTENT_SLOTS.length;
+        for (int i=0; i<CONTENT_SLOTS.length; i++) {
+            int idx = start + i;
+            if (idx >= titles.size()) break;
+            TitleConfig.TitleDef def = titles.get(idx);
+            gui.setSlot(CONTENT_SLOTS[i], entry(player, categoryId, page, def, owned.contains(def.id), def.id.equals(selected), subTitles.contains(def.id)));
+        }
+        if (page > 0) gui.setSlot(48, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§ePrevious Page")).setCallback((i,c,t)->openCategory(player, categoryId, page-1)));
+        gui.setSlot(49, new GuiElementBuilder(Items.BOOK).hideDefaultTooltip().setName(Component.literal("§fPage " + (page+1) + "§7/§f" + totalPages))
+                .addLoreLine(Component.literal("§7" + titles.size() + " titles in this category.")));
+        if (page + 1 < totalPages) gui.setSlot(50, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip().setName(Component.literal("§eNext Page")).setCallback((i,c,t)->openCategory(player, categoryId, page+1)));
+        MenuUtil.addBackButton(gui, 45, () -> openCategories(player));
+        gui.open();
+    }
+
+    private static List<TitleConfig.TitleDef> visibleTitles(Set<String> owned) {
+        List<TitleConfig.TitleDef> list = new ArrayList<>();
+        for (TitleConfig.TitleDef def : TitleConfig.titles()) {
+            if (def == null || def.id == null) continue;
+            if (TitleConfig.isManualAdminTitle(def) && !owned.contains(def.id)) continue;
+            boolean worldFirst = def.unlock != null && "world_first".equalsIgnoreCase(def.unlock.type);
+            // World-first rewards are secret in /titles until this profile has actually earned them.
+            // The separate /worldfirsts menu remains responsible for showing undiscovered entries as ???.
+            if (worldFirst && !owned.contains(def.id)) continue;
+            list.add(def);
+        }
+        return list;
+    }
+
+    private static List<TitleConfig.TitleDef> byCategory(List<TitleConfig.TitleDef> all, String category) {
+        List<TitleConfig.TitleDef> out = new ArrayList<>();
+        for (TitleConfig.TitleDef def : all) {
+            String actual = def.category == null || def.category.isBlank() ? "GENERAL" : def.category.toUpperCase(Locale.ROOT);
+            boolean worldFirst = def.unlock != null && "world_first".equalsIgnoreCase(def.unlock.type);
+            if ("WORLD_FIRSTS".equals(category)) {
+                if (worldFirst) out.add(def);
+            } else if (!worldFirst && actual.equals(category)) {
+                out.add(def);
+            }
+        }
+        return out;
+    }
+
+    private static GuiElementBuilder entry(ServerPlayer player, String category, int page, TitleConfig.TitleDef def, boolean unlocked, boolean active, boolean subTitle) {
         GuiElementBuilder b = new GuiElementBuilder(active ? Items.NAME_TAG : subTitle ? Items.AMETHYST_SHARD : unlocked ? Items.PAPER : Items.GRAY_DYE)
                 .hideDefaultTooltip()
-                .setName(Component.literal((active ? "§aShown §r" : subTitle ? "§dSub Title §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(player.getUUID(), titleId).replace('&','§')))
-                .addLoreLine(Component.literal("§7Objective: §f" + (description == null ? "Unknown" : description)))
-                .addLoreLine(Component.literal("§7Scope: §f" + (accountBound ? "Account" : "Profile")))
-                .addLoreLine(Component.literal("§7Passive: §a" + TitleConfig.buffText(TitleConfig.get(titleId))))
+                .setName(Component.literal((active ? "§aShown §r" : subTitle ? "§dSub Title §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(player.getUUID(), def.id).replace('&','§')))
+                .addLoreLine(Component.literal("§7Objective: §f" + (def.description == null ? "Unknown" : def.description)))
+                .addLoreLine(Component.literal("§7Scope: §f" + (TitleConfig.isAccountBound(def.id) ? "Account" : "Profile")))
+                .addLoreLine(Component.literal("§7Passive: §a" + TitleConfig.buffText(def)))
                 .addLoreLine(Component.literal(active ? "§aCurrently shown in chat." : subTitle ? "§dEquipped as hidden sub title. §7(50% buffs)" : unlocked ? "§eUnlocked" : "§8Locked"));
         if (unlocked) {
-            b.addLoreLine(Component.literal("§eLeft Click: §7select as shown title"));
-            b.addLoreLine(Component.literal("§dRight Click: §7equip/unequip hidden sub title"));
-            if (active) b.addLoreLine(Component.literal("§cShown title cannot also be a sub title."));
+            b.addLoreLine(Component.literal("§eLeft Click: §7select shown title"));
+            b.addLoreLine(Component.literal("§dRight Click: §7toggle hidden sub title"));
             b.setCallback((i,c,t) -> {
-                if (isRightClick(c)) TitleManager.toggleSubTitle(player, titleId);
-                else TitleManager.select(player, titleId);
-                open(player, page);
+                if (isRightClick(c)) TitleManager.toggleSubTitle(player, def.id); else TitleManager.select(player, def.id);
+                openCategory(player, category, page);
             });
         }
         return b;
@@ -129,4 +146,6 @@ public final class TitleMenu {
         String text = String.valueOf(clickType).toLowerCase(Locale.ROOT);
         return text.contains("right") || text.equals("1");
     }
+
+    private record Category(String id, String label, Item icon) {}
 }

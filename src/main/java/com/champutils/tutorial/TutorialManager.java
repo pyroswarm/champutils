@@ -61,7 +61,7 @@ public final class TutorialManager {
             )),
             new SpawnGuideNpc("claims", "Claim Guide", List.of(
                     "§6Claims protect your builds.",
-                    "§7Use the golden sword claim tool to select corners, or use claim commands from the claims menu.",
+                    "§7Use the Claiming Stick to select corners, or use claim commands from the claims menu.",
                     "§7Claims protect the full vertical area and can be expanded, managed, and trusted to friends.",
                     "§7Make sure to claim important builds before storing valuables."
             )),
@@ -78,7 +78,7 @@ public final class TutorialManager {
                     "§7Join a guild early if you want a team to progress with."
             )),
             new SpawnGuideNpc("bosses", "Boss and Spawn Guide", List.of(
-                    "§6World events keep the server active.",
+                    "§6Hunts and rotating challenges keep the server active.",
                     "§7World bosses, mega bosses, roaming trainers, and special spawns give rare rewards and reasons to explore.",
                     "§7Legendary, Mythical, Ultra Beast, and Paradox spawns are handled by special pools and timers.",
                     "§7Watch chat, menus, and notifications so you do not miss major events."

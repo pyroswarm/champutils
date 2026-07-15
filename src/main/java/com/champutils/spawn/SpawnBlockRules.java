@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import java.util.Locale;
 
 /**
- * Centralized hard-blocks for world-event style spawns.
+ * Centralized hard-blocks for special scripted spawns.
  * Applies to special wild spawns, mega bosses, and roaming trainers so roof/mine rules stay consistent.
  */
 public final class SpawnBlockRules {

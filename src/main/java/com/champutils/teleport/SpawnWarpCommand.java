@@ -31,6 +31,10 @@ public final class SpawnWarpCommand {
                     .requires(source -> source.hasPermission(4))
                     .executes(ctx -> setSpawn(ctx.getSource())));
 
+            dispatcher.register(literal("profilefirstspawn")
+                    .requires(source -> source.hasPermission(4))
+                    .executes(ctx -> setProfileFirstSpawn(ctx.getSource())));
+
             dispatcher.register(literal("warp")
                     .executes(ctx -> listWarps(ctx.getSource()))
                     .then(argument("name", StringArgumentType.word())
@@ -86,6 +90,18 @@ public final class SpawnWarpCommand {
         }
         TeleportConfig.setSpawn(TeleportConfig.capture(player));
         player.sendSystemMessage(Component.literal("Set server spawn to your current location.").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+
+    private static int setProfileFirstSpawn(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("Only players can use /profilefirstspawn."));
+            return 0;
+        }
+        TeleportConfig.setProfileFirstSpawn(TeleportConfig.capture(player));
+        player.sendSystemMessage(Component.literal("Set the one-time new-profile spawn to your current location.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 

@@ -20,12 +20,12 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 
 public final class AntiAfkManager {
-    private static final Map<UUID, PlayerActivity> ACTIVITY = new HashMap<>();
+    private static final Map<UUID, PlayerActivity> ACTIVITY = new ConcurrentHashMap<>();
     private static int tickCounter = 0;
 
     private AntiAfkManager() {}
@@ -64,10 +64,12 @@ public final class AntiAfkManager {
 
     public static void handleJoin(ServerPlayer player) {
         PlayerActivity state = state(player);
-        state.lastRealActivityTick = now(player);
-        state.lastSoftActivityTick = state.lastRealActivityTick;
-        state.lastMeaningfulMoveTick = state.lastRealActivityTick;
-        state.lastPosition = player.position();
+        synchronized (state) {
+            state.lastRealActivityTick = now(player);
+            state.lastSoftActivityTick = state.lastRealActivityTick;
+            state.lastMeaningfulMoveTick = state.lastRealActivityTick;
+            state.lastPosition = player.position();
+        }
     }
 
     public static void handleDisconnect(ServerPlayer player) {
@@ -78,17 +80,21 @@ public final class AntiAfkManager {
         if (player == null) return;
         PlayerActivity state = state(player);
         int now = now(player);
-        state.lastRealActivityTick = now;
-        state.lastSoftActivityTick = now;
-        state.warned = false;
-        state.lastReason = reason;
+        synchronized (state) {
+            state.lastRealActivityTick = now;
+            state.lastSoftActivityTick = now;
+            state.warned = false;
+            state.lastReason = reason;
+        }
     }
 
     public static void markSoftActivity(ServerPlayer player, String reason) {
         if (player == null) return;
         PlayerActivity state = state(player);
-        state.lastSoftActivityTick = now(player);
-        state.lastReason = reason;
+        synchronized (state) {
+            state.lastSoftActivityTick = now(player);
+            state.lastReason = reason;
+        }
     }
 
     public static void recordContainerClick(ServerPlayer player) {
@@ -110,39 +116,56 @@ public final class AntiAfkManager {
         PlayerActivity state = state(player);
         int now = now(player);
         Vec3 current = new Vec3(x, y, z);
-        Vec3 previous = state.lastPosition;
-        state.lastPosition = current;
-        state.lastSoftActivityTick = now;
 
-        if (previous == null) {
-            state.lastMeaningfulMoveTick = now;
+        synchronized (state) {
+            Vec3 previous = state.lastPosition;
+            state.lastPosition = current;
+            state.lastSoftActivityTick = now;
+
+            if (previous == null) {
+                state.lastMeaningfulMoveTick = now;
+                state.moveSamples.addLast(new MoveSample(now, current));
+                return;
+            }
+
+            double distance = previous.distanceTo(current);
+            boolean meaningfulDistance = distance >= 0.18D;
+            boolean meaningfulLook = Math.abs(yaw - state.lastYaw) >= 18.0F || Math.abs(pitch - state.lastPitch) >= 18.0F;
+            state.lastYaw = yaw;
+            state.lastPitch = pitch;
+
+            if (!meaningfulDistance && !meaningfulLook) return;
+
             state.moveSamples.addLast(new MoveSample(now, current));
-            return;
+            trimMoveSamplesLocked(state, now);
+
+            if (isTinyLoopLocked(state)) {
+                state.suspiciousLoopTicks += 20;
+                return;
+            }
+
+            state.suspiciousLoopTicks = Math.max(0, state.suspiciousLoopTicks - 20);
+            double traveled = totalTravelDistanceLocked(state);
+            if (traveled >= AntiAfkConfig.get().minMeaningfulMoveBlocks) {
+                state.lastMeaningfulMoveTick = now;
+                state.lastRealActivityTick = now;
+                state.warned = false;
+                state.lastReason = "movement";
+            }
         }
+    }
 
-        double distance = previous.distanceTo(current);
-        boolean meaningfulDistance = distance >= 0.18D;
-        boolean meaningfulLook = Math.abs(yaw - state.lastYaw) >= 18.0F || Math.abs(pitch - state.lastPitch) >= 18.0F;
-        state.lastYaw = yaw;
-        state.lastPitch = pitch;
 
-        if (!meaningfulDistance && !meaningfulLook) return;
-
-        state.moveSamples.addLast(new MoveSample(now, current));
-        trimMoveSamples(state, now);
-
-        if (isTinyLoop(state)) {
-            state.suspiciousLoopTicks += 20;
-            return;
-        }
-
-        state.suspiciousLoopTicks = Math.max(0, state.suspiciousLoopTicks - 20);
-        double traveled = totalTravelDistance(state);
-        if (traveled >= AntiAfkConfig.get().minMeaningfulMoveBlocks) {
-            state.lastMeaningfulMoveTick = now;
-            state.lastRealActivityTick = now;
-            state.warned = false;
-            state.lastReason = "movement";
+    public static boolean canProgressEggHatching(ServerPlayer player) {
+        if (player == null || player.hasDisconnected()) return false;
+        PlayerActivity state = state(player);
+        int now = now(player);
+        AntiAfkConfig config = AntiAfkConfig.get();
+        synchronized (state) {
+            if ((now - state.lastRealActivityTick) > config.eggHatchingActivityWindowSeconds * 20) return false;
+            if (state.suspiciousLoopTicks >= config.eggHatchingMaxLoopSeconds * 20) return false;
+            trimMoveSamplesLocked(state, now);
+            return !isTinyLoopLocked(state);
         }
     }
 
@@ -161,33 +184,46 @@ public final class AntiAfkManager {
         if (tickCounter % 20 != 0) return;
 
         int now = server.getTickCount();
-        Iterator<Map.Entry<UUID, PlayerActivity>> iterator = ACTIVITY.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, PlayerActivity> entry = iterator.next();
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null || player.hasDisconnected()) {
-                iterator.remove();
-                continue;
-            }
-
+        // Iterate over a snapshot. Disconnecting a player can synchronously fire the
+        // disconnect callback, which removes that player from ACTIVITY. Iterating the
+        // live HashMap while that happens causes ConcurrentModificationException.
+        for (Map.Entry<UUID, PlayerActivity> entry : new HashMap<>(ACTIVITY).entrySet()) {
+            UUID playerId = entry.getKey();
             PlayerActivity state = entry.getValue();
-            trimMoveSamples(state, now);
-
-            if (isProtectedFromNormalAfk(player)) {
-                state.lastRealActivityTick = now;
-                state.warned = false;
+            ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+            if (player == null || player.hasDisconnected()) {
+                ACTIVITY.remove(playerId, state);
                 continue;
             }
 
-            int idleSeconds = Math.max(0, (now - state.lastRealActivityTick) / 20);
-            AntiAfkConfig config = AntiAfkConfig.get();
+            boolean sendWarning = false;
+            boolean kickPlayer = false;
+            synchronized (state) {
+                trimMoveSamplesLocked(state, now);
 
-            if (!state.warned && idleSeconds >= config.warnAfterSeconds) {
-                state.warned = true;
+                if (isProtectedFromNormalAfk(player)) {
+                    state.lastRealActivityTick = now;
+                    state.warned = false;
+                    continue;
+                }
+
+                int idleSeconds = Math.max(0, (now - state.lastRealActivityTick) / 20);
+                AntiAfkConfig config = AntiAfkConfig.get();
+
+                if (!state.warned && idleSeconds >= config.warnAfterSeconds) {
+                    state.warned = true;
+                    sendWarning = true;
+                }
+
+                kickPlayer = idleSeconds >= config.kickAfterSeconds;
+            }
+
+            // Keep network actions outside the activity lock. Disconnect callbacks may
+            // synchronously remove state and should never be able to deadlock this path.
+            if (sendWarning) {
                 player.sendSystemMessage(Component.literal("§eYou look AFK. Do something real soon or you will be kicked."));
             }
-
-            if (idleSeconds >= config.kickAfterSeconds) {
+            if (kickPlayer) {
                 player.connection.disconnect(Component.literal("Kicked for being AFK."));
             }
         }
@@ -202,6 +238,13 @@ public final class AntiAfkManager {
     }
 
     private static void trimMoveSamples(PlayerActivity state, int now) {
+        synchronized (state) {
+            trimMoveSamplesLocked(state, now);
+        }
+    }
+
+    /** Caller must hold the PlayerActivity monitor. */
+    private static void trimMoveSamplesLocked(PlayerActivity state, int now) {
         int oldest = now - (AntiAfkConfig.get().repeatedPatternWindowSeconds * 20);
         while (!state.moveSamples.isEmpty() && state.moveSamples.peekFirst().tick < oldest) {
             state.moveSamples.removeFirst();
@@ -209,6 +252,13 @@ public final class AntiAfkManager {
     }
 
     private static boolean isTinyLoop(PlayerActivity state) {
+        synchronized (state) {
+            return isTinyLoopLocked(state);
+        }
+    }
+
+    /** Caller must hold the PlayerActivity monitor. */
+    private static boolean isTinyLoopLocked(PlayerActivity state) {
         if (state.moveSamples.size() < 6) return false;
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
         double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
@@ -221,6 +271,13 @@ public final class AntiAfkManager {
     }
 
     private static double totalTravelDistance(PlayerActivity state) {
+        synchronized (state) {
+            return totalTravelDistanceLocked(state);
+        }
+    }
+
+    /** Caller must hold the PlayerActivity monitor. */
+    private static double totalTravelDistanceLocked(PlayerActivity state) {
         double total = 0.0D;
         MoveSample previous = null;
         for (MoveSample sample : state.moveSamples) {

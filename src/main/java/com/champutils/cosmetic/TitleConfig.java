@@ -113,6 +113,7 @@ public final class TitleConfig {
             if (def.display == null || def.display.isBlank()) def.display = formatDisplay(def);
             if (def.unlock == null) def.unlock = new UnlockCondition();
             if (def.buffs == null) def.buffs = new ArrayList<>();
+            if (def.category == null || def.category.isBlank()) def.category = inferCategory(def);
             def.scope = normalizeScope(def.scope);
             def.accountBound = def.accountBound || "ACCOUNT".equalsIgnoreCase(def.scope);
             if (def.accountBound) def.scope = "ACCOUNT";
@@ -125,7 +126,6 @@ public final class TitleConfig {
         if (CONFIG == null) CONFIG = new Config();
         if (CONFIG.titles == null) CONFIG.titles = new ArrayList<>();
         addChallengeTitleIfMissing("islander_champion", "Voidbound Champion", "&b", "☁", "Complete the Elite Four and Champion on an Islander profile.", new Object[][] {
-                {BuffType.WORLD_EVENT_REWARDS.name(), 0.030D},
                 {BuffType.CATCH_CHANCE.name(), 0.010D},
                 {BuffType.MINING_XP.name(), 0.030D}
         });
@@ -148,23 +148,23 @@ public final class TitleConfig {
         addChallengeTitleIfMissing("adventurer_rank_e", "E-Rank Adventurer", "&a", "✦", "Reach Adventurer Rank E.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.005D}, {BuffType.POKEMON_XP.name(), 0.010D}});
         addChallengeTitleIfMissing("adventurer_rank_d", "D-Rank Adventurer", "&2", "✦", "Reach Adventurer Rank D.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.0075D}, {BuffType.BATTLING_XP.name(), 0.015D}});
         addChallengeTitleIfMissing("adventurer_rank_c", "C-Rank Adventurer", "&b", "✦", "Reach Adventurer Rank C.", new Object[][] {{BuffType.PERFECT_IV_CHANCE.name(), 0.0025D}, {BuffType.POKEMON_XP.name(), 0.020D}});
-        addChallengeTitleIfMissing("adventurer_rank_b", "B-Rank Adventurer", "&5", "✦", "Reach Adventurer Rank B.", new Object[][] {{BuffType.WORLD_EVENT_REWARDS.name(), 0.020D}, {BuffType.BATTLING_XP.name(), 0.020D}});
+        addChallengeTitleIfMissing("adventurer_rank_b", "B-Rank Adventurer", "&5", "✦", "Reach Adventurer Rank B.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.020D}});
         addChallengeTitleIfMissing("adventurer_rank_a", "A-Rank Adventurer", "&6", "✦", "Reach Adventurer Rank A.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
-        addChallengeTitleIfMissing("adventurer_rank_s", "S-Rank Adventurer", "&d", "✦", "Reach Adventurer Rank S.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.001D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.040D}, {BuffType.CATCH_CHANCE.name(), 0.020D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.005D}});
+        addChallengeTitleIfMissing("adventurer_rank_s", "S-Rank Adventurer", "&d", "✦", "Reach Adventurer Rank S.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.001D}, {BuffType.CATCH_CHANCE.name(), 0.020D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.005D}});
 
         for (int floor = 10; floor <= 100; floor += 10) {
             double scale = floor / 100.0D;
             addChallengeTitleIfMissing("tower_floor_" + floor, "Tower Floor " + floor, floor >= 100 ? "&6" : floor >= 70 ? "&d" : "&b", "▲",
                     "Reach Battle Tower floor " + floor + ".",
-                    new Object[][] {{BuffType.BATTLING_XP.name(), 0.005D + 0.035D * scale}, {BuffType.ADVENTURER_MARKS.name(), 0.005D + 0.025D * scale}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.0025D + 0.020D * scale}});
+                    new Object[][] {{BuffType.BATTLING_XP.name(), 0.005D + 0.035D * scale}, {BuffType.ADVENTURER_MARKS.name(), 0.005D + 0.025D * scale}});
         }
         addChallengeTitleIfMissing("breeding_initiate", "Breeding Initiate", "&a", "❖", "Hatch your first bred Pokémon.", new Object[][] {{BuffType.POKEMON_XP.name(), 0.005D}});
         addChallengeTitleIfMissing("breeding_master", "Breeding Master", "&6", "❖", "Reach Breeding level 100.", new Object[][] {{BuffType.PERFECT_IV_CHANCE.name(), 0.005D}, {BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.POKEMON_XP.name(), 0.030D}});
         addChallengeTitleIfMissing("tower_climber", "Tower Climber", "&b", "▲", "Clear several Battle Tower floors.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.020D}, {BuffType.ADVENTURER_MARKS.name(), 0.020D}});
-        addChallengeTitleIfMissing("tower_conqueror", "Tower Conqueror", "&6", "▲", "Clear the full Battle Tower.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.035D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}});
+        addChallengeTitleIfMissing("tower_conqueror", "Tower Conqueror", "&6", "▲", "Clear the full Battle Tower.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.035D}});
         addChallengeTitleIfMissing("dex_cartographer", "Dex Cartographer", "&a", "◇", "Complete a major True Dex milestone.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.015D}, {BuffType.PERFECT_IV_CHANCE.name(), 0.003D}});
-        addChallengeTitleIfMissing("mark_mogul", "Mark Mogul", "&e", "$", "Earn a large pile of Guild Marks.", new Object[][] {{BuffType.ADVENTURER_MARKS.name(), 0.030D}, {BuffType.WORLD_EVENT_REWARDS.name(), 0.015D}});
-        addChallengeTitleIfMissing("contract_titan", "Contract Titan", "&6", "✍", "Complete high-rank contracts.", new Object[][] {{BuffType.WORLD_EVENT_REWARDS.name(), 0.025D}, {BuffType.BATTLING_XP.name(), 0.015D}});
+        addChallengeTitleIfMissing("mark_mogul", "Mark Mogul", "&e", "$", "Earn a large pile of Guild Marks.", new Object[][] {{BuffType.ADVENTURER_MARKS.name(), 0.030D}});
+        addChallengeTitleIfMissing("contract_titan", "Contract Titan", "&6", "✍", "Complete high-rank contracts.", new Object[][] {{BuffType.BATTLING_XP.name(), 0.015D}});
         addChallengeTitleIfMissing("karp_royalty", "Karp Royalty", "&6", "♕", "Prove suspicious dedication to Magikarp.", new Object[][] {{BuffType.SHINY_CHANCE.name(), 0.0005D}, {BuffType.CATCH_CHANCE.name(), 0.010D}});
         addChallengeTitleIfMissing("bidoof_believer", "Bidoof Believer", "&e", "☻", "The Bidoof chose you.", new Object[][] {{BuffType.CATCH_CHANCE.name(), 0.010D}, {BuffType.POKEMON_XP.name(), 0.015D}});
     }
@@ -402,10 +402,26 @@ public final class TitleConfig {
         if (normalized.equals("CATCH") || normalized.equals("CATCHING") || normalized.equals("CAPTURE_CHANCE")) normalized = "CATCH_CHANCE";
         if (normalized.equals("PERFECT_IV") || normalized.equals("IV_CHANCE") || normalized.equals("PERFECTIV")) normalized = "PERFECT_IV_CHANCE";
         if (normalized.equals("MONEY") || normalized.equals("NPC_CREDITS") || normalized.equals("TRAINER_MONEY") || normalized.equals("NPC_MONEY") || normalized.equals("GUILD_MARKS") || normalized.equals("MARKS")) normalized = "ADVENTURER_MARKS";
-        if (normalized.equals("WORLD_REWARDS") || normalized.equals("EVENT_REWARDS")) normalized = "WORLD_EVENT_REWARDS";
         try { return BuffType.valueOf(normalized); } catch (Exception ignored) { return null; }
     }
 
+
+    private static String inferCategory(TitleDef def) {
+        if (def == null) return "GENERAL";
+        String type = def.unlock == null || def.unlock.type == null ? "" : def.unlock.type.toLowerCase(Locale.ROOT);
+        String text = ((def.id == null ? "" : def.id) + " " + (def.name == null ? "" : def.name) + " " + (def.description == null ? "" : def.description)).toLowerCase(Locale.ROOT);
+        if ("world_first".equals(type) || text.contains("world first")) return "WORLD_FIRSTS";
+        if (text.contains("tower")) return "BATTLE_TOWER";
+        if (text.contains("gym") || text.contains("badge") || text.contains("elite four") || text.contains("champion")) return "GYMS";
+        if (text.contains("breed") || text.contains("hatch") || text.contains("egg")) return "BREEDING";
+        if (text.contains("profession") || text.contains("mining") || text.contains("forestry") || text.contains("farming") || text.contains("fishing")) return "PROFESSIONS";
+        if (text.contains("quest") || text.contains("contract") || text.contains("hunt") || text.contains("adventurer")) return "ADVENTURE";
+        if (text.contains("battle") || text.contains("ranked") || text.contains("pvp") || text.contains("boss") || text.contains(" win")) return "BATTLE";
+        if (text.contains("catch") || text.contains("caught") || text.contains("dex") || text.contains("shiny") || text.contains("legendary") || text.contains("mythical") || text.contains("ultra beast") || text.contains("iv")) return "CATCHING";
+        if (text.contains("profile") || text.contains("ironman") || text.contains("islander") || text.contains("nuzlocke") || text.contains("monotype") || text.contains("playtime")) return "PROFILE";
+        if (text.contains("admin") || text.contains("owner") || text.contains("moderator") || text.contains("staff") || text.contains("beta tester")) return "SPECIAL";
+        return "GENERAL";
+    }
     private static String normalizeId(String id) {
         return id == null ? "" : id.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "_");
     }
@@ -506,7 +522,6 @@ public final class TitleConfig {
         add(c, "casual_scrapper", "Casual Scrapper", "&a", "⚔", "battle_win", "CASUAL", null, 0, "Win a casual PvP battle.");
         add(c, "ranked_contender", "Ranked Contender", "&e", "⚔", "battle_win", "RANKED", null, 0, "Win your first ranked PvP battle.");
         add(c, "arena_regular", "Arena Regular", "&b", "✧", "manual", null, null, 0, "Win 10 PvP battles.");
-        add(c, "champion_spark", "Champion Spark", "&6", "✦", "manual", null, null, 0, "Earn your first gym badge.");
         add(c, "hunt_helper", "Hunt Helper", "&a", "◎", "manual", null, null, 0, "Complete a Pokémon hunt.");
         add(c, "questing_soul", "Questing Soul", "&d", "◆", "manual", null, null, 0, "Complete a daily quest set.");
         add(c, "contractor", "Contractor", "&6", "$", "manual", null, null, 0, "Complete a paid contract.");
@@ -518,7 +533,6 @@ public final class TitleConfig {
         add(c, "volcano_badge", "Volcano Badge", "&c", "🔥", "manual", null, null, 0, "Defeat the Volcano Gym.");
         add(c, "earth_badge", "Earth Badge", "&2", "◆", "manual", null, null, 0, "Defeat the Earth Gym.");
         add(c, "elite_four_clear", "Elite Four Victor", "&6", "♛", "manual", null, null, 0, "Defeat the Elite Four.");
-        add(c, "gym_champion", "Gym Champion", "&6", "🏅", "manual", null, null, 0, "Complete all gyms.");
         add(c, "mega_hunter", "Mega Hunter", "&5", "✹", "boss_win", null, null, 0, "Defeat a Mega Boss.");
         add(c, "tm_collector", "TM Collector", "&b", "▣", "manual", null, null, 0, "Craft or earn TMs.");
         add(c, "essence_forger", "Essence Forger", "&d", "◇", "manual", null, null, 0, "Upgrade or use profession essences.");
@@ -595,6 +609,8 @@ public final class TitleConfig {
         /** Backwards-friendly boolean alias for scope = ACCOUNT. */
         public boolean accountBound = false;
         public String passiveDescription;
+        /** Menu category used by /titles. */
+        public String category = "GENERAL";
         public PassiveBonus passive;
         public List<TitleBuff> buffs = new ArrayList<>();
         public UnlockCondition unlock;
@@ -609,7 +625,7 @@ public final class TitleConfig {
         public double professionXpBonus;
     }
     public static final class UnlockCondition {
-        /** battle_win, catch, boss_win, profession_level, manual */
+        /** battle_win, catch, boss_win, profession_level, battle_counter, quirky_catch, world_first, manual */
         public String type = "manual";
         public String battleType;
         public String profession;

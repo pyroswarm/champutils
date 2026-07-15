@@ -1,6 +1,7 @@
 package com.champutils.breeding;
 
 import com.champutils.auction.AuctionPokemonSerializer;
+import com.champutils.afk.AntiAfkManager;
 import com.champutils.profile.CobblemonProfileStorageBridge;
 import com.champutils.profile.PlayerProfileManager;
 import com.cobblemon.mod.common.Cobblemon;
@@ -253,6 +254,8 @@ public final class BreedingManager {
         }
         MOVEMENT.put(player.getUUID(), new MovementState(current.x, current.z, remainder, dimension, profileId));
         if (walkedSteps <= 0) return;
+        // Egg steps require recent genuine input and are blocked for tight/repeating movement loops.
+        if (!AntiAfkManager.canProgressEggHatching(player)) return;
 
         PartyStore party = party(player);
         if (party == null) return;

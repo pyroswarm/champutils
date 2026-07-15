@@ -17,6 +17,8 @@ public final class AntiAfkConfig {
     public int repeatedPatternWindowSeconds = 45;
     public int maxTinyLoopRadiusBlocks = 4;
     public boolean kickDuringProfileLoading = false;
+    public int eggHatchingActivityWindowSeconds = 90;
+    public int eggHatchingMaxLoopSeconds = 45;
 
     public boolean pvpBattleStallEnabled = true;
     public int pvpChoiceTimeoutSeconds = 90;
@@ -60,6 +62,8 @@ public final class AntiAfkConfig {
         INSTANCE.minMeaningfulMoveBlocks = Math.max(1, INSTANCE.minMeaningfulMoveBlocks);
         INSTANCE.repeatedPatternWindowSeconds = Math.max(10, INSTANCE.repeatedPatternWindowSeconds);
         INSTANCE.maxTinyLoopRadiusBlocks = Math.max(1, INSTANCE.maxTinyLoopRadiusBlocks);
+        INSTANCE.eggHatchingActivityWindowSeconds = Math.max(30, INSTANCE.eggHatchingActivityWindowSeconds);
+        INSTANCE.eggHatchingMaxLoopSeconds = Math.max(10, INSTANCE.eggHatchingMaxLoopSeconds);
         INSTANCE.pvpChoiceTimeoutSeconds = Math.max(30, INSTANCE.pvpChoiceTimeoutSeconds);
         INSTANCE.pvpChoiceWarnSeconds = Math.max(10, Math.min(INSTANCE.pvpChoiceWarnSeconds, INSTANCE.pvpChoiceTimeoutSeconds - 5));
         INSTANCE.pvpChoiceFinalWarnSeconds = Math.max(INSTANCE.pvpChoiceWarnSeconds, Math.min(INSTANCE.pvpChoiceFinalWarnSeconds, INSTANCE.pvpChoiceTimeoutSeconds - 1));

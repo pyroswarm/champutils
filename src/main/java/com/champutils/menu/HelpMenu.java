@@ -58,16 +58,6 @@ public class HelpMenu {
 
         MenuUtil.addOpenButton(
                 gui,
-                4,
-                Items.DEEPSLATE_BRICKS,
-                "§5World Events",
-                () -> openEvents(player),
-                "§7World events, hunts,",
-                "§7and reward flow."
-        );
-
-        MenuUtil.addOpenButton(
-                gui,
                 5,
                 Items.EMERALD,
                 "§aAuction House",
@@ -98,7 +88,7 @@ public class HelpMenu {
                         "§71. Pick your starter and explore spawn.",
                         "§72. Battle gyms to unlock useful features.",
                         "§73. Try professions to earn XP and gear.",
-                        "§74. Join world events and hunts for stronger rewards.",
+                        "§74. Complete hunts and contracts for stronger rewards.",
                         "§75. Queue casual or ranked PvP when ready.",
                         "",
                         "§eCore loop:",
@@ -174,26 +164,6 @@ public class HelpMenu {
                         "§7Repair gear before durability reaches zero.",
                         "§7Salvage unwanted gear into essence.",
                         "§7Use essence to craft more gear."
-                }
-        );
-    }
-
-    private static void openEvents(ServerPlayer player) {
-        openInfoPage(
-                player,
-                "World Events",
-                Items.DEEPSLATE_BRICKS,
-                "§5World Events",
-                new String[] {
-                        "§7World events are server-wide challenge content.",
-                        "§7They can reward shards, items, gear, and more.",
-                        "§7World events are timed server activities.",
-                        "§7Event NPCs are found at spawn.",
-                        "",
-                        "§eTips:",
-                        "§7Bring a ready team before entering hard content.",
-                        "§7Watch event notices for active opportunities.",
-                        "§7Use rewards to improve gear and battle teams."
                 }
         );
     }

@@ -98,15 +98,36 @@ public class ProfessionManager {
             ProfessionType profession,
             int amount
     ) {
+        addXpInternal(player, profession, amount, false);
+    }
+
+    /** Grants system/reward XP without requiring a profession tool or counting as a profession action. */
+    public static void addRewardXp(
+            ServerPlayer player,
+            ProfessionType profession,
+            int amount
+    ) {
+        addXpInternal(player, profession, amount, true);
+    }
+
+    private static void addXpInternal(
+            ServerPlayer player,
+            ProfessionType profession,
+            int amount,
+            boolean reward
+    ) {
         if (player == null || profession == null || amount <= 0) {
             return;
         }
 
-        if (!canEarnProfessionXp(player, profession)) {
+        if (!reward && !canEarnProfessionXp(player, profession)) {
+            return;
+        }
+        if (reward && !PlayerProfileManager.hasActiveProfile(player)) {
             return;
         }
 
-        ProfessionBackpackManager.markProfessionAction(
+        if (!reward) ProfessionBackpackManager.markProfessionAction(
                 player,
                 profession
         );

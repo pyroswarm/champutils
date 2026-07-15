@@ -383,13 +383,15 @@ public final class ChestShopService {
             return null;
         }
 
-        try (var connection = DatabaseManager.getConnection();
-             var statement = connection.prepareStatement("select profile_id from player_active_profiles where player_uuid = ?")) {
+        try {
+            var connection = DatabaseManager.getConnection();
+            try (var statement = connection.prepareStatement("select profile_id from player_active_profiles where player_uuid = ?")) {
             statement.setObject(1, ownerPlayerId);
             try (var result = statement.executeQuery()) {
                 if (result.next()) {
                     return (UUID) result.getObject(1);
                 }
+            }
             }
         } catch (Exception e) {
             e.printStackTrace();

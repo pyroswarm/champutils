@@ -32,7 +32,8 @@ public final class ProfileStateFlushService {
             String playerName,
             String vanillaSnbt,
             ProfileCobblemonSqlStoreFactory.StoreSnapshot cobblemonSnapshot,
-            LocationSnapshot locationSnapshot
+            LocationSnapshot locationSnapshot,
+            com.champutils.expeditions.ExpeditionManager.Save expeditionSnapshot
     ) {
         public boolean hasActiveProfile() {
             return profileId != null && playerUuid != null;
@@ -46,14 +47,14 @@ public final class ProfileStateFlushService {
      */
     public static TransferFlushSnapshot captureBeforeTransfer(ServerPlayer player, String reason) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) {
-            return new TransferFlushSnapshot(null, null, null, null, null, null);
+            return new TransferFlushSnapshot(null, null, null, null, null, null, null);
         }
 
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         UUID playerUuid = player.getUUID();
         String playerName = player.getGameProfile().getName();
         if (profileId == null || profileId.equals(playerUuid)) {
-            return new TransferFlushSnapshot(null, playerUuid, playerName, null, null, null);
+            return new TransferFlushSnapshot(null, playerUuid, playerName, null, null, null, null);
         }
 
         try {
@@ -83,8 +84,15 @@ public final class ProfileStateFlushService {
         }
 
         LocationSnapshot locationSnapshot = captureLocationSnapshot(player);
+        com.champutils.expeditions.ExpeditionManager.Save expeditionSnapshot = null;
+        try {
+            expeditionSnapshot = com.champutils.expeditions.ExpeditionManager.captureForTransfer(profileId);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to snapshot expedition state for " + playerName + " during " + reason);
+            e.printStackTrace();
+        }
 
-        return new TransferFlushSnapshot(profileId, playerUuid, playerName, vanillaSnbt, cobblemonSnapshot, locationSnapshot);
+        return new TransferFlushSnapshot(profileId, playerUuid, playerName, vanillaSnbt, cobblemonSnapshot, locationSnapshot, expeditionSnapshot);
     }
 
     /**
@@ -117,13 +125,24 @@ public final class ProfileStateFlushService {
                     saveReason
             );
         }
+
+        if (snapshot.expeditionSnapshot() != null) {
+            com.champutils.expeditions.ExpeditionManager.saveBlocking(
+                    connection,
+                    snapshot.profileId(),
+                    snapshot.expeditionSnapshot()
+            );
+        }
     }
 
-    public static boolean flushBeforeTransfer(ServerPlayer player, String reason, long timeout, TimeUnit unit) {
-        TransferFlushSnapshot snapshot = captureBeforeTransfer(player, reason == null ? "profile_transfer" : reason);
-        if (!snapshot.hasActiveProfile()) {
-            return true;
-        }
+    /**
+     * Queues the non-snapshot profile systems before a transfer. All SQL-backed managers invoked
+     * here enqueue their writes; callers that require the atomic vanilla/Cobblemon snapshot to be
+     * committed before proxy handoff should commit the captured TransferFlushSnapshot in their
+     * own DatabaseManager future and wait for that future's completion callback.
+     */
+    public static boolean queueAncillaryStateBeforeTransfer(ServerPlayer player, String reason) {
+        if (player == null) return false;
 
         try {
             PlayerProfileManager.saveActiveLocationAsync(player);
@@ -172,6 +191,13 @@ public final class ProfileStateFlushService {
             EconomyManager.save();
         } catch (Exception ignored) {
         }
+        return true;
+    }
+
+    public static boolean flushBeforeTransfer(ServerPlayer player, String reason, long timeout, TimeUnit unit) {
+        TransferFlushSnapshot snapshot = captureBeforeTransfer(player, reason == null ? "profile_transfer" : reason);
+        if (!snapshot.hasActiveProfile()) return true;
+        if (!queueAncillaryStateBeforeTransfer(player, reason)) return false;
 
         DatabaseManager.executeCoalescedAsync(
                 "profile-hard-transfer-snapshot:" + snapshot.profileId(),

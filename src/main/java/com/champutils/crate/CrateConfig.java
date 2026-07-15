@@ -109,7 +109,7 @@ public final class CrateConfig {
                 applySeasonCrateBalance(CRATES);
                 applyLegendaryMythicHighValueOnly(CRATES);
                 applyRankCrateDisplay(CRATES);
-                // Event crate was removed. World events now award regular crate credits by event tier.
+                // The retired event crate remains removed.
                 CRATES.remove("event");
                 Root saved = new Root();
                 saved.crates = CRATES;

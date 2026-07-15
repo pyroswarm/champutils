@@ -36,6 +36,17 @@ public final class QuestTrackerManager {
         player.displayClientMessage(Component.literal("§aNow tracking: §f" + objective.description), true);
     }
 
+    public static void toggle(ServerPlayer player, String kind, QuestDataManager.Objective objective) {
+        if (player == null || objective == null) return;
+        QuestDataManager.QuestData data = QuestManager.getData(player);
+        if (isTracked(data, kind, objective)) {
+            clear(player);
+            player.displayClientMessage(Component.literal("§7Quest tracking cleared."), true);
+        } else {
+            track(player, kind, objective);
+        }
+    }
+
     public static void clear(ServerPlayer player) {
         if (player == null) return;
         QuestDataManager.QuestData data = QuestManager.getData(player);

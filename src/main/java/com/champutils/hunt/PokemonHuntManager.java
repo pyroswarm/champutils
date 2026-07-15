@@ -96,12 +96,16 @@ public final class PokemonHuntManager {
     }
 
     public static synchronized void save() {
+        saveLocalMirror();
+        SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
+    }
+
+    private static void saveLocalMirror() {
         try {
             if (!DIR.exists()) DIR.mkdirs();
             try (FileWriter writer = new FileWriter(FILE)) {
                 GSON.toJson(STATE, writer);
             }
-            SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -339,89 +343,118 @@ public final class PokemonHuntManager {
         return list;
     }
 
-    public static synchronized void handleCatch(ServerPlayer player, Object pokemon) {
+    public static void handleCatch(ServerPlayer player, Object pokemon) {
         if (player == null || pokemon == null) return;
         if (!PokemonHuntConfig.DATA.settings.enabled) return;
-        if (STATE.hunts == null || STATE.hunts.isEmpty()) return;
 
         String species = normalSpecies(PokemonHuntReflection.speciesId(pokemon));
         String nature = PokemonHuntReflection.natureName(pokemon).toLowerCase(Locale.ROOT);
         String gender = normalizeGender(PokemonHuntReflection.genderName(pokemon));
         String ability = normalizeAbility(PokemonHuntReflection.abilityName(pokemon));
+        UUID playerId = player.getUUID();
+        String playerName = player.getName().getString();
 
-        for (PokemonHuntState.HuntEntry hunt : STATE.hunts) {
-            if (hunt == null || hunt.claimed) continue;
-            if (!normalSpecies(hunt.species).equals(species)) continue;
-            if (!matchesAny(normalizeNature(hunt.nature), normalizeNature(nature))) continue;
-            if (!matchesAny(normalizeGender(hunt.gender), gender)) continue;
-            if (!abilityMatches(hunt.ability, ability)) continue;
+        SharedJsonStateRepository.mutateGlobalAsync(STATE_KEY, PokemonHuntState.class, snapshot(), state -> {
+            ensureStateCollections(state);
+            for (PokemonHuntState.HuntEntry hunt : state.hunts) {
+                if (hunt == null || hunt.claimed) continue;
+                if (!normalSpecies(hunt.species).equals(species)) continue;
+                if (!matchesAny(normalizeNature(hunt.nature), normalizeNature(nature))) continue;
+                if (!matchesAny(normalizeGender(hunt.gender), gender)) continue;
+                if (!abilityMatches(hunt.ability, ability)) continue;
 
-            completeHunt(player, hunt);
-            return;
-        }
-    }
-
-    private static void completeHunt(ServerPlayer player, PokemonHuntState.HuntEntry hunt) {
-        hunt.claimed = true;
-        hunt.winnerUuid = player.getUUID().toString();
-        hunt.winnerName = player.getName().getString();
-        hunt.completedAtMillis = System.currentTimeMillis();
-        hunt.rewardClaimed = false;
-        addPendingReward(hunt);
-        save();
-
-        String target = displayTarget(hunt);
-        player.sendSystemMessage(Component.literal("§a[Adventurer's Guild] Hunt complete: §e" + target + "§a. Use §f/hunts claim§a or visit the Guild to claim your reward."));
-        if (PokemonHuntConfig.DATA.settings.announceWinners && player.server != null) {
-            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
-                    player.server,
-                    Component.literal("§6[Adventurer's Guild] §f" + player.getName().getString() + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward.")
-            );
-        }
-    }
-
-    public static synchronized boolean claimRewards(ServerPlayer player) {
-        if (player == null) return false;
-        if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
-
-        int claimedCount = 0;
-        String playerUuid = player.getUUID().toString();
-        List<PokemonHuntState.HuntEntry> remaining = new ArrayList<>();
-        for (PokemonHuntState.HuntEntry hunt : STATE.pendingRewards) {
-            if (hunt == null || hunt.rewardClaimed || !playerUuid.equals(hunt.winnerUuid)) {
-                if (hunt != null && !hunt.rewardClaimed) remaining.add(hunt);
-                continue;
+                hunt.claimed = true;
+                hunt.winnerUuid = playerId.toString();
+                hunt.winnerName = playerName;
+                hunt.completedAtMillis = System.currentTimeMillis();
+                hunt.rewardClaimed = false;
+                addPendingReward(state, hunt);
+                return new HuntCompletion(state, copyHunt(hunt));
             }
-
-            grantRewards(player, hunt);
-            hunt.rewardClaimed = true;
-            markActiveHuntRewardClaimed(hunt.id);
-            claimedCount++;
-        }
-        STATE.pendingRewards = remaining;
-
-        if (claimedCount > 0) {
-            save();
-            player.sendSystemMessage(Component.literal("§a[Hunts] Claimed reward" + (claimedCount == 1 ? "" : "s") + " for §f" + claimedCount + "§a completed hunt" + (claimedCount == 1 ? "" : "s") + "."));
-            return true;
-        }
-
-        player.sendSystemMessage(Component.literal("§c[Hunts] You do not have any unclaimed hunt rewards."));
-        return false;
+            return new HuntCompletion(state, null);
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null) {
+                System.err.println("[ChampUtils] Failed to atomically complete a network Pokémon hunt.");
+                error.printStackTrace();
+                return;
+            }
+            if (result == null) return;
+            synchronized (PokemonHuntManager.class) {
+                STATE = result.state();
+                saveLocalMirror();
+            }
+            PokemonHuntState.HuntEntry hunt = result.hunt();
+            if (hunt == null || !com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+            String target = displayTarget(hunt);
+            player.sendSystemMessage(Component.literal("§a[Adventurer's Guild] Hunt complete: §e" + target + "§a. Use §f/hunts claim§a or visit the Guild to claim your reward."));
+            if (PokemonHuntConfig.DATA.settings.announceWinners && player.server != null) {
+                com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                        player.server,
+                        Component.literal("§6[Adventurer's Guild] §f" + playerName + " caught the hunted §e" + target + "§f! Use §e/hunts claim§f to claim the reward.")
+                );
+            }
+        }));
     }
 
-    private static void addPendingReward(PokemonHuntState.HuntEntry hunt) {
-        if (hunt == null || hunt.id == null || hunt.id.isBlank()) return;
-        if (STATE.pendingRewards == null) STATE.pendingRewards = new ArrayList<>();
-        for (PokemonHuntState.HuntEntry existing : STATE.pendingRewards) {
+    public static boolean claimRewards(ServerPlayer player) {
+        if (player == null) return false;
+        String playerUuid = player.getUUID().toString();
+
+        SharedJsonStateRepository.mutateGlobalAsync(STATE_KEY, PokemonHuntState.class, snapshot(), state -> {
+            ensureStateCollections(state);
+            List<PokemonHuntState.HuntEntry> rewards = new ArrayList<>();
+            List<PokemonHuntState.HuntEntry> remaining = new ArrayList<>();
+            for (PokemonHuntState.HuntEntry hunt : state.pendingRewards) {
+                if (hunt == null) continue;
+                if (!hunt.rewardClaimed && playerUuid.equals(hunt.winnerUuid)) {
+                    hunt.rewardClaimed = true;
+                    markActiveHuntRewardClaimed(state, hunt.id);
+                    rewards.add(copyHunt(hunt));
+                } else if (!hunt.rewardClaimed) {
+                    remaining.add(hunt);
+                }
+            }
+            state.pendingRewards = remaining;
+            return new HuntClaimResult(state, rewards);
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (!com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+            if (error != null || result == null) {
+                player.sendSystemMessage(Component.literal("§c[Hunts] Could not claim hunt rewards right now."));
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            synchronized (PokemonHuntManager.class) {
+                STATE = result.state();
+                saveLocalMirror();
+            }
+            int claimedCount = result.rewards().size();
+            if (claimedCount <= 0) {
+                player.sendSystemMessage(Component.literal("§c[Hunts] You do not have any unclaimed hunt rewards."));
+                return;
+            }
+            for (PokemonHuntState.HuntEntry hunt : result.rewards()) grantRewards(player, hunt);
+            player.sendSystemMessage(Component.literal("§a[Hunts] Claimed reward" + (claimedCount == 1 ? "" : "s") + " for §f" + claimedCount + "§a completed hunt" + (claimedCount == 1 ? "" : "s") + "."));
+        }));
+        return true;
+    }
+
+    private static void ensureStateCollections(PokemonHuntState state) {
+        if (state.hunts == null) state.hunts = new ArrayList<>();
+        if (state.pendingRewards == null) state.pendingRewards = new ArrayList<>();
+    }
+
+    private static void addPendingReward(PokemonHuntState state, PokemonHuntState.HuntEntry hunt) {
+        if (state == null || hunt == null || hunt.id == null || hunt.id.isBlank()) return;
+        ensureStateCollections(state);
+        for (PokemonHuntState.HuntEntry existing : state.pendingRewards) {
             if (existing != null && hunt.id.equals(existing.id)) return;
         }
-        STATE.pendingRewards.add(copyHunt(hunt));
+        state.pendingRewards.add(copyHunt(hunt));
     }
 
-    private static void markActiveHuntRewardClaimed(String huntId) {
-        if (huntId == null || STATE.hunts == null) return;
-        for (PokemonHuntState.HuntEntry hunt : STATE.hunts) {
+    private static void markActiveHuntRewardClaimed(PokemonHuntState state, String huntId) {
+        if (state == null || huntId == null || state.hunts == null) return;
+        for (PokemonHuntState.HuntEntry hunt : state.hunts) {
             if (hunt != null && huntId.equals(hunt.id)) {
                 hunt.rewardClaimed = true;
                 return;
@@ -644,4 +677,8 @@ public final class PokemonHuntManager {
         }
         return out.toString();
     }
+
+    private record HuntCompletion(PokemonHuntState state, PokemonHuntState.HuntEntry hunt) {}
+    private record HuntClaimResult(PokemonHuntState state, List<PokemonHuntState.HuntEntry> rewards) {}
+
 }

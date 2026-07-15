@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import com.champutils.network.NetworkEventManager;
+import com.champutils.database.SharedJsonStateRepository;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,6 +30,7 @@ public final class ProfessionNotificationSettings {
 
     private static boolean loaded =
             false;
+    private static final String STATE_KEY = "player_notification_preferences";
 
     private ProfessionNotificationSettings() {
     }
@@ -60,6 +62,21 @@ public final class ProfessionNotificationSettings {
         }
     }
 
+    /** Reloads this account's settings from shared SQL when it lands on a backend. */
+    public static synchronized void preload(UUID playerId, String playerName) {
+        if (playerId == null) return;
+        ensureLoaded();
+        String key = key(playerId);
+        PlayerSettings fallback = SETTINGS.getOrDefault(key, new PlayerSettings());
+        PlayerSettings shared = SharedJsonStateRepository.loadPlayer(playerId, STATE_KEY, PlayerSettings.class, fallback);
+        PlayerSettings selected = shared == null ? fallback : shared;
+        selected.uuid = playerId.toString();
+        if (playerName != null && !playerName.isBlank()) selected.name = playerName;
+        selected.normalizeDefaults();
+        SETTINGS.put(key, selected);
+        save();
+    }
+
     public static void save() {
         try {
             File dir = getDir();
@@ -87,7 +104,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return;
         settings.professionPopups = enabled;
-        save();
+        persist(player, settings);
     }
 
     public static boolean toggleProfessionPopups(ServerPlayer player) {
@@ -104,7 +121,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
         settings.soundEffects = !settings.soundEffects;
-        save();
+        persist(player, settings);
         return settings.soundEffects;
     }
 
@@ -116,7 +133,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
         settings.broadcastMessages = !settings.broadcastMessages;
-        save();
+        persist(player, settings);
         return settings.broadcastMessages;
     }
 
@@ -129,7 +146,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
         settings.trinketMessages = !settings.trinketMessages;
-        save();
+        persist(player, settings);
         return settings.trinketMessages;
     }
     public static boolean areQueueNotificationsEnabled(ServerPlayer player) {
@@ -144,7 +161,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
         settings.repairConfirmation = !settings.repairConfirmation;
-        save();
+        persist(player, settings);
         return settings.repairConfirmation;
     }
 
@@ -156,7 +173,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return false;
         settings.autoRepair = !settings.autoRepair;
-        save();
+        persist(player, settings);
         return settings.autoRepair;
     }
 
@@ -164,7 +181,7 @@ public final class ProfessionNotificationSettings {
         PlayerSettings settings = getOrCreateSettings(player);
         if (settings == null) return true;
         settings.queueNotifications = !settings.queueNotifications;
-        save();
+        persist(player, settings);
         return settings.queueNotifications;
     }
 
@@ -212,6 +229,12 @@ public final class ProfessionNotificationSettings {
         for (ServerPlayer target : server.getPlayerList().getPlayers()) {
             playSound(target, sound, source, volume, pitch);
         }
+    }
+
+    private static void persist(ServerPlayer player, PlayerSettings settings) {
+        if (player == null || settings == null) return;
+        SharedJsonStateRepository.savePlayer(player.getUUID(), STATE_KEY, settings);
+        save();
     }
 
     private static PlayerSettings getSettings(ServerPlayer player) {

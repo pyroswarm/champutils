@@ -7,8 +7,6 @@ import com.champutils.badge.BadgeType;
 import com.champutils.badge.BadgeUnlockManager;
 
 import com.champutils.battle.BattleStateManager;
-import com.champutils.worldevent.WorldEventManager;
-import com.champutils.worldevent.WorldEventBindingRegistry;
 import com.champutils.cosmetic.TitleManager;
 import com.champutils.profile.ChallengeProfileTitleManager;
 
@@ -155,23 +153,6 @@ public class GymBattleHandler {
             UUID npcUUID=
                     gymNpc.getEntity()
                             .getUUID();
-
-            /*
-             * If this NPC is bound to a world event, never run gym reward/reset
-             * logic for it. This prevents old gym bindings from leaking level
-             * caps, badge rewards, or team resets into world-event bosses.
-             */
-            if(
-                    WorldEventBindingRegistry.isBoundNpc(
-                            npcUUID
-                    )
-                            ||
-                    WorldEventManager.getByNpc(
-                            npcUUID
-                    ) != null
-            ){
-                return;
-            }
 
             if(
                     !GymRegistry.isGymNpc(
@@ -344,7 +325,6 @@ public class GymBattleHandler {
 
     private static void unlockGymTitles(ServerPlayer player, BadgeType badge) {
         if (player == null || badge == null) return;
-        TitleManager.unlock(player, "champion_spark");
         switch (badge) {
             case BOULDER -> TitleManager.unlock(player, "boulder_badge");
             case CASCADE -> TitleManager.unlock(player, "cascade_badge");
@@ -354,16 +334,17 @@ public class GymBattleHandler {
             case MARSH -> TitleManager.unlock(player, "marsh_badge");
             case VOLCANO -> TitleManager.unlock(player, "volcano_badge");
             case EARTH -> TitleManager.unlock(player, "earth_badge");
-            case LORELEI -> TitleManager.unlock(player, "lorelei_badge");
-            case BRUNO -> TitleManager.unlock(player, "bruno_badge");
-            case AGATHA -> TitleManager.unlock(player, "agatha_badge");
-            case LANCE -> TitleManager.unlock(player, "lance_badge");
-            case CHAMPION -> {
-                TitleManager.unlock(player, "champion");
-                ChallengeProfileTitleManager.handleChampionVictory(player);
+            case LORELEI, BRUNO, AGATHA -> { }
+            case LANCE -> {
+                if (BadgeManager.hasBadge(player, BadgeType.LORELEI)
+                        && BadgeManager.hasBadge(player, BadgeType.BRUNO)
+                        && BadgeManager.hasBadge(player, BadgeType.AGATHA)
+                        && BadgeManager.hasBadge(player, BadgeType.LANCE)) {
+                    TitleManager.unlock(player, "elite_four");
+                }
             }
+            case CHAMPION -> ChallengeProfileTitleManager.handleChampionVictory(player);
         }
-        if (GymProgressRepository.defeatedCount(player) >= 8) TitleManager.unlock(player, "gym_champion");
     }
 
     private static String titleSubtitle(

@@ -113,6 +113,7 @@ public final class LandClaimRepository {
     }
 
     public static Collection<Claim> allCached() { return CLAIMS.values(); }
+    public static Claim findById(UUID claimId) { return claimId == null ? null : CLAIMS.get(claimId); }
 
     public static List<Claim> cachedForProfile(UUID profileId) {
         if (profileId == null) return Collections.emptyList();
@@ -263,6 +264,7 @@ public final class LandClaimRepository {
             }
             CLAIMS.put(claim.id, claim);
             rebuildIndexes();
+            publishClaimInvalidation(claim);
             return CreateResult.success(claim);
         } catch (Exception e) {
             e.printStackTrace();
@@ -302,6 +304,7 @@ public final class LandClaimRepository {
             }
             claim.minX = minX; claim.maxX = maxX; claim.minZ = minZ; claim.maxZ = maxZ;
             rebuildIndexes();
+            publishClaimInvalidation(claim);
             return CreateResult.success(claim);
         } catch (Exception e) {
             e.printStackTrace();
@@ -310,9 +313,12 @@ public final class LandClaimRepository {
     }
 
     public static boolean addMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
-        if (!isOwner(owner, claim) || friend == null || !DatabaseManager.isEnabled()) return false;
-        UUID friendProfile = PlayerProfileManager.activeProfileId(friend);
-        if (friendProfile == null || friendProfile.equals(claim.profileId)) return false;
+        return friend != null && addMember(owner, claim, PlayerProfileManager.activeProfileId(friend));
+    }
+
+    public static boolean addMember(ServerPlayer owner, Claim claim, UUID friendProfile) {
+        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled()) return false;
+        if (friendProfile.equals(claim.profileId)) return false;
         try {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
@@ -323,13 +329,17 @@ public final class LandClaimRepository {
                 ps.executeUpdate();
             }
             claim.memberProfileIds.add(friendProfile);
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id);
             return true;
         } catch (Exception e) { e.printStackTrace(); return false; }
     }
 
     public static boolean removeMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
-        if (!isOwner(owner, claim) || friend == null || !DatabaseManager.isEnabled()) return false;
-        UUID friendProfile = PlayerProfileManager.activeProfileId(friend);
+        return friend != null && removeMember(owner, claim, PlayerProfileManager.activeProfileId(friend));
+    }
+
+    public static boolean removeMember(ServerPlayer owner, Claim claim, UUID friendProfile) {
+        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled()) return false;
         try {
             Connection connection = DatabaseManager.getConnection();
             ensureSchema(connection);
@@ -339,6 +349,7 @@ public final class LandClaimRepository {
                 ps.executeUpdate();
             }
             claim.memberProfileIds.remove(friendProfile);
+            com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id);
             return true;
         } catch (Exception e) { e.printStackTrace(); return false; }
     }
@@ -396,6 +407,7 @@ public final class LandClaimRepository {
             }
             CLAIMS.remove(claim.id);
             rebuildIndexes();
+            publishClaimInvalidation(claim);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -437,7 +449,13 @@ public final class LandClaimRepository {
                 statement.setObject(9, claim.id, Types.OTHER);
                 statement.executeUpdate();
             }
+            publishClaimInvalidation(claim);
         });
+    }
+
+    private static void publishClaimInvalidation(Claim claim) {
+        if (claim == null || claim.id == null) return;
+        com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id);
     }
 
 
@@ -508,14 +526,18 @@ public final class LandClaimRepository {
 
     private static Set<String> serverIdAliases() {
         LinkedHashSet<String> aliases = new LinkedHashSet<>();
-        addAlias(aliases, NetworkServerConfig.serverId());
-        NetworkServerConfig config = NetworkServerConfig.get();
-        if (config != null) addAlias(aliases, config.survivalServerId);
+        String current = NetworkServerConfig.serverId();
+        addAlias(aliases, current);
 
-        // Cobble Champs migrated the Velocity/backend id between survival-1 and survival.
-        // Old claims in SQL are still valid, so protection must read both names on survival worlds.
-        if (aliases.contains("survival")) addAlias(aliases, "survival-1");
-        if (aliases.contains("survival-1")) addAlias(aliases, "survival");
+        // Only map true historical names for the backend currently running. Never add the
+        // configured primary backend as an alias on Nova/Eclipse, otherwise equal X/Z claims
+        // on two different servers incorrectly overlap and share protection checks.
+        String normalized = current == null ? "" : current.trim().toLowerCase(Locale.ROOT);
+        if (normalized.equals("survival") || normalized.equals("survival-1") || normalized.equals("main_survival1")) {
+            addAlias(aliases, "survival");
+            addAlias(aliases, "survival-1");
+            addAlias(aliases, "main_survival1");
+        }
         return aliases;
     }
 

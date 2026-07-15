@@ -18,10 +18,8 @@ public enum BuffType {
     POKEMON_XP("Pokemon XP", "Increases Pokemon battle experience earned by a relative percent.", ChatFormatting.AQUA, null),
 
     SHINY_CHANCE("Shiny Chance Boost", "Adds a percentage of the base shiny chance for legitimate wild spawns/catches. Multiple boosts stack additively from base.", ChatFormatting.LIGHT_PURPLE, null),
-    CATCH_CHANCE("Catch Chance", "Future hook for increasing legitimate wild capture chance.", ChatFormatting.GREEN, null),
+    CATCH_CHANCE("Catch Chance", "Chance for a legitimate wild Poké Ball attempt to become a guaranteed catch.", ChatFormatting.GREEN, null),
     PERFECT_IV_CHANCE("Perfect IV Chance", "Tiny chance for one random IV on a legitimate wild catch to become 31.", ChatFormatting.AQUA, null),
-
-    WORLD_EVENT_REWARDS("World Event Rewards", "Future hook for extra legitimate world event rewards.", ChatFormatting.GOLD, null),
     ADVENTURER_MARKS("Adventurer's Marks", "Increases Adventurer's Marks earned from legitimate guild activities such as hunts, quests, and contracts.", ChatFormatting.AQUA, null);
 
     public final String displayName;

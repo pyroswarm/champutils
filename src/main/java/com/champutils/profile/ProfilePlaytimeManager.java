@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -33,6 +35,11 @@ public final class ProfilePlaytimeManager {
     private static final Map<UUID, SessionMark> SESSION_MARKS = new ConcurrentHashMap<>();
     private static final long DEFAULT_INCREMENT_SECONDS = 60L;
     private static final File LOCAL_BACKUP_FILE = new File("config/champutils/profile_playtime_backup.properties");
+    private static final ExecutorService LOCAL_BACKUP_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "ChampUtils-Playtime-Backup");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private ProfilePlaytimeManager() {}
 
@@ -55,8 +62,17 @@ public final class ProfilePlaytimeManager {
         }
         long elapsedSeconds = Math.max(0L, (now - previous.markedAtMillis) / 1000L);
         if (elapsedSeconds <= 0L) return;
-        PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(0L)).addAndGet(elapsedSeconds);
+        long totalSeconds = PROFILE_SECONDS.computeIfAbsent(profileId, ignored -> new AtomicLong(0L)).addAndGet(elapsedSeconds);
         DIRTY.add(profileId);
+        checkPlaytimeWorldFirsts(player, totalSeconds);
+    }
+
+    private static void checkPlaytimeWorldFirsts(ServerPlayer player, long totalSeconds) {
+        if (player == null) return;
+        if (totalSeconds >= 10L * 60L * 60L) com.champutils.worldfirst.WorldFirstManager.award(player, "first_profile_playtime_10_hours");
+        if (totalSeconds >= 100L * 60L * 60L) com.champutils.worldfirst.WorldFirstManager.award(player, "first_profile_playtime_100_hours");
+        if (totalSeconds >= 1000L * 60L * 60L) com.champutils.worldfirst.WorldFirstManager.award(player, "first_profile_playtime_1000_hours");
+        if (totalSeconds >= 10000L * 60L * 60L) com.champutils.worldfirst.WorldFirstManager.award(player, "first_profile_playtime_10000_hours");
     }
 
     public static void flushPlayerBlockingBestEffort(ServerPlayer player) {
@@ -184,10 +200,10 @@ public final class ProfilePlaytimeManager {
         DIRTY.clear();
 
         if (snapshot.isEmpty()) return;
-        saveLocalBackup(snapshot);
+        LOCAL_BACKUP_EXECUTOR.execute(() -> saveLocalBackup(snapshot));
         if (!DatabaseManager.isEnabled()) return;
 
-        DatabaseManager.executeAsync("flush profile playtime", connection -> {
+        DatabaseManager.runAsync("flush profile playtime", connection -> {
             ensureSchema(connection);
             try (var ps = connection.prepareStatement(
                     "insert into profile_player_stats (profile_id, playtime_seconds, updated_at) " +
@@ -202,6 +218,8 @@ public final class ProfilePlaytimeManager {
                 }
                 ps.executeBatch();
             }
+        }).whenComplete((ignored, error) -> {
+            if (error != null) DIRTY.addAll(snapshot.keySet());
         });
     }
 

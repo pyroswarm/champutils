@@ -1,6 +1,7 @@
 package com.champutils.commands;
 
 import com.champutils.badge.BadgeManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymConfig;
 import com.champutils.gym.GymLevelCapUtil;
@@ -22,6 +23,7 @@ import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -30,9 +32,26 @@ public final class WildSpawnCapCommand {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/wild_spawn_caps.json");
     private static Data data = new Data();
+    private static final String STATE_KEY = "wild_spawn_cap";
     private static boolean loaded = false;
 
     private WildSpawnCapCommand() {}
+
+    public static synchronized void preload(UUID profileId) {
+        if (profileId == null) return;
+        ensureLoaded();
+        int fallback = data.profileCaps.getOrDefault(profileId.toString(), 0);
+        CapState shared = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, CapState.class, new CapState(fallback));
+        int cap = shared == null ? fallback : Math.max(0, Math.min(100, shared.level));
+        if (cap <= 0) data.profileCaps.remove(profileId.toString()); else data.profileCaps.put(profileId.toString(), cap);
+        save();
+    }
+
+    private static void persist(UUID profileId) {
+        if (profileId == null) return;
+        SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, new CapState(data.profileCaps.getOrDefault(profileId.toString(), 0)));
+        save();
+    }
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> dispatcher.register(literal("setcap")
@@ -64,12 +83,11 @@ public final class WildSpawnCapCommand {
         if (player == null || pokemon == null) return;
         int cap = capFor(player);
         if (cap <= 0) return;
-        int current = Math.max(1, pokemon.getLevel());
-        int minForSpecies = IslanderSpawnInfluence.minimumSpawnLevelForPokemon(pokemon);
-        int target = current;
-        if (current > cap) target = cap;
-        if (minForSpecies <= cap && target < minForSpecies) target = minForSpecies;
-        if (target != current) pokemon.setLevel(Math.max(1, Math.min(100, target)));
+
+        // Every ordinary wild spawn gets an independent, uniform roll across the full unlocked range.
+        // This prevents Cobblemon's native spawn bands from clustering most encounters at the cap.
+        int target = ThreadLocalRandom.current().nextInt(1, cap + 1);
+        pokemon.setLevel(Math.max(1, Math.min(100, target)));
     }
 
     public static int currentGymCap(ServerPlayer player) {
@@ -85,14 +103,14 @@ public final class WildSpawnCapCommand {
         }
         if (requested <= 0) {
             data.profileCaps.remove(profile.toString());
-            save();
+            persist(profile);
             player.sendSystemMessage(Component.literal("Custom wild spawn cap removed. Gym progression cap still applies automatically.").withStyle(ChatFormatting.YELLOW));
             return;
         }
         int gymCap = currentGymCap(player);
         int capped = Math.min(requested, gymCap);
         data.profileCaps.put(profile.toString(), capped);
-        save();
+        persist(profile);
         player.sendSystemMessage(Component.literal("Wild spawn cap set to level " + capped + " for this profile. Your current gym cap is " + gymCap + ".").withStyle(ChatFormatting.GREEN));
     }
 
@@ -135,6 +153,7 @@ public final class WildSpawnCapCommand {
         }
     }
 
+    private static final class CapState { int level; CapState() {} CapState(int level) { this.level = level; } }
     private static final class Data {
         Map<String, Integer> profileCaps = new HashMap<>();
     }

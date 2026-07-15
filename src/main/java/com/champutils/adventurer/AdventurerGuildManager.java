@@ -9,11 +9,15 @@ import com.champutils.battle.BattlePrepManager;
 import com.champutils.battle.PluginTrainerBattleStarter;
 import com.champutils.economy.EconomyManager;
 import com.champutils.crate.CrateCreditManager;
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkServerConfig;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.roaming.RoamingTrainerRarity;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.spawn.SpawnBlockRules;
 import com.champutils.teleport.RandomTeleportCommand;
+import com.champutils.teleport.SafeTeleportManager;
 import com.cobblemon.mod.common.battles.BattleFormat;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
@@ -43,6 +47,8 @@ public final class AdventurerGuildManager {
     public static final String SOURCE_BATTLE_TOWER = "battle_tower";
     public static final String SOURCE_BATTLE_TOWER_ULTIMATE = "battle_tower_ultimate";
     public static final String SOURCE_ROAMING_LEAGUE = "adventurer_request";
+    private static final String PENDING_TOWER_TRANSFER_KEY = "pending_battle_tower_transfer";
+    private static final long PENDING_TOWER_TRANSFER_TTL_MS = 120_000L;
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final Map<UUID, AdventurerGuildDataManager.PlayerData> CACHE = new HashMap<>();
@@ -100,6 +106,13 @@ public final class AdventurerGuildManager {
         }
     }
 
+    public static void preload(UUID profileId, String playerName) {
+        if (profileId == null) return;
+        AdventurerGuildDataManager.PlayerData data = AdventurerGuildDataManager.load(profileId, playerName);
+        refreshPeriods(data);
+        CACHE.put(profileId, data);
+    }
+
     public static AdventurerGuildDataManager.PlayerData getData(ServerPlayer player) {
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null) {
@@ -152,6 +165,8 @@ public final class AdventurerGuildManager {
 
     private static boolean startBattleTowerFloor(ServerPlayer player, boolean ignoreCooldown) {
         if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        Boolean routed = routeToBattleTowerHost(player, "floor", ignoreCooldown);
+        if (routed != null) return routed;
         AdventurerGuildDataManager.PlayerData data = getData(player);
         long now = System.currentTimeMillis();
         long cooldown = Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerCooldownSeconds) * 1000L;
@@ -211,6 +226,8 @@ public final class AdventurerGuildManager {
 
     public static boolean startUltimateClimb(ServerPlayer player) {
         if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        Boolean routed = routeToBattleTowerHost(player, "ultimate", true);
+        if (routed != null) return routed;
         AdventurerGuildDataManager.PlayerData data = getData(player);
         long now = System.currentTimeMillis();
         long cooldown = Math.max(1, AdventurerGuildConfig.SETTINGS.ultimateClimbAttemptCooldownHours) * 3_600_000L;
@@ -225,6 +242,74 @@ public final class AdventurerGuildManager {
         markDirty(player); savePlayer(player);
         player.sendSystemMessage(Component.literal("Ultimate Climb started. You must clear floors 1-100 in one uninterrupted session.").withStyle(ChatFormatting.LIGHT_PURPLE));
         return startBattleTowerFloor(player, true);
+    }
+
+    private static Boolean routeToBattleTowerHost(ServerPlayer player, String action, boolean ignoreCooldown) {
+        if (player == null) return false;
+        String targetServer = NetworkServerConfig.get().battleTowerServerId;
+        if (targetServer == null || targetServer.isBlank()) targetServer = NetworkServerConfig.get().survivalServerId;
+        if (targetServer == null || targetServer.isBlank() || targetServer.equalsIgnoreCase(NetworkServerConfig.serverId())) {
+            return null;
+        }
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
+        if (active == null) {
+            player.sendSystemMessage(Component.literal("Select a profile before entering the Battle Tower.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        PendingTowerTransfer pending = new PendingTowerTransfer();
+        pending.targetServerId = targetServer;
+        pending.action = action == null ? "floor" : action;
+        pending.ignoreCooldown = ignoreCooldown;
+        pending.expiresAtMillis = System.currentTimeMillis() + PENDING_TOWER_TRANSFER_TTL_MS;
+        String finalTargetServer = targetServer;
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Sending you to the Battle Tower server.").withStyle(ChatFormatting.YELLOW));
+        SharedJsonStateRepository.savePlayerAsync(player.getUUID(), PENDING_TOWER_TRANSFER_KEY, pending)
+                .whenComplete((ignored, error) -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player)) return;
+                    if (error != null) {
+                        player.sendSystemMessage(Component.literal("Could not prepare the Battle Tower transfer.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, finalTargetServer, message -> {
+                        if (message != null && message.startsWith("Could not")) {
+                            clearPendingTowerTransfer(player.getUUID());
+                            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                        }
+                    });
+                }));
+        return true;
+    }
+
+    public static void handleProfileReady(ServerPlayer player) {
+        if (player == null) return;
+        SharedJsonStateRepository.loadPlayerAsync(player.getUUID(), PENDING_TOWER_TRANSFER_KEY, PendingTowerTransfer.class, null)
+                .thenAccept(pending -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player) || pending == null) return;
+                    if (pending.expiresAtMillis < System.currentTimeMillis()) {
+                        clearPendingTowerTransfer(player.getUUID());
+                        return;
+                    }
+                    if (pending.targetServerId == null || !pending.targetServerId.equalsIgnoreCase(NetworkServerConfig.serverId())) return;
+                    clearPendingTowerTransfer(player.getUUID());
+                    if ("ultimate".equalsIgnoreCase(pending.action)) {
+                        startUltimateClimb(player);
+                    } else {
+                        startBattleTowerFloor(player, pending.ignoreCooldown);
+                    }
+                }));
+    }
+
+    private static void clearPendingTowerTransfer(UUID playerUuid) {
+        if (playerUuid == null) return;
+        SharedJsonStateRepository.savePlayerAsync(playerUuid, PENDING_TOWER_TRANSFER_KEY, new PendingTowerTransfer());
+    }
+
+    public static final class PendingTowerTransfer {
+        public String targetServerId = "";
+        public String action = "floor";
+        public boolean ignoreCooldown = false;
+        public long expiresAtMillis = 0L;
     }
 
     public static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity) {

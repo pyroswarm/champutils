@@ -28,13 +28,6 @@ public final class GuildConfig {
     public static final class GuildXp {
         public int rankedWin = 50;
         public int casualWin = 15;
-        public int worldEventF = 100;
-        public int worldEventE = 175;
-        public int worldEventD = 300;
-        public int worldEventC = 750;
-        public int worldEventB = 1250;
-        public int worldEventA = 2000;
-        public int worldEventS = 3500;
     }
 
     public static final class GuildLevels {
@@ -134,20 +127,6 @@ public final class GuildConfig {
         return requiredXpForLevel(level + 1);
     }
 
-    public static int worldEventXp(String tier) {
-        String normalized = tier == null ? "D" : tier.trim().toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "F" -> GUILD_XP.worldEventF;
-            case "E" -> GUILD_XP.worldEventE;
-            case "C" -> GUILD_XP.worldEventC;
-            case "B" -> GUILD_XP.worldEventB;
-            case "A" -> GUILD_XP.worldEventA;
-            case "S" -> GUILD_XP.worldEventS;
-            case "D" -> GUILD_XP.worldEventD;
-            default -> GUILD_XP.worldEventD;
-        };
-    }
-
     public static void save() {
         try {
             File dir = new File("config/champutils/guilds");
@@ -175,13 +154,6 @@ public final class GuildConfig {
     private static void sanitize(GuildXp xp, GuildLevels levels, GuildCreation creation) {
         xp.rankedWin = Math.max(0, xp.rankedWin);
         xp.casualWin = Math.max(0, xp.casualWin);
-        xp.worldEventF = Math.max(0, xp.worldEventF);
-        xp.worldEventE = Math.max(0, xp.worldEventE);
-        xp.worldEventD = Math.max(0, xp.worldEventD);
-        xp.worldEventC = Math.max(0, xp.worldEventC);
-        xp.worldEventB = Math.max(0, xp.worldEventB);
-        xp.worldEventA = Math.max(0, xp.worldEventA);
-        xp.worldEventS = Math.max(0, xp.worldEventS);
         levels.baseXp = Math.max(1L, levels.baseXp);
         levels.scalingMultiplier = Math.max(1.01D, levels.scalingMultiplier);
         levels.maxLevel = Math.max(1, levels.maxLevel);

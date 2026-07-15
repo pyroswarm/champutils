@@ -88,10 +88,16 @@ public final class AdventurerGuildDataManager {
 
         if (profileId != null && DatabaseManager.isEnabled()) {
             try {
-                data = DatabaseManager.supplyAsync("load adventurer guild profile " + profileId, connection -> {
+                if (Thread.currentThread().getName().startsWith("ChampUtils-Database-")) {
+                    Connection connection = DatabaseManager.getConnection();
                     ensureSchema(connection);
-                    return loadSql(connection, profileId, name);
-                }).get(3, TimeUnit.SECONDS);
+                    data = loadSql(connection, profileId, name);
+                } else {
+                    data = DatabaseManager.supplyAsync("load adventurer guild profile " + profileId, connection -> {
+                        ensureSchema(connection);
+                        return loadSql(connection, profileId, name);
+                    }).get(3, TimeUnit.SECONDS);
+                }
                 if (data != null) {
                     normalize(data, profileId, name);
                     saveLocal(profileId, data);

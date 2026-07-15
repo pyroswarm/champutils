@@ -20,28 +20,50 @@ public final class DiscordCommand {
     private DiscordCommand() {}
 
     public static void register() {
+        DiscordLinkManager.initialize();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 literal("discord")
                         .executes(ctx -> sendInvite(ctx.getSource()))
                         .then(literal("link").executes(ctx -> {
                             ServerPlayer player = ctx.getSource().getPlayerOrException();
-                            String code = DiscordLinkManager.createCode(player.getUUID(), player.getGameProfile().getName());
-                            player.sendSystemMessage(Component.literal("Discord link code: ").withStyle(ChatFormatting.AQUA)
-                                    .append(Component.literal(code).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
-                            player.sendSystemMessage(Component.literal("Use this code in the Discord link channel. A Discord bot/bridge must call /discord verify after checking the code.").withStyle(ChatFormatting.GRAY));
+                            DiscordLinkManager.createCodeAsync(player.getUUID(), player.getGameProfile().getName())
+                                    .whenComplete((code, error) -> player.server.execute(() -> {
+                                        if (error != null || code == null || code.isBlank()) {
+                                            player.sendSystemMessage(Component.literal("Could not create a Discord link code right now.").withStyle(ChatFormatting.RED));
+                                            if (error != null) error.printStackTrace();
+                                            return;
+                                        }
+                                        player.sendSystemMessage(Component.literal("Discord link code: ").withStyle(ChatFormatting.AQUA)
+                                                .append(Component.literal(code).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+                                        player.sendSystemMessage(Component.literal("Use this code in the Discord link channel. A Discord bot/bridge must call /discord verify after checking the code.").withStyle(ChatFormatting.GRAY));
+                                    }));
                             return 1;
                         }))
                         .then(literal("status").executes(ctx -> {
                             ServerPlayer player = ctx.getSource().getPlayerOrException();
-                            DiscordLinkManager.LinkedAccount linked = DiscordLinkManager.linked(player.getUUID());
-                            if (linked == null) player.sendSystemMessage(Component.literal("Your Minecraft account is not linked to Discord yet. Use /discord link.").withStyle(ChatFormatting.YELLOW));
-                            else player.sendSystemMessage(Component.literal("Linked Discord: " + linked.discordName + " (" + linked.discordId + ")").withStyle(ChatFormatting.GREEN));
+                            DiscordLinkManager.linkedAsync(player.getUUID()).whenComplete((linked, error) -> player.server.execute(() -> {
+                                if (error != null) {
+                                    player.sendSystemMessage(Component.literal("Could not check your Discord link right now.").withStyle(ChatFormatting.RED));
+                                    error.printStackTrace();
+                                } else if (linked == null) {
+                                    player.sendSystemMessage(Component.literal("Your Minecraft account is not linked to Discord yet. Use /discord link.").withStyle(ChatFormatting.YELLOW));
+                                } else {
+                                    player.sendSystemMessage(Component.literal("Linked Discord: " + linked.discordName + " (" + linked.discordId + ")").withStyle(ChatFormatting.GREEN));
+                                }
+                            }));
                             return 1;
                         }))
                         .then(literal("unlink").executes(ctx -> {
                             ServerPlayer player = ctx.getSource().getPlayerOrException();
-                            boolean removed = DiscordLinkManager.unlink(player.getUUID());
-                            player.sendSystemMessage(Component.literal(removed ? "Discord account unlinked." : "You did not have a linked Discord account.").withStyle(removed ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+                            DiscordLinkManager.unlinkAsync(player.getUUID()).whenComplete((removed, error) -> player.server.execute(() -> {
+                                if (error != null) {
+                                    player.sendSystemMessage(Component.literal("Could not unlink Discord right now.").withStyle(ChatFormatting.RED));
+                                    error.printStackTrace();
+                                    return;
+                                }
+                                boolean didRemove = Boolean.TRUE.equals(removed);
+                                player.sendSystemMessage(Component.literal(didRemove ? "Discord account unlinked." : "You did not have a linked Discord account.").withStyle(didRemove ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+                            }));
                             return 1;
                         }))
                         .then(literal("verify")
@@ -78,33 +100,45 @@ public final class DiscordCommand {
     }
 
     private static int verify(net.minecraft.commands.CommandSourceStack source, String uuidRaw, String code, String discordId, String discordName) {
-        try {
-            UUID uuid = UUID.fromString(uuidRaw);
-            DiscordLinkManager.VerifyResult result = DiscordLinkManager.verify(uuid, code, discordId, discordName);
+        final UUID uuid;
+        try { uuid = UUID.fromString(uuidRaw); }
+        catch (Exception e) { source.sendFailure(Component.literal("Invalid Minecraft UUID.")); return 0; }
+        DiscordLinkManager.verifyAsync(uuid, code, discordId, discordName).whenComplete((result, error) -> source.getServer().execute(() -> {
+            if (error != null || result == null) {
+                source.sendFailure(Component.literal("Discord verify could not reach shared storage.").withStyle(ChatFormatting.RED));
+                if (error != null) error.printStackTrace();
+                return;
+            }
             if (result == DiscordLinkManager.VerifyResult.SUCCESS) {
                 source.sendSuccess(() -> Component.literal("Linked Minecraft " + uuid + " to Discord " + discordName + " (" + discordId + "). Add the Discord role named Linked from your bot.").withStyle(ChatFormatting.GREEN), false);
                 ServerPlayer player = source.getServer().getPlayerList().getPlayer(uuid);
                 if (player != null) player.sendSystemMessage(Component.literal("Your Discord account is now linked.").withStyle(ChatFormatting.GREEN));
+                com.champutils.network.NetworkEventManager.publishPlayerNotice(uuid, "§aYour Discord account is now linked.");
             } else {
                 source.sendFailure(Component.literal("Discord verify failed: " + result.name()).withStyle(ChatFormatting.RED));
             }
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Invalid Minecraft UUID."));
-            return 0;
-        }
+        }));
         return 1;
     }
 
     private static int bridgeChat(net.minecraft.commands.CommandSourceStack source, String discordId, String discordName, String message) {
-        DiscordLinkManager.LinkedAccount linked = DiscordLinkManager.linkedByDiscordId(discordId);
-        if (linked == null) {
-            source.sendFailure(Component.literal("That Discord ID is not linked, so the chat message was blocked."));
-            return 0;
-        }
-        Component line = Component.literal("[Discord] ").withStyle(ChatFormatting.BLUE)
-                .append(Component.literal(discordName + ": ").withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(message).withStyle(ChatFormatting.WHITE));
-        source.getServer().getPlayerList().broadcastSystemMessage(line, false);
+        DiscordLinkManager.linkedByDiscordIdAsync(discordId).whenComplete((linked, error) -> source.getServer().execute(() -> {
+            if (error != null) {
+                source.sendFailure(Component.literal("Could not verify that Discord account against shared storage."));
+                error.printStackTrace();
+                return;
+            }
+            if (linked == null) {
+                source.sendFailure(Component.literal("That Discord ID is not linked, so the chat message was blocked."));
+                return;
+            }
+            Component line = Component.literal("[Discord] ").withStyle(ChatFormatting.BLUE)
+                    .append(Component.literal(discordName + ": ").withStyle(ChatFormatting.AQUA))
+                    .append(Component.literal(message).withStyle(ChatFormatting.WHITE));
+            source.getServer().getPlayerList().broadcastSystemMessage(line, false);
+            com.champutils.network.NetworkEventManager.publishBroadcast(line);
+        }));
         return 1;
     }
+
 }

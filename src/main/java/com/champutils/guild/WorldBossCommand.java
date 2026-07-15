@@ -24,6 +24,10 @@ public final class WorldBossCommand {
                             .requires(source -> hasBossPermission(source, ADMIN_PERMISSION))
                             .executes(context -> {
                                 CommandSourceStack source = context.getSource();
+                                if (!GuildBossManager.isWorldBossHostServer()) {
+                                    source.sendFailure(Component.literal("World boss administration is hosted on " + GuildBossManager.worldBossHostServerId() + "."));
+                                    return 0;
+                                }
                                 int removed = GuildBossManager.forceClearWorldBoss(source.getServer());
                                 source.sendSuccess(() -> Component.literal("Force-cleared world boss state and removed " + removed + " stale boss NPC(s).").withStyle(ChatFormatting.GREEN), true);
                                 return 1;
@@ -49,6 +53,10 @@ public final class WorldBossCommand {
                             .requires(source -> hasBossPermission(source, FORCE_PERMISSION) || hasBossPermission(source, ADMIN_PERMISSION))
                             .executes(context -> {
                                 CommandSourceStack source = context.getSource();
+                                if (!GuildBossManager.isWorldBossHostServer()) {
+                                    source.sendFailure(Component.literal("World boss administration is hosted on " + GuildBossManager.worldBossHostServerId() + "."));
+                                    return 0;
+                                }
                                 if (GuildBossManager.hasActiveWorldBoss()) {
                                     source.sendFailure(Component.literal("There is already an active world boss."));
                                     return 0;
@@ -67,6 +75,10 @@ public final class WorldBossCommand {
                             .requires(source -> hasBossPermission(source, ADMIN_PERMISSION))
                             .executes(context -> {
                                 CommandSourceStack source = context.getSource();
+                                if (!GuildBossManager.isWorldBossHostServer()) {
+                                    source.sendFailure(Component.literal("World boss administration is hosted on " + GuildBossManager.worldBossHostServerId() + "."));
+                                    return 0;
+                                }
                                 int removed = GuildBossManager.forceClearWorldBoss(source.getServer());
                                 source.sendSuccess(() -> Component.literal("Force-cleared world boss state and removed " + removed + " stale boss NPC(s).").withStyle(ChatFormatting.GREEN), true);
                                 return 1;

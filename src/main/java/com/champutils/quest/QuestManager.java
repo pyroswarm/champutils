@@ -42,7 +42,6 @@ public class QuestManager {
     private static final Map<UUID, QuestDataManager.QuestData> CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, QuestDataManager.GuildQuestData> GUILD_CACHE = new ConcurrentHashMap<>();
     private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
-    private static final Set<UUID> DIRTY_GUILDS = ConcurrentHashMap.newKeySet();
     private static int tickCounter = 0;
 
     public static void load() {
@@ -139,6 +138,10 @@ public class QuestManager {
     }
 
     private static QuestConfig.Template pickWeighted(List<QuestConfig.Template> pool, Set<String> preferNotIn) {
+        return pickWeighted(pool, preferNotIn, RANDOM);
+    }
+
+    private static QuestConfig.Template pickWeighted(List<QuestConfig.Template> pool, Set<String> preferNotIn, Random random) {
         if (pool == null || pool.isEmpty()) return null;
         List<QuestConfig.Template> filtered = new ArrayList<>();
         for (QuestConfig.Template t : pool) {
@@ -147,7 +150,7 @@ public class QuestManager {
         if (filtered.isEmpty()) filtered = pool;
         int total = 0;
         for (QuestConfig.Template t : filtered) total += Math.max(1, t.weight);
-        int roll = RANDOM.nextInt(Math.max(1, total));
+        int roll = random.nextInt(Math.max(1, total));
         int current = 0;
         for (QuestConfig.Template t : filtered) {
             current += Math.max(1, t.weight);
@@ -199,15 +202,15 @@ public class QuestManager {
         if (guild == null || data == null) return;
         String weeklyKey = weeklyPeriodKey();
         if (data.weekly == null || data.weekly.periodKey == null || !data.weekly.periodKey.equals(weeklyKey)) {
-            data.weekly = generateGuildWeeklySet(weeklyKey);
+            data.weekly = generateGuildWeeklySet(weeklyKey, guild.id);
             data.claimedWeekly = new HashSet<>();
-            markGuildDirty(guild.id);
         }
         data.guildId = guild.id.toString();
         data.guildName = guild.name;
     }
 
-    private static QuestDataManager.QuestSet generateGuildWeeklySet(String periodKey) {
+    private static QuestDataManager.QuestSet generateGuildWeeklySet(String periodKey, UUID guildId) {
+        Random guildRandom = new Random(java.util.Objects.hash(periodKey, guildId));
         QuestDataManager.QuestSet set = new QuestDataManager.QuestSet();
         set.periodKey = periodKey;
         set.completed = false;
@@ -217,8 +220,8 @@ public class QuestManager {
         int count = Math.max(1, QuestConfig.SETTINGS.guildWeeklyObjectiveCount);
         Set<String> usedProfessions = new HashSet<>();
         for (int i = 0; i < count; i++) {
-            QuestConfig.Template picked = pickWeighted(pool, usedProfessions);
-            if (picked == null) picked = pickWeighted(pool, null);
+            QuestConfig.Template picked = pickWeighted(pool, usedProfessions, guildRandom);
+            if (picked == null) picked = pickWeighted(pool, null, guildRandom);
             if (picked == null) break;
             pool.remove(picked);
             usedProfessions.add(safe(picked.profession));
@@ -318,14 +321,13 @@ public class QuestManager {
         boolean changedDaily = incrementSet(data.daily, matcher, amount);
         boolean changedWeekly = incrementSet(data.weekly, matcher, amount);
         boolean changedContracts = incrementContracts(data, matcher, amount);
-        boolean changedGuildWeekly = incrementGuildWeekly(player, matcher, amount);
-        if (changedDaily || changedWeekly || changedContracts || changedGuildWeekly) {
+        incrementGuildWeeklyAsync(player, matcher, amount);
+        if (changedDaily || changedWeekly || changedContracts) {
             QuestTrackerManager.refresh(player);
             markDirty(player);
             if (changedDaily && isReady(data.daily)) notifyReady(player, "Daily");
             if (changedWeekly && isReady(data.weekly)) notifyReady(player, "Weekly");
             if (changedContracts) notifyReadyContracts(player, data);
-            if (changedGuildWeekly) notifyReadyGuildWeekly(player);
         }
     }
 
@@ -340,32 +342,43 @@ public class QuestManager {
         return changed;
     }
 
-    private static boolean incrementGuildWeekly(ServerPlayer player, ObjectiveMatcher matcher, int amount) {
+    private static void incrementGuildWeeklyAsync(ServerPlayer player, ObjectiveMatcher matcher, int amount) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
-        if (guild == null || guild.id == null) return false;
-        QuestDataManager.GuildQuestData data = getGuildData(player);
-        if (data == null || data.weekly == null || data.weekly.objectives == null) return false;
-        boolean changed = false;
-        String playerKey = PlayerProfileManager.activeProfileId(player).toString();
-        for (QuestDataManager.Objective o : data.weekly.objectives) {
-            if (o == null) continue;
-            if (o.requiredPlayers <= 0) o.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
-            if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
-            if (o.playerProgress == null) o.playerProgress = new HashMap<>();
-            if (o.completedPlayers.contains(playerKey) || !matcher.matches(o)) continue;
-            int next = Math.min(o.required, o.playerProgress.getOrDefault(playerKey, 0) + Math.max(1, amount));
-            o.playerProgress.put(playerKey, next);
-            if (next >= o.required) {
-                o.completedPlayers.add(playerKey);
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (guild == null || guild.id == null || profileId == null) return;
+        String playerKey = profileId.toString();
+        QuestDataManager.mutateGuildAsync(guild.id, guild.name, data -> {
+            String weeklyKey = weeklyPeriodKey();
+            if (data.weekly == null || data.weekly.periodKey == null || !data.weekly.periodKey.equals(weeklyKey)) {
+                data.weekly = generateGuildWeeklySet(weeklyKey, guild.id);
+                data.claimedWeekly = new HashSet<>();
             }
-            o.progress = Math.min(o.requiredPlayers, o.completedPlayers.size());
-            changed = true;
-        }
-        if (changed) {
-            markGuildDirty(guild.id);
-            saveGuild(guild.id);
-        }
-        return changed;
+            if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+            boolean changed = false;
+            for (QuestDataManager.Objective o : data.weekly.objectives) {
+                if (o == null) continue;
+                if (o.requiredPlayers <= 0) o.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
+                if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
+                if (o.playerProgress == null) o.playerProgress = new HashMap<>();
+                if (o.completedPlayers.contains(playerKey) || !matcher.matches(o)) continue;
+                int next = Math.min(o.required, o.playerProgress.getOrDefault(playerKey, 0) + Math.max(1, amount));
+                o.playerProgress.put(playerKey, next);
+                if (next >= o.required) o.completedPlayers.add(playerKey);
+                o.progress = Math.min(o.requiredPlayers, o.completedPlayers.size());
+                changed = true;
+            }
+            return new GuildProgressMutation(data, changed, isReady(data.weekly));
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null || result == null) {
+                if (error != null) System.err.println("[ChampUtils] Failed cross-server guild quest update: " + error.getMessage());
+                return;
+            }
+            GUILD_CACHE.put(guild.id, result.data());
+            if (!result.changed()) return;
+            NetworkEventManager.publishCacheInvalidation("GUILD_QUESTS", guild.id);
+            QuestTrackerManager.refresh(player);
+            if (result.ready() && !hasClaimedGuildWeekly(player)) notifyReadyGuildWeekly(player);
+        }));
     }
 
     private static void notifyReadyGuildWeekly(ServerPlayer player) {
@@ -376,36 +389,53 @@ public class QuestManager {
     }
 
     public static boolean hasClaimedGuildWeekly(ServerPlayer player) {
+        UUID profileId = player == null ? null : PlayerProfileManager.activeProfileId(player);
         QuestDataManager.GuildQuestData data = getGuildData(player);
-        return data != null && data.claimedWeekly != null && data.claimedWeekly.contains(PlayerProfileManager.activeProfileId(player).toString());
+        return profileId != null && data != null && data.claimedWeekly != null && data.claimedWeekly.contains(profileId.toString());
     }
 
     public static boolean completeGuildWeekly(ServerPlayer player) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
-        if (guild == null || guild.id == null) {
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (guild == null || guild.id == null || profileId == null) {
             player.sendSystemMessage(Component.literal("You must be in a guild to claim guild weekly rewards.").withStyle(ChatFormatting.RED));
             return false;
         }
-        QuestDataManager.GuildQuestData data = getGuildData(player);
-        if (data == null || data.weekly == null || !isReady(data.weekly)) {
-            player.sendSystemMessage(Component.literal("Your guild has not completed its weekly quests yet.").withStyle(ChatFormatting.RED));
-            return false;
-        }
-        if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
-        String playerKey = PlayerProfileManager.activeProfileId(player).toString();
-        if (data.claimedWeekly.contains(playerKey)) {
-            player.sendSystemMessage(Component.literal("You already claimed this guild weekly reward.").withStyle(ChatFormatting.RED));
-            return false;
-        }
-        data.claimedWeekly.add(playerKey);
-        int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
-        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
-        awardQuestChunks(player, "GUILD");
-        AdventurerGuildManager.awardGuildActivity(player, 400, 10, "guild weekly quests");
-        runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
-        markGuildDirty(guild.id);
-        saveGuild(guild.id);
-        player.sendSystemMessage(Component.literal("Guild weekly rewards claimed!").withStyle(ChatFormatting.GREEN));
+        String playerKey = profileId.toString();
+        QuestDataManager.mutateGuildAsync(guild.id, guild.name, data -> {
+            String weeklyKey = weeklyPeriodKey();
+            if (data.weekly == null || data.weekly.periodKey == null || !data.weekly.periodKey.equals(weeklyKey)) {
+                data.weekly = generateGuildWeeklySet(weeklyKey, guild.id);
+                data.claimedWeekly = new HashSet<>();
+            }
+            if (!isReady(data.weekly)) {
+                return new GuildClaimMutation(data, false, "Your guild has not completed its weekly quests yet.");
+            }
+            if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
+            if (!data.claimedWeekly.add(playerKey)) {
+                return new GuildClaimMutation(data, false, "You already claimed this guild weekly reward.");
+            }
+            return new GuildClaimMutation(data, true, "Guild weekly rewards claimed!");
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null || result == null) {
+                player.sendSystemMessage(Component.literal("Could not claim guild weekly rewards right now.").withStyle(ChatFormatting.RED));
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            GUILD_CACHE.put(guild.id, result.data());
+            if (!result.success()) {
+                player.sendSystemMessage(Component.literal(result.message()).withStyle(ChatFormatting.RED));
+                return;
+            }
+            int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
+            if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
+            awardQuestChunks(player, "GUILD");
+            AdventurerGuildManager.awardGuildActivity(player, 400, 10, "guild weekly quests");
+            runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
+            NetworkEventManager.publishCacheInvalidation("GUILD_QUESTS", guild.id);
+            player.sendSystemMessage(Component.literal(result.message()).withStyle(ChatFormatting.GREEN));
+            QuestTrackerManager.refresh(player);
+        }));
         return true;
     }
 
@@ -918,13 +948,8 @@ public class QuestManager {
 
     private static void markDirty(ServerPlayer player) { DIRTY.add(PlayerProfileManager.activeProfileId(player)); }
 
-    private static void markGuildDirty(UUID guildId) { if (guildId != null) DIRTY_GUILDS.add(guildId); }
-
-    private static void saveGuild(UUID guildId) {
-        if (guildId == null || !DIRTY_GUILDS.contains(guildId)) return;
-        QuestDataManager.GuildQuestData data = GUILD_CACHE.get(guildId);
-        if (data != null) QuestDataManager.saveGuild(guildId, data);
-        DIRTY_GUILDS.remove(guildId);
+    public static void invalidateGuildCache(UUID guildId) {
+        if (guildId != null) GUILD_CACHE.remove(guildId);
     }
 
     public static void savePlayer(ServerPlayer player) {
@@ -947,10 +972,8 @@ public class QuestManager {
             if (data != null) QuestDataManager.save(uuid, data);
         }
         DIRTY.clear();
-        for (UUID guildId : new HashSet<>(DIRTY_GUILDS)) {
-            QuestDataManager.GuildQuestData data = GUILD_CACHE.get(guildId);
-            if (data != null) QuestDataManager.saveGuild(guildId, data);
-        }
-        DIRTY_GUILDS.clear();
     }
+    private record GuildProgressMutation(QuestDataManager.GuildQuestData data, boolean changed, boolean ready) {}
+    private record GuildClaimMutation(QuestDataManager.GuildQuestData data, boolean success, String message) {}
+
 }

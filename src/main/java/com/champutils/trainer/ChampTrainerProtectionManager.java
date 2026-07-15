@@ -1,8 +1,6 @@
 package com.champutils.trainer;
 
 import com.champutils.gym.GymRegistry;
-import com.champutils.worldevent.WorldEventBindingRegistry;
-
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
 import net.minecraft.server.MinecraftServer;
@@ -79,16 +77,6 @@ public final class ChampTrainerProtectionManager {
             NPCEntity npc = findNpc(server, uuid);
             if (npc != null) {
                 track(npc, "gym", ChampTrainerSpawner.TrainerKind.GYM, npc.position(), npc.getYRot());
-            }
-        }
-
-        for (WorldEventBindingRegistry.Binding binding : WorldEventBindingRegistry.getAll().values()) {
-            if (binding == null) continue;
-            UUID uuid = binding.uuid();
-            if (uuid == null || ANCHORS.containsKey(uuid)) continue;
-            NPCEntity npc = findNpc(server, uuid);
-            if (npc != null) {
-                track(npc, binding.eventId, ChampTrainerSpawner.TrainerKind.WORLD_EVENT, npc.position(), npc.getYRot());
             }
         }
     }

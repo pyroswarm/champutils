@@ -1,5 +1,7 @@
 package com.champutils.survival;
 
+import com.champutils.database.SharedJsonStateRepository;
+
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -29,6 +31,7 @@ public final class HostileToggleManager {
     private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/hostile_toggle.json");
+    private static final String STATE_KEY = "hostile_toggle";
     private static final long COOLDOWN_MS = 24L * 60L * 60L * 1000L;
     private static final double RADIUS_SQ = 96.0D * 96.0D;
     private static int tickCounter = 0;
@@ -108,6 +111,7 @@ public final class HostileToggleManager {
         boolean next = !Boolean.TRUE.equals(DISABLED.get(player.getUUID()));
         DISABLED.put(player.getUUID(), next);
         LAST_TOGGLE.put(player.getUUID(), now);
+        savePlayer(player.getUUID());
         save();
         player.sendSystemMessage(Component.literal(next
                 ? "Hostile mob spawning near you is now disabled. Cobblemon spawns are not affected."
@@ -118,6 +122,26 @@ public final class HostileToggleManager {
         long now = System.currentTimeMillis();
         long last = LAST_TOGGLE.getOrDefault(player.getUUID(), 0L);
         return COOLDOWN_MS - (now - last);
+    }
+
+    public static synchronized void preload(UUID playerId) {
+        if (playerId == null) return;
+        PlayerState fallback = new PlayerState();
+        fallback.disabled = Boolean.TRUE.equals(DISABLED.get(playerId));
+        fallback.lastToggleMillis = LAST_TOGGLE.getOrDefault(playerId, 0L);
+        PlayerState shared = SharedJsonStateRepository.loadPlayer(playerId, STATE_KEY, PlayerState.class, fallback);
+        PlayerState selected = shared == null ? fallback : shared;
+        if (selected.disabled) DISABLED.put(playerId, true); else DISABLED.remove(playerId);
+        LAST_TOGGLE.put(playerId, Math.max(0L, selected.lastToggleMillis));
+        save();
+    }
+
+    private static void savePlayer(UUID playerId) {
+        if (playerId == null) return;
+        PlayerState state = new PlayerState();
+        state.disabled = Boolean.TRUE.equals(DISABLED.get(playerId));
+        state.lastToggleMillis = LAST_TOGGLE.getOrDefault(playerId, 0L);
+        SharedJsonStateRepository.savePlayer(playerId, STATE_KEY, state);
     }
 
     private static synchronized void load() {
@@ -144,6 +168,7 @@ public final class HostileToggleManager {
         } catch (Exception e) { System.err.println("[ChampUtils] Failed to save hostile toggle data"); e.printStackTrace(); }
     }
 
+    private static final class PlayerState { boolean disabled; long lastToggleMillis; }
     private static final class Data { java.util.List<String> disabled = new java.util.ArrayList<>(); Map<String, Long> lastToggleMillis = new java.util.HashMap<>(); }
 
 }

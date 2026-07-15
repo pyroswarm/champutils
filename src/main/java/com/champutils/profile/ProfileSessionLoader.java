@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.database.DatabaseManager;
 import com.champutils.debug.ChampDebugManager;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.adventureguide.AdventureGuideManager;
@@ -78,7 +79,18 @@ public final class ProfileSessionLoader {
         time("ProfileSessionLoader.loadBackground.GuildRepository.loadForPlayer", () -> GuildRepository.loadForPlayer(playerUuid, safeName));
         time("ProfileSessionLoader.loadBackground.QuestManager.preload", () -> QuestManager.preload(profileId, safeName));
         time("ProfileSessionLoader.loadBackground.AdventureGuideManager.preload", () -> AdventureGuideManager.preload(profileId));
-        time("ProfileSessionLoader.loadBackground.TrueCaughtDexManager.load", TrueCaughtDexManager::load);
+        time("ProfileSessionLoader.loadBackground.BadgeSqlRepository.preload", () -> com.champutils.badge.BadgeSqlRepository.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.AdventurerGuildManager.preload", () -> com.champutils.adventurer.AdventurerGuildManager.preload(profileId, safeName));
+        time("ProfileSessionLoader.loadBackground.TrueCaughtDexManager.preload", () -> TrueCaughtDexManager.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.CatchStreakManager.preload", () -> com.champutils.dex.CatchStreakManager.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.DexRewardClaimData.preload", () -> com.champutils.dex.DexRewardClaimData.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.ExpeditionManager.preload", () -> com.champutils.expeditions.ExpeditionManager.preload(profileId));
+        time("ProfileSessionLoader.loadBackground.ScoreboardPreferenceManager.preload", () -> com.champutils.scoreboard.ScoreboardPreferenceManager.preload(playerUuid));
+        time("ProfileSessionLoader.loadBackground.ProfessionNotificationSettings.preload", () -> com.champutils.profession.ProfessionNotificationSettings.preload(playerUuid, safeName));
+        time("ProfileSessionLoader.loadBackground.HostileToggleManager.preload", () -> com.champutils.survival.HostileToggleManager.preload(playerUuid));
+        time("ProfileSessionLoader.loadBackground.SecretManager.preload", () -> com.champutils.secret.SecretManager.preload(playerUuid));
+        time("ProfileSessionLoader.loadBackground.LevelCapCommand.preload", () -> com.champutils.commands.LevelCapCommand.preload(playerUuid));
+        time("ProfileSessionLoader.loadBackground.WildSpawnCapCommand.preload", () -> com.champutils.commands.WildSpawnCapCommand.preload(profileId));
 
         final int[] rp = new int[] { 300 };
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.getRp", () -> rp[0] = PlayerDataManager.getRp(playerUuid, safeName));
@@ -120,8 +132,15 @@ public final class ProfileSessionLoader {
         runDelayed(player, playerUuid, profileId, 15, "ProfileSessionLoader.delayed.ModerationManager.handleJoin", () -> ModerationManager.handleJoin(player));
         runDelayed(player, playerUuid, profileId, 17, "ProfileSessionLoader.delayed.DailyLoginManager.handleJoin", () -> DailyLoginManager.handleJoin(player));
         runDelayedOffThread(player, playerUuid, profileId, 19, "ProfileSessionLoader.delayed.EconomyManager.ensureProfile", () -> EconomyManager.ensureProfile(profileId, playerName));
+        runDelayed(player, playerUuid, profileId, 20, "ProfileSessionLoader.delayed.BackManager.handleProfileReady", () -> com.champutils.teleport.BackManager.handleProfileReady(player));
         runDelayed(player, playerUuid, profileId, 21, "ProfileSessionLoader.delayed.HomeCommand.handleProfileReady", () -> HomeCommand.handleProfileReady(player));
-        runDelayed(player, playerUuid, profileId, 23, "ProfileSessionLoader.delayed.TpaCommand.handleJoin", () -> com.champutils.commands.TpaCommand.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 23, "ProfileSessionLoader.delayed.TerritoryTeleportUtil.handleProfileReady", () -> com.champutils.territory.TerritoryTeleportUtil.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 25, "ProfileSessionLoader.delayed.LandClaimTeleportUtil.handleProfileReady", () -> com.champutils.claims.LandClaimTeleportUtil.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 27, "ProfileSessionLoader.delayed.IslanderMineTransfer.handleProfileReady", () -> com.champutils.commands.IslanderMineCommand.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 29, "ProfileSessionLoader.delayed.GuildBossTransfer.handleProfileReady", () -> com.champutils.guild.GuildBossManager.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 31, "ProfileSessionLoader.delayed.BattleTowerTransfer.handleProfileReady", () -> com.champutils.adventurer.AdventurerGuildManager.handleProfileReady(player));
+        runDelayed(player, playerUuid, profileId, 33, "ProfileSessionLoader.delayed.TpaCommand.handleJoin", () -> com.champutils.commands.TpaCommand.handleJoin(player));
+        runDelayed(player, playerUuid, profileId, 35, "ProfileSessionLoader.delayed.LevelCapCommand.applyStoredCap", () -> com.champutils.commands.LevelCapCommand.applyStoredCap(player));
     }
 
     private static void runDelayed(ServerPlayer player, UUID playerUuid, UUID profileId, long delayTicks, String label, Runnable action) {
@@ -142,10 +161,14 @@ public final class ProfileSessionLoader {
         long delayMs = Math.max(1L, delayTicks) * 50L;
         java.util.concurrent.CompletableFuture
                 .runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS))
-                .thenRunAsync(() -> {
+                .thenRun(() -> {
                     UUID active = PlayerProfileManager.activeProfileId(playerUuid);
                     if (profileId != null && active != null && !profileId.equals(active)) return;
-                    time(label, action);
+                    DatabaseManager.executeAsync(label, connection -> {
+                        UUID current = PlayerProfileManager.activeProfileId(playerUuid);
+                        if (profileId != null && current != null && !profileId.equals(current)) return;
+                        time(label, action);
+                    });
                 });
     }
 
@@ -164,5 +187,6 @@ public final class ProfileSessionLoader {
         QuestManager.unloadPlayer(player);
         PartyManager.handleDisconnect(player);
         DailyLoginManager.handleDisconnect(player);
+        com.champutils.expeditions.ExpeditionManager.unload(PlayerProfileManager.activeProfileId(player));
     }
 }

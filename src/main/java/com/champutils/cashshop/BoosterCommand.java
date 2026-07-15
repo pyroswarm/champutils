@@ -89,12 +89,14 @@ public final class BoosterCommand {
                                         .executes(ctx -> {
                                             String id = StringArgumentType.getString(ctx, "id");
                                             ServerPlayer player = ctx.getSource().getPlayer();
-                                            boolean ok = CashShopBoostItemManager.activateFromAdmin(ctx.getSource().getServer(), player, id);
-                                            if (!ok) {
-                                                ctx.getSource().sendFailure(Component.literal("Could not activate booster. It may be unknown or already active."));
-                                                return 0;
-                                            }
-                                            ctx.getSource().sendSuccess(() -> Component.literal("Activated booster " + id + "."), true);
+                                            CashShopBoostItemManager.activateFromAdmin(ctx.getSource().getServer(), player, id)
+                                                    .whenComplete((ok, error) -> ctx.getSource().getServer().execute(() -> {
+                                                        if (error != null || !Boolean.TRUE.equals(ok)) {
+                                                            ctx.getSource().sendFailure(Component.literal("Could not activate booster. It may be unknown or already active."));
+                                                        } else {
+                                                            ctx.getSource().sendSuccess(() -> Component.literal("Activated booster " + id + "."), true);
+                                                        }
+                                                    }));
                                             return 1;
                                         })))
                         .then(Commands.literal("stop")

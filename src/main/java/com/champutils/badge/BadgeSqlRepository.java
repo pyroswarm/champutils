@@ -39,6 +39,21 @@ public final class BadgeSqlRepository {
         DatabaseManager.executeAsync("ensure badge sql schema", BadgeSqlRepository::ensureSchema);
     }
 
+    /** Loads the authoritative badge snapshot while profile background loading is already on a database worker. */
+    public static void preload(UUID profileId) {
+        if (profileId == null || !DatabaseManager.isEnabled()) return;
+        if (!Thread.currentThread().getName().startsWith("ChampUtils-Database-")) {
+            warmProfileAsync(profileId);
+            return;
+        }
+        try {
+            Set<BadgeType> badges = loadBadges(DatabaseManager.getConnection(), profileId);
+            BadgeManager.acceptSqlSnapshot(profileId, badges);
+        } catch (Exception error) {
+            System.err.println("[ChampUtils] Could not preload profile badges for " + profileId + ": " + error.getMessage());
+        }
+    }
+
     public static void warmPlayerAsync(ServerPlayer player) {
         if (player == null) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
@@ -159,7 +174,6 @@ public final class BadgeSqlRepository {
                     "if not exists (select 1 from pg_constraint where conname = 'profile_badge_unlocks_pkey') then " +
                     "alter table profile_badge_unlocks add constraint profile_badge_unlocks_pkey primary key (profile_id, unlock_type, unlock_key); " +
                     "end if; end $$");
-            statement.executeUpdate("create unique index if not exists profile_badge_unlocks_profile_type_key_uidx on profile_badge_unlocks(profile_id, unlock_type, unlock_key)");
             statement.executeUpdate("create index if not exists idx_profile_badge_unlocks_profile_type on profile_badge_unlocks(profile_id, unlock_type)");
         }
         schemaEnsured = true;

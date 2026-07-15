@@ -4,7 +4,6 @@ import com.champutils.badge.BadgeType;
 import com.champutils.gym.GymNpcPartyBuilder;
 import com.champutils.guild.GuildBossManager;
 import com.champutils.gym.GymRegistry;
-import com.champutils.worldevent.WorldEventManager;
 import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleAIDifficultyManager;
@@ -42,7 +41,6 @@ public final class ChampTrainerInteractionListener {
             BattleAIDifficultyManager.prepareNpc(npc);
 
             try {
-                WorldEventManager.ActiveEvent active = WorldEventManager.getByNpc(npc.getUUID());
                 BadgeType badge = GymRegistry.getBadgeForNpc(npc.getUUID());
 
                 boolean roaming = RoamingTrainerManager.isRoamingTrainer(npc.getUUID());
@@ -50,7 +48,7 @@ public final class ChampTrainerInteractionListener {
                 boolean worldBoss = GuildBossManager.isActiveWorldBossNpc(npc.getUUID());
                 boolean aiTestGym = npc.getTags().contains(AITestGymLeaderBuilder.TAG);
 
-                if (active == null && badge == null && !roaming && !guildBoss && !worldBoss && !aiTestGym) {
+                if (badge == null && !roaming && !guildBoss && !worldBoss && !aiTestGym) {
                     return InteractionResult.PASS;
                 }
 
@@ -136,21 +134,6 @@ public final class ChampTrainerInteractionListener {
                         RoamingTrainerManager.releaseChallenge(npc.getUUID(), serverPlayer.getUUID());
                         throw battleStartError;
                     }
-                    return InteractionResult.SUCCESS;
-                }
-
-                if (active != null) {
-                    if (!WorldEventManager.prepareBattle(serverPlayer, npc)) {
-                        return InteractionResult.SUCCESS;
-                    }
-                    PluginTrainerBattleStarter.startOrMessage(
-                            serverPlayer,
-                            npc,
-                            BattleContextManager.BattleType.WORLD_BOSS,
-                            "world_event",
-                            null,
-                            Component.literal("§cThat event battle could not start. Try again in a few seconds.")
-                    );
                     return InteractionResult.SUCCESS;
                 }
 

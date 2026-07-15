@@ -257,6 +257,7 @@ public class CobblemonBattleHandler {
 
                 recordDefeatedTypeQuestProgress(e);
                 awardWildDefeatBattleXp(e);
+                com.champutils.cosmetic.BattleTitleProgress.onPokemonFainted(e);
 
             } catch (Exception ignored) {
             }
@@ -284,6 +285,11 @@ public class CobblemonBattleHandler {
                 int xp = Math.max(1, defeatedLevel);
                 ProfessionManager.addXp(player, ProfessionType.BATTLING, xp);
                 ProfessionSubLevelManager.addPokemonTypeXp(player, findPokemonTypes(event), xp);
+                Object defeated = invokeNoArg(event.getKilled(), "getEffectedPokemon");
+                if (defeated == null) defeated = invokeNoArg(event.getKilled(), "getOriginalPokemon");
+                Object species = invokeNoArg(defeated, "getSpecies");
+                Object speciesName = invokeNoArg(species, "getName");
+                if (speciesName != null) com.champutils.secret.SecretManager.handlePokemonKill(player, String.valueOf(speciesName));
             }
         } catch (Throwable ignored) {
         }

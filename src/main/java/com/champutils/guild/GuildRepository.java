@@ -544,6 +544,23 @@ public final class GuildRepository {
         });
     }
 
+    public static java.util.concurrent.CompletableFuture<Boolean> isGuildMemberAsync(UUID guildId, UUID playerUuid) {
+        if (guildId == null || playerUuid == null || !DatabaseManager.isEnabled()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
+        return DatabaseManager.supplyAsync("check guild member " + playerUuid, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "select 1 from guild_members where guild_id = ? and player_uuid = ? limit 1"
+            )) {
+                statement.setObject(1, guildId);
+                statement.setObject(2, playerUuid);
+                try (ResultSet rs = statement.executeQuery()) {
+                    return rs.next();
+                }
+            }
+        });
+    }
+
     public static void kick(UUID actorUuid, UUID targetUuid, String targetName, Callback callback) {
         GuildSnapshot actorGuild = cachedGuild(actorUuid);
         if (actorGuild == null) {
@@ -1181,7 +1198,6 @@ public final class GuildRepository {
                     "delete from guild_create_cooldowns a using guild_create_cooldowns b " +
                             "where a.ctid < b.ctid and a.player_uuid = b.player_uuid"
             );
-            statement.executeUpdate("create unique index if not exists guild_create_cooldowns_player_uuid_unique on guild_create_cooldowns (player_uuid)");
             statement.executeUpdate("alter table guild_create_cooldowns alter column player_uuid set not null");
             validateRequiredColumns(connection, "guild_create_cooldowns", "player_uuid", "disbanded_at");
         }

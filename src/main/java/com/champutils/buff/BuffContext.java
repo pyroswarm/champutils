@@ -16,7 +16,6 @@ public final class BuffContext {
     public enum Source {
         TRUE_WILD_CATCH,
         PROFESSION_XP,
-        WORLD_EVENT,
         NPC_BATTLE,
         GUILD_ACTIVITY,
         CRATE,
@@ -67,7 +66,6 @@ public final class BuffContext {
         if (type.isCatchBuff()) return allowsPokemonCatchBuffs();
         if (type.isProfessionXp()) return allowsProfessionXpBuffs();
         if (type == BuffType.POKEMON_XP) return source == Source.PROFESSION_XP || source == Source.NPC_BATTLE || source == Source.UNKNOWN;
-        if (type == BuffType.WORLD_EVENT_REWARDS) return source == Source.WORLD_EVENT;
         if (type == BuffType.ADVENTURER_MARKS) return source == Source.GUILD_ACTIVITY;
         return false;
     }

@@ -18,20 +18,6 @@ public final class GuildXpManager {
         awardPlayer(winner, ranked ? "ranked_win" : "casual_win", amount, true);
     }
 
-    public static void awardWorldEvent(List<ServerPlayer> winners, String tier, String eventId) {
-        if (winners == null || winners.isEmpty()) return;
-        int amount = GuildConfig.worldEventXp(tier);
-        if (amount <= 0) return;
-
-        Set<UUID> rewardedPlayers = new HashSet<>();
-        for (ServerPlayer winner : winners) {
-            if (winner == null || !rewardedPlayers.add(winner.getUUID())) continue;
-            String cleanTier = tier == null || tier.isBlank() ? "d" : tier.trim().toLowerCase(java.util.Locale.ROOT);
-            String cleanEvent = eventId == null || eventId.isBlank() ? "unknown" : eventId.trim().toLowerCase(java.util.Locale.ROOT);
-            awardPlayer(winner, "world_event_" + cleanTier + ":" + cleanEvent, amount, true);
-        }
-    }
-
     public static void awardPlayer(ServerPlayer player, String source, long amount, boolean notify) {
         if (player == null || amount <= 0) return;
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());

@@ -3,6 +3,11 @@ package com.champutils.guild;
 import com.champutils.teleport.SafeTeleportManager;
 import com.champutils.crate.CrateCreditManager;
 import com.champutils.database.BossAttemptDatabaseRepository;
+import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.network.NetworkEventManager;
+import com.champutils.network.NetworkServerConfig;
+import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileNetworkTransferFlow;
 import com.champutils.permissions.LuckPermsHook;
 import com.champutils.trainer.ChampTrainerSpawner;
 import com.champutils.time.DailyResetManager;
@@ -38,6 +43,8 @@ public final class GuildBossManager {
 
     private static final String WORLD_BOSS_ENTITY_TAG = "champutils_world_boss";
     private static final String GUILD_BOSS_ENTITY_TAG = "champutils_guild_boss";
+    private static final String PENDING_BOSS_TRANSFER_KEY = "pending_boss_transfer";
+    private static final long PENDING_BOSS_TRANSFER_TTL_MS = 120_000L;
     private static boolean startupBossCleanupDone = false;
 
     /** World boss target cadence: about once every 12 hours. */
@@ -60,19 +67,24 @@ public final class GuildBossManager {
         }
         if (server.getTickCount() % 20 != 0) return;
         long now = System.currentTimeMillis();
-        cleanupOrphanedWorldBossNpcs(server, now);
-        long currentResetKey = DailyResetManager.currentResetKeyMillis();
-        BossAttemptDatabaseRepository.pruneBeforeResetAsync(currentResetKey);
-        normalizeWorldBossCadence();
-        if (nextWorldBossAtMillis <= 0L) initializeNextWorldBossSchedule(now);
-        if (activeWorldBoss == null && BossConfig.DATA.worldBoss.enabled && now >= nextWorldBossAtMillis) {
-            spawnWorldBoss(server);
+
+        // Guild bosses live on whichever backend owns that guild territory, so every survival
+        // backend must tick its local guild bosses. The global world boss remains single-hosted.
+        if (isWorldBossHost()) {
+            cleanupOrphanedWorldBossNpcs(server, now);
+            long currentResetKey = DailyResetManager.currentResetKeyMillis();
+            BossAttemptDatabaseRepository.pruneBeforeResetAsync(currentResetKey);
+            normalizeWorldBossCadence();
+            if (nextWorldBossAtMillis <= 0L) initializeNextWorldBossSchedule(now);
+            if (activeWorldBoss == null && BossConfig.DATA.worldBoss.enabled && now >= nextWorldBossAtMillis) {
+                spawnWorldBoss(server);
+            }
+            if (activeWorldBoss != null && now >= activeWorldBoss.despawnAtMillis) finishWorldBoss(server, activeWorldBoss);
         }
 
         for (ActiveGuildBoss boss : new ArrayList<>(ACTIVE_GUILD.values())) {
             if (now >= boss.despawnAtMillis) finishGuildBoss(server, boss);
         }
-        if (activeWorldBoss != null && now >= activeWorldBoss.despawnAtMillis) finishWorldBoss(server, activeWorldBoss);
     }
 
     public static void spawnBoss(ServerPlayer player) {
@@ -82,6 +94,10 @@ public final class GuildBossManager {
         if (!GuildRepository.canManageGuildTerritory(guild.role)) { msg(player, "Only guild leaders and officers can spawn the daily guild boss.", ChatFormatting.RED); return; }
         TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
         if (territory == null || !territory.isReady()) { msg(player, "Your guild territory is not ready yet.", ChatFormatting.RED); return; }
+        if (!isCurrentServer(territory.serverId)) {
+            routeBossAction(player, territory.serverId, "GUILD_SPAWN");
+            return;
+        }
         long now = System.currentTimeMillis();
         long nextEligibleReset = NEXT_GUILD_RESET_ELIGIBLE_AT.getOrDefault(guild.id, 0L);
         long currentReset = DailyResetManager.currentResetKeyMillis();
@@ -209,7 +225,7 @@ public final class GuildBossManager {
     }
 
     public static boolean forceSpawnWorldBoss(MinecraftServer server) {
-        if (server == null) return false;
+        if (server == null || !isWorldBossHost()) return false;
         if (activeWorldBoss != null) return false;
         return spawnWorldBoss(server);
     }
@@ -223,7 +239,7 @@ public final class GuildBossManager {
      * battle grace and active timers because it is an admin-only recovery command.
      */
     public static int forceClearWorldBoss(MinecraftServer server) {
-        if (server == null) return 0;
+        if (server == null || !isWorldBossHost()) return 0;
         int removed = 0;
         ActiveWorldBoss boss = activeWorldBoss;
         activeWorldBoss = null;
@@ -245,6 +261,10 @@ public final class GuildBossManager {
 
     public static boolean teleportToWorldBoss(ServerPlayer player) {
         if (player == null) return false;
+        String host = worldBossHost();
+        if (!isCurrentServer(host)) {
+            return routeBossAction(player, host, "WORLD_TP");
+        }
         ActiveWorldBoss boss = activeWorldBoss;
         if (boss == null || boss.spawns == null || boss.spawns.isEmpty()) {
             msg(player, "There is no active world boss right now.", ChatFormatting.RED);
@@ -292,11 +312,21 @@ public final class GuildBossManager {
     public static void claimRewards(ServerPlayer player) {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
         if (guild == null) { msg(player, "You are not in a guild.", ChatFormatting.RED); return; }
+        TerritoryRepository.Territory territory = TerritoryRepository.cachedGuildForPlayer(player);
+        if (territory != null && !isCurrentServer(territory.serverId)) {
+            routeBossAction(player, territory.serverId, "GUILD_CLAIM");
+            return;
+        }
         RewardDrop drop = GUILD_REWARDS.get(guild.id);
         claim(player, drop, "guild boss");
     }
 
     public static void claimWorldRewards(ServerPlayer player) {
+        String host = worldBossHost();
+        if (!isCurrentServer(host)) {
+            routeBossAction(player, host, "WORLD_CLAIM");
+            return;
+        }
         RewardDrop newest = WORLD_REWARDS.values().stream().max(Comparator.comparingLong(d -> d.createdAtMillis)).orElse(null);
         claim(player, newest, "world boss");
     }
@@ -884,24 +914,16 @@ public final class GuildBossManager {
     }
 
     private static void broadcastGuild(MinecraftServer server, UUID guildId, String text, ChatFormatting color) {
-        if (server == null || guildId == null) return;
-
+        if (guildId == null) return;
         Component message = Component.literal(text).withStyle(color);
-        Set<UUID> delivered = new HashSet<>();
-
-        // Guild boss notifications must never use PlayerList#broadcastSystemMessage.
-        // Send only to online members of the guild that owns this active boss.
-        for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(server.getPlayerList().getPlayers(), guildId)) {
-            if (member == null || member.playerUuid == null) continue;
-
-            ServerPlayer player = server.getPlayerList().getPlayer(member.playerUuid);
-            if (player == null) continue;
-
-            player.sendSystemMessage(message);
-            delivered.add(player.getUUID());
+        if (server != null) {
+            for (GuildRepository.MemberSnapshot member : GuildRepository.cachedOnlineMembers(server.getPlayerList().getPlayers(), guildId)) {
+                if (member == null || member.playerUuid == null) continue;
+                ServerPlayer player = server.getPlayerList().getPlayer(member.playerUuid);
+                if (player != null) player.sendSystemMessage(message);
+            }
         }
-
-        // Guild boss lifecycle messages are intentionally guild-only.
+        NetworkEventManager.publishGuildNotice(guildId, legacyColor(color) + text);
     }
 
     private static boolean isBossNotificationAdmin(ServerPlayer player) {
@@ -911,8 +933,73 @@ public final class GuildBossManager {
     }
 
     private static void broadcastAll(MinecraftServer server, String text, ChatFormatting color) {
-        if (server == null) return;
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) msg(p, text, color);
+        if (server != null) for (ServerPlayer p : server.getPlayerList().getPlayers()) msg(p, text, color);
+        NetworkEventManager.publishBroadcastText(legacyColor(color) + text);
+    }
+
+    public static void handleProfileReady(ServerPlayer player) {
+        if (player == null) return;
+        SharedJsonStateRepository.loadPlayerAsync(player.getUUID(), PENDING_BOSS_TRANSFER_KEY, PendingBossTransfer.class, null)
+                .thenAccept(pending -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player) || pending == null) return;
+                    if (pending.expiresAtMillis < System.currentTimeMillis()) { clearPendingBossTransfer(player.getUUID()); return; }
+                    if (pending.targetServerId == null || !pending.targetServerId.equalsIgnoreCase(NetworkServerConfig.serverId())) return;
+                    clearPendingBossTransfer(player.getUUID());
+                    switch (pending.action == null ? "" : pending.action) {
+                        case "GUILD_SPAWN" -> spawnBoss(player);
+                        case "GUILD_CLAIM" -> claimRewards(player);
+                        case "WORLD_TP" -> teleportToWorldBoss(player);
+                        case "WORLD_CLAIM" -> claimWorldRewards(player);
+                        default -> { }
+                    }
+                }));
+    }
+
+    private static boolean routeBossAction(ServerPlayer player, String targetServerId, String action) {
+        if (player == null || targetServerId == null || targetServerId.isBlank()) return false;
+        PlayerProfileManager.ProfileRecord active = PlayerProfileManager.active(player);
+        if (active == null) return false;
+        PendingBossTransfer pending = new PendingBossTransfer();
+        pending.targetServerId = targetServerId.trim();
+        pending.action = action;
+        pending.expiresAtMillis = System.currentTimeMillis() + PENDING_BOSS_TRANSFER_TTL_MS;
+        msg(player, "Sending you to the server hosting that boss activity.", ChatFormatting.YELLOW);
+        SharedJsonStateRepository.savePlayerAsync(player.getUUID(), PENDING_BOSS_TRANSFER_KEY, pending).whenComplete((ignored, error) -> player.server.execute(() -> {
+            if (!SafeTeleportManager.isLive(player)) return;
+            if (error != null) { msg(player, "Could not prepare the boss transfer.", ChatFormatting.RED); return; }
+            ProfileNetworkTransferFlow.issueTransferFromLobby(player, active, pending.targetServerId, message -> {
+                if (message != null && message.startsWith("Could not")) {
+                    clearPendingBossTransfer(player.getUUID());
+                    msg(player, message, ChatFormatting.RED);
+                }
+            });
+        }));
+        return true;
+    }
+
+    private static void clearPendingBossTransfer(UUID playerUuid) {
+        PendingBossTransfer cleared = new PendingBossTransfer();
+        SharedJsonStateRepository.savePlayerAsync(playerUuid, PENDING_BOSS_TRANSFER_KEY, cleared);
+    }
+
+    private static String worldBossHost() {
+        String configured = NetworkServerConfig.get().worldBossServerId;
+        if (configured == null || configured.isBlank()) configured = NetworkServerConfig.get().survivalServerId;
+        return configured == null ? NetworkServerConfig.serverId() : configured.trim();
+    }
+
+    private static boolean isWorldBossHost() { return isCurrentServer(worldBossHost()); }
+    public static boolean isWorldBossHostServer() { return isWorldBossHost(); }
+    public static String worldBossHostServerId() { return worldBossHost(); }
+    private static boolean isCurrentServer(String serverId) { return serverId == null || serverId.isBlank() || serverId.equalsIgnoreCase(NetworkServerConfig.serverId()); }
+
+    private static String legacyColor(ChatFormatting color) {
+        if (color == ChatFormatting.RED) return "§c";
+        if (color == ChatFormatting.GREEN) return "§a";
+        if (color == ChatFormatting.GOLD) return "§6";
+        if (color == ChatFormatting.LIGHT_PURPLE) return "§d";
+        if (color == ChatFormatting.YELLOW) return "§e";
+        return "§f";
     }
 
     private static void msg(ServerPlayer p, String text, ChatFormatting color) { if (p != null) p.sendSystemMessage(Component.literal(text).withStyle(color)); }
@@ -929,4 +1016,5 @@ public final class GuildBossManager {
     private static final class ActiveWorldBoss { UUID id; String species; String theme; String displayName; List<BossConfig.BossPokemon> team = new ArrayList<>(); long despawnAtMillis; long battleGraceUntilMillis; List<BossSpawn> spawns = new ArrayList<>(); Set<UUID> attemptedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> defeatedPlayers = ConcurrentHashMap.newKeySet(); Set<UUID> battlingPlayers = ConcurrentHashMap.newKeySet(); }
     private static final class BossSpawn { String dimension; double x; double y; double z; UUID npcUuid; BossSpawn(String dimension, double x, double y, double z, UUID npcUuid) { this.dimension = dimension; this.x = x; this.y = y; this.z = z; this.npcUuid = npcUuid; } }
     private static final class RewardDrop { UUID id; String crateId; int credits; long createdAtMillis; long expiresAtMillis; Set<UUID> claimed; }
+    public static final class PendingBossTransfer { public String targetServerId = ""; public String action = ""; public long expiresAtMillis = 0L; }
 }

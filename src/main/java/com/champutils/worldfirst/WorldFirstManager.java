@@ -52,6 +52,24 @@ public final class WorldFirstManager {
         // World first claims are SQL-backed when the database is enabled. Definitions live in config/champutils/world_firsts.json.
     }
 
+    public static void refreshClaimsAsync() {
+        if (!com.champutils.database.DatabaseManager.isEnabled()) return;
+        com.champutils.database.DatabaseManager.supplyAsync(
+                "refresh world first claims",
+                connection -> WorldFirstDatabaseRepository.loadClaims()
+        ).whenComplete((claims, error) -> {
+            if (error != null) {
+                error.printStackTrace();
+                return;
+            }
+            if (claims == null) return;
+            synchronized (WorldFirstManager.class) {
+                state.claims.clear();
+                state.claims.putAll(claims);
+            }
+        });
+    }
+
     private static synchronized void loadDefinitions() {
         try {
             FILE.getParentFile().mkdirs();
@@ -207,6 +225,10 @@ public final class WorldFirstManager {
         claim.claimedAt = Instant.now().toString();
         state.claims.put(id, claim);
         save();
+        com.champutils.network.NetworkEventManager.publishCacheInvalidation(
+                "WORLD_FIRSTS",
+                new java.util.UUID(0L, 0L)
+        );
         TitleManager.unlock(player, def.titleId, def.titleDisplay);
         com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                 player.server,
@@ -221,8 +243,34 @@ public final class WorldFirstManager {
     }
 
     private static void grantOneTimeReward(ServerPlayer player, WorldFirstDef def) {
-        player.giveExperiencePoints(Math.max(0, def.xpReward));
-        player.sendSystemMessage(Component.literal("World First reward claimed: " + def.rewardText).withStyle(ChatFormatting.GREEN));
+        int xp = Math.max(0, def.xpReward);
+        ProfessionType avenue = rewardProfession(def);
+        if (xp > 0) com.champutils.profession.ProfessionManager.addRewardXp(player, avenue, xp);
+        player.sendSystemMessage(Component.literal("World First reward claimed: " + def.rewardText + " (" + prettyProfession(avenue) + " XP)").withStyle(ChatFormatting.GREEN));
+    }
+
+    private static ProfessionType rewardProfession(WorldFirstDef def) {
+        if (def == null) return ProfessionType.BATTLING;
+        TitleConfig.TitleDef title = def.titleId == null ? null : TitleConfig.get(def.titleId);
+        String text = String.join(" ",
+                def.id == null ? "" : def.id,
+                def.name == null ? "" : def.name,
+                def.trigger == null ? "" : def.trigger,
+                title == null || title.category == null ? "" : title.category,
+                title == null || title.description == null ? "" : title.description
+        ).toLowerCase(Locale.ROOT);
+
+        if (text.contains("mining") || text.contains("mine_") || text.contains("ore")) return ProfessionType.MINING;
+        if (text.contains("forestry") || text.contains("woodcut") || text.contains("log") || text.contains("tree")) return ProfessionType.FORESTRY;
+        if (text.contains("farming") || text.contains("farm_") || text.contains("crop") || text.contains("berry")) return ProfessionType.FARMING;
+        if (text.contains("breeding") || text.contains("breed") || text.contains("hatch") || text.contains("egg")) return ProfessionType.BREEDING;
+        // Battles, catches, gyms, towers, profiles, exploration, and uncategorized rewards use Battling XP.
+        return ProfessionType.BATTLING;
+    }
+
+    private static String prettyProfession(ProfessionType type) {
+        String lower = (type == null ? ProfessionType.BATTLING : type).name().toLowerCase(Locale.ROOT);
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
 
     private static String speciesName(Object pokemon) {
@@ -274,6 +322,11 @@ public final class WorldFirstManager {
         add(list,"first_breeding_hatch","First Bred Pokémon Hatched","&d[Egg Pioneer]","exclusive breeding title and 500 XP",500);
         for (int floor=10; floor<=100; floor+=10) add(list,"first_battle_tower_"+floor,"First Battle Tower Floor "+floor,"&6[Tower First "+floor+"]","exclusive scaling Battle Tower title and "+(floor*20)+" XP",floor*20);
         add(list,"first_adventurer_request_win","First Adventurer Request Win","&a[Guild Errand Runner]","exclusive Adventurer title and 500 XP",500);
+        add(list,"first_profile_playtime_10_hours","First Profile to 10 Hours","&a[Early Regular]","exclusive profile-time world-first title and 500 XP",500);
+        add(list,"first_profile_playtime_100_hours","First Profile to 100 Hours","&b[Centurion of Time]","exclusive profile-time world-first title and 1500 XP",1500);
+        add(list,"first_profile_playtime_1000_hours","First Profile to 1,000 Hours","&d[Timeless Vanguard]","exclusive profile-time world-first title and 5000 XP",5000);
+        add(list,"first_profile_playtime_10000_hours","First Profile to 10,000 Hours","&6[The Eternal]","the ultimate profile-time world-first title with extraordinary bonuses and 25000 XP",25000);
+        for (int milestone : new int[]{1,5,10,25,50,100}) add(list,"first_"+milestone+"_secrets","First to Discover "+milestone+" Secret"+(milestone==1?"":"s"),"&5[Secret Pioneer "+milestone+"]","exclusive secret world-first title",Math.max(250,milestone*50));
 
         for (String species : LEGENDARIES) add(list, "first_legendary_" + species, "First " + prettySpecies(species) + " Catch", "&6[First " + prettySpecies(species) + "]", "species world-first title and 1000 XP", 1000);
         for (String species : MYTHICALS) add(list, "first_mythical_" + species, "First " + prettySpecies(species) + " Catch", "&d[First " + prettySpecies(species) + "]", "species world-first title and 1000 XP", 1000);

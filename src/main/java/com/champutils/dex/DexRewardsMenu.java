@@ -55,7 +55,6 @@ public final class DexRewardsMenu {
                 int claimPercent = percent;
                 button.setCallback((i, c, t) -> {
                     DexRewardManager.claim(player, claimPercent);
-                    open(player);
                 });
             }
 

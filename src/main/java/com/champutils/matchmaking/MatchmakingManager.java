@@ -667,6 +667,16 @@ public class MatchmakingManager {
                 continue;
             }
 
+            // Last legality gate after both profiles are fully loaded and immediately before launch.
+            // This catches party edits made during transfer/loading or after accepting the match.
+            String p1Legality = TeamValidator.validate(p1, waiting.session.queueType());
+            String p2Legality = TeamValidator.validate(p2, waiting.session.queueType());
+            if (p1Legality != null || p2Legality != null) {
+                cancelGlobalWaitingMatch(waiting, p1, p2, p1Legality, p2Legality);
+                iterator.remove();
+                continue;
+            }
+
             if (!STARTED_GLOBAL_SESSIONS.add(waiting.session.id())) {
                 iterator.remove();
                 continue;
@@ -682,6 +692,36 @@ public class MatchmakingManager {
             iterator.remove();
             beginAcceptedMatch(p1, p2, waiting.session.queueType(), new ArrayList<>(), waiting.arena);
         }
+    }
+
+    private static void cancelGlobalWaitingMatch(
+            GlobalWaitingMatch waiting,
+            ServerPlayer p1,
+            ServerPlayer p2,
+            String p1Legality,
+            String p2Legality
+    ) {
+        if (SafeTeleportManager.isLive(p1)) {
+            p1.sendSystemMessage(Component.literal(p1Legality == null
+                    ? "§cMatch canceled because your opponent's party is no longer legal."
+                    : "§cMatch canceled because your party is no longer legal: " + p1Legality));
+            p1.setInvulnerable(false);
+            PENDING_MATCH.remove(p1.getUUID());
+            returnPlayerAfterQueuedPvp(p1);
+        }
+        if (SafeTeleportManager.isLive(p2)) {
+            p2.sendSystemMessage(Component.literal(p2Legality == null
+                    ? "§cMatch canceled because your opponent's party is no longer legal."
+                    : "§cMatch canceled because your party is no longer legal: " + p2Legality));
+            p2.setInvulnerable(false);
+            PENDING_MATCH.remove(p2.getUUID());
+            returnPlayerAfterQueuedPvp(p2);
+        }
+        if (p1 != null) ArenaManager.releaseArena(p1);
+        else if (p2 != null) ArenaManager.releaseArena(p2);
+        REMOTE_ACCEPTANCE.remove(waiting.session.playerOneUuid());
+        REMOTE_ACCEPTANCE.remove(waiting.session.playerTwoUuid());
+        GlobalMatchmakingRepository.markExpired(waiting.session.id());
     }
 
     private static boolean isProfileReadyForGlobalBattle(ServerPlayer player) {
@@ -1129,6 +1169,21 @@ public class MatchmakingManager {
                         40,
                         () -> {
                             if (!canStartPreview(p1, p2)) {
+                                cancelPendingMatch(p1, p2);
+                                return;
+                            }
+
+                            String p1Legality = TeamValidator.validate(p1, type);
+                            String p2Legality = TeamValidator.validate(p2, type);
+                            if (p1Legality != null || p2Legality != null) {
+                                p1.sendSystemMessage(Component.literal(p1Legality == null
+                                        ? "§cMatch canceled because your opponent's party is no longer legal."
+                                        : "§cMatch canceled because your party is no longer legal: " + p1Legality));
+                                p2.sendSystemMessage(Component.literal(p2Legality == null
+                                        ? "§cMatch canceled because your opponent's party is no longer legal."
+                                        : "§cMatch canceled because your party is no longer legal: " + p2Legality));
+                                ArenaManager.returnPlayer(p1);
+                                ArenaManager.returnPlayer(p2);
                                 cancelPendingMatch(p1, p2);
                                 return;
                             }

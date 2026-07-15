@@ -32,6 +32,14 @@ public final class NetworkPlayerDirectory {
     public record OnlinePlayer(UUID playerUuid, String playerName, String serverId, int pingMs, String rankTag, String titleTag) {
     }
 
+    /**
+     * Network-wide identity used by commands that must target players on another backend or
+     * players who are currently offline. activeProfileId is nullable when the account has no
+     * selected profile.
+     */
+    public record PlayerIdentity(UUID playerUuid, String playerName, String serverId, UUID activeProfileId, String activeProfileMode, boolean online) {
+    }
+
     public static void ensureSchema(Connection connection) throws Exception {
         if (connection == null) return;
         try (Statement statement = connection.createStatement()) {
@@ -143,6 +151,80 @@ public final class NetworkPlayerDirectory {
     public static OnlinePlayer find(String name) {
         if (name == null || name.isBlank()) return null;
         return ONLINE_BY_NAME.get(name.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public static CompletableFuture<PlayerIdentity> resolveIdentityAsync(String name) {
+        if (name == null || name.isBlank() || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String clean = name.trim();
+        OnlinePlayer cached = find(clean);
+        return DatabaseManager.supplyAsync("resolve network player " + clean, connection -> {
+            ensureSchema(connection);
+
+            // Prefer a live network row so the destination backend is current.
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "select n.player_uuid::text, n.player_name, n.server_id, a.profile_id::text, pp.mode " +
+                            "from network_online_players n " +
+                            "left join player_active_profiles a on a.player_uuid = n.player_uuid " +
+                            "left join player_profiles pp on pp.id = a.profile_id " +
+                            "where lower(n.player_name) = lower(?) and n.expires_at > now() " +
+                            "order by n.last_seen desc limit 1"
+            )) {
+                statement.setString(1, clean);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        return new PlayerIdentity(
+                                UUID.fromString(rs.getString(1)),
+                                rs.getString(2),
+                                rs.getString(3),
+                                parseUuid(rs.getString(4)),
+                                rs.getString(5),
+                                true
+                        );
+                    }
+                }
+            }
+
+            // Fall back to the persistent account directory so guild/claim moderation also
+            // works for offline players.
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "select p.uuid::text, p.username, coalesce(p.last_server_id, ''), a.profile_id::text, pp.mode " +
+                            "from players p " +
+                            "left join player_active_profiles a on a.player_uuid = p.uuid " +
+                            "left join player_profiles pp on pp.id = a.profile_id " +
+                            "where lower(p.username) = lower(?) order by p.last_seen desc limit 1"
+            )) {
+                statement.setString(1, clean);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        return new PlayerIdentity(
+                                UUID.fromString(rs.getString(1)),
+                                rs.getString(2),
+                                rs.getString(3),
+                                parseUuid(rs.getString(4)),
+                                rs.getString(5),
+                                false
+                        );
+                    }
+                }
+            }
+
+            // The cache can briefly be newer than the players table during a first join.
+            if (cached != null) {
+                return new PlayerIdentity(cached.playerUuid(), cached.playerName(), cached.serverId(), null, null, true);
+            }
+            return null;
+        });
+    }
+
+    private static UUID parseUuid(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return UUID.fromString(value);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     public static List<OnlinePlayer> onlinePlayers() {

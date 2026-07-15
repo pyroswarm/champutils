@@ -1,6 +1,7 @@
 package com.champutils.profile;
 
 import com.champutils.database.SharedJsonStateRepository;
+import com.champutils.database.DatabaseManager;
 import com.champutils.database.PlayerDatabaseRepository;
 
 import com.google.gson.Gson;
@@ -16,6 +17,9 @@ import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 public class PlayerDataManager {
     private static final String STATE_KEY = "player_profile_stats";
@@ -53,6 +57,11 @@ public class PlayerDataManager {
          * This is incremented once per minute while the player is online.
          */
         public long playtimeSeconds = 0L;
+
+        /** Persisted profile battle-title counters. */
+        public long pokemonDefeats = 0L;
+        public long wildPokemonDefeats = 0L;
+        public int highestLevelGapVictory = 0;
     }
 
 
@@ -241,16 +250,20 @@ public class PlayerDataManager {
                     data
             );
 
-            SharedJsonStateRepository.saveProfile(
+            SharedJsonStateRepository.saveProfileAsync(
                     profileId,
                     STATE_KEY,
                     data
-            );
-
-            com.champutils.network.NetworkEventManager.publishCacheInvalidation(
-                    "PLAYER_DATA",
-                    profileId
-            );
+            ).whenComplete((ignored, error) -> {
+                if (error != null) {
+                    error.printStackTrace();
+                    return;
+                }
+                com.champutils.network.NetworkEventManager.publishCacheInvalidation(
+                        "PLAYER_DATA",
+                        profileId
+                );
+            });
 
         }catch(Exception e){
             e.printStackTrace();
@@ -374,8 +387,11 @@ public class PlayerDataManager {
         try(FileWriter w = new FileWriter(new File(profilesDir(), profileId.toString()+".json"))){
             GSON.toJson(data, w);
             PlayerDatabaseRepository.sync(data);
-            SharedJsonStateRepository.saveProfile(profileId, STATE_KEY, data);
-            com.champutils.network.NetworkEventManager.publishCacheInvalidation("PLAYER_DATA", profileId);
+            SharedJsonStateRepository.saveProfileAsync(profileId, STATE_KEY, data)
+                    .whenComplete((ignored, error) -> {
+                        if (error != null) error.printStackTrace();
+                        else com.champutils.network.NetworkEventManager.publishCacheInvalidation("PLAYER_DATA", profileId);
+                    });
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -414,77 +430,129 @@ public class PlayerDataManager {
 
 
     public static List<OfflinePlayerEntry> getAllProfilePlayers(){
-        List<OfflinePlayerEntry> players = new ArrayList<>();
+        Map<String, OfflinePlayerEntry> merged = new HashMap<>();
+
+        if (DatabaseManager.isEnabled()) {
+            try {
+                List<OfflinePlayerEntry> shared = DatabaseManager.supplyAsync(
+                        "load all network profile player data",
+                        connection -> {
+                            SharedJsonStateRepository.ensureSchema(connection);
+                            List<OfflinePlayerEntry> rows = new ArrayList<>();
+                            String seasonId = "season_" + Math.max(0, com.champutils.rank.SeasonManager.CURRENT_SEASON);
+                            try (var statement = connection.prepareStatement(
+                                    "select p.id::text as profile_id, coalesce(pl.username, '') as player_name, js.payload, " +
+                                            "rs.rp, rs.peak_rp, rs.wins, rs.losses, rs.streak, ps.playtime_seconds " +
+                                            "from player_profiles p " +
+                                            "left join players pl on pl.uuid = p.player_uuid " +
+                                            "left join profile_json_state js on js.profile_id = p.id and js.state_key = ? " +
+                                            "left join profile_ranked_stats rs on rs.profile_id = p.id and rs.season_id = ? " +
+                                            "left join profile_player_stats ps on ps.profile_id = p.id " +
+                                            "where p.deleted_at is null and coalesce(p.is_pending_delete, false) = false"
+                            )) {
+                                statement.setString(1, STATE_KEY);
+                                statement.setString(2, seasonId);
+                                try (var rs = statement.executeQuery()) {
+                                    while (rs.next()) {
+                                        String profileId = rs.getString("profile_id");
+                                        String playerName = rs.getString("player_name");
+                                        PlayerData data = null;
+                                        String payload = rs.getString("payload");
+                                        if (payload != null && !payload.isBlank()) {
+                                            data = GSON.fromJson(payload, PlayerData.class);
+                                        }
+                                        if (data == null) data = new PlayerData();
+                                        data.uuid = profileId;
+                                        if (playerName != null && !playerName.isBlank()) data.name = playerName;
+                                        Integer rankedRp = (Integer) rs.getObject("rp");
+                                        if (rankedRp != null) {
+                                            data.rp = Math.max(0, rankedRp);
+                                            data.peakRp = Math.max(data.rp, rs.getInt("peak_rp"));
+                                            data.rankedWins = Math.max(0, rs.getInt("wins"));
+                                            data.rankedLosses = Math.max(0, rs.getInt("losses"));
+                                            data.currentStreak = Math.max(0, rs.getInt("streak"));
+                                            data.bestStreak = Math.max(data.bestStreak, data.currentStreak);
+                                        }
+                                        Long playtime = (Long) rs.getObject("playtime_seconds");
+                                        if (playtime != null) data.playtimeSeconds = Math.max(data.playtimeSeconds, playtime);
+                                        sanitize(data, UUID.fromString(profileId), playerName);
+                                        rows.add(new OfflinePlayerEntry(profileId, data.name, data));
+                                    }
+                                }
+                            }
+                            return rows;
+                        }
+                ).get(8, TimeUnit.SECONDS);
+                for (OfflinePlayerEntry entry : shared) {
+                    if (entry != null && entry.uuid != null) merged.put(entry.uuid, entry);
+                }
+            } catch (Exception error) {
+                System.err.println("[ChampUtils] Failed to enumerate network profile data; using local mirrors.");
+                error.printStackTrace();
+            }
+        }
 
         File[] files = profilesDir().listFiles((d,n)-> n.endsWith(".json"));
-
-        if(files==null){
-            return players;
-        }
-
-        for(File f : files){
-            try(FileReader r = new FileReader(f)){
-                PlayerData d = GSON.fromJson(r, PlayerData.class);
-                if(d!=null){
-                    String profileId = f.getName().replace(".json", "");
-                    if(d.uuid==null || d.uuid.isBlank()){
-                        d.uuid = profileId;
-                    }
-                    players.add(new OfflinePlayerEntry(profileId, d.name, d));
+        if (files != null) {
+            for (File file : files) {
+                try (FileReader reader = new FileReader(file)) {
+                    PlayerData data = GSON.fromJson(reader, PlayerData.class);
+                    if (data == null) continue;
+                    String profileId = file.getName().replace(".json", "");
+                    if (data.uuid == null || data.uuid.isBlank()) data.uuid = profileId;
+                    merged.putIfAbsent(profileId, new OfflinePlayerEntry(profileId, data.name, data));
+                } catch (Exception ignored) {
                 }
-            }catch(Exception ignored){}
+            }
         }
 
-        return players;
+        return new ArrayList<>(merged.values());
     }
-
-
 
     public static Map<String,Integer> getAllRatings(){
-
-        Map<String,Integer> map=
-                new HashMap<>();
-
-        File[] files=
-                profilesDir().listFiles(
-                        (d,n)->
-                                n.endsWith(".json")
-                );
-
-        if(files==null){
-            return map;
+        Map<String,Integer> ratings = new HashMap<>();
+        for (OfflinePlayerEntry entry : getAllProfilePlayers()) {
+            if (entry == null || entry.data == null || entry.name == null) continue;
+            ratings.put(entry.name, entry.data.rp);
         }
-
-        for(
-                File f :
-                files
-        ){
-
-            try(
-                    FileReader r=
-                            new FileReader(f)
-            ){
-
-                PlayerData d=
-                        GSON.fromJson(
-                                r,
-                                PlayerData.class
-                        );
-
-                if(d!=null){
-
-                    map.put(
-                            d.name,
-                            d.rp
-                    );
-                }
-
-            }catch(Exception ignored){}
-        }
-
-        return map;
+        return ratings;
     }
 
+    public static void refreshOnlineProfileAsync(MinecraftServer server, UUID profileId) {
+        if (server == null || profileId == null) return;
+        invalidateSharedCache(profileId);
+        ServerPlayer target = null;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID active = PlayerProfileManager.activeProfileId(player);
+            if (profileId.equals(active)) {
+                target = player;
+                break;
+            }
+        }
+        if (target == null) return;
+        ServerPlayer player = target;
+        DatabaseManager.supplyAsync("refresh online profile player data " + profileId, connection -> {
+            SharedJsonStateRepository.ensureSchema(connection);
+            try (var statement = connection.prepareStatement(
+                    "select payload from profile_json_state where profile_id = ? and state_key = ?"
+            )) {
+                statement.setObject(1, profileId);
+                statement.setString(2, STATE_KEY);
+                try (var rs = statement.executeQuery()) {
+                    if (!rs.next()) return null;
+                    return GSON.fromJson(rs.getString(1), PlayerData.class);
+                }
+            }
+        }).whenComplete((data, error) -> {
+            if (error != null || data == null) return;
+            server.execute(() -> {
+                if (player.hasDisconnected() || !profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+                sanitize(data, profileId, player.getGameProfile().getName());
+                CACHE.put(profileId, data);
+                ProfileManager.setElo(player, data.rp);
+            });
+        });
+    }
 
 
     public static List<OfflinePlayerEntry> getAllPlayers(){

@@ -116,6 +116,15 @@ public final class TeleportConfig {
         return data.spawn;
     }
 
+    public static TeleportLocation getProfileFirstSpawn() {
+        return data.profileFirstSpawn;
+    }
+
+    public static void setProfileFirstSpawn(TeleportLocation spawn) {
+        data.profileFirstSpawn = spawn;
+        save();
+    }
+
     public static void setSpawn(TeleportLocation spawn) {
         data.spawn = spawn;
         save();
@@ -314,6 +323,7 @@ public final class TeleportConfig {
 
     private static final class Data {
         TeleportLocation spawn;
+        TeleportLocation profileFirstSpawn;
         Map<String, TeleportLocation> warps = new HashMap<>();
         int rtpCooldownSeconds = 300;
         Set<String> rtpBlockedDimensions = new HashSet<>();

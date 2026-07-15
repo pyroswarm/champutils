@@ -150,7 +150,6 @@ public final class AccountLinkDatabaseRepository {
             statement.executeUpdate("alter table player_accounts add column if not exists linked_at timestamptz not null default now()");
             statement.executeUpdate("alter table player_accounts add column if not exists updated_at timestamptz not null default now()");
             statement.executeUpdate("delete from player_accounts where minecraft_uuid is null or website_user_id is null");
-            statement.executeUpdate("create unique index if not exists player_accounts_minecraft_uuid_unique on player_accounts (minecraft_uuid)");
             statement.executeUpdate("create unique index if not exists player_accounts_website_user_unique on player_accounts (website_user_id)");
         }
     }

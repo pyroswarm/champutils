@@ -14,7 +14,6 @@ create table if not exists network_events (
     expires_at timestamptz not null default (now() + interval '10 minutes')
 );
 
-create index if not exists network_events_id_idx on network_events (id);
 create index if not exists network_events_expires_idx on network_events (expires_at);
 create index if not exists network_events_type_scope_idx on network_events (event_type, scope, id);
 

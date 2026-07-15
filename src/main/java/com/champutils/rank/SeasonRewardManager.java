@@ -98,13 +98,6 @@ public final class SeasonRewardManager {
             snapshotPlayer(safeSeason, seasonName, profileId, entry.name, data);
         }
 
-        if (server != null) {
-            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                UUID profileId = PlayerProfileManager.activeProfileId(player);
-                PlayerDataManager.PlayerData data = PlayerDataManager.load(player.getUUID(), player.getName().getString());
-                snapshotPlayer(safeSeason, seasonName, profileId.toString(), player.getName().getString(), data);
-            }
-        }
         save();
     }
 
@@ -125,30 +118,48 @@ public final class SeasonRewardManager {
         STATE.rewards.put(key(profileId, season), snapshot);
     }
 
-    public static synchronized int claim(ServerPlayer player) {
+    public static int claim(ServerPlayer player) {
         load();
         int season = Math.max(0, SeasonManager.CURRENT_SEASON - 1);
         if (season <= 0) {
             player.sendSystemMessage(Component.literal("No completed season rewards are available yet.").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
-        String profileId = PlayerProfileManager.activeProfileId(player).toString();
-        String key = key(profileId, season);
-        if (STATE.claimedAt.containsKey(key)) {
-            player.sendSystemMessage(Component.literal("You already claimed your Season " + season + " rewards on this profile.").withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        SeasonRewardSnapshot snapshot = STATE.rewards.get(key);
-        if (snapshot == null) {
-            player.sendSystemMessage(Component.literal("No Season " + season + " rewards found. You need at least " + MIN_RANKED_GAMES + " ranked games in that season.").withStyle(ChatFormatting.YELLOW));
-            return 0;
-        }
+        UUID profileUuid = PlayerProfileManager.activeProfileId(player);
+        String profileId = profileUuid.toString();
+        String rewardKey = key(profileId, season);
 
-        STATE.claimedAt.put(key, Instant.now().toString());
-        save();
-
-        for (RewardEntry reward : snapshot.rewards) grant(player, reward, season);
-        player.sendSystemMessage(Component.literal("Claimed Season " + season + " rewards for peak rating " + snapshot.peakRp + " with " + snapshot.rankedGames + " ranked games.").withStyle(ChatFormatting.GREEN));
+        SharedJsonStateRepository.mutateGlobalAsync(STATE_KEY, RewardState.class, STATE, state -> {
+            if (state.rewards == null) state.rewards = new LinkedHashMap<>();
+            if (state.claimedAt == null) state.claimedAt = new LinkedHashMap<>();
+            if (state.claimedAt.containsKey(rewardKey)) {
+                return new ClaimMutation(state, null, "You already claimed your Season " + season + " rewards on this profile.");
+            }
+            SeasonRewardSnapshot snapshot = state.rewards.get(rewardKey);
+            if (snapshot == null) {
+                return new ClaimMutation(state, null, "No Season " + season + " rewards found. You need at least " + MIN_RANKED_GAMES + " ranked games in that season.");
+            }
+            state.claimedAt.put(rewardKey, Instant.now().toString());
+            return new ClaimMutation(state, snapshot, "");
+        }).whenComplete((result, error) -> player.server.execute(() -> {
+            if (!com.champutils.teleport.SafeTeleportManager.isLive(player)
+                    || !profileUuid.equals(PlayerProfileManager.activeProfileId(player))) return;
+            if (error != null || result == null) {
+                player.sendSystemMessage(Component.literal("Could not claim season rewards right now.").withStyle(ChatFormatting.RED));
+                if (error != null) error.printStackTrace();
+                return;
+            }
+            synchronized (SeasonRewardManager.class) {
+                STATE = result.state();
+                saveLocalMirror();
+            }
+            if (result.snapshot() == null) {
+                player.sendSystemMessage(Component.literal(result.message()).withStyle(ChatFormatting.YELLOW));
+                return;
+            }
+            for (RewardEntry reward : result.snapshot().rewards) grant(player, reward, season);
+            player.sendSystemMessage(Component.literal("Claimed Season " + season + " rewards for peak rating " + result.snapshot().peakRp + " with " + result.snapshot().rankedGames + " ranked games.").withStyle(ChatFormatting.GREEN));
+        }));
         return 1;
     }
 
@@ -231,11 +242,17 @@ public final class SeasonRewardManager {
     }
 
     private static void save() {
+        saveLocalMirror();
+        SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
+    }
+
+    private static void saveLocalMirror() {
         try {
             File parent = FILE.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             try (FileWriter writer = new FileWriter(FILE)) { GSON.toJson(STATE, writer); }
-            SharedJsonStateRepository.saveGlobal(STATE_KEY, STATE);
         } catch (Exception e) { e.printStackTrace(); }
     }
+
+    private record ClaimMutation(RewardState state, SeasonRewardSnapshot snapshot, String message) {}
 }

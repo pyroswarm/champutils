@@ -13,11 +13,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class CashShopBoostItemManager {
     public static final long DEFAULT_DURATION_MS = 15L * 60L * 1000L;
     private static final Map<String, Def> DEFS = new LinkedHashMap<>();
     private static boolean registered = false;
+    private static final Set<UUID> PENDING_ACTIVATIONS = ConcurrentHashMap.newKeySet();
 
     static {
         add("shiny_surge", "§dShiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Increases the current shiny chance by +1% for the whole server for 15 minutes.");
@@ -44,8 +47,17 @@ public final class CashShopBoostItemManager {
             String id = readId(stack);
             Def def = DEFS.get(id);
             if (def == null) return InteractionResultHolder.pass(stack);
-            if (!activate(sp.server, sp, def)) return InteractionResultHolder.fail(stack);
-            if (!sp.getAbilities().instabuild) stack.shrink(1);
+            if (!PENDING_ACTIVATIONS.add(sp.getUUID())) {
+                sp.sendSystemMessage(Component.literal("A booster activation is already being processed.").withStyle(ChatFormatting.YELLOW));
+                return InteractionResultHolder.fail(stack);
+            }
+            boolean consumed = !sp.getAbilities().instabuild;
+            if (consumed) stack.shrink(1);
+            activate(sp.server, sp, def).whenComplete((success, error) -> sp.server.execute(() -> {
+                PENDING_ACTIVATIONS.remove(sp.getUUID());
+                if (Boolean.TRUE.equals(success) && error == null) return;
+                if (consumed) com.champutils.shop.NpcShopService.giveOrDrop(sp, createItem(def.id, 1));
+            }));
             return InteractionResultHolder.success(stack);
         });
     }
@@ -78,15 +90,19 @@ public final class CashShopBoostItemManager {
         return null;
     }
 
-    public static boolean activateFromCredit(ServerPlayer player, String id) {
+    public static CompletableFuture<Boolean> activateFromCredit(ServerPlayer player, String id) {
         Def def = DEFS.get(id);
-        if (def == null) return false;
-        return activate(player.server, player, def);
+        if (def == null || player == null) return CompletableFuture.completedFuture(false);
+        if (!PENDING_ACTIVATIONS.add(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("A booster activation is already being processed.").withStyle(ChatFormatting.YELLOW));
+            return CompletableFuture.completedFuture(false);
+        }
+        return activate(player.server, player, def).whenComplete((ignored, error) -> PENDING_ACTIVATIONS.remove(player.getUUID()));
     }
 
-    public static boolean activateFromAdmin(MinecraftServer server, ServerPlayer sourcePlayer, String id) {
+    public static CompletableFuture<Boolean> activateFromAdmin(MinecraftServer server, ServerPlayer sourcePlayer, String id) {
         Def def = DEFS.get(id);
-        if (def == null || server == null) return false;
+        if (def == null || server == null) return CompletableFuture.completedFuture(false);
         return activate(server, sourcePlayer, def);
     }
 
@@ -111,34 +127,42 @@ public final class CashShopBoostItemManager {
         }
     }
 
-    private static boolean activate(MinecraftServer server, ServerPlayer player, Def def) {
-        if (!ServerBuffManager.tryBeginExclusiveBoost(player, def.id, def.cleanName(), def.amount, DEFAULT_DURATION_MS)) return false;
-        if (def.id.equals("special_surge")) {
-            com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
-                    server,
-                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Legendary Spawn Chance is now active!").withStyle(ChatFormatting.GOLD)
-            );
-            return true;
-        }
-        if (def.id.equals("paradox_surge")) {
-            com.champutils.specialspawn.SpecialWildSpawnManager.activateParadoxCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
-                    server,
-                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Paradox Spawn Chance is now active!").withStyle(ChatFormatting.DARK_PURPLE)
-            );
-            return true;
-        }
-        if (def.id.equals("ultrabeast_surge")) {
-            com.champutils.specialspawn.SpecialWildSpawnManager.activateUltraBeastCashShopBoost(def.amount, DEFAULT_DURATION_MS);
-            com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
-                    server,
-                    Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Ultra Beast Spawn Chance is now active!").withStyle(ChatFormatting.AQUA)
-            );
-            return true;
-        }
-        ServerBuffManager.activateAndAnnounce(server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);
-        return true;
+    private static CompletableFuture<Boolean> activate(MinecraftServer server, ServerPlayer player, Def def) {
+        return ServerBuffManager.tryBeginExclusiveBoostAsync(player, def.id, def.cleanName(), def.amount, DEFAULT_DURATION_MS)
+                .thenCompose(activated -> {
+                    if (!activated) return CompletableFuture.completedFuture(false);
+                    CompletableFuture<Boolean> applied = new CompletableFuture<>();
+                    server.execute(() -> {
+                        try {
+                            if (def.id.equals("special_surge")) {
+                                com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(def.amount, DEFAULT_DURATION_MS);
+                                com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                                        server,
+                                        Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Legendary Spawn Chance is now active!").withStyle(ChatFormatting.GOLD)
+                                );
+                            } else if (def.id.equals("paradox_surge")) {
+                                com.champutils.specialspawn.SpecialWildSpawnManager.activateParadoxCashShopBoost(def.amount, DEFAULT_DURATION_MS);
+                                com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                                        server,
+                                        Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Paradox Spawn Chance is now active!").withStyle(ChatFormatting.DARK_PURPLE)
+                                );
+                            } else if (def.id.equals("ultrabeast_surge")) {
+                                com.champutils.specialspawn.SpecialWildSpawnManager.activateUltraBeastCashShopBoost(def.amount, DEFAULT_DURATION_MS);
+                                com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+                                        server,
+                                        Component.literal("[Boost] +" + BuffManager.percent(def.amount) + " Ultra Beast Spawn Chance is now active!").withStyle(ChatFormatting.AQUA)
+                                );
+                            } else {
+                                ServerBuffManager.activateAndAnnounce(server, "cash_" + def.id, def.type, def.amount, DEFAULT_DURATION_MS);
+                            }
+                            applied.complete(true);
+                        } catch (Throwable error) {
+                            deactivateAdmin(def.id);
+                            applied.completeExceptionally(error);
+                        }
+                    });
+                    return applied;
+                });
     }
 
     public static final class Def {

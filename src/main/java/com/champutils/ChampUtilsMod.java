@@ -24,7 +24,6 @@ import com.champutils.profession.actives.ActiveEffectManager;
 import com.champutils.profession.passives.PassiveRegistry;
 import com.champutils.profile.*;
 import com.champutils.rank.*;
-import com.champutils.worldevent.*;
 import com.champutils.trainer.*;
 import com.champutils.economy.EconomyManager;
 import com.champutils.economy.SellPriceConfig;
@@ -160,7 +159,6 @@ public class ChampUtilsMod implements ModInitializer {
         StaffServerCommand.register();
         ChampDebugCommand.register();
         MenuNpcCommand.register();
-        SignBindCommand.register();
         BlankNpcCommand.register();
         NpcAdminCommand.register();
         MenuNpcInteractionListener.register();
@@ -390,15 +388,6 @@ public class ChampUtilsMod implements ModInitializer {
          */
         GymConfig.load();
         GymRegistry.load();
-
-        /*
-         =========================
-         WORLD EVENT CONFIG
-         =========================
-         */
-        WorldEventConfig.load();
-        WorldEventBindingRegistry.load();
-
         AuctionHouseNpcBindingRegistry.load();
         TutorialNpcBindingRegistry.load();
         MenuNpcBindingRegistry.load();
@@ -410,6 +399,7 @@ public class ChampUtilsMod implements ModInitializer {
          =========================
          */
         SeasonManager.loadState();
+        SeasonArchiveManager.initialize();
 
         /*
          =========================
@@ -424,10 +414,15 @@ public class ChampUtilsMod implements ModInitializer {
                     LeaderboardManager.refreshNow(server);
                     ServerStatusDatabaseRepository.sync(server);
                     ChampWorldBorderManager.applyAll(server);
+                    // Reload from disk on every completed server launch, then apply to every
+                    // currently loaded world. Newly loaded worlds are also covered by LOAD below.
+                    GlobalGameruleConfig.load();
                     GlobalGameruleManager.applyAll(server);
                     IslanderSpawningManager.handleServerStarted(server);
                     RankedFormatDatabaseRepository.syncCurrentFormats();
                     NetworkReadySchemaManager.ensureAsync();
+                    PartyManager.initialize();
+                    com.champutils.buff.ServerBuffManager.refreshAsync();
                     DatabaseMaintenanceManager.ensureAsync();
                     AccountCommerceRepository.ensureSchemaAsync();
                     BoosterCreditManager.ensureSchemaAsync();
@@ -633,6 +628,12 @@ public class ChampUtilsMod implements ModInitializer {
                     TutorialManager.handleJoin(player);
                     AntiAfkManager.handleJoin(player);
                     BreedingManager.handleJoin(player);
+                    if ("survival2".equalsIgnoreCase(com.champutils.network.NetworkServerConfig.serverId())) {
+                        com.champutils.network.NetworkEventManager.publishServerBroadcast(
+                                "main_survival1",
+                                "§7[Network] §f" + playerName + " §7joined §eEclipse§7."
+                        );
+                    }
 
                 }
         );
@@ -668,7 +669,7 @@ public class ChampUtilsMod implements ModInitializer {
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(
                 (message, player, params) -> {
 
-                    if (com.champutils.secret.SpawnSecretManager.consumeChat(player, message.signedContent())) return false;
+                    if (com.champutils.secret.SecretManager.consumeChat(player, message.signedContent())) return false;
 
                     if (
                             ProfileLookupManager.isWaiting(
@@ -735,10 +736,8 @@ public class ChampUtilsMod implements ModInitializer {
         ProfessionPopupsCommand.register();
         AutoStepCommand.register();
         MenuNpcCommand.register();
-        SignBindCommand.register();
         NpcShopCommand.register();
         IslanderShopCommand.register();
-        WorldEventCommand.register();
         SpawnTrainerCommand.register();
         BlankNpcCommand.register();
         NpcAdminCommand.register();
@@ -800,6 +799,7 @@ public class ChampUtilsMod implements ModInitializer {
         ClearWildPokemonCommand.register();
         MegaBossCommand.register();
         com.champutils.antilag.CatchAttemptProtectionListener.register();
+        com.champutils.buff.CatchChanceGuaranteeListener.register();
         TMCommand.register();
         LandClaimCommand.register();
         GymRewardCommand.register();
@@ -837,12 +837,10 @@ public class ChampUtilsMod implements ModInitializer {
 
         GymBattleHandler.register();
         GymBattleStartHandler.register();
-        WorldEventBattleListener.register();
         MegaBossBattleListener.register();
         MegaBossCaptureBlocker.register();
         MegaBossDamageProtectionListener.register();
         LandClaimSelectionItemListener.register();
-        WorldEventAreaProtectionListener.register();
         AuctionHouseBindInteractionListener.register();
         TutorialNpcInteractionListener.register();
         MenuNpcInteractionListener.register();
@@ -851,6 +849,7 @@ public class ChampUtilsMod implements ModInitializer {
         PokemonHuntCatchListener.register();
         TrueCaughtDexListener.register();
         SpecialCatchAnnouncementListener.register();
+        com.champutils.cosmetic.QuirkyCatchTitleListener.register();
         CatchStreakSpawnListener.register();
         ForbiddenNaturalPokemonSpawnGuard.register();
         WildGymLevelCapManager.register();
@@ -862,7 +861,7 @@ public class ChampUtilsMod implements ModInitializer {
         LandClaimPokemonRulesListener.register();
         DeathBackListener.register();
         com.champutils.badge.BadgeUnlockManager.init();
-        com.champutils.secret.SpawnSecretManager.register();
+        com.champutils.secret.SecretManager.register();
         com.champutils.protection.SpawnRealmProtectionListener.register();
         com.champutils.protection.CampfirePotSafetyListener.register();
         com.champutils.protection.SpawnEditCommand.register();
@@ -913,10 +912,8 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("TutorialManager", () -> TutorialManager.tick(server));
                     timedTick("RandomTeleportCommand", () -> RandomTeleportCommand.tick(server));
                     timedTick("PortalManager", () -> PortalManager.tick(server));
-                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
-                        timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
-                        timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
-                    }
+                    timedTick("RoamingTrainerManager", () -> RoamingTrainerManager.tick(server));
+                    timedTick("SpecialWildSpawnManager", () -> SpecialWildSpawnManager.tick(server));
                     timedTick("ExpeditionManager", () -> ExpeditionManager.tick(server));
                     timedTick("ServerBuffManager", () -> com.champutils.buff.ServerBuffManager.tick(server));
                     timedTick("NaturalSpecialSpawnBlocker", () -> NaturalSpecialSpawnBlocker.tick(server));
@@ -932,9 +929,7 @@ public class ChampUtilsMod implements ModInitializer {
                     timedTick("TerritorySkyblockIslandManager", () -> TerritorySkyblockIslandManager.tick(server));
                     timedTick("TerritoryRegionWipeManager", () -> TerritoryRegionWipeManager.tick(server));
                     timedTick("TerritoryNpcManager", () -> TerritoryNpcManager.tick(server));
-                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
-                        timedTick("GuildBossManager", () -> GuildBossManager.tick(server));
-                    }
+                    timedTick("GuildBossManager", () -> GuildBossManager.tick(server));
                     timedTick("ExplorationWorldManager", () -> ExplorationWorldManager.tick(server));
                     timedTick("SurvivalWorldManager", () -> SurvivalWorldManager.tick(server));
                     timedTick("VanillaOverworldGuard", () -> VanillaOverworldGuard.tick(server));
@@ -1044,14 +1039,7 @@ public class ChampUtilsMod implements ModInitializer {
                             server.getPlayerList()
                                     .getPlayers()
                     ));
-
-                    /*
-                     World event systems
-                     */
-                    if (NetworkServerConfig.isAuthoritativeGameplayServer()) {
-                        timedTick("WorldEventManager", () -> WorldEventManager.tick(server));
-                    }
-                    timedTick("ChampTrainerProtectionManager", () -> ChampTrainerProtectionManager.tick(server));
+timedTick("ChampTrainerProtectionManager", () -> ChampTrainerProtectionManager.tick(server));
 
                     /*
                      Season systems

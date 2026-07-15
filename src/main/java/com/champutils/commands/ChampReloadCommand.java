@@ -69,9 +69,6 @@ import com.champutils.territory.TerritoryConfig;
 import com.champutils.tm.TMConfig;
 import com.champutils.worldborder.ChampWorldBorderConfig;
 import com.champutils.worldborder.ChampWorldBorderManager;
-import com.champutils.worldevent.WorldEventBindingRegistry;
-import com.champutils.worldevent.WorldEventConfig;
-
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -178,8 +175,6 @@ public class ChampReloadCommand {
             reloadConfig(reloaded, "wild_battle_loot.json", WildBattleLootConfig::load);
             reloadConfig(reloaded, "battle_profession_loot.json", BattleProfessionLootConfig::load);
             reloadConfig(reloaded, "world_borders.json", ChampWorldBorderConfig::load);
-            reloadConfig(reloaded, "world_event_bindings.json", WorldEventBindingRegistry::load);
-            reloadConfig(reloaded, "world_events.json", WorldEventConfig::load);
 
             LandClaimRepository.refreshAll();
             ChampWorldBorderManager.applyAll(source.getServer());
