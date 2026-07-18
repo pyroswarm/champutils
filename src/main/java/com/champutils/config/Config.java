@@ -166,17 +166,19 @@ public class Config {
             ranked.battle_rules = new ArrayList<>();
         }
 
-        addBattleRuleIfMissing(ranked, "Sleep Clause Mod");
+        addBattleRuleIfMissing(ranked, "Standard NatDex");
         addBattleRuleIfMissing(ranked, "Species Clause");
         addBattleRuleIfMissing(ranked, "OHKO Clause");
         addBattleRuleIfMissing(ranked, "Evasion Moves Clause");
+        addBattleRuleIfMissing(ranked, "Evasion Abilities Clause");
+        addBattleRuleIfMissing(ranked, "Sleep Moves Clause");
         addBattleRuleIfMissing(ranked, "Endless Battle Clause");
         addBattleRuleIfMissing(ranked, "Moody Clause");
         addBattleRuleIfMissing(ranked, "Baton Pass Clause");
-        addBattleRuleIfMissing(ranked, "Swagger Clause");
+        addBattleRuleIfMissing(ranked, "Terastal Clause");
 
         if(ranked.cobblemon_format == null || ranked.cobblemon_format.isBlank()){
-            ranked.cobblemon_format = "gen9singles";
+            ranked.cobblemon_format = "gen9nationaldexou";
         }
     }
     private static void addBattleRuleIfMissing(Format format, String ruleName){

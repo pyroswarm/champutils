@@ -7,6 +7,7 @@ import com.champutils.profession.ProfessionType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -60,6 +61,11 @@ public final class BackpackCommand {
                         .requires(source -> source.hasPermission(4))
                         .then(Commands.literal("allow")
                                 .then(Commands.argument("item", StringArgumentType.string())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.ITEM.keySet(), builder))
+                                        .executes(context -> allow(context.getSource().getPlayerOrException(),
+                                                StringArgumentType.getString(context, "item"),
+                                                null,
+                                                null))
                                         .then(Commands.argument("profession", StringArgumentType.word())
                                                 .executes(context -> allow(context.getSource().getPlayerOrException(),
                                                         StringArgumentType.getString(context, "item"),
@@ -72,12 +78,15 @@ public final class BackpackCommand {
                                                                 StringArgumentType.getString(context, "displayName")))))))
                         .then(Commands.literal("enable")
                                 .then(Commands.argument("item", StringArgumentType.string())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.ITEM.keySet(), builder))
                                         .executes(context -> setEnabled(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "item"), true))))
                         .then(Commands.literal("disable")
                                 .then(Commands.argument("item", StringArgumentType.string())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.ITEM.keySet(), builder))
                                         .executes(context -> setEnabled(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "item"), false))))
                         .then(Commands.literal("remove")
                                 .then(Commands.argument("item", StringArgumentType.string())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.ITEM.keySet(), builder))
                                         .executes(context -> remove(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "item"))))));
     }
 
@@ -93,14 +102,21 @@ public final class BackpackCommand {
     }
 
     private static int allow(ServerPlayer player, String item, String professionRaw, String displayName) {
-        ProfessionType profession = ProfessionBackpackManager.parseProfession(professionRaw);
+        String normalizedItem = ProfessionBackpackConfig.normalizeItem(item);
+        ProfessionType profession = professionRaw == null || professionRaw.isBlank()
+                ? ProfessionBackpackConfig.allowedProfessionFor(normalizedItem)
+                : ProfessionBackpackManager.parseProfession(professionRaw);
         if (!ProfessionBackpackConfig.isBackpackProfession(profession)) {
-            player.sendSystemMessage(Component.literal("§cProfession must be MINING, FORESTRY, or FARMING."));
+            player.sendSystemMessage(Component.literal("§cCould not infer a profession for " + normalizedItem + ". Use /bp admin allow <item> <MINING|FORESTRY|FARMING>."));
             return 0;
         }
-        String normalizedItem = ProfessionBackpackConfig.normalizeItem(item);
         if (!isRegisteredItem(normalizedItem)) {
             player.sendSystemMessage(Component.literal("§cUnknown item id: " + normalizedItem + ". Use a literal item code like minecraft:stick or cobblemon:dawn_stone."));
+            return 0;
+        }
+        ProfessionType inferred = ProfessionBackpackConfig.allowedProfessionFor(normalizedItem);
+        if (inferred != null && inferred != profession) {
+            player.sendSystemMessage(Component.literal("§c" + normalizedItem + " belongs to " + inferred.name() + ", not " + profession.name() + "."));
             return 0;
         }
         if (ProfessionBackpackConfig.allowItem(normalizedItem, profession, displayName)) {
@@ -114,7 +130,9 @@ public final class BackpackCommand {
     private static boolean isRegisteredItem(String itemId) {
         try {
             if (itemId == null || itemId.isBlank()) return false;
-            net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return false;
+            net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(id);
             return item != null && item != Items.AIR;
         } catch (Throwable ignored) {
             return false;

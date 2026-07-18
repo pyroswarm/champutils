@@ -971,9 +971,9 @@ public class MatchmakingManager {
 
         int seconds =
                 Config.matchmaking == null
-                        ? 60
+                        ? 300
                         : Math.max(
-                                0,
+                                300,
                                 Config.matchmaking.rematch_cooldown_seconds
                         );
 

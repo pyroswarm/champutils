@@ -542,7 +542,7 @@ public final class WonderTradeRepository {
                 rs.getString("species"),
                 rs.getString("display_name"),
                 rs.getBoolean("shiny"),
-                rs.getBoolean("a"),
+                rs.getBoolean("legendary"),
                 rs.getInt("pokemon_level"),
                 payload
         );

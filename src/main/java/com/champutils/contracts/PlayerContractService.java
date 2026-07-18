@@ -2,9 +2,11 @@ package com.champutils.contracts;
 
 import com.champutils.auction.AuctionItemSerializer;
 import com.champutils.auction.AuctionPokemonSerializer;
+import com.champutils.breeding.PokemonBreedability;
 import com.champutils.database.DatabaseManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.network.NetworkEventManager;
+import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.wiki.PokemonWikiIndex;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -22,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerContractService {
     private static final Map<UUID, PendingPokemonContract> PENDING_POKEMON_CONTRACTS = new ConcurrentHashMap<>();
+    private static final java.util.Set<UUID> CONTRACT_MUTATIONS_IN_FLIGHT = ConcurrentHashMap.newKeySet();
 
     private PlayerContractService() {}
 
@@ -126,6 +129,28 @@ public final class PlayerContractService {
         PendingPokemonContract pending = pending(player);
         if (pending == null || pending.step != PendingStep.NATURE) return;
         pending.nature = any(nature) ? "" : pretty(nature);
+        if (PokemonWikiIndex.isBreedableSpecies(pending.speciesKey)) {
+            pending.step = PendingStep.BREEDABLE;
+            PlayerContractMenu.openPokemonBreedableMenu(player, pending.species);
+        } else {
+            pending.breedable = null;
+            moveToReward(player, pending);
+        }
+    }
+
+    public static void selectPokemonBreedable(ServerPlayer player, String value) {
+        PendingPokemonContract pending = pending(player);
+        if (pending == null || pending.step != PendingStep.BREEDABLE) return;
+        String selected = value == null ? "any" : value.trim().toLowerCase(Locale.ROOT);
+        pending.breedable = switch (selected) {
+            case "yes", "true" -> Boolean.TRUE;
+            case "no", "false" -> Boolean.FALSE;
+            default -> null;
+        };
+        moveToReward(player, pending);
+    }
+
+    private static void moveToReward(ServerPlayer player, PendingPokemonContract pending) {
         pending.step = PendingStep.REWARD;
         player.closeContainer();
         player.sendSystemMessage(Component.literal("Type the Credits reward for this contract. Example: 1000. Type cancel to stop.").withStyle(ChatFormatting.GOLD));
@@ -168,6 +193,7 @@ public final class PlayerContractService {
         criteria.addProperty("min_level", pokemon.getLevel());
         criteria.addProperty("max_level", 100);
         if (pokemon.getShiny()) criteria.addProperty("shiny", true);
+        criteria.addProperty("breedable", PokemonBreedability.isBreedable(pokemon));
         String title = "Deliver " + pokemon.getDisplayName(true).getString();
         createContract(player, "POKEMON", title, rewardCents, criteria);
     }
@@ -179,6 +205,7 @@ public final class PlayerContractService {
         if (pending.gender != null && !pending.gender.isBlank()) criteria.addProperty("gender", normalizeGender(pending.gender));
         if (pending.nature != null && !pending.nature.isBlank()) criteria.addProperty("nature", cleanToken(pending.nature));
         if (pending.ability != null && !pending.ability.isBlank()) criteria.addProperty("ability", cleanToken(pending.ability));
+        if (pending.breedable != null) criteria.addProperty("breedable", pending.breedable);
 
         StringBuilder title = new StringBuilder("Deliver ");
         if (pending.gender != null && !pending.gender.isBlank()) title.append(pretty(pending.gender)).append(" ");
@@ -191,75 +218,112 @@ public final class PlayerContractService {
     private static void createContract(ServerPlayer player, String type, String title, long rewardCents, JsonObject criteria) {
         if (player == null || rewardCents <= 0L) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) {
+            player.sendSystemMessage(Component.literal("Select a profile first.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (!CONTRACT_MUTATIONS_IN_FLIGHT.add(profileId)) {
+            player.sendSystemMessage(Component.literal("Another contract change is already processing.").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         String ownerName = player.getGameProfile().getName();
         String safeType = type == null ? "ITEM" : type.toUpperCase(Locale.ROOT);
         String safeTitle = title == null || title.isBlank() ? "Player Contract" : title;
+        UUID requestId = UUID.randomUUID();
+        UUID chargeId = EconomyManager.operationId("contract-create-charge", profileId, requestId);
+        UUID refundId = EconomyManager.operationId("contract-create-refund", profileId, requestId);
 
         player.sendSystemMessage(Component.literal("Creating contract...").withStyle(ChatFormatting.YELLOW));
-        DatabaseManager.supplyAsync("create paid player contract", connection -> {
-            boolean withdrew = false;
-            try {
-                EconomyManager.TransactionResult withdrawn = EconomyManager.withdraw(profileId, ownerName, rewardCents, "create_player_contract:" + safeType.toLowerCase(Locale.ROOT));
-                if (!withdrawn.success) {
-                    return ContractCreateResult.fail(withdrawn.error == null ? "You do not have enough Credits." : withdrawn.error);
-                }
-                withdrew = true;
-
-                UUID contractId = PlayerContractRepository.createContract(profileId, ownerName, safeType, safeTitle, rewardCents, criteria);
-                if (contractId == null) {
-                    throw new IllegalStateException("Contract insert returned no id.");
-                }
-                return ContractCreateResult.success(contractId);
-            } catch (Exception e) {
-                if (withdrew) {
-                    try {
-                        EconomyManager.deposit(profileId, ownerName, rewardCents, "refund_failed_player_contract");
-                    } catch (Exception refundError) {
-                        refundError.printStackTrace();
-                    }
-                }
-                throw e;
+        EconomyManager.withdrawAsync(chargeId, profileId, ownerName, rewardCents,
+                "create_player_contract:" + safeType.toLowerCase(Locale.ROOT)).thenCompose(withdrawn -> {
+            if (!withdrawn.success) {
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        ContractCreateResult.fail(withdrawn.error == null ? "You do not have enough Credits." : withdrawn.error));
             }
+            return DatabaseManager.supplyAsync("create paid player contract", connection -> {
+                UUID contractId = PlayerContractRepository.createContract(profileId, ownerName, safeType, safeTitle, rewardCents, criteria);
+                return contractId == null ? ContractCreateResult.fail("Contract insert returned no id.") : ContractCreateResult.success(contractId);
+            }).handle((created, error) -> {
+                if (error != null || created == null || created.contractId() == null) {
+                    return EconomyManager.depositAsync(refundId, profileId, ownerName, rewardCents,
+                            "refund_failed_player_contract:" + requestId).thenApply(refund ->
+                            ContractCreateResult.fail(refund.success
+                                    ? "Could not create that contract. Your Credits were refunded."
+                                    : "Contract creation failed and the automatic refund failed. Give staff request ID " + requestId + "."));
+                }
+                return java.util.concurrent.CompletableFuture.completedFuture(created);
+            }).thenCompose(future -> future);
         }).whenComplete((result, error) -> player.server.execute(() -> {
+            CONTRACT_MUTATIONS_IN_FLIGHT.remove(profileId);
             if (error != null || result == null || result.contractId() == null) {
                 String message = result != null && result.error() != null && !result.error().isBlank()
-                        ? result.error()
-                        : "Could not create that contract. Your Credits were not taken, or were refunded.";
+                        ? result.error() : "Could not create that contract.";
                 player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
                 if (error != null) error.printStackTrace();
                 return;
             }
-            String line = "§6§l[Player Contracts] §e" + ownerName
-                    + " §fcreated a " + ("POKEMON".equalsIgnoreCase(safeType) ? "Pokémon" : "item")
-                    + " contract: §b" + safeTitle
-                    + " §8| §7Reward: §6" + EconomyManager.format(rewardCents);
-            player.server.getPlayerList().broadcastSystemMessage(Component.literal(line), false);
-            NetworkEventManager.publishBroadcastText(line);
             player.sendSystemMessage(Component.literal("Contract created. The reward is held until another player completes it.").withStyle(ChatFormatting.GREEN));
+            announcePlayerContractCreated(player, safeType, safeTitle, rewardCents);
         }));
+    }
+
+    /**
+     * Only contracts authored by a player are announced. Adventure Guide contracts remain
+     * private in QuestManager, and completions/cancellations do not call this path.
+     */
+    private static void announcePlayerContractCreated(ServerPlayer creator, String type, String title, long rewardCents) {
+        if (creator == null || creator.server == null) return;
+        String kind = "POKEMON".equalsIgnoreCase(type) ? "Pokémon" : "item";
+        String cleanTitle = title == null || title.isBlank() ? "Player Contract" : title.trim();
+        if (cleanTitle.length() > 96) cleanTitle = cleanTitle.substring(0, 96) + "...";
+
+        Component localMessage = Component.literal("[Contract] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal(creator.getName().getString()).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" posted a player " + kind + " contract: ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(cleanTitle).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" • Reward: " + EconomyManager.format(rewardCents) + " • Open the Adventure Guide contract board to view.").withStyle(ChatFormatting.GRAY));
+
+        for (ServerPlayer recipient : creator.server.getPlayerList().getPlayers()) {
+            if (ProfessionNotificationSettings.areBroadcastMessagesEnabled(recipient)) {
+                recipient.sendSystemMessage(localMessage);
+            }
+        }
+
+        NetworkEventManager.publishBroadcastText(
+                "[Contract] " + creator.getName().getString()
+                        + " posted a player " + kind + " contract: " + cleanTitle
+                        + " • Reward: " + EconomyManager.format(rewardCents)
+                        + " • Open the Adventure Guide contract board to view."
+        );
     }
 
     public static void cancelContract(ServerPlayer player, UUID contractId) {
         if (player == null || contractId == null) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return;
+        if (!CONTRACT_MUTATIONS_IN_FLIGHT.add(profileId)) {
+            player.sendSystemMessage(Component.literal("Another contract change is already processing.").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         String ownerName = player.getGameProfile().getName();
         player.sendSystemMessage(Component.literal("Cancelling contract...").withStyle(ChatFormatting.YELLOW));
 
-        DatabaseManager.supplyAsync("cancel player contract", connection -> {
-            PlayerContractRepository.ContractSummary cancelled = PlayerContractRepository.cancelActiveContract(contractId, profileId);
+        DatabaseManager.supplyAsync("cancel player contract", connection ->
+                PlayerContractRepository.cancelActiveContract(contractId, profileId)).thenCompose(cancelled -> {
             if (cancelled == null) {
-                return ContractCancelResult.fail("That contract is no longer active, or it is not yours.");
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        ContractCancelResult.fail("That contract is no longer active, or it is not yours."));
             }
-            EconomyManager.TransactionResult refund = EconomyManager.deposit(profileId, ownerName, cancelled.rewardCents, "cancel_player_contract:" + contractId);
-            if (!refund.success) {
-                return ContractCancelResult.fail("Contract was cancelled, but the refund failed. Ask staff to review contract " + contractId + ".");
-            }
-            return ContractCancelResult.success(cancelled.title, cancelled.rewardCents);
+            UUID refundId = EconomyManager.operationId("contract-cancel-refund", contractId, profileId);
+            return EconomyManager.depositAsync(refundId, profileId, ownerName, cancelled.rewardCents,
+                    "cancel_player_contract:" + contractId).thenApply(refund -> refund.success
+                    ? ContractCancelResult.success(cancelled.title, cancelled.rewardCents)
+                    : ContractCancelResult.fail("Contract was cancelled, but the refund failed. Ask staff to review contract " + contractId + "."));
         }).whenComplete((result, error) -> player.server.execute(() -> {
+            CONTRACT_MUTATIONS_IN_FLIGHT.remove(profileId);
             if (error != null || result == null || !result.success()) {
                 String message = result != null && result.error() != null && !result.error().isBlank()
-                        ? result.error()
-                        : "Could not cancel that contract.";
+                        ? result.error() : "Could not cancel that contract.";
                 player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
                 if (error != null) error.printStackTrace();
                 return;
@@ -466,10 +530,10 @@ public final class PlayerContractService {
 
     private static void payCompleter(ServerPlayer player, PlayerContractRepository.ContractSummary contract) {
         if (contract == null || contract.rewardCents <= 0L) return;
-        EconomyManager.TransactionResult result = EconomyManager.deposit(player, contract.rewardCents, "Player contract " + contract.id);
-        if (result.success) {
-            player.sendSystemMessage(Component.literal("Earned " + EconomyManager.format(contract.rewardCents) + ".").withStyle(ChatFormatting.GOLD));
-        }
+        EconomyManager.depositAsync(EconomyManager.operationId("contract-completion-reward", contract.id, PlayerProfileManager.activeProfileId(player)), player, contract.rewardCents, "Player contract " + contract.id).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (result.success) player.sendSystemMessage(Component.literal("Earned " + EconomyManager.format(contract.rewardCents) + ".").withStyle(ChatFormatting.GOLD));
+                }));
     }
 
     private static boolean matchesItem(JsonObject criteria, ItemStack stack) {
@@ -494,6 +558,8 @@ public final class PlayerContractService {
         if (species != null && !species.isBlank() && !cleanSpecies(species).equals(cleanSpecies(speciesId(pokemon)))) return false;
         Boolean shiny = bool(criteria, "shiny");
         if (shiny != null && shiny != pokemon.getShiny()) return false;
+        Boolean breedable = bool(criteria, "breedable");
+        if (breedable != null && breedable != PokemonBreedability.isBreedable(pokemon)) return false;
         Integer minLevel = integer(criteria, "min_level", "minLevel");
         if (minLevel != null && pokemon.getLevel() < minLevel) return false;
         Integer maxLevel = integer(criteria, "max_level", "maxLevel");
@@ -663,6 +729,7 @@ public final class PlayerContractService {
         GENDER,
         NATURE,
         ABILITY,
+        BREEDABLE,
         REWARD
     }
 
@@ -673,5 +740,6 @@ public final class PlayerContractService {
         private String gender = "";
         private String nature = "";
         private String ability = "";
+        private Boolean breedable = null;
     }
 }

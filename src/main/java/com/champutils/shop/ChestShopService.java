@@ -129,54 +129,46 @@ public final class ChestShopService {
             buyer.sendSystemMessage(Component.literal("Shop chest not found.").withStyle(ChatFormatting.RED));
             return;
         }
-
         Item item = shop.item();
         if (item == null) {
             buyer.sendSystemMessage(Component.literal("This shop item is invalid.").withStyle(ChatFormatting.RED));
             return;
         }
-
         int amount = Math.max(1, shop.amount);
         if (countItem(chest, item) < amount) {
             buyer.sendSystemMessage(Component.literal("This shop is out of stock.").withStyle(ChatFormatting.RED));
             return;
         }
-
         if (!canFit(buyer.getInventory(), item, amount)) {
             buyer.sendSystemMessage(Component.literal("You need inventory space first.").withStyle(ChatFormatting.RED));
             return;
         }
-
-        EconomyManager.TransactionResult withdraw = EconomyManager.withdraw(buyer, shop.price, "chest_shop_buy");
-        if (!withdraw.success) {
-            buyer.sendSystemMessage(Component.literal(withdraw.error).withStyle(ChatFormatting.RED));
+        UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
+        UUID buyerProfileId = PlayerProfileManager.activeProfileId(buyer);
+        if (ownerEconomyId == null || buyerProfileId == null) {
+            buyer.sendSystemMessage(Component.literal("This shop owner is invalid.").withStyle(ChatFormatting.RED));
             return;
         }
-
         int removed = removeItem(chest, item, amount);
         if (removed < amount) {
             addItem(chest, new ItemStack(item, removed));
-            EconomyManager.deposit(buyer, shop.price, "chest_shop_refund_failed_stock");
-            buyer.sendSystemMessage(Component.literal("Transaction failed because the stock changed. You were refunded.").withStyle(ChatFormatting.RED));
+            buyer.sendSystemMessage(Component.literal("Transaction failed because the stock changed.").withStyle(ChatFormatting.RED));
             return;
         }
-
-        UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
-        EconomyManager.TransactionResult depositOwner = EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_sale");
-        if (!depositOwner.success) {
-            addItem(chest, new ItemStack(item, amount));
-            EconomyManager.deposit(buyer, shop.price, "chest_shop_refund_failed_owner_credit");
-            buyer.sendSystemMessage(Component.literal("Transaction failed because the shop owner could not be credited. You were refunded.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
-        ItemStack purchased = new ItemStack(item, amount);
-        addItem(buyer.getInventory(), purchased);
         chest.setChanged();
-        buyer.getInventory().setChanged();
-
-        buyer.sendSystemMessage(Component.literal("Bought " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
-        notifyOwner(level.getServer(), shop.ownerUuid(), "Your shop sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+        EconomyManager.transferAsync(buyerProfileId, buyer.getGameProfile().getName(), ownerEconomyId, shop.ownerName, shop.price, "chest_shop_buy")
+                .thenAccept(result -> buyer.server.execute(() -> {
+                    if (!result.success) {
+                        addItem(chest, new ItemStack(item, amount));
+                        chest.setChanged();
+                        buyer.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford this shop purchase." : result.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    addItem(buyer.getInventory(), new ItemStack(item, amount));
+                    buyer.getInventory().setChanged();
+                    buyer.sendSystemMessage(Component.literal("Bought " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
+                    notifyOwner(level.getServer(), shop.ownerUuid(), "Your shop sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+                }));
     }
 
     private static void sellToShop(ServerPlayer seller, ServerLevel level, BlockPos pos, ChestShopRegistry.ChestShop shop) {
@@ -185,60 +177,47 @@ public final class ChestShopService {
             seller.sendSystemMessage(Component.literal("Shop chest not found.").withStyle(ChatFormatting.RED));
             return;
         }
-
         Item item = shop.item();
         if (item == null) {
             seller.sendSystemMessage(Component.literal("This shop item is invalid.").withStyle(ChatFormatting.RED));
             return;
         }
-
         int amount = Math.max(1, shop.amount);
         if (countItem(seller.getInventory(), item) < amount) {
             seller.sendSystemMessage(Component.literal("You do not have " + amount + "x " + shop.itemName + ".").withStyle(ChatFormatting.RED));
             return;
         }
-
         if (!canFit(chest, item, amount)) {
             seller.sendSystemMessage(Component.literal("This buy shop chest is full.").withStyle(ChatFormatting.RED));
             return;
         }
-
         UUID ownerId = shop.ownerUuid();
         UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
-        if (ownerId == null || ownerEconomyId == null) {
+        UUID sellerProfileId = PlayerProfileManager.activeProfileId(seller);
+        if (ownerId == null || ownerEconomyId == null || sellerProfileId == null) {
             seller.sendSystemMessage(Component.literal("This shop owner is invalid.").withStyle(ChatFormatting.RED));
             return;
         }
-
-        EconomyManager.TransactionResult withdrawOwner = EconomyManager.withdraw(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_buy_order");
-        if (!withdrawOwner.success) {
-            seller.sendSystemMessage(Component.literal("This buy shop does not have enough owner funds right now.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
         int removed = removeItem(seller.getInventory(), item, amount);
         if (removed < amount) {
             addItem(seller.getInventory(), new ItemStack(item, removed));
-            EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_refund_failed_seller_items");
-            seller.sendSystemMessage(Component.literal("Transaction failed because your inventory changed. The owner was refunded.").withStyle(ChatFormatting.RED));
+            seller.sendSystemMessage(Component.literal("Transaction failed because your inventory changed.").withStyle(ChatFormatting.RED));
             return;
         }
-
-        addItem(chest, new ItemStack(item, amount));
-        EconomyManager.TransactionResult depositSeller = EconomyManager.deposit(seller, shop.price, "chest_shop_sell_to_buy_order");
-        if (!depositSeller.success) {
-            removeItem(chest, item, amount);
-            addItem(seller.getInventory(), new ItemStack(item, amount));
-            EconomyManager.deposit(ownerEconomyId, shop.ownerName, shop.price, "chest_shop_refund_failed_seller_credit");
-            seller.sendSystemMessage(Component.literal("Transaction failed because you could not be credited. Your items were returned.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
-        chest.setChanged();
         seller.getInventory().setChanged();
-
-        seller.sendSystemMessage(Component.literal("Sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
-        notifyOwner(level.getServer(), ownerId, "Your buy shop purchased " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+        EconomyManager.transferAsync(ownerEconomyId, shop.ownerName, sellerProfileId, seller.getGameProfile().getName(), shop.price, "chest_shop_buy_order")
+                .thenAccept(result -> seller.server.execute(() -> {
+                    if (!result.success) {
+                        addItem(seller.getInventory(), new ItemStack(item, amount));
+                        seller.getInventory().setChanged();
+                        seller.sendSystemMessage(Component.literal("This buy shop does not have enough owner funds right now.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    addItem(chest, new ItemStack(item, amount));
+                    chest.setChanged();
+                    seller.sendSystemMessage(Component.literal("Sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
+                    notifyOwner(level.getServer(), ownerId, "Your buy shop purchased " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+                }));
     }
 
     private static Container getContainer(ServerLevel level, BlockPos pos) {

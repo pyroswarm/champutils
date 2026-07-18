@@ -37,6 +37,10 @@ public final class SafeTeleportManager {
             return false;
         }
         if (rememberBack) BackManager.remember(player);
+        if (com.champutils.megaboss.MegaBossBattleListener.isPlayerInMegaBossBattle(player)) {
+            com.champutils.megaboss.MegaBossBattleListener.cleanupPlayer(player);
+            com.champutils.battle.BattleStateManager.clearAll(player);
+        }
         prepareForTeleport(player);
         player.teleportTo(level, x, y, z, yaw, pitch);
         player.setYRot(yaw);

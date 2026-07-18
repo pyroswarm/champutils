@@ -120,21 +120,20 @@ public final class ServerSellCommand {
         }
 
         long total = unit * amount;
-
-        EconomyManager.TransactionResult result = EconomyManager.deposit(player, total, "server_sell:" + SellPriceConfig.getItemId(stack));
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-
         String name = stack.getHoverName().getString();
+        ItemStack escrow = stack.copyWithCount(amount);
         stack.shrink(amount);
         player.getInventory().setChanged();
-
-        player.sendSystemMessage(Component.literal(
-                "§aSold §f" + amount + "x " + name + " §afor §6" + EconomyManager.format(total) + "§a."
-        ));
-        player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+        EconomyManager.depositAsync(player, total, "server_sell:" + SellPriceConfig.getItemId(escrow)).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        restoreEscrow(player, escrow);
+                        player.sendSystemMessage(Component.literal("§c" + result.error));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("§aSold §f" + amount + "x " + name + " §afor §6" + EconomyManager.format(total) + "§a."));
+                    player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+                }));
         return 1;
     }
 
@@ -223,27 +222,26 @@ public final class ServerSellCommand {
         }
         PENDING_PREVIEWS.remove(player.getUUID());
 
-        EconomyManager.TransactionResult result = EconomyManager.deposit(player, total, "server_sell_hand_inventory:" + itemId);
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-
         String name = held.getHoverName().getString();
         Inventory inventory = player.getInventory();
+        java.util.List<ItemStack> escrow = new java.util.ArrayList<>();
         for (int i = 0; i < inventory.items.size(); i++) {
             ItemStack stack = inventory.items.get(i);
-            if (stack == null || stack.isEmpty() || !ItemStack.isSameItemSameComponents(held, stack)) {
-                continue;
-            }
+            if (stack == null || stack.isEmpty() || !ItemStack.isSameItemSameComponents(held, stack)) continue;
+            escrow.add(stack.copy());
             inventory.items.set(i, ItemStack.EMPTY);
         }
-
         inventory.setChanged();
-        player.sendSystemMessage(Component.literal(
-                "§aSold §f" + amount + "x " + name + " §7(" + stacks + " stacks§7) §afor §6" + EconomyManager.format(total) + "§a."
-        ));
-        player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+        EconomyManager.depositAsync(player, total, "server_sell_hand_inventory:" + itemId).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        escrow.forEach(item -> restoreEscrow(player, item));
+                        player.sendSystemMessage(Component.literal("§c" + result.error));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("§aSold §f" + amount + "x " + name + " §7(" + stacks + " stacks§7) §afor §6" + EconomyManager.format(total) + "§a."));
+                    player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+                }));
         return 1;
     }
 
@@ -300,35 +298,37 @@ public final class ServerSellCommand {
         }
         PENDING_PREVIEWS.remove(player.getUUID());
 
-        EconomyManager.TransactionResult result = EconomyManager.deposit(player, preview.total, "server_sell_all");
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-
         Inventory inventory = player.getInventory();
+        java.util.List<ItemStack> escrow = new java.util.ArrayList<>();
         for (int i = 0; i < inventory.items.size(); i++) {
             ItemStack stack = inventory.items.get(i);
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-
+            if (stack == null || stack.isEmpty()) continue;
             long unit = SellPriceConfig.getUnitPrice(stack);
-            if (unit <= 0L || unit * stack.getCount() <= 0L) {
-                continue;
-            }
-
+            if (unit <= 0L || unit * stack.getCount() <= 0L) continue;
+            escrow.add(stack.copy());
             inventory.items.set(i, ItemStack.EMPTY);
         }
-
         inventory.setChanged();
-        player.sendSystemMessage(Component.literal(
-                "§aSold §f" + preview.itemsSold + " items §7(" + preview.stacksSold + " stacks§7) §afor §6" + EconomyManager.format(preview.total) + "§a."
-        ));
-        player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+        EconomyManager.depositAsync(player, preview.total, "server_sell_all").thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        escrow.forEach(item -> restoreEscrow(player, item));
+                        player.sendSystemMessage(Component.literal("§c" + result.error));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("§aSold §f" + preview.itemsSold + " items §7(" + preview.stacksSold + " stacks§7) §afor §6" + EconomyManager.format(preview.total) + "§a."));
+                    player.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+                }));
         return 1;
     }
 
+
+    private static void restoreEscrow(ServerPlayer player, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return;
+        ItemStack copy = stack.copy();
+        if (!player.getInventory().add(copy)) player.drop(copy, false);
+        player.getInventory().setChanged();
+    }
 
     private static HandInventoryPreview scanMatchingInventory(ServerPlayer player, ItemStack held) {
         Inventory inventory = player.getInventory();

@@ -242,7 +242,9 @@ public final class ProfessionFragmentConfig {
             UpgradeData data = entry.getValue();
             return data != null && isBlockedPrestigeConversion(data.fromFragment, data.toFragment);
         });
-        // Force the current economy's 1/2-price upgrade and safe downgrade values even on old configs.
+        // Force current upgrade values on old configs and permanently remove every downgrade path.
+        UPGRADES.entrySet().removeIf(entry -> entry.getKey().toUpperCase(java.util.Locale.ROOT).contains("DOWNGRADE") ||
+                (entry.getValue() != null && rarityIndex(entry.getValue().toFragment) < rarityIndex(entry.getValue().fromFragment)));
         for (Map.Entry<String, UpgradeData> entry : defaults.upgrades.entrySet()) {
             UpgradeData loaded = UPGRADES.get(entry.getKey());
             UpgradeData def = entry.getValue();
@@ -339,12 +341,6 @@ public final class ProfessionFragmentConfig {
         addUpgrade(root, "C_TO_B", "C", 32, "B", 1);
         // A and S fragments are intentionally source-only prestige rewards.
         // B exists as the high grind bridge between C and A.
-        addUpgrade(root, "E_TO_F_DOWNGRADE", "E", 1, "F", 8);
-        addUpgrade(root, "D_TO_E_DOWNGRADE", "D", 1, "E", 8);
-        addUpgrade(root, "C_TO_D_DOWNGRADE", "C", 1, "D", 6);
-        addUpgrade(root, "B_TO_C_DOWNGRADE", "B", 1, "C", 4);
-        addUpgrade(root, "A_TO_B_DOWNGRADE", "A", 1, "B", 3);
-        // S fragments should never be downgraded.
 
         addToolCrafting(root, "F", "F", 16);
         addToolCrafting(root, "E", "E", 16);
@@ -475,6 +471,19 @@ public final class ProfessionFragmentConfig {
         if (from.equals("S") && !to.equals("S")) return true;
 
         return false;
+    }
+
+    public static int rarityIndex(String rarity) {
+        return switch (normalizeRarity(rarity)) {
+            case "F" -> 0;
+            case "E" -> 1;
+            case "D" -> 2;
+            case "C" -> 3;
+            case "B" -> 4;
+            case "A" -> 5;
+            case "S" -> 6;
+            default -> -1;
+        };
     }
 
     public static String normalizeRarity(String rarity) {

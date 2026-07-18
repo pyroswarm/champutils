@@ -3,6 +3,7 @@ package com.champutils.roaming;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.battle.BattleContextManager;
 import com.champutils.battle.BattleStateManager;
+import com.champutils.battle.PluginTrainerBattleStarter;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.profile.ProfilePlaytimeManager;
 import com.champutils.spawn.SpawnBlockRules;
@@ -97,6 +98,22 @@ public final class RoamingTrainerManager {
 
     public static RoamingTrainerData get(UUID npcUuid) {
         return npcUuid == null ? null : TRAINERS.get(npcUuid);
+    }
+
+    /** Registers a temporary trainer created by another ChampUtils system before its battle starts. */
+    public static void registerExternalTrainer(NPCEntity npc, RoamingTrainerData data) {
+        if (npc == null || data == null) return;
+        data.npcUuid = npc.getUUID();
+        long now = System.currentTimeMillis();
+        if (data.spawnedMillis <= 0L) data.spawnedMillis = now;
+        if (data.lastNearbyPlayerMillis <= 0L) data.lastNearbyPlayerMillis = now;
+        data.spawnX = npc.getX();
+        data.spawnY = npc.getY();
+        data.spawnZ = npc.getZ();
+        data.spawnYaw = npc.getYRot();
+        TRAINERS.put(data.npcUuid, data);
+        scheduleNextWander(data, now);
+        applyRoamingProtections(npc, data);
     }
 
 
@@ -261,6 +278,58 @@ public final class RoamingTrainerManager {
         applyRoamingProtections(result.npc, data);
         RoamingTrainerPartyBuilder.apply(result.npc, data);
         return data.npcUuid;
+    }
+
+    /** Removes one tracked trainer without treating it as a mid-battle despawn. */
+    public static void removeTrainerSilently(MinecraftServer server, UUID npcUuid) {
+        if (npcUuid == null) return;
+        RoamingTrainerData data = TRAINERS.remove(npcUuid);
+        if (data != null) {
+            data.currentChallengerUuid = null;
+            data.challengeLockMillis = 0L;
+        }
+        PluginTrainerBattleStarter.releaseStartLocks(null, npcUuid);
+        NPCEntity npc = findNpc(server, npcUuid);
+        if (npc != null) removeNpc(npc);
+    }
+
+    /**
+     * Clears stale Adventure Guild trainers owned by a player before a replacement is spawned.
+     * Registry entries are removed first so the periodic cleaner cannot mistake intentional cleanup
+     * for a trainer disappearing during the newly-created battle.
+     */
+    public static int removeOwnedAdventureTrainers(MinecraftServer server, UUID ownerPlayerUuid, String source) {
+        if (server == null || ownerPlayerUuid == null) return 0;
+        String expectedSource = source == null ? "" : source;
+        int removed = 0;
+
+        for (RoamingTrainerData data : new ArrayList<>(TRAINERS.values())) {
+            if (data == null || !ownerPlayerUuid.equals(data.ownerPlayerUuid)) continue;
+            if (!expectedSource.isBlank()) {
+                boolean towerFamily = expectedSource.startsWith(AdventurerGuildManager.SOURCE_BATTLE_TOWER)
+                        && data.adventureSource != null
+                        && data.adventureSource.startsWith(AdventurerGuildManager.SOURCE_BATTLE_TOWER);
+                if (!towerFamily && !expectedSource.equals(data.adventureSource)) continue;
+            }
+            removeTrainerSilently(server, data.npcUuid);
+            removed++;
+        }
+
+        String ownerTag = "champutils_battle_tower_owner_" + ownerPlayerUuid;
+        for (ServerLevel level : server.getAllLevels()) {
+            List<Entity> entities = new ArrayList<>();
+            level.getAllEntities().forEach(entities::add);
+
+            for (Entity entity : entities) {
+                if (!(entity instanceof NPCEntity npc)) continue;
+                if (!npc.getTags().contains(ownerTag)) continue;
+                if (TRAINERS.containsKey(npc.getUUID())) continue;
+
+                removeNpc(npc);
+                removed++;
+            }
+        }
+        return removed;
     }
 
     public static BattleContextManager.BattleType battleTypeFor(UUID npcUuid) {
@@ -527,13 +596,12 @@ public final class RoamingTrainerManager {
         if (npc == null) return;
         boolean movementEnabled = RoamingTrainerConfig.DATA.movementEnabled;
         try { npc.addTag(ROAMING_TRAINER_TAG); } catch (Exception ignored) {}
-        try { npc.setInvulnerable(true); } catch (Exception ignored) {}
+        refreshImmediateProtections(npc);
         try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
         try { npc.setNoAi(!movementEnabled); } catch (Exception ignored) {}
         try { npc.setMovable(movementEnabled); } catch (Exception ignored) {}
         try { npc.setLeashable(false); } catch (Exception ignored) {}
         try { npc.setAllowProjectileHits(false); } catch (Exception ignored) {}
-        try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
         if (!movementEnabled) {
             try { npc.setDeltaMovement(Vec3.ZERO); } catch (Exception ignored) {}
         }
@@ -549,6 +617,16 @@ public final class RoamingTrainerManager {
                 npc.setYBodyRot(data.spawnYaw);
             } catch (Exception ignored) {}
         }
+    }
+
+    /** Restores environmental safety even for damage sources that bypass vanilla invulnerability. */
+    public static void refreshImmediateProtections(NPCEntity npc) {
+        if (npc == null) return;
+        try { npc.setInvulnerable(true); } catch (Exception ignored) {}
+        try { npc.setHealth(npc.getMaxHealth()); } catch (Exception ignored) {}
+        try { npc.clearFire(); } catch (Exception ignored) {}
+        try { npc.setRemainingFireTicks(0); } catch (Exception ignored) {}
+        try { npc.setAirSupply(npc.getMaxAirSupply()); } catch (Exception ignored) {}
     }
 
     private static void updateRoamingMovement(NPCEntity npc, RoamingTrainerData data, long now) {
@@ -606,7 +684,7 @@ public final class RoamingTrainerManager {
         try { return npc != null && npc.getTags().contains(ROAMING_TRAINER_TAG); } catch (Exception ignored) { return false; }
     }
 
-    private static boolean isRoamingTrainerEntity(NPCEntity npc) {
+    public static boolean isRoamingTrainerEntity(NPCEntity npc) {
         return npc != null && (isRoamingTrainer(npc.getUUID()) || hasRoamingTrainerTag(npc));
     }
 
@@ -682,10 +760,9 @@ public final class RoamingTrainerManager {
             }
         } catch (Exception ignored) {}
 
-        int offset = rarityLevelOffset(rarity);
-        // Roaming trainer level scaling is based on spawn rarity, not playtime tier:
-        // F +5, E +10, D +15, C +20, B +25, A +30, S +35.
-        return clamp(highest <= 0 ? 15 + offset : highest + offset, 1, 100);
+        // Scale to the challenger instead of adding rarity offsets. The previous +5..+35
+        // offsets routinely pushed otherwise normal trainer parties to level 100.
+        return clamp(highest <= 0 ? 15 : highest, 1, 100);
     }
 
     private static int rarityLevelOffset(RoamingTrainerRarity rarity) {

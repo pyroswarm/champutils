@@ -127,6 +127,11 @@ public final class ExpeditionConfig {
         String normalized = normalizeType(type);
         double multiplier = switch (normalized) {
             case "general" -> 1.00D;
+            case "pokeball" -> 0.70D;
+            case "held_item" -> 0.55D;
+            case "candy" -> 0.65D;
+            case "tm" -> 0.50D;
+            case "pokemon" -> 0.40D;
             default -> 1.00D;
         };
         return Math.max(0L, Math.round(base * multiplier));
@@ -174,6 +179,17 @@ public final class ExpeditionConfig {
         return String.format(Locale.US, "Legend %.4f%% · Paradox/UB %.4f%%",
                 legendaryPokemonChancePercent(battlingLevel, sentPokemonLevel, expeditionType),
                 paradoxUltraBeastChancePercent(battlingLevel, sentPokemonLevel, expeditionType));
+    }
+
+    public static String typeDisplayName(String type) {
+        return switch (normalizeType(type)) {
+            case "pokeball" -> "Poké Ball";
+            case "held_item" -> "Held Item";
+            case "candy" -> "Candy";
+            case "tm" -> "TM";
+            case "pokemon" -> "Pokémon";
+            default -> "General";
+        };
     }
 
     public static String normalizeType(String type) {

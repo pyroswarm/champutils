@@ -18,6 +18,8 @@ import com.champutils.roaming.RoamingTrainerManager;
 import com.champutils.spawn.SpawnBlockRules;
 import com.champutils.teleport.RandomTeleportCommand;
 import com.champutils.teleport.SafeTeleportManager;
+import com.champutils.territory.TerritoryTeleportUtil;
+import com.champutils.territory.TerritoryRepository;
 import com.cobblemon.mod.common.battles.BattleFormat;
 import com.cobblemon.mod.common.entity.npc.NPCEntity;
 
@@ -49,6 +51,7 @@ public final class AdventurerGuildManager {
     public static final String SOURCE_ROAMING_LEAGUE = "adventurer_request";
     private static final String PENDING_TOWER_TRANSFER_KEY = "pending_battle_tower_transfer";
     private static final long PENDING_TOWER_TRANSFER_TTL_MS = 120_000L;
+    private static final String PENDING_ISLANDER_REQUEST_KEY = "pending_islander_adventurer_request";
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final Map<UUID, AdventurerGuildDataManager.PlayerData> CACHE = new HashMap<>();
@@ -86,6 +89,7 @@ public final class AdventurerGuildManager {
         tickCounter++;
         if (tickCounter < 1200) return;
         tickCounter = 0;
+        ensureBattleTowerChunksLoaded(server);
         long now = System.currentTimeMillis();
         long activeLimit = Math.max(5, AdventurerGuildConfig.SETTINGS.battleTowerActiveMinutes) * 60_000L;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -198,6 +202,11 @@ public final class AdventurerGuildManager {
         }
 
         TowerPlacement placement = towerPlacement(floorData);
+        player.closeContainer();
+        if (!loadTowerChunks(targetLevel, placement)) {
+            player.sendSystemMessage(Component.literal("Could not load Battle Tower floor " + floor + ". Check the configured world/location.").withStyle(ChatFormatting.RED));
+            return false;
+        }
         if (!teleportTo(player, targetLevel, placement.playerPos, placement.playerYaw, 0.0F)) {
             player.sendSystemMessage(Component.literal("Could not teleport you to Battle Tower floor " + floor + ". Check the configured world/location.").withStyle(ChatFormatting.RED));
             return false;
@@ -298,6 +307,18 @@ public final class AdventurerGuildManager {
                         startBattleTowerFloor(player, pending.ignoreCooldown);
                     }
                 }));
+
+        SharedJsonStateRepository.loadPlayerAsync(player.getUUID(), PENDING_ISLANDER_REQUEST_KEY, PendingIslanderRequest.class, null)
+                .thenAccept(pending -> player.server.execute(() -> {
+                    if (!SafeTeleportManager.isLive(player) || pending == null || pending.expiresAtMillis <= 0L) return;
+                    if (pending.expiresAtMillis < System.currentTimeMillis()) {
+                        clearPendingIslanderRequest(player.getUUID());
+                        return;
+                    }
+                    if (pending.targetServerId == null || !pending.targetServerId.equalsIgnoreCase(NetworkServerConfig.serverId())) return;
+                    clearPendingIslanderRequest(player.getUUID());
+                    startRoamingLeague(player, RoamingTrainerRarity.parse(pending.rarity, RoamingTrainerRarity.F), true);
+                }));
     }
 
     private static void clearPendingTowerTransfer(UUID playerUuid) {
@@ -312,7 +333,22 @@ public final class AdventurerGuildManager {
         public long expiresAtMillis = 0L;
     }
 
+    private static void clearPendingIslanderRequest(UUID playerUuid) {
+        if (playerUuid == null) return;
+        SharedJsonStateRepository.savePlayerAsync(playerUuid, PENDING_ISLANDER_REQUEST_KEY, new PendingIslanderRequest());
+    }
+
+    public static final class PendingIslanderRequest {
+        public String targetServerId = "";
+        public String rarity = "F";
+        public long expiresAtMillis = 0L;
+    }
+
     public static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity) {
+        return startRoamingLeague(player, rarity, false);
+    }
+
+    private static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity, boolean locationResolved) {
         if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
         RoamingTrainerRarity safeRarity = rarity == null ? RoamingTrainerRarity.F : rarity;
         AdventurerGuildDataManager.PlayerData data = getData(player);
@@ -322,10 +358,14 @@ public final class AdventurerGuildManager {
             return false;
         }
 
-        if (shouldRtpBeforeAdventurerRequest(player)) {
+        if (!locationResolved && PlayerProfileManager.isIslander(player)) {
+            return routeIslanderAdventurerRequest(player, safeRarity);
+        }
+
+        if (!locationResolved && shouldRtpBeforeAdventurerRequest(player)) {
             player.closeContainer();
             player.sendSystemMessage(Component.literal("Taking you out into the world before your Adventurer arrives...").withStyle(ChatFormatting.YELLOW));
-            return RandomTeleportCommand.requestRtp(player, "overworld", () -> startRoamingLeague(player, safeRarity));
+            return RandomTeleportCommand.requestRtp(player, "overworld", () -> startRoamingLeague(player, safeRarity, true));
         }
 
         long now = System.currentTimeMillis();
@@ -338,13 +378,23 @@ public final class AdventurerGuildManager {
         int cost = Math.max(0, entry.creditCost);
         boolean free = data.roamingLeagueDailySpawns < Math.max(0, AdventurerGuildConfig.SETTINGS.roamingLeagueDailyFreeSpawns);
         if (!free && cost > 0) {
-            EconomyManager.TransactionResult result = EconomyManager.withdraw(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league:" + safeRarity.name().toLowerCase(Locale.ROOT));
-            if (!result.success) {
-                player.sendSystemMessage(Component.literal(result.error == null ? "Not enough Credits." : result.error).withStyle(ChatFormatting.RED));
-                return false;
-            }
+            long cents = EconomyManager.wholeCreditsToCents(cost);
+            EconomyManager.withdrawAsync(player, cents, "adventurer_roaming_league:" + safeRarity.name().toLowerCase(Locale.ROOT))
+                    .thenAccept(result -> player.server.execute(() -> {
+                        if (!result.success) {
+                            player.sendSystemMessage(Component.literal(result.error == null ? "Not enough Credits." : result.error).withStyle(ChatFormatting.RED));
+                            return;
+                        }
+                        finishRoamingLeagueStart(player, safeRarity, data, now, free, cost);
+                    }));
+            return true;
         }
+        return finishRoamingLeagueStart(player, safeRarity, data, now, free, cost);
+    }
 
+    private static boolean finishRoamingLeagueStart(ServerPlayer player, RoamingTrainerRarity safeRarity,
+                                                     AdventurerGuildDataManager.PlayerData data, long now,
+                                                     boolean free, int cost) {
         net.minecraft.world.phys.Vec3 look = player.getLookAngle();
         net.minecraft.world.phys.Vec3 spawnPos = player.position().add(look.x * 2.0D, 0.0D, look.z * 2.0D);
         UUID npcUuid = RoamingTrainerManager.spawnForAdventureGuildAt(
@@ -360,8 +410,34 @@ public final class AdventurerGuildManager {
             npcUuid = RoamingTrainerManager.spawnForAdventureGuild(player, safeRarity, SOURCE_ROAMING_LEAGUE, 0);
         }
         if (npcUuid == null) {
-            if (!free && cost > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
+            if (!free && cost > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
             player.sendSystemMessage(Component.literal("Could not summon an Adventurer nearby. Move to a safer open area and try again.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        NPCEntity npc = RoamingTrainerManager.findTrainerNpc(player.getServer(), npcUuid);
+        if (npc == null || !RoamingTrainerManager.tryStartChallenge(player, npc)) {
+            RoamingTrainerManager.removeTrainerSilently(player.getServer(), npcUuid);
+            if (!free && cost > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
+            player.sendSystemMessage(Component.literal("The Adventurer arrived, but the battle could not start. Please try again.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        try {
+            PluginTrainerBattleStarter.StartResult battle = PluginTrainerBattleStarter.start(
+                    player, npc, BattleContextManager.BattleType.ADVENTURE_ROAMING, SOURCE_ROAMING_LEAGUE,
+                    BattleFormat.Companion.getGEN_9_SINGLES(), false, false);
+            if (!battle.started()) {
+                RoamingTrainerManager.releaseChallenge(npcUuid, player.getUUID());
+                RoamingTrainerManager.removeTrainerSilently(player.getServer(), npcUuid);
+                if (!free && cost > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
+                player.sendSystemMessage(Component.literal("The Adventurer arrived, but the battle could not start. Please try again.").withStyle(ChatFormatting.RED));
+                return false;
+            }
+        } catch (Exception exception) {
+            RoamingTrainerManager.releaseChallenge(npcUuid, player.getUUID());
+            RoamingTrainerManager.removeTrainerSilently(player.getServer(), npcUuid);
+            if (!free && cost > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(cost), "adventurer_roaming_league_refund");
+            player.sendSystemMessage(Component.literal("The Adventurer battle failed to start. Please try again.").withStyle(ChatFormatting.RED));
             return false;
         }
 
@@ -401,7 +477,7 @@ public final class AdventurerGuildManager {
             addRenown(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusRenown));
             addMarks(data, Math.max(0, AdventurerGuildConfig.SETTINGS.battleTowerClearBonusMarks));
             if (AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits > 0)
-                EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits), "adventurer_battle_tower_clear");
+                EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.battleTowerClearBonusCredits), "adventurer_battle_tower_clear");
             if (data.ultimateClimbActive) awardUltimateClimb(player, data);
             data.ultimateClimbActive = false; data.ultimateClimbStartedMillis = 0L;
             data.towerFloor = 91; data.lastTowerEndMillis = System.currentTimeMillis();
@@ -427,7 +503,7 @@ public final class AdventurerGuildManager {
         }
         data.towerRewardClaims.put(key, now);
         addRenown(data, Math.max(0,reward.rewardRenown)); addMarks(data, Math.max(0,reward.rewardMarks));
-        if (reward.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_tier:"+floor);
+        if (reward.rewardCredits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_tier:"+floor);
         if (reward.crateCreditId != null && !reward.crateCreditId.isBlank() && reward.crateCreditAmount > 0)
             CrateCreditManager.addCredits(player, reward.crateCreditId, reward.crateCreditAmount);
         runRewardCommands(player, reward.rewardCommands);
@@ -437,7 +513,7 @@ public final class AdventurerGuildManager {
     private static void awardUltimateClimb(ServerPlayer player, AdventurerGuildDataManager.PlayerData data) {
         data.ultimateClimbClears++;
         CrateCreditManager.addCredits(player, AdventurerGuildConfig.SETTINGS.ultimateClimbCrateCreditId, Math.max(1, AdventurerGuildConfig.SETTINGS.ultimateClimbCrateCredits));
-        if (AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits), "battle_tower_ultimate_clear");
+        if (AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(AdventurerGuildConfig.SETTINGS.ultimateClimbBonusCredits), "battle_tower_ultimate_clear");
         addRenown(data, AdventurerGuildConfig.SETTINGS.ultimateClimbBonusRenown); addMarks(data, AdventurerGuildConfig.SETTINGS.ultimateClimbBonusMarks);
         com.champutils.cosmetic.TitleManager.unlock(player, "ultimate_tower_conqueror");
         com.champutils.worldfirst.WorldFirstManager.award(player, "first_ultimate_battle_tower_clear");
@@ -470,6 +546,7 @@ public final class AdventurerGuildManager {
         entry.yaw = player.getYRot();
         entry.pitch = player.getXRot();
         AdventurerGuildConfig.save();
+        forceTowerChunks(player.serverLevel(), towerPlacement(entry));
         player.sendSystemMessage(Component.literal("Set Battle Tower floor " + floor + " center to " + entry.world + " @ "
                 + String.format(Locale.US, "%.1f %.1f %.1f", entry.x, entry.y, entry.z) + ". Player and trainer will spawn 7 blocks apart facing each other.").withStyle(ChatFormatting.GREEN));
         return true;
@@ -719,7 +796,7 @@ public final class AdventurerGuildManager {
     }
 
     private static void awardConfigured(ServerPlayer player, AdventurerGuildDataManager.PlayerData data, int credits, int renown, int marks, List<String> commands, String reason) {
-        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), reason);
+        if (credits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(credits), reason);
         addRenown(data, Math.max(0, renown));
         addMarks(data, Math.max(0, marks));
         runRewardCommands(player, commands);
@@ -793,6 +870,47 @@ public final class AdventurerGuildManager {
     }
 
 
+    private static boolean routeIslanderAdventurerRequest(ServerPlayer player, RoamingTrainerRarity rarity) {
+        TerritoryRepository.Territory territory = TerritoryRepository.cachedPersonal(player);
+        if (territory == null) {
+            player.sendSystemMessage(Component.literal("Create your Islander territory first with /territory create.").withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+        if (!territory.isReady()) {
+            player.sendSystemMessage(Component.literal("Your Islander territory is still being prepared. Try again when it is ready.").withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+
+        String targetServer = territory.serverId == null ? "" : territory.serverId.trim();
+        if (!targetServer.isBlank() && !targetServer.equalsIgnoreCase(NetworkServerConfig.serverId())) {
+            PendingIslanderRequest pending = new PendingIslanderRequest();
+            pending.targetServerId = targetServer;
+            pending.rarity = rarity.name();
+            pending.expiresAtMillis = System.currentTimeMillis() + 120_000L;
+            SharedJsonStateRepository.savePlayerAsync(player.getUUID(), PENDING_ISLANDER_REQUEST_KEY, pending)
+                    .whenComplete((ignored, error) -> player.server.execute(() -> {
+                        if (!SafeTeleportManager.isLive(player)) return;
+                        if (error != null || !TerritoryTeleportUtil.teleportHome(player, territory)) {
+                            clearPendingIslanderRequest(player.getUUID());
+                            player.sendSystemMessage(Component.literal("Could not route the Adventurer request to your territory server.").withStyle(ChatFormatting.RED));
+                        }
+                    }));
+            return true;
+        }
+
+        if (!TerritoryTeleportUtil.teleportHome(player, territory)) {
+            player.sendSystemMessage(Component.literal("Could not teleport to your Islander territory. Try again shortly.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Summoning your Adventurer at your territory...").withStyle(ChatFormatting.YELLOW));
+        java.util.concurrent.CompletableFuture.runAsync(() -> {}, java.util.concurrent.CompletableFuture.delayedExecutor(500L, java.util.concurrent.TimeUnit.MILLISECONDS))
+                .thenRun(() -> player.server.execute(() -> {
+                    if (SafeTeleportManager.isLive(player)) startRoamingLeague(player, rarity, true);
+                }));
+        return true;
+    }
+
     private static boolean shouldRtpBeforeAdventurerRequest(ServerPlayer player) {
         if (player == null) return false;
         String id = player.serverLevel().dimension().location().toString().toLowerCase(Locale.ROOT);
@@ -812,7 +930,7 @@ public final class AdventurerGuildManager {
             addRenown(data, Math.max(0, reward.rewardRenown));
             addMarks(data, Math.max(0, reward.rewardMarks));
             if (reward.rewardCredits > 0) {
-                EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_checkpoint:" + i);
+                EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(reward.rewardCredits), "adventurer_battle_tower_checkpoint:" + i);
             }
             runRewardCommands(player, reward.rewardCommands);
         }
@@ -859,16 +977,80 @@ public final class AdventurerGuildManager {
     private static ServerLevel resolveTowerLevel(ServerPlayer player, AdventurerGuildConfig.BattleTowerFloor floor) {
         if (player == null || floor == null) return null;
         MinecraftServer server = player.getServer();
-        ServerLevel target = player.serverLevel();
-        if (server != null && floor.world != null && !floor.world.isBlank()) {
-            for (ServerLevel level : server.getAllLevels()) {
-                if (level.dimension().location().toString().equalsIgnoreCase(floor.world.trim())) {
-                    target = level;
-                    break;
-                }
+        if (server == null) return null;
+        String configuredWorld = floor.world == null ? "" : floor.world.trim();
+        if (configuredWorld.isBlank()) return player.serverLevel();
+        for (ServerLevel level : server.getAllLevels()) {
+            if (level.dimension().location().toString().equalsIgnoreCase(configuredWorld)) {
+                return level;
             }
         }
-        return target;
+        return null;
+    }
+
+    /**
+     * Keeps every configured Battle Tower arena loaded on this physical server. Forced chunks are
+     * dimension-specific and persist independently of where players currently are, allowing a climb
+     * to begin from spawn, survival, an Islander territory, or any other world on this server.
+     */
+    private static void ensureBattleTowerChunksLoaded(MinecraftServer server) {
+        if (server == null) return;
+        Set<String> forced = new HashSet<>();
+        int maxFloor = Math.max(1, Math.min(100, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor));
+        for (int floor = 1; floor <= maxFloor; floor++) {
+            AdventurerGuildConfig.BattleTowerFloor floorData = AdventurerGuildConfig.floor(floor);
+            if (floorData == null || !floorData.locationSet) continue;
+            ServerLevel level = resolveTowerLevel(server, floorData);
+            if (level == null) continue;
+            TowerPlacement placement = towerPlacement(floorData);
+            forceTowerChunks(level, placement, forced);
+        }
+    }
+
+    private static ServerLevel resolveTowerLevel(MinecraftServer server, AdventurerGuildConfig.BattleTowerFloor floor) {
+        if (server == null || floor == null || floor.world == null || floor.world.isBlank()) return null;
+        String configuredWorld = floor.world.trim();
+        for (ServerLevel level : server.getAllLevels()) {
+            if (level.dimension().location().toString().equalsIgnoreCase(configuredWorld)) return level;
+        }
+        return null;
+    }
+
+    private static boolean loadTowerChunks(ServerLevel level, TowerPlacement placement) {
+        if (level == null || placement == null) return false;
+        try {
+            forceTowerChunks(level, placement);
+            loadChunkAt(level, placement.playerPos);
+            loadChunkAt(level, placement.npcPos);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static void forceTowerChunks(ServerLevel level, TowerPlacement placement) {
+        forceTowerChunks(level, placement, new HashSet<>());
+    }
+
+    private static void forceTowerChunks(ServerLevel level, TowerPlacement placement, Set<String> dedupe) {
+        if (level == null || placement == null) return;
+        forceChunkAt(level, placement.playerPos, dedupe);
+        forceChunkAt(level, placement.npcPos, dedupe);
+    }
+
+    private static void forceChunkAt(ServerLevel level, Vec3 pos, Set<String> dedupe) {
+        int chunkX = ((int) Math.floor(pos.x)) >> 4;
+        int chunkZ = ((int) Math.floor(pos.z)) >> 4;
+        String key = level.dimension().location() + ":" + chunkX + ":" + chunkZ;
+        if (dedupe != null && !dedupe.add(key)) return;
+        level.setChunkForced(chunkX, chunkZ, true);
+        level.getChunk(chunkX, chunkZ);
+    }
+
+    private static void loadChunkAt(ServerLevel level, Vec3 pos) {
+        int chunkX = ((int) Math.floor(pos.x)) >> 4;
+        int chunkZ = ((int) Math.floor(pos.z)) >> 4;
+        level.getChunk(chunkX, chunkZ);
     }
 
     private static boolean teleportTo(ServerPlayer player, ServerLevel target, Vec3 pos, float yaw, float pitch) {

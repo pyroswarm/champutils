@@ -53,7 +53,7 @@ public final class AccountUpgradeManager {
         return RankPurchaseRepository.hasActive(uuid).thenCompose(active -> {
             if (active) return CompletableFuture.completedFuture(PurchaseResult.fail("A rank purchase is already pending for your account."));
             return RankPurchaseRepository.create(uuid, player.getGameProfile().getName(), tierKey, upgrade.tebexPackageId, price)
-                    .thenCompose(request -> DatabaseManager.supplyAsync("withdraw rank purchase credits", connection -> EconomyManager.withdraw(player, price, "Champs Shop rank: " + upgrade.displayName))
+                    .thenCompose(request -> EconomyManager.withdrawAsync(player, price, "Champs Shop rank: " + upgrade.displayName)
                             .thenCompose(withdrawn -> {
                                 if (withdrawn == null || !withdrawn.success) {
                                     return RankPurchaseRepository.update(request.id(), "FAILED", "", withdrawn == null ? "Credit withdrawal failed" : withdrawn.error)
@@ -69,7 +69,7 @@ public final class AccountUpgradeManager {
                                                 return RankPurchaseRepository.update(request.id(), "RECONCILIATION_REQUIRED", submission.reference(), submission.error())
                                                         .thenApply(v -> PurchaseResult.pending(upgrade.displayName, price));
                                             }
-                                            return DatabaseManager.runAsync("refund rejected rank purchase", connection -> EconomyManager.deposit(player, price, "Refund rejected Tebex rank purchase"))
+                                            return EconomyManager.depositAsync(player, price, "Refund rejected Tebex rank purchase")
                                                     .thenCompose(v -> RankPurchaseRepository.update(request.id(), "REFUNDED", "", submission.error()))
                                                     .thenApply(v -> PurchaseResult.fail("Tebex rejected the purchase. Your Credits were refunded."));
                                         });

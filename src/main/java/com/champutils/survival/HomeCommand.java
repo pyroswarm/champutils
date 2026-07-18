@@ -203,11 +203,8 @@ public final class HomeCommand {
         String key = PlayerProfileManager.activeProfileId(uuid).toString();
         UUID profileId = PlayerProfileManager.activeProfileId(uuid);
         PlayerHomes playerHomes = state.players.computeIfAbsent(key, ignored -> new PlayerHomes());
-        PlayerHomes shared = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, PlayerHomes.class, playerHomes);
-        if (shared != null) {
-            playerHomes = shared;
-            state.players.put(key, playerHomes);
-        }
+        // Do not block the server thread or replace live homes with a timeout/fallback snapshot.
+        // Profile state is hydrated asynchronously in handleProfileReady().
         if (playerHomes.homes == null) playerHomes.homes = new HashMap<>();
         return playerHomes.homes;
     }
@@ -224,6 +221,19 @@ public final class HomeCommand {
 
     public static void handleProfileReady(ServerPlayer player) {
         if (player == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        PlayerHomes local = state.players.computeIfAbsent(profileId.toString(), ignored -> new PlayerHomes());
+        SharedJsonStateRepository.loadProfileAsync(profileId, STATE_KEY, PlayerHomes.class, new PlayerHomes())
+                .thenAccept(shared -> player.server.execute(() -> {
+                    if (!com.champutils.teleport.SafeTeleportManager.isLive(player)) return;
+                    if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) return;
+                    if (shared == null || shared.homes == null || shared.homes.isEmpty()) return;
+                    if (local.homes == null) local.homes = new HashMap<>();
+                    // Preserve any newer local changes while filling missing homes from SQL.
+                    shared.homes.forEach(local.homes::putIfAbsent);
+                    state.players.put(profileId.toString(), local);
+                    save();
+                }));
         UUID playerUuid = player.getUUID();
         SharedJsonStateRepository
                 .loadPlayerAsync(playerUuid, PENDING_HOME_KEY, PendingHomeTransfer.class, new PendingHomeTransfer())

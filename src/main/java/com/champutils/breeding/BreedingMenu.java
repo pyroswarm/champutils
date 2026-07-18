@@ -153,6 +153,8 @@ public final class BreedingMenu {
                 .setName(Component.literal("§e" + pokemon.getDisplayName(true).getString()))
                 .addLoreLine(Component.literal("§7Party Slot: §f" + (slot + 1)))
                 .addLoreLine(Component.literal("§7Gender: §f" + pretty(pokemon.getGender().name())))
+                .addLoreLine(Component.literal("§7Breedable: §f" + (PokemonBreedability.isBreedable(pokemon) ? "Yes" : "No")))
+                .addLoreLine(Component.literal(PokemonBreedability.isBreedable(pokemon) ? "§8Eligible as a parent." : "§cPermanently cannot breed."))
                 .addLoreLine(Component.literal("§7Egg Groups: §f" + eggGroups(pokemon)));
     }
 

@@ -133,7 +133,7 @@ public final class DailyLoginManager {
             try {
                 long amount = Math.max(0L, Long.parseLong(parts[2]));
                 if (amount > 0L) {
-                    EconomyManager.deposit(player, amount, "Daily login reward");
+                    EconomyManager.depositAsync(player, amount, "Daily login reward");
                     player.sendSystemMessage(Component.literal("+" + EconomyManager.format(amount) + " Credits").withStyle(ChatFormatting.GOLD));
                 }
             } catch (Exception ignored) {}

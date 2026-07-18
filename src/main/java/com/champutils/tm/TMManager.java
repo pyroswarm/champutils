@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.lang.reflect.Method;
 
@@ -252,22 +253,30 @@ public final class TMManager {
         return CraftResult.fail("Random TM crafting has been retired. Buy exact TMs from the TM Shop.");
     }
 
-    public static CraftResult craftSpecific(ServerPlayer player, String rawMove) {
-        return purchaseSpecific(player, rawMove);
-    }
-
-    public static CraftResult purchaseSpecific(ServerPlayer player, String rawMove) {
+    public static CompletableFuture<CraftResult> purchaseSpecificAsync(ServerPlayer player, String rawMove) {
         ensureRegistryReady();
-        if (player == null) return CraftResult.fail("Player not found.");
+        if (player == null) return CompletableFuture.completedFuture(CraftResult.fail("Player not found."));
         String moveId = sanitizeMove(rawMove);
-        if (!REGISTERED.containsKey(moveId)) return CraftResult.fail("Unknown/unregistered TM move: " + rawMove);
+        if (!REGISTERED.containsKey(moveId)) return CompletableFuture.completedFuture(CraftResult.fail("Unknown/unregistered TM move: " + rawMove));
         long price = priceCentsForMove(moveId);
-        EconomyManager.TransactionResult withdraw = EconomyManager.withdraw(player, price, "TM shop purchase: " + prettyMove(moveId));
-        if (!withdraw.success) return CraftResult.fail(withdraw.error == null ? "You cannot afford that TM." : withdraw.error);
-        ItemStack stack = createTMStack(moveId, 1);
-        if (stack.isEmpty()) return CraftResult.fail("Could not create that TM.");
-        if (!player.getInventory().add(stack)) player.drop(stack, false);
-        return CraftResult.success(moveId, price);
+        return EconomyManager.withdrawAsync(player, price, "TM shop purchase: " + prettyMove(moveId)).thenCompose(withdraw -> {
+            CompletableFuture<CraftResult> done = new CompletableFuture<>();
+            player.server.execute(() -> {
+                if (!withdraw.success) {
+                    done.complete(CraftResult.fail(withdraw.error == null ? "You cannot afford that TM." : withdraw.error));
+                    return;
+                }
+                ItemStack stack = createTMStack(moveId, 1);
+                if (stack.isEmpty()) {
+                    EconomyManager.depositAsync(player, price, "tm_purchase_refund:" + moveId);
+                    done.complete(CraftResult.fail("Could not create that TM. Credits were refunded."));
+                    return;
+                }
+                if (!player.getInventory().add(stack)) player.drop(stack, false);
+                done.complete(CraftResult.success(moveId, price));
+            });
+            return done;
+        });
     }
 
     public static Map<String, Integer> randomCostForRarity(String rawRarity) {

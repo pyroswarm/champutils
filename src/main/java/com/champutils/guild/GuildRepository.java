@@ -84,6 +84,8 @@ public final class GuildRepository {
     }
 
     private static final Map<UUID, GuildSnapshot> PLAYER_CACHE = new ConcurrentHashMap<>();
+    private static final Object SCHEMA_LOCK = new Object();
+    private static volatile boolean SCHEMA_READY = false;
 
     private GuildRepository() {
     }
@@ -113,8 +115,7 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("create guild " + cleanName, connection -> {
             try {
                 connection.setAutoCommit(false);
-                ensureGuildAccountSchema(connection);
-                ensureGuildCreateCooldownTable(connection);
+                ensureGuildRuntimeSchema(connection);
 
                 guildDebug("create", "DB start owner=" + ownerUuid + " name='" + cleanName + "' tag='" + cleanTag + "'");
 
@@ -212,7 +213,7 @@ public final class GuildRepository {
         }
 
         DatabaseManager.executeAsync("load guild for " + uuid, connection -> {
-            ensureGuildAccountSchema(connection);
+            ensureGuildRuntimeSchema(connection);
             loadForPlayerSync(connection, uuid);
             upsertPlayer(connection, uuid, username == null || username.isBlank() ? uuid.toString() : username);
             com.champutils.chat.ChatTagResolver.invalidate(uuid);
@@ -227,7 +228,7 @@ public final class GuildRepository {
         if (uuid == null || !DatabaseManager.isEnabled()) return cachedGuild(uuid);
         try {
             java.sql.Connection connection = DatabaseManager.getConnection();
-            ensureGuildAccountSchema(connection);
+            ensureGuildRuntimeSchema(connection);
             loadForPlayerSync(connection, uuid);
             upsertPlayer(connection, uuid, username == null || username.isBlank() ? uuid.toString() : username);
         } catch (Exception e) {
@@ -262,9 +263,7 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("guild invite " + targetUuid, connection -> {
             try {
                 guildDebug("invite", "DB start guild=" + inviterGuild.id + " inviter=" + inviterUuid + " target=" + targetUuid + " targetName='" + targetName + "'");
-                ensureGuildAccountSchema(connection);
-                ensureGuildInviteTable(connection);
-                guildDebug("invite", describeGuildInviteColumns(connection));
+                ensureGuildRuntimeSchema(connection);
                 connection.setAutoCommit(false);
 
                 try (PreparedStatement existingMember = connection.prepareStatement(
@@ -424,9 +423,7 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("guild accept " + playerUuid, connection -> {
             try {
                 guildDebug("accept", "DB start player=" + playerUuid + " name='" + playerName + "'");
-                ensureGuildAccountSchema(connection);
-                ensureGuildInviteTable(connection);
-                guildDebug("accept", describeGuildInviteColumns(connection));
+                ensureGuildRuntimeSchema(connection);
                 connection.setAutoCommit(false);
 
                 UUID guildId;
@@ -502,8 +499,7 @@ public final class GuildRepository {
         DatabaseManager.executeAsync("guild deny " + playerUuid, connection -> {
             try {
                 guildDebug("deny", "DB start player=" + playerUuid);
-                ensureGuildInviteTable(connection);
-                guildDebug("deny", describeGuildInviteColumns(connection));
+                ensureGuildRuntimeSchema(connection);
                 try (PreparedStatement statement = connection.prepareStatement(
                         "delete from guild_invites where invited_uuid = ?"
                 )) {
@@ -706,8 +702,7 @@ public final class GuildRepository {
             List<UUID> memberIds = new ArrayList<>();
             try {
                 connection.setAutoCommit(false);
-                ensureGuildAccountSchema(connection);
-                ensureGuildCreateCooldownTable(connection);
+                ensureGuildRuntimeSchema(connection);
 
                 try (PreparedStatement members = connection.prepareStatement(
                         "select player_uuid from guild_members where guild_id = ?"
@@ -984,6 +979,22 @@ public final class GuildRepository {
      * Repairs older profile-migration guild schemas before any guild query runs.
      * Guild membership is account-based, so all current guild logic uses player_uuid.
      */
+    private static void ensureGuildRuntimeSchema(java.sql.Connection connection) throws Exception {
+        if (SCHEMA_READY) return;
+        synchronized (SCHEMA_LOCK) {
+            if (SCHEMA_READY) return;
+            ensureGuildAccountSchema(connection);
+            ensureGuildInviteTable(connection);
+            ensureGuildCreateCooldownTable(connection);
+            try (java.sql.Statement statement = connection.createStatement()) {
+                statement.executeUpdate("create index if not exists guild_invites_invited_uuid_expires_idx on guild_invites (invited_uuid, expires_at desc)");
+                statement.executeUpdate("create index if not exists guild_invites_guild_id_idx on guild_invites (guild_id)");
+            }
+            SCHEMA_READY = true;
+            guildDebug("schema", "Guild schema validated once for this server process.");
+        }
+    }
+
     private static void ensureGuildAccountSchema(java.sql.Connection connection) throws Exception {
         try (java.sql.Statement statement = connection.createStatement()) {
             statement.executeUpdate(

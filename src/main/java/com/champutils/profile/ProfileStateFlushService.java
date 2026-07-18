@@ -3,6 +3,7 @@ package com.champutils.profile;
 import com.champutils.battle.BattleStateManager;
 import com.champutils.chat.ChatPreferenceManager;
 import com.champutils.database.DatabaseManager;
+import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.economy.EconomyManager;
 import com.champutils.megaboss.MegaBossBattleListener;
 import com.champutils.profession.ProfessionManager;
@@ -32,6 +33,7 @@ public final class ProfileStateFlushService {
             String playerName,
             String vanillaSnbt,
             ProfileCobblemonSqlStoreFactory.StoreSnapshot cobblemonSnapshot,
+            com.champutils.profession.ProfessionDataManager.ProfessionData professionSnapshot,
             LocationSnapshot locationSnapshot,
             com.champutils.expeditions.ExpeditionManager.Save expeditionSnapshot
     ) {
@@ -47,14 +49,14 @@ public final class ProfileStateFlushService {
      */
     public static TransferFlushSnapshot captureBeforeTransfer(ServerPlayer player, String reason) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) {
-            return new TransferFlushSnapshot(null, null, null, null, null, null, null);
+            return new TransferFlushSnapshot(null, null, null, null, null, null, null, null);
         }
 
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         UUID playerUuid = player.getUUID();
         String playerName = player.getGameProfile().getName();
         if (profileId == null || profileId.equals(playerUuid)) {
-            return new TransferFlushSnapshot(null, playerUuid, playerName, null, null, null, null);
+            return new TransferFlushSnapshot(null, playerUuid, playerName, null, null, null, null, null);
         }
 
         try {
@@ -83,6 +85,14 @@ public final class ProfileStateFlushService {
             e.printStackTrace();
         }
 
+        com.champutils.profession.ProfessionDataManager.ProfessionData professionSnapshot = null;
+        try {
+            professionSnapshot = ProfessionManager.snapshotForTransfer(player);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Failed to snapshot profession/backpack state for " + playerName + " during " + reason);
+            e.printStackTrace();
+        }
+
         LocationSnapshot locationSnapshot = captureLocationSnapshot(player);
         com.champutils.expeditions.ExpeditionManager.Save expeditionSnapshot = null;
         try {
@@ -92,7 +102,7 @@ public final class ProfileStateFlushService {
             e.printStackTrace();
         }
 
-        return new TransferFlushSnapshot(profileId, playerUuid, playerName, vanillaSnbt, cobblemonSnapshot, locationSnapshot, expeditionSnapshot);
+        return new TransferFlushSnapshot(profileId, playerUuid, playerName, vanillaSnbt, cobblemonSnapshot, professionSnapshot, locationSnapshot, expeditionSnapshot);
     }
 
     /**
@@ -123,6 +133,15 @@ public final class ProfileStateFlushService {
                     snapshot.profileId(),
                     snapshot.cobblemonSnapshot(),
                     saveReason
+            );
+        }
+
+        if (snapshot.professionSnapshot() != null) {
+            SharedJsonStateRepository.saveProfileBlocking(
+                    connection,
+                    snapshot.profileId(),
+                    "professions",
+                    snapshot.professionSnapshot()
             );
         }
 

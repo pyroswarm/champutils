@@ -278,10 +278,31 @@ public final class ChampCraftingConfig {
         int sort = CONFIG.recipes == null ? 0 : CONFIG.recipes.size();
         String[] ids = new String[] {
                 "minecraft:enchanted_golden_apple",
+                "minecraft:trial_key",
                 "cobblemon:ability_patch",
                 "cobblemon:ability_capsule",
                 "cobblemon:master_ball",
                 "cobblemon:rare_candy",
+                "cobblemon:auspicious_armor",
+                "cobblemon:malicious_armor",
+                "cobblemon:bug_gem",
+                "cobblemon:dark_gem",
+                "cobblemon:dragon_gem",
+                "cobblemon:electric_gem",
+                "cobblemon:fairy_gem",
+                "cobblemon:fighting_gem",
+                "cobblemon:fire_gem",
+                "cobblemon:flying_gem",
+                "cobblemon:ghost_gem",
+                "cobblemon:grass_gem",
+                "cobblemon:ground_gem",
+                "cobblemon:ice_gem",
+                "cobblemon:normal_gem",
+                "cobblemon:poison_gem",
+                "cobblemon:psychic_gem",
+                "cobblemon:rock_gem",
+                "cobblemon:steel_gem",
+                "cobblemon:water_gem",
                 "bottlecaps:silver_bottle_cap",
                 "bottlecaps:silver_bottle_cap_attack",
                 "bottlecaps:silver_bottle_cap_defence",
@@ -329,11 +350,13 @@ public final class ChampCraftingConfig {
     public static String defaultCategory(String itemId) {
         String id = normalizeOutputId(itemId);
         String path = path(id).toLowerCase(Locale.ROOT);
+        if (path.equals("trial_key")) return "Keys";
         if (id.startsWith("minecraft:")) return "Rare Vanilla";
         if (path.contains("bottle_cap")) return "Hyper Training";
         if (path.contains("ability_patch") || path.contains("ability_capsule")) return "Ability Items";
         if (path.equals("master_ball") || path.endsWith("_ball")) return "Poké Balls";
         if (path.equals("rare_candy") || path.contains("candy")) return "Candies";
+        if (path.endsWith("_gem")) return "Type Gems";
         if (isOfficialMegaStone(path)) return "Mega Stones";
         if (path.equals("key_stone") || path.startsWith("mega_") || path.equals("sparkling_stone") || path.equals("z_ring") || path.equals("z_power_ring") || path.equals("tera_orb")) return "Key Items";
         if (path.endsWith("ium-z") || path.endsWith("-z")) return "Z-Crystals";
@@ -360,6 +383,10 @@ public final class ChampCraftingConfig {
             add(costs, "minecraft:apple", 16);
             add(costs, "minecraft:raw_gold", 100);
             addCreditCost(costs, category, id);
+            return costs;
+        }
+        if (path.equals("trial_key")) {
+            add(costs, "minecraft:raw_copper", 2500);
             return costs;
         }
         if (path.equals("ability_patch")) {
@@ -417,6 +444,17 @@ public final class ChampCraftingConfig {
             add(costs, "cobblemon:black_tumblestone", 1024);
             add(costs, "cobblemon:sky_tumblestone", 1024);
             add(costs, "cobblemon:tumblestone", 1024);
+            addCreditCost(costs, category, id);
+            return costs;
+        }
+        if (path.endsWith("_gem")) {
+            // Consumable competitive held items: meaningful, repeatable cost without pricing them
+            // like permanent key items or Mega Stones.
+            add(costs, "minecraft:cobblestone", 600);
+            add(costs, "minecraft:raw_iron", 48);
+            add(costs, stone, 4);
+            add(costs, apricorn, 16);
+            add(costs, berry, 12);
             addCreditCost(costs, category, id);
             return costs;
         }
@@ -632,6 +670,7 @@ public final class ChampCraftingConfig {
         if (c.contains("mega")) return 10;
         if (c.contains("hyper")) return 15;
         if (c.contains("ability")) return 20;
+        if (c.contains("type gem")) return 22;
         if (c.contains("key")) return 25;
         if (c.contains("z-crystal")) return 30;
         if (c.contains("tera")) return 35;

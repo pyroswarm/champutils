@@ -154,9 +154,9 @@ public final class TMCommand {
     private static int buyMove(CommandSourceStack source, String move) {
         try {
             ServerPlayer player = source.getPlayerOrException();
-            TMManager.CraftResult result = TMManager.purchaseSpecific(player, move);
-            player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
-            return result.success() ? 1 : 0;
+            TMManager.purchaseSpecificAsync(player, move).thenAccept(result -> player.server.execute(() ->
+                    player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()))));
+            return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("Only players can buy TMs."));
             return 0;

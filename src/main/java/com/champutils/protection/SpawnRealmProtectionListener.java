@@ -174,7 +174,7 @@ public final class SpawnRealmProtectionListener {
     }
 
     private static SpawnAnchor spawnAnchor(ServerLevel level) {
-        TeleportLocation configured = TeleportConfig.getSpawn();
+        TeleportLocation configured = TeleportConfig.getProfileFirstSpawn();
         if (configured != null && sameDimension(level.dimension().location().toString(), configured.dimension)) {
             return new SpawnAnchor(configured.x, configured.y, configured.z, configured.yaw, configured.pitch);
         }

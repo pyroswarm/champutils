@@ -23,7 +23,6 @@ import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -84,10 +83,12 @@ public final class WildSpawnCapCommand {
         int cap = capFor(player);
         if (cap <= 0) return;
 
-        // Every ordinary wild spawn gets an independent, uniform roll across the full unlocked range.
-        // This prevents Cobblemon's native spawn bands from clustering most encounters at the cap.
-        int target = ThreadLocalRandom.current().nextInt(1, cap + 1);
-        pokemon.setLevel(Math.max(1, Math.min(100, target)));
+        // Wild Pokemon are shared server entities. Never reroll their level from a nearby
+        // player's profile, because that mutates the same Pokemon for every viewer and can
+        // fire again during capture/battle lifecycle events. Only enforce a hard upper cap.
+        if (pokemon.getLevel() > cap) {
+            pokemon.setLevel(Math.max(1, Math.min(100, cap)));
+        }
     }
 
     public static int currentGymCap(ServerPlayer player) {

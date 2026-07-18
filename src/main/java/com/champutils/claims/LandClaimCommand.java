@@ -188,22 +188,24 @@ public final class LandClaimCommand {
             player.sendSystemMessage(Component.literal("Your selection changed. Preview the claim again with /claims claim.").withStyle(ChatFormatting.RED));
             return 0;
         }
-        TransactionResult withdraw = EconomyManager.withdraw(player, pending.costCents, "Land claim purchase");
-        if (!withdraw.success) {
-            player.sendSystemMessage(Component.literal(withdraw.error).withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        LandClaimRepository.CreateResult created = LandClaimRepository.create(player, player.serverLevel(), pending.minX, pending.maxX, pending.minZ, pending.maxZ);
-        if (!created.success) {
-            EconomyManager.deposit(player, pending.costCents, "Land claim refund");
-            player.sendSystemMessage(Component.literal(created.message).withStyle(ChatFormatting.RED));
-            return 0;
-        }
-        PENDING.remove(player.getUUID());
-        SELECTIONS.remove(player.getUUID());
-        AdventureGuideManager.increment(player, "land_claim", 1);
-        player.sendSystemMessage(Component.literal("Land claimed for " + EconomyManager.format(pending.costCents) + ".").withStyle(ChatFormatting.GREEN));
-        player.sendSystemMessage(Component.literal("Stand inside it and run /claims settings to manage it.").withStyle(ChatFormatting.GRAY));
+        EconomyManager.withdrawAsync(player, pending.costCents, "Land claim purchase").thenAccept(withdraw ->
+                player.server.execute(() -> {
+                    if (!withdraw.success) {
+                        player.sendSystemMessage(Component.literal(withdraw.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    LandClaimRepository.CreateResult created = LandClaimRepository.create(player, player.serverLevel(), pending.minX, pending.maxX, pending.minZ, pending.maxZ);
+                    if (!created.success) {
+                        EconomyManager.depositAsync(player, pending.costCents, "Land claim refund");
+                        player.sendSystemMessage(Component.literal(created.message).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    PENDING.remove(player.getUUID());
+                    SELECTIONS.remove(player.getUUID());
+                    AdventureGuideManager.increment(player, "land_claim", 1);
+                    player.sendSystemMessage(Component.literal("Land claimed for " + EconomyManager.format(pending.costCents) + ".").withStyle(ChatFormatting.GREEN));
+                    player.sendSystemMessage(Component.literal("Stand inside it and run /claims settings to manage it.").withStyle(ChatFormatting.GRAY));
+                }));
         return 1;
     }
 
@@ -314,18 +316,21 @@ public final class LandClaimCommand {
         int newArea = (maxX - minX + 1) * (maxZ - minZ + 1);
         long cost = Math.max(0, newArea - oldArea) * LandClaimConfig.costPerBlockCents();
         if (cost > 0) {
-            TransactionResult withdraw = EconomyManager.withdraw(player, cost, "Land claim extension");
-            if (!withdraw.success) {
-                player.sendSystemMessage(Component.literal(withdraw.error).withStyle(ChatFormatting.RED));
-                return 0;
-            }
-            LandClaimRepository.CreateResult result = LandClaimRepository.resize(player, claim, minX, maxX, minZ, maxZ);
-            if (!result.success) {
-                EconomyManager.deposit(player, cost, "Land claim extension refund");
-                player.sendSystemMessage(Component.literal(result.message).withStyle(ChatFormatting.RED));
-                return 0;
-            }
-            player.sendSystemMessage(Component.literal("Claim extended by " + blocks + " blocks for " + EconomyManager.format(cost) + ". New area: " + newArea + " blocks.").withStyle(ChatFormatting.GREEN));
+            final int finalMinX = minX, finalMaxX = maxX, finalMinZ = minZ, finalMaxZ = maxZ;
+            EconomyManager.withdrawAsync(player, cost, "Land claim extension").thenAccept(withdraw ->
+                    player.server.execute(() -> {
+                        if (!withdraw.success) {
+                            player.sendSystemMessage(Component.literal(withdraw.error).withStyle(ChatFormatting.RED));
+                            return;
+                        }
+                        LandClaimRepository.CreateResult result = LandClaimRepository.resize(player, claim, finalMinX, finalMaxX, finalMinZ, finalMaxZ);
+                        if (!result.success) {
+                            EconomyManager.depositAsync(player, cost, "Land claim extension refund");
+                            player.sendSystemMessage(Component.literal(result.message).withStyle(ChatFormatting.RED));
+                            return;
+                        }
+                        player.sendSystemMessage(Component.literal("Claim extended by " + blocks + " blocks for " + EconomyManager.format(cost) + ". New area: " + newArea + " blocks.").withStyle(ChatFormatting.GREEN));
+                    }));
         } else {
             LandClaimRepository.CreateResult result = LandClaimRepository.resize(player, claim, minX, maxX, minZ, maxZ);
             player.sendSystemMessage(Component.literal(result.message).withStyle(result.success ? ChatFormatting.GREEN : ChatFormatting.RED));

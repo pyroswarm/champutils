@@ -206,7 +206,7 @@ public final class TitleDatabaseRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next() && subtitles.size() < 3) {
                     String titleId = rs.getString(1);
-                    if (titleId != null && !titleId.isBlank() && !titleId.equals(selected) && titles.contains(titleId)) {
+                    if (titleId != null && !titleId.isBlank() && titles.contains(titleId)) {
                         subtitles.add(titleId);
                     }
                 }

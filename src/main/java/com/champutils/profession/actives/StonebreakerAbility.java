@@ -26,9 +26,9 @@ public class StonebreakerAbility implements ProfessionActiveAbility {
 
         ActiveEffectManager.activateTimed(player, "stonebreaker", "Stonebreaker", seconds, stack);
 
-        player.sendSystemMessage(Component.literal("§7Stonebreaker active: §fNatural stone blocks break in a §e5x5 §farea for §e" + secondsText + "s§f."));
+        player.sendSystemMessage(Component.literal("§7Stonebreaker active: §fNatural stone blocks break in a §e3x3 §farea for §e" + secondsText + "s§f."));
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            player.displayClientMessage(Component.literal("§7Stonebreaker active: 5x5 stone clearing for " + secondsText + "s"), true);
+            player.displayClientMessage(Component.literal("§7Stonebreaker active: 3x3 stone clearing for " + secondsText + "s"), true);
         }
         ProfessionNotificationSettings.playSound(player, SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 0.65F, 0.9F);
         return true;

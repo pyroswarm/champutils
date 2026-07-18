@@ -468,8 +468,14 @@ public static void saveAndUnloadForDisconnect(ServerPlayer player) {
     try { ChatPreferenceManager.saveAsync(playerUuid, ChatPreferenceManager.get(playerUuid)); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to queue chat preference save before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
+    UUID disconnectProfileId = activeProfileId(player);
     try { ProfileSessionLoader.unload(player); }
     catch (Exception e) { System.err.println("[ChampUtils] Failed to unload profile session before disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
+
+    try { CobblemonProfileStorageBridge.evictProfileStores(disconnectProfileId); }
+    catch (Exception e) { System.err.println("[ChampUtils] Failed to evict Cobblemon profile cache after disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
+    try { com.champutils.profession.ProfessionManager.forceInvalidateSharedCache(disconnectProfileId); }
+    catch (Exception e) { System.err.println("[ChampUtils] Failed to evict profession cache after disconnect for " + player.getGameProfile().getName()); e.printStackTrace(); }
 
     try { ACTIVE.remove(playerUuid); }
     catch (Exception ignored) {}
@@ -1028,6 +1034,11 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             if (location != null) SAVED_LOCATION_CACHE.put(profileId, location);
             cacheProfile(data.profile());
 
+            // A backend may still hold this profile's cache from an earlier visit. Never let
+            // that stale in-memory party or backpack win over the freshly committed transfer.
+            CobblemonProfileStorageBridge.evictProfileStores(profileId);
+            com.champutils.profession.ProfessionManager.forceInvalidateSharedCache(profileId);
+
             if (data.partyNbt() != null && !data.partyNbt().isBlank()) {
                 CobblemonProfileStorageBridge.prefetchProfilePartyFromRaw(profileId, playerUuid, registryAccess, data.partyNbt());
             } else {
@@ -1146,6 +1157,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
                         teleportToSavedLocationSnapshot(player, snapshot);
                     } else {
                         player.resetFallDistance();
+                        ProfileFirstSpawnManager.markClaimed(player);
                     }
                     LandClaimCommand.giveInitialClaimingStick(player);
                 } else {

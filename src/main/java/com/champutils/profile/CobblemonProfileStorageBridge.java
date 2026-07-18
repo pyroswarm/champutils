@@ -323,6 +323,19 @@ public final class CobblemonProfileStorageBridge {
             }
             if (sync == null) return;
             sync.invoke(storage, player);
+            try {
+                com.cobblemon.mod.common.CobblemonNetwork.INSTANCE.sendPacketToPlayer(
+                        player,
+                        new com.cobblemon.mod.common.net.messages.client.SetClientPlayerDataPacket(
+                                com.cobblemon.mod.common.api.storage.player.PlayerInstancedDataStoreTypes.INSTANCE.getPOKEDEX(),
+                                com.cobblemon.mod.common.Cobblemon.INSTANCE.getPlayerDataManager().getPokedexData(profileId).toClientData(),
+                                false
+                        )
+                );
+            } catch (Throwable dexError) {
+                System.err.println("[ChampUtils] Failed to sync profile-bound Cobblemon Pokedex for " + player.getGameProfile().getName() + ".");
+                dexError.printStackTrace();
+            }
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon onPlayerDataSync took " + (System.currentTimeMillis() - start) + "ms for " + player.getGameProfile().getName() + " profile=" + profileId + " reason=" + reason);
         } catch (Throwable throwable) {
             System.err.println("[ChampUtils] Failed to run Cobblemon player data sync for " + player.getGameProfile().getName() + " during " + reason + ".");

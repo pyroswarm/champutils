@@ -19,6 +19,8 @@ public final class RankedTokenConfig {
         public int tokensPerRankedWin = 2;
         public int dailyTokenCap = 20;
         public int sameOpponentCooldownHours = 1;
+        public int immediateForfeitSeconds = 90;
+        public long immediateForfeitWinnerCredits = EconomyManager.wholeCreditsToCents(25L);
         public long rankedParticipationCredits = EconomyManager.wholeCreditsToCents(75L);
         public long rankedWinBonusCredits = EconomyManager.wholeCreditsToCents(175L);
         public long rankedFirstWinOfDayCredits = EconomyManager.wholeCreditsToCents(300L);
@@ -45,6 +47,8 @@ public final class RankedTokenConfig {
         if (c.tokensPerRankedWin <= 0) c.tokensPerRankedWin = d.tokensPerRankedWin;
         if (c.dailyTokenCap <= 0) c.dailyTokenCap = d.dailyTokenCap;
         if (c.sameOpponentCooldownHours < 0) c.sameOpponentCooldownHours = d.sameOpponentCooldownHours;
+        if (c.immediateForfeitSeconds < 15) c.immediateForfeitSeconds = d.immediateForfeitSeconds;
+        if (c.immediateForfeitWinnerCredits <= 0L) c.immediateForfeitWinnerCredits = d.immediateForfeitWinnerCredits;
         if (c.rankedParticipationCredits <= 0L) c.rankedParticipationCredits = d.rankedParticipationCredits;
         if (c.rankedWinBonusCredits <= 0L) c.rankedWinBonusCredits = d.rankedWinBonusCredits;
         if (c.rankedFirstWinOfDayCredits < 0L) c.rankedFirstWinOfDayCredits = d.rankedFirstWinOfDayCredits;

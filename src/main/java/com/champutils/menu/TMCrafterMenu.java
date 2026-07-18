@@ -123,9 +123,10 @@ public final class TMCrafterMenu {
                 .addLoreLine(Component.literal("§7Balance: §6" + EconomyManager.format(EconomyManager.getBalance(player))))
                 .addLoreLine(Component.literal(canBuy ? "§eClick to buy this TM." : "§cNot enough Credits."));
         builder.setCallback((i, c, t) -> {
-            TMManager.CraftResult result = TMManager.purchaseSpecific(player, moveId);
-            player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
-            openMovePicker(player, type, currentPage);
+            TMManager.purchaseSpecificAsync(player, moveId).thenAccept(result -> player.server.execute(() -> {
+                player.sendSystemMessage(Component.literal((result.success() ? "§a" : "§c") + result.message()));
+                openMovePicker(player, type, currentPage);
+            }));
         });
         gui.setSlot(slot, builder);
     }

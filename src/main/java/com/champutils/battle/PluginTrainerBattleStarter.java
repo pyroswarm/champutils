@@ -153,13 +153,13 @@ public final class PluginTrainerBattleStarter {
 
         Method withCloneHeal = findPvnMethod(5);
         if (withCloneHeal != null) {
-            BattleFormat format = battleFormat == null ? getDefaultGen9Singles() : battleFormat;
+            BattleFormat format = copyFormat(battleFormat == null ? getDefaultGen9Singles() : battleFormat);
             return withCloneHeal.invoke(builder, player, npc, format, cloneParties, healFirst);
         }
 
         Method withFormat = findPvnMethod(3);
         if (withFormat != null && battleFormat != null) {
-            return withFormat.invoke(builder, player, npc, battleFormat);
+            return withFormat.invoke(builder, player, npc, copyFormat(battleFormat));
         }
 
         Method withoutFormat = findPvnMethod(2);
@@ -168,6 +168,20 @@ public final class PluginTrainerBattleStarter {
         }
 
         throw new NoSuchMethodException("Could not find Cobblemon BattleBuilder.pvn overload.");
+    }
+
+    private static BattleFormat copyFormat(BattleFormat source) {
+        if (source == null) return null;
+        // BattleFormat contains mutable ruleSet/adjustLevel fields and Cobblemon exposes shared singleton
+        // defaults. Never hand those shared objects to a battle, or one battle can leak format state into
+        // later fights (including move-resolution rules).
+        return new BattleFormat(
+                source.getMod(),
+                source.getBattleType(),
+                new java.util.LinkedHashSet<>(source.getRuleSet()),
+                source.getGen(),
+                source.getAdjustLevel()
+        );
     }
 
     private static BattleFormat getDefaultGen9Singles() throws Exception {

@@ -17,6 +17,7 @@ import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class ProfessionNotificationSettings {
 
@@ -31,6 +32,7 @@ public final class ProfessionNotificationSettings {
     private static boolean loaded =
             false;
     private static final String STATE_KEY = "player_notification_preferences";
+    private static final AtomicLong STACKING_SOUND_NONCE = new AtomicLong();
 
     private ProfessionNotificationSettings() {
     }
@@ -194,7 +196,28 @@ public final class ProfessionNotificationSettings {
     ) {
         if (player == null || sound == null) return;
         if (!areSoundEffectsEnabled(player)) return;
-        player.playNotifySound(sound, source, volume, pitch);
+
+        // Minecraft's client may coalesce identical sounds started on the same tick. Give every
+        // profession notification its own imperceptibly different pitch so rapid rewards layer
+        // instead of replacing one another. The offset stays within +/-0.02 pitch.
+        long nonce = STACKING_SOUND_NONCE.getAndIncrement();
+        float offset = ((nonce % 4001L) - 2000L) * 0.00001F;
+        float uniquePitch = Math.max(0.5F, Math.min(2.0F, pitch + offset));
+        player.playNotifySound(sound, source, volume, uniquePitch);
+    }
+
+    /**
+     * Plays a notification with a tiny unique pitch offset so rapid identical profession dings
+     * are separate client sound instances instead of replacing/coalescing one another.
+     */
+    public static void playStackingSound(
+            ServerPlayer player,
+            SoundEvent sound,
+            SoundSource source,
+            float volume,
+            float pitch
+    ) {
+        playSound(player, sound, source, volume, pitch);
     }
 
     public static void sendBroadcast(MinecraftServer server, Component message) {

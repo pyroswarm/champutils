@@ -97,6 +97,19 @@ public final class PokemonWikiIndex {
     public static Set<String> speciesSuggestions() { return Collections.unmodifiableSet(SPECIES); }
     public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather", "egg_moves", "drops"); }
 
+    public static boolean isBreedableSpecies(String value) {
+        Species species = findSpecies(value);
+        if (species == null) return false;
+        try {
+            var groups = species.getStandardForm().getEggGroups();
+            if (groups == null || groups.isEmpty()) return false;
+            return groups.stream().noneMatch(group -> {
+                String name = group == null ? "" : group.name().toLowerCase(Locale.ROOT);
+                return name.contains("undiscovered") || name.contains("no_eggs");
+            });
+        } catch (Throwable ignored) { return false; }
+    }
+
     public static boolean knowsSpecies(String speciesName) {
         String key = normal(speciesName);
         return !key.isBlank() && (SPECIES.contains(key) || SUPPLEMENTAL.containsKey(key) || findSpecies(speciesName) != null);

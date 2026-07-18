@@ -57,10 +57,8 @@ public final class ExpeditionMenu {
                     .addLoreLine(Component.literal("§7Level: §f" + pokemon.getLevel()))
                     .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
                     .addLoreLine(Component.literal("§7Online speed: §a2x §8(" + Math.max(1, Math.max(1, tier.hours) / 2) + "h+ online effective)"))
-                    .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(tier.credits)))
-                    .addLoreLine(Component.literal("§7Rewards: §8choose a type to preview exact rewards"));
-            int battling = com.champutils.profession.ProfessionManager.getLevel(player, com.champutils.profession.ProfessionType.BATTLING);
-            button.addLoreLine(Component.literal("§8Pokémon expedition rare odds: " + ExpeditionConfig.specialPokemonChanceSummary(battling, pokemon.getLevel(), "pokemon")));
+                    .addLoreLine(Component.literal("§7Rewards improve with expedition tier."))
+                    .addLoreLine(Component.literal("§7Choose a type to see reward categories."));
             button.addLoreLine(Component.literal("§eClick to choose expedition type"))
                     .setCallback((slot, click, action) -> ExpeditionCommand.preview(player, partySlot));
             gui.setSlot(slots[i], button);
@@ -88,13 +86,10 @@ public final class ExpeditionMenu {
                 .addLoreLine(Component.literal(lore));
         int battlingLevel = com.champutils.profession.ProfessionManager.getBenefitLevel(player, com.champutils.profession.ProfessionType.BATTLING);
         if (pokemon != null) {
-            button.addLoreLine(Component.literal("§7Preview rewards:"));
+            button.addLoreLine(Component.literal("§7Possible reward types:"));
             addRewardLore(button, pokemon.getLevel(), type, battlingLevel);
-            if ("tm".equals(ExpeditionConfig.normalizeType(type))) {
-                button.addLoreLine(Component.literal("§8• §b" + ExpeditionConfig.tmRewardSummary(pokemon.getLevel())));
-            }
         }
-        button.addLoreLine(Component.literal("§eClick to preview"))
+        button.addLoreLine(Component.literal("§eClick to review"))
                 .setCallback((i, c, t) -> ExpeditionCommand.previewType(player, partySlot, type));
         gui.setSlot(slot, button);
     }
@@ -108,22 +103,14 @@ public final class ExpeditionMenu {
                 .hideDefaultTooltip()
                 .setName(Component.literal("§e" + pokemon.getDisplayName(true).getString()))
                 .addLoreLine(Component.literal("§7Party Slot: §f" + partySlot))
-                .addLoreLine(Component.literal("§7Type: §e" + ExpeditionConfig.normalizeType(type)))
+                .addLoreLine(Component.literal("§7Type: §e" + ExpeditionConfig.typeDisplayName(type) + " Expedition"))
                 .addLoreLine(Component.literal("§7Gone for: §b" + Math.max(1, tier.hours) + " hour(s)"))
                 .addLoreLine(Component.literal("§7Online speed: §a2x §8(online time counts double)"))
                 .addLoreLine(Component.literal("§7Returns at: §f" + relativeTime(endsAt)))
-                .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.format(ExpeditionConfig.creditReward(pokemon.getLevel(), type))))
-                .addLoreLine(Component.literal("§7Rewards:"));
+                .addLoreLine(Component.literal("§7Rewards improve with expedition tier."))
+                .addLoreLine(Component.literal("§7Possible reward types:"));
         int battlingLevel = com.champutils.profession.ProfessionManager.getBenefitLevel(player, com.champutils.profession.ProfessionType.BATTLING);
         addRewardLore(summary, pokemon.getLevel(), type, battlingLevel);
-        if ("tm".equals(ExpeditionConfig.normalizeType(type))) {
-            summary.addLoreLine(Component.literal("§8• §b" + ExpeditionConfig.tmRewardSummary(pokemon.getLevel())));
-        }
-        if ("pokemon".equals(ExpeditionConfig.normalizeType(type))) {
-            summary.addLoreLine(Component.literal("§7Special Pokémon odds:"));
-            summary.addLoreLine(Component.literal("§8• §6" + ExpeditionConfig.specialPokemonChanceSummary(battlingLevel, pokemon.getLevel(), type)));
-            summary.addLoreLine(Component.literal("§8These scale with Battling level and sent Pokémon tier."));
-        }
         gui.setSlot(13, summary);
         gui.setSlot(11, new GuiElementBuilder(Items.GREEN_STAINED_GLASS_PANE).hideDefaultTooltip()
                 .setName(Component.literal("§a§lConfirm"))
@@ -143,11 +130,19 @@ public final class ExpeditionMenu {
     }
 
     private static void addRewardLore(GuiElementBuilder button, int level, String type, int battlingLevel) {
-        for (ItemStack stack : ExpeditionConfig.itemStacks(level, battlingLevel, type)) {
-            if (stack == null || stack.isEmpty()) continue;
-            button.addLoreLine(Component.literal("§8• §f" + stack.getCount() + "x " + stack.getHoverName().getString()));
+        String normalized = ExpeditionConfig.normalizeType(type);
+        switch (normalized) {
+            case "pokeball" -> button.addLoreLine(Component.literal("§8• §fPoké Balls and capture supplies"));
+            case "held_item" -> button.addLoreLine(Component.literal("§8• §6Useful and rare held items"));
+            case "candy" -> button.addLoreLine(Component.literal("§8• §dPokémon experience candies"));
+            case "tm" -> button.addLoreLine(Component.literal("§8• §bRandom Technical Machines"));
+            case "pokemon" -> button.addLoreLine(Component.literal("§8• §aA chance to discover a Pokémon"));
+            default -> {
+                button.addLoreLine(Component.literal("§8• §fMixed adventuring supplies"));
+                button.addLoreLine(Component.literal("§8• §6Credits and progression materials"));
+            }
         }
-        // Chunk rewards are intentionally not shown here; current expedition defaults no longer use old bulk chunk bundles.
+        button.addLoreLine(Component.literal("§8Higher tiers improve reward quality."));
     }
 
     private static String relativeTime(long millis) {

@@ -126,34 +126,28 @@ public final class NpcShopService {
         }
 
         long price = priceCents(entry);
-        if (price > 0L) {
-            EconomyManager.TransactionResult result = EconomyManager.withdraw(player, price, "NPC shop purchase: " + safeName(entry));
-            if (!result.success) {
-                player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that." : result.error).withStyle(ChatFormatting.RED));
-                return;
-            }
-        }
-
-        boolean success = switch (normalize(entry.type)) {
-            case "tool" -> giveTool(player, entry);
-            case "pokemon_crate" -> givePokemonCrate(player, entry);
-            case "crate_credit", "crate_key" -> giveCrateCredit(player, entry);
-            case "command" -> runCommands(player, entry);
-            case "item" -> giveItem(player, entry);
-            default -> false;
-        };
-
-        if (!success) {
-            if (price > 0L) {
-                EconomyManager.deposit(player, price, "NPC shop refund: " + safeName(entry));
-            }
-            player.sendSystemMessage(Component.literal("That shop purchase could not be completed. No credits were spent.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
-        player.sendSystemMessage(Component.literal("Purchased " + stripColor(safeName(entry)) + " for " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
+        EconomyManager.withdrawAsync(player, price, "NPC shop purchase: " + safeName(entry)).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that." : result.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    boolean success = switch (normalize(entry.type)) {
+                        case "tool" -> giveTool(player, entry);
+                        case "pokemon_crate" -> givePokemonCrate(player, entry);
+                        case "crate_credit", "crate_key" -> giveCrateCredit(player, entry);
+                        case "command" -> runCommands(player, entry);
+                        case "item" -> giveItem(player, entry);
+                        default -> false;
+                    };
+                    if (!success) {
+                        EconomyManager.depositAsync(player, price, "NPC shop refund: " + safeName(entry));
+                        player.sendSystemMessage(Component.literal("That shop purchase could not be completed. No credits were spent.").withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("Purchased " + stripColor(safeName(entry)) + " for " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
+                }));
     }
-
 
     private static long priceCents(NpcShopConfig.ShopEntry entry) {
         if (entry == null) return 0L;

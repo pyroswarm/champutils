@@ -14,6 +14,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import com.champutils.tm.TMManager;
+import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -42,13 +44,15 @@ public final class ExplorationLootManager {
             return;
         }
 
-        List<ItemStack> rewards = rollRewards(level, pos, player.getUUID().getMostSignificantBits() ^ player.getUUID().getLeastSignificantBits());
+        int battlingLevel = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.BATTLING));
+        String rolledRank = rollChestRank(level, pos, battlingLevel, player.getUUID().getMostSignificantBits() ^ player.getUUID().getLeastSignificantBits());
+        List<ItemStack> rewards = rollRewards(level, pos, rolledRank, player.getUUID().getMostSignificantBits() ^ player.getUUID().getLeastSignificantBits());
         if (rewards.isEmpty()) {
             player.sendSystemMessage(Component.literal("This loot table had no valid rewards. Check exploration_loot.json item ids.").withStyle(ChatFormatting.RED));
             return;
         }
 
-        String chestRarity = chestRarity(level, pos);
+        String chestRarity = rolledRank + " Rank";
         SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x6, player, false);
         gui.setTitle(Component.literal(chestRarity + " Exploration Loot").withStyle(rarityColor(chestRarity)));
         gui.setLockPlayerInventory(true);
@@ -84,14 +88,14 @@ public final class ExplorationLootManager {
                         giveOrDrop(player, stack.copy());
                     }
                     ExplorationLootState.markClaimed(player.getUUID(), level, pos);
-                    player.sendSystemMessage(Component.literal("Claimed exploration loot!").withStyle(ChatFormatting.GREEN));
+                    announceClaim(player, rolledRank);
                     gui.close();
                 }));
 
         gui.open();
     }
 
-    private static List<ItemStack> rollRewards(ServerLevel level, BlockPos pos, long playerSalt) {
+    private static List<ItemStack> rollRewards(ServerLevel level, BlockPos pos, String rolledRank, long playerSalt) {
         String tableId = tableId(level, pos);
         ExplorationLootConfig.LootTable table = ExplorationLootConfig.get().tables.get(tableId);
         if (table == null) table = ExplorationLootConfig.get().tables.get("overworld");
@@ -99,11 +103,11 @@ public final class ExplorationLootManager {
 
         long seed = 31L * pos.asLong() + 17L * level.getSeed() + playerSalt;
         Random random = new Random(seed);
-        int chestMaxRank = chestMaxRarityRank(level, pos);
-        int rolls = table.minRolls + random.nextInt(Math.max(1, table.maxRolls - table.minRolls + 1)) + rollBonusForRank(chestMaxRank);
+        int selectedRank = ExplorationLootConfig.rarityRank(rolledRank);
+        int rolls = Math.max(6, table.minRolls + random.nextInt(Math.max(1, table.maxRolls - table.minRolls + 1)) + rollBonusForRank(selectedRank));
         List<ItemStack> rewards = new ArrayList<>();
 
-        List<ExplorationLootConfig.LootEntry> valid = validEntries(table, level, pos);
+        List<ExplorationLootConfig.LootEntry> valid = validEntries(table, selectedRank);
         if (valid.isEmpty()) return rewards;
 
         Set<String> alreadyRolled = new HashSet<>();
@@ -123,26 +127,59 @@ public final class ExplorationLootManager {
         return rewards;
     }
 
-    private static List<ExplorationLootConfig.LootEntry> validEntries(ExplorationLootConfig.LootTable table, ServerLevel level, BlockPos pos) {
-        int globalMaxRarity = ExplorationLootConfig.rarityRank(ExplorationLootConfig.get().maxRarity);
-        int chestMaxRarity = chestMaxRarityRank(level, pos);
-        int maxRarity = Math.min(globalMaxRarity, chestMaxRarity);
-        int minRarity = Math.max(0, maxRarity - 2);
-        List<ExplorationLootConfig.LootEntry> valid = new ArrayList<>();
+    private static List<ExplorationLootConfig.LootEntry> validEntries(ExplorationLootConfig.LootTable table, int selectedRank) {
+        List<ExplorationLootConfig.LootEntry> exact = new ArrayList<>();
+        List<ExplorationLootConfig.LootEntry> fallback = new ArrayList<>();
         for (ExplorationLootConfig.LootEntry entry : table.items) {
-            if (entry == null || entry.itemId == null || entry.itemId.isBlank()) continue;
-            if (entry.weight <= 0) continue;
-            int entryRank = entry.rarityRank();
-            if (entryRank > maxRarity || entryRank < minRarity) continue;
+            if (entry == null || entry.itemId == null || entry.itemId.isBlank() || entry.weight <= 0) continue;
+            String lower = entry.itemId.toLowerCase(Locale.ROOT);
+            if (!lower.startsWith("cobblemon:") && !lower.startsWith("champutils:random_tm_")) continue;
             if (isBanned(entry.itemId)) continue;
             if (ExplorationLootConfig.get().skipUnknownItems && !isSpecialReward(entry.itemId) && !isKnownItem(entry.itemId)) continue;
-            valid.add(entry);
+            if (entry.rarityRank() == selectedRank) exact.add(entry);
+            if (entry.rarityRank() <= selectedRank) fallback.add(entry);
         }
-        return valid;
+        return exact.size() >= 6 ? exact : fallback;
+    }
+
+    private static String rollChestRank(ServerLevel level, BlockPos pos, int battlingLevel, long playerSalt) {
+        long seed = 97L * pos.asLong() + 31L * level.getSeed() + playerSalt;
+        Random random = new Random(seed);
+        int levelBonus = Math.max(0, Math.min(100, battlingLevel));
+        double roll = random.nextDouble();
+        double sChance = 0.00001D + (levelBonus * 0.0000049D); // 0.001% -> 0.05%
+        double aChance = 0.00020D + (levelBonus * 0.000048D);  // 0.02% -> 0.50%
+        double bChance = 0.004D + (levelBonus * 0.00016D);
+        double cChance = 0.025D + (levelBonus * 0.00035D);
+        double dChance = 0.090D + (levelBonus * 0.00055D);
+        double eChance = 0.260D + (levelBonus * 0.00060D);
+        if (roll < sChance) return "S";
+        roll -= sChance;
+        if (roll < aChance) return "A";
+        roll -= aChance;
+        if (roll < bChance) return "B";
+        roll -= bChance;
+        if (roll < cChance) return "C";
+        roll -= cChance;
+        if (roll < dChance) return "D";
+        roll -= dChance;
+        if (roll < eChance) return "E";
+        return "F";
+    }
+
+    private static void announceClaim(ServerPlayer player, String rank) {
+        Component local = Component.literal("You opened a " + rank + " Rank exploration chest!").withStyle(rarityColor(rank));
+        player.sendSystemMessage(local);
+        if (("A".equalsIgnoreCase(rank) || "S".equalsIgnoreCase(rank)) && player.getServer() != null) {
+            Component global = Component.literal(player.getName().getString() + " discovered an ultra-rare " + rank + " Rank exploration chest!")
+                    .withStyle(rarityColor(rank));
+            player.getServer().getPlayerList().broadcastSystemMessage(global, false);
+        }
     }
 
     private static boolean isBanned(String itemId) {
         String lower = itemId.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("genesis:") || lower.startsWith("genesisforms:")) return true;
         for (String banned : ExplorationLootConfig.get().bannedItemContains) {
             if (banned != null && !banned.isBlank() && lower.contains(banned.toLowerCase(Locale.ROOT))) return true;
         }

@@ -408,36 +408,11 @@ public final class ProfessionToolRollService {
                             range.max
                     );
 
-            /*
-             * Tool lore currently displays every stat as a whole percent.
-             * Roll whole displayed values too so there is no hidden decimal
-             * quality mismatch like +0% showing [15%].
-             *
-             * Example: range 0.0 -> 1.0 now rolls either 0 or 1.
-             *   0 displays as +0% [0%]
-             *   1 displays as +1% [100%]
-             */
-            int minLevel =
-                    (int) Math.floor(
-                            min
-                    );
-
-            int maxLevel =
-                    (int) Math.floor(
-                            max
-                    );
-
-            maxLevel =
-                    Math.max(
-                            minLevel,
-                            maxLevel
-                    );
-
-            double value =
-                    minLevel +
-                            RANDOM.nextInt(
-                                    maxLevel - minLevel + 1
-                            );
+            // Roll uniformly across the configured numeric range. The previous whole-number
+            // flooring collapsed narrow ranges (for example 0.0-1.0) into only two outcomes and
+            // badly distorted both average power and displayed quality.
+            double value = min == max ? min : min + (RANDOM.nextDouble() * (max - min));
+            value = Math.round(value * 100.0D) / 100.0D;
 
             rolledStats.put(
                     statId,
@@ -512,33 +487,6 @@ public final class ProfessionToolRollService {
                     range.weight <= 0
                             ? 1.0D
                             : range.weight;
-
-            /*
-             * Match the quality math used by the item lore.
-             * Since stats display as whole percentages, decimal rolls should not
-             * secretly inflate quality. A 0.9 roll in a 0-1 range displays as
-             * +0%, so it contributes 0% quality. A 1.0 roll contributes 100%.
-             */
-            double displayedMin =
-                    Math.floor(
-                            min
-                    );
-
-            double displayedMax =
-                    Math.floor(
-                            max
-                    );
-
-            double displayedValue =
-                    Math.floor(
-                            rolledValue
-                    );
-
-            if (displayedMax > displayedMin) {
-                min = displayedMin;
-                max = displayedMax;
-                rolledValue = displayedValue;
-            }
 
             double statPercent =
                     (rolledValue - min) /

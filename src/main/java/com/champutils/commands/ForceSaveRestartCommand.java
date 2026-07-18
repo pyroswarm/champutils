@@ -67,9 +67,25 @@ public final class ForceSaveRestartCommand {
         return thread;
     });
     private static final AtomicBoolean SAVE_RUNNING = new AtomicBoolean(false);
+    private static final AtomicBoolean SERVER_STOPPING = new AtomicBoolean(false);
     private static final long SAVE_STEP_PAUSE_MILLIS = 75L;
 
     private ForceSaveRestartCommand() {}
+
+    /**
+     * Prevents shutdown from starting or continuing save work that expects the server thread to
+     * keep ticking. SERVER_STOPPING runs on the server thread, so posting another server.execute
+     * task from there can never be relied on during teardown.
+     */
+    public static void beginServerStopping() {
+        SERVER_STOPPING.set(true);
+        SAVE_RUNNING.set(false);
+        SAVE_EXECUTOR.shutdownNow();
+    }
+
+    public static void markServerRunning() {
+        SERVER_STOPPING.set(false);
+    }
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -88,6 +104,10 @@ public final class ForceSaveRestartCommand {
     private static int save(CommandSourceStack source, boolean stopAfterSave) {
         MinecraftServer server = source.getServer();
         if (server == null) return 0;
+        if (SERVER_STOPPING.get()) {
+            source.sendFailure(Component.literal("The server is already stopping; no new save can be started.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
 
         if (!SAVE_RUNNING.compareAndSet(false, true)) {
             source.sendFailure(Component.literal("A ChampUtils save is already running. Try again after it finishes.").withStyle(ChatFormatting.RED));
@@ -116,6 +136,7 @@ public final class ForceSaveRestartCommand {
      */
     public static int preRebootDrain(MinecraftServer server, CommandSourceStack source) {
         if (server == null) return 0;
+        if (SERVER_STOPPING.get()) return 0;
         if (!ProfileNetworkTransferFlow.isSurvivalServer()) {
             if (source != null) {
                 source.sendFailure(Component.literal("Pre-reboot drain only runs on the survival server. The profile lobby should stay online and will not auto-reboot.").withStyle(ChatFormatting.RED));
@@ -148,6 +169,7 @@ public final class ForceSaveRestartCommand {
                 t.printStackTrace();
             }
 
+            if (SERVER_STOPPING.get() || SAVE_EXECUTOR.isShutdown()) { SAVE_RUNNING.set(false); return; }
             SAVE_EXECUTOR.execute(() -> {
                 try {
                     runSlowSavePipeline(server, false);
@@ -220,7 +242,7 @@ public final class ForceSaveRestartCommand {
 
     /** Backwards-compatible entry point used by scheduled auto-save. Non-blocking by design. */
     public static void forceSave(MinecraftServer server) {
-        if (server == null) return;
+        if (server == null || SERVER_STOPPING.get()) return;
         if (!SAVE_RUNNING.compareAndSet(false, true)) {
             System.out.println("[ChampUtils] Skipping scheduled /champsave because a save is already running.");
             return;
@@ -233,6 +255,7 @@ public final class ForceSaveRestartCommand {
 
         // Keep live ServerPlayer/NBT touches on the server thread. These calls only snapshot/cache/queue writes.
         server.execute(() -> {
+            if (SERVER_STOPPING.get()) { SAVE_RUNNING.set(false); return; }
             try {
                 snapshotOnlinePlayers(server);
             } catch (Throwable t) {
@@ -240,7 +263,9 @@ public final class ForceSaveRestartCommand {
                 t.printStackTrace();
             }
 
-            SAVE_EXECUTOR.execute(() -> {
+            if (SERVER_STOPPING.get() || SAVE_EXECUTOR.isShutdown()) { SAVE_RUNNING.set(false); return; }
+            try {
+                SAVE_EXECUTOR.execute(() -> {
                 try {
                     runSlowSavePipeline(server, stopAfterSave);
                     long elapsed = System.currentTimeMillis() - startedAt;
@@ -260,7 +285,10 @@ public final class ForceSaveRestartCommand {
                 } finally {
                     SAVE_RUNNING.set(false);
                 }
-            });
+                });
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                SAVE_RUNNING.set(false);
+            }
         });
     }
 
@@ -304,20 +332,21 @@ public final class ForceSaveRestartCommand {
         tasks.add(new NamedSaveTask("server status", () -> ServerStatusDatabaseRepository.sync(server)));
 
         for (NamedSaveTask task : tasks) {
+            if (SERVER_STOPPING.get() || Thread.currentThread().isInterrupted()) break;
             runTask(task);
             pauseBetweenTasks();
         }
 
         // Only restart cleanup should mutate the world by closing crate GUIs/despawning roaming trainers.
         // Plain /champsave is persistence-only and should not cause entity churn or gameplay changes.
-        if (stopAfterSave) {
+        if (stopAfterSave && !SERVER_STOPPING.get()) {
             runOnServerThreadAndWait(server, () -> {
                 try { ShopPokemonCrateOpeningGui.handleServerStopping(server); } catch (Throwable ignored) {}
                 try { RoamingTrainerManager.despawnAll(server); } catch (Throwable ignored) {}
             });
         }
 
-        if (DatabaseManager.isEnabled()) {
+        if (!SERVER_STOPPING.get() && DatabaseManager.isEnabled()) {
             try {
                 // This is intentionally on ChampUtils-SlowSave, never on the Minecraft server thread.
                 DatabaseManager.flushSubmittedTasks(20, TimeUnit.SECONDS);
@@ -345,7 +374,7 @@ public final class ForceSaveRestartCommand {
     }
 
     private static void runOnServerThreadAndWait(MinecraftServer server, Runnable runnable) {
-        if (server == null || runnable == null) return;
+        if (server == null || runnable == null || SERVER_STOPPING.get()) return;
         java.util.concurrent.CompletableFuture<Void> done = new java.util.concurrent.CompletableFuture<>();
         server.execute(() -> {
             try {

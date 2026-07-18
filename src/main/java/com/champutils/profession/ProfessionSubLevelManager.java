@@ -43,6 +43,9 @@ public final class ProfessionSubLevelManager {
 
     public static void addXp(ServerPlayer player, ProfessionType profession, String category, String rawId, int amount) {
         if (player == null || profession == null || rawId == null || rawId.isBlank() || amount <= 0) return;
+        // Active abilities are unlockable tool actions, not mastery tracks. Ignore legacy
+        // callers as well as the removed active-use award path so they cannot reappear.
+        if (category != null && "ACTIVE".equalsIgnoreCase(category.trim())) return;
         if (!ProfessionManager.canEarnProfessionXp(player, profession)) return;
         amount = ProfessionXpBoostManager.applyBoosts(player, profession, amount);
         ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
@@ -102,7 +105,7 @@ public final class ProfessionSubLevelManager {
         int totalLevels = 0;
         String prefix = profession.name() + ":";
         for (var entry : data.sublevels.entrySet()) {
-            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null) continue;
+            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null || !isVisibleMasteryKey(entry.getKey())) continue;
             totalLevels += Math.max(1, Math.min(100, entry.getValue().level));
         }
         return Math.min(CHUNK_FIND_BONUS_CAP, totalLevels * CHUNK_FIND_BONUS_PER_SUBLEVEL);
@@ -117,7 +120,7 @@ public final class ProfessionSubLevelManager {
         int milestones = 0;
         String prefix = profession.name() + ":";
         for (var entry : data.sublevels.entrySet()) {
-            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null) continue;
+            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null || !isVisibleMasteryKey(entry.getKey())) continue;
             milestones += Math.max(0, Math.min(100, entry.getValue().level) / 10);
         }
         return Math.min(RARITY_BONUS_CAP, milestones * RARITY_BONUS_PER_TEN_LEVELS);
@@ -132,7 +135,7 @@ public final class ProfessionSubLevelManager {
         String prefix = profession.name() + ":";
         int count = 0;
         for (var entry : data.sublevels.entrySet()) {
-            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null) continue;
+            if (entry.getKey() == null || !entry.getKey().startsWith(prefix) || entry.getValue() == null || !isVisibleMasteryKey(entry.getKey())) continue;
             if (excludedKey != null && excludedKey.equals(entry.getKey())) continue;
             if (entry.getValue().level >= 100) count++;
         }
@@ -145,7 +148,7 @@ public final class ProfessionSubLevelManager {
         String prefix = profession.name() + ":";
         List<Map.Entry<String, ProfessionDataManager.ProfessionData.SubLevelData>> entries = new ArrayList<>();
         for (var entry : data.sublevels.entrySet()) {
-            if (entry.getKey() != null && entry.getKey().startsWith(prefix) && entry.getValue() != null) entries.add(entry);
+            if (entry.getKey() != null && entry.getKey().startsWith(prefix) && entry.getValue() != null && isVisibleMasteryKey(entry.getKey())) entries.add(entry);
         }
         entries.sort(Comparator.<Map.Entry<String, ProfessionDataManager.ProfessionData.SubLevelData>>comparingInt(e -> -e.getValue().level).thenComparing(Map.Entry::getKey));
         return entries;
@@ -165,6 +168,12 @@ public final class ProfessionSubLevelManager {
         String safeCategory = category == null || category.isBlank() ? "MISC" : category.trim().toUpperCase(Locale.ROOT);
         String safeId = rawId == null ? "unknown" : rawId.trim().toLowerCase(Locale.ROOT);
         return profession.name() + ":" + safeCategory + ":" + safeId;
+    }
+
+    private static boolean isVisibleMasteryKey(String key) {
+        if (key == null || key.isBlank()) return false;
+        String[] parts = key.split(":", 3);
+        return parts.length < 2 || !"ACTIVE".equalsIgnoreCase(parts[1]);
     }
 
     public static String displayName(String key) {
@@ -192,7 +201,6 @@ public final class ProfessionSubLevelManager {
             case "WOOD" -> "Wood";
             case "ORE" -> "Ore";
             case "TYPE" -> "Type Slayer";
-            case "ACTIVE" -> "Active Skill";
             case "BLOCK" -> "Block";
             default -> parts[1];
         };

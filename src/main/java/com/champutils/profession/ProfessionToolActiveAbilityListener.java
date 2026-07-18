@@ -16,8 +16,6 @@ import java.util.UUID;
 
 public class ProfessionToolActiveAbilityListener {
 
-    private static final int ACTIVE_SKILL_SUB_XP = 5;
-
     private static final Map<UUID, Map<String, Long>> COOLDOWNS =
             new HashMap<>();
 
@@ -155,7 +153,6 @@ public class ProfessionToolActiveAbilityListener {
                     }
 
                     com.champutils.quest.QuestManager.recordProfessionAbility(serverPlayer, ability);
-                    awardActiveSkillSubXp(serverPlayer, toolData, ability);
 
                     setCooldown(
                             serverPlayer,
@@ -204,41 +201,6 @@ public class ProfessionToolActiveAbilityListener {
         return duration + cooldown;
     }
 
-
-    private static void awardActiveSkillSubXp(
-            ServerPlayer player,
-            ProfessionToolConfig.ToolData toolData,
-            String ability
-    ) {
-        ProfessionType profession = professionFromToolData(toolData);
-        if (profession == null || ability == null || ability.isBlank()) {
-            return;
-        }
-
-        // All active skills, including toggles and sense abilities, now have a
-        // consistent sublevel track so active-focused play is not skipped.
-        ProfessionSubLevelManager.addXp(
-                player,
-                profession,
-                "ACTIVE",
-                ability,
-                ACTIVE_SKILL_SUB_XP
-        );
-    }
-
-    private static ProfessionType professionFromToolData(
-            ProfessionToolConfig.ToolData toolData
-    ) {
-        if (toolData == null || toolData.profession == null || toolData.profession.isBlank()) {
-            return null;
-        }
-
-        try {
-            return ProfessionType.valueOf(toolData.profession.trim().toUpperCase(java.util.Locale.ROOT));
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
 
     private static void setCooldown(
             ServerPlayer player,

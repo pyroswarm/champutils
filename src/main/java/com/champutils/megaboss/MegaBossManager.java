@@ -560,14 +560,28 @@ public final class MegaBossManager {
         TRACKED.entrySet().removeIf(entry -> {
             Entity entity = findEntity(server, entry.getKey());
             if (entity == null || !entity.isAlive()) return true;
-            if (now >= entry.getValue()) { entity.discard(); return true; }
+            if (now >= entry.getValue()) {
+                if (isInBattle(entity)) {
+                    long extended = now + 60_000L;
+                    entry.setValue(extended);
+                    replaceExpiryTag(entity, extended);
+                    return false;
+                }
+                entity.discard(); return true;
+            }
             return false;
         });
         for (ServerLevel level : server.getAllLevels()) {
             for (Entity entity : level.getAllEntities()) {
                 if (!isMegaBoss(entity)) continue;
                 long expires = expiresAt(entity);
-                if (expires > 0L && now >= expires) entity.discard();
+                if (expires > 0L && now >= expires) {
+                    if (isInBattle(entity)) {
+                        long extended = now + 60_000L;
+                        TRACKED.put(entity.getUUID(), extended);
+                        replaceExpiryTag(entity, extended);
+                    } else entity.discard();
+                }
             }
         }
     }
@@ -580,6 +594,41 @@ public final class MegaBossManager {
                 if (expires > 0L) TRACKED.put(entity.getUUID(), expires);
             }
         }
+    }
+
+    private static boolean isInBattle(Entity entity) {
+        if (entity == null || entity.getServer() == null) return false;
+        try {
+            for (ServerPlayer player : entity.getServer().getPlayerList().getPlayers()) {
+                Object state = invokeStatic("com.cobblemon.mod.common.util.PlayerExtensionsKt", "getBattleState", player);
+                if (state == null) continue;
+                Object battle = firstValue(state, "first", "getFirst");
+                if (battle == null) battle = state;
+                if (invokeMethod(battle, "getActor", entity) != null) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static void replaceExpiryTag(Entity entity, long expiresAt) {
+        if (entity == null) return;
+        for (String tag : new ArrayList<>(entity.getTags())) if (tag != null && tag.startsWith(EXPIRES_PREFIX)) entity.removeTag(tag);
+        entity.addTag(EXPIRES_PREFIX + expiresAt);
+    }
+
+    private static Object invokeStatic(String className, String method, Object arg) {
+        try { for (java.lang.reflect.Method m : Class.forName(className).getMethods()) if (m.getName().equals(method) && m.getParameterCount() == 1) return m.invoke(null, arg); } catch (Throwable ignored) {}
+        return null;
+    }
+    private static Object invokeMethod(Object target, String method, Object arg) {
+        if (target == null) return null;
+        try { for (java.lang.reflect.Method m : target.getClass().getMethods()) if (m.getName().equals(method) && m.getParameterCount() == 1) return m.invoke(target, arg); } catch (Throwable ignored) {}
+        return null;
+    }
+    private static Object firstValue(Object target, String... names) {
+        if (target == null) return null;
+        for (String name : names) try { java.lang.reflect.Method m = target.getClass().getMethod(name); return m.invoke(target); } catch (Throwable ignored) {}
+        return null;
     }
 
     private static Entity findEntity(MinecraftServer server, UUID uuid) {

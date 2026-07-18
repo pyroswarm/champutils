@@ -175,8 +175,7 @@ public final class CrateConfig {
                 mergeP(
                         weighted(STRONG_FILLER_SPECIES, 4, "REGULAR"),
                         weighted(MID_FILLER_SPECIES, 2, "REGULAR"),
-                        weighted(new String[]{"roaring_moon","iron_valiant","iron_hands","flutter_mane","great_tusk","kartana","buzzwole","guzzlord"}, 2, null),
-                        weighted(new String[]{"articuno","zapdos","moltres","raikou","entei","suicune","regirock","regice","registeel","latias","latios"}, 1, null)
+                        weighted(new String[]{"roaring_moon","iron_valiant","iron_hands","flutter_mane","great_tusk","kartana","buzzwole","guzzlord"}, 2, null)
                 ),
                 listI(
                         "cobblemon:ultra_ball:5:12:24","cobblemon:luxury_ball:3:8:14","cobblemon:rare_candy:2:5:18","cobblemon:exp_candy_l:2:5:18","cobblemon:exp_candy_xl:1:3:9",
@@ -257,7 +256,7 @@ public final class CrateConfig {
         setCrateDisplay(crates, "b", "B Rank Crate", "B");
         setCrateDisplay(crates, "a", "A Rank Crate", "A");
         setCrateDisplay(crates, "s", "S Rank Crate", "S");
-        setCrateDisplay(crates, "guild", "C Rank Guild Crate", "C");
+        setCrateDisplay(crates, "guild", "Guild Crate", "C");
         setCrateDisplay(crates, "world_boss", "A Rank World Boss Crate", "A");
     }
 

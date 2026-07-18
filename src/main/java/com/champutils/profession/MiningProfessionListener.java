@@ -821,72 +821,57 @@ public class MiningProfessionListener {
                 BlockPos current =
                         queue.poll();
 
-                for (Direction direction : Direction.values()) {
-                    if (broken >= maxBlocks) {
-                        break;
-                    }
+                for (int dx = -1; dx <= 1 && broken < maxBlocks; dx++) {
+                    for (int dy = -1; dy <= 1 && broken < maxBlocks; dy++) {
+                        for (int dz = -1; dz <= 1 && broken < maxBlocks; dz++) {
+                            if (dx == 0 && dy == 0 && dz == 0) {
+                                continue;
+                            }
 
-                    BlockPos target =
-                            current.relative(
-                                    direction
+                            BlockPos target = current.offset(dx, dy, dz);
+
+                            if (!visited.add(target)) {
+                                continue;
+                            }
+
+                            BlockState targetState = level.getBlockState(target);
+
+                            if (targetState.isAir()) {
+                                continue;
+                            }
+
+                            String targetBlockId =
+                                    targetState.getBlock()
+                                            .builtInRegistryHolder()
+                                            .key()
+                                            .location()
+                                            .toString();
+
+                            if (!targetBlockId.equals(centerBlockId)) {
+                                continue;
+                            }
+
+                            if (!MiningBlockUtil.isPickaxeBlock(level, target, targetState)) {
+                                continue;
+                            }
+
+                            if (ProfessionBlockTracker.isPlayerPlaced(level, target)) {
+                                continue;
+                            }
+
+                            queue.add(target);
+
+                            processExtraMiningBlock(
+                                    player,
+                                    level,
+                                    target,
+                                    targetState,
+                                    targetBlockId
                             );
 
-                    if (!visited.add(
-                            target
-                    )) {
-                        continue;
+                            broken++;
+                        }
                     }
-
-                    BlockState targetState =
-                            level.getBlockState(
-                                    target
-                            );
-
-                    if (targetState.isAir()) {
-                        continue;
-                    }
-
-                    String targetBlockId =
-                            targetState.getBlock()
-                                    .builtInRegistryHolder()
-                                    .key()
-                                    .location()
-                                    .toString();
-
-                    if (!targetBlockId.equals(
-                            centerBlockId
-                    )) {
-                        continue;
-                    }
-
-                    if (!MiningBlockUtil.isPickaxeBlock(
-                            level,
-                            target,
-                            targetState
-                    )) {
-                        continue;
-                    }
-
-                    if (ProfessionBlockTracker.isPlayerPlaced(
-                            level,
-                            target
-                    )) {
-                        continue;
-                    }
-
-                    queue.add(
-                            target
-                    );
-
-                    processExtraMiningBlock(
-                            player,
-                            level,
-                            target,
-                            targetState,
-                            targetBlockId
-                    );
-
-                    broken++;
                 }
             }
         }
@@ -930,6 +915,14 @@ public class MiningProfessionListener {
                 targetBlockId
         );
 
+        // Programmatic active-ability breaks do not reliably re-enter the normal player
+        // break event. Credit the natural block here so quests and contracts advance.
+        com.champutils.quest.QuestManager.recordBlock(
+                player,
+                ProfessionType.MINING,
+                targetBlockId
+        );
+
         Integer xp =
                 getMiningXp(
                         level,
@@ -962,12 +955,6 @@ public class MiningProfessionListener {
                     ProfessionType.MINING,
                     targetBlockId,
                     extraXp
-            );
-
-            com.champutils.quest.QuestManager.recordBlock(
-                    player,
-                    ProfessionType.MINING,
-                    targetBlockId
             );
 
             ProfessionLootManager.rollReward(
@@ -1113,7 +1100,7 @@ public class MiningProfessionListener {
         breakLargeMiningArea(
                 player,
                 center,
-                2,
+                1,
                 true
         );
     }
@@ -1418,14 +1405,17 @@ public class MiningProfessionListener {
             ServerPlayer player
     ) {
 
-        float pitch =
-                player.getXRot();
+        // Use the dominant component of the player's actual look vector.
+        // This keeps the mining plane perpendicular to the direction being
+        // aimed: walls use a vertical 3x3, while floors and ceilings use a
+        // horizontal 3x3.
+        var look = player.getLookAngle();
 
-        if (pitch > 55.0F || pitch < -55.0F) {
-            return Direction.UP;
-        }
-
-        return player.getDirection();
+        return Direction.getNearest(
+                (float) look.x,
+                (float) look.y,
+                (float) look.z
+        );
     }
 
     private static BlockPos offsetForPlane(

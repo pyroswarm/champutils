@@ -169,13 +169,11 @@ public final class ChampCraftingMenu {
                 openCategory(player, category, page, backTarget);
                 return;
             }
-            ChampCraftingService.CraftResult result = ChampCraftingService.craft(player, recipe.id);
-            if (!result.success()) {
-                player.sendSystemMessage(Component.literal("§c" + result.error()));
-            } else {
-                player.sendSystemMessage(Component.literal("§aCrafted §6" + result.outputAmount() + "x " + result.displayName() + "§a."));
-            }
-            openCategory(player, category, page, backTarget);
+            ChampCraftingService.craftAsync(player, recipe.id).thenAccept(result -> player.server.execute(() -> {
+                if (!result.success()) player.sendSystemMessage(Component.literal("§c" + result.error()));
+                else player.sendSystemMessage(Component.literal("§aCrafted §6" + result.outputAmount() + "x " + result.displayName() + "§a."));
+                openCategory(player, category, page, backTarget);
+            }));
         });
         return builder;
     }

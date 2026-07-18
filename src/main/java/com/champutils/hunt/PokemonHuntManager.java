@@ -485,7 +485,7 @@ public final class PokemonHuntManager {
         long credits = PokemonHuntConfig.normalizeRewardCredits(rewards.credits, hunt.difficulty);
         rewards.credits = credits;
         if (credits > 0L) {
-            EconomyManager.deposit(player, credits, "Pokémon hunt reward: " + hunt.species);
+            EconomyManager.depositAsync(player, credits, "Pokémon hunt reward: " + hunt.species);
             player.sendSystemMessage(Component.literal("+" + EconomyManager.format(credits)).withStyle(ChatFormatting.GOLD));
         }
 

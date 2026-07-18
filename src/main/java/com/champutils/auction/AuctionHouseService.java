@@ -396,7 +396,7 @@ public final class AuctionHouseService {
 
     private static void finishPurchase(ServerPlayer player, AuctionHouseRepository.AuctionListingSummary listing, Runnable deliver, String successMessage) {
         player.sendSystemMessage(Component.literal("Processing auction purchase...").withStyle(ChatFormatting.GRAY));
-        DatabaseManager.supplyAsync("auction withdraw", connection -> EconomyManager.withdraw(player, listing.price, "Auction purchase " + listing.id))
+        EconomyManager.withdrawAsync(player, listing.price, "Auction purchase " + listing.id)
                 .whenComplete((withdraw, withdrawError) -> player.server.execute(() -> {
                     if (withdrawError != null || withdraw == null || !withdraw.success) {
                         BUYING.remove(player.getUUID());
@@ -411,13 +411,13 @@ public final class AuctionHouseService {
                     }).whenComplete((record, error) -> player.server.execute(() -> {
                         if (error != null || record == null || record.listing == null) {
                             BUYING.remove(player.getUUID());
-                            DatabaseManager.runAsync("auction purchase refund", connection -> EconomyManager.deposit(player, listing.price, "Auction purchase refund " + listing.id));
+                            EconomyManager.depositAsync(player, listing.price, "Auction purchase refund " + listing.id);
                             player.sendSystemMessage(Component.literal("Purchase failed because the listing may have sold, expired, or been canceled. Your Credits were refunded.").withStyle(ChatFormatting.RED));
                             if (error != null) error.printStackTrace();
                             return;
                         }
 
-                        DatabaseManager.runAsync("auction seller payout", connection -> EconomyManager.deposit(record.listing.sellerUuid, record.listing.sellerUsername, record.listing.price, "Auction sale " + record.listing.id));
+                        EconomyManager.depositAsync(record.listing.sellerUuid, record.listing.sellerUsername, record.listing.price, "Auction sale " + record.listing.id);
                         String saleMessage = player.getName().getString() + " bought " + record.listing.title + " for " + EconomyManager.format(record.listing.price) + ".";
                         try {
                             NotificationRepository.create(record.listing.sellerUuid, record.listing.sellerUsername, "AUCTION_SOLD", "Auction Sold", saleMessage);

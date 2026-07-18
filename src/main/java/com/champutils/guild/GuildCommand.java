@@ -199,24 +199,20 @@ public final class GuildCommand {
         }
 
         long createCost = GuildConfig.GUILD_CREATION == null ? 10_000L : Math.max(0L, GuildConfig.GUILD_CREATION.createCostCredits);
-        if (createCost > 0L) {
-            EconomyManager.TransactionResult charge = EconomyManager.withdraw(player, createCost, "Guild creation: " + cleanName);
-            if (!charge.success) {
-                player.sendSystemMessage(Component.literal(charge.error == null ? "You do not have enough credits to create a guild." : charge.error).withStyle(ChatFormatting.RED));
-                return 0;
-            }
-        }
-
         player.sendSystemMessage(Component.literal("Creating guild...").withStyle(ChatFormatting.YELLOW));
-        GuildRepository.createGuild(player.getUUID(), player.getGameProfile().getName(), cleanName, cleanTag, (success, message) ->
+        EconomyManager.withdrawAsync(player, createCost, "Guild creation: " + cleanName).thenAccept(charge ->
                 player.server.execute(() -> {
-                    if (!success && createCost > 0L) {
-                        EconomyManager.deposit(player, createCost, "Refund failed guild creation: " + cleanName);
+                    if (!charge.success) {
+                        player.sendSystemMessage(Component.literal(charge.error == null ? "You do not have enough credits to create a guild." : charge.error).withStyle(ChatFormatting.RED));
+                        return;
                     }
-                    if (success) AdventureGuideManager.increment(player, "guild", 1);
-                    player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + "." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
-                })
-        );
+                    GuildRepository.createGuild(player.getUUID(), player.getGameProfile().getName(), cleanName, cleanTag, (success, message) ->
+                            player.server.execute(() -> {
+                                if (!success && createCost > 0L) EconomyManager.depositAsync(player, createCost, "Refund failed guild creation: " + cleanName);
+                                if (success) AdventureGuideManager.increment(player, "guild", 1);
+                                player.sendSystemMessage(Component.literal(message + (success && createCost > 0L ? " Cost: " + EconomyManager.format(createCost) + "." : "")).withStyle(success ? ChatFormatting.GREEN : ChatFormatting.RED));
+                            }));
+                }));
         return 1;
     }
 
@@ -264,7 +260,16 @@ public final class GuildCommand {
                         AdventureGuideManager.increment(player, "guild", 1);
                         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
                         if (guild != null) {
-                            NetworkEventManager.publishGuildNotice(guild.id, "§a" + player.getGameProfile().getName() + " joined the guild!");
+                            String joinMessage = "§a" + player.getGameProfile().getName() + " has joined the guild!";
+                            for (ServerPlayer online : player.server.getPlayerList().getPlayers()) {
+                                GuildRepository.GuildSnapshot onlineGuild = GuildRepository.cachedGuild(online.getUUID());
+                                if (onlineGuild != null && guild.id.equals(onlineGuild.id)) {
+                                    online.sendSystemMessage(Component.literal(joinMessage));
+                                }
+                            }
+                            // Origin-server events are intentionally ignored by the network bus, so local
+                            // members are notified above and this event reaches members on other servers.
+                            NetworkEventManager.publishGuildNotice(guild.id, joinMessage);
                             NetworkEventManager.publishCacheInvalidation("GUILD", guild.id);
                         }
                     }

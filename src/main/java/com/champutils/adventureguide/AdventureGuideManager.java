@@ -4,6 +4,7 @@ import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.economy.EconomyManager;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.territory.TerritoryRepository;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -37,13 +38,12 @@ public final class AdventureGuideManager {
 
     private static int tickCounter = 0;
 
-    public static final List<Objective> OBJECTIVES = List.of(
+    public static final List<Objective> STANDARD_OBJECTIVES = List.of(
             objective("talk_to_adventurer", "Talk to the Adventurer's Guild Representative", "Start here. The Adventurer's Guild is the hub for PvE, jobs, contracts, expeditions, tower runs, and server progression.", "talk_to_adventurer", 1, 250L, "The representative is inside the big utility building to the south."),
             objective("rtp_survival", "Use RTP to reach the survival world", "RTP takes you out of spawn and into the world where most gathering, battling, and exploration happens.", "rtp", 1, 250L, "Use /rtp or the Adventurer's Guild menu."),
             objective("catch_species", "Catch 5 new species of Pokemon", "The true dex tracks species progress per profile and rewards long-term collecting.", "catch_species", 5, 500L, "Catch Pokemon you have not caught on this profile before."),
             objective("profession_intro", "Earn profession progress 25 times", "Mining, farming, forestry, and other professions reward XP when using profession gear.", "profession_action", 25, 500L, "Gather with profession tools or complete profession actions."),
             objective("guild_board", "Open the Adventurer Board", "The Adventurer Board is where repeatable tasks, PvP quests, contracts, and player guild goals live.", "guild_board", 1, 250L, "Open it from the Adventurer's Guild Representative."),
-            objective("first_contract", "Accept your first Adventurer Contract", "Contracts are one of the main repeatable ways to earn Adventurer XP and Adventurer's Marks.", "contract_buy", 1, 300L, "Open Contracts from the Adventurer Board."),
             objective("finish_contract", "Complete and claim an Adventurer Contract", "Contracts teach daily repeatable goals and help you rank up with the Adventurer's Guild.", "contract_complete", 1, 750L, "Finish the objective, then claim it from the contract menu."),
             objective("auction_listing", "Create an Auction House listing", "The Auction House lets players sell useful items and Pokemon to each other.", "auction_listing", 1, 500L, "List an item or Pokemon from the Auction House menu."),
             objective("expedition_start", "Send a Pokemon on an Expedition", "Expeditions are passive jobs that return themed rewards after time passes.", "expedition_start", 1, 500L, "Open Expeditions through the Adventurer's Guild."),
@@ -67,6 +67,19 @@ public final class AdventureGuideManager {
             objective("complete", "Adventure Guide complete", "You know the main Cobble Champs systems. Keep ranking up with the Adventurer's Guild.", "complete", 1, 2500L, "Keep playing your way.")
     );
 
+    /** Islander progression mirrors the standard guide, but replaces wilderness RTP with territory creation. */
+    public static final List<Objective> ISLANDER_OBJECTIVES = STANDARD_OBJECTIVES.stream()
+            .map(objective -> switch (objective.id()) {
+                case "rtp_survival" -> objective("create_territory", "Create your Islander Territory",
+                        "Your territory is your permanent Islander home and replaces the normal wilderness progression step.",
+                        "territory_created", 1, 250L, "Use /territory create. This completes when the territory is fully ready.");
+                case "adventurer_request" -> objective("adventurer_request", "Request an Adventurer challenge",
+                        "Adventurer requests bring a trainer directly to your Islander territory and immediately begin the battle.",
+                        "adventurer_request", 1, 750L, "Request one from the Adventurer's Guild. You will be sent to your territory first.");
+                default -> objective;
+            })
+            .toList();
+
     private AdventureGuideManager() {}
 
     public static void load() {
@@ -76,6 +89,14 @@ public final class AdventureGuideManager {
     public static void handleJoin(ServerPlayer player) {
         if (player == null) return;
         PlayerData data = data(player);
+        if (PlayerProfileManager.isIslander(player)) {
+            Objective current = objectiveAt(player, data.index);
+            TerritoryRepository.Territory territory = TerritoryRepository.cachedPersonal(player);
+            if (current != null && "create_territory".equals(current.id()) && territory != null && territory.isReady()) {
+                increment(player, "territory_created", 1);
+                data = data(player);
+            }
+        }
         if (data.bossBarVisible) {
             updateBossBar(player);
         }
@@ -148,7 +169,7 @@ public final class AdventureGuideManager {
     public static void increment(ServerPlayer player, String systemKey, int amount) {
         if (player == null || systemKey == null || amount <= 0) return;
         PlayerData data = data(player);
-        Objective current = objectiveAt(data.index);
+        Objective current = objectiveAt(player, data.index);
         if (current == null || !systemKey.equalsIgnoreCase(current.systemKey())) return;
         data.progress = Math.min(current.target(), data.progress + amount);
         markDirty(player);
@@ -170,7 +191,7 @@ public final class AdventureGuideManager {
     public static void markIntroECraft(ServerPlayer player, String rarity, String toolType) {
         if (player == null || rarity == null || toolType == null) return;
         PlayerData data = data(player);
-        Objective current = objectiveAt(data.index);
+        Objective current = objectiveAt(player, data.index);
         if (current == null || !"craft_e_tool_armor_trinket".equals(current.id())) return;
         if (!"E".equalsIgnoreCase(rarity.trim())) return;
 
@@ -195,7 +216,7 @@ public final class AdventureGuideManager {
     }
 
     public static Objective currentObjective(ServerPlayer player) {
-        return player == null ? null : objectiveAt(data(player).index);
+        return player == null ? null : objectiveAt(player, data(player).index);
     }
 
     public static int currentProgress(ServerPlayer player) {
@@ -236,8 +257,9 @@ public final class AdventureGuideManager {
     public static List<ObjectiveStatus> statuses(ServerPlayer player) {
         PlayerData data = data(player);
         List<ObjectiveStatus> list = new ArrayList<>();
-        for (int i = 0; i < OBJECTIVES.size(); i++) {
-            Objective objective = OBJECTIVES.get(i);
+        List<Objective> objectives = objectivesFor(player);
+        for (int i = 0; i < objectives.size(); i++) {
+            Objective objective = objectives.get(i);
             Status status = i < data.index ? Status.COMPLETE : (i == data.index ? Status.CURRENT : Status.LOCKED);
             int progress = i == data.index ? data.progress : (i < data.index ? objective.target() : 0);
             list.add(new ObjectiveStatus(objective, status, progress));
@@ -248,7 +270,7 @@ public final class AdventureGuideManager {
     private static void completeCurrent(ServerPlayer player, PlayerData data, Objective objective) {
         data.completed.add(objective.id());
         if (objective.rewardCredits() > 0) {
-            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(objective.rewardCredits()), "Adventure Guide: " + objective.id());
+            EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(objective.rewardCredits()), "Adventure Guide: " + objective.id());
         }
         player.sendSystemMessage(Component.literal("§aAdventure Guide complete: §f" + objective.title()));
         if (objective.rewardCredits() > 0) {
@@ -260,10 +282,10 @@ public final class AdventureGuideManager {
             player.sendSystemMessage(Component.literal("§aTraining reward: §648 E Rank Essence §7(enough to craft the guide tool, armor piece, and trinket)."));
         }
         data.guideFlags.clear();
-        if (data.index < OBJECTIVES.size() - 1) {
+        if (data.index < objectivesFor(player).size() - 1) {
             data.index++;
             data.progress = 0;
-            Objective next = objectiveAt(data.index);
+            Objective next = objectiveAt(player, data.index);
             if (next != null) {
                 player.sendSystemMessage(Component.literal("§eNext Objective: §f" + next.title()));
                 player.sendSystemMessage(Component.literal("§7" + next.hint()));
@@ -280,7 +302,7 @@ public final class AdventureGuideManager {
     private static void updateBossBar(ServerPlayer player) {
         if (player == null) return;
         PlayerData data = data(player);
-        Objective current = objectiveAt(data.index);
+        Objective current = objectiveAt(player, data.index);
         if (current == null || !data.bossBarVisible) {
             removeBossBar(player);
             return;
@@ -352,9 +374,14 @@ public final class AdventureGuideManager {
         return new File(DIR, profileId + ".json");
     }
 
-    private static Objective objectiveAt(int index) {
-        if (index < 0 || index >= OBJECTIVES.size()) return null;
-        return OBJECTIVES.get(index);
+    private static List<Objective> objectivesFor(ServerPlayer player) {
+        return player != null && PlayerProfileManager.isIslander(player) ? ISLANDER_OBJECTIVES : STANDARD_OBJECTIVES;
+    }
+
+    private static Objective objectiveAt(ServerPlayer player, int index) {
+        List<Objective> objectives = objectivesFor(player);
+        if (index < 0 || index >= objectives.size()) return null;
+        return objectives.get(index);
     }
 
     private static Objective objective(String id, String title, String description, String systemKey, int target, long rewardCredits, String hint) {
@@ -376,8 +403,8 @@ public final class AdventureGuideManager {
             if (completed == null) completed = new HashSet<>();
             if (guideFlags == null) guideFlags = new HashSet<>();
             if (index < 0) index = 0;
-            if (index >= OBJECTIVES.size()) index = OBJECTIVES.size() - 1;
-            Objective current = objectiveAt(index);
+            if (index >= STANDARD_OBJECTIVES.size()) index = STANDARD_OBJECTIVES.size() - 1;
+            Objective current = STANDARD_OBJECTIVES.get(index);
             if (current != null) progress = Math.max(0, Math.min(progress, current.target()));
         }
     }

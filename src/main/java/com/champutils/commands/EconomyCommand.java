@@ -31,6 +31,11 @@ public final class EconomyCommand {
             );
 
             dispatcher.register(
+                    literal("bal")
+                            .executes(context -> showBalance(context.getSource(), context.getSource().getPlayerOrException()))
+            );
+
+            dispatcher.register(
                     literal("pay")
                             .then(argument("player", EntityArgument.player())
                                     .then(argument("amount", DoubleArgumentType.doubleArg(0.01D, 90_000_000_000_000D))
@@ -95,71 +100,41 @@ public final class EconomyCommand {
     }
 
     private static int pay(ServerPlayer from, ServerPlayer to, long amount) {
-        EconomyManager.TransactionResult result =
-                EconomyManager.transfer(from, to, amount, "player_pay");
-
-        if (!result.success) {
-            from.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-
-        from.sendSystemMessage(
-                Component.literal("§aPaid §6" + EconomyManager.format(amount) + " §ato " + to.getName().getString() + ".")
-        );
-        from.sendSystemMessage(
-                Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance))
-        );
-        to.sendSystemMessage(
-                Component.literal("§aYou received §6" + EconomyManager.format(amount) + " §afrom " + from.getName().getString() + ".")
-        );
+        EconomyManager.transferAsync(from, to, amount, "player_pay").thenAccept(result ->
+                from.server.execute(() -> {
+                    if (!result.success) {
+                        from.sendSystemMessage(Component.literal("§c" + result.error));
+                        return;
+                    }
+                    from.sendSystemMessage(Component.literal("§aPaid §6" + EconomyManager.format(amount) + " §ato " + to.getName().getString() + "."));
+                    from.sendSystemMessage(Component.literal("§7New Balance: §6" + EconomyManager.format(result.newBalance)));
+                    to.sendSystemMessage(Component.literal("§aYou received §6" + EconomyManager.format(amount) + " §afrom " + from.getName().getString() + "."));
+                }));
         return 1;
     }
 
     private static int adminGive(CommandSourceStack source, ServerPlayer player, long amount) {
-        EconomyManager.TransactionResult result =
-                EconomyManager.deposit(player, amount, "admin_give");
-
-        if (!result.success) {
-            source.sendFailure(Component.literal(result.error));
-            return 0;
-        }
-
-        source.sendSuccess(
-                () -> Component.literal("Gave " + EconomyManager.format(amount) + " to " + player.getName().getString() + ". New Balance: " + EconomyManager.format(result.newBalance)),
-                true
-        );
+        EconomyManager.depositAsync(player, amount, "admin_give").thenAccept(result -> player.server.execute(() -> {
+            if (!result.success) source.sendFailure(Component.literal(result.error));
+            else source.sendSuccess(() -> Component.literal("Gave " + EconomyManager.format(amount) + " to " + player.getName().getString() + ". New Balance: " + EconomyManager.format(result.newBalance)), true);
+        }));
         return 1;
     }
 
     private static int adminTake(CommandSourceStack source, ServerPlayer player, long amount) {
-        EconomyManager.TransactionResult result =
-                EconomyManager.withdraw(player, amount, "admin_take");
-
-        if (!result.success) {
-            source.sendFailure(Component.literal(result.error));
-            return 0;
-        }
-
-        source.sendSuccess(
-                () -> Component.literal("Took " + EconomyManager.format(amount) + " from " + player.getName().getString() + ". New Balance: " + EconomyManager.format(result.newBalance)),
-                true
-        );
+        EconomyManager.withdrawAsync(player, amount, "admin_take").thenAccept(result -> player.server.execute(() -> {
+            if (!result.success) source.sendFailure(Component.literal(result.error));
+            else source.sendSuccess(() -> Component.literal("Took " + EconomyManager.format(amount) + " from " + player.getName().getString() + ". New Balance: " + EconomyManager.format(result.newBalance)), true);
+        }));
         return 1;
     }
 
     private static int adminSet(CommandSourceStack source, ServerPlayer player, long amount) {
-        EconomyManager.TransactionResult result =
-                EconomyManager.setBalance(player, amount, "admin_set");
-
-        if (!result.success) {
-            source.sendFailure(Component.literal(result.error));
-            return 0;
-        }
-
-        source.sendSuccess(
-                () -> Component.literal("Set " + player.getName().getString() + " to " + EconomyManager.format(result.newBalance) + "."),
-                true
-        );
+        EconomyManager.setBalanceAsync(player, amount, "admin_set").thenAccept(result -> player.server.execute(() -> {
+            if (!result.success) source.sendFailure(Component.literal(result.error));
+            else source.sendSuccess(() -> Component.literal("Set " + player.getName().getString() + " to " + EconomyManager.format(result.newBalance) + "."), true);
+        }));
         return 1;
     }
+
 }

@@ -329,10 +329,9 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
 
     public void prefetchPartyRaw(UUID profileId, UUID accountUuid, RegistryAccess registryAccess, String partyNbt) {
         if (profileId == null || accountUuid == null || registryAccess == null) return;
-        if (partyCache.containsKey(profileId)) {
-            ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] transfer Cobblemon party payload hydrate took 0ms for profile=" + profileId + " cacheHit=true");
-            return;
-        }
+        // Transfer payload is authoritative. A backend can retain an older party cache from a
+        // previous visit, so replace it instead of treating the cache as a valid hit.
+        evict(profileId);
         partyCache.computeIfAbsent(profileId, uuid -> {
             long start = System.currentTimeMillis();
             PlayerPartyStore store = new PlayerPartyStore(accountUuid);
@@ -488,12 +487,15 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
                             PlayerPartyStore party = partyCache.get(profileId);
                             if (party == null) return;
                             saveAsync(profileId, registryAccess);
-                            ServerPlayer player = onlinePlayerForProfile(profileId);
-                            if (player != null && profileId.equals(PlayerProfileManager.activeProfileId(player))) {
-                                CobblemonProfileStorageBridge.sendPartyToPlayerAndSelect(player, party, profileId, "change-flush");
-                            }
+                            // Cobblemon already sends the correct incremental party/Pokémon packet for
+                            // move swaps, learned moves, held items, healing, etc. Sending a full
+                            // InitializePartyPacket here replaces the client-side PartyStore while a
+                            // Summary screen may still reference the previous object. The first move
+                            // edit then succeeds, but subsequent edits target stale UI state until the
+                            // screen/client is reopened. Persist the mutation only; full party syncs are
+                            // reserved for profile activation, transfer hydration, and explicit recovery.
                         } catch (Throwable throwable) {
-                            System.err.println("[ChampUtils] Failed to flush/resync Cobblemon party change for profile " + profileId + ".");
+                            System.err.println("[ChampUtils] Failed to flush Cobblemon party change for profile " + profileId + ".");
                             throwable.printStackTrace();
                         } finally {
                             pendingPartyFlushes.remove(profileId);

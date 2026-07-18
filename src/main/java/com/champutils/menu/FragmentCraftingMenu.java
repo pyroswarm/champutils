@@ -48,8 +48,7 @@ public final class FragmentCraftingMenu {
         addTab(gui, player, 14, "Sword", Items.DIAMOND_SWORD, () -> openCraft(player, backTarget, "sword", "Sword", Items.DIAMOND_SWORD));
         addTab(gui, player, 15, "Armor", Items.DIAMOND_CHESTPLATE, () -> openArmorTabs(player, backTarget));
         addTab(gui, player, 16, "Trinkets", Items.AMETHYST_SHARD, () -> openTrinketTabs(player, backTarget));
-        addTab(gui, player, 20, "Upgrade Essence", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget, false));
-        addTab(gui, player, 21, "Downgrade Essence", Items.PAPER, () -> openUpgrade(player, backTarget, true));
+        addTab(gui, player, 20, "Upgrade Essence", Items.AMETHYST_SHARD, () -> openUpgrade(player, backTarget));
         addTab(gui, player, 22, "Withdraw Essence", Items.CHEST, () -> openWithdraw(player, backTarget));
 
         MenuUtil.addBackButton(gui, 49, () -> { if (backTarget != null) backTarget.accept(player); else GearWorkshopMenu.open(player); });
@@ -267,17 +266,15 @@ public final class FragmentCraftingMenu {
         return String.format(java.util.Locale.US, value >= 10 ? "%.0f" : "%.2f", value).replaceAll("\\.00$", "");
     }
 
-    private static void openUpgrade(ServerPlayer player, Consumer<ServerPlayer> backTarget, boolean downgrade) {
-        SimpleGui gui = base(player, downgrade ? "Downgrade Essence" : "Upgrade Essence");
-        gui.setSlot(4, new GuiElementBuilder(downgrade ? Items.PAPER : Items.AMETHYST_SHARD).hideDefaultTooltip()
-                .setName(Component.literal(downgrade ? "§cDowngrade Essence" : "§aUpgrade Essence"))
-                .addLoreLine(Component.literal(downgrade ? "§7B/A may downgrade one step. S cannot downgrade." : "§7Upgrade up to C Rank only. B/A/S are prestige drops.")));
-        String[] ids = downgrade
-                ? new String[]{"E_TO_F_DOWNGRADE","D_TO_E_DOWNGRADE","C_TO_D_DOWNGRADE","B_TO_C_DOWNGRADE","A_TO_B_DOWNGRADE"}
-                : new String[]{"F_TO_E","E_TO_D","D_TO_C","C_TO_B"};
-        int[] slots = downgrade ? new int[]{19,20,21,22,23} : new int[]{20,21,22,23};
-        for (int i = 0; i < Math.min(ids.length, slots.length); i++) {
-            addUpgradeButton(gui, player, slots[i], ids[i], downgrade ? Items.PAPER : Items.AMETHYST_SHARD);
+    private static void openUpgrade(ServerPlayer player, Consumer<ServerPlayer> backTarget) {
+        SimpleGui gui = base(player, "Upgrade Essence");
+        gui.setSlot(4, new GuiElementBuilder(Items.AMETHYST_SHARD).hideDefaultTooltip()
+                .setName(Component.literal("§aUpgrade Essence"))
+                .addLoreLine(Component.literal("§7Upgrade up to C Rank only. B/A/S are prestige drops.")));
+        String[] ids = new String[]{"F_TO_E","E_TO_D","D_TO_C","C_TO_B"};
+        int[] slots = new int[]{20,21,22,23};
+        for (int i = 0; i < ids.length; i++) {
+            addUpgradeButton(gui, player, slots[i], ids[i], Items.AMETHYST_SHARD);
         }
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();

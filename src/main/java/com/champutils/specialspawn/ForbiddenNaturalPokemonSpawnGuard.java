@@ -68,9 +68,10 @@ public final class ForbiddenNaturalPokemonSpawnGuard {
 
         ServerPlayer nearest = nearestPlayer(level, entity);
         if (nearest != null && !entity.getTags().contains("champutils_spawn_boost_checked")) {
-            if (pokemon instanceof Pokemon typedPokemon) WildSpawnCapCommand.applyToWildSpawn(nearest, typedPokemon);
+            // Do not mutate a shared wild Pokemon's level from the nearest player's profile.
+            // Player-dependent level changes caused level flicker, capture rerolls, and
+            // different apparent levels between nearby players.
             ProfessionTrinketManager.tryApplyWildSpawnShiny(nearest, pokemon, entity);
-            applyLevelCharm(nearest, pokemon);
             entity.addTag("champutils_spawn_boost_checked");
         }
 

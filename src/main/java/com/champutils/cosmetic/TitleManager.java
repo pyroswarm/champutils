@@ -32,7 +32,7 @@ public final class TitleManager {
     private static final Set<UUID> sqlLoadedAccounts = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> sqlLoadingAccounts = ConcurrentHashMap.newKeySet();
 
-    /** Equipped main title and hidden sub titles are profile scoped. */
+    /** Cosmetic title and buff-granting subtitles are profile scoped. */
     private static final Map<String, String> selectedByProfile = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> subtitlesByProfile = new ConcurrentHashMap<>();
 
@@ -73,6 +73,10 @@ public final class TitleManager {
     }
 
     public static boolean unlock(ServerPlayer player, String id, String ignoredDisplay) {
+        return unlock(player, id, ignoredDisplay, true);
+    }
+
+    public static boolean unlock(ServerPlayer player, String id, String ignoredDisplay, boolean announce) {
         if (player == null || id == null || id.isBlank()) return false;
         String normalizedId = id.trim();
         String display = TitleConfig.display(normalizedId);
@@ -111,7 +115,7 @@ public final class TitleManager {
                         HoverEvent.Action.SHOW_TEXT,
                         TitleConfig.hoverText(normalizedId)
                 )));
-        com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
+        if (announce) com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                 player.server,
                 Component.literal("[Title] ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.AQUA))
@@ -148,13 +152,11 @@ public final class TitleManager {
     public static Set<String> subtitles(UUID uuid) {
         UUID profileId = PlayerProfileManager.activeProfileId(uuid);
         if (profileId == null) return new LinkedHashSet<>();
-        String selected = selected(uuid);
         Set<String> owned = unlocked(uuid);
         Set<String> raw = subtitleSetForProfile(profileId);
         LinkedHashSet<String> clean = new LinkedHashSet<>();
         for (String titleId : raw) {
             if (titleId == null || titleId.isBlank()) continue;
-            if (titleId.equals(selected)) continue;
             if (!owned.contains(titleId)) continue;
             clean.add(titleId);
             if (clean.size() >= MAX_SUB_TITLES) break;
@@ -180,27 +182,21 @@ public final class TitleManager {
             player.sendSystemMessage(Component.literal("You have not unlocked that title.").withStyle(ChatFormatting.RED));
             return;
         }
-        String selected = selected(player.getUUID());
-        if (normalizedId.equals(selected)) {
-            player.sendSystemMessage(Component.literal("Your shown title cannot also be a hidden sub title.").withStyle(ChatFormatting.RED));
-            return;
-        }
-
         Set<String> subtitles = subtitleSetForProfile(profileId);
         if (subtitles.remove(normalizedId)) {
             saveSubtitles(profileId, subtitles);
-            player.sendSystemMessage(Component.literal("Removed hidden sub title: ").withStyle(ChatFormatting.GRAY).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
+            player.sendSystemMessage(Component.literal("Unequipped subtitle: ").withStyle(ChatFormatting.GRAY).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
             return;
         }
-        subtitles.removeIf(titleId -> titleId == null || titleId.isBlank() || titleId.equals(selected) || !owned.contains(titleId));
+        subtitles.removeIf(titleId -> titleId == null || titleId.isBlank() || !owned.contains(titleId));
         if (subtitles.size() >= MAX_SUB_TITLES) {
-            player.sendSystemMessage(Component.literal("You already have 3/3 hidden sub titles. Right-click one of your current sub titles to unequip it first.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("You already have 3/3 subtitles equipped. Right-click one of your current subtitles to unequip it first.").withStyle(ChatFormatting.RED));
             return;
         }
         subtitles.add(normalizedId);
         saveSubtitles(profileId, subtitles);
         AdventureGuideManager.increment(player, "cosmetic", 1);
-        player.sendSystemMessage(Component.literal("Equipped hidden sub title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))).append(Component.literal(" §7(50% buff power)")));
+        player.sendSystemMessage(Component.literal("Equipped subtitle: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));
     }
 
     public static void select(ServerPlayer player, String id) {
@@ -225,8 +221,6 @@ public final class TitleManager {
             return;
         }
 
-        Set<String> subtitles = subtitleSetForProfile(profileId);
-        boolean removedFromSubtitles = subtitles.remove(normalizedId);
         if (com.champutils.database.DatabaseManager.isEnabled()) {
             selectedByProfile.put(profileId.toString(), normalizedId);
             TitleDatabaseRepository.selectAsync(profileId, normalizedId);
@@ -234,7 +228,6 @@ public final class TitleManager {
         } else {
             dataForKey(profileId.toString()).selected = normalizedId;
         }
-        if (removedFromSubtitles) saveSubtitles(profileId, subtitles);
         com.champutils.chat.ChatTagResolver.invalidate(player);
         AdventureGuideManager.increment(player, "cosmetic", 1);
         player.sendSystemMessage(Component.literal("Selected title: ").withStyle(ChatFormatting.GREEN).append(com.champutils.chat.ChatTagResolver.legacy(displayFor(player.getUUID(), normalizedId))));

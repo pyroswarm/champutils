@@ -313,11 +313,9 @@ public final class TitleConfig {
     public static double activeBuff(ServerPlayer player, BuffType type) {
         if (player == null || type == null) return 0.0D;
         double total = 0.0D;
-        String selected = TitleManager.selected(player.getUUID());
-        total += titleBuffAmount(selected, type, 1.0D);
         for (String subTitle : TitleManager.subtitles(player.getUUID())) {
-            if (subTitle == null || subTitle.equals(selected)) continue;
-            total += titleBuffAmount(subTitle, type, 0.5D);
+            if (subTitle == null || subTitle.isBlank()) continue;
+            total += titleBuffAmount(subTitle, type, 1.0D);
         }
         return total;
     }
@@ -518,7 +516,6 @@ public final class TitleConfig {
         add(c, "first_win", "First Win", "&a", "⚔", "battle_win", null, null, 0, "Win any battle.");
         add(c, "ranked_winner", "Ranked Winner", "&6", "🏆", "battle_win", "RANKED", null, 0, "Win a ranked battle.");
         add(c, "boss_slayer", "Boss Slayer", "&c", "★", "boss_win", null, null, 0, "Defeat a boss.");
-        add(c, "collector", "Collector", "&b", "◇", "catch", null, null, 0, "Catch a Pokémon.");
         add(c, "casual_scrapper", "Casual Scrapper", "&a", "⚔", "battle_win", "CASUAL", null, 0, "Win a casual PvP battle.");
         add(c, "ranked_contender", "Ranked Contender", "&e", "⚔", "battle_win", "RANKED", null, 0, "Win your first ranked PvP battle.");
         add(c, "arena_regular", "Arena Regular", "&b", "✧", "manual", null, null, 0, "Win 10 PvP battles.");

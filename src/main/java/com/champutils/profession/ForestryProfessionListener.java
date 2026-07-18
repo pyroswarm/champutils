@@ -46,7 +46,8 @@ public class ForestryProfessionListener {
             }
 
             ItemStack tool = serverPlayer.getMainHandItem();
-            processForestryRewards(serverPlayer, state, blockId, tool, xp, false);
+            AcceleratedLeafDecayManager.trackLeavesNearRemovedLog(serverPlayer.serverLevel(), pos);
+            processForestryRewards(serverPlayer, pos, blockEntity, state, blockId, tool, xp, false);
 
             if (ActiveEffectManager.hasTimedEffect(serverPlayer, "timber_burst", tool)) {
                 breakConnectedLogs(serverPlayer, pos, state, timberBurstLimit(serverPlayer, tool));
@@ -65,18 +66,87 @@ public class ForestryProfessionListener {
     }
 
 
-    private static void processForestryRewards(ServerPlayer player, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
-        double extraMultiplier = extraBlock ? 0.10D : 1.0D;
-        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp * extraMultiplier)) : baseXp;
+    private static void processForestryRewards(ServerPlayer player, BlockPos pos, BlockEntity blockEntity, BlockState state, String blockId, ItemStack tool, int baseXp, boolean extraBlock) {
+        double rewardMultiplier = extraBlock ? 0.10D : 1.0D;
+        // Tool passives must retain their actual rolled chance on every natural block,
+        // including blocks destroyed by Timber Burst. Only XP/general loot is reduced.
+        double passiveChanceMultiplier = 1.0D;
+        int xp = extraBlock ? Math.max(1, (int) Math.ceil(baseXp * rewardMultiplier)) : baseXp;
         ProfessionManager.addXp(player, ProfessionType.FORESTRY, xp);
         ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FORESTRY, blockId, xp);
         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.FORESTRY, blockId);
-        rollXpSurge(player, tool, xp, extraMultiplier);
-        ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY, extraMultiplier);
+        rollXpSurge(player, tool, xp, passiveChanceMultiplier);
+        ProfessionLootManager.rollReward(player, ProfessionType.FORESTRY, rewardMultiplier);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
-        rollDropMultiplier(player, state, tool, extraMultiplier);
-        rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder", extraMultiplier);
-        rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder", extraMultiplier);
+        rollFortuneMultiplier(player, pos, blockEntity, state, tool, passiveChanceMultiplier);
+        rollDropMultiplier(player, state, tool, passiveChanceMultiplier);
+        rollApricornFinder(player, tool, passiveChanceMultiplier);
+        rollRewardPassive(player, tool, "sapFinderChance", "forestry_sap_finder", passiveChanceMultiplier);
+        rollRewardPassive(player, tool, "seedFinderChance", "forestry_seed_finder", passiveChanceMultiplier);
+    }
+
+    /**
+     * Profession axe fortune is independent from vanilla Fortune. The listener runs before
+     * vanilla destroys the log, so award only the extra copies here and let vanilla provide
+     * the original drops normally. Using Block#getDrops keeps modded logs and tool-sensitive
+     * drops correct instead of assuming every log drops its block item.
+     */
+    private static void rollFortuneMultiplier(
+            ServerPlayer player,
+            BlockPos pos,
+            BlockEntity blockEntity,
+            BlockState state,
+            ItemStack tool,
+            double chanceMultiplier
+    ) {
+        if (player == null || pos == null || state == null || state.isAir()) return;
+        double chance = ProfessionToolUtil.getStat(tool, "fortuneChance");
+        chance *= Math.max(0.0D, chanceMultiplier);
+        if (chance <= 0.0D || RANDOM.nextDouble() * 100.0D >= Math.min(100.0D, chance)) return;
+
+        int multiplier = rollFortuneLogMultiplier(player, tool);
+        if (multiplier <= 1) return;
+
+        java.util.List<ItemStack> drops = Block.getDrops(
+                state,
+                player.serverLevel(),
+                pos,
+                blockEntity,
+                player,
+                tool
+        );
+        boolean gaveAnything = false;
+        for (ItemStack drop : drops) {
+            if (drop == null || drop.isEmpty()) continue;
+            ItemStack extra = drop.copy();
+            extra.setCount(Math.max(1, drop.getCount()) * (multiplier - 1));
+            ProfessionBackpackManager.giveOrDrop(player, extra, true);
+            gaveAnything = true;
+        }
+
+        if (gaveAnything && ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§2Fortune Chance: §f" + multiplier + "x logs!"), true);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
+        }
+    }
+
+    private static int rollFortuneLogMultiplier(ServerPlayer player, ItemStack tool) {
+        ProfessionToolConfig.ToolData data = ProfessionToolUtil.getToolData(tool);
+        String rarity = data == null ? "F" : ProfessionFragmentConfig.normalizeRarity(data.rarity);
+        int level = Math.max(1, ProfessionManager.getBenefitLevel(player, ProfessionType.FORESTRY));
+        int max = switch (rarity) {
+            case "S" -> 6;
+            case "A" -> 5;
+            case "B" -> 4;
+            case "D", "C" -> 3;
+            default -> 2;
+        };
+        double highBonus = Math.min(0.25D, level / 400.0D);
+        double roll = RANDOM.nextDouble();
+        if (max >= 5 && roll < 0.08D + highBonus) return 5;
+        if (max >= 4 && roll < 0.18D + highBonus) return 4;
+        if (max >= 3 && roll < 0.40D + highBonus) return 3;
+        return 2;
     }
 
     private static void rollDropMultiplier(ServerPlayer player, BlockState state, ItemStack tool, double chanceMultiplier) {
@@ -101,6 +171,29 @@ public class ForestryProfessionListener {
         ProfessionSubLevelManager.addBlockXp(player, ProfessionType.FORESTRY, "forestry_xp_surge", bonus);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             player.displayClientMessage(Component.literal("§aForestry XP Surge! +" + bonus), true);
+        }
+    }
+
+    private static final java.util.List<String> APRICORN_ITEMS = java.util.List.of(
+            "cobblemon:black_apricorn", "cobblemon:blue_apricorn", "cobblemon:green_apricorn",
+            "cobblemon:pink_apricorn", "cobblemon:red_apricorn", "cobblemon:white_apricorn",
+            "cobblemon:yellow_apricorn"
+    );
+
+    private static void rollApricornFinder(ServerPlayer player, ItemStack tool, double chanceMultiplier) {
+        if (!roll(player, tool, "apricornFinderChance", chanceMultiplier)) return;
+        String itemId = APRICORN_ITEMS.get(RANDOM.nextInt(APRICORN_ITEMS.size()));
+        Item item;
+        try {
+            item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId));
+        } catch (Exception ignored) {
+            return;
+        }
+        if (item == null || item == Items.AIR) return;
+        ProfessionBackpackManager.giveOrDrop(player, new ItemStack(item, 1), true);
+        if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            player.displayClientMessage(Component.literal("§aApricorn Finder: §fFound an apricorn!"), true);
+            ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.65F);
         }
     }
 
@@ -143,8 +236,9 @@ public class ForestryProfessionListener {
                 if (state.getBlock() != original.getBlock()) continue;
                 if (ProfessionBlockTracker.isPlayerPlaced(level, current)) continue;
                 String currentBlockId = getBlockId(state.getBlock());
-                processForestryRewards(player, state, currentBlockId, player.getMainHandItem(), forestryXpFor(state, currentBlockId), true);
+                processForestryRewards(player, current, level.getBlockEntity(current), state, currentBlockId, player.getMainHandItem(), forestryXpFor(state, currentBlockId), true);
                 MANUALLY_PROCESSED_EXTRA_BLOCKS.add(extraBlockKey(player, current));
+                AcceleratedLeafDecayManager.trackLeavesNearRemovedLog(level, current);
                 if (level.destroyBlock(current, true, player)) broken++;
             }
             for (BlockPos next : neighbors(current)) queue.add(next);
@@ -280,8 +374,22 @@ public class ForestryProfessionListener {
                 || id.contains("saccharine") || id.contains("apricorn_log") || id.contains("apricorn_wood");
     }
 
+    /**
+     * Returns every block touching the current block, including edge and corner diagonals.
+     * Branching trees such as acacia and large oak frequently connect logs diagonally rather
+     * than through a perfectly straight face-adjacent column.
+     */
     private static Iterable<BlockPos> neighbors(BlockPos pos) {
-        return java.util.List.of(pos.above(), pos.below(), pos.north(), pos.south(), pos.east(), pos.west());
+        java.util.List<BlockPos> nearby = new java.util.ArrayList<>(26);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+                    nearby.add(pos.offset(dx, dy, dz));
+                }
+            }
+        }
+        return nearby;
     }
 
     private static int timberBurstLimit(ServerPlayer player, ItemStack tool) {

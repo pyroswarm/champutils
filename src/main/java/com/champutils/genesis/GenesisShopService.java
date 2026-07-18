@@ -32,23 +32,21 @@ public final class GenesisShopService {
         }
 
         long price = EconomyManager.creditsToCents(entry.priceCredits);
-        if (price > 0L) {
-            EconomyManager.TransactionResult result = EconomyManager.withdraw(player, price, "Genesis shop purchase: " + safeName(entry));
-            if (!result.success) {
-                player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that." : result.error).withStyle(ChatFormatting.RED));
-                return;
-            }
-        }
-
-        int amount = Math.max(1, entry.amount);
-        int maxStack = Math.max(1, item.getDefaultMaxStackSize());
-        while (amount > 0) {
-            int give = Math.min(maxStack, amount);
-            giveOrDrop(player, new ItemStack(item, give));
-            amount -= give;
-        }
-
-        player.sendSystemMessage(Component.literal("Purchased " + stripColor(safeName(entry)) + " for " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
+        EconomyManager.withdrawAsync(player, price, "Genesis shop purchase: " + safeName(entry)).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that." : result.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    int amount = Math.max(1, entry.amount);
+                    int maxStack = Math.max(1, item.getDefaultMaxStackSize());
+                    while (amount > 0) {
+                        int give = Math.min(maxStack, amount);
+                        giveOrDrop(player, new ItemStack(item, give));
+                        amount -= give;
+                    }
+                    player.sendSystemMessage(Component.literal("Purchased " + stripColor(safeName(entry)) + " for " + EconomyManager.format(price) + ".").withStyle(ChatFormatting.GREEN));
+                }));
     }
 
     private static void giveOrDrop(ServerPlayer player, ItemStack stack) {

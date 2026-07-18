@@ -94,7 +94,7 @@ public final class AuctionHouseGui {
             lore.add(Component.literal("§f/ah sellpokemon " + (i + 1) + " <price>"));
             lore.add(Component.literal("§8Example: /ah sellpokemon " + (i + 1) + " 50000"));
 
-            gui.setSlot(i, pokemonButton(name, speciesIdFromPokemon(pokemon), pokemon.getShiny())
+            gui.setSlot(i, pokemonButton(name, speciesIdFromPokemon(pokemon), pokemon.getShiny(), com.champutils.breeding.PokemonBreedability.isBreedable(pokemon))
                     .setLore(lore)
                     .setCallback((index, clickType, actionType, g) -> {
                         player.closeContainer();
@@ -319,6 +319,7 @@ public final class AuctionHouseGui {
         gui.setSlot(12, cleanButton(Items.EXPERIENCE_BOTTLE, "§eCore Info")
                 .addLoreLine(Component.literal("§7Level: §f" + get(p, "level")))
                 .addLoreLine(Component.literal("§7Shiny: §f" + yesNo(get(p, "shiny"))))
+                .addLoreLine(Component.literal("§7Breedable: §f" + (breedableValue(p) ? "Yes" : "No")))
                 .addLoreLine(Component.literal("§7Gender: §f" + get(p, "gender")))
                 .addLoreLine(Component.literal("§7Nature: §f" + prettify(get(p, "nature"))))
                 .addLoreLine(Component.literal("§7Ability: §f" + prettify(get(p, "ability"))))
@@ -427,7 +428,7 @@ public final class AuctionHouseGui {
             }
             String species = firstPresent(listing.payload, "species", "speciesId", "name", "displayName");
             boolean shiny = booleanValue(firstPresent(listing.payload, "shiny"));
-            return pokemonButton(listing.title, species, shiny);
+            return pokemonButton(listing.title, species, shiny, breedableValue(listing.payload));
         }
         try {
             ItemStack stack = AuctionItemSerializer.fromPayload(player, listing.payload);
@@ -436,7 +437,7 @@ public final class AuctionHouseGui {
         return cleanButton(Items.CHEST, "§f" + listing.title);
     }
 
-    private static GuiElementBuilder pokemonButton(String title, String speciesName, boolean shiny) {
+    private static GuiElementBuilder pokemonButton(String title, String speciesName, boolean shiny, boolean breedable) {
         ItemStack icon = createPokemonIcon(speciesName, shiny);
         GuiElementBuilder builder;
         if (icon != null && !icon.isEmpty() && icon.getItem() != Items.AIR) {
@@ -444,7 +445,9 @@ public final class AuctionHouseGui {
         } else {
             builder = new GuiElementBuilder(Items.EGG);
         }
-        return builder.setName(Component.literal("§d" + blankDash(title))).setLore(new ArrayList<>());
+        return builder.setName(Component.literal("§d" + blankDash(title)))
+                .addLoreLine(Component.literal("§7Breedable: §f" + (breedable ? "Yes" : "No")))
+                .addLoreLine(Component.literal(breedable ? "§8Can be used as a breeding parent." : "§cPermanently cannot breed."));
     }
 
     private static ItemStack createPokemonIcon(String speciesName, boolean shiny) {
@@ -636,4 +639,8 @@ public final class AuctionHouseGui {
         // Intentionally left blank.
         // Auction menus should not use filler glass panes so the GUI stays clean and uncluttered.
     }
+    private static boolean breedableValue(JsonObject payload) {
+        return payload == null || !payload.has("breedable") || payload.get("breedable").getAsBoolean();
+    }
+
 }

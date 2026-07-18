@@ -70,9 +70,11 @@ public final class PvPBattleFormatRules {
             }
         }
 
-        // Ranked should always have Sleep Clause even if an older rules.json is missing the new field.
+        // Ranked is National Dex OU. Standard NatDex enables the full National Dex legality model
+        // in Showdown while Cobblemon still uses its native singles battle container.
         if ("ranked".equalsIgnoreCase(formatId)) {
-            rules.add("Sleep Clause Mod");
+            rules.add("Standard NatDex");
+            rules.add("Terastal Clause");
         }
 
         return rules;
@@ -106,6 +108,12 @@ public final class PvPBattleFormatRules {
         if (compact.equals("evasionmovesclause") || compact.equals("evasionclause")) {
             return "Evasion Moves Clause";
         }
+        if (compact.equals("evasionabilitiesclause")) {
+            return "Evasion Abilities Clause";
+        }
+        if (compact.equals("sleepmovesclause")) {
+            return "Sleep Moves Clause";
+        }
         if (compact.equals("endlessbattleclause")) {
             return "Endless Battle Clause";
         }
@@ -124,10 +132,18 @@ public final class PvPBattleFormatRules {
 
     private static BattleFormat resolveBaseFormat(Format configured) {
         String identifier = configured == null || configured.cobblemon_format == null || configured.cobblemon_format.isBlank()
-                ? "gen9singles"
+                ? "gen9nationaldexou"
                 : configured.cobblemon_format.trim();
 
-        BattleFormat fromIdentifier = invokeFromFormatIdentifier(identifier);
+        // Cobblemon 1.7.x only exposes singles/doubles/triples as native identifiers.
+        // National Dex is a Showdown ruleset, not a separate Cobblemon battle type.
+        String cobblemonIdentifier = identifier.equalsIgnoreCase("gen9nationaldexou")
+                || identifier.equalsIgnoreCase("nationaldexou")
+                || identifier.equalsIgnoreCase("natdexou")
+                ? "singles"
+                : identifier;
+
+        BattleFormat fromIdentifier = invokeFromFormatIdentifier(cobblemonIdentifier);
         if (fromIdentifier != null) {
             applyLevelCap(fromIdentifier, configured);
             return fromIdentifier;

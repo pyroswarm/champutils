@@ -17,17 +17,9 @@ public final class ProfessionToolTooltipUpdater {
     }
 
     public static void register() {
-        ServerTickEvents.END_SERVER_TICK.register(server -> {
-            tickCounter++;
-            if (tickCounter < UPDATE_INTERVAL_TICKS) {
-                return;
-            }
-            tickCounter = 0;
-
-            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                refreshPlayer(player);
-            }
-        });
+        // Intentionally no periodic inventory scan. Rewriting CUSTOM_DATA/LORE on a timer
+        // dirties every tool stack and causes continuous inventory synchronization. Tool
+        // displays are refreshed only when their real state changes.
     }
 
     private static void refreshPlayer(ServerPlayer player) {

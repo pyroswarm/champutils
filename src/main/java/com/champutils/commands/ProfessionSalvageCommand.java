@@ -424,43 +424,25 @@ public class ProfessionSalvageCommand {
     }
 
 
-    private static int craft(
-            ServerPlayer player,
-            String rarity,
-            String toolType
-    ) {
-        ProfessionFragmentManager.CraftResult result =
-                ProfessionFragmentManager.craftRandomUnidentifiedTool(
-                        player,
-                        rarity,
-                        toolType
-                );
-
-        if (!result.success()) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§c" + result.error()
-                    )
-            );
-
-            return 0;
-        }
-
-        player.sendSystemMessage(
-                Component.literal(
-                        "§aCrafted using §6" +
-                                result.cost() +
-                                "x " +
-                                ProfessionFragmentManager.displayRankName(result.fragmentKey()) +
-                                " Essence §a+ §6" +
-                                EconomyManager.formatWholeCredits(result.creditCost()) +
-                                "§a. Result: §f" +
-                                ProfessionFragmentManager.formatWords(result.toolType()) +
-                                "§a."
-                )
-        );
-        AdventureGuideManager.markIntroECraft(player, result.rarity(), result.toolType());
-
+    private static int craft(ServerPlayer player, String rarity, String toolType) {
+        String normalizedRarity = com.champutils.profession.ProfessionFragmentConfig.normalizeRarity(rarity);
+        long creditCost = ProfessionFragmentManager.craftCreditCost(normalizedRarity);
+        long cents = EconomyManager.wholeCreditsToCents(creditCost);
+        EconomyManager.withdrawAsync(player, cents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + toolType).thenAccept(charge ->
+                player.server.execute(() -> {
+                    if (!charge.success) {
+                        player.sendSystemMessage(Component.literal("§c" + (charge.error == null ? "Could not remove Credits." : charge.error)));
+                        return;
+                    }
+                    ProfessionFragmentManager.CraftResult result = ProfessionFragmentManager.craftRandomUnidentifiedTool(player, rarity, toolType);
+                    if (!result.success()) {
+                        EconomyManager.depositAsync(player, cents, "profession_craft_refund:" + normalizedRarity.toLowerCase() + ":" + toolType);
+                        player.sendSystemMessage(Component.literal("§c" + result.error() + " Credits were refunded."));
+                        return;
+                    }
+                    player.sendSystemMessage(Component.literal("§aCrafted using §6" + result.cost() + "x " + ProfessionFragmentManager.displayRankName(result.fragmentKey()) + " Essence §a+ §6" + EconomyManager.formatWholeCredits(result.creditCost()) + "§a. Result: §f" + ProfessionFragmentManager.formatWords(result.toolType()) + "§a."));
+                    AdventureGuideManager.markIntroECraft(player, result.rarity(), result.toolType());
+                }));
         return 1;
     }
 

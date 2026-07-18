@@ -26,6 +26,7 @@ public final class PokemonHuntMenu {
 
     public static void open(ServerPlayer player) {
         PokemonHuntManager.ensureStarted(player.server);
+        AdventureGuideManager.increment(player, "pokemon_hunt", 1);
 
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
         gui.setTitle(Component.literal("§bAdventurer Hunts"));

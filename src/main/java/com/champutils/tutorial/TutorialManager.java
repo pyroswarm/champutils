@@ -316,7 +316,7 @@ public final class TutorialManager {
         give(player, "cobblemon:potion", 5);
         give(player, "cobblemon:revive", 2);
         give(player, "cobblemon:exp_candy_xs", 5);
-        EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(50), "spawn_tutorial_complete");
+        EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(50), "spawn_tutorial_complete");
     }
 
     private static void give(ServerPlayer player, String itemId, int amount) {

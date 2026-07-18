@@ -88,7 +88,7 @@ public final class ProfileSessionLoader {
         time("ProfileSessionLoader.loadBackground.ScoreboardPreferenceManager.preload", () -> com.champutils.scoreboard.ScoreboardPreferenceManager.preload(playerUuid));
         time("ProfileSessionLoader.loadBackground.ProfessionNotificationSettings.preload", () -> com.champutils.profession.ProfessionNotificationSettings.preload(playerUuid, safeName));
         time("ProfileSessionLoader.loadBackground.HostileToggleManager.preload", () -> com.champutils.survival.HostileToggleManager.preload(playerUuid));
-        time("ProfileSessionLoader.loadBackground.SecretManager.preload", () -> com.champutils.secret.SecretManager.preload(playerUuid));
+        time("ProfileSessionLoader.loadBackground.SecretManager.preload", () -> com.champutils.secret.SecretManager.preload(profileId));
         time("ProfileSessionLoader.loadBackground.LevelCapCommand.preload", () -> com.champutils.commands.LevelCapCommand.preload(playerUuid));
         time("ProfileSessionLoader.loadBackground.WildSpawnCapCommand.preload", () -> com.champutils.commands.WildSpawnCapCommand.preload(profileId));
 

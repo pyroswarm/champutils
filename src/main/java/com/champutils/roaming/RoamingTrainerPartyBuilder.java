@@ -8,6 +8,7 @@ import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.moves.Moves;
 import com.cobblemon.mod.common.api.moves.MoveTemplate;
+import com.cobblemon.mod.common.api.pokemon.moves.LearnsetQuery;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.pokemon.stats.Stat;
@@ -150,6 +151,9 @@ public final class RoamingTrainerPartyBuilder {
                 try { pokemon.setShiny(true); } catch (Exception ignored) {}
             }
 
+            // Reassert the requested level after forms, moves, ability, nature and held item
+            // setup so no provider/default initialization can leave a level-100 party member.
+            try { pokemon.setLevel(level); } catch (Exception ignored) {}
             try { pokemon.heal(); } catch (Exception ignored) {}
             if (usedSpecies != null) usedSpecies.add(sanitize(species));
             return pokemon;
@@ -347,8 +351,7 @@ public final class RoamingTrainerPartyBuilder {
 
     private static void applyTierLegalMoves(Pokemon pokemon, String speciesName, int level, RoamingTrainerRarity rarity) {
         if (pokemon == null) return;
-        String species = sanitize(speciesName);
-        List<String> candidates = legalMoveCandidates(species, level, rarity);
+        List<String> candidates = legalMoveCandidates(pokemon, sanitize(speciesName), level, rarity);
         List<String> selected = selectSmartMoves(pokemon, candidates);
         if (selected.isEmpty()) return;
         try {
@@ -366,14 +369,49 @@ public final class RoamingTrainerPartyBuilder {
         } catch (Exception ignored) {}
     }
 
-    private static List<String> legalMoveCandidates(String species, int level, RoamingTrainerRarity rarity) {
+    private static List<String> legalMoveCandidates(Pokemon pokemon, String species, int level, RoamingTrainerRarity rarity) {
         List<String> moves = new ArrayList<>();
-        if (RoamingTrainerConfig.DATA.allowCompetitiveMoves) moves.addAll(competitiveMovesFor(species));
-        moves.addAll(levelUpMoves(species, level));
-        if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.E.ordinal()) moves.addAll(tmStyleMoves(species));
-        if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.D.ordinal()) moves.addAll(eggStyleMoves(species));
-        if (moves.isEmpty()) moves.addAll(List.of("tackle", "quickattack", "growl", "leer"));
+        // Keep the hand-authored lists only as preference ordering. Every candidate must
+        // still exist in the loaded form's Cobblemon learnset before it can be selected.
+        if (RoamingTrainerConfig.DATA.allowCompetitiveMoves) addLegalCandidates(pokemon, moves, competitiveMovesFor(species));
+        addLegalCandidates(pokemon, moves, levelUpMoves(species, level));
+        if (level >= 21 && rarity.ordinal() >= RoamingTrainerRarity.E.ordinal()) addLegalCandidates(pokemon, moves, tmStyleMoves(species));
+        if (level >= 51 && rarity.ordinal() >= RoamingTrainerRarity.D.ordinal()) addLegalCandidates(pokemon, moves, eggStyleMoves(species));
+        addLegalCandidates(pokemon, moves, allLegalMoveIds(pokemon));
         return moves;
+    }
+
+    private static void addLegalCandidates(Pokemon pokemon, List<String> target, Collection<String> candidates) {
+        if (pokemon == null || target == null || candidates == null) return;
+        for (String candidate : candidates) {
+            String moveId = sanitizeMove(candidate);
+            MoveTemplate template = Moves.getByName(moveId);
+            if (template == null || !isLegalMove(pokemon, template) || target.contains(moveId)) continue;
+            target.add(moveId);
+        }
+    }
+
+    private static List<String> allLegalMoveIds(Pokemon pokemon) {
+        List<String> result = new ArrayList<>();
+        if (pokemon == null) return result;
+        try {
+            for (MoveTemplate template : pokemon.getForm().getMoves().getAllLegalMoves()) {
+                if (template == null) continue;
+                String id = sanitizeMove(template.getName());
+                if (!id.isBlank() && !result.contains(id)) result.add(id);
+            }
+        } catch (Exception ignored) {}
+        return result;
+    }
+
+    private static boolean isLegalMove(Pokemon pokemon, MoveTemplate template) {
+        if (pokemon == null || template == null) return false;
+        try {
+            return LearnsetQuery.Companion.getLEGAL().canLearn(template, pokemon.getForm().getMoves());
+        } catch (Exception ignored) {
+            try { return pokemon.getForm().getMoves().getAllLegalMoves().contains(template); }
+            catch (Exception ignoredAgain) { return false; }
+        }
     }
 
     private static List<String> selectSmartMoves(Pokemon pokemon, List<String> candidates) {
@@ -480,7 +518,12 @@ public final class RoamingTrainerPartyBuilder {
             int learned = 0;
             for (String move : moves) {
                 if (learned >= 4) break;
-                try { pokemon.getMoveSet().add(Moves.getByName(sanitizeMove(move)).create()); learned++; } catch (Exception ignored) {}
+                try {
+                    MoveTemplate template = Moves.getByName(sanitizeMove(move));
+                    if (template == null || !isLegalMove(pokemon, template)) continue;
+                    pokemon.getMoveSet().add(template.create());
+                    learned++;
+                } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
     }
@@ -512,8 +555,14 @@ public final class RoamingTrainerPartyBuilder {
     private static boolean applyAbility(Pokemon pokemon, String ability) {
         try {
             if (pokemon == null || ability == null || ability.isBlank()) return false;
-            pokemon.updateAbility(Abilities.INSTANCE.getOrException(sanitizeMove(ability)).create(false, Priority.NORMAL));
-            return true;
+            var requested = Abilities.INSTANCE.getOrException(sanitizeMove(ability));
+            for (var potential : pokemon.getForm().getAbilities()) {
+                if (potential == null || !potential.getTemplate().equals(requested)) continue;
+                if (!potential.isSatisfiedBy(pokemon.getAspects())) continue;
+                pokemon.updateAbility(requested.create(false, potential.getPriority()));
+                return true;
+            }
+            return false;
         } catch (Exception ignored) { return false; }
     }
 
@@ -525,10 +574,26 @@ public final class RoamingTrainerPartyBuilder {
             if (learned >= 4) break;
             try {
                 MoveTemplate template = Moves.getByName(sanitizeMove(move));
-                if (template == null) continue;
+                if (template == null || !isLegalMove(pokemon, template)) continue;
                 pokemon.getMoveSet().add(template.create());
                 learned++;
             } catch (Exception ignored) {}
+        }
+
+        // Invalid configured moves are skipped and replaced from the actual loaded form
+        // learnset, guaranteeing a complete legal set instead of leaving a one-move trainer.
+        if (learned < 4) {
+            List<String> fillers = selectSmartMoves(pokemon, allLegalMoveIds(pokemon));
+            for (String move : fillers) {
+                if (learned >= 4) break;
+                try {
+                    MoveTemplate template = Moves.getByName(sanitizeMove(move));
+                    if (template == null || !isLegalMove(pokemon, template)) continue;
+                    if (pokemon.getMoveSet().getMoves().stream().anyMatch(existing -> existing.getTemplate().equals(template))) continue;
+                    pokemon.getMoveSet().add(template.create());
+                    learned++;
+                } catch (Exception ignored) {}
+            }
         }
         return learned;
     }
@@ -538,12 +603,12 @@ public final class RoamingTrainerPartyBuilder {
         if (pokemon == null || entry == null || entry.ivs == null || entry.ivs.isEmpty()) return;
         try {
             var ivs = pokemon.getIvs();
-            setStatValue(ivs, Stats.HP, entry.ivs.get("hp"));
-            setStatValue(ivs, Stats.ATTACK, entry.ivs.get("atk"));
-            setStatValue(ivs, Stats.DEFENCE, entry.ivs.get("def"));
-            setStatValue(ivs, Stats.SPECIAL_ATTACK, entry.ivs.get("spa"));
-            setStatValue(ivs, Stats.SPECIAL_DEFENCE, entry.ivs.get("spd"));
-            setStatValue(ivs, Stats.SPEED, entry.ivs.get("spe"));
+            setStatValue(ivs, Stats.HP, entry.ivs.get("hp"), 31);
+            setStatValue(ivs, Stats.ATTACK, entry.ivs.get("atk"), 31);
+            setStatValue(ivs, Stats.DEFENCE, entry.ivs.get("def"), 31);
+            setStatValue(ivs, Stats.SPECIAL_ATTACK, entry.ivs.get("spa"), 31);
+            setStatValue(ivs, Stats.SPECIAL_DEFENCE, entry.ivs.get("spd"), 31);
+            setStatValue(ivs, Stats.SPEED, entry.ivs.get("spe"), 31);
         } catch (Exception ignored) {}
     }
 
@@ -554,19 +619,29 @@ public final class RoamingTrainerPartyBuilder {
         }
         try {
             var evs = pokemon.getEvs();
-            setStatValue(evs, Stats.HP, entry.evs.get("hp"));
-            setStatValue(evs, Stats.ATTACK, entry.evs.get("atk"));
-            setStatValue(evs, Stats.DEFENCE, entry.evs.get("def"));
-            setStatValue(evs, Stats.SPECIAL_ATTACK, entry.evs.get("spa"));
-            setStatValue(evs, Stats.SPECIAL_DEFENCE, entry.evs.get("spd"));
-            setStatValue(evs, Stats.SPEED, entry.evs.get("spe"));
+            for (Stat stat : List.of(Stats.HP, Stats.ATTACK, Stats.DEFENCE, Stats.SPECIAL_ATTACK, Stats.SPECIAL_DEFENCE, Stats.SPEED)) {
+                evs.set(stat, 0);
+            }
+            List<Stat> stats = List.of(Stats.HP, Stats.ATTACK, Stats.DEFENCE, Stats.SPECIAL_ATTACK, Stats.SPECIAL_DEFENCE, Stats.SPEED);
+            List<String> keys = List.of("hp", "atk", "def", "spa", "spd", "spe");
+            int total = 0;
+            for (int i = 0; i < stats.size() && total < 510; i++) {
+                int requested = Math.max(0, Math.min(252, entry.evs.getOrDefault(keys.get(i), 0)));
+                int value = Math.min(requested, 510 - total);
+                evs.set(stats.get(i), value);
+                total += value;
+            }
         } catch (Exception ignored) { applyBestEVs(pokemon); }
     }
 
     @SuppressWarnings("unchecked")
     private static void setStatValue(Object stats, Stat stat, Integer value) {
+        setStatValue(stats, stat, value, 252);
+    }
+
+    private static void setStatValue(Object stats, Stat stat, Integer value, int maximum) {
         if (stats == null || stat == null || value == null) return;
-        int clamped = Math.max(0, Math.min(252, value));
+        int clamped = Math.max(0, Math.min(Math.max(0, maximum), value));
         try {
             stats.getClass().getMethod("set", Stat.class, int.class).invoke(stats, stat, clamped);
         } catch (Exception ignored) {

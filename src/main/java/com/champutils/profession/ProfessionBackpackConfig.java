@@ -2,6 +2,7 @@ package com.champutils.profession;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.champutils.database.SharedBackpackConfigRepository;
 
 import java.io.File;
 import java.io.FileReader;
@@ -61,7 +62,8 @@ public final class ProfessionBackpackConfig {
             File file = file();
             if (!file.exists()) {
                 CONFIG = defaults();
-                save();
+                saveLocal();
+                SharedBackpackConfigRepository.loadAsync();
                 return;
             }
             try (FileReader reader = new FileReader(file)) {
@@ -70,7 +72,8 @@ public final class ProfessionBackpackConfig {
             }
             mergeMissingDefaults();
             normalize();
-            save();
+            saveLocal();
+            SharedBackpackConfigRepository.loadAsync();
         } catch (Exception e) {
             e.printStackTrace();
             CONFIG = defaults();
@@ -80,6 +83,11 @@ public final class ProfessionBackpackConfig {
     }
 
     public static void save() {
+        saveLocal();
+        SharedBackpackConfigRepository.saveAsync(CONFIG);
+    }
+
+    private static synchronized void saveLocal() {
         try {
             File file = file();
             File parent = file.getParentFile();
@@ -93,6 +101,20 @@ public final class ProfessionBackpackConfig {
             Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public static synchronized void applySharedJson(String payload) {
+        try {
+            Config shared = GSON.fromJson(payload, Config.class);
+            if (shared == null) return;
+            CONFIG = shared;
+            mergeMissingDefaults();
+            normalize();
+            saveLocal();
+            System.out.println("[ChampUtils] Applied shared profession backpack config from SQL.");
+        } catch (Exception error) {
+            System.err.println("[ChampUtils] Rejected invalid shared profession backpack config: " + error.getMessage());
         }
     }
 
@@ -327,6 +349,9 @@ public final class ProfessionBackpackConfig {
             data.item = id;
             ProfessionType allowedProfession = allowedProfessionFor(id);
             if (allowedProfession == null) continue;
+            ProfessionType configuredProfession = null;
+            try { configuredProfession = ProfessionType.valueOf(data.profession == null ? "" : data.profession.trim().toUpperCase(Locale.ROOT)); } catch (Exception ignored) {}
+            if (configuredProfession != allowedProfession) data.enabled = true; // repair legacy entries assigned to BATTLING/etc.
             data.profession = allowedProfession.name();
             if (data.displayName == null || data.displayName.isBlank()) data.displayName = formatName(id);
             if (!isBackpackProfession(data.profession)) data.enabled = false;

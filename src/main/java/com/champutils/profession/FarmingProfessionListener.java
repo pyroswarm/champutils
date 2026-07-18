@@ -218,7 +218,7 @@ public class FarmingProfessionListener {
         if (chance <= 0.0D) {
             chance = Math.max(ProfessionToolUtil.getStat(tool, "tripleHarvestChance"), ProfessionToolUtil.getStat(tool, "doubleHarvestChance"));
         }
-        if (chance <= 0.0D || RANDOM.nextDouble() * 100.0D >= chance) return;
+        if (chance <= 0.0D || RANDOM.nextDouble() * 100.0D >= Math.min(100.0D, chance)) return;
         int multiplier = rollFortuneHarvestMultiplier(player, tool);
         if (ActiveEffectManager.hasTimedEffect(player, "golden_rain", tool)) {
             multiplier = Math.min(6, multiplier + 1);
@@ -230,7 +230,7 @@ public class FarmingProfessionListener {
         ItemStack reward = new ItemStack(item, baseDrops * (multiplier - 1));
         ProfessionBackpackManager.giveOrDrop(player, reward, true);
         if (ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
-            ProfessionSpecialCelebration.celebrateDropMultiplier(player, multiplier);
+            player.displayClientMessage(Component.literal("§2Fortune Harvest: §f" + multiplier + "x crops!"), true);
             ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.45F, 1.4F);
         }
     }

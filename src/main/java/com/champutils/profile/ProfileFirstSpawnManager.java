@@ -32,31 +32,38 @@ public final class ProfileFirstSpawnManager {
             return;
         }
 
-        UUID playerUuid = player.getUUID();
-        DatabaseManager.supplyAsync("consume first profile spawn " + profileId, connection -> {
+        DatabaseManager.supplyAsync("check first profile spawn " + profileId, connection -> {
             try (var statement = connection.createStatement()) {
                 statement.executeUpdate("create table if not exists profile_first_spawn_claims (" +
                         "profile_id uuid primary key references player_profiles(id) on delete cascade, " +
                         "player_uuid uuid not null, claimed_at timestamptz not null default now())");
             }
+            try (var ps = connection.prepareStatement("select 1 from profile_first_spawn_claims where profile_id = ?")) {
+                ps.setObject(1, profileId);
+                try (var rs = ps.executeQuery()) { return !rs.next(); }
+            }
+        }).whenComplete((needsFirstSpawn, error) -> player.server.execute(() -> {
+            if (error != null || !profileId.equals(PlayerProfileManager.activeProfileId(player))) {
+                if (error != null) error.printStackTrace();
+                callback.accept(null);
+                return;
+            }
+            callback.accept(Boolean.TRUE.equals(needsFirstSpawn) ? configured : null);
+        }));
+    }
+
+    public static void markClaimed(ServerPlayer player) {
+        if (player == null || !DatabaseManager.isEnabled()) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return;
+        UUID playerUuid = player.getUUID();
+        DatabaseManager.executeAsync("claim first profile spawn " + profileId, connection -> {
             try (var ps = connection.prepareStatement(
                     "insert into profile_first_spawn_claims (profile_id, player_uuid) values (?, ?) on conflict (profile_id) do nothing")) {
                 ps.setObject(1, profileId);
                 ps.setObject(2, playerUuid);
-                return ps.executeUpdate() > 0;
+                ps.executeUpdate();
             }
-        }).whenComplete((firstSpawn, error) -> player.server.execute(() -> {
-            if (error != null) {
-                System.err.println("[ChampUtils] Failed to resolve first spawn for profile " + profileId + ".");
-                error.printStackTrace();
-                callback.accept(null);
-                return;
-            }
-            if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) {
-                callback.accept(null);
-                return;
-            }
-            callback.accept(Boolean.TRUE.equals(firstSpawn) ? configured : null);
-        }));
+        });
     }
 }

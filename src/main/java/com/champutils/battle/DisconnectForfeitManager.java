@@ -94,10 +94,12 @@ DISCONNECT FORFEIT
         }
 
         ServerPlayer opponent = MatchmakingManager.getOpponent(quitter);
+        Object trackedBattleObject = BattleStateManager.getBattle(quitter);
+        PvPMatchIntegrityManager.Result integrity = PvPMatchIntegrityManager.finish(trackedBattleObject);
 
         if (opponent != null) {
             try {
-                BattleListener.onBattleEnd(opponent, quitter);
+                BattleListener.onBattleEnd(opponent, quitter, null, integrity);
             } catch (Exception e) {
                 System.err.println("[ChampUtils] Disconnect battle forfeit cleanup failed: " + e.getMessage());
                 e.printStackTrace();

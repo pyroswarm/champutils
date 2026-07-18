@@ -115,7 +115,14 @@ public class ChampUtilsMod implements ModInitializer {
         } finally {
             long elapsed = System.nanoTime() - start;
             if (elapsed >= TICK_MANAGER_WARN_NANOS) {
-                ChampDebugManager.log(ChampDebugManager.Category.PERFORMANCE, "[ChampUtils][TickTiming] " + name + " took " + (elapsed / 1_000_000.0D) + " ms");
+                double elapsedMs = elapsed / 1_000_000.0D;
+                String timingMessage = "[ChampUtils][TickTiming] " + name + " took " + elapsedMs + " ms";
+                ChampDebugManager.log(ChampDebugManager.Category.PERFORMANCE, timingMessage);
+                // A multi-second manager stall can disconnect the whole server. Always surface these
+                // severe stalls even when optional performance debugging is disabled.
+                if (elapsedMs >= 1000.0D) {
+                    System.err.println(timingMessage);
+                }
             }
         }
     }
@@ -237,6 +244,7 @@ public class ChampUtilsMod implements ModInitializer {
         WorldFirstManager.load();
         PlayerProfileManager.ensureSchemaAsync();
         BreedingManager.initialize();
+        PokemonBreedabilityManager.register();
         PreferredSurvivalServerManager.ensureSchemaAsync();
         TutorialManager.ensureSchemaAsync();
         VanillaProfileStateManager.ensureSchemaAsync();
@@ -408,6 +416,7 @@ public class ChampUtilsMod implements ModInitializer {
          */
         ServerLifecycleEvents.SERVER_STARTED.register(
                 server -> {
+                    ForceSaveRestartCommand.markServerRunning();
                     ServerLifecycleBridge.setServer(server);
                     CobblemonProfileStorageBridge.registerSqlFactory(server);
 
@@ -478,7 +487,9 @@ public class ChampUtilsMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(
                 server -> {
 
-                    ForceSaveRestartCommand.forceSave(server);
+                    // Never launch a fresh asynchronous /champsave from SERVER_STOPPING. That
+                    // pipeline posts tasks back to the server thread and races DatabaseManager.shutdown().
+                    ForceSaveRestartCommand.beginServerStopping();
                     FirstJoinKitManager.save();
                     AdventurerGuildManager.saveAll();
                     AdventureGuideManager.saveAll();
@@ -730,6 +741,7 @@ public class ChampUtilsMod implements ModInitializer {
         NetworkDatabaseCommand.register();
         LinkAccountCommand.register();
         EconomyCommand.register();
+        MonotypeStarterCommand.register();
         AuctionHouseCommand.register();
         NotificationsCommand.register();
         ScoreboardToggleCommand.register();
@@ -820,6 +832,8 @@ public class ChampUtilsMod implements ModInitializer {
         ItemLockCommand.register();
         ItemDebugCommand.register();
         XpLockCommand.register();
+        NeuterCommand.register();
+        BottleCapConfirmationCommand.register();
         // /levelcap removed: gym/progression caps are enforced by battle systems only.
         // LevelCapItemUseGuard disabled with /levelcap removal.
 
@@ -833,6 +847,7 @@ public class ChampUtilsMod implements ModInitializer {
         CobblemonBattleStartHandler.register();
         BattleItemUseListener.register();
         BattleDamageProtectionListener.register();
+        RoamingTrainerDamageProtectionListener.register();
         MusicBattleListener.register();
 
         GymBattleHandler.register();
@@ -856,6 +871,9 @@ public class ChampUtilsMod implements ModInitializer {
         SpecialSpawnDamageProtectionListener.register();
         TradeEvolutionTrueDexListener.register();
         ChestShopInteractionListener.register();
+        // Steward interactions must register before generic territory entity protection so the
+        // steward menu is linked deterministically for owners and guild members.
+        TerritoryNpcInteractionListener.register();
         TerritoryProtectionListener.register();
         LandClaimProtectionListener.register();
         LandClaimPokemonRulesListener.register();
@@ -865,7 +883,6 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.protection.SpawnRealmProtectionListener.register();
         com.champutils.protection.CampfirePotSafetyListener.register();
         com.champutils.protection.SpawnEditCommand.register();
-        TerritoryNpcInteractionListener.register();
         VanillaPortalBlocker.register();
         XrayDetectionManager.register();
         CashShopBoostItemManager.register();
@@ -881,6 +898,7 @@ public class ChampUtilsMod implements ModInitializer {
          */
         MiningProfessionListener.register();
         ForestryProfessionListener.register();
+        AcceleratedLeafDecayManager.register();
         FarmingProfessionListener.register();
         ProfessionPlacementListener.register();
 

@@ -58,9 +58,29 @@ public final class TitleMenu {
             if (slot == 17) slot = 19;
             if (slot == 26) slot = 28;
         }
-        gui.setSlot(4, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
-                .setName(Component.literal("§7Hide Shown Title"))
+        String equipped = TitleManager.selected(player.getUUID());
+        Set<String> equippedSubs = TitleManager.subtitles(player.getUUID());
+        gui.setSlot(4, new GuiElementBuilder(equipped.isBlank() ? Items.BARRIER : Items.NAME_TAG).hideDefaultTooltip()
+                .setName(Component.literal(equipped.isBlank() ? "§7No Cosmetic Title" : "§aCosmetic: " + TitleManager.displayFor(player.getUUID(), equipped).replace('&','§')))
+                .addLoreLine(Component.literal("§7Click to hide the cosmetic title."))
                 .setCallback((i,c,t) -> { TitleManager.select(player, "none"); openCategories(player); }));
+        int[] subSlots = {46, 47, 48};
+        java.util.List<String> equippedSubList = new java.util.ArrayList<>(equippedSubs);
+        for (int i = 0; i < subSlots.length; i++) {
+            String sub = i < equippedSubList.size() ? equippedSubList.get(i) : "";
+            GuiElementBuilder subIcon = new GuiElementBuilder(sub.isBlank() ? Items.GRAY_DYE : Items.AMETHYST_SHARD).hideDefaultTooltip()
+                    .setName(Component.literal(sub.isBlank() ? "§7Sub Title " + (i + 1) + ": Empty" : "§dSub Title " + (i + 1) + ": " + TitleManager.displayFor(player.getUUID(), sub).replace('&','§')));
+            if (!sub.isBlank()) {
+                subIcon.addLoreLine(Component.literal("§cRight Click: §7unequip subtitle"));
+                subIcon.setCallback((slotIndex, click, action) -> {
+                    if (isRightClick(click)) {
+                        TitleManager.toggleSubTitle(player, sub);
+                        openCategories(player);
+                    }
+                });
+            }
+            gui.setSlot(subSlots[i], subIcon);
+        }
         MenuUtil.addBackButton(gui, 45, () -> com.champutils.menu.MainMenu.open(player));
         gui.open();
     }
@@ -126,14 +146,14 @@ public final class TitleMenu {
     private static GuiElementBuilder entry(ServerPlayer player, String category, int page, TitleConfig.TitleDef def, boolean unlocked, boolean active, boolean subTitle) {
         GuiElementBuilder b = new GuiElementBuilder(active ? Items.NAME_TAG : subTitle ? Items.AMETHYST_SHARD : unlocked ? Items.PAPER : Items.GRAY_DYE)
                 .hideDefaultTooltip()
-                .setName(Component.literal((active ? "§aShown §r" : subTitle ? "§dSub Title §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(player.getUUID(), def.id).replace('&','§')))
+                .setName(Component.literal((active ? "§aCosmetic §r" : subTitle ? "§dSubtitle §r" : unlocked ? "§e" : "§7") + TitleManager.displayFor(player.getUUID(), def.id).replace('&','§')))
                 .addLoreLine(Component.literal("§7Objective: §f" + (def.description == null ? "Unknown" : def.description)))
                 .addLoreLine(Component.literal("§7Scope: §f" + (TitleConfig.isAccountBound(def.id) ? "Account" : "Profile")))
                 .addLoreLine(Component.literal("§7Passive: §a" + TitleConfig.buffText(def)))
-                .addLoreLine(Component.literal(active ? "§aCurrently shown in chat." : subTitle ? "§dEquipped as hidden sub title. §7(50% buffs)" : unlocked ? "§eUnlocked" : "§8Locked"));
+                .addLoreLine(Component.literal(active && subTitle ? "§aEquipped as cosmetic. §dEquipped as subtitle." : active ? "§aEquipped as cosmetic." : subTitle ? "§dEquipped as subtitle." : unlocked ? "§eUnlocked" : "§8Locked"));
         if (unlocked) {
-            b.addLoreLine(Component.literal("§eLeft Click: §7select shown title"));
-            b.addLoreLine(Component.literal("§dRight Click: §7toggle hidden sub title"));
+            b.addLoreLine(Component.literal("§eLeft click to equip as cosmetic"));
+            b.addLoreLine(Component.literal("§dRight click to equip as a subtitle to use the buffs"));
             b.setCallback((i,c,t) -> {
                 if (isRightClick(c)) TitleManager.toggleSubTitle(player, def.id); else TitleManager.select(player, def.id);
                 openCategory(player, category, page);

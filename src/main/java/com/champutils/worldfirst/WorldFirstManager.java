@@ -30,12 +30,12 @@ public final class WorldFirstManager {
     private static State state = new State();
     private static List<WorldFirstDef> DEFS = new ArrayList<>();
 
-    private static final Set<String> LEGENDARIES = set("articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","hooh","ho_oh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","typenull","type_null","silvally","tapukoko","tapu_koko","tapulele","tapu_lele","tapubulu","tapu_bulu","tapufini","tapu_fini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wochien","wo_chien","chienpao","chien_pao","tinglu","ting_lu","chiyu","chi_yu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon");
+    private static final Set<String> LEGENDARIES = set("articuno","zapdos","moltres","mewtwo","raikou","entei","suicune","lugia","ho_oh","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","xerneas","yveltal","zygarde","type_null","silvally","tapu_koko","tapu_lele","tapu_bulu","tapu_fini","cosmog","cosmoem","solgaleo","lunala","necrozma","zacian","zamazenta","eternatus","kubfu","urshifu","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wo_chien","chien_pao","ting_lu","chi_yu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon");
     private static final Set<String> MYTHICALS = set("mew","celebi","jirachi","deoxys","phione","manaphy","darkrai","shaymin","arceus","victini","keldeo","meloetta","genesect","diancie","hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal","zarude","pecharunt");
     private static final Set<String> ULTRA_BEASTS = set("nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon");
     private static final Set<String> PARADOX = set("greattusk","great_tusk","screamtail","scream_tail","brutebonnet","brute_bonnet","fluttermane","flutter_mane","slitherwing","slither_wing","sandyshocks","sandy_shocks","roaringmoon","roaring_moon","walkingwake","walking_wake","gougingfire","gouging_fire","ragingbolt","raging_bolt","irontreads","iron_treads","ironbundle","iron_bundle","ironhands","iron_hands","ironjugulis","iron_jugulis","ironmoth","iron_moth","ironthorns","iron_thorns","ironvaliant","iron_valiant","ironleaves","iron_leaves","ironboulder","iron_boulder","ironcrown","iron_crown");
     private static final Set<String> STARTERS = set("bulbasaur","charmander","squirtle","chikorita","cyndaquil","totodile","treecko","torchic","mudkip","turtwig","chimchar","piplup","snivy","tepig","oshawott","chespin","fennekin","froakie","rowlet","litten","popplio","grookey","scorbunny","sobble","sprigatito","fuecoco","quaxly");
-    private static final Set<String> GOOFY = set("magikarp","bidoof","rattata","zigzagoon","wooper","snom","shuckle","psyduck","wobbuffet","ditto","lechonk","trubbish","slowpoke","dunsparce","smeargle","spinda","delibird","farfetchd","farfetch_d","unown");
+    private static final Set<String> GOOFY = set("magikarp","bidoof","rattata","zigzagoon","wooper","snom","shuckle","psyduck","wobbuffet","ditto","lechonk","trubbish","slowpoke","dunsparce","smeargle","spinda","delibird","farfetch_d","unown");
 
     private WorldFirstManager() {}
 
@@ -229,7 +229,7 @@ public final class WorldFirstManager {
                 "WORLD_FIRSTS",
                 new java.util.UUID(0L, 0L)
         );
-        TitleManager.unlock(player, def.titleId, def.titleDisplay);
+        TitleManager.unlock(player, def.titleId, def.titleDisplay, false);
         com.champutils.profession.ProfessionNotificationSettings.sendBroadcast(
                 player.server,
                 Component.literal("[World First] ").withStyle(ChatFormatting.GOLD)

@@ -26,7 +26,7 @@ public final class NetworkServerConfig {
      * Leave blank while running ALL_IN_ONE. Before using PROFILE_LOBBY/SURVIVAL, set the
      * same random 32+ character value on both servers.
      */
-    public String profileTransferSecret = "CHANGE_ME_TO_A_32_PLUS_CHARACTER_RANDOM_SECRET";
+    public String profileTransferSecret = "";
 
     /** Preferred Velocity backend that PROFILE_LOBBY should try before overflow backends. */
     public String survivalServerId = "main_survival1";
@@ -74,13 +74,13 @@ public final class NetworkServerConfig {
      * Safety valve for testing SURVIVAL directly. Keep false in production once the proxy lobby
      * is live so players cannot bypass token-gated profile loading.
      */
-    public boolean allowSurvivalDirectProfileMenu = true;
+    public boolean allowSurvivalDirectProfileMenu = false;
 
     /**
-     * Prefer the configured proxy command for lobby -> survival movement.
-     * Keep this false unless you have confirmed your proxy intercepts backend plugin messages reliably.
-     * Sending both a plugin-message transfer and a /server-style transfer can create duplicate connect
-     * attempts, which is a F-rank cause of intermittent getsockopt/connect failures.
+     * Sends the standard BungeeCord/Velocity Connect plugin message for lobby -> survival movement.
+     * This must remain enabled when lobbyTransferCommand uses the default "server {player} {target_server}"
+     * form, because /server is a proxy command and cannot normally be executed by a Fabric backend.
+     * Disable this only when a custom backend command bridge is installed and tested.
      */
     public boolean useProxyPluginMessageTransfer = true;
 
@@ -179,6 +179,14 @@ public final class NetworkServerConfig {
         // so profile lobby transfers prefer main_survival1 and can overflow to survival2.
         if ("server {player} survival".equalsIgnoreCase(lobbyTransferCommand.trim())) {
             lobbyTransferCommand = "server {player} {target_server}";
+        }
+        // The stock transfer command is proxy-only. A Fabric backend cannot execute it directly,
+        // so automatically repair the broken combination that strands players in profile_lobby.
+        String normalizedLobbyTransferCommand = lobbyTransferCommand.trim().replaceFirst("^/", "");
+        if (!useProxyPluginMessageTransfer
+                && "server {player} {target_server}".equalsIgnoreCase(normalizedLobbyTransferCommand)) {
+            System.err.println("[ChampUtils] Re-enabled proxy plugin-message profile transfers because the configured lobby transfer command is proxy-only.");
+            useProxyPluginMessageTransfer = true;
         }
         if (returnToProfileLobbyCommand == null || returnToProfileLobbyCommand.isBlank()) {
             returnToProfileLobbyCommand = "server {player} {target_server}";

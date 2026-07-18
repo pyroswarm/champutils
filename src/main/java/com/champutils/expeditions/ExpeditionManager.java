@@ -345,7 +345,7 @@ public final class ExpeditionManager {
                     long creditReward = ExpeditionConfig.creditReward(save.level, save.expeditionType);
                     save.baseRewardsGranted = true;
                     saveOrThrow(player, save);
-                    if (creditReward > 0L) EconomyManager.deposit(player, creditReward, "expedition_reward");
+                    if (creditReward > 0L) EconomyManager.depositAsync(player, creditReward, "expedition_reward");
                     for (ItemStack stack : rewards) player.getInventory().add(stack.copy());
                 }
 

@@ -31,7 +31,7 @@ public final class GymRewardCommand {
         var stacks = GymRewardConfig.itemStacks(badge);
         if(!canFit(p, stacks)){ p.sendSystemMessage(Component.literal("Make inventory space before claiming gym rewards.").withStyle(ChatFormatting.RED)); return false; }
         for(ItemStack stack: stacks) p.getInventory().add(stack.copy());
-        if(reward.credits>0) EconomyManager.deposit(p,reward.credits,"gym_reward_"+badge.name());
+        if(reward.credits>0) EconomyManager.depositAsync(p,reward.credits,"gym_reward_"+badge.name());
         GymRewardClaimData.markClaimed(p,badge);
         if(message)p.sendSystemMessage(Component.literal("Claimed "+badge.getDisplayName()+" reward.").withStyle(ChatFormatting.GREEN));
         return true;

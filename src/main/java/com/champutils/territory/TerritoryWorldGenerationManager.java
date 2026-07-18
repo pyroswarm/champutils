@@ -1,5 +1,7 @@
 package com.champutils.territory;
 
+import com.champutils.adventureguide.AdventureGuideManager;
+
 import com.champutils.guild.GuildRepository;
 import com.champutils.gamerule.GlobalGameruleManager;
 
@@ -181,16 +183,18 @@ public final class TerritoryWorldGenerationManager {
 
         if (initiator != null) {
             initiator.sendSystemMessage(Component.literal("Your territory is ready! Use /territory home to teleport there.").withStyle(ChatFormatting.GREEN));
+            AdventureGuideManager.increment(initiator, "territory_created", 1);
             return;
         }
 
         if (territory.ownerType == TerritoryRepository.OwnerType.PLAYER && territory.ownerId != null) {
-            try {
-                ServerPlayer owner = server.getPlayerList().getPlayer(UUID.fromString(territory.ownerId));
-                if (owner != null) {
+            for (ServerPlayer owner : server.getPlayerList().getPlayers()) {
+                UUID activeProfileId = com.champutils.profile.PlayerProfileManager.activeProfileId(owner);
+                if (activeProfileId != null && territory.ownerId.equals(activeProfileId.toString())) {
                     owner.sendSystemMessage(Component.literal("Your territory is ready! Use /territory home to teleport there.").withStyle(ChatFormatting.GREEN));
+                    AdventureGuideManager.increment(owner, "territory_created", 1);
+                    break;
                 }
-            } catch (Exception ignored) {
             }
         }
     }

@@ -2,6 +2,7 @@ package com.champutils.contracts;
 
 import com.champutils.auction.AuctionItemSerializer;
 import com.champutils.auction.AuctionPokemonSerializer;
+import com.champutils.breeding.PokemonBreedability;
 import com.champutils.database.DatabaseManager;
 import com.champutils.economy.EconomyManager;
 import com.champutils.menu.MenuUtil;
@@ -181,6 +182,31 @@ public final class PlayerContractMenu {
         gui.open();
     }
 
+
+    public static void openPokemonBreedableMenu(ServerPlayer player, String pokemonName) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Breedable?"));
+        gui.setSlot(4, new GuiElementBuilder(CobblemonItems.POKE_BALL).hideDefaultTooltip()
+                .setName(Component.literal("§b" + cleanTitle(pokemonName)))
+                .addLoreLine(Component.literal("§7Should the delivered Pokémon be breedable?")));
+        gui.setSlot(11, new GuiElementBuilder(Items.LIME_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§aYes"))
+                .addLoreLine(Component.literal("§7Only accept a breedable Pokémon."))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonBreedable(player, "yes")));
+        gui.setSlot(13, new GuiElementBuilder(Items.GRAY_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§fAny"))
+                .addLoreLine(Component.literal("§7Accept either breeding status."))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonBreedable(player, "any")));
+        gui.setSlot(15, new GuiElementBuilder(Items.RED_DYE).hideDefaultTooltip()
+                .setName(Component.literal("§cNo"))
+                .addLoreLine(Component.literal("§7Only accept an unbreedable Pokémon."))
+                .setCallback((slot, click, action) -> PlayerContractService.selectPokemonBreedable(player, "no")));
+        gui.setSlot(22, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cCancel"))
+                .setCallback((slot, click, action) -> { PlayerContractService.cancelPending(player); open(player); }));
+        gui.open();
+    }
+
     public static void openPokemonNatureMenu(ServerPlayer player, String pokemonName) {
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal("Choose Nature"));
@@ -353,7 +379,8 @@ public final class PlayerContractMenu {
                 .setName(Component.literal(("COMPLETED".equalsIgnoreCase(contract.status) ? "§a" : "§e") + cleanTitle(contract.title)));
         builder.addLoreLine(Component.literal("§7Type: §f" + ("POKEMON".equalsIgnoreCase(contract.type) ? "Pokémon" : "Item")));
         builder.addLoreLine(Component.literal("§7Posted by: §f" + blank(contract.ownerName)));
-        builder.addLoreLine(Component.literal("§7Reward: §6" + EconomyManager.format(contract.rewardCents)));
+        builder.addLoreLine(Component.literal("§7Reward: §6" + EconomyManager.format(contract.rewardCents)))
+                    .addLoreLine(Component.literal("POKEMON".equalsIgnoreCase(contract.type) ? "§7Breedable required: §f" + (contract.criteria != null && contract.criteria.has("breedable") ? (contract.criteria.get("breedable").getAsBoolean() ? "Yes" : "No") : "Any") : "§8"));
 
         UUID activeProfile = PlayerProfileManager.activeProfileId(player);
         boolean owner = activeProfile != null && activeProfile.equals(contract.ownerProfileId);
@@ -447,7 +474,9 @@ public final class PlayerContractMenu {
                 .setName(Component.literal("§b" + pokemon.getDisplayName(true).getString()))
                 .addLoreLine(Component.literal("§7Slot: §f" + slotNumber))
                 .addLoreLine(Component.literal("§7Level: §f" + pokemon.getLevel()))
-                .addLoreLine(Component.literal("§7Shiny: §f" + (pokemon.getShiny() ? "Yes" : "No")));
+                .addLoreLine(Component.literal("§7Shiny: §f" + (pokemon.getShiny() ? "Yes" : "No")))
+                .addLoreLine(Component.literal("§7Breedable: §f" + (PokemonBreedability.isBreedable(pokemon) ? "Yes" : "No")))
+                .addLoreLine(Component.literal(PokemonBreedability.isBreedable(pokemon) ? "§8Eligible as a breeding parent." : "§cPermanently cannot breed."));
     }
 
     private static int[] boardSlots() {

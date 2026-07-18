@@ -183,147 +183,65 @@ public class ItemRollCommand {
 
     private static int executeIdentify(ServerPlayer player, ItemStack stack) {
         long cost = ProfessionToolRollService.getIdentifyCost(stack);
-        EconomyCraftHook.AffordResult affordResult = EconomyCraftHook.canAfford(player, cost);
-        if (!affordResult.success) {
-            player.sendSystemMessage(Component.literal("§c" + affordResult.error));
-            return 0;
-        }
-        ProfessionToolRollService.RollResult result = ProfessionToolRollService.identify(player, stack);
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal("§c" + result.error));
-            return 0;
-        }
-        EconomyCraftHook.ChargeResult chargeResult = EconomyCraftHook.withdraw(player, cost);
-        if (!chargeResult.success) {
-            player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
-            return 0;
-        }
-        ProfessionToolManager.refreshToolStack(stack);
-        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
-        ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(player, stack, result.quality);
-        player.sendSystemMessage(ProfessionToolRollService.buildSuccessMessage(result));
-        if (cost > 0L) {
-            player.sendSystemMessage(Component.literal("§7Paid §6" + EconomyCraftHook.formatMoney(cost) + "§7. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)));
-        }
+        EconomyCraftHook.withdrawAsync(player, cost).thenAccept(chargeResult -> player.server.execute(() -> {
+            if (!chargeResult.success) {
+                player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
+                return;
+            }
+            ProfessionToolRollService.RollResult result = ProfessionToolRollService.identify(player, stack);
+            if (!result.success) {
+                if (cost > 0L) EconomyManager.depositAsync(player, cost, "itemroll_identify_failed_refund");
+                player.sendSystemMessage(Component.literal("§c" + result.error));
+                return;
+            }
+            ProfessionToolManager.refreshToolStack(stack);
+            ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
+            ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(player, stack, result.quality);
+            player.sendSystemMessage(ProfessionToolRollService.buildSuccessMessage(result));
+            if (cost > 0L) player.sendSystemMessage(Component.literal("§7Paid §6" + EconomyCraftHook.formatMoney(cost) + "§7. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)));
+        }));
         return 1;
     }
 
-    private static int executeReroll(
-            ServerPlayer player,
-            ItemStack stack
-    ) {
-
-        int fragmentCost =
-                ProfessionToolRollService.getRerollFragmentCost(
-                        stack
-                );
-
-        long creditCost =
-                ProfessionToolRollService.getRerollCost(
-                        stack
-                );
-
-        String fragmentKey =
-                ProfessionToolRollService.getRerollFragmentKey(
-                        stack
-                );
-
+    private static int executeReroll(ServerPlayer player, ItemStack stack) {
+        int fragmentCost = ProfessionToolRollService.getRerollFragmentCost(stack);
+        long creditCost = ProfessionToolRollService.getRerollCost(stack);
+        String fragmentKey = ProfessionToolRollService.getRerollFragmentKey(stack);
         if (fragmentCost <= 0 || creditCost < 0L || fragmentKey == null || fragmentKey.isBlank()) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cThis item cannot be rerolled."
-                    )
-            );
+            player.sendSystemMessage(Component.literal("§cThis item cannot be rerolled."));
             return 0;
         }
-
-        EconomyCraftHook.AffordResult affordResult = EconomyCraftHook.canAfford(player, creditCost);
-        if (!affordResult.success) {
-            player.sendSystemMessage(Component.literal("§c" + affordResult.error));
-            return 0;
-        }
-
-        int available =
-                ProfessionFragmentManager.countFragments(
-                        player,
-                        fragmentKey
-                );
-
+        int available = ProfessionFragmentManager.countFragments(player, fragmentKey);
         if (available < fragmentCost) {
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cYou need §f" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) +
-                                    "§c to reroll this tool. You have §f" + available + "§c."
-                    )
-            );
+            player.sendSystemMessage(Component.literal("§cYou need §f" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) + "§c to reroll this tool. You have §f" + available + "§c."));
             return 0;
         }
-
-        EconomyCraftHook.ChargeResult chargeResult = EconomyCraftHook.withdraw(player, creditCost);
-        if (!chargeResult.success) {
-            player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
-            return 0;
-        }
-
-        if (!ProfessionFragmentManager.removeFragments(player, fragmentKey, fragmentCost)) {
-            if (creditCost > 0L) {
-                EconomyManager.deposit(player, creditCost, "itemroll_reroll_essence_refund");
+        EconomyCraftHook.withdrawAsync(player, creditCost).thenAccept(chargeResult -> player.server.execute(() -> {
+            if (!chargeResult.success) {
+                player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
+                return;
             }
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§cCould not remove the required essence. Your credits were refunded."
-                    )
-            );
-            return 0;
-        }
-
-        ProfessionToolRollService.RollResult result =
-                ProfessionToolRollService.reroll(
-                        player,
-                        stack
-                );
-
-        if (!result.success) {
-            ProfessionManager.addFragments(player, fragmentKey, fragmentCost);
-            if (creditCost > 0L) {
-                EconomyManager.deposit(player, creditCost, "itemroll_reroll_failed_refund");
+            if (!ProfessionFragmentManager.removeFragments(player, fragmentKey, fragmentCost)) {
+                if (creditCost > 0L) EconomyManager.depositAsync(player, creditCost, "itemroll_reroll_essence_refund");
+                player.sendSystemMessage(Component.literal("§cCould not remove the required essence. Your credits were refunded."));
+                return;
+            }
+            ProfessionToolRollService.RollResult result = ProfessionToolRollService.reroll(player, stack);
+            if (!result.success) {
+                ProfessionManager.addFragments(player, fragmentKey, fragmentCost);
+                if (creditCost > 0L) EconomyManager.depositAsync(player, creditCost, "itemroll_reroll_failed_refund");
+                ProfessionManager.savePlayer(player);
+                player.sendSystemMessage(Component.literal("§c" + result.error));
+                return;
             }
             ProfessionManager.savePlayer(player);
-            player.sendSystemMessage(
-                    Component.literal(
-                            "§c" + result.error
-                    )
-            );
-
-            return 0;
-        }
-
-        ProfessionManager.savePlayer(player);
-        AdventureGuideManager.increment(player, "tool_reroll", 1);
-
-        ProfessionToolManager.refreshToolStack(
-                stack
-        );
-        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
-
-        ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(
-                player,
-                stack,
-                result.quality
-        );
-
-        player.sendSystemMessage(
-                ProfessionToolRollService.buildSuccessMessage(
-                        result
-                )
-        );
-
-        player.sendSystemMessage(
-                Component.literal(
-                        "§7Spent §6" + EconomyCraftHook.formatMoney(creditCost) + " §7and §6" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) + "§7. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)
-                )
-        );
-
+            AdventureGuideManager.increment(player, "tool_reroll", 1);
+            ProfessionToolManager.refreshToolStack(stack);
+            ProfessionToolManager.applyVanillaEfficiencyEnchant(player, stack);
+            ProfessionToolAnnouncementManager.announcePerfectRollIfNeeded(player, stack, result.quality);
+            player.sendSystemMessage(ProfessionToolRollService.buildSuccessMessage(result));
+            player.sendSystemMessage(Component.literal("§7Spent §6" + EconomyCraftHook.formatMoney(creditCost) + " §7and §6" + fragmentCost + " " + formatFragmentName(fragmentKey, fragmentCost) + "§7. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)));
+        }));
         return 1;
     }
 
@@ -380,34 +298,18 @@ public class ItemRollCommand {
         return 1;
     }
 
-    private static int executeRepairConfirmed(
-            ServerPlayer player
-    ) {
-
+    private static int executeRepairConfirmed(ServerPlayer player) {
         RepairCheck check = validateRepair(player);
-        if (check == null) {
-            return 0;
-        }
-
-        EconomyCraftHook.ChargeResult chargeResult = EconomyCraftHook.withdraw(player, check.creditCost);
-        if (!chargeResult.success) {
-            player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
-            return 0;
-        }
-
-        ProfessionToolManager.repairTool(
-                check.stack
-        );
-        ProfessionToolManager.applyVanillaEfficiencyEnchant(player, check.stack);
-
-        player.sendSystemMessage(
-                Component.literal(
-                        "§aRepaired " + check.displayName + " to §f" +
-                                ProfessionToolMetadata.getCurrentDurability(check.stack) + "/" +
-                                ProfessionToolMetadata.getMaxDurability(check.stack) + "§a durability."
-                )
-        );
-
+        if (check == null) return 0;
+        EconomyCraftHook.withdrawAsync(player, check.creditCost).thenAccept(chargeResult -> player.server.execute(() -> {
+            if (!chargeResult.success) {
+                player.sendSystemMessage(Component.literal("§c" + chargeResult.error));
+                return;
+            }
+            ProfessionToolManager.repairTool(check.stack);
+            ProfessionToolManager.applyVanillaEfficiencyEnchant(player, check.stack);
+            player.sendSystemMessage(Component.literal("§aRepaired " + check.displayName + " to §f" + ProfessionToolMetadata.getCurrentDurability(check.stack) + "/" + ProfessionToolMetadata.getMaxDurability(check.stack) + "§a durability."));
+        }));
         return 1;
     }
 

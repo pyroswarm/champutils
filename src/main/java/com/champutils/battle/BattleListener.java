@@ -16,6 +16,8 @@ import java.util.UUID;
 import com.champutils.profession.*;
 
 import com.champutils.rank.RankedMatchRewardManager;
+import com.champutils.rank.RankedTokenConfig;
+import com.champutils.economy.EconomyManager;
 import com.champutils.rank.RankManager;
 import com.champutils.scoreboard.PlayerSidebarManager;
 import com.champutils.validation.TeamSnapshotManager;
@@ -29,13 +31,22 @@ public class BattleListener {
             ServerPlayer winner,
             ServerPlayer loser
     ) {
-        onBattleEnd(winner, loser, null);
+        onBattleEnd(winner, loser, null, PvPMatchIntegrityManager.Result.notTracked());
     }
 
     public static void onBattleEnd(
             ServerPlayer winner,
             ServerPlayer loser,
             UUID losingNpcUuid
+    ) {
+        onBattleEnd(winner, loser, losingNpcUuid, PvPMatchIntegrityManager.Result.notTracked());
+    }
+
+    public static void onBattleEnd(
+            ServerPlayer winner,
+            ServerPlayer loser,
+            UUID losingNpcUuid,
+            PvPMatchIntegrityManager.Result integrity
     ) {
 
         if (winner == null) {
@@ -55,6 +66,14 @@ public class BattleListener {
         if (battleType == BattleContextManager.BattleType.WORLD_BOSS &&
                 (losingNpcUuid == null || !GuildBossManager.isActiveWorldBossNpc(losingNpcUuid))) {
             battleType = BattleContextManager.BattleType.UNKNOWN;
+        }
+
+        boolean queuedPvpAtEnd = loser != null &&
+                (battleType == BattleContextManager.BattleType.RANKED ||
+                        battleType == BattleContextManager.BattleType.CASUAL);
+        if (queuedPvpAtEnd && integrity != null && integrity.immediateForfeit()) {
+            handleImmediateForfeit(winner, loser, battleType, integrity);
+            return;
         }
 
         AdventurerGuildManager.recordBattleResult(
@@ -238,6 +257,52 @@ public class BattleListener {
 
         PlayerSidebarManager.update(winner);
         PlayerSidebarManager.update(loser);
+
+        cleanup(winner, loser);
+    }
+
+
+    private static void handleImmediateForfeit(
+            ServerPlayer winner,
+            ServerPlayer loser,
+            BattleContextManager.BattleType battleType,
+            PvPMatchIntegrityManager.Result integrity
+    ) {
+        boolean ranked = battleType == BattleContextManager.BattleType.RANKED;
+
+        if (Config.arenas != null && !Config.arenas.isEmpty()) {
+            MatchmakingManager.returnPlayerAfterQueuedPvp(winner);
+            MatchmakingManager.returnPlayerAfterQueuedPvp(loser);
+            ArenaManager.releaseArena(winner);
+            ArenaManager.releaseArena(loser);
+        }
+
+        healAfterQueuedBattle(winner);
+        healAfterQueuedBattle(loser);
+
+        long configuredConsolation = Math.max(0L, RankedTokenConfig.CONFIG.immediateForfeitWinnerCredits);
+        boolean consolationAllowed = configuredConsolation > 0L &&
+                PvPMatchIntegrityManager.claimConsolation(winner.getUUID(), loser.getUUID());
+        long consolation = consolationAllowed ? configuredConsolation : 0L;
+        if (consolation > 0L) {
+            EconomyManager.depositAsync(winner, consolation, "Immediate PvP forfeit consolation");
+        }
+
+        String queueName = ranked ? "ranked" : "casual";
+        winner.sendSystemMessage(Component.literal(
+                "§eThe " + queueName + " match ended too quickly to count as a completed battle. " +
+                        "No tokens, RP, progression, or normal rewards were granted." +
+                        (consolation > 0L ? " §aYou received " + EconomyManager.format(consolation) + " as a forfeit consolation." : "")
+        ));
+        loser.sendSystemMessage(Component.literal(
+                "§cThis " + queueName + " match was classified as an immediate forfeit. " +
+                        "Neither player received tokens, RP, progression, or normal match rewards."
+        ));
+
+        System.out.println("[ChampUtils][PvPIntegrity] Rejected immediate " + queueName +
+                " match: winner=" + winner.getGameProfile().getName() +
+                ", loser=" + loser.getGameProfile().getName() +
+                ", elapsed=" + integrity.elapsedSeconds() + "s, faints=" + integrity.faintCount());
 
         cleanup(winner, loser);
     }

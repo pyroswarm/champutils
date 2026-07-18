@@ -27,6 +27,15 @@ public class ProfessionActionBarManager {
             return;
         }
 
+        // Sound feedback is intentionally not throttled with the action-bar popup. Every XP
+        // award gets its own ding, including multiple professions rewarding on the same tick.
+        ProfessionNotificationSettings.playStackingSound(player,
+                SoundEvents.EXPERIENCE_ORB_PICKUP,
+                SoundSource.PLAYERS,
+                0.4f,
+                1.8f
+        );
+
         if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
             return;
         }
@@ -40,13 +49,6 @@ public class ProfessionActionBarManager {
         player.displayClientMessage(
                 Component.literal(color + "+" + xp + " " + type.name() + " XP"),
                 true
-        );
-
-        ProfessionNotificationSettings.playSound(player, 
-                SoundEvents.EXPERIENCE_ORB_PICKUP,
-                SoundSource.PLAYERS,
-                0.4f,
-                1.8f
         );
 
         XP_COOLDOWNS.put(player.getUUID(), System.currentTimeMillis());
@@ -71,7 +73,7 @@ public class ProfessionActionBarManager {
                 Component.literal("§fLevel " + level + " §7- bonuses increased")
         ));
 
-        ProfessionNotificationSettings.playSound(player, 
+        ProfessionNotificationSettings.playStackingSound(player, 
                 SoundEvents.PLAYER_LEVELUP,
                 SoundSource.PLAYERS,
                 0.9f,

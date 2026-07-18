@@ -94,6 +94,9 @@ public final class TerritoryProtectionListener {
 
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide() || !(world instanceof ServerLevel level) || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
+            // Territory stewards have their own ownership-aware interaction handler. Never let the
+            // generic entity protection callback consume their click before that handler runs.
+            if (TerritoryNpcManager.territoryFor(entity) != null) return InteractionResult.PASS;
             TerritoryRepository.Territory territory = TerritoryRepository.findAt(level, entity.blockPosition());
             if (territory == null || TerritoryRepository.canInteractEntities(serverPlayer, territory)) return InteractionResult.PASS;
             IslanderDebugManager.log(serverPlayer, "protect.useEntity", territory, "DENY", "canInteractEntities_false");

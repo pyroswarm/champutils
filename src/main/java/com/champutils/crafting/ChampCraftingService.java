@@ -22,55 +22,70 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 public final class ChampCraftingService {
     private static final Map<UUID, Object> PLAYER_LOCKS = new ConcurrentHashMap<>();
 
     private ChampCraftingService() {}
 
-    public static CraftResult craft(ServerPlayer player, String recipeId) {
-        if (player == null) return CraftResult.fail("Player missing.");
+    public static CompletableFuture<CraftResult> craftAsync(ServerPlayer player, String recipeId) {
+        if (player == null) return CompletableFuture.completedFuture(CraftResult.fail("Player missing."));
         Object lock = PLAYER_LOCKS.computeIfAbsent(player.getUUID(), ignored -> new Object());
         synchronized (lock) {
-            return craftLocked(player, recipeId);
-        }
-    }
-
-    private static CraftResult craftLocked(ServerPlayer player, String recipeId) {
-        if (!ChampCraftingConfig.CONFIG.enabled) return CraftResult.fail("Champ Crafting is disabled.");
-        ChampCraftingConfig.RecipeData recipe = ChampCraftingConfig.get(recipeId);
-        if (recipe == null || !recipe.enabled) return CraftResult.fail("That recipe is not available.");
-        if (recipe.category != null && recipe.category.equalsIgnoreCase("Islander Resources") && !PlayerProfileManager.isIslander(player)) {
-            return CraftResult.fail("Only Islander profiles can use Islander Resource recipes.");
-        }
-        ItemStack outputStack = createOutputStack(recipe.outputItem, Math.max(1, recipe.outputAmount));
-        Item output = outputStack.getItem();
-        if (outputStack.isEmpty() || output == Items.AIR) return CraftResult.fail("Output item is not registered: " + recipe.outputItem);
-        int outputAmount = outputStack.getCount();
-        if (!canFit(player, output, outputAmount)) return CraftResult.fail("Make room in your inventory before crafting this.");
-
-        if (recipe.costs == null || recipe.costs.isEmpty()) return CraftResult.fail("This recipe has no costs configured.");
-        for (ChampCraftingConfig.CostData cost : recipe.costs) {
-            CostStatus status = status(player, cost);
-            if (!status.valid()) return CraftResult.fail(status.message());
-            if (status.have() < status.need()) {
-                if ("credits".equals(status.source())) {
-                    return CraftResult.fail("You need " + status.need() + " Credits. You have " + status.have() + " Credits.");
-                }
-                return CraftResult.fail("You need " + status.need() + "x " + itemName(cost.item) + " from " + sourceLabel(cost.source) + ". You have " + status.have() + ".");
+            if (!ChampCraftingConfig.CONFIG.enabled) return CompletableFuture.completedFuture(CraftResult.fail("Champ Crafting is disabled."));
+            ChampCraftingConfig.RecipeData recipe = ChampCraftingConfig.get(recipeId);
+            if (recipe == null || !recipe.enabled) return CompletableFuture.completedFuture(CraftResult.fail("That recipe is not available."));
+            if (recipe.category != null && recipe.category.equalsIgnoreCase("Islander Resources") && !PlayerProfileManager.isIslander(player)) {
+                return CompletableFuture.completedFuture(CraftResult.fail("Only Islander profiles can use Islander Resource recipes."));
             }
-        }
-
-        for (ChampCraftingConfig.CostData cost : recipe.costs) {
-            if (!removeCost(player, cost)) {
-                return CraftResult.fail("Could not remove one of the costs. Nothing was crafted. Try again.");
+            ItemStack outputStack = createOutputStack(recipe.outputItem, Math.max(1, recipe.outputAmount));
+            Item output = outputStack.getItem();
+            if (outputStack.isEmpty() || output == Items.AIR) return CompletableFuture.completedFuture(CraftResult.fail("Output item is not registered: " + recipe.outputItem));
+            if (!canFit(player, output, outputStack.getCount())) return CompletableFuture.completedFuture(CraftResult.fail("Make room in your inventory before crafting this."));
+            if (recipe.costs == null || recipe.costs.isEmpty()) return CompletableFuture.completedFuture(CraftResult.fail("This recipe has no costs configured."));
+            long creditCents = 0L;
+            for (ChampCraftingConfig.CostData cost : recipe.costs) {
+                CostStatus status = status(player, cost);
+                if (!status.valid()) return CompletableFuture.completedFuture(CraftResult.fail(status.message()));
+                if (status.have() < status.need()) return CompletableFuture.completedFuture(CraftResult.fail("You are missing materials for this recipe."));
+                if ("credits".equals(status.source())) creditCents = safeAdd(creditCents, EconomyManager.wholeCreditsToCents(status.need()));
             }
+            final long charged = creditCents;
+            return EconomyManager.withdrawAsync(player, charged, "champ_crafting:" + recipe.id).thenCompose(result -> {
+                CompletableFuture<CraftResult> done = new CompletableFuture<>();
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        done.complete(CraftResult.fail(result.error == null ? "Not enough Credits." : result.error));
+                        return;
+                    }
+                    synchronized (lock) {
+                        for (ChampCraftingConfig.CostData cost : recipe.costs) {
+                            if ("credits".equals(normalizeSource(cost.source))) continue;
+                            CostStatus status = status(player, cost);
+                            if (!status.valid() || status.have() < status.need()) {
+                                if (charged > 0L) EconomyManager.depositAsync(player, charged, "champ_crafting_refund:" + recipe.id);
+                                done.complete(CraftResult.fail("Your materials changed before the craft completed. Credits were refunded."));
+                                return;
+                            }
+                        }
+                        for (ChampCraftingConfig.CostData cost : recipe.costs) {
+                            if ("credits".equals(normalizeSource(cost.source))) continue;
+                            if (!removeCost(player, cost)) {
+                                if (charged > 0L) EconomyManager.depositAsync(player, charged, "champ_crafting_refund:" + recipe.id);
+                                done.complete(CraftResult.fail("Could not remove one of the costs. Credits were refunded."));
+                                return;
+                            }
+                        }
+                        give(player, outputStack);
+                        String name = recipe.displayName == null || recipe.displayName.isBlank() ? itemName(output) : recipe.displayName;
+                        System.out.println("[ChampUtils][ChampCrafting] " + player.getGameProfile().getName() + " crafted " + outputStack.getCount() + "x " + recipe.outputItem + " via " + recipe.id);
+                        done.complete(CraftResult.success(recipe.id, name, recipe.outputItem, outputStack.getCount()));
+                    }
+                });
+                return done;
+            });
         }
-
-        give(player, outputStack);
-        String name = recipe.displayName == null || recipe.displayName.isBlank() ? itemName(output) : recipe.displayName;
-        System.out.println("[ChampUtils][ChampCrafting] " + player.getGameProfile().getName() + " crafted " + outputAmount + "x " + recipe.outputItem + " via " + recipe.id);
-        return CraftResult.success(recipe.id, name, recipe.outputItem, outputAmount);
     }
 
     public static CostStatus status(ServerPlayer player, ChampCraftingConfig.CostData cost) {
@@ -99,9 +114,7 @@ public final class ChampCraftingService {
     private static boolean removeCost(ServerPlayer player, ChampCraftingConfig.CostData cost) {
         String source = normalizeSource(cost.source);
         long amount = Math.max(1L, cost.amount);
-        if (source.equals("credits")) {
-            return EconomyManager.withdraw(player, EconomyManager.wholeCreditsToCents(amount), "champ_crafting:" + (cost.item == null ? "credits" : cost.item)).success;
-        }
+        if (source.equals("credits")) return true;
         Item item = resolveItem(cost.item);
         if (item == Items.AIR) return false;
         if (source.equals("inventory")) {

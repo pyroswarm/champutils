@@ -159,15 +159,21 @@ public final class AdventurerGuildShopMenu {
             player.sendSystemMessage(Component.literal("You need " + price.marks + " Adventurer's Marks for that Pokémon.").withStyle(ChatFormatting.RED));
             return false;
         }
-        EconomyManager.TransactionResult credits = EconomyManager.withdraw(player, EconomyManager.wholeCreditsToCents(price.credits), "adventurer_shop_pokemon:" + entry.id());
+        long cents = EconomyManager.wholeCreditsToCents(price.credits);
+        EconomyManager.withdrawAsync(player, cents, "adventurer_shop_pokemon:" + entry.id()).thenAccept(credits ->
+                player.server.execute(() -> finishPurchase(player, entry, price, cents, credits)));
+        return false;
+    }
+
+    private static void finishPurchase(ServerPlayer player, ShopSpecies entry, Price price, long cents, EconomyManager.TransactionResult credits) {
         if (!credits.success) {
             player.sendSystemMessage(Component.literal(credits.error == null ? "Not enough Credits." : credits.error).withStyle(ChatFormatting.RED));
-            return false;
+            return;
         }
         if (!AdventurerGuildManager.spendGuildMarks(player, price.marks)) {
-            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(price.credits), "adventurer_shop_refund:" + entry.id());
+            EconomyManager.depositAsync(player, cents, "adventurer_shop_refund:" + entry.id());
             player.sendSystemMessage(Component.literal("You no longer have enough Adventurer's Marks.").withStyle(ChatFormatting.RED));
-            return false;
+            return;
         }
         Pokemon pokemon;
         try {
@@ -177,20 +183,19 @@ public final class AdventurerGuildShopMenu {
             try { pokemon.heal(); } catch (Throwable ignored) {}
         } catch (Throwable throwable) {
             AdventurerGuildManager.addGuildMarks(player, price.marks);
-            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(price.credits), "adventurer_shop_refund_invalid:" + entry.id());
+            EconomyManager.depositAsync(player, cents, "adventurer_shop_refund_invalid:" + entry.id());
             player.sendSystemMessage(Component.literal("Could not create that Pokémon. No currency was lost.").withStyle(ChatFormatting.RED));
-            return false;
+            return;
         }
         AuctionPokemonSerializer.DeliveryResult delivery = AuctionPokemonSerializer.deliverToPartyOrPc(player, pokemon);
         if (delivery == AuctionPokemonSerializer.DeliveryResult.FAILED) {
             AdventurerGuildManager.addGuildMarks(player, price.marks);
-            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(price.credits), "adventurer_shop_refund_full:" + entry.id());
+            EconomyManager.depositAsync(player, cents, "adventurer_shop_refund_full:" + entry.id());
             player.sendSystemMessage(Component.literal("Your party and PC appear full. Make space and try again. No currency was lost.").withStyle(ChatFormatting.RED));
-            return false;
+            return;
         }
         TrueCaughtDexManager.markTrueCaught(player, pokemon);
         player.sendSystemMessage(Component.literal("Purchased a level 1 " + entry.displayName() + " from the Adventurer's Guild. Sent to " + delivery.name() + ".").withStyle(ChatFormatting.GREEN));
-        return true;
     }
 
     private static List<ShopSpecies> availableSpecies(String rank, String filter) {

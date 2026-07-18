@@ -123,7 +123,7 @@ public final class ProfessionChunkManager {
         }
         long cents = EconomyManager.creditsToCents(config.sellCredits) * removed;
         if (cents > 0L) {
-            EconomyManager.deposit(player, cents, "profession_chunk_sale:" + key.toLowerCase(Locale.ROOT));
+            EconomyManager.depositAsync(player, cents, "profession_chunk_sale:" + key.toLowerCase(Locale.ROOT));
         }
         return new SellResult(true, "", removed, cents, key);
     }
@@ -158,7 +158,7 @@ public final class ProfessionChunkManager {
         }
         if (totalCents <= 0L) return 0L;
         ProfessionManager.savePlayer(player);
-        EconomyManager.deposit(player, totalCents, "profession_chunk_sale");
+        EconomyManager.depositAsync(player, totalCents, "profession_chunk_sale");
         return totalCents;
     }
 

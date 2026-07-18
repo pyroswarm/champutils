@@ -331,6 +331,9 @@ public final class NetworkEventManager {
             else if ("PROFESSIONS".equals(scope)) {
                 com.champutils.profession.ProfessionManager.invalidateSharedCache(ownerId);
             }
+            else if ("BACKPACK_CONFIG".equals(scope)) {
+                com.champutils.database.SharedBackpackConfigRepository.loadAsync();
+            }
             else if ("PLAYER_DATA".equals(scope)) {
                 com.champutils.profile.PlayerDataManager.refreshOnlineProfileAsync(server, ownerId);
             }

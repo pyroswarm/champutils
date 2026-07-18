@@ -28,7 +28,7 @@ public final class RankedMatchRewardManager {
         long loserCredits = participationCredits;
 
         if (loserCredits > 0L) {
-            EconomyManager.deposit(loser, loserCredits, "Ranked PvP participation");
+            EconomyManager.depositAsync(loser, loserCredits, "Ranked PvP participation");
             loser.sendSystemMessage(Component.literal("§6Ranked rewards: §a+" + EconomyManager.format(loserCredits) + "§7."));
         }
 
@@ -101,7 +101,7 @@ public final class RankedMatchRewardManager {
 
     private static void payWinner(ServerPlayer winner, long credits, long firstWinCredits, int streakBonusWins, boolean upsetWin) {
         if (winner == null || credits <= 0L) return;
-        EconomyManager.deposit(winner, credits, "Ranked PvP victory");
+        EconomyManager.depositAsync(winner, credits, "Ranked PvP victory");
 
         StringBuilder message = new StringBuilder("§6Ranked rewards: §a+")
                 .append(EconomyManager.format(credits))

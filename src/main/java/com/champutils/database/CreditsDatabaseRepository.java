@@ -12,7 +12,6 @@ public final class CreditsDatabaseRepository {
     private static boolean schemaEnsured = false;
     private static final long STARTING_BALANCE = 25_000L;
     private static final long MAX_BALANCE = 9_000_000_000_000_000L;
-    private static final long ATOMIC_OPERATION_TIMEOUT_MILLIS = 1500L;
 
     private CreditsDatabaseRepository() {
     }
@@ -44,6 +43,7 @@ public final class CreditsDatabaseRepository {
                 "create table if not exists economy_ledger (" +
                         "id uuid primary key, " +
                         "transfer_id uuid, " +
+                        "operation_id uuid, " +
                         "uuid text, " +
                         "username text not null default '', " +
                         "type text not null, " +
@@ -57,6 +57,16 @@ public final class CreditsDatabaseRepository {
             statement.executeUpdate();
         }
 
+        try (PreparedStatement alter = connection.prepareStatement(
+                "alter table economy_ledger add column if not exists operation_id uuid"
+        )) {
+            alter.executeUpdate();
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "create unique index if not exists economy_ledger_operation_idx on economy_ledger (operation_id, type) where operation_id is not null"
+        )) {
+            statement.executeUpdate();
+        }
         try (PreparedStatement statement = connection.prepareStatement(
                 "create index if not exists economy_ledger_uuid_created_idx on economy_ledger (uuid, created_at desc)"
         )) {
@@ -108,7 +118,8 @@ public final class CreditsDatabaseRepository {
             try (PreparedStatement stats = connection.prepareStatement(
                     "insert into profile_player_stats (profile_id, money, updated_at) " +
                             "select ?::uuid, ?, now() where exists (select 1 from player_profiles where id = ?::uuid) " +
-                            "on conflict (profile_id) do update set money = excluded.money, updated_at = now()"
+                            "on conflict (profile_id) do update set money = excluded.money, updated_at = now() " +
+                        "where profile_player_stats.money is distinct from excluded.money"
             )) {
                 stats.setString(1, playerId.toString());
                 stats.setLong(2, safeCredits);
@@ -159,153 +170,191 @@ public final class CreditsDatabaseRepository {
         }
     }
 
-    public static MutationResult deposit(UUID playerId, String username, long amount, String reason, String serverId) {
-        if (playerId == null) return MutationResult.fail("Player not found.");
-        if (amount <= 0L) return MutationResult.fail("Amount must be positive.");
-        return atomic("deposit credits " + playerId, connection -> {
-            boolean restoreAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
+    public static CompletableFuture<MutationResult> depositAsync(UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) {
+        return mutateAsync("deposit credits " + playerId, connection -> deposit(connection, operationId, playerId, username, amount, reason, serverId));
+    }
+
+    public static CompletableFuture<MutationResult> withdrawAsync(UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) {
+        return mutateAsync("withdraw credits " + playerId, connection -> withdraw(connection, operationId, playerId, username, amount, reason, serverId));
+    }
+
+    public static CompletableFuture<MutationResult> setBalanceAsync(UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) {
+        return mutateAsync("set credits " + playerId, connection -> setBalance(connection, operationId, playerId, username, amount, reason, serverId));
+    }
+
+    public static CompletableFuture<MutationResult> transferAsync(UUID operationId, UUID fromId, String fromName, UUID toId, String toName, long amount, String reason, String serverId) {
+        return mutateAsync("transfer credits " + fromId + " to " + toId, connection -> transfer(connection, operationId, fromId, fromName, toId, toName, amount, reason, serverId));
+    }
+
+    private static CompletableFuture<MutationResult> mutateAsync(String description, SqlMutation mutation) {
+        if (!DatabaseManager.isEnabled()) return CompletableFuture.completedFuture(MutationResult.fail("Database is not available."));
+        return DatabaseManager.supplyAsync(description, connection -> {
             try {
-                ensureSchema(connection);
-                AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
-                if (MAX_BALANCE - before.credits < amount) {
-                    connection.rollback();
-                    return MutationResult.fail("That would exceed the maximum allowed balance.");
-                }
-                long balance = before.credits + amount;
-                long earned = safeAdd(before.lifetimeEarned, amount);
-                updateAccount(connection, playerId, username, balance, earned, before.lifetimeSpent);
-                insertLedger(connection, null, playerId, username, "DEPOSIT", amount, balance, reason, serverId);
-                syncProfileStats(connection, playerId, balance);
-                connection.commit();
-                return MutationResult.success(amount, balance, earned, before.lifetimeSpent);
+                return mutation.run(connection);
             } catch (Exception e) {
-                connection.rollback();
-                throw e;
-            } finally {
-                connection.setAutoCommit(restoreAutoCommit);
+                System.err.println("[ChampUtils] Atomic economy operation failed: " + description);
+                e.printStackTrace();
+                return MutationResult.fail("Economy database is busy. Please try again.");
             }
         });
+    }
+
+    public static MutationResult deposit(UUID playerId, String username, long amount, String reason, String serverId) {
+        return runOnlyOffServerThread("deposit credits " + playerId, c -> deposit(c, UUID.randomUUID(), playerId, username, amount, reason, serverId));
     }
 
     public static MutationResult withdraw(UUID playerId, String username, long amount, String reason, String serverId) {
-        if (playerId == null) return MutationResult.fail("Player not found.");
-        if (amount <= 0L) {
-            AccountSnapshot snapshot = load(playerId);
-            return MutationResult.success(0L, snapshot == null ? 0L : snapshot.credits, snapshot == null ? 0L : snapshot.lifetimeEarned, snapshot == null ? 0L : snapshot.lifetimeSpent);
-        }
-        return atomic("withdraw credits " + playerId, connection -> {
-            boolean restoreAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-            try {
-                ensureSchema(connection);
-                AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
-                if (before.credits < amount) {
-                    connection.rollback();
-                    return MutationResult.fail("You need " + amount + " cents but only have " + before.credits + " cents.");
-                }
-                long balance = before.credits - amount;
-                long spent = safeAdd(before.lifetimeSpent, amount);
-                updateAccount(connection, playerId, username, balance, before.lifetimeEarned, spent);
-                insertLedger(connection, null, playerId, username, "WITHDRAW", amount, balance, reason, serverId);
-                syncProfileStats(connection, playerId, balance);
-                connection.commit();
-                return MutationResult.success(amount, balance, before.lifetimeEarned, spent);
-            } catch (Exception e) {
-                connection.rollback();
-                throw e;
-            } finally {
-                connection.setAutoCommit(restoreAutoCommit);
-            }
-        });
+        return runOnlyOffServerThread("withdraw credits " + playerId, c -> withdraw(c, UUID.randomUUID(), playerId, username, amount, reason, serverId));
     }
 
     public static MutationResult setBalance(UUID playerId, String username, long amount, String reason, String serverId) {
-        if (playerId == null) return MutationResult.fail("Player not found.");
-        if (amount < 0L || amount > MAX_BALANCE) return MutationResult.fail("Amount is outside the allowed range.");
-        return atomic("set credits " + playerId, connection -> {
-            boolean restoreAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-            try {
-                ensureSchema(connection);
-                AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
-                long earned = Math.max(before.lifetimeEarned, amount);
-                updateAccount(connection, playerId, username, amount, earned, before.lifetimeSpent);
-                insertLedger(connection, null, playerId, username, "SET", amount, amount, reason, serverId);
-                syncProfileStats(connection, playerId, amount);
-                connection.commit();
-                return MutationResult.success(amount, amount, earned, before.lifetimeSpent);
-            } catch (Exception e) {
-                connection.rollback();
-                throw e;
-            } finally {
-                connection.setAutoCommit(restoreAutoCommit);
-            }
-        });
+        return runOnlyOffServerThread("set credits " + playerId, c -> setBalance(c, UUID.randomUUID(), playerId, username, amount, reason, serverId));
     }
 
     public static MutationResult transfer(UUID fromId, String fromName, UUID toId, String toName, long amount, String reason, String serverId) {
-        if (fromId == null || toId == null) return MutationResult.fail("Player not found.");
-        if (fromId.equals(toId)) return MutationResult.fail("You cannot pay yourself.");
-        if (amount <= 0L) return MutationResult.fail("Amount must be positive.");
-        return atomic("transfer credits " + fromId + " to " + toId, connection -> {
-            boolean restoreAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-            try {
-                ensureSchema(connection);
-                UUID first = fromId.toString().compareTo(toId.toString()) <= 0 ? fromId : toId;
-                UUID second = first.equals(fromId) ? toId : fromId;
-                ensureAccountForUpdate(connection, first, first.equals(fromId) ? fromName : toName);
-                ensureAccountForUpdate(connection, second, second.equals(fromId) ? fromName : toName);
-
-                AccountSnapshot sender = loadForUpdate(connection, fromId);
-                AccountSnapshot receiver = loadForUpdate(connection, toId);
-                if (sender.credits < amount) {
-                    connection.rollback();
-                    return MutationResult.fail("You need " + amount + " cents but only have " + sender.credits + " cents.");
-                }
-                if (MAX_BALANCE - receiver.credits < amount) {
-                    connection.rollback();
-                    return MutationResult.fail("The receiving player cannot hold that many Credits.");
-                }
-
-                long senderBalance = sender.credits - amount;
-                long receiverBalance = receiver.credits + amount;
-                long senderSpent = safeAdd(sender.lifetimeSpent, amount);
-                long receiverEarned = safeAdd(receiver.lifetimeEarned, amount);
-                UUID transferId = UUID.randomUUID();
-
-                updateAccount(connection, fromId, fromName, senderBalance, sender.lifetimeEarned, senderSpent);
-                updateAccount(connection, toId, toName, receiverBalance, receiverEarned, receiver.lifetimeSpent);
-                insertLedger(connection, transferId, fromId, fromName, "TRANSFER_OUT", amount, senderBalance, reason, serverId);
-                insertLedger(connection, transferId, toId, toName, "TRANSFER_IN", amount, receiverBalance, reason, serverId);
-                syncProfileStats(connection, fromId, senderBalance);
-                syncProfileStats(connection, toId, receiverBalance);
-                connection.commit();
-                return MutationResult.success(amount, senderBalance, sender.lifetimeEarned, senderSpent);
-            } catch (Exception e) {
-                connection.rollback();
-                throw e;
-            } finally {
-                connection.setAutoCommit(restoreAutoCommit);
-            }
-        });
+        return runOnlyOffServerThread("transfer credits " + fromId + " to " + toId, c -> transfer(c, UUID.randomUUID(), fromId, fromName, toId, toName, amount, reason, serverId));
     }
 
-    private static MutationResult atomic(String description, SqlMutation mutation) {
+    private static MutationResult runOnlyOffServerThread(String description, SqlMutation mutation) {
         if (!DatabaseManager.isEnabled()) return MutationResult.fail("Database is not available.");
+        String threadName = Thread.currentThread().getName();
+        if (threadName != null && threadName.equalsIgnoreCase("Server thread")) {
+            System.err.println("[ChampUtils][PERF] Rejected synchronous economy operation on server thread: " + description);
+            return MutationResult.fail("Economy request must be processed asynchronously.");
+        }
         try {
-            String threadName = Thread.currentThread().getName();
-            if (threadName != null && threadName.startsWith("ChampUtils-Database")) {
-                return mutation.run(DatabaseManager.getConnection());
-            }
-            return DatabaseManager.supplyAsync(description, mutation::run).get(ATOMIC_OPERATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            if (threadName != null && threadName.startsWith("ChampUtils-Database")) return mutation.run(DatabaseManager.getConnection());
+            return DatabaseManager.supplyAsync(description, mutation::run).join();
         } catch (Exception e) {
             System.err.println("[ChampUtils] Atomic economy operation failed: " + description);
             e.printStackTrace();
             return MutationResult.fail("Economy database is busy. Please try again.");
         }
     }
+
+    private static MutationResult deposit(Connection connection, UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) throws Exception {
+        if (playerId == null) return MutationResult.fail("Player not found.");
+        if (amount <= 0L) return MutationResult.fail("Amount must be positive.");
+        return inTransaction(connection, operationId, "DEPOSIT", playerId, () -> {
+            AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
+            if (MAX_BALANCE - before.credits < amount) return MutationResult.fail("That would exceed the maximum allowed balance.");
+            long balance = before.credits + amount;
+            long earned = safeAdd(before.lifetimeEarned, amount);
+            updateAccount(connection, playerId, username, balance, earned, before.lifetimeSpent);
+            insertLedger(connection, null, operationId, playerId, username, "DEPOSIT", amount, balance, reason, serverId);
+            syncProfileStats(connection, playerId, balance);
+            return MutationResult.success(amount, balance, earned, before.lifetimeSpent);
+        });
+    }
+
+    private static MutationResult withdraw(Connection connection, UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) throws Exception {
+        if (playerId == null) return MutationResult.fail("Player not found.");
+        if (amount <= 0L) {
+            AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
+            return MutationResult.success(0L, before.credits, before.lifetimeEarned, before.lifetimeSpent);
+        }
+        return inTransaction(connection, operationId, "WITHDRAW", playerId, () -> {
+            AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
+            if (before.credits < amount) return MutationResult.fail("You need " + amount + " cents but only have " + before.credits + " cents.");
+            long balance = before.credits - amount;
+            long spent = safeAdd(before.lifetimeSpent, amount);
+            updateAccount(connection, playerId, username, balance, before.lifetimeEarned, spent);
+            insertLedger(connection, null, operationId, playerId, username, "WITHDRAW", amount, balance, reason, serverId);
+            syncProfileStats(connection, playerId, balance);
+            return MutationResult.success(amount, balance, before.lifetimeEarned, spent);
+        });
+    }
+
+    private static MutationResult setBalance(Connection connection, UUID operationId, UUID playerId, String username, long amount, String reason, String serverId) throws Exception {
+        if (playerId == null) return MutationResult.fail("Player not found.");
+        if (amount < 0L || amount > MAX_BALANCE) return MutationResult.fail("Amount is outside the allowed range.");
+        return inTransaction(connection, operationId, "SET", playerId, () -> {
+            AccountSnapshot before = ensureAccountForUpdate(connection, playerId, username);
+            long earned = Math.max(before.lifetimeEarned, amount);
+            updateAccount(connection, playerId, username, amount, earned, before.lifetimeSpent);
+            insertLedger(connection, null, operationId, playerId, username, "SET", amount, amount, reason, serverId);
+            syncProfileStats(connection, playerId, amount);
+            return MutationResult.success(amount, amount, earned, before.lifetimeSpent);
+        });
+    }
+
+    private static MutationResult transfer(Connection connection, UUID operationId, UUID fromId, String fromName, UUID toId, String toName, long amount, String reason, String serverId) throws Exception {
+        if (fromId == null || toId == null) return MutationResult.fail("Player not found.");
+        if (fromId.equals(toId)) return MutationResult.fail("You cannot pay yourself.");
+        if (amount <= 0L) return MutationResult.fail("Amount must be positive.");
+        boolean restoreAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        try {
+            ensureSchema(connection);
+            lockOperation(connection, operationId);
+            MutationResult prior = priorOperation(connection, operationId, "TRANSFER_OUT", fromId);
+            if (prior != null) { connection.commit(); return prior; }
+            UUID first = fromId.toString().compareTo(toId.toString()) <= 0 ? fromId : toId;
+            UUID second = first.equals(fromId) ? toId : fromId;
+            ensureAccountForUpdate(connection, first, first.equals(fromId) ? fromName : toName);
+            ensureAccountForUpdate(connection, second, second.equals(fromId) ? fromName : toName);
+            AccountSnapshot sender = loadForUpdate(connection, fromId);
+            AccountSnapshot receiver = loadForUpdate(connection, toId);
+            if (sender.credits < amount) { connection.rollback(); return MutationResult.fail("You do not have enough Credits."); }
+            if (MAX_BALANCE - receiver.credits < amount) { connection.rollback(); return MutationResult.fail("The receiving player cannot hold that many Credits."); }
+            long senderBalance = sender.credits - amount;
+            long receiverBalance = receiver.credits + amount;
+            long senderSpent = safeAdd(sender.lifetimeSpent, amount);
+            long receiverEarned = safeAdd(receiver.lifetimeEarned, amount);
+            UUID transferId = UUID.randomUUID();
+            updateAccount(connection, fromId, fromName, senderBalance, sender.lifetimeEarned, senderSpent);
+            updateAccount(connection, toId, toName, receiverBalance, receiverEarned, receiver.lifetimeSpent);
+            insertLedger(connection, transferId, operationId, fromId, fromName, "TRANSFER_OUT", amount, senderBalance, reason, serverId);
+            insertLedger(connection, transferId, operationId, toId, toName, "TRANSFER_IN", amount, receiverBalance, reason, serverId);
+            syncProfileStats(connection, fromId, senderBalance);
+            syncProfileStats(connection, toId, receiverBalance);
+            connection.commit();
+            return MutationResult.success(amount, senderBalance, sender.lifetimeEarned, senderSpent);
+        } catch (Exception e) { connection.rollback(); throw e; }
+        finally { connection.setAutoCommit(restoreAutoCommit); }
+    }
+
+    private static MutationResult inTransaction(Connection connection, UUID operationId, String type, UUID playerId, TxBody body) throws Exception {
+        boolean restoreAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        try {
+            ensureSchema(connection);
+            lockOperation(connection, operationId);
+            MutationResult prior = priorOperation(connection, operationId, type, playerId);
+            if (prior != null) { connection.commit(); return prior; }
+            MutationResult result = body.run();
+            if (!result.success) { connection.rollback(); return result; }
+            connection.commit();
+            return result;
+        } catch (Exception e) { connection.rollback(); throw e; }
+        finally { connection.setAutoCommit(restoreAutoCommit); }
+    }
+
+    private static void lockOperation(Connection connection, UUID operationId) throws Exception {
+        if (operationId == null) return;
+        long key = operationId.getMostSignificantBits() ^ operationId.getLeastSignificantBits();
+        try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_xact_lock(?)")) {
+            statement.setLong(1, key);
+            statement.executeQuery();
+        }
+    }
+
+    private static MutationResult priorOperation(Connection connection, UUID operationId, String type, UUID playerId) throws Exception {
+        if (operationId == null) return null;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select l.amount, l.balance_after, coalesce(e.lifetime_earned, 0), coalesce(e.lifetime_spent, 0) " +
+                        "from economy_ledger l left join player_economy e on e.uuid = l.uuid " +
+                        "where l.operation_id = ? and l.type = ? and l.uuid = ? limit 1")) {
+            statement.setObject(1, operationId);
+            statement.setString(2, type);
+            statement.setString(3, playerId.toString());
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() ? MutationResult.success(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4)) : null;
+            }
+        }
+    }
+
+    @FunctionalInterface private interface TxBody { MutationResult run() throws Exception; }
 
     private static AccountSnapshot ensureAccountForUpdate(Connection connection, UUID playerId, String username) throws Exception {
         String safeUsername = safeUsername(playerId, username);
@@ -343,30 +392,36 @@ public final class CreditsDatabaseRepository {
 
     private static void updateAccount(Connection connection, UUID playerId, String username, long credits, long lifetimeEarned, long lifetimeSpent) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "update player_economy set username = ?, credits = ?, lifetime_earned = ?, lifetime_spent = ?, updated_at = now() where uuid = ?"
+                "update player_economy set username = ?, credits = ?, lifetime_earned = ?, lifetime_spent = ?, updated_at = now() " +
+                        "where uuid = ? and (username is distinct from ? or credits is distinct from ? or lifetime_earned is distinct from ? or lifetime_spent is distinct from ?)"
         )) {
             statement.setString(1, safeUsername(playerId, username));
             statement.setLong(2, Math.max(0L, Math.min(MAX_BALANCE, credits)));
             statement.setLong(3, Math.max(0L, lifetimeEarned));
             statement.setLong(4, Math.max(0L, lifetimeSpent));
             statement.setString(5, playerId.toString());
+            statement.setString(6, safeUsername(playerId, username));
+            statement.setLong(7, Math.max(0L, Math.min(MAX_BALANCE, credits)));
+            statement.setLong(8, Math.max(0L, lifetimeEarned));
+            statement.setLong(9, Math.max(0L, lifetimeSpent));
             statement.executeUpdate();
         }
     }
 
-    private static void insertLedger(Connection connection, UUID transferId, UUID playerId, String username, String type, long amount, long balanceAfter, String reason, String serverId) throws Exception {
+    private static void insertLedger(Connection connection, UUID transferId, UUID operationId, UUID playerId, String username, String type, long amount, long balanceAfter, String reason, String serverId) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "insert into economy_ledger (id, transfer_id, uuid, username, type, amount, balance_after, reason, server_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "insert into economy_ledger (id, transfer_id, operation_id, uuid, username, type, amount, balance_after, reason, server_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )) {
             statement.setObject(1, UUID.randomUUID());
             statement.setObject(2, transferId);
-            statement.setString(3, playerId == null ? null : playerId.toString());
-            statement.setString(4, safeUsername(playerId, username));
-            statement.setString(5, type == null ? "UNKNOWN" : type);
-            statement.setLong(6, Math.max(0L, amount));
-            statement.setLong(7, Math.max(0L, balanceAfter));
-            statement.setString(8, reason == null || reason.isBlank() ? "unspecified" : reason);
-            statement.setString(9, serverId == null ? "" : serverId);
+            statement.setObject(3, operationId);
+            statement.setString(4, playerId == null ? null : playerId.toString());
+            statement.setString(5, safeUsername(playerId, username));
+            statement.setString(6, type == null ? "UNKNOWN" : type);
+            statement.setLong(7, Math.max(0L, amount));
+            statement.setLong(8, Math.max(0L, balanceAfter));
+            statement.setString(9, reason == null || reason.isBlank() ? "unspecified" : reason);
+            statement.setString(10, serverId == null ? "" : serverId);
             statement.executeUpdate();
         }
     }
@@ -375,7 +430,8 @@ public final class CreditsDatabaseRepository {
         try (PreparedStatement stats = connection.prepareStatement(
                 "insert into profile_player_stats (profile_id, money, updated_at) " +
                         "select ?::uuid, ?, now() where exists (select 1 from player_profiles where id = ?::uuid) " +
-                        "on conflict (profile_id) do update set money = excluded.money, updated_at = now()"
+                        "on conflict (profile_id) do update set money = excluded.money, updated_at = now() " +
+                        "where profile_player_stats.money is distinct from excluded.money"
         )) {
             stats.setString(1, profileId.toString());
             stats.setLong(2, Math.max(0L, credits));

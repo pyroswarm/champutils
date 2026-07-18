@@ -73,6 +73,7 @@ public class CobblemonBattleHandler {
             }
 
             PvPBattleStallManager.recordBattleStarted(e.getBattle());
+            PvPMatchIntegrityManager.recordBattleStarted(e.getBattle());
 
             PluginTrainerBattleStarter.releaseStartLocks(firstPlayerUuid, firstNpcUuid);
 
@@ -106,6 +107,7 @@ public class CobblemonBattleHandler {
             }
 
             PvPBattleStallManager.recordBattleEnded(e.getBattle());
+            PvPMatchIntegrityManager.Result pvpIntegrity = PvPMatchIntegrityManager.finish(e.getBattle());
 
             finishPlayerProfileGuards(
                     e.getBattle()
@@ -225,7 +227,8 @@ public class CobblemonBattleHandler {
                 BattleListener.onBattleEnd(
                         winner,
                         loser,
-                        losingNpcUuid
+                        losingNpcUuid,
+                        pvpIntegrity
                 );
 
                 if (completedType == BattleContextManager.BattleType.ADVENTURE_TOWER && losingNpcUuid == null) {
@@ -252,6 +255,8 @@ public class CobblemonBattleHandler {
 
             BattleFaintedEvent e =
                     (BattleFaintedEvent) event;
+
+            PvPMatchIntegrityManager.recordPokemonFainted(e.getBattle());
 
             try {
 

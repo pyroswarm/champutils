@@ -116,12 +116,47 @@ public class TeamValidator {
                                     .toString()
                     );
 
-            if (
-                    bannedPokemon.contains(
-                            species
-                    )
-            ) {
-                return "Banned Pokémon: " + species;
+            String formShowdownId = "";
+            String formOnlyShowdownId = "";
+            String formName = "";
+            if (pokemon.getForm() != null) {
+                formShowdownId =
+                        BattleClauseValidator.normalizeId(
+                                pokemon.getForm().showdownId()
+                        );
+                formOnlyShowdownId =
+                        BattleClauseValidator.normalizeId(
+                                pokemon.getForm().formOnlyShowdownId()
+                        );
+                formName =
+                        BattleClauseValidator.normalizeId(
+                                pokemon.getForm().getName()
+                        );
+            }
+
+            String speciesAndFormName =
+                    formName.isBlank() ||
+                            formName.equals("normal") ||
+                            formName.equals("base") ?
+                            species :
+                            species + formName;
+
+            boolean speciesBanned =
+                    bannedPokemon.contains(species);
+
+            boolean exactFormBanned =
+                    (!formShowdownId.isBlank() &&
+                            bannedPokemon.contains(formShowdownId)) ||
+                    (!formOnlyShowdownId.isBlank() &&
+                            bannedPokemon.contains(species + formOnlyShowdownId)) ||
+                    bannedPokemon.contains(speciesAndFormName);
+
+            if (speciesBanned || exactFormBanned) {
+                String rejectedId =
+                        exactFormBanned && !formShowdownId.isBlank() ?
+                                formShowdownId :
+                                species;
+                return "Banned Pokémon: " + rejectedId;
             }
 
 

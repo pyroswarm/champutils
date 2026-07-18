@@ -57,6 +57,20 @@ public final class BattleClauseValidator {
                 Set.of()
         ));
 
+        register(new ClauseDefinition(
+                "Evasion Abilities Clause",
+                Set.of(),
+                Set.of("sandveil", "sand_veil", "snowcloak", "snow_cloak"),
+                Set.of()
+        ));
+
+        register(new ClauseDefinition(
+                "Sleep Moves Clause",
+                Set.of("darkvoid", "grasswhistle", "hypnosis", "lovelykiss", "sing", "sleeppowder", "spore", "yawn"),
+                Set.of(),
+                Set.of()
+        ));
+
         // Keep Acupressure as a separate practical ranked safety ban if the format opts into it with banned_moves.
         // Showdown's Evasion Moves Clause normally targets direct evasion moves, not every move that can raise evasion.
     }

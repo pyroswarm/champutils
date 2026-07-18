@@ -1657,35 +1657,6 @@ public class ProfessionToolManager {
                         range.max
                 );
 
-        /*
-         * Lore displays stat values as whole percentages.
-         * Quality should therefore be based on the displayed value, not the
-         * hidden decimal.
-         *
-         * Example: range 0.0 -> 1.0
-         *   rolled 0.9 displays as +0%, so quality should show [0%]
-         *   rolled 1.0 displays as +1%, so quality should show [100%]
-         */
-        double displayedMin =
-                Math.floor(
-                        min
-                );
-
-        double displayedMax =
-                Math.floor(
-                        max
-                );
-
-        double displayedValue =
-                Math.floor(
-                        rolledValue
-                );
-
-        // Quality must match what the player actually sees in lore.
-        min = displayedMin;
-        max = displayedMax;
-        rolledValue = displayedValue;
-
         if (max <= min) {
             if (max <= 0.0D) {
                 return 0.0D;
@@ -1973,30 +1944,16 @@ public class ProfessionToolManager {
         }
 
         long cost = getRepairCreditCost(toolData);
-        EconomyCraftHook.ChargeResult chargeResult =
-                EconomyCraftHook.withdraw(owner, cost);
-
-        if (!chargeResult.success) {
-            refreshToolStack(stack);
-            owner.sendSystemMessage(
-                    Component.literal(
-                            "§cAuto-repair failed: " + chargeResult.error +
-                                    " §7Your tool is broken until repaired."
-                    )
-            );
-            return false;
-        }
-
-        repairTool(stack);
-        applyVanillaEfficiencyEnchant(owner, stack);
-        owner.sendSystemMessage(
-                Component.literal(
-                        "§aAuto-repaired your tool for §6" +
-                                EconomyCraftHook.formatMoney(cost) +
-                                "§a. New Balance: §6" +
-                                EconomyCraftHook.formatMoney(chargeResult.newBalance)
-                )
-        );
+        EconomyCraftHook.withdrawAsync(owner, cost).thenAccept(chargeResult -> owner.server.execute(() -> {
+            if (!chargeResult.success) {
+                refreshToolStack(stack);
+                owner.sendSystemMessage(Component.literal("§cAuto-repair failed: " + chargeResult.error + " §7Your tool is broken until repaired."));
+                return;
+            }
+            repairTool(stack);
+            applyVanillaEfficiencyEnchant(owner, stack);
+            owner.sendSystemMessage(Component.literal("§aAuto-repaired your tool for §6" + EconomyCraftHook.formatMoney(cost) + "§a. New Balance: §6" + EconomyCraftHook.formatMoney(chargeResult.newBalance)));
+        }));
         return true;
     }
 
@@ -2666,11 +2623,11 @@ public class ProfessionToolManager {
             double value
     ) {
 
-        return String.valueOf(
-                (int) Math.floor(
-                        value
-                )
-        );
+        double rounded = Math.round(value * 10.0D) / 10.0D;
+        if (Math.abs(rounded - Math.rint(rounded)) < 0.000001D) {
+            return String.valueOf((int) Math.rint(rounded));
+        }
+        return String.format(java.util.Locale.ROOT, "%.1f", rounded);
     }
 
     private static ChatFormatting getQualityColor(

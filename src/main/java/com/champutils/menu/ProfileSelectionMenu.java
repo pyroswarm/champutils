@@ -173,7 +173,7 @@ public final class ProfileSelectionMenu {
         int[] slots = {10, 11, 12, 13, 14, 15};
         for (int i = 0; i < profiles.size() && i < slots.length; i++) {
             var profile = profiles.get(i);
-            GuiElementBuilder item = new GuiElementBuilder(icon(profile.gameMode()))
+            GuiElementBuilder item = new GuiElementBuilder(profileIcon(profile))
                     .hideDefaultTooltip()
                     .setName(Component.literal((profile.active() ? "★ " : "") + profile.profileName()).withStyle(profile.active() ? ChatFormatting.GREEN : ChatFormatting.AQUA))
                     .addLoreLine(Component.literal("Mode: " + profile.gameMode().displayName() + PlayerProfileManager.modeSuffix(profile)).withStyle(ChatFormatting.GRAY));
@@ -497,7 +497,7 @@ public final class ProfileSelectionMenu {
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openDeleteConfirmMenu(player, profile));
         gui.setTitle(Component.literal("Are you sure?"));
 
-        gui.setSlot(13, new GuiElementBuilder(icon(profile.gameMode()))
+        gui.setSlot(13, new GuiElementBuilder(profileIcon(profile))
                 .hideDefaultTooltip()
                 .setName(Component.literal("Delete " + profile.profileName() + "?").withStyle(ChatFormatting.RED))
                 .addLoreLine(Component.literal("Mode: " + profile.gameMode().displayName() + PlayerProfileManager.modeSuffix(profile)).withStyle(ChatFormatting.GRAY))
@@ -543,7 +543,7 @@ public final class ProfileSelectionMenu {
         SimpleGui gui = createForcedGui(MenuType.GENERIC_9x3, player, () -> openCancelDeleteConfirmMenu(player, profile));
         gui.setTitle(Component.literal("Cancel Deletion?"));
 
-        gui.setSlot(13, new GuiElementBuilder(icon(profile.gameMode()))
+        gui.setSlot(13, new GuiElementBuilder(profileIcon(profile))
                 .hideDefaultTooltip()
                 .setName(Component.literal("Restore " + profile.profileName() + "?").withStyle(ChatFormatting.GOLD))
                 .addLoreLine(Component.literal("This cancels the pending deletion.").withStyle(ChatFormatting.YELLOW))
@@ -717,6 +717,17 @@ public final class ProfileSelectionMenu {
             if (profile != null && !profile.pendingDelete()) used.add(profile.profileName().toLowerCase(Locale.ROOT));
         }
         return used;
+    }
+
+    private static Item profileIcon(PlayerProfileManager.ProfileRecord profile) {
+        if (profile != null && profile.profileName() != null) {
+            for (ProfileColor color : PROFILE_COLORS) {
+                if (color.name().equalsIgnoreCase(profile.profileName())) {
+                    return color.icon();
+                }
+            }
+        }
+        return icon(profile == null ? ProfileGameMode.NORMAL : profile.gameMode());
     }
 
     private static Item icon(ProfileGameMode mode) {

@@ -51,11 +51,10 @@ public final class RankedTokenManager {
                 daily.setObject(1, winnerProfile);
                 try (var rs = daily.executeQuery()) { if (rs.next() && rs.getInt(1) >= cap) return; }
             }
-            if (cooldownHours > 0) {
-                try (var same = connection.prepareStatement("select 1 from ranked_token_ledger where winner_profile_uuid = ? and opponent_profile_uuid = ? and rewarded_at >= now() - (? * interval '1 hour') limit 1")) {
-                    same.setObject(1, winnerProfile); same.setObject(2, loserProfile); same.setInt(3, cooldownHours);
-                    try (var rs = same.executeQuery()) { if (rs.next()) return; }
-                }
+            int cooldownSeconds = Math.max(300, cooldownHours * 3600);
+            try (var same = connection.prepareStatement("select 1 from ranked_token_ledger where winner_profile_uuid = ? and opponent_profile_uuid = ? and rewarded_at >= now() - (? * interval '1 second') limit 1")) {
+                same.setObject(1, winnerProfile); same.setObject(2, loserProfile); same.setInt(3, cooldownSeconds);
+                try (var rs = same.executeQuery()) { if (rs.next()) return; }
             }
             try (var up = connection.prepareStatement("insert into ranked_token_balances(profile_uuid,tokens,updated_at) values(?,?,now()) on conflict(profile_uuid) do update set tokens = ranked_token_balances.tokens + excluded.tokens, updated_at = now() returning tokens")) {
                 up.setObject(1, winnerProfile); up.setLong(2, amount);

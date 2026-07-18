@@ -21,7 +21,7 @@ public final class TitleWorldFirstMenu {
                 "§dMy Titles",
                 () -> com.champutils.cosmetic.TitleMenu.open(player),
                 "§7Equip your visible title or",
-                "§7manage hidden subtitle buffs."
+                "§7manage subtitle buffs."
         );
 
         MenuUtil.addOpenButton(

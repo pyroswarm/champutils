@@ -428,7 +428,7 @@ public class QuestManager {
                 return;
             }
             int credits = Math.max(0, QuestConfig.SETTINGS.guildWeeklyCompletionCredits);
-            if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
+            if (credits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(credits), "guild_weekly_quest");
             awardQuestChunks(player, "GUILD");
             AdventurerGuildManager.awardGuildActivity(player, 400, 10, "guild weekly quests");
             runRewardCommands(player, QuestConfig.SETTINGS.guildWeeklyRewardCommands);
@@ -520,17 +520,7 @@ public class QuestManager {
     }
 
     private static void announceContractCreated(ServerPlayer player, QuestConfig.ContractTemplate template) {
-        if (player == null || player.server == null || template == null) return;
-        String rewards = contractAnnouncementRewards(template);
-        String line = "§6§l[Contracts] §e" + player.getGameProfile().getName()
-                + " §fcreated a new contract: §b" + safe(template.description)
-                + " §8| §7Rank: §f" + QuestConfig.rankForDifficulty(template.difficulty)
-                + " §8| §7Cost: §6" + EconomyManager.formatWholeCredits(template.creditCost)
-                + " §8| §7Time: §f" + template.durationHours + "h"
-                + (rewards.isBlank() ? "" : " §8| §7Rewards: §f" + rewards);
-        Component message = Component.literal(line);
-        player.server.getPlayerList().broadcastSystemMessage(message, false);
-        NetworkEventManager.publishBroadcastText(line);
+        // Contract purchases are private; only the buyer receives confirmation.
     }
 
     private static String contractAnnouncementRewards(QuestConfig.ContractTemplate template) {
@@ -629,7 +619,7 @@ public class QuestManager {
         }
         set.completed = true;
         int credits = daily ? QuestConfig.SETTINGS.dailyCompletionCredits : QuestConfig.SETTINGS.weeklyCompletionCredits;
-        if (credits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(credits), daily ? "daily_quest" : "weekly_quest");
+        if (credits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(credits), daily ? "daily_quest" : "weekly_quest");
         int xpEach = daily ? QuestConfig.SETTINGS.dailyProfessionXpPerObjective : QuestConfig.SETTINGS.weeklyProfessionXpPerObjective;
         if (xpEach > 0) {
             for (QuestDataManager.Objective o : set.objectives) {
@@ -788,13 +778,18 @@ public class QuestManager {
             return false;
         }
         long cost = EconomyManager.wholeCreditsToCents(Math.max(0, t.creditCost));
-        if (cost > 0) {
-            EconomyManager.TransactionResult result = EconomyManager.withdraw(player, cost, "quest_contract_buy:" + t.id);
-            if (!result.success) {
-                player.sendSystemMessage(Component.literal(result.error == null ? "Not enough Credits." : result.error).withStyle(ChatFormatting.RED));
-                return false;
-            }
-        }
+        EconomyManager.withdrawAsync(player, cost, "quest_contract_buy:" + t.id).thenAccept(result ->
+                player.server.execute(() -> {
+                    if (!result.success) {
+                        player.sendSystemMessage(Component.literal(result.error == null ? "Not enough Credits." : result.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    finishContractPurchase(player, data, t);
+                }));
+        return true;
+    }
+
+    private static void finishContractPurchase(ServerPlayer player, QuestDataManager.QuestData data, QuestConfig.ContractTemplate t) {
         if (data.contracts == null) data.contracts = new ArrayList<>();
         QuestDataManager.Contract c = new QuestDataManager.Contract();
         c.id = t.id;
@@ -817,7 +812,6 @@ public class QuestManager {
         AdventureGuideManager.increment(player, "contract_buy", 1);
         player.sendSystemMessage(Component.literal("Contract purchased: " + c.description + " (expires in " + t.durationHours + "h)").withStyle(ChatFormatting.GREEN));
         announceContractCreated(player, t);
-        return true;
     }
 
     public static boolean completeContract(ServerPlayer player) {
@@ -832,7 +826,7 @@ public class QuestManager {
             if (c == null || c.completed || now >= c.expiresAtMillis) continue;
             if (c.progress < c.required) continue;
             c.completed = true;
-            if (c.rewardCredits > 0) EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(c.rewardCredits), "quest_contract_complete:" + c.id);
+            if (c.rewardCredits > 0) EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(c.rewardCredits), "quest_contract_complete:" + c.id);
             runRewardCommands(player, c.rewardCommands);
             maybeAwardCrateCredit(player, crateIdForDifficulty(c.difficulty));
             awardQuestChunks(player, c.difficulty);

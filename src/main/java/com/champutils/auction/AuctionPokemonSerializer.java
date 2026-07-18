@@ -8,6 +8,7 @@ import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.champutils.profile.CobblemonProfileStorageBridge;
 import com.champutils.breeding.BreedingEggData;
+import com.champutils.breeding.PokemonBreedability;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -357,6 +358,7 @@ public final class AuctionPokemonSerializer {
         payload.addProperty("displayName", safe(pokemon.getDisplayName(true).getString()));
         payload.addProperty("level", pokemon.getLevel());
         payload.addProperty("shiny", pokemon.getShiny());
+        payload.addProperty("breedable", PokemonBreedability.isBreedable(pokemon));
         payload.addProperty("gender", safe(String.valueOf(pokemon.getGender())));
         payload.addProperty("nature", readableNature(pokemon));
         payload.addProperty("ability", readableAbility(pokemon));

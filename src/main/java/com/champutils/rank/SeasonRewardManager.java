@@ -190,7 +190,7 @@ public final class SeasonRewardManager {
         if (reward == null || reward.amount <= 0) return;
         String type = reward.type == null ? "" : reward.type.toUpperCase(Locale.ROOT);
         switch (type) {
-            case "MONEY" -> EconomyManager.deposit(player, reward.amount, "Season " + season + " reward");
+            case "MONEY" -> EconomyManager.depositAsync(player, reward.amount, "Season " + season + " reward");
             case "CRATE" -> CrateCreditManager.addCredits(player, reward.id, reward.amount);
             case "TM" -> {
                 for (int i = 0; i < reward.amount; i++) {

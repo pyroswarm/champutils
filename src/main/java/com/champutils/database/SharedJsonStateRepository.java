@@ -60,6 +60,24 @@ public final class SharedJsonStateRepository {
         }
     }
 
+    public static <T> CompletableFuture<T> loadProfileAsync(UUID profileId, String key, Class<T> type, T fallback) {
+        if (profileId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(fallback);
+        }
+        return DatabaseManager.supplyAsync("load profile json state " + key + " " + profileId, connection -> {
+            ensureSchema(connection);
+            try (PreparedStatement ps = connection.prepareStatement("select payload from profile_json_state where profile_id = ? and state_key = ?")) {
+                ps.setObject(1, profileId);
+                ps.setString(2, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return fallback;
+                    T value = GSON.fromJson(rs.getString(1), type);
+                    return value == null ? fallback : value;
+                }
+            }
+        });
+    }
+
     public static <T> T loadPlayer(UUID playerId, String key, Class<T> type, T fallback) {
         if (playerId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
         try {
@@ -115,6 +133,21 @@ public final class SharedJsonStateRepository {
                 }
             }
         });
+    }
+
+    public static void saveProfileBlocking(Connection connection, UUID profileId, String key, Object value) throws Exception {
+        if (connection == null || profileId == null || key == null || key.isBlank() || value == null) return;
+        ensureSchema(connection);
+        String payload = GSON.toJson(value);
+        try (PreparedStatement ps = connection.prepareStatement(
+                "insert into profile_json_state (profile_id, state_key, payload, updated_at, version) values (?, ?, ?, now(), 1) " +
+                        "on conflict (profile_id, state_key) do update set payload = excluded.payload, updated_at = now(), version = profile_json_state.version + 1"
+        )) {
+            ps.setObject(1, profileId);
+            ps.setString(2, key);
+            ps.setString(3, payload);
+            ps.executeUpdate();
+        }
     }
 
     public static void saveProfile(UUID profileId, String key, Object value) {

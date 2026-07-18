@@ -16,6 +16,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.ZoneOffset;
 import java.time.Instant;
@@ -28,6 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 public final class EconomyManager {
 
@@ -54,6 +58,7 @@ public final class EconomyManager {
     private static EconomyRoot DATA = new EconomyRoot();
     private static final Set<UUID> SQL_LOADED = new HashSet<>();
     private static final Set<UUID> SQL_LOAD_QUEUED = new HashSet<>();
+    private static final Map<UUID, CompletableFuture<Void>> MUTATION_TAILS = new ConcurrentHashMap<>();
     private static boolean loaded = false;
 
     private EconomyManager() {
@@ -155,6 +160,133 @@ public final class EconomyManager {
         Account account = getOrCreateLocked(profileId);
         account.username = player.getName().getString();
         return account.balance;
+    }
+
+    public static UUID operationId(String scope, Object... parts) {
+        StringBuilder key = new StringBuilder(scope == null ? "economy" : scope.trim().toLowerCase(Locale.ROOT));
+        if (parts != null) {
+            for (Object part : parts) key.append('|').append(part == null ? "null" : part.toString());
+        }
+        return UUID.nameUUIDFromBytes(key.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static CompletableFuture<TransactionResult> depositAsync(ServerPlayer player, long amount, String reason) {
+        if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        return depositAsync(UUID.randomUUID(), PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> depositAsync(UUID operationId, ServerPlayer player, long amount, String reason) {
+        if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        return depositAsync(operationId, PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> depositAsync(UUID playerId, String username, long amount, String reason) {
+        return depositAsync(UUID.randomUUID(), playerId, username, amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> depositAsync(UUID operationId, UUID playerId, String username, long amount, String reason) {
+        if (playerId == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        if (amount <= 0L) return CompletableFuture.completedFuture(TransactionResult.fail("Amount must be positive."));
+        UUID safeOperationId = operationId == null ? UUID.randomUUID() : operationId;
+        if (!useSqlSourceOfTruth()) return CompletableFuture.completedFuture(deposit(playerId, username, amount, reason));
+        return sequence(playerId, () -> CreditsDatabaseRepository.depositAsync(safeOperationId, playerId, username, amount, reason, NetworkServerConfig.serverId())
+                .thenApply(sql -> applySqlMutationAsync(playerId, username, sql)));
+    }
+
+    public static CompletableFuture<TransactionResult> withdrawAsync(ServerPlayer player, long amount, String reason) {
+        if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        return withdrawAsync(UUID.randomUUID(), PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> withdrawAsync(UUID operationId, ServerPlayer player, long amount, String reason) {
+        if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        return withdrawAsync(operationId, PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> withdrawAsync(UUID playerId, String username, long amount, String reason) {
+        return withdrawAsync(UUID.randomUUID(), playerId, username, amount, reason);
+    }
+
+    public static CompletableFuture<TransactionResult> withdrawAsync(UUID operationId, UUID playerId, String username, long amount, String reason) {
+        if (playerId == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        if (amount <= 0L) return CompletableFuture.completedFuture(TransactionResult.fail("Amount must be positive."));
+        UUID safeOperationId = operationId == null ? UUID.randomUUID() : operationId;
+        if (!useSqlSourceOfTruth()) return CompletableFuture.completedFuture(withdraw(playerId, username, amount, reason));
+        return sequence(playerId, () -> CreditsDatabaseRepository.withdrawAsync(safeOperationId, playerId, username, amount, reason, NetworkServerConfig.serverId())
+                .thenApply(sql -> {
+                    if (!sql.success && sql.error != null && sql.error.contains("cents")) return TransactionResult.fail("You do not have enough Credits.");
+                    return applySqlMutationAsync(playerId, username, sql);
+                }));
+    }
+
+    public static CompletableFuture<TransactionResult> setBalanceAsync(ServerPlayer player, long amount, String reason) {
+        if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return CompletableFuture.completedFuture(TransactionResult.fail("No active profile."));
+        if (amount < 0L || amount > MAX_BALANCE) return CompletableFuture.completedFuture(TransactionResult.fail("Balance is outside the allowed range."));
+        return sequence(profileId, () -> CreditsDatabaseRepository.setBalanceAsync(UUID.randomUUID(), profileId, player.getName().getString(), amount, reason, NetworkServerConfig.serverId())
+                .thenApply(sql -> applySqlMutationAsync(profileId, player.getName().getString(), sql)));
+    }
+
+    public static CompletableFuture<TransactionResult> transferAsync(UUID fromId, String fromName, UUID toId, String toName, long amount, String reason) {
+        if (fromId == null || toId == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        if (fromId.equals(toId)) return CompletableFuture.completedFuture(TransactionResult.fail("You cannot pay yourself."));
+        if (amount <= 0L) return CompletableFuture.completedFuture(TransactionResult.fail("Amount must be positive."));
+        return sequence(fromId, () -> CreditsDatabaseRepository.transferAsync(UUID.randomUUID(), fromId, fromName, toId, toName, amount, reason, NetworkServerConfig.serverId())
+                .thenApply(sql -> {
+                    if (sql.success) {
+                        invalidateSharedCache(toId);
+                        NetworkEventManager.publishCacheInvalidation("ECONOMY", toId);
+                    }
+                    if (!sql.success && sql.error != null && sql.error.contains("cents")) return TransactionResult.fail("You do not have enough Credits.");
+                    return applySqlMutationAsync(fromId, fromName, sql);
+                }));
+    }
+
+    public static CompletableFuture<TransactionResult> transferAsync(ServerPlayer from, ServerPlayer to, long amount, String reason) {
+        if (from == null || to == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
+        UUID fromId = PlayerProfileManager.activeProfileId(from);
+        UUID toId = PlayerProfileManager.activeProfileId(to);
+        if (fromId.equals(toId)) return CompletableFuture.completedFuture(TransactionResult.fail("You cannot pay yourself."));
+        if (amount <= 0L) return CompletableFuture.completedFuture(TransactionResult.fail("Amount must be positive."));
+        // PostgreSQL locks both rows in stable UUID order; local sequencing only needs to serialize the sender.
+        return sequence(fromId, () -> CreditsDatabaseRepository.transferAsync(UUID.randomUUID(), fromId, from.getName().getString(), toId, to.getName().getString(), amount, reason, NetworkServerConfig.serverId())
+                .thenApply(sql -> {
+                    if (sql.success) {
+                        invalidateSharedCache(toId);
+                        NetworkEventManager.publishCacheInvalidation("ECONOMY", toId);
+                    }
+                    if (!sql.success && sql.error != null && sql.error.contains("cents")) return TransactionResult.fail("You do not have enough Credits.");
+                    return applySqlMutationAsync(fromId, from.getName().getString(), sql);
+                }));
+    }
+
+    private static CompletableFuture<TransactionResult> sequence(UUID profileId, Supplier<CompletableFuture<TransactionResult>> operation) {
+        CompletableFuture<TransactionResult> result = new CompletableFuture<>();
+        MUTATION_TAILS.compute(profileId, (id, previous) -> {
+            CompletableFuture<Void> start = previous == null ? CompletableFuture.completedFuture(null) : previous.handle((v, e) -> null);
+            CompletableFuture<Void> next = start.thenCompose(ignored -> {
+                try {
+                    return operation.get().handle((value, error) -> {
+                        if (error != null) result.complete(TransactionResult.fail("Economy database is busy. Please try again."));
+                        else result.complete(value);
+                        return null;
+                    });
+                } catch (Throwable t) {
+                    result.complete(TransactionResult.fail("Economy database is busy. Please try again."));
+                    return CompletableFuture.completedFuture(null);
+                }
+            });
+            next.whenComplete((v, e) -> MUTATION_TAILS.remove(id, next));
+            return next;
+        });
+        return result;
+    }
+
+    private static TransactionResult applySqlMutationAsync(UUID playerId, String username, CreditsDatabaseRepository.MutationResult sql) {
+        synchronized (EconomyManager.class) {
+            return applySqlMutation(playerId, username, sql);
+        }
     }
 
     public static synchronized TransactionResult deposit(ServerPlayer player, long amount, String reason) {
@@ -468,8 +600,8 @@ public final class EconomyManager {
         account.lifetimeSpent = Math.max(0L, sql.lifetimeSpent);
         account.updatedAt = Instant.now().toString();
         SQL_LOADED.add(playerId);
-        writeLedgerLocked("SQL_COMMIT", playerId, username, sql.amount, account.balance, "database_source_of_truth", null);
-        saveLocked();
+        // PostgreSQL is authoritative. Avoid synchronous JSON/ledger disk writes on every mutation;
+        // the SQL ledger already contains the durable audit record.
         NetworkEventManager.publishCacheInvalidation("ECONOMY", playerId);
         return TransactionResult.success(sql.amount, account.balance);
     }

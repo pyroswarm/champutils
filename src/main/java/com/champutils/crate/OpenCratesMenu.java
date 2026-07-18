@@ -41,13 +41,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class OpenCratesMenu {
     private static final Random RANDOM = new Random();
-    private static final String[] ORDER = {"f","e","d","c","a","s","event","guild","world_boss"};
+    private static final String[] ORDER = {"f","e","d","c","b","a","s","event","guild"};
     private static final Map<UUID, Opening> OPENINGS = new ConcurrentHashMap<>();
     private static final Map<String, Long> CRATE_CREDIT_PRICES = Map.of(
             "f", 250L,
             "e", 500L,
             "d", 1000L,
             "c", 5000L,
+            "b", 25000L,
             "a", 50000L,
             "s", 100000L
     );
@@ -152,18 +153,16 @@ public final class OpenCratesMenu {
             player.sendSystemMessage(Component.literal("That crate cannot be purchased with credits.").withStyle(ChatFormatting.RED));
             return;
         }
-        EconomyManager.TransactionResult result = EconomyManager.withdraw(
-                player,
-                EconomyManager.wholeCreditsToCents(price),
-                "Crate credit purchase: " + id
-        );
-        if (!result.success) {
-            player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that crate." : result.error).withStyle(ChatFormatting.RED));
-            return;
-        }
-        CrateCreditManager.addCredits(player, id, 1);
-        ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.7F, 1.2F);
-        open(player);
+        EconomyManager.withdrawAsync(player, EconomyManager.wholeCreditsToCents(price), "Crate credit purchase: " + id)
+                .thenAccept(result -> player.server.execute(() -> {
+                    if (!result.success) {
+                        player.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford that crate." : result.error).withStyle(ChatFormatting.RED));
+                        return;
+                    }
+                    CrateCreditManager.addCredits(player, id, 1);
+                    ProfessionNotificationSettings.playSound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.7F, 1.2F);
+                    open(player);
+                }));
     }
 
     private static GuiElementBuilder filler() {

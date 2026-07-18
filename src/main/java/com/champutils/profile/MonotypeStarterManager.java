@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 public final class MonotypeStarterManager {
     private MonotypeStarterManager() {}
@@ -38,6 +39,9 @@ public final class MonotypeStarterManager {
     private static final Set<UUID> CLAIM_LOAD_IN_FLIGHT = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Boolean> STARTER_CLAIM_CACHE = new ConcurrentHashMap<>();
     private static final int STARTER_LEVEL = 10;
+    private static final Map<UUID, Long> REOPEN_AT_TICK = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> FORCE_OPEN_UNTIL_TICK = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> STARTER_STATE_REFRESH_AT_TICK = new ConcurrentHashMap<>();
 
     private static final Map<String, StarterChoice[]> STARTERS = Map.ofEntries(
             Map.entry("fire", choices("charmander", "cyndaquil", "torchic", "chimchar", "tepig", "fennekin", "litten", "scorbunny", "fuecoco")),
@@ -62,6 +66,22 @@ public final class MonotypeStarterManager {
 
 
     public static void register() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            long tick = server.getTickCount();
+            for (var entry : new java.util.ArrayList<>(REOPEN_AT_TICK.entrySet())) {
+                if (entry.getValue() > tick) continue;
+                REOPEN_AT_TICK.remove(entry.getKey(), entry.getValue());
+                ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+                if (player != null && !player.hasDisconnected() && needsStarter(player)) open(player);
+                else FORCE_OPEN_UNTIL_TICK.remove(entry.getKey());
+            }
+            for (var entry : new java.util.ArrayList<>(STARTER_STATE_REFRESH_AT_TICK.entrySet())) {
+                if (entry.getValue() > tick) continue;
+                STARTER_STATE_REFRESH_AT_TICK.remove(entry.getKey(), entry.getValue());
+                ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+                if (player != null && !player.hasDisconnected()) syncCobblemonStarterState(player, true);
+            }
+        });
         CobblemonEvents.STARTER_CHOSEN.subscribe(event -> {
             if (event == null || event.getPlayer() == null) return;
             ServerPlayer player = event.getPlayer();
@@ -106,7 +126,12 @@ public final class MonotypeStarterManager {
 
     public static void handleProfileLoaded(ServerPlayer player) {
         if (player == null || player.server == null) return;
-        player.server.execute(() -> syncCobblemonStarterState(player, true));
+        player.server.execute(() -> {
+            syncCobblemonStarterState(player, false);
+            // Party data is hydrated asynchronously. Refresh once more after it has reached
+            // the client so every profile type gets usable party/summary/move controls.
+            STARTER_STATE_REFRESH_AT_TICK.put(player.getUUID(), player.server.getTickCount() + 40L);
+        });
     }
 
     private static void syncCobblemonStarterState(ServerPlayer player) {
@@ -117,7 +142,6 @@ public final class MonotypeStarterManager {
         if (player == null || !DatabaseManager.isEnabled()) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
-        boolean partyEmpty = isPartyEmpty(player);
         boolean monotype = PlayerProfileManager.gameMode(player) == ProfileGameMode.MONOTYPE;
 
         loadClaimedAsync(profileId).whenComplete((claimed, error) -> {
@@ -127,9 +151,11 @@ public final class MonotypeStarterManager {
                 UUID active = PlayerProfileManager.activeProfileId(player);
                 if (active == null || !active.equals(profileId)) return;
                 boolean safeClaimed = error == null && Boolean.TRUE.equals(claimed);
-                applyCobblemonStarterState(player, safeClaimed, partyEmpty, monotype);
-                CobblemonProfileStorageBridge.resyncActiveProfileParty(player, "starter-state");
-                if (openIfNeeded && monotype && !safeClaimed && partyEmpty) {
+                // Never use the party snapshot from before the async database read. Profile
+                // party hydration may finish while that query is running.
+                boolean partyEmptyNow = isPartyEmpty(player);
+                applyCobblemonStarterState(player, safeClaimed, partyEmptyNow, monotype);
+                if (openIfNeeded && monotype && !safeClaimed && partyEmptyNow) {
                     open(player);
                 }
             });
@@ -143,9 +169,13 @@ public final class MonotypeStarterManager {
             // custom ChampUtils starter has been claimed. Leaving starterLocked=true after
             // claiming keeps Cobblemon's client-side party controls in a restricted state.
             boolean stillNeedsCustomStarter = monotype && !claimed && partyEmpty;
+            boolean hasUsableParty = !partyEmpty;
+            // starterLocked is also consumed by Cobblemon's party key bindings. It must
+            // never remain true for normal/ironman/islander/nuzlocke profiles, or for a
+            // monotype profile after its starter exists.
             playerData.setStarterLocked(stillNeedsCustomStarter);
-            playerData.setStarterSelected(claimed || !partyEmpty);
-            playerData.setStarterPrompted(claimed || !partyEmpty);
+            playerData.setStarterSelected(claimed || hasUsableParty);
+            playerData.setStarterPrompted(claimed || hasUsableParty);
             Cobblemon.INSTANCE.getPlayerDataManager().saveSingle(playerData, PlayerInstancedDataStoreTypes.INSTANCE.getGENERAL());
             playerData.sendToPlayer(player);
         } catch (Throwable t) {
@@ -163,12 +193,20 @@ public final class MonotypeStarterManager {
             syncCobblemonStarterState(player);
             return false;
         }
-        if (claimed) return false;
+        if (claimed || CLAIMING.contains(profileId)) return false;
         return isPartyEmpty(player);
     }
 
     public static void open(ServerPlayer player) {
         if (player == null) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || profileId.equals(player.getUUID())) return;
+        // A delayed reopen caused by teleport/container closing must not create a second
+        // selection window after a claim has begun or completed.
+        if (CLAIMING.contains(profileId) || Boolean.TRUE.equals(STARTER_CLAIM_CACHE.get(profileId)) || !isPartyEmpty(player)) {
+            REOPEN_AT_TICK.remove(player.getUUID());
+            return;
+        }
         String type = normalize(PlayerProfileManager.monotypeType(player));
         StarterChoice[] choices = STARTERS.get(type);
         if (choices == null || choices.length == 0) {
@@ -176,6 +214,7 @@ public final class MonotypeStarterManager {
             return;
         }
 
+        FORCE_OPEN_UNTIL_TICK.put(player.getUUID(), player.server.getTickCount() + 400L);
         LockedStarterGui gui = new LockedStarterGui(player);
         gui.setTitle(Component.literal(cap(type) + " Starter"));
         int[] slots = choices.length <= 3 ? THREE_SLOTS : MANY_SLOTS;
@@ -204,13 +243,12 @@ public final class MonotypeStarterManager {
         if (player == null || choice == null) return;
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null || profileId.equals(player.getUUID())) return;
-        if (!CLAIMING.add(profileId)) {
-            player.sendSystemMessage(Component.literal("Starter selection is already being processed.").withStyle(ChatFormatting.YELLOW));
+        if (!needsStarter(player)) {
+            player.sendSystemMessage(Component.literal("This profile already has a starter or Pokémon in its party.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (!needsStarter(player)) {
-            CLAIMING.remove(profileId);
-            player.sendSystemMessage(Component.literal("This profile already has a starter or Pokémon in its party.").withStyle(ChatFormatting.RED));
+        if (!CLAIMING.add(profileId)) {
+            player.sendSystemMessage(Component.literal("Starter selection is already being processed.").withStyle(ChatFormatting.YELLOW));
             return;
         }
         String required = normalize(PlayerProfileManager.monotypeType(player));
@@ -230,6 +268,8 @@ public final class MonotypeStarterManager {
                 return;
             }
             STARTER_CLAIM_CACHE.put(profileId, true);
+            REOPEN_AT_TICK.remove(player.getUUID());
+            FORCE_OPEN_UNTIL_TICK.remove(player.getUUID());
             markClaimedAsync(profileId, choice.species());
             syncCobblemonStarterState(player);
             try {
@@ -343,12 +383,14 @@ public final class MonotypeStarterManager {
         public void onClose() {
             if (selected) return;
             if (owner == null || owner.server == null) return;
-            owner.server.execute(() -> {
-                if (owner.isRemoved() || owner.hasDisconnected()) return;
-                if (MonotypeStarterManager.needsStarter(owner)) {
-                    MonotypeStarterManager.open(owner);
-                }
-            });
+            if (!owner.isRemoved() && !owner.hasDisconnected() && MonotypeStarterManager.needsStarter(owner)) {
+                // Teleports close containers after the same-tick callback. Reopen after the
+                // teleport/container-close sequence has fully settled.
+                long now = owner.server.getTickCount();
+                long holdUntil = FORCE_OPEN_UNTIL_TICK.getOrDefault(owner.getUUID(), now + 400L);
+                FORCE_OPEN_UNTIL_TICK.put(owner.getUUID(), Math.max(holdUntil, now + 400L));
+                REOPEN_AT_TICK.put(owner.getUUID(), now + 2L);
+            }
         }
     }
 

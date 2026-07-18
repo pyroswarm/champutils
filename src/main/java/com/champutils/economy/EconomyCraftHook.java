@@ -1,5 +1,7 @@
 package com.champutils.economy;
 
+import java.util.concurrent.CompletableFuture;
+
 import net.minecraft.server.level.ServerPlayer;
 
 public final class EconomyCraftHook {
@@ -7,15 +9,11 @@ public final class EconomyCraftHook {
     private EconomyCraftHook() {
     }
 
-    public static ChargeResult withdraw(ServerPlayer player, long amount) {
-        EconomyManager.TransactionResult result =
-                EconomyManager.withdraw(player, amount, "itemroll_charge");
-
-        if (!result.success) {
-            return ChargeResult.fail(result.error);
-        }
-
-        return ChargeResult.success(result.amount, result.newBalance);
+    public static CompletableFuture<ChargeResult> withdrawAsync(ServerPlayer player, long amount) {
+        return EconomyManager.withdrawAsync(player, amount, "itemroll_charge")
+                .thenApply(result -> result.success
+                        ? ChargeResult.success(result.amount, result.newBalance)
+                        : ChargeResult.fail(result.error));
     }
 
     public static AffordResult canAfford(ServerPlayer player, long amount) {

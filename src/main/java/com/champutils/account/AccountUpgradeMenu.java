@@ -265,7 +265,7 @@ public final class AccountUpgradeMenu {
         }
         long price = EconomyManager.wholeCreditsToCents(pack.priceCredits());
         openPurchaseLoading(player, pack.amount() + " Booster Credit" + (pack.amount() == 1 ? "" : "s"));
-        DatabaseManager.supplyAsync("champs shop booster withdraw", connection -> EconomyManager.withdraw(player, price, "Champs Shop booster credits x" + pack.amount()))
+        EconomyManager.withdrawAsync(player, price, "Champs Shop booster credits x" + pack.amount())
                 .whenComplete((withdrawn, withdrawError) -> player.server.execute(() -> {
                     if (withdrawError != null || withdrawn == null || !withdrawn.success) {
                         BOOSTER_PURCHASES_IN_FLIGHT.remove(uuid);
@@ -316,7 +316,7 @@ public final class AccountUpgradeMenu {
         }
         long price = trailPrice(trail.id());
         openTrailLoading(player, trail.displayName());
-        DatabaseManager.supplyAsync("champs shop trail withdraw", connection -> EconomyManager.withdraw(player, price, "Champs Shop trail: " + trail.id()))
+        EconomyManager.withdrawAsync(player, price, "Champs Shop trail: " + trail.id())
                 .whenComplete((withdrawn, withdrawError) -> player.server.execute(() -> {
                     if (withdrawError != null || withdrawn == null || !withdrawn.success) {
                         TRAIL_PURCHASES_IN_FLIGHT.remove(uuid);
@@ -356,7 +356,7 @@ public final class AccountUpgradeMenu {
 
     private static void refundAsync(ServerPlayer player, long price, String reason) {
         if (player == null || price <= 0L) return;
-        DatabaseManager.runAsync("champs shop refund", connection -> EconomyManager.deposit(player, price, reason))
+        EconomyManager.depositAsync(player, price, reason)
                 .exceptionally(error -> { error.printStackTrace(); return null; });
     }
 

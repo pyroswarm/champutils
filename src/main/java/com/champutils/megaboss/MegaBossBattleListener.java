@@ -198,7 +198,7 @@ public final class MegaBossBattleListener {
 
         long creditReward = megaBossCreditReward(rarity);
         if (creditReward > 0L) {
-            EconomyManager.deposit(player, EconomyManager.wholeCreditsToCents(creditReward), "Mega Boss victory " + bossUuid);
+            EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(creditReward), "Mega Boss victory " + bossUuid);
         }
 
         // Mega bosses use their own XP/credit rewards, but they should still trigger the

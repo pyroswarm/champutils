@@ -69,6 +69,7 @@ public final class PokemonBreedingRules {
         if (a == null || b == null) return new Compatibility(false, "Choose two occupied party slots.");
         if (a == b || a.getUuid().equals(b.getUuid())) return new Compatibility(false, "Choose two different Pokémon.");
         if (BreedingEggData.isEgg(a) || BreedingEggData.isEgg(b)) return new Compatibility(false, "Eggs cannot be used as parents.");
+        if (!PokemonBreedability.isBreedable(a) || !PokemonBreedability.isBreedable(b)) return new Compatibility(false, "At least one parent is permanently unbreedable.");
 
         Set<EggGroup> aGroups = new HashSet<>(a.getForm().getEggGroups());
         Set<EggGroup> bGroups = new HashSet<>(b.getForm().getEggGroups());

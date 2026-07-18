@@ -634,6 +634,10 @@ public final class ProfessionFragmentManager {
         String to =
                 ProfessionFragmentConfig.normalizeRarity(upgrade.toFragment);
 
+        if (ProfessionFragmentConfig.rarityIndex(to) < ProfessionFragmentConfig.rarityIndex(from)) {
+            return UpgradeResult.fail("Essence downgrading has been removed.");
+        }
+
         if (ProfessionFragmentConfig.isBlockedPrestigeConversion(from, to)) {
             return UpgradeResult.fail("That prestige conversion is disabled. B/A/S Rank essence must come from prestige sources.");
         }
@@ -765,11 +769,6 @@ public final class ProfessionFragmentManager {
             if (!removeFragments(player, fragmentKey, cost)) {
                 return CraftResult.fail("Could not remove essence.");
             }
-            EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
-            if (!creditWithdraw.success) {
-                ProfessionManager.addFragments(player, fragmentKey, cost);
-                return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
-            }
             boolean added = player.getInventory().add(reward);
             if (!added) player.drop(reward, false);
             return CraftResult.success(
@@ -791,11 +790,6 @@ public final class ProfessionFragmentManager {
                 if (!removeFragments(player, fragmentKey, cost)) {
                     return CraftResult.fail("Could not remove essence.");
                 }
-                EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
-                if (!creditWithdraw.success) {
-                    ProfessionManager.addFragments(player, fragmentKey, cost);
-                    return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
-                }
                 ProfessionTrinketManager.unlockOrUpgradeDigitalPouch(player, normalizedRarity);
                 return CraftResult.success(
                         normalizedRarity.toLowerCase() + "_digital_trinket_pouch",
@@ -814,11 +808,6 @@ public final class ProfessionFragmentManager {
             }
                 if (!removeFragments(player, fragmentKey, cost)) {
                     return CraftResult.fail("Could not remove essence.");
-                }
-                EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
-                if (!creditWithdraw.success) {
-                    ProfessionManager.addFragments(player, fragmentKey, cost);
-                    return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
                 }
                 boolean added = player.getInventory().add(reward);
             if (!added) player.drop(reward, false);
@@ -865,11 +854,6 @@ public final class ProfessionFragmentManager {
 
         if (!removeFragments(player, fragmentKey, cost)) {
             return CraftResult.fail("Could not remove essence.");
-        }
-        EconomyManager.TransactionResult creditWithdraw = EconomyManager.withdraw(player, creditCostCents, "profession_craft:" + normalizedRarity.toLowerCase() + ":" + normalizedToolType);
-        if (!creditWithdraw.success) {
-            ProfessionManager.addFragments(player, fragmentKey, cost);
-            return CraftResult.fail(creditWithdraw.error == null ? "Could not remove Credits." : creditWithdraw.error);
         }
 
         boolean added =
